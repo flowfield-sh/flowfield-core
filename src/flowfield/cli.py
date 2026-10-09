@@ -125,36 +125,48 @@ def harness_install(
     json_output: Json = False,
 ) -> None:
     """Install the compatible agent runtime; does not enable workers or change project access."""
-    from flowfield.adapters import codex_install
+    from flowfield.adapters import claude_install, codex_install
 
     def run() -> dict[str, Any]:
-        if harness != "codex":
-            raise ApplicationError("unsupported_harness", "Only codex installation is supported.")
+        if harness not in {"codex", "claude-code"}:
+            raise ApplicationError("unsupported_harness", "This harness is not supported.")
         if (bundle is None) != (sha256 is None):
             raise ApplicationError("invalid_request", "Use --bundle and --sha256 together.")
         if bundle is not None and sha256 is not None:
-            codex_install.install(ctx.obj.directory, bundle.expanduser(), sha256)
+            install = codex_install.install if harness == "codex" else claude_install.install
+            install(ctx.obj.directory, bundle.expanduser(), sha256)
         else:
-            codex_install.download_install(ctx.obj.directory)
-        return codex_install.status(ctx.obj.directory, os.environ)
+            download = (
+                codex_install.download_install
+                if harness == "codex"
+                else claude_install.download_install
+            )
+            download(ctx.obj.directory)
+        status = codex_install.status if harness == "codex" else claude_install.status
+        return status(ctx.obj.directory, os.environ)
 
     output(run, json_output, lambda value: typer.echo(value["message"]))
 
 
 @harness_app.command("status")
 def harness_status(ctx: typer.Context, harness: str, json_output: Json = False) -> None:
-    """Check the installed runtime and Codex path without starting an agent."""
-    from flowfield.adapters import codex_install
+    """Check the installed runtime and native path without starting an agent."""
+    from flowfield.adapters import claude_install, codex_install
+    from flowfield.harness_models import HarnessKind
     from flowfield.harness_settings import offline_registration
 
     def run() -> dict[str, Any]:
-        if harness != "codex":
-            raise ApplicationError("unsupported_harness", "Only codex installation is supported.")
-        registration = offline_registration(ctx.obj.directory, "codex")
+        if harness not in {"codex", "claude-code"}:
+            raise ApplicationError("unsupported_harness", "This harness is not supported.")
+        kind: HarnessKind = "codex" if harness == "codex" else "claude-code"
+        registration = offline_registration(ctx.obj.directory, kind)
         environment = dict(os.environ)
         if registration.executable:
-            environment["CODEX_PATH"] = registration.executable
-        value = codex_install.status(ctx.obj.directory, environment)
+            environment["CODEX_PATH" if kind == "codex" else "CLAUDE_CODE_EXECUTABLE"] = (
+                registration.executable
+            )
+        status = codex_install.status if kind == "codex" else claude_install.status
+        value = status(ctx.obj.directory, environment)
         value["registration"] = registration.model_dump()
         return value
 

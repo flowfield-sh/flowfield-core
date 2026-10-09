@@ -14,16 +14,23 @@ import tempfile
 from dataclasses import asdict
 from pathlib import Path
 
+from acp.exceptions import RequestError
 from acp.schema import HttpMcpServer, ImageContentBlock
 
+from flowfield.adapters import claude_install
 from flowfield.adapters.acp_session import AcpSession
 from flowfield.adapters.claude_cleanup import CLAUDE_SHUTDOWN_TIMEOUTS, quiesce, require_cleanup
 from flowfield.adapters.local_process import LocalProcess
 
 
-async def probe(bridge: Path, scratch: Path, scenario: str) -> dict:
+async def probe(bridge: Path, scratch: Path, scenario: str, *, bundle: bool = False) -> dict:
     executable = scratch / "bridge"
-    shutil.copy2(bridge, executable)
+    if bundle:
+        executable = claude_install.install(
+            scratch / "installed", bridge, claude_install.digest(bridge)
+        )
+    else:
+        shutil.copy2(bridge, executable)
     fake = Path(__file__).resolve().parents[1] / "tests/fake_claude_cli.py"
     native = scratch / "native-fixture"
     native.write_text(
@@ -40,6 +47,8 @@ async def probe(bridge: Path, scratch: Path, scenario: str) -> dict:
         "CLAUDE_CODE_EXECUTABLE": str(native),
         "FLOWFIELD_TEST_SCENARIO": scenario,
         "FLOWFIELD_TEST_RECORD": str(record),
+        "CLAUDE_AGENT_LOGS": str(scratch / "forbidden-logs"),
+        "CLAUDE_AGENT_ACP_EXPERIMENTAL_V2": "1",
     }
     tool = None
     events = []
@@ -85,6 +94,27 @@ async def probe(bridge: Path, scratch: Path, scenario: str) -> dict:
             ],
         )
         require_cleanup(client.capabilities)
+        if bundle:
+            assert client.capabilities["_meta"]["flowfield.sessionInfo"] == {
+                "version": 1,
+                "method": "_flowfield/sessionInfo",
+            }
+            info = await client.connection.ext_method(
+                "flowfield/sessionInfo", {"sessionId": client.session_id}
+            )
+            assert set(info) == {"version", "sessionId", "model", "models"}
+            assert info["model"] == "claude-sonnet-5-5"
+            assert {item["id"] for item in info["models"]} == {"default", "sonnet"}
+            for method, session_id in [
+                ("flowfield/proofStatus", client.session_id),
+                ("flowfield/sessionInfo", "another-session"),
+            ]:
+                try:
+                    await client.connection.ext_method(method, {"sessionId": session_id})
+                except RequestError:
+                    pass
+                else:
+                    raise AssertionError("Private or foreign-session diagnostics were exposed")
         await client.select("model", "sonnet")
         await client.select("effort", "low")
         image = ImageContentBlock(
@@ -113,6 +143,7 @@ async def probe(bridge: Path, scratch: Path, scenario: str) -> dict:
             else:
                 assert tool.process.returncode is None
         assert "PRIVATE_FIXTURE_THOUGHT" not in json.dumps([asdict(item) for item in events])
+        assert not (scratch / "forbidden-logs").exists()
         messages = [json.loads(line) for line in record.read_text().splitlines()]
         inputs = [item["input"] for item in messages if "input" in item]
         assert len(inputs) == 1
@@ -132,6 +163,7 @@ async def probe(bridge: Path, scratch: Path, scenario: str) -> dict:
             "scenario": scenario,
             "scriptedNative": True,
             "noLiveModel": True,
+            "installedBundle": bundle,
             "publicEvents": len(events),
             "permissionRequests": len(permissions),
             "stop": asdict(receipt),
@@ -146,6 +178,7 @@ async def probe(bridge: Path, scratch: Path, scenario: str) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("bridge", type=Path)
+    parser.add_argument("--bundle", action="store_true", help="Verify and install a runtime bundle")
     parser.add_argument(
         "--scenario",
         choices=["complete", "foreground", "background", "refused", "bridge-failure"],
@@ -153,7 +186,11 @@ def main() -> None:
     )
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="flowfield-claude-scripted-") as scratch:
-        result = asyncio.run(probe(args.bridge.resolve(strict=True), Path(scratch), args.scenario))
+        result = asyncio.run(
+            probe(
+                args.bridge.resolve(strict=True), Path(scratch), args.scenario, bundle=args.bundle
+            )
+        )
     print(json.dumps(result, indent=2))
 
 

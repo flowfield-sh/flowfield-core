@@ -105,13 +105,14 @@ jobs:
           retention-days: 7
 
   bridge:
-    name: Standalone Codex / ${{ matrix.os }}
+    name: Standalone ${{ matrix.harness }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-15-intel]
+        harness: [codex, claude]
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -127,22 +128,36 @@ jobs:
         with:
           bun-version: '1.3.11'
       - run: uv sync --locked
-      - run: node bridges/codex-acp/build.mjs
-      - run: node bridges/codex-acp/package.mjs
+      - name: Build the pinned standalone bridge
+        run: |
+          if [ '${{ matrix.harness }}' = claude ]; then
+            FLOWFIELD_BUILD_BUN="$(command -v bun)" node bridges/claude-acp/build.mjs --runtime
+          else
+            node bridges/codex-acp/build.mjs
+          fi
+      - run: node bridges/${{ matrix.harness }}-acp/package.mjs
       - name: Install and exercise the original bundle without Node or models
         run: |
-          for bundle in bridges/codex-acp/.work/packages/*.zip; do
-            for scenario in complete cancel background cleanup-refused resume; do
-              uv run --no-sync python scripts/check_codex_acp.py "$bundle" --bundle --cleanup --scenario "$scenario"
+          if [ '${{ matrix.harness }}' = claude ]; then
+            for bundle in bridges/claude-acp/.work/packages/*.zip; do
+              for scenario in complete foreground background refused bridge-failure; do
+                uv run --no-sync python scripts/check_claude_acp_scripted.py "$bundle" --bundle --scenario "$scenario"
+              done
             done
-          done
+          else
+            for bundle in bridges/codex-acp/.work/packages/*.zip; do
+              for scenario in complete cancel background cleanup-refused resume; do
+                uv run --no-sync python scripts/check_codex_acp.py "$bundle" --bundle --cleanup --scenario "$scenario"
+              done
+            done
+          fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: codex-bridge-${{ matrix.os }}
+          name: ${{ matrix.harness }}-bridge-${{ matrix.os }}
           include-hidden-files: true
           path: |
-            bridges/codex-acp/.work/packages/*.zip
-            bridges/codex-acp/.work/packages/*.sha256
+            bridges/${{ matrix.harness }}-acp/.work/packages/*.zip
+            bridges/${{ matrix.harness }}-acp/.work/packages/*.sha256
           if-no-files-found: error
           retention-days: 30
 

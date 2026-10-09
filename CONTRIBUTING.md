@@ -116,8 +116,11 @@ tested migrations and recovery; a version bump does not permit discarding user s
 
 Every push to main runs the `Tests` workflow: Python 3.12 tests on Linux/macOS, Python and
 frontend quality checks, generated API validation, Mintlify validation, Chromium journeys
-and clean installed-package checks. Standalone Codex bridge bundles are built and checked
-on macOS/Linux arm64/x64 without models; see [bridge builds](bridges/codex-acp/README.md).
+and clean installed-package checks. Standalone Codex and Claude bridge bundles are built
+and checked against scripted native peers on macOS/Linux arm64/x64 without models;
+see [Codex builds](bridges/codex-acp/README.md) and
+[Claude builds and native checks](bridges/claude-acp/README.md). Scripted checks do not
+establish real native compatibility on each platform.
 Live model calls are separate from CI.
 
 ### Prepare and rehearse

@@ -47,7 +47,7 @@ artifacts = ["src/flowfield/_web/**"]
 
 [tool.hatch.build.targets.sdist]
 include = ["/src", "/web", "/bridges", "/scripts", "/examples", "/tests", "/docs", "/.github", "/README.md", "/CHANGELOG.md", "/CONTRIBUTING.md", "/pyproject.toml", "/uv.lock", "/Makefile", "/hatch_build.py", "/LICENSE"]
-exclude = ["/web/node_modules", "/web/test-results", "/web/playwright-report", "/docs/node_modules", "/docs/.mintlify", "/bridges/codex-acp/.work"]
+exclude = ["/web/node_modules", "/web/test-results", "/web/playwright-report", "/docs/node_modules", "/docs/.mintlify", "/bridges/codex-acp/.work", "/bridges/claude-acp/.work"]
 artifacts = ["src/flowfield/_web/**"]
 
 [tool.ruff]

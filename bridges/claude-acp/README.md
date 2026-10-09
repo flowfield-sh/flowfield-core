@@ -1,9 +1,9 @@
-# Claude capability proof
+# Claude bridge and capability proof
 
 This is development proof tooling. Claude is not yet a selectable Flowfield harness.
 It reuses Flowfield's `AcpSession` and `LocalProcess` owners. The internal Claude
-adapter requires an explicit development artifact; there is no Claude runtime installation
-or production selection yet.
+adapter requires an explicit development artifact. A verified standalone runtime can be
+installed for integration checks; production role selection remains gated.
 
 `proof.json` pins [claude-agent-acp 0.88.0](https://github.com/agentclientprotocol/claude-agent-acp/releases/tag/v0.88.0),
 ACP SDK 1.7.0 and Claude Agent SDK 0.3.293. The measured host CLI is Claude Code
@@ -23,7 +23,8 @@ checks, and compiles a standalone executable for the current POSIX platform/arch
 Generated source, dependencies and output stay in ignored `.work/`. The original Apache
 license remains in that source tree. This is not a distributable installation bundle.
 
-The proof changes the bridge version to `0.88.0-flowfield.proof.3`. Its authentication
+The current proof version is `0.88.0-flowfield.proof.4`; the recorded live lifecycle
+and role trials used `.3`. Its authentication
 patch, recorded in `build.mjs`, ensures the released CLI's `tokenSource: "none"`
 must count as signed out. Upstream's subscription guard otherwise treats that truthy
 string as a usable credential, accepting a signed-out session with `--hide-claude-auth`.
@@ -36,6 +37,40 @@ bridge wire logs, and disables Bun's project dotenv/bunfig/tsconfig/package auto
 It uses the explicitly installed native CLI instead of the SDK's optional bundled CLI.
 No separate Node or Bun runtime is needed for the compiled proof. Only macOS arm64
 has been measured; other platforms need their own proof and eventual license/bundle checks.
+
+## Installable runtime
+
+```sh
+FLOWFIELD_BUILD_BUN=/absolute/path/to/bun node bridges/claude-acp/build.mjs --runtime
+FLOWFIELD_BUILD_BUN=/absolute/path/to/bun node bridges/claude-acp/package.mjs
+flowfield harness install claude-code --bundle /path/to/bundle.zip --sha256 CHECKSUM
+flowfield harness status claude-code --json
+```
+
+The runtime is `0.88.0-flowfield.1`. Its executable uses the user's installed,
+unmodified Claude Code and needs no Node/Bun runtime. Each platform bundle contains
+the executable, manifest, Flowfield license and third-party notices, retaining the
+Agent SDK's own terms. The SDK is not Apache-licensed. Installation verifies pinned
+metadata and checksums, bounds archive sizes, and selects an immutable generation;
+it starts no service or native process and changes no native configuration/login.
+Downloads require a compatible published release asset; local bundles support development.
+
+The runtime enables the measured native cleanup protocol and a session-fenced
+`_flowfield/sessionInfo` extension containing actual model identity and the native
+policy-filtered catalog. It omits the proof's account diagnostics and native-control entry.
+The catalog does not establish model access or inference. Default/alias model names
+remain native choices; callers must verify the exact applied model before a prompt.
+
+```sh
+uv run scripts/check_claude_acp_scripted.py /path/to/bundle.zip --bundle
+uv run scripts/check_claude_runtime.py /path/to/bundle.zip --native /absolute/path/to/claude
+```
+
+The first check uses a scripted native peer and sends no live model request. CI runs
+its completion, foreground/background Stop, refusal and bridge-failure scenarios on
+macOS/Linux arm64/x64. The second is an explicit signed-out, model-free native check
+with isolated configuration and empty PATH. Real native compatibility is currently
+measured only on macOS arm64; scripted platform checks do not establish it elsewhere.
 
 ## Explicit model-free native check
 

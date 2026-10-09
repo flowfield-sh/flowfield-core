@@ -5,6 +5,7 @@ import json
 import os
 import re
 import socket
+import sqlite3
 import subprocess
 import sys
 import sysconfig
@@ -20,7 +21,7 @@ from mcp.client.streamable_http import streamable_http_client
 
 def check_storage(executable: str, cwd: str, env: dict[str, str]) -> None:
     from flowfield import storage
-    from flowfield.application import Workspace
+    from flowfield.application import SCHEMA, Workspace
     from flowfield.migrations import BASELINE_VERSION, current_version
 
     directory = (Path(cwd) / "storage-state").resolve()
@@ -37,13 +38,20 @@ def check_storage(executable: str, cwd: str, env: dict[str, str]) -> None:
 
     assert command("status")["schema_version"] is None
     assert not directory.exists()
-    Workspace(directory)
-    assert command("status")["migration_required"] is False
+    # Materialize the frozen public baseline using only installed package content.
+    # New-state initialization applies current migrations and has no old-schema backup.
+    directory.mkdir()
+    with sqlite3.connect(directory / storage.DATABASE) as db:
+        db.executescript(SCHEMA)
+        db.execute(f"PRAGMA user_version={BASELINE_VERSION}")
+    assert command("status")["schema_version"] == BASELINE_VERSION
     with storage.maintenance(directory):
         storage.snapshot(directory, reason="recovery")
-    assert command("status")["schema_version"] == current_version()
     saved = command("backups")[0]
     assert saved["schema_version"] == BASELINE_VERSION
+    Workspace(directory)
+    assert command("status")["migration_required"] is False
+    assert command("status")["schema_version"] == current_version()
     assert command("restore", saved["id"], "--confirm")["restored"] == saved["id"]
     assert command("status")["schema_version"] == BASELINE_VERSION
     Workspace(directory)
@@ -125,16 +133,17 @@ def main() -> None:
             assert importlib.metadata.version("flowfield-core") == expected
             assert Path(flowfield.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
         assert json.loads(command("version", "--json")) == {"version": version}
-        runtime = subprocess.run(
-            [executable, "harness", "status", "codex", "--json"],
-            cwd=cwd,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        assert runtime.returncode == 1
-        assert json.loads(runtime.stderr)["error"]["code"] == "bridge_missing"
+        for harness in ("codex", "claude-code"):
+            runtime = subprocess.run(
+                [executable, "harness", "status", harness, "--json"],
+                cwd=cwd,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            assert runtime.returncode == 1
+            assert json.loads(runtime.stderr)["error"]["code"] == "bridge_missing"
         assert not state.exists()
 
         def read(path: str) -> bytes:

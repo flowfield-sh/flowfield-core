@@ -1,7 +1,7 @@
 """Candidate Claude bridge receipt validation, shared ACP lifecycle callback.
 
 This does not enable Claude launch or establish native ownership compatibility.
-The extension currently exists only in an explicitly opted-in development proof.
+The extension exists in the development proof and verified standalone runtime.
 """
 
 from typing import Any, Literal
