@@ -5,7 +5,8 @@ import { spawn } from "node:child_process";
 export const capability = Object.freeze({
   version: 1, method: "_flowfield/quiesce", scope: "native-turns-and-tasks",
 });
-const taskTypes = new Set(["local_bash", "local_agent", "local_monitor", "local_workflow"]);
+// Monitor/workflow termination has not been measured; fail closed for those tasks.
+const taskTypes = new Set(["local_bash", "local_agent"]);
 const idIsValid = (id) => typeof id === "string" && id.length > 0 && id.length <= 500;
 
 export function parseQuiesce(value) {
@@ -88,6 +89,7 @@ export class Cleanup {
       return;
     }
     if (!message || typeof message !== "object") { this.invalid = true; return; }
+    const kind = message.type === "system" ? message.subtype : message.type;
     if (message.type === "system" && message.subtype === "background_tasks_changed") {
       this.epoch++;
       this.snapshot++;
@@ -103,18 +105,19 @@ export class Cleanup {
         tasks.set(task.task_id, task.task_type);
       }
       this.tasks = tasks;
-    } else if (message.type === "active_goal") {
+    } else if (kind === "active_goal") {
       this.epoch++;
       this.goalActive = message.value !== null;
-    } else if (message.type === "hook_started" || message.type === "hook_response") {
+    } else if (["hook_started", "hook_progress", "hook_response"].includes(kind)) {
       this.epoch++;
       if (!idIsValid(message.hook_id)) { this.invalid = true; return; }
-      if (message.type === "hook_started") {
-        if (this.hooks.size >= 64) { this.invalid = true; return; }
+      if (kind !== "hook_response") {
+        if (!this.hooks.has(message.hook_id) && this.hooks.size >= 64) { this.invalid = true; return; }
         this.hooks.add(message.hook_id);
       } else this.hooks.delete(message.hook_id);
     } else if (["task_started", "task_notification", "task_updated", "task_progress", "tool_progress",
-      "stream_event", "assistant", "user", "result", "session_state_changed"].includes(message.type)) {
+      "stream_event", "assistant", "user", "result", "session_state_changed", "api_retry",
+      "command_lifecycle"].includes(kind)) {
       this.epoch++;
     }
   }

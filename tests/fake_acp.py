@@ -347,6 +347,8 @@ async def main():
                 },
             )
         elif method in {"session/new", "session/load", "session/resume"}:
+            if expected := os.environ.get("FLOWFIELD_TEST_META"):
+                assert request["params"].get("_meta") == json.loads(expected)
             resumed = method == "session/resume"
             servers = request["params"]["mcpServers"]
             if request["params"].get("sessionId") == "missing" or (

@@ -1,6 +1,6 @@
 {
   "upstream_version": "0.88.0",
-  "proof_version": "0.88.0-flowfield.proof.2",
+  "proof_version": "0.88.0-flowfield.proof.3",
   "upstream_revision": "d43fec3fa3118e88ff8a8ed99b85d2a5f444e538",
   "archive_sha256": "362a74dd97df0544ddbb6cdd24a93d02756f48bdf6e38daafa12cc53e32fbae2",
   "lock_sha256": "c3db1a075ed7831df57af0160d9686c4d5d6aad8323f7df15af9bf4d7cc4f3f4",

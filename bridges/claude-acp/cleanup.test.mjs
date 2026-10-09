@@ -90,6 +90,7 @@ test("a missing fresh snapshot cannot reuse a previously empty set", async () =>
 
 test("unknown and malformed task membership cannot produce a receipt", async () => {
   for (const tasks of [null, [{ task_id: "x", task_type: "remote_unknown" }],
+    [{ task_id: "x", task_type: "local_monitor" }], [{ task_id: "x", task_type: "local_workflow" }],
     [{ task_id: "x", task_type: "local_agent" }, { task_id: "x", task_type: "local_agent" }]]) {
     const { cleanup } = await fixture({ snapshot: async ({ cleanup, query }) => {
       cleanup.observe("root", query, { type: "system", subtype: "background_tasks_changed", tasks });
@@ -135,7 +136,8 @@ test("cleanup waits for accepted work to settle after cancel", async () => {
 test("active goals and in-flight native hooks stay uncertain", async () => {
   for (const message of [
     { type: "active_goal", value: { condition: "do work" } },
-    { type: "hook_started", hook_id: "hook" },
+    { type: "system", subtype: "hook_started", hook_id: "hook" },
+    { type: "system", subtype: "hook_progress", hook_id: "hook" },
   ]) {
     const { cleanup, query } = await fixture();
     cleanup.observe("root", query, message);
@@ -145,12 +147,19 @@ test("active goals and in-flight native hooks stay uncertain", async () => {
 
 test("late activity during native close invalidates otherwise quiet observations", async () => {
   const { cleanup } = await fixture({ close: async ({ cleanup, query, child }) => {
-    cleanup.observe("root", query, { type: "task_started" });
+    cleanup.observe("root", query, { type: "system", subtype: "task_started" });
     child.emit("exit", 0);
   } });
   const receipt = await cleanup.stop("root");
   assert.equal(receipt.reason, "native_work_after_quiet");
   assert.equal(receipt.status, "uncertain");
+});
+
+test("native system hook completion permits quietness without retaining hook output", async () => {
+  const { cleanup, query } = await fixture();
+  cleanup.observe("root", query, { type: "system", subtype: "hook_started", hook_id: "hook" });
+  cleanup.observe("root", query, { type: "system", subtype: "hook_response", hook_id: "hook", output: "private hook output" });
+  assert.equal((await cleanup.stop("root")).status, "confirmed");
 });
 
 test("without observed native exit, quiet membership is insufficient", async () => {

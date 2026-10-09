@@ -11,6 +11,7 @@ export type Receipt = typeof capability & {
 type Spawn = NonNullable<Options["spawnClaudeCodeProcess"]>;
 export class Cleanup {
   readonly enabled: boolean;
+  readonly sessionId: string | null;
   constructor(state: (sessionId: string) => {
     query: Query; startConsumer(): void; cancel(): Promise<void>; close(): Promise<void>;
   } | undefined, options?: { enabled?: boolean; timeoutMs?: number; maxTasks?: number });

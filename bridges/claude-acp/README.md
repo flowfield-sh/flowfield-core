@@ -22,7 +22,7 @@ checks, and compiles a standalone executable for the current POSIX platform/arch
 Generated source, dependencies and output stay in ignored `.work/`. The original Apache
 license remains in that source tree. This is not a distributable installation bundle.
 
-The proof changes the bridge version to `0.88.0-flowfield.proof.2`. Its authentication
+The proof changes the bridge version to `0.88.0-flowfield.proof.3`. Its authentication
 patch, recorded in `build.mjs`, ensures the released CLI's `tokenSource: "none"`
 must count as signed out. Upstream's subscription guard otherwise treats that truthy
 string as a usable credential, accepting a signed-out session with `--hide-claude-auth`.
@@ -104,8 +104,8 @@ through its existing optional ACP cleanup callback.
 Scope is `native-turns-and-tasks`, with a 10-second deadline, 256 tasks/termination
 attempts and 100 observation passes. Missing snapshots/interrupt receipts, queued work,
 unknown task types, query replacement, early native exit, active goals, unfinished hooks
-or late activity produce `uncertain`. Current known types are native local Bash, agent,
-monitor and workflow tasks; their actual stop semantics still need Claude-model proof.
+or late activity produce `uncertain`. Accepted types are native local Bash and agent tasks.
+Monitor and workflow termination has not been measured and remains unconfirmed.
 Active goals have no verified pause control in the public SDK, so they stay uncertain.
 Hook events are observed, but arbitrary hook descendants are not a containment claim.
 
@@ -131,8 +131,42 @@ receipt; the test's live owner subsequently stops it. No persisted PID is used t
 recover ownership and no native Claude/model is invoked by this scripted probe.
 
 Ordinary checks run only controller/receipt tests, not the native/scripted commands.
-These results establish the integration mechanics, not actual Claude tool, hook, goal,
-subagent, persisted-session or service-restart behavior. H1.1 remains open.
+These scripted results establish integration mechanics; the explicit native trials below
+measure actual tool, hook, subagent and persisted-session behavior. Integrated application
+scope/service-restart journeys and goals/Monitor/workflows remain unverified.
+
+## Explicit native Sonnet trials
+
+`scripts/check_claude_acp_live.py` requires `--invoke-live` and an existing private trial
+root outside the checkout and shared temporary directories. It uses native authentication,
+collects no credentials and supplies exact `claude-sonnet-5-5` before startup. The lab-only
+`_flowfield/proofStatus` reads the public SDK context summary and selected nonsecret account
+metadata; every prompt requires an exact model match first. Post-turn model usage must also
+match. Only selected init/result/task metadata is exposed to the proof observer, excluding
+assistant/thought messages. Raw native errors/logs are not retained. Native account fields
+can be absent and must not be treated as billing/subscription eligibility evidence.
+
+```sh
+uv run scripts/check_claude_acp_live.py /absolute/path/to/claude-acp-proof \
+  --native /absolute/path/to/claude --trial-root /private/trial/root \
+  --invoke-live --scenario smoke
+```
+
+Available scenarios: smoke, foreground, background, bridge-failure, continuity, mcp,
+subagent and hook. On macOS arm64/CLI 2.1.295 the native Sonnet smoke, foreground Bash,
+background Bash, bridge-failure uncertainty, persisted session recovery, authenticated
+HTTP MCP fixture, nested subagent Stop and UserPromptSubmit hook cancellation passed.
+The subagent's ACP turn stays pending while its background work runs; parent result alone
+is not completion. Hook cancellation ran before model inference and reported zero usage.
+These are harness proofs, not service-managed role or browser acceptance.
+
+Tool permissions accept only the bounded fixture command or the specific fixture MCP/
+Sonnet agent request. The helper expires after 90 seconds; its live-run marker PID is
+observed for lifetime only, never used for cleanup or recovery. Confirmed cleanup must
+also observe that test process gone, independently of bridge-group exit. Per-query limits
+are four turns and a $0.50 native usage budget; subagents are pinned to the same exact model.
+Reports/state stay in the private trial directory. No fixture initializes a user project
+or starts the user's Flowfield service. Ordinary checks never invoke these scenarios.
 
 Anthropic's [Agent SDK authentication guidance](https://code.claude.com/docs/en/agent-sdk/overview)
 documents API/provider authentication and requires prior approval for third-party products

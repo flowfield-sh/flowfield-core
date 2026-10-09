@@ -9,6 +9,7 @@ import pytest
 from acp.schema import AvailableCommandsUpdate
 
 from flowfield.adapters.acp_session import AcpSession, ShutdownTimeouts
+from flowfield.adapters.local_process import LocalProcess
 
 FAKE = Path(__file__).with_name("fake_acp.py")
 
@@ -36,6 +37,42 @@ def test_commands_arrive_before_or_after_session_and_update_while_idle(tmp_path,
     asyncio.run(exercise())
 
 
+def test_startup_metadata_is_frozen_before_asynchronous_process_start(tmp_path, monkeypatch):
+    async def exercise():
+        entered, release = asyncio.Event(), asyncio.Event()
+        original = LocalProcess.start
+
+        async def delayed(*args, **kwargs):
+            entered.set()
+            await release.wait()
+            return await original(*args, **kwargs)
+
+        monkeypatch.setattr(LocalProcess, "start", delayed)
+        metadata = {"nativeFixture": {"model": "original-model"}}
+        client = AcpSession(lambda _: None, request_timeout=2)
+        startup = asyncio.create_task(
+            client.start(
+                [sys.executable, str(FAKE)],
+                cwd=tmp_path,
+                env={"FLOWFIELD_TEST_META": json.dumps(metadata)},
+                mcp_servers=[],
+                session_metadata=metadata,
+            )
+        )
+        try:
+            await asyncio.wait_for(entered.wait(), 2)
+            metadata["nativeFixture"]["model"] = "changed-model"
+            release.set()
+            await startup
+            assert client.session_id == "test-session"
+        finally:
+            release.set()
+            await asyncio.gather(startup, return_exceptions=True)
+            assert (await client.close()).process_group_exited
+
+    asyncio.run(exercise())
+
+
 async def start(tmp_path, events, *flags, permission=None, load=None, resume=None):
     client = AcpSession(events.append, on_permission=permission, request_timeout=2)
     await client.start(
@@ -47,6 +84,31 @@ async def start(tmp_path, events, *flags, permission=None, load=None, resume=Non
         resume_session_id=resume,
     )
     return client
+
+
+@pytest.mark.parametrize("binding", ["new", "load", "resume"])
+def test_adapter_metadata_reaches_each_session_binding_without_changing_transport(
+    tmp_path, binding
+):
+    async def exercise():
+        metadata = {"nativeFixture": {"model": "explicit-model", "persist": False}}
+        client = AcpSession(lambda _: None, request_timeout=2)
+        try:
+            await client.start(
+                [sys.executable, str(FAKE)],
+                cwd=tmp_path,
+                env={"FLOWFIELD_TEST_META": json.dumps(metadata)},
+                mcp_servers=[],
+                session_metadata=metadata,
+                load_session_id="test-session" if binding == "load" else None,
+                resume_session_id="test-session" if binding == "resume" else None,
+            )
+            assert client.session_id == "test-session"
+            assert await client.prompt('{"mode":"normal"}') == "end_turn"
+        finally:
+            assert (await client.close()).process_group_exited
+
+    asyncio.run(exercise())
 
 
 @pytest.mark.parametrize("mode", ["wait", "permission"])

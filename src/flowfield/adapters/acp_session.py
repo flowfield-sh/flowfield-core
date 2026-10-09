@@ -8,6 +8,7 @@ import asyncio
 import contextlib
 import math
 from collections.abc import Callable, Coroutine, Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -125,6 +126,7 @@ class AcpSession:
         load_session_id: str | None = None,
         resume_session_id: str | None = None,
         require_resume: bool = False,
+        session_metadata: Mapping[str, Any] | None = None,
     ) -> None:
         if self.state != "new":
             raise RuntimeError("Session has already been started")
@@ -134,6 +136,9 @@ class AcpSession:
             raise ValueError(
                 "An agent command and existing absolute working directory are required"
             )
+        # Adapter-owned ACP options, snapshotted before any asynchronous startup.
+        # The Python ACP library places arbitrary keyword arguments inside _meta.
+        metadata = deepcopy(dict(session_metadata)) if session_metadata else {}
         self.state = "starting"
         try:
             async with self._spawn_lock:
@@ -172,7 +177,10 @@ class AcpSession:
                 if resume_session_id is not None:
                     self.session_id = resume_session_id
                     resumed = await self.connection.resume_session(
-                        cwd=str(cwd), session_id=resume_session_id, mcp_servers=[*mcp_servers]
+                        cwd=str(cwd),
+                        session_id=resume_session_id,
+                        mcp_servers=[*mcp_servers],
+                        **metadata,
                     )
                     self.config = [
                         item.model_dump(by_alias=True) for item in resumed.config_options or []
@@ -186,13 +194,14 @@ class AcpSession:
                         cwd=str(cwd),
                         session_id=load_session_id,
                         mcp_servers=[*mcp_servers],
+                        **metadata,
                     )
                     self.config = [
                         item.model_dump(by_alias=True) for item in loaded.config_options or []
                     ]
                 else:
                     created = await self.connection.new_session(
-                        cwd=str(cwd), mcp_servers=[*mcp_servers]
+                        cwd=str(cwd), mcp_servers=[*mcp_servers], **metadata
                     )
                     self.session_id = created.session_id
                     self.config = [

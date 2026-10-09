@@ -77,12 +77,28 @@ agent = agent.slice(0, classBody + 1) + `
       close: async () => this.closeQueryStream(session),
     } : undefined;
   }, {enabled: process.argv.includes("--flowfield-proof-cleanup")});
+  async flowfieldProofStatus(sessionId: string) {
+    if (!this.flowfieldCleanup.enabled || sessionId !== this.flowfieldCleanup.sessionId) {
+      throw new Error("Unknown managed proof session");
+    }
+    const query = this.sessions[sessionId]?.query;
+    if (!query) throw new Error("Missing native query");
+    const context = await query.getContextUsage({detail: "summary"});
+    const account = await query.accountInfo();
+    return {sessionId, model: context.model, account: {
+      apiProvider: account.apiProvider ?? null,
+      apiKeySource: account.apiKeySource ?? null,
+      tokenSource: account.tokenSource ?? null,
+      hasSubscription: Boolean(account.subscriptionType),
+    }};
+  }
 ` + agent.slice(classBody + 1);
 replaceOnce('      pathToClaudeCodeExecutable: process.env.CLAUDE_CODE_EXECUTABLE ?? (await claudeCliPath()),',
   `      ...(this.flowfieldCleanup.enabled ? {
         spawnClaudeCodeProcess: (spawnOptions: Parameters<NonNullable<Options["spawnClaudeCodeProcess"]>>[0]) =>
           this.flowfieldCleanup.spawn(sessionId, spawnOptions),
         perTaskStopAffordance: false,
+        includeHookEvents: true,
       } : {}),
       pathToClaudeCodeExecutable: process.env.CLAUDE_CODE_EXECUTABLE ?? (await claudeCliPath()),`);
 replaceOnce('        const { value: message, done } = raced.result as IteratorResult<SDKMessage, void>;',
@@ -111,7 +127,9 @@ const last = "      (ctx) => agent.flowfieldCleanup.run(() => agent.goal(ctx.par
 if (!surface.includes(last)) throw new Error("Unexpected ACP goal route");
 surface = surface.replace(last, `      (ctx) => agent.flowfieldCleanup.run(() => agent.goal(ctx.params)),
     )
-    .onRequest("_flowfield/quiesce", {parse: parseQuiesce}, (ctx) => agent.flowfieldCleanup.stop(ctx.params.sessionId));`);
+    .onRequest("_flowfield/quiesce", {parse: parseQuiesce}, (ctx) => agent.flowfieldCleanup.stop(ctx.params.sessionId))
+    .onRequest("_flowfield/proofStatus", {parse: parseQuiesce}, (ctx) =>
+      agent.flowfieldCleanup.run(() => agent.flowfieldProofStatus(ctx.params.sessionId)));`);
 agent = agent.slice(0, surfaceStart) + surface + agent.slice(surfaceEnd);
 await writeFile(agentFile, agent);
 pkg.version = spec.proof_version;
