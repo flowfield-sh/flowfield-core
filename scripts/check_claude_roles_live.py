@@ -32,7 +32,9 @@ MODEL = "claude-sonnet-5-5"
 CHOICE = AgentChoice(harness="claude-code", model=MODEL, effort="low", mode="default", fast=False)
 
 
-async def proof(trial: Path, bridge: Path, native: Path, role: str) -> dict:
+async def proof(
+    trial: Path, bridge: Path, native: Path, role: str, *, bundle: bool = False
+) -> dict:
     repo = trial / "project"
     repo.mkdir()
     nonce = uuid4().hex
@@ -52,8 +54,15 @@ async def proof(trial: Path, bridge: Path, native: Path, role: str) -> dict:
         "Fixture",
     )
     executable = trial / "bridge"
-    shutil.copy2(bridge, executable)
+    if not bundle:
+        shutil.copy2(bridge, executable)
     workspace = Workspace(trial / "state")
+    if bundle:
+        from flowfield.adapters import claude_install
+
+        executable = claude_install.install(
+            workspace.directory, bridge, claude_install.digest(bridge)
+        )
     project = workspace.setup_project(ProjectSetup(path=str(repo), id="native-proof"))
     # Fixture-owned preparation includes the adopted identity, before native work.
     git(repo, "add", ".")
@@ -85,14 +94,26 @@ async def proof(trial: Path, bridge: Path, native: Path, role: str) -> dict:
 
     def managed(choice, directory, cwd, environment, *, registration=None):
         assert choice.harness == "claude-code" and choice.model == MODEL
-        agent = create(
-            choice,
-            directory,
-            cwd,
-            environment,
-            registration=registration,
-            claude_proof_bridge=executable,
-        )
+        if bundle:
+            from flowfield.adapters.claude_agent import ClaudeAgent
+
+            agent = ClaudeAgent(
+                cwd,
+                environment,
+                directory=directory,
+                registration=registration,
+                choice=choice,
+                proof_limits=True,
+            )
+        else:
+            agent = create(
+                choice,
+                directory,
+                cwd,
+                environment,
+                registration=registration,
+                claude_proof_bridge=executable,
+            )
         observed.append(agent)
         return agent
 
@@ -116,7 +137,13 @@ async def proof(trial: Path, bridge: Path, native: Path, role: str) -> dict:
                 await asyncio.sleep(0.05)
             await job
 
-    report = {"role": role, "requestedModel": MODEL, "effort": "low", "passed": False}
+    report = {
+        "role": role,
+        "requestedModel": MODEL,
+        "effort": "low",
+        "passed": False,
+        "installedRuntime": bundle,
+    }
     try:
         with (
             patch("flowfield.coordinator.create", managed),
@@ -255,6 +282,9 @@ async def proof(trial: Path, bridge: Path, native: Path, role: str) -> dict:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("bridge", type=Path)
+    parser.add_argument(
+        "--bundle", action="store_true", help="Install and test the original runtime bundle"
+    )
     parser.add_argument("--native", type=Path, required=True)
     parser.add_argument("--trial-root", type=Path, required=True)
     parser.add_argument("--role", choices=["coordinator", "worker"], required=True)
@@ -270,7 +300,13 @@ def main():
     trial = root / f"h1-role-{args.role}-{uuid4().hex}"
     trial.mkdir(mode=0o700)
     report = asyncio.run(
-        proof(trial, args.bridge.resolve(strict=True), args.native.resolve(strict=True), args.role)
+        proof(
+            trial,
+            args.bridge.resolve(strict=True),
+            args.native.resolve(strict=True),
+            args.role,
+            bundle=args.bundle,
+        )
     )
     (trial / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps({"trial": str(trial), **report}, indent=2))

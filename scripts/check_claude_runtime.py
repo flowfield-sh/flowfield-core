@@ -3,6 +3,8 @@
 import argparse
 import asyncio
 import json
+import shlex
+import sys
 import tempfile
 from dataclasses import asdict
 from pathlib import Path
@@ -18,14 +20,61 @@ async def probe(bundle: Path, native: Path, scratch: Path) -> dict:
     binary = claude_install.install(scratch / "installed", bundle, claude_install.digest(bundle))
     home = scratch / "home"
     home.mkdir()
+    project = scratch / "project"
+    project.mkdir()
     config = home / ".claude"
     config.mkdir()
     (config / "settings.json").write_text(
         json.dumps({"model": "sonnet", "availableModels": ["sonnet"]})
     )
-    (home / ".env").write_text(f"CLAUDE_AGENT_LOGS={scratch / 'forbidden-logs'}\n")
-    (home / "bunfig.toml").write_text('preload = ["./must-not-load.js"]\n')
-    (home / "must-not-load.js").write_text('throw new Error("Unexpected preload");\n')
+    ambient = scratch / "ambient-mcp-started"
+    (project / ".mcp.json").write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "ambient_fixture": {
+                        "command": sys.executable,
+                        "args": [
+                            "-c",
+                            "from pathlib import Path; "
+                            f"Path({str(ambient)!r}).write_text('started')",
+                        ],
+                    }
+                }
+            }
+        )
+    )
+    hook_marker = scratch / "startup-hook-ran"
+    hook_code = f"from pathlib import Path; Path({str(hook_marker)!r}).write_text('started')"
+    (project / ".claude").mkdir()
+    (project / ".claude/settings.json").write_text(
+        json.dumps(
+            {
+                "hooks": {
+                    "SessionStart": [
+                        {
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": " ".join(
+                                        shlex.quote(value)
+                                        for value in [
+                                            sys.executable,
+                                            "-c",
+                                            hook_code,
+                                        ]
+                                    ),
+                                }
+                            ],
+                        }
+                    ]
+                }
+            }
+        )
+    )
+    (project / ".env").write_text(f"CLAUDE_AGENT_LOGS={scratch / 'forbidden-logs'}\n")
+    (project / "bunfig.toml").write_text('preload = ["./must-not-load.js"]\n')
+    (project / "must-not-load.js").write_text('throw new Error("Unexpected preload");\n')
     env = {
         "HOME": str(home),
         "PATH": "",
@@ -42,7 +91,22 @@ async def probe(bundle: Path, native: Path, scratch: Path) -> dict:
         shutdown_timeouts=CLAUDE_SHUTDOWN_TIMEOUTS,
     )
     try:
-        await client.start([str(binary)], cwd=home, env=env, mcp_servers=[])
+        await client.start(
+            [str(binary)],
+            cwd=project,
+            env=env,
+            mcp_servers=[],
+            session_metadata={
+                "claudeCode": {
+                    "options": {
+                        "persistSession": False,
+                        "strictMcpConfig": True,
+                        "permissionMode": "default",
+                        "allowDangerouslySkipPermissions": False,
+                    }
+                }
+            },
+        )
         require_cleanup(client.capabilities)
         assert client.connection is not None
         info = await client.connection.ext_method(
@@ -65,6 +129,7 @@ async def probe(bundle: Path, native: Path, scratch: Path) -> dict:
         receipt = await client.close()
     assert receipt.owned_work_stopped is True and receipt.process_group_exited
     assert not (scratch / "forbidden-logs").exists()
+    assert not ambient.exists()
     return {
         "noPromptSent": True,
         "emptyPath": True,
@@ -74,6 +139,8 @@ async def probe(bundle: Path, native: Path, scratch: Path) -> dict:
         "policyFilteredCatalog": True,
         "privateDiagnosticsUnavailable": True,
         "projectAutoloadDisabled": True,
+        "ambientMcpExcluded": True,
+        "nativeStartupHookObserved": hook_marker.exists(),
         "stop": asdict(receipt),
     }
 

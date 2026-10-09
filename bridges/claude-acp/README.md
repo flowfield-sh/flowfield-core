@@ -72,6 +72,26 @@ macOS/Linux arm64/x64. The second is an explicit signed-out, model-free native c
 with isolated configuration and empty PATH. Real native compatibility is currently
 measured only on macOS arm64; scripted platform checks do not establish it elsewhere.
 
+The installed adapter consumes only model/session metadata, checks native offered
+identity before each prompt, and omits lab usage bounds in ordinary runtime launches.
+Exact native catalog discovery selects offered aliases without a prompt, resolves each
+to its actual model and collects its effort/access controls. Inherited/default effort,
+Fast, automatic permission classification and unverified commands are not offered.
+Unresolved aliases are omitted. Discovery must close with confirmed native cleanup;
+durable service ownership/recovery of discovery remains required before selection opens.
+
+Explicit role trials can test the original installed bundle with development query
+bounds. They use exact Sonnet 5.5/low through native Claude Code, not a direct model client:
+
+```sh
+uv run scripts/check_claude_roles_live.py /path/to/bundle.zip --bundle \
+  --native /absolute/path/to/claude --trial-root /private/trial/root \
+  --role coordinator --invoke-live
+```
+
+Use `--role worker` for the run-scoped question path. These checkpoints do not replace
+complete answer/result/delivery or human experience acceptance.
+
 ## Explicit model-free native check
 
 ```sh

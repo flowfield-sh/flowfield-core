@@ -6,9 +6,11 @@ import json
 import shlex
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
+from flowfield.adapters import claude_install
 from flowfield.adapters.agent_selection import command_options, create, model_options
 from flowfield.adapters.claude_agent import ClaudeAgent
 from flowfield.agent_models import AgentChoice
@@ -17,6 +19,114 @@ from flowfield.harness_models import HarnessRegistration
 
 MODEL = "claude-sonnet-5-5"
 CHOICE = AgentChoice(harness="claude-code", model=MODEL, effort="low", mode="default", fast=False)
+
+
+def installed_candidate(tmp_path, *flags):
+    from test_codex_install import bundle
+
+    proof = candidate(tmp_path, *flags)
+    script = Path(proof.command[0]).read_bytes()
+    package, checksum = bundle(tmp_path, installer=claude_install, binary=script)
+    claude_install.install(tmp_path / "state", package, checksum)
+    environment = dict(proof.environment)
+    Path(environment["CLAUDE_CONFIG_DIR"]).mkdir()
+    metadata = json.loads(environment["FLOWFIELD_TEST_META"])
+    metadata["claudeCode"]["options"].pop("maxTurns")
+    metadata["claudeCode"]["options"].pop("maxBudgetUsd")
+    environment["FLOWFIELD_TEST_META"] = json.dumps(metadata)
+    return ClaudeAgent(
+        tmp_path,
+        environment,
+        directory=tmp_path / "state",
+        registration=HarnessRegistration(
+            harness="claude-code", revision=7, executable=sys.executable
+        ),
+        choice=CHOICE,
+    )
+
+
+def test_installed_adapter_uses_model_only_metadata_and_no_proof_limits(tmp_path):
+    agent = installed_candidate(tmp_path)
+    assert agent.launch.bridge_version == claude_install.VERSION
+    assert "--flowfield-proof-cleanup" not in agent.command
+
+    async def exercise():
+        try:
+            await agent.start([], persistent=True)
+            await agent.configure(CHOICE)
+            assert await asyncio.wait_for(
+                agent.prompt(json.dumps({"mode": "normal"}), None), 5
+            ) == {"status": "completed"}
+            assert agent.native_model == MODEL
+        finally:
+            await agent.close()
+        assert agent.cleanup_confirmed
+
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize(
+    "flag", ["no-metadata", "wrong-model", "wrong-model-session", "hidden-model"]
+)
+def test_installed_adapter_blocks_incompatible_or_unoffered_native_identity(tmp_path, flag):
+    agent = installed_candidate(tmp_path, flag)
+
+    async def exercise():
+        try:
+            with pytest.raises(ApplicationError):
+                await agent.start([], persistent=True)
+        finally:
+            await agent.close()
+        assert not (tmp_path / "prompt-marker").exists()
+
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("flag", ["normal", "hidden-model", "cleanup-uncertain"])
+def test_installed_catalog_has_exact_identities_and_checks_cleanup(tmp_path, flag):
+    from flowfield.adapters.claude_agent import model_options as claude_models
+
+    agent = installed_candidate(tmp_path, flag)
+    environment = dict(agent.environment)
+    environment["FLOWFIELD_TEST_META"] = json.dumps(
+        {
+            "claudeCode": {
+                "options": {
+                    "persistSession": False,
+                    "strictMcpConfig": True,
+                    "permissionMode": "default",
+                    "allowDangerouslySkipPermissions": False,
+                }
+            }
+        }
+    )
+
+    async def exercise():
+        with patch.dict("os.environ", environment, clear=True):
+            if flag == "normal":
+                catalog = await claude_models(
+                    tmp_path / "state",
+                    cwd=tmp_path,
+                    registration=HarnessRegistration(
+                        harness="claude-code", revision=7, executable=sys.executable
+                    ),
+                )
+                assert [item.id for item in catalog] == [MODEL]
+                assert catalog[0].efforts == ["low"]
+                assert {item.id for item in catalog[0].modes} == {"default", "acceptEdits", "plan"}
+                assert not catalog[0].fast
+            else:
+                with pytest.raises(ApplicationError):
+                    await claude_models(
+                        tmp_path / "state",
+                        cwd=tmp_path,
+                        registration=HarnessRegistration(
+                            harness="claude-code", revision=7, executable=sys.executable
+                        ),
+                    )
+        assert not (tmp_path / "prompt-marker").exists()
+
+    asyncio.run(exercise())
 
 
 def candidate(tmp_path, *flags):

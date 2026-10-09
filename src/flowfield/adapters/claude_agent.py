@@ -1,20 +1,18 @@
-"""Internal Claude adapter for integrated proof, not a selectable installed runtime.
-
-The explicit development bridge is required. Native configuration/login stay owned
-by Claude Code; this adapter sends no direct model API requests. Model identity is
-verified through the candidate's session-fenced native context RPC before inference.
-"""
+"""Native Claude Code over ACP; exact identity and cleanup are checked before dispatch."""
 
 import asyncio
 import os
+import tempfile
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Literal
 
 from acp.exceptions import RequestError
 from acp.schema import HttpMcpServer
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from flowfield.adapters.acp_agent import AcpAgent
+from flowfield.adapters import claude_install
+from flowfield.adapters.acp_agent import AcpAgent, choices
 from flowfield.adapters.acp_session import (
     AcpSession,
     PermissionHandler,
@@ -25,7 +23,57 @@ from flowfield.adapters.claude_cleanup import CLAUDE_SHUTDOWN_TIMEOUTS, quiesce,
 from flowfield.adapters.harness_host import launch_environment, resolve
 from flowfield.agent_models import AgentChoice, AgentCommand
 from flowfield.errors import ApplicationError
+from flowfield.execution_models import ModelOption, NativeMode
 from flowfield.harness_models import HarnessRegistration
+
+SESSION_INFO = {"version": 1, "method": "_flowfield/sessionInfo"}
+MODES = {"default", "acceptEdits", "plan"}
+
+
+class NativeModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    id: str = Field(min_length=1, max_length=200)
+    name: str = Field(min_length=1, max_length=200)
+    description: str = Field(max_length=2000)
+    resolvedModel: str | None = Field(max_length=200)
+
+
+class NativeSessionInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    version: Literal[1]
+    sessionId: str = Field(min_length=1, max_length=200)
+    model: str = Field(min_length=1, max_length=200)
+    models: list[NativeModel] = Field(max_length=64)
+
+
+def require_session_info(session: AcpSession) -> None:
+    metadata = session.capabilities.get("_meta")
+    capability = metadata.get("flowfield.sessionInfo") if isinstance(metadata, dict) else None
+    if capability != SESSION_INFO or type(capability.get("version")) is not int:
+        raise ApplicationError(
+            "agent_metadata_unavailable", "Install the compatible Claude runtime.", 409
+        )
+
+
+async def session_info(session: AcpSession) -> NativeSessionInfo:
+    require_session_info(session)
+    if session.connection is None or session.session_id is None:
+        raise RuntimeError("Claude has no native session")
+    response = await asyncio.wait_for(
+        session.connection.ext_method("flowfield/sessionInfo", {"sessionId": session.session_id}),
+        10,
+    )
+    try:
+        value = NativeSessionInfo.model_validate(response)
+        if value.sessionId != session.session_id or type(response.get("version")) is not int:
+            raise ValueError("Wrong native session or metadata version")
+        return value
+    except (ValidationError, ValueError) as error:
+        raise ApplicationError(
+            "agent_metadata_unavailable", "Claude returned incompatible native metadata.", 409
+        ) from error
 
 
 def claude_activity_details(tool: BaseModel) -> str:
@@ -46,16 +94,24 @@ class ClaudeAgent(AcpAgent):
         environment: Mapping[str, str],
         *,
         registration: HarnessRegistration,
-        bridge: Path,
         choice: AgentChoice,
+        bridge: Path | None = None,
+        directory: Path | None = None,
+        proof_limits: bool = False,
     ):
         if registration.harness != "claude-code" or choice.harness != "claude-code":
             raise ValueError("Claude requires a Claude registration and choice")
-        if not choice.mode:
+        if choice.mode not in MODES:
             raise ApplicationError("agent_mode_required", "Choose a native access mode.", 409)
+        self._proof = bridge is not None
+        self._limited = self._proof or proof_limits
+        if bridge is None:
+            if directory is None:
+                raise ValueError("Installed Claude requires a Flowfield state directory")
+            bridge = claude_install.installed(directory)
         if not bridge.is_absolute() or not bridge.is_file() or not os.access(bridge, os.X_OK):
             raise ApplicationError(
-                "claude_bridge_unavailable", "Build the development bridge.", 409
+                "claude_bridge_unavailable", "Install or rebuild the requested Claude bridge.", 409
             )
         super().__init__(
             AcpSession(
@@ -70,8 +126,10 @@ class ClaudeAgent(AcpAgent):
         self.environment.pop("CLAUDE_AGENT_LOGS", None)
         self.environment.pop("CLAUDE_AGENT_ACP_EXPERIMENTAL_V2", None)
         self.launch.bridge_executable = str(bridge)
-        self.launch.bridge_version = "0.88.0-flowfield.proof.4"
-        self.command = [str(bridge), "--flowfield-proof-cleanup"]
+        self.launch.bridge_version = (
+            "0.88.0-flowfield.proof.4" if self._proof else claude_install.VERSION
+        )
+        self.command = [str(bridge)] + (["--flowfield-proof-cleanup"] if self._proof else [])
         self.cwd = cwd
         self.choice = choice.model_copy(deep=True)
         self.native_model: str | None = None
@@ -81,6 +139,16 @@ class ClaudeAgent(AcpAgent):
         self, servers: list[HttpMcpServer], *, resume: str | None = None, persistent: bool = False
     ) -> None:
         self.cleanup_confirmed = False
+        options: dict[str, str | bool | float | None] = {
+            "model": self.choice.model,
+            "effort": self.choice.effort,
+            "permissionMode": self.choice.mode,
+            "persistSession": persistent,
+            "strictMcpConfig": True,
+            "allowDangerouslySkipPermissions": False,
+        }
+        if self._limited:
+            options.update(maxTurns=4, maxBudgetUsd=0.5)
         try:
             await self.session.start(
                 self.command,
@@ -89,38 +157,41 @@ class ClaudeAgent(AcpAgent):
                 mcp_servers=servers,
                 resume_session_id=resume,
                 require_resume=persistent,
-                session_metadata={
-                    "claudeCode": {
-                        "options": {
-                            "model": self.choice.model,
-                            "effort": self.choice.effort,
-                            "permissionMode": self.choice.mode,
-                            "persistSession": persistent,
-                            "strictMcpConfig": True,
-                            "allowDangerouslySkipPermissions": False,
-                            # Internal live proof bounds; not product defaults.
-                            "maxTurns": 4,
-                            "maxBudgetUsd": 0.5,
-                        }
-                    }
-                },
+                session_metadata={"claudeCode": {"options": options}},
             )
             require_cleanup(self.session.capabilities)
+            if not self._proof:
+                require_session_info(self.session)
             await self._verify_model()
         except (OSError, RuntimeError, TimeoutError, RequestError) as error:
             raise ApplicationError(
                 "agent_resume_failed" if resume else "claude_start_failed",
                 "Claude Code could not open the requested native session. Check its host "
-                "login, configuration and development bridge. Nothing was replayed.",
+                "login, configuration and bridge. Nothing was replayed.",
                 409,
             ) from error
 
     async def _verify_model(self) -> None:
+        if not self._proof:
+            info = await session_info(self.session)
+            confirmed = info.model == self.choice.model and any(
+                item.resolvedModel == self.choice.model for item in info.models
+            )
+            if not confirmed:
+                raise ApplicationError(
+                    "agent_model_unconfirmed",
+                    "Claude did not confirm the requested model "
+                    "in its native catalog. No prompt was sent. Refresh native choices.",
+                    409,
+                )
+            self.native_model = info.model
+            return
         if self.session.connection is None or self.session.session_id is None:
             raise RuntimeError("Claude has no native session")
         response = await asyncio.wait_for(
             self.session.connection.ext_method(
-                "flowfield/proofStatus", {"sessionId": self.session.session_id}
+                "flowfield/proofStatus" if self._proof else "flowfield/sessionInfo",
+                {"sessionId": self.session.session_id},
             ),
             10,
         )
@@ -144,11 +215,11 @@ class ClaudeAgent(AcpAgent):
         if choice.harness != "claude-code" or choice.model != self.choice.model:
             raise ApplicationError(
                 "agent_choice_unavailable",
-                "This proof requires a fresh session for that model.",
+                "Claude requires a fresh session for that model.",
                 409,
             )
         try:
-            if not choice.mode or choice.fast:
+            if choice.mode not in MODES or choice.fast:
                 raise ValueError("An explicit native mode is required; fast mode is unverified")
             await self.session.select("mode", choice.mode)
             await self.session.select("effort", choice.effort)
@@ -188,3 +259,84 @@ class ClaudeAgent(AcpAgent):
         # Native command semantics require their own integrated proof. Do not offer
         # goal/account/plan commands merely because ACP advertised their names.
         return []
+
+
+async def model_options(
+    directory: Path, *, cwd: Path | None = None, registration: HarnessRegistration | None = None
+) -> list[ModelOption]:
+    """Disposable model-free discovery; aliases resolve to exact policy-offered identities."""
+    registration = registration or HarnessRegistration(harness="claude-code", revision=1)
+    with tempfile.TemporaryDirectory(prefix="flowfield-claude-catalog-") as temporary:
+        location = cwd or Path(temporary).resolve()
+        command, environment = claude_install.command(
+            directory, os.environ, registration=registration
+        )
+        session = AcpSession(
+            lambda _: None,
+            cleanup=quiesce,
+            shutdown_timeouts=CLAUDE_SHUTDOWN_TIMEOUTS,
+        )
+        try:
+            async with asyncio.timeout(120):
+                await session.start(
+                    command,
+                    cwd=location,
+                    env=environment,
+                    mcp_servers=[],
+                    session_metadata={
+                        "claudeCode": {
+                            "options": {
+                                "persistSession": False,
+                                "strictMcpConfig": True,
+                                "permissionMode": "default",
+                                "allowDangerouslySkipPermissions": False,
+                            }
+                        }
+                    },
+                )
+                require_cleanup(session.capabilities)
+                initial = await session_info(session)
+                result: dict[str, ModelOption] = {}
+                for model in initial.models:
+                    # Unresolved aliases cannot become frozen application identities.
+                    if not model.resolvedModel:
+                        continue
+                    await session.select("model", model.id)
+                    applied = await session_info(session)
+                    if applied.model != model.resolvedModel:
+                        raise ApplicationError(
+                            "agent_model_unconfirmed",
+                            "Native model aliases changed during "
+                            "discovery. Refresh native choices.",
+                            409,
+                        )
+                    result[applied.model] = ModelOption(
+                        id=applied.model,
+                        name=model.name,
+                        efforts=[
+                            item["value"]
+                            for item in choices(session.config, "effort")
+                            if item["value"] != "default"
+                        ],
+                        modes=[
+                            NativeMode(
+                                id=item["value"],
+                                name=item["name"],
+                                description=item.get("description") or "",
+                            )
+                            for item in choices(session.config, "mode")
+                            if item["value"] in MODES
+                        ],
+                        # Native Fast and commands require their own integrated proof.
+                        fast=False,
+                    )
+                return list(result.values())
+        finally:
+            receipt = await session.close()
+            if receipt.owned_work_stopped is not True or not receipt.process_group_exited:
+                raise ApplicationError(
+                    "agent_cleanup_unconfirmed",
+                    "Claude catalog cleanup is unconfirmed. "
+                    "Inspect the native host before starting more discovery.",
+                    409,
+                )

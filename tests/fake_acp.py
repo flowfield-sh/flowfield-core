@@ -343,7 +343,17 @@ async def main():
                                     "scope": "native-turns-and-tasks"
                                     if "claude" in sys.argv
                                     else "native-turns-and-terminals",
-                                }
+                                },
+                                **(
+                                    {
+                                        "flowfield.sessionInfo": {
+                                            "version": 1,
+                                            "method": "_flowfield/sessionInfo",
+                                        }
+                                    }
+                                    if "claude" in sys.argv and "no-metadata" not in sys.argv
+                                    else {}
+                                ),
                             }
                             if "cleanup" in sys.argv
                             else {}
@@ -406,7 +416,7 @@ async def main():
             task.add_done_callback(tasks.discard)
         elif method == "session/cancel":
             stopped.set()
-        elif method == "_flowfield/proofStatus":
+        elif method in {"_flowfield/proofStatus", "_flowfield/sessionInfo"}:
             wrong_model = "wrong-model" in sys.argv
             if marker := os.environ.get("FLOWFIELD_TEST_MODEL_DRIFT"):
                 wrong_model = wrong_model or Path(marker).exists()
@@ -415,7 +425,23 @@ async def main():
                 {
                     "sessionId": "wrong" if "wrong-model-session" in sys.argv else "test-session",
                     "model": "claude-opus-5-5" if wrong_model else "claude-sonnet-5-5",
-                    "account": {"tokenSource": "PRIVATE ACCOUNT DETAILS"},
+                    **(
+                        {"account": {"tokenSource": "PRIVATE ACCOUNT DETAILS"}}
+                        if method == "_flowfield/proofStatus"
+                        else {
+                            "version": 1,
+                            "models": [
+                                {
+                                    "id": "sonnet",
+                                    "name": "Sonnet",
+                                    "description": "Native fixture",
+                                    "resolvedModel": "claude-opus-5-5"
+                                    if "hidden-model" in sys.argv
+                                    else "claude-sonnet-5-5",
+                                }
+                            ],
+                        }
+                    ),
                 },
             )
         elif method == "_flowfield/quiesce":

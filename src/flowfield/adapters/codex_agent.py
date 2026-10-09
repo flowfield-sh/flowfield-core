@@ -6,13 +6,12 @@ import os
 import tempfile
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
 
 from acp.exceptions import RequestError
 from acp.schema import HttpMcpServer
 from pydantic import BaseModel
 
-from flowfield.adapters.acp_agent import AcpAgent
+from flowfield.adapters.acp_agent import AcpAgent, choices
 from flowfield.adapters.acp_session import (
     AcpSession,
     activity_locations,
@@ -26,13 +25,6 @@ from flowfield.agent_models import AgentChoice, AgentCommand
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import ModelOption, NativeMode
 from flowfield.harness_models import HarnessLaunch, HarnessRegistration
-
-
-def choices(config: list[dict[str, Any]], identity: str) -> list[dict[str, Any]]:
-    option = next((item for item in config if item["id"] == identity), None)
-    if option is None or option.get("type") != "select":
-        return []
-    return [entry for group in option.get("options", []) for entry in group.get("options", [group])]
 
 
 def codex_permission_details(tool: BaseModel) -> str:

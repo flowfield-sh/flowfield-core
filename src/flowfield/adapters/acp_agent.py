@@ -5,6 +5,7 @@ import base64
 import hashlib
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from typing import Any
 
 from acp.schema import HttpMcpServer, ImageContentBlock, TextContentBlock
 from pydantic import ValidationError
@@ -14,6 +15,13 @@ from flowfield.agent_models import AgentChoice, AgentCommand
 from flowfield.errors import ApplicationError
 from flowfield.harness_models import HarnessLaunch
 from flowfield.run_activity import ActivityUpdate, ContextUsage
+
+
+def choices(config: list[dict[str, Any]], identity: str) -> list[dict[str, Any]]:
+    option = next((item for item in config if item["id"] == identity), None)
+    if option is None or option.get("type") != "select":
+        return []
+    return [entry for group in option.get("options", []) for entry in group.get("options", [group])]
 
 
 class AcpAgent(ABC):
