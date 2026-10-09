@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import Field
 
 from flowfield.agent_models import AgentRecord, EffectiveAgent
+from flowfield.harness_models import HarnessLaunch
 from flowfield.run_activity import ContextUsage, RunActivityPage
 
 
@@ -51,6 +52,7 @@ class CoordinatorTurn(AgentRecord):
     ] = "starting"
     settings: EffectiveAgent
     applied: EffectiveAgent | None = None
+    launch: HarnessLaunch | None = None
     activity: RunActivityPage = Field(default_factory=RunActivityPage)
     notice: str = ""
     native_started: bool = False

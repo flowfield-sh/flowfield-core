@@ -14,6 +14,7 @@ from flowfield.adapters import local_checks
 from flowfield.adapters.acp_permissions import permission_handler
 from flowfield.adapters.codex_agent import CodexAgent, model_options
 from flowfield.adapters.git_workspace import GitWorkspace, contains
+from flowfield.adapters.harness_host import HarnessChecks, resolve
 from flowfield.adapters.local_execution import LocalAttempt, LocalHost
 from flowfield.agent_models import AgentChoice
 from flowfield.application import Workspace
@@ -31,6 +32,7 @@ from flowfield.execution_models import (
     WorkerResult,
     WorkerSettings,
 )
+from flowfield.harness_settings import HarnessSettings
 from flowfield.integration import Integrations
 from flowfield.permissions import Permissions
 from flowfield.results import Results
@@ -57,6 +59,7 @@ class Supervisor:
         self.delivery_jobs: dict[str, asyncio.Task[None]] = {}
         self.clients: dict[str, CodexAgent] = {}
         self.permissions = Permissions(workspace)
+        self.harness_checks = HarnessChecks(workspace.directory)
         from flowfield.coordinator import Coordinator
 
         self.coordinator = Coordinator(self)
@@ -64,6 +67,7 @@ class Supervisor:
         self.setup_jobs: dict[str, asyncio.Task[list[CheckResult]]] = {}
         self.catalog_job: asyncio.Task[list[ModelOption]] | None = None
         self.catalog_at = 0.0
+        self.catalog_signature = ""
         self.loop_task: asyncio.Task[None] | None = None
         self.lock: BinaryIO | None = None
         self.closing = False
@@ -100,17 +104,27 @@ class Supervisor:
         if self.closing:
             raise ApplicationError("service_stopping", "The service is stopping.", 409)
         clock = asyncio.get_running_loop().time()
+        registration = HarnessSettings(self.workspace).get("codex")
+        signature = resolve(registration, os.environ).model_dump_json()
+        if self.catalog_job and not self.catalog_job.done() and signature != self.catalog_signature:
+            raise ApplicationError(
+                "models_loading", "Host settings changed; reload models shortly.", 409
+            )
         if self.catalog_job is None or (
             self.catalog_job.done()
             and (
                 refresh
+                or signature != self.catalog_signature
                 or clock - self.catalog_at > 300
                 or self.catalog_job.cancelled()
                 or self.catalog_job.exception() is not None
             )
         ):
             self.catalog_at = clock
-            self.catalog_job = asyncio.create_task(model_options(self.workspace.directory))
+            self.catalog_signature = signature
+            self.catalog_job = asyncio.create_task(
+                model_options(self.workspace.directory, registration=registration)
+            )
         return await asyncio.shield(self.catalog_job)
 
     async def configure(self, project_id: str, request: SettingsEdit) -> WorkerSettings:
@@ -255,13 +269,17 @@ class Supervisor:
             }
             self.execution.save_local(run.id, metadata)
             client = CodexAgent(
-                self.workspace.directory, environment.checkout, environment.launch_environment()
+                self.workspace.directory,
+                environment.checkout,
+                environment.launch_environment(),
+                registration=run.agent_settings.registration if run.agent_settings else None,
             )
             self.clients[run.id] = client
             bridge = WorkerBridge(self.execution, run, client)
             server = await scope_stack.enter_async_context(serve_scope(worker_scope(bridge)))
             # Persist before launch: after a crash, missing PID is not a cleanup receipt.
             metadata["native_launch_started"] = True
+            metadata["harness_launch"] = client.launch.model_dump() if client.launch else None
             self.execution.save_local(run.id, metadata)
             await client.start([server])
             assert client.process
@@ -312,7 +330,9 @@ class Supervisor:
                     "runtime_changed_source",
                     "Setup changed source files. Fix setup commands; inspect preserved changes.",
                 )
-            self.execution.started(run.project_id, run.id, applied_agent=applied_agent)
+            self.execution.started(
+                run.project_id, run.id, applied_agent=applied_agent, harness_launch=client.launch
+            )
             sections = self.execution.assignment(run.project_id, run.id)
             brief: dict[str, Any] = {
                 "task": sections["title"],
@@ -593,6 +613,7 @@ class Supervisor:
 
     async def close(self) -> None:
         self.closing = True
+        await self.harness_checks.close()
         await self.coordinator.close()
         self.permissions.close()
         if self.catalog_job and not self.catalog_job.done():

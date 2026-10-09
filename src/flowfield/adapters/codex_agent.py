@@ -24,9 +24,11 @@ from flowfield.adapters.acp_session import (
 )
 from flowfield.adapters.codex_cleanup import CODEX_SHUTDOWN_TIMEOUTS, quiesce, require_cleanup
 from flowfield.adapters.codex_install import command
+from flowfield.adapters.harness_host import launch_environment, resolve
 from flowfield.agent_models import AgentChoice, AgentCommand
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import ModelOption, NativeMode
+from flowfield.harness_models import HarnessLaunch, HarnessRegistration
 from flowfield.run_activity import ActivityUpdate, ContextUsage
 
 
@@ -79,8 +81,26 @@ def codex_activity_details(tool: BaseModel) -> str:
 class CodexAgent:
     supports_activity = True
 
-    def __init__(self, directory: Path, cwd: Path, environment: Mapping[str, str]):
+    def __init__(
+        self,
+        directory: Path,
+        cwd: Path,
+        environment: Mapping[str, str],
+        *,
+        registration: HarnessRegistration | None = None,
+    ):
+        self.launch: HarnessLaunch | None = None
+        if registration is not None:
+            if registration.harness != "codex":
+                raise ValueError("Codex requires a Codex registration")
+            self.launch = resolve(registration, environment)
+            environment = launch_environment(self.launch, environment)
         self.command, self.environment = command(directory, environment)
+        if self.launch:
+            from flowfield.adapters.codex_install import VERSION
+
+            self.launch.bridge_executable = self.command[0]
+            self.launch.bridge_version = VERSION
         self.cwd = cwd
         self.on_activity: Callable[[ActivityUpdate], None] | None = None
         self.session = AcpSession(
@@ -320,11 +340,15 @@ class CodexAgent:
         await self.stop()
 
 
-async def model_options(directory: Path) -> list[ModelOption]:
+async def model_options(
+    directory: Path, *, registration: HarnessRegistration | None = None
+) -> list[ModelOption]:
     # Discovery opens a disposable native session, never a model turn. Bound total
     # work because model-dependent effort options require selecting each model.
     with tempfile.TemporaryDirectory(prefix="flowfield-catalog-") as temporary:
-        agent = CodexAgent(directory, Path(temporary).resolve(), os.environ)
+        agent = CodexAgent(
+            directory, Path(temporary).resolve(), os.environ, registration=registration
+        )
         try:
             async with asyncio.timeout(120):
                 await agent.start([])
@@ -370,8 +394,14 @@ async def model_options(directory: Path) -> list[ModelOption]:
             await agent.close()
 
 
-async def command_options(directory: Path, cwd: Path, choice: AgentChoice) -> list[AgentCommand]:
-    agent = CodexAgent(directory, cwd, os.environ)
+async def command_options(
+    directory: Path,
+    cwd: Path,
+    choice: AgentChoice,
+    *,
+    registration: HarnessRegistration | None = None,
+) -> list[AgentCommand]:
+    agent = CodexAgent(directory, cwd, os.environ, registration=registration)
     try:
         async with asyncio.timeout(60):
             await agent.start([])

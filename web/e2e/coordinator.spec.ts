@@ -648,6 +648,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
             source: "project",
             default_revision: settings.revision + 1,
             override_revision: null,
+            registration: null,
           },
         };
       }
@@ -851,8 +852,10 @@ test("long project chat preserves loaded history while live pages advance", asyn
       source: "project",
       default_revision: 1,
       override_revision: null,
+      registration: null,
     },
     applied: null,
+    launch: null,
     activity: {
       revision: 1,
       supported: true,

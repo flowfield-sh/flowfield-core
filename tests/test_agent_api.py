@@ -8,6 +8,8 @@ from test_permissions import OPTIONS, pending
 
 from flowfield.api import create_app
 from flowfield.execution_models import ModelOption, QueueEdit
+from flowfield.harness_models import HarnessEdit
+from flowfield.harness_settings import HarnessSettings
 from flowfield.supervisor import Supervisor
 
 
@@ -102,7 +104,7 @@ def test_model_catalog_coalesces_caches_refreshes_and_retries(tmp_path, monkeypa
     calls = 0
     fail = False
 
-    async def discover(directory):
+    async def discover(directory, *, registration=None):
         nonlocal calls
         calls += 1
         await asyncio.sleep(0)
@@ -130,6 +132,8 @@ def test_model_catalog_coalesces_caches_refreshes_and_retries(tmp_path, monkeypa
             raise AssertionError("Discovery failure was hidden")
         fail = False
         assert await service.model_options() == first and calls == 5
+        HarnessSettings(service.workspace).edit("codex", HarnessEdit(expected_revision=1))
+        assert await service.model_options() == first and calls == 6
         await service.close()
 
     asyncio.run(exercise())

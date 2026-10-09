@@ -20,7 +20,8 @@ class FakeWorker:
     supports_activity = True
     binary = Path("/test/codex/bin/codex")
 
-    def __init__(self, directory, cwd, environment):
+    def __init__(self, directory, cwd, environment, *, registration=None):
+        self.launch = None  # Deterministic stand-in has no observed native executable.
         self.cwd = cwd
         self.cleanup_confirmed = True
         self.on_activity = None

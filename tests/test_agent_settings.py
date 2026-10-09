@@ -27,7 +27,7 @@ def test_inheritance_override_reset_and_frozen_claim(tmp_path):
     changed = settings.edit("harbor", "worker", edit(), "task-0")
     run = execution.claim("harbor", BASE, {BASE: set()})
     assert run.task_id == "task-0" and run.model == "other" and run.effort == "high"
-    assert run.agent_settings == changed.effective
+    assert run.agent_settings.model_copy(update={"registration": None}) == changed.effective
     default = execution.settings("harbor")
     execution.configure(
         "harbor",

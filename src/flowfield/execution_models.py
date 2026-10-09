@@ -5,6 +5,7 @@ from typing import Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from flowfield.agent_models import AgentChoice, EffectiveAgent
+from flowfield.harness_models import HarnessLaunch
 
 ACTIVE = ("preparing", "running", "stopping", "uncertain")
 RunStatus = Literal[
@@ -126,6 +127,8 @@ class Run(Record):
     model_config = ConfigDict(extra="ignore")
     agent_settings: EffectiveAgent | None = None
     applied_agent: AgentChoice | None = None
+    # Nonsecret observed native/bridge locations; external credentials/files are not frozen.
+    harness_launch: HarnessLaunch | None = None
     id: str
     project_id: str
     task_id: str

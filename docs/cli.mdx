@@ -176,6 +176,36 @@ flowfield harness install codex --bundle /path/to/bundle.zip --sha256 CHECKSUM
 Both commands work with the service stopped and accept `--json`. Installation preserves
 previous executable paths and does not enable queues or change project access settings.
 
+## Host harness settings
+
+With the service running, read or change its native executable and configuration directory:
+
+```sh
+flowfield harness settings codex --json
+flowfield harness configure codex --revision 1 \
+  --executable /absolute/path/to/codex \
+  --config-directory /absolute/path/to/native-config
+```
+
+Use the revision returned by settings. Each configure command replaces both overrides;
+omit both paths to restore native defaults. Paths belong to the service host. The configuration
+location is a directory (`CODEX_HOME` for Codex), not `config.toml` itself. Saved overrides
+take precedence over native environment variables; otherwise Flowfield detects the native
+installation and configuration location. No native files, accounts or credentials change.
+Installation/status still work offline; offline status uses saved executable overrides and
+the calling terminal's environment. Service settings show the service's detected locations.
+
+Host edits apply to future turns/attempts. Running work retains its saved registration and
+observed launch locations. A changed native session location requires a fresh coordinator
+session through the existing recovery flow; the saved chat remains. External native files
+and account changes remain user-owned and are not frozen by Flowfield.
+
+There is one configuration per harness kind. Claude Code paths may be saved during setup,
+but its development adapter is not available for model selection yet. Native installation,
+bridge installation, authentication and verified model access are separate facts. Detecting
+paths starts no native process; explicit readiness checks use version/login-status commands
+and never send a model prompt. Such checks cannot establish successful inference or billing.
+
 ## Automation
 
 Add `--json` to data commands for structured output. Errors go to stderr with a nonzero

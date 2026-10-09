@@ -49,6 +49,7 @@ from flowfield.coordinator_api import coordinator_router
 from flowfield.errors import ApplicationError
 from flowfield.execution_api import execution_router
 from flowfield.guidance import Guidance, GuidanceChange, GuidanceTemplates, GuidanceView, template
+from flowfield.harness_api import harness_router
 from flowfield.inspection_api import inspection_router
 from flowfield.integration_api import integration_router
 from flowfield.mcp import create_mcp
@@ -269,6 +270,7 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
     app.include_router(execution_router(supervisor))
     app.include_router(agent_router(supervisor))
     app.include_router(coordinator_router(supervisor))
+    app.include_router(harness_router(workspace, supervisor))
     app.include_router(attachment_router(workspace))
     app.include_router(integration_router(supervisor))
     app.include_router(result_router(supervisor))

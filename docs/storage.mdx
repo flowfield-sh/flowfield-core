@@ -17,9 +17,11 @@ Choose another workspace directory with `FLOWFIELD_DATA_DIR` or `flowfield --dat
 
 ## Upgrades
 
-Flowfield 0.2.0 supports schema 44. Databases from 0.1.0 and earlier development builds
-cannot be upgraded to it. Preserve the old workspace and use a separate data directory
-for a fresh start. Existing schema-44 workspaces open unchanged.
+Published Flowfield 0.2.0/0.2.1 use schema 44, the supported upgrade baseline. Current
+development builds add schema 45 for service-host harness settings while preserving
+existing Codex role choices and conversation history. Databases from 0.1.0 and earlier
+development builds cannot be upgraded. Preserve the old workspace and use a separate
+data directory for a fresh start.
 
 On startup, Flowfield upgrades supported databases automatically. Before changing an
 existing database, it saves a verified snapshot in `~/.flowfield/backups/` (or your chosen

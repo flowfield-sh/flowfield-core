@@ -115,7 +115,7 @@ def test_baseline_upgrade_preserves_approved_result_and_real_git_delivery(tmp_pa
     assert upgraded.workspace.activity("harbor", task_id="work") == activity
     assert upgraded.execution.assignment("harbor", run.id) == assignment
     backup = storage.backups(directory)[0]
-    assert backup["schema_version"] == CURRENT
+    assert backup["schema_version"] == migrations.BASELINE_VERSION
     with closing(
         storage.connect(storage.backup_path(directory, backup["id"]) / storage.DATABASE)
     ) as db:
@@ -178,7 +178,11 @@ def test_multi_step_failure_rolls_back_data_ddl_versions_and_bounds_backups(tmp_
     assert len(storage.backups(workspace.directory)) == storage.BACKUP_LIMIT
     with raw(workspace.directory) as db:
         assert storage.version(db) == CURRENT
-        assert db.execute("SELECT version FROM schema_migrations").fetchall() == []
+        assert db.execute("SELECT version FROM schema_migrations").fetchall() == [
+            (migration.version,)
+            for migration in migrations.MIGRATIONS
+            if migration.version <= CURRENT
+        ]
 
 
 def test_backup_failure_prevents_any_upgrade(tmp_path, monkeypatch):
@@ -291,7 +295,7 @@ def test_wrong_baseline_is_not_adopted(tmp_path, monkeypatch):
     later(monkeypatch, Migration(CURRENT + 1, add_column))
     with sqlite3.connect(tmp_path / storage.DATABASE) as db:
         db.execute("CREATE TABLE unrelated (value TEXT)")
-        db.execute(f"PRAGMA user_version={CURRENT}")
+        db.execute(f"PRAGMA user_version={migrations.BASELINE_VERSION}")
     with pytest.raises(ApplicationError, match="does not match"):
         Workspace(tmp_path)
     assert storage.backups(tmp_path) == []
@@ -335,7 +339,7 @@ def test_baseline_recovery_and_invalid_backup_guard(tmp_path, monkeypatch):
     with pytest.raises(ApplicationError, match="Choose a backup"):
         storage.restore(workspace.directory, "../workspace.sqlite3")
     storage.restore(workspace.directory, saved)
-    assert storage.status(workspace.directory)["schema_version"] == CURRENT
+    assert storage.status(workspace.directory)["schema_version"] == migrations.BASELINE_VERSION
     Workspace(workspace.directory)
     newest = storage.backups(workspace.directory)[0]["id"]
     target = storage.backup_path(workspace.directory, newest) / storage.DATABASE

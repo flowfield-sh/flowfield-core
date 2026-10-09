@@ -4,6 +4,7 @@ import sqlite3
 from uuid import uuid4
 
 from flowfield.activity_text import preview
+from flowfield.adapters.harness_host import same_session_location
 from flowfield.agent_settings import AgentSettings
 from flowfield.application import Workspace, now
 from flowfield.attachments import Attachments
@@ -15,6 +16,7 @@ from flowfield.coordinator_models import (
     CoordinatorTurn,
 )
 from flowfield.errors import ApplicationError
+from flowfield.harness_models import HarnessLaunch
 from flowfield.results import Results
 from flowfield.run_activity import ActivityUpdate, ContextUsage, update_activity
 
@@ -23,10 +25,12 @@ class CoordinatorStore:
     def __init__(self, workspace: Workspace):
         self.workspace = workspace
 
-    def session(self, project: str, harness: str, cwd: str) -> str | None:
+    def session(
+        self, project: str, harness: str, cwd: str, *, launch: HarnessLaunch | None = None
+    ) -> str | None:
         with self.workspace.connection() as db:
             row = db.execute(
-                "SELECT harness,session_id,cwd FROM coordinator_sessions WHERE project_id=?",
+                "SELECT harness,session_id,cwd,launch FROM coordinator_sessions WHERE project_id=?",
                 (project,),
             ).fetchone()
         if row and (row[0] != harness or row[2] != cwd):
@@ -36,6 +40,17 @@ class CoordinatorStore:
                 "Start a new session to continue here.",
                 409,
             )
+        if row and launch:
+            old = HarnessLaunch.model_validate_json(row[3]) if row[3] else None
+            if (old and not same_session_location(old, launch)) or (
+                old is None and "registration" in (launch.executable_source, launch.config_source)
+            ):
+                raise ApplicationError(
+                    "agent_resume_failed",
+                    "The native harness location or host configuration changed. "
+                    "Start a new session to continue with the saved conversation.",
+                    409,
+                )
         return row[1] if row else None
 
     @staticmethod
@@ -241,6 +256,7 @@ class CoordinatorStore:
                     "Choose a coordinator model and effort in settings first.",
                     409,
                 )
+            settings = AgentSettings(self.workspace).freeze(db, settings)
             turn = CoordinatorTurn(
                 task_context=CoordinatorTaskContext(
                     task_id=task.id,

@@ -12,6 +12,7 @@ from flowfield.activity_text import retain
 from flowfield.adapters.acp_permissions import permission_handler
 from flowfield.adapters.agent_mcp import serve_scope
 from flowfield.adapters.codex_agent import CodexAgent, command_options
+from flowfield.adapters.harness_host import resolve
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_models import AgentCommand
 from flowfield.agent_settings import AgentSettings
@@ -20,6 +21,7 @@ from flowfield.attachments import Attachments
 from flowfield.coordinator_models import CoordinatorSend, CoordinatorTurn
 from flowfield.coordinator_store import CoordinatorStore
 from flowfield.errors import ApplicationError
+from flowfield.harness_settings import HarnessSettings
 from flowfield.reads import size
 from flowfield.run_activity import ActivityRecorder, ActivityUpdate
 
@@ -90,7 +92,10 @@ class Coordinator:
                 "coordinator_settings", "Choose coordinator settings first.", 409
             )
         choice = settings.effective.choice
-        signature = cwd + choice.model_dump_json()
+        registration = HarnessSettings(workspace).get(choice.harness)
+        signature = (
+            cwd + choice.model_dump_json() + resolve(registration, os.environ).model_dump_json()
+        )
         clock = asyncio.get_running_loop().time()
         cached = self.command_jobs.get(project)
         if cached and not cached[2].done():
@@ -111,7 +116,9 @@ class Coordinator:
                 break
             if self.command_jobs[key][2].done():
                 del self.command_jobs[key]
-        job = asyncio.create_task(command_options(workspace.directory, Path(cwd), choice))
+        job = asyncio.create_task(
+            command_options(workspace.directory, Path(cwd), choice, registration=registration)
+        )
         self.command_jobs[project] = (clock, signature, job)
         return await asyncio.shield(job)
 
@@ -193,9 +200,6 @@ class Coordinator:
         notice = ""
         try:
             project = workspace.project(turn.project_id)
-            session_id = self.store.session(
-                turn.project_id, turn.settings.choice.harness, project.path
-            )
             grant = await coordinator_scope(
                 self.supervisor, turn.project_id, author=f"coordinator:{turn.id}"
             )
@@ -208,13 +212,25 @@ class Coordinator:
                     environment = LocalHost(os.environ).launch_environment(
                         Path(project.path), Path(temporary.name)
                     )
-                    client = CodexAgent(workspace.directory, Path(project.path), environment)
+                    client = CodexAgent(
+                        workspace.directory,
+                        Path(project.path),
+                        environment,
+                        registration=turn.settings.registration,
+                    )
+                    session_id = self.store.session(
+                        turn.project_id,
+                        turn.settings.choice.harness,
+                        project.path,
+                        launch=client.launch,
+                    )
                     with workspace.connection(write=True, project_id=turn.project_id) as db:
                         current = self.store._get(db, turn.project_id, turn.id)
                         if current.status != "starting":
                             status = "stopped"
                             return
                         current.native_started = True
+                        current.launch = client.launch
                         self.store._save(db, current)
                     await client.start([server], resume=session_id, persistent=True)
                     applied = await client.configure(turn.settings.choice)
@@ -236,15 +252,22 @@ class Coordinator:
                         current.applied = turn.settings.model_copy(update={"choice": applied})
                         if not native_command:
                             db.execute(
-                                "INSERT INTO coordinator_sessions VALUES (?,?,?,?) "
+                                "INSERT INTO coordinator_sessions VALUES (?,?,?,?,?) "
                                 "ON CONFLICT(project_id) DO NOTHING",
                                 (
                                     turn.project_id,
                                     turn.settings.choice.harness,
                                     client.session.session_id,
                                     project.path,
+                                    client.launch.model_dump_json() if client.launch else None,
                                 ),
                             )
+                            if client.launch:
+                                db.execute(
+                                    "UPDATE coordinator_sessions SET launch=? WHERE project_id=? "
+                                    "AND launch IS NULL",
+                                    (client.launch.model_dump_json(), turn.project_id),
+                                )
                         self.store._save(db, current)
                     prompt = native_command or self._prompt(
                         turn, server.name, resumed=session_id is not None

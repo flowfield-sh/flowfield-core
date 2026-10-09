@@ -1447,6 +1447,58 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/harnesses": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Harnesses */
+    get: operations["harnesses_api_harnesses_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/harnesses/{harness}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Harness */
+    get: operations["harness_api_harnesses__harness__get"];
+    /** Edit */
+    put: operations["edit_api_harnesses__harness__put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/harnesses/{harness}/check": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Native Check */
+    post: operations["native_check_api_harnesses__harness__check_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/projects/{project_id}/attachments": {
     parameters: {
       query?: never;
@@ -2427,6 +2479,7 @@ export interface components {
         | "uncertain";
       settings: components["schemas"]["EffectiveAgent"];
       applied: components["schemas"]["EffectiveAgent"] | null;
+      launch: components["schemas"]["HarnessLaunch"] | null;
       activity: components["schemas"]["RunActivityPage"];
       /**
        * Notice
@@ -2480,6 +2533,7 @@ export interface components {
       default_revision: number;
       /** Override Revision */
       override_revision: number | null;
+      registration: components["schemas"]["HarnessRegistration"] | null;
     };
     /** ExecutionItem */
     ExecutionItem: {
@@ -2600,6 +2654,94 @@ export interface components {
     HTTPValidationError: {
       /** Detail */
       detail?: components["schemas"]["ValidationError"][];
+    };
+    /** HarnessEdit */
+    HarnessEdit: {
+      /** Executable */
+      executable?: string | null;
+      /** Config Directory */
+      config_directory?: string | null;
+      /** Expected Revision */
+      expected_revision: number;
+    };
+    /** HarnessLaunch */
+    HarnessLaunch: {
+      /**
+       * Harness
+       * @enum {string}
+       */
+      harness: "codex" | "claude-code";
+      /** Registration Revision */
+      registration_revision: number;
+      /** Native Executable */
+      native_executable: string | null;
+      /**
+       * Executable Source
+       * @enum {string}
+       */
+      executable_source: "registration" | "environment" | "path";
+      /** Config Directory */
+      config_directory: string;
+      /**
+       * Config Source
+       * @enum {string}
+       */
+      config_source: "registration" | "environment" | "default";
+      /** Bridge Executable */
+      bridge_executable: string | null;
+      /** Bridge Version */
+      bridge_version: string | null;
+    };
+    /** HarnessRegistration */
+    HarnessRegistration: {
+      /** Executable */
+      executable: string | null;
+      /** Config Directory */
+      config_directory: string | null;
+      /**
+       * Harness
+       * @enum {string}
+       */
+      harness: "codex" | "claude-code";
+      /**
+       * Revision
+       * @default 1
+       */
+      revision: number;
+    };
+    /** HarnessStatus */
+    HarnessStatus: {
+      registration: components["schemas"]["HarnessRegistration"];
+      launch: components["schemas"]["HarnessLaunch"];
+      /** Native Installed */
+      native_installed: boolean;
+      /** Config Available */
+      config_available: boolean;
+      /** Bridge Installed */
+      bridge_installed: boolean;
+      /** Selectable */
+      selectable: boolean;
+      /**
+       * Authentication
+       * @default unknown
+       * @enum {string}
+       */
+      authentication: "unknown" | "authenticated" | "signed-out";
+      /**
+       * Model Access
+       * @default unverified
+       * @constant
+       */
+      model_access: "unverified";
+      /** Native Version */
+      native_version: string | null;
+      /**
+       * Checked
+       * @default false
+       */
+      checked: boolean;
+      /** Problems */
+      problems: string[];
     };
     /** Health */
     Health: {
@@ -3687,6 +3829,7 @@ export interface components {
     Run: {
       agent_settings: components["schemas"]["EffectiveAgent"] | null;
       applied_agent: components["schemas"]["AgentChoice-Output"] | null;
+      harness_launch: components["schemas"]["HarnessLaunch"] | null;
       /** Id */
       id: string;
       /** Project Id */
@@ -8075,6 +8218,123 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AgentSettingsView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  harnesses_api_harnesses_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HarnessStatus"][];
+        };
+      };
+    };
+  };
+  harness_api_harnesses__harness__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        harness: "codex" | "claude-code";
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HarnessStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  edit_api_harnesses__harness__put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        harness: "codex" | "claude-code";
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["HarnessEdit"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HarnessRegistration"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  native_check_api_harnesses__harness__check_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        harness: "codex" | "claude-code";
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HarnessStatus"];
         };
       };
       /** @description Validation Error */

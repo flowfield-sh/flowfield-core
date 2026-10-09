@@ -32,6 +32,7 @@ def configured(tmp_path, monkeypatch, *, count=1, scenario="normal", flags=()):
     git(repo, "add", ".")
     git(repo, "-c", "user.name=Test", "-c", "user.email=test@invalid", "commit", "-m", "base")
     monkeypatch.setenv("FLOWFIELD_TEST_SCENARIO", scenario)
+    monkeypatch.setenv("CODEX_PATH", sys.executable)  # Native discovery remains model-free in CI.
     monkeypatch.setenv("FLOWFIELD_TEST_SECRET", "do-not-persist-host-secrets")
     monkeypatch.setattr(
         "flowfield.adapters.codex_agent.command",

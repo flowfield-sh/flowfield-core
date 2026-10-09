@@ -1,0 +1,521 @@
+"""Host registration, frozen launches and supported-state upgrades; no live models."""
+
+import asyncio
+import json
+import sys
+from dataclasses import replace
+
+import httpx
+import pytest
+from pydantic import ValidationError
+from test_codex_install import bundle
+from test_coordinator import message, settled, setup
+from test_execution import BASE, fixture
+from typer.testing import CliRunner
+
+from flowfield import migrations, storage
+from flowfield.adapters import codex_install, harness_host
+from flowfield.adapters.codex_agent import CodexAgent
+from flowfield.agent_models import AgentChoice, AgentSettingsEdit
+from flowfield.agent_settings import AgentSettings
+from flowfield.api import create_app
+from flowfield.application import Workspace
+from flowfield.cli import app as cli
+from flowfield.client import Client
+from flowfield.coordinator_models import CoordinatorSend
+from flowfield.coordinator_store import CoordinatorStore
+from flowfield.errors import ApplicationError
+from flowfield.harness_models import HarnessEdit, HarnessRegistration
+from flowfield.harness_settings import HarnessSettings, offline_registration
+
+
+def native(tmp_path, harness="claude-code", *, logged_in=True):
+    path = tmp_path / "native harness"
+    log = tmp_path / "native-calls.jsonl"
+    login_text = "Logged in using ChatGPT" if logged_in else "Not logged in"
+    auth = {
+        "loggedIn": logged_in,
+        "email": "native-private-value",
+        "apiKey": "native-private-value",
+    }
+    path.write_text(
+        f"#!{sys.executable}\n"
+        "import json, sys\nfrom pathlib import Path\n"
+        f"with Path({str(log)!r}).open('a') as stream:\n"
+        "    stream.write(json.dumps(sys.argv[1:])+'\\n')\n"
+        "if sys.argv[1:] == ['--version']:\n"
+        f"    print({'codex-cli 0.155.1' if harness == 'codex' else '2.1.295 (Claude Code)'!r})\n"
+        "else:\n"
+        + (
+            f"    print({login_text!r}, file=sys.stderr)\n    sys.exit({0 if logged_in else 1})\n"
+            if harness == "codex"
+            else f"    print(json.dumps({auth!r}))\n"
+        )
+    )
+    path.chmod(0o755)
+    return path, log
+
+
+def test_one_registration_per_kind_conflicts_reset_and_no_native_writes(tmp_path):
+    workspace = Workspace(tmp_path / "state")
+    settings = HarnessSettings(workspace)
+    initial = settings.all()
+    assert [item.harness for item in initial] == ["codex", "claude-code"]
+    missing = tmp_path / "not-created"
+    saved = settings.edit(
+        "claude-code", HarnessEdit(expected_revision=1, config_directory=str(missing))
+    )
+    assert saved.revision == 2 and not missing.exists()
+    with pytest.raises(ApplicationError, match="stale"):
+        settings.edit("claude-code", HarnessEdit(expected_revision=1))
+    reset = settings.edit("claude-code", HarnessEdit(expected_revision=2))
+    assert reset.revision == 3 and reset.executable is None and reset.config_directory is None
+    assert settings.get("codex") == initial[0]
+    assert len(HarnessSettings(Workspace(workspace.directory)).all()) == 2
+    for field in ("account", "api_key", "name", "enabled"):
+        with pytest.raises(ValidationError):
+            HarnessEdit(expected_revision=3, **{field: "not-owned"})
+    for path in ("relative/config.toml", "~flowfield-invalid-host-user/config"):
+        with pytest.raises(ValidationError):
+            HarnessEdit(expected_revision=3, config_directory=path)
+
+
+def test_native_precedence_resolved_launch_and_config_semantics(tmp_path):
+    detected, _ = native(tmp_path)
+    config = tmp_path / "configuration"
+    config.mkdir()
+    registration = HarnessRegistration(
+        harness="claude-code", executable=str(detected), config_directory=str(config), revision=7
+    )
+    environment = {
+        "PATH": "",
+        "HOME": str(tmp_path),
+        "CLAUDE_CODE_EXECUTABLE": "/missing",
+        "CLAUDE_CONFIG_DIR": "/missing",
+        "NATIVE_SECRET": "preserved",
+    }
+    launch = harness_host.resolve(registration, environment)
+    assert launch.registration_revision == 7
+    assert launch.executable_source == launch.config_source == "registration"
+    env = harness_host.launch_environment(launch, environment)
+    assert env["CLAUDE_CODE_EXECUTABLE"] == str(detected)
+    assert env["CLAUDE_CONFIG_DIR"] == str(config)
+    assert env["NATIVE_SECRET"] == "preserved" and environment["CLAUDE_CONFIG_DIR"] == "/missing"
+    assert "preserved" not in launch.model_dump_json()
+    config.rmdir()
+    with pytest.raises(ApplicationError, match="existing directory"):
+        harness_host.launch_environment(launch, environment)
+    config.write_text("native file")
+    assert not harness_host.status(tmp_path, registration, environment).config_available
+    defaults = harness_host.resolve(
+        HarnessRegistration(harness="codex"),
+        {"HOME": str(tmp_path), "PATH": "", "CODEX_PATH": str(detected)},
+    )
+    assert defaults.executable_source == "environment" and defaults.config_source == "default"
+    assert defaults.config_directory == str(tmp_path / ".codex")
+    # Bad native env for one kind cannot prevent detecting the other kind.
+    invalid = harness_host.status(
+        tmp_path,
+        HarnessRegistration(harness="claude-code"),
+        {"HOME": str(tmp_path), "CLAUDE_CONFIG_DIR": "relative"},
+    )
+    assert not invalid.config_available and not invalid.selectable
+
+
+@pytest.mark.parametrize("harness", ["codex", "claude-code"])
+@pytest.mark.parametrize("logged_in", [True, False])
+def test_explicit_readiness_uses_only_bounded_native_status_and_no_sensitive_output(
+    tmp_path, harness, logged_in
+):
+    executable, log = native(tmp_path, harness, logged_in=logged_in)
+    registration = HarnessRegistration(harness=harness, executable=str(executable))
+    env = {"HOME": str(tmp_path), "PATH": ""}
+    detected = harness_host.status(tmp_path, registration, env)
+    assert not log.exists() and detected.authentication == "unknown"
+    checked = asyncio.run(harness_host.check(tmp_path, registration, env))
+    assert checked.native_version == ("0.155.1" if harness == "codex" else "2.1.295")
+    assert checked.authentication == ("authenticated" if logged_in else "signed-out")
+    assert checked.model_access == "unverified" and not checked.bridge_installed
+    assert "native-private-value" not in checked.model_dump_json()
+    assert [json.loads(line) for line in log.read_text().splitlines()] == [
+        ["--version"],
+        ["login", "status"] if harness == "codex" else ["auth", "status", "--json"],
+    ]
+    assert not (tmp_path / ".claude").exists() and not (tmp_path / ".codex").exists()
+
+
+def test_native_check_failure_discards_output_and_terminates_owned_process(tmp_path):
+    executable, _ = native(tmp_path)
+    executable.write_text(
+        f"#!{sys.executable}\nimport sys\nprint('native-private-value' * 20000)\n"
+    )
+    checked = asyncio.run(
+        harness_host.check(
+            tmp_path,
+            HarnessRegistration(harness="claude-code", executable=str(executable)),
+            {"HOME": str(tmp_path), "PATH": ""},
+        )
+    )
+    assert checked.authentication == "unknown" and "native_check_failed" in checked.problems
+    assert "native-private-value" not in checked.model_dump_json()
+
+
+def test_cancelled_native_check_retains_process_owner_and_drains_pipes(tmp_path, monkeypatch):
+    async def exercise():
+        owners = []
+        original = harness_host.LocalProcess.start
+        started = asyncio.Event()
+
+        async def spawn(*args, **kwargs):
+            owner = await original(*args, **kwargs)
+            owners.append(owner)
+            started.set()
+            return owner
+
+        monkeypatch.setattr(harness_host.LocalProcess, "start", spawn)
+        task = asyncio.create_task(
+            harness_host._native_command(
+                [sys.executable, "-c", "import time; time.sleep(30)"], tmp_path, {}
+            )
+        )
+        await started.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert owners[0].process.returncode is not None
+        assert not owners[0]._group_exists()
+
+    asyncio.run(exercise())
+
+
+def test_checks_coalesce_remain_owned_after_request_cancel_and_reject_changed_snapshot(
+    tmp_path, monkeypatch
+):
+    async def exercise():
+        entered, release = asyncio.Event(), asyncio.Event()
+        calls = 0
+
+        async def check(directory, registration, environment):
+            nonlocal calls
+            calls += 1
+            entered.set()
+            await release.wait()
+            return harness_host.status(directory, registration, environment)
+
+        monkeypatch.setattr(harness_host, "check", check)
+        owner = harness_host.HarnessChecks(tmp_path)
+        registration = HarnessRegistration(harness="claude-code")
+        env = {"HOME": str(tmp_path), "PATH": ""}
+        first = asyncio.create_task(owner.run(registration, env))
+        await entered.wait()
+        second = asyncio.create_task(owner.run(registration, env))
+        await asyncio.sleep(0)
+        first.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+        assert not owner.jobs["claude-code"][1].done() and calls == 1
+        with pytest.raises(ApplicationError, match="changed"):
+            await owner.run(registration.model_copy(update={"revision": 2}), env)
+        release.set()
+        assert (await second).registration.revision == 1
+        await owner.run(registration, env)
+        assert calls == 2  # Every explicit refresh after completion checks again.
+        await owner.close()
+        with pytest.raises(ApplicationError, match="stopping"):
+            await owner.run(registration, env)
+
+    asyncio.run(exercise())
+
+
+def test_worker_and_coordinator_freeze_registration_before_edits(tmp_path):
+    execution = fixture(tmp_path)
+    workspace = execution.workspace
+    settings = HarnessSettings(workspace)
+    old = settings.edit(
+        "codex", HarnessEdit(expected_revision=1, executable=str(tmp_path / "old-codex"))
+    )
+    run = execution.claim("harbor", BASE, {BASE: set()})
+    AgentSettings(workspace).edit(
+        "harbor",
+        "coordinator",
+        AgentSettingsEdit(
+            expected_revision=1, selection=AgentChoice(model="native-model", effort="low")
+        ),
+    )
+    store = CoordinatorStore(workspace)
+    conversation = store.new("harbor")
+    turn, _ = store.reserve(
+        "harbor", conversation.id, CoordinatorSend(id="a" * 32, text="Keep this requirement")
+    )
+    settings.edit("codex", HarnessEdit(expected_revision=2, executable=str(tmp_path / "new-codex")))
+    assert execution.get("harbor", run.id).agent_settings.registration == old
+    assert store.get("harbor", turn.id).settings.registration == old
+
+
+def test_codex_override_launch_is_frozen_and_saved_session_rejects_redirect(tmp_path):
+    package, checksum = bundle(tmp_path)
+    workspace = fixture(tmp_path).workspace
+    codex_install.install(workspace.directory, package, checksum)
+    executable, _ = native(tmp_path, "codex")
+    config = tmp_path / "native-config"
+    config.mkdir()
+    registration = HarnessRegistration(
+        harness="codex", executable=str(executable), config_directory=str(config), revision=2
+    )
+    agent = CodexAgent(
+        workspace.directory,
+        tmp_path,
+        {"PATH": "", "HOME": str(tmp_path)},
+        registration=registration,
+    )
+    assert agent.environment["CODEX_PATH"] == str(executable) and agent.environment[
+        "CODEX_HOME"
+    ] == str(config)
+    assert (
+        agent.launch.registration_revision == 2
+        and agent.launch.bridge_executable == agent.command[0]
+    )
+    with workspace.connection(write=True) as db:
+        db.execute(
+            "INSERT INTO coordinator_sessions VALUES (?,?,?,?,?)",
+            ("harbor", "codex", "native-id", str(tmp_path), agent.launch.model_dump_json()),
+        )
+    store = CoordinatorStore(workspace)
+    assert store.session("harbor", "codex", str(tmp_path), launch=agent.launch) == "native-id"
+    assert (
+        store.session(
+            "harbor",
+            "codex",
+            str(tmp_path),
+            launch=agent.launch.model_copy(update={"registration_revision": 3}),
+        )
+        == "native-id"
+    )
+    for changed in (
+        agent.launch.model_copy(update={"native_executable": str(tmp_path / "other-native")}),
+        agent.launch.model_copy(update={"config_directory": str(tmp_path / "elsewhere")}),
+    ):
+        with pytest.raises(ApplicationError, match="configuration changed"):
+            store.session("harbor", "codex", str(tmp_path), launch=changed)
+
+
+def test_coordinator_config_path_change_requires_fresh_recovery_and_preserves_chat(
+    tmp_path, monkeypatch
+):
+    service, conversation = setup(tmp_path, monkeypatch)
+    store = service.coordinator.store
+    config = tmp_path / "new-config"
+    config.mkdir()
+
+    async def exercise():
+        try:
+            first = await settled(
+                service, service.coordinator.send("harbor", conversation.id, message())
+            )
+            assert first.status == "completed" and first.launch.registration_revision == 1
+            HarnessSettings(service.workspace).edit("codex", HarnessEdit(expected_revision=1))
+            unchanged = await settled(
+                service,
+                service.coordinator.send("harbor", conversation.id, message("Check continuity")),
+            )
+            assert unchanged.status == "completed" and unchanged.session == "resumed"
+            assert unchanged.launch.registration_revision == 2
+            HarnessSettings(service.workspace).edit(
+                "codex", HarnessEdit(expected_revision=2, config_directory=str(config))
+            )
+            failed = await settled(
+                service,
+                service.coordinator.send(
+                    "harbor", conversation.id, message("Continue with the new configuration")
+                ),
+            )
+            assert failed.status == "failed" and failed.session == "unavailable"
+            assert not failed.native_started and failed.applied is None
+            assert store.page("harbor").session_recovery_turn_id == failed.id
+            assert store.session("harbor", "codex", str(tmp_path / "harbor")) == "test-session"
+            store.reset_session("harbor", failed.id)
+            recovered = await settled(
+                service,
+                service.coordinator.send(
+                    "harbor", conversation.id, message("Continue from the saved chat")
+                ),
+            )
+            assert recovered.status == "completed" and recovered.session == "new"
+            assert recovered.launch.registration_revision == 3
+            assert recovered.launch.config_directory == str(config)
+            assert [turn.id for turn in store.page("harbor").items] == [
+                first.id,
+                unchanged.id,
+                failed.id,
+                recovered.id,
+            ]
+        finally:
+            await service.close()
+
+    asyncio.run(exercise())
+
+
+def test_schema_44_upgrade_preserves_choices_and_recovery_and_is_database_only(
+    tmp_path, monkeypatch
+):
+    with monkeypatch.context() as baseline:
+        baseline.setattr(migrations, "MIGRATIONS", ())
+        execution = fixture(tmp_path)
+        workspace = execution.workspace
+        AgentSettings(workspace).edit(
+            "harbor",
+            "coordinator",
+            AgentSettingsEdit(
+                expected_revision=1, selection=AgentChoice(model="saved-model", effort="high")
+            ),
+        )
+        before = AgentSettings(workspace).get("harbor", "coordinator")
+        with workspace.connection(write=True) as db:
+            db.execute(
+                "INSERT INTO coordinator_sessions VALUES (?,?,?,?)",
+                ("harbor", "codex", "old-session", str(tmp_path)),
+            )
+    # The actual migration cannot inspect host paths, executables or native accounts.
+    monkeypatch.setattr(
+        harness_host, "resolve", lambda *args: pytest.fail("native detection during migration")
+    )
+    upgraded = Workspace(workspace.directory)
+    assert upgraded.schema_version == 45
+    assert AgentSettings(upgraded).get("harbor", "coordinator") == before
+    assert len(HarnessSettings(upgraded).all()) == 2
+    assert CoordinatorStore(upgraded).session("harbor", "codex", str(tmp_path)) == "old-session"
+    backup = storage.backups(upgraded.directory)[0]
+    assert backup["schema_version"] == 44
+    storage.restore(upgraded.directory, backup["id"])
+    assert storage.status(upgraded.directory)["schema_version"] == 44
+    assert Workspace(upgraded.directory).schema_version == 45
+
+
+def test_real_registration_migration_failure_rolls_back_new_table_and_binding_column(
+    tmp_path, monkeypatch
+):
+    with monkeypatch.context() as baseline:
+        baseline.setattr(migrations, "MIGRATIONS", ())
+        workspace = Workspace(tmp_path / "state")
+    original = migrations.MIGRATIONS[0]
+
+    def fail(db):
+        original.apply(db)
+        raise RuntimeError("after real registration DDL")
+
+    monkeypatch.setattr(migrations, "MIGRATIONS", (replace(original, apply=fail),))
+    with pytest.raises(ApplicationError, match="rolled back"):
+        Workspace(workspace.directory)
+    with storage.connect(workspace.database) as db:
+        assert storage.version(db) == 44
+        assert (
+            db.execute("SELECT name FROM sqlite_master WHERE name='harness_settings'").fetchone()
+            is None
+        )
+        assert [row[1] for row in db.execute("PRAGMA table_info(coordinator_sessions)")] == [
+            "project_id",
+            "harness",
+            "session_id",
+            "cwd",
+        ]
+    monkeypatch.setattr(migrations, "MIGRATIONS", (original,))
+    assert Workspace(workspace.directory).schema_version == 45
+
+
+def test_http_host_settings_are_independent_and_do_not_start_models(tmp_path, monkeypatch):
+    monkeypatch.setenv("FLOWFIELD_UPDATE_CHECKS", "0")
+    monkeypatch.setenv("PATH", "")
+    app = create_app(data_dir=tmp_path / "state")
+
+    async def exercise():
+        async with app.router.lifespan_context(app):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1"
+            ) as client:
+                statuses = (await client.get("/api/harnesses")).json()
+                assert [item["registration"]["harness"] for item in statuses] == [
+                    "codex",
+                    "claude-code",
+                ]
+                saved = await client.put(
+                    "/api/harnesses/claude-code",
+                    json={"expected_revision": 1, "executable": str(tmp_path / "claude")},
+                )
+                assert saved.status_code == 200 and saved.json()["revision"] == 2
+                assert (
+                    await client.put("/api/harnesses/claude-code", json={"expected_revision": 1})
+                ).status_code == 409
+                assert (
+                    await client.put(
+                        "/api/harnesses/codex",
+                        json={"expected_revision": 1, "account": "not-owned"},
+                    )
+                ).status_code == 422
+                assert (await client.get("/api/harnesses/codex")).json()["registration"][
+                    "revision"
+                ] == 1
+                checked = (await client.post("/api/harnesses/claude-code/check")).json()
+                assert (
+                    checked["checked"]
+                    and checked["authentication"] == "unknown"
+                    and checked["model_access"] == "unverified"
+                )
+                assert app.state.supervisor.catalog_job is None and not app.state.supervisor.jobs
+
+    asyncio.run(exercise())
+
+
+def test_offline_status_respects_saved_override_without_initializing_missing_state(
+    tmp_path, monkeypatch
+):
+    missing = tmp_path / "missing"
+    assert offline_registration(missing, "codex").revision == 1 and not missing.exists()
+    workspace = Workspace(tmp_path / "state")
+    executable, log = native(tmp_path, "codex")
+    saved = HarnessSettings(workspace).edit(
+        "codex", HarnessEdit(expected_revision=1, executable=str(executable))
+    )
+    package, checksum = bundle(tmp_path)
+    codex_install.install(workspace.directory, package, checksum)
+    monkeypatch.setenv("PATH", "")
+    result = CliRunner().invoke(
+        cli, ["--data-dir", str(workspace.directory), "harness", "status", "codex", "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    status = json.loads(result.stdout)
+    assert status["registration"] == saved.model_dump() and status["codex"] == str(executable)
+    assert not log.exists() and storage.backups(workspace.directory) == []
+
+
+def test_cli_host_configuration_targets_service_and_reset_is_revisioned(monkeypatch):
+    calls = []
+
+    def request(self, method, path, body=None):
+        calls.append((method, path, body))
+        return {"revision": 2}
+
+    monkeypatch.setattr(Client, "request", request)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "harness",
+            "configure",
+            "claude-code",
+            "--revision",
+            "1",
+            "--config-directory",
+            "/host/native-config",
+            "--json",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert calls[-1] == (
+        "PUT",
+        "harnesses/claude-code",
+        {"expected_revision": 1, "executable": None, "config_directory": "/host/native-config"},
+    )
+    result = runner.invoke(cli, ["harness", "configure", "codex", "--revision", "2", "--json"])
+    assert result.exit_code == 0 and calls[-1][2]["config_directory"] is None
+    result = runner.invoke(cli, ["harness", "settings", "codex", "--json"])
+    assert result.exit_code == 0 and calls[-1][:2] == ("GET", "harnesses/codex")

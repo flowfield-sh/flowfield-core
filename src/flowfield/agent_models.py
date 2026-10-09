@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from flowfield.harness_models import HarnessRegistration
+
 
 class AgentRecord(BaseModel):
     model_config = ConfigDict(extra="forbid", json_schema_serialization_defaults_required=True)
@@ -22,6 +24,7 @@ class EffectiveAgent(AgentRecord):
     source: Literal["project", "override"]
     default_revision: int
     override_revision: int | None = None
+    registration: HarnessRegistration | None = None
 
 
 class AgentSettingsView(AgentRecord):

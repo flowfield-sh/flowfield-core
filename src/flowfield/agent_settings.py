@@ -12,6 +12,7 @@ from flowfield.agent_models import (
 from flowfield.application import Workspace
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import WorkerSettings
+from flowfield.harness_settings import HarnessSettings
 
 
 class AgentSettings:
@@ -78,6 +79,13 @@ class AgentSettings:
     def get(self, project: str, role: AgentRole, scope: str = "") -> AgentSettingsView:
         with self.workspace.connection() as db:
             return self.resolve(db, project, role, scope)
+
+    def freeze(self, db: sqlite3.Connection, effective: EffectiveAgent) -> EffectiveAgent:
+        if self.workspace.schema_version < 45:
+            return effective  # Frozen schema-44 fixture construction for migration evidence.
+        return effective.model_copy(
+            update={"registration": HarnessSettings.read(db, effective.choice.harness)}
+        )
 
     def edit(
         self, project: str, role: AgentRole, request: AgentSettingsEdit, scope: str = ""

@@ -23,6 +23,7 @@ from flowfield.execution_models import (
     WorkerResult,
     WorkerSettings,
 )
+from flowfield.harness_models import HarnessLaunch
 from flowfield.publication import stages_need_reconciliation
 from flowfield.questions import Question, QuestionCreate, Questions
 
@@ -409,6 +410,7 @@ class Execution:
                     .effective
                 )
                 assert effective
+                effective = AgentSettings(self.workspace).freeze(db, effective)
                 run = Run(
                     id=uuid4().hex,
                     project_id=project_id,
@@ -649,7 +651,12 @@ class Execution:
             return question
 
     def started(
-        self, project_id: str, run_id: str, *, applied_agent: AgentChoice | None = None
+        self,
+        project_id: str,
+        run_id: str,
+        *,
+        applied_agent: AgentChoice | None = None,
+        harness_launch: HarnessLaunch | None = None,
     ) -> Run:
         with self.workspace.connection(write=True, project_id=project_id) as db:
             run = self._run(db, project_id, run_id)
@@ -658,6 +665,7 @@ class Execution:
             task = self.workspace._task(db, project_id, run.task_id)
             self._current_assignment(run, task)
             run.applied_agent = applied_agent
+            run.harness_launch = harness_launch
             run.status, run.started_at = "running", now()
             self._save(db, run)
             return run

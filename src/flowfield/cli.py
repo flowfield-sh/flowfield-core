@@ -145,13 +145,65 @@ def harness_install(
 def harness_status(ctx: typer.Context, harness: str, json_output: Json = False) -> None:
     """Check the installed runtime and Codex path without starting an agent."""
     from flowfield.adapters import codex_install
+    from flowfield.harness_settings import offline_registration
 
     def run() -> dict[str, Any]:
         if harness != "codex":
             raise ApplicationError("unsupported_harness", "Only codex installation is supported.")
-        return codex_install.status(ctx.obj.directory, os.environ)
+        registration = offline_registration(ctx.obj.directory, "codex")
+        environment = dict(os.environ)
+        if registration.executable:
+            environment["CODEX_PATH"] = registration.executable
+        value = codex_install.status(ctx.obj.directory, environment)
+        value["registration"] = registration.model_dump()
+        return value
 
     output(run, json_output, lambda value: typer.echo(value["message"]))
+
+
+@harness_app.command("settings")
+def harness_settings(ctx: typer.Context, harness: str, json_output: Json = False) -> None:
+    """Read service-host paths and readiness from the running service."""
+    from flowfield.harness_settings import KINDS
+
+    def run() -> Any:
+        if harness not in KINDS:
+            raise ApplicationError("unsupported_harness", "This harness is not supported.")
+        return ctx.obj.request("GET", "harnesses/" + harness)
+
+    output(run, json_output)
+
+
+@harness_app.command("configure")
+def harness_configure(
+    ctx: typer.Context,
+    harness: str,
+    revision: Annotated[int, typer.Option("--revision", min=1)],
+    executable: Annotated[
+        str | None, typer.Option(help="Absolute native executable on the service host.")
+    ] = None,
+    config_directory: Annotated[
+        str | None, typer.Option(help="Native configuration directory, not a config file.")
+    ] = None,
+    json_output: Json = False,
+) -> None:
+    """Save host overrides; omitting both paths restores native defaults. No native files change."""
+    from flowfield.harness_settings import KINDS
+
+    def run() -> Any:
+        if harness not in KINDS:
+            raise ApplicationError("unsupported_harness", "This harness is not supported.")
+        return ctx.obj.request(
+            "PUT",
+            "harnesses/" + harness,
+            {
+                "expected_revision": revision,
+                "executable": executable,
+                "config_directory": config_directory,
+            },
+        )
+
+    output(run, json_output)
 
 
 @integration_app.command()
