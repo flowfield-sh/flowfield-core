@@ -34,6 +34,7 @@ from flowfield.execution_models import (
     WorkerResult,
     WorkerSettings,
 )
+from flowfield.harness_installs import HarnessInstalls
 from flowfield.harness_models import HarnessKind
 from flowfield.harness_settings import HarnessSettings
 from flowfield.integration import Integrations
@@ -63,6 +64,7 @@ class Supervisor:
         self.clients: dict[str, AcpAgent] = {}
         self.permissions = Permissions(workspace)
         self.harness_checks = HarnessChecks(workspace.directory)
+        self.harness_installs = HarnessInstalls(workspace.directory)
         from flowfield.coordinator import Coordinator
 
         self.coordinator = Coordinator(self)
@@ -601,6 +603,7 @@ class Supervisor:
 
     async def close(self) -> None:
         self.closing = True
+        install_close = asyncio.create_task(self.harness_installs.close())
         await self.harness_checks.close()
         await self.coordinator.close()
         self.permissions.close()
@@ -620,6 +623,7 @@ class Supervisor:
             await asyncio.gather(*list(self.jobs.values()), return_exceptions=True)
         if self.delivery_jobs:
             await asyncio.gather(*list(self.delivery_jobs.values()), return_exceptions=True)
+        await install_close
         if self.lock:
             self.lock.close()
             self.lock = None

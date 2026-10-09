@@ -36,7 +36,7 @@ export function DetailHeading({
   metadata?: ReactNode;
   children?: ReactNode;
   entry?: boolean;
-  titleAs?: "div" | "h3";
+  titleAs?: "div" | "h2" | "h3";
   inlineMetadata?: boolean;
 }) {
   const Title = titleAs;

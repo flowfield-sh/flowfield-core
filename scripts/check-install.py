@@ -196,6 +196,7 @@ def main() -> None:
                         assert json.loads(read("/api/projects")) == []
                         page = read("/").decode()
                         assert "Flowfield" in page
+                        assert read("/settings/harnesses").decode() == page
                         assets = re.findall(r'(?:src|href)="(/assets/[^\"]+)"', page)
                         assert any(asset.endswith(".js") for asset in assets)
                         assert any(asset.endswith(".css") for asset in assets)

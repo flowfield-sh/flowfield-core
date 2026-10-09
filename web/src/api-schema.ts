@@ -1499,6 +1499,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/harnesses/{harness}/install": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Install */
+    post: operations["install_api_harnesses__harness__install_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/harnesses/{harness}/catalog/confirm-stopped": {
     parameters: {
       query?: never;
@@ -2791,6 +2808,11 @@ export interface components {
       /** Problems */
       problems: string[];
       catalog_ownership: components["schemas"]["CatalogOwnership"] | null;
+      /**
+       * Installing
+       * @default false
+       */
+      installing: boolean;
     };
     /** Health */
     Health: {
@@ -8359,6 +8381,37 @@ export interface operations {
     };
   };
   native_check_api_harnesses__harness__check_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        harness: "codex" | "claude-code";
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HarnessStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  install_api_harnesses__harness__install_post: {
     parameters: {
       query?: never;
       header?: never;

@@ -1,22 +1,24 @@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
-import { request, RequestError, type RecordMeta } from "./workspace";
+import { request, RequestError } from "./workspace";
 
-export function useRecordEditor<R extends RecordMeta, V>({
+export function useRecordEditor<R extends { revision: number }, V>({
   incoming,
   fields,
   path,
   saved,
   onDirty,
   otherDirty = false,
+  read,
 }: {
   incoming?: R;
   fields: (record?: R) => V;
   path: (record?: R) => string;
-  saved: (record: R) => void;
+  saved: (record: R, method: string) => void | Promise<void>;
   onDirty: (dirty: boolean) => void;
   otherDirty?: boolean;
+  read?: () => Promise<R>;
 }) {
   const element = useRef<HTMLElement>(null);
   const mounted = useRef(true);
@@ -44,7 +46,7 @@ export function useRecordEditor<R extends RecordMeta, V>({
     if (conflict) setError("");
     setConflict(false);
   }
-  if (newer && !dirty && !busy) adopt(incoming!);
+  if (incoming && (!loaded || newer) && !dirty && !busy) adopt(incoming);
   function change<K extends keyof V>(key: K, value: V[K]) {
     const next = { ...values, [key]: value };
     setValues(next);
@@ -57,11 +59,14 @@ export function useRecordEditor<R extends RecordMeta, V>({
     setError("");
     setNotice("");
     try {
-      const result = await request<R>(path(loaded) + suffix, method, payload);
+      const result =
+        method === "GET" && read
+          ? await read()
+          : await request<R>(path(loaded) + suffix, method, payload);
       if (mounted.current) {
         adopt(result);
         if (method !== "GET") setEditing(false);
-        saved(result);
+        await saved(result, method);
         onDirty(otherDirty);
         setNotice(method === "GET" ? "Latest version loaded." : "Saved.");
       }

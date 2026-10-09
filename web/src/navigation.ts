@@ -2,6 +2,7 @@ import { useCallback, useRef, type MouseEvent } from "react";
 import { useBlocker, useLocation, useMatches, useNavigate } from "react-router";
 
 const pagePaths = [
+  "settings/harnesses",
   "new-project",
   "projects/:projectId",
   "projects/:projectId/archive",

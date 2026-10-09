@@ -7,6 +7,7 @@ from fastapi import APIRouter
 
 from flowfield.adapters.harness_host import status
 from flowfield.application import Workspace
+from flowfield.errors import ApplicationError
 from flowfield.harness_models import (
     CatalogConfirmation,
     HarnessEdit,
@@ -26,6 +27,7 @@ def harness_router(
     def owned(value: HarnessStatus) -> HarnessStatus:
         value = value.model_copy(deep=True)
         value.catalog_ownership = supervisor().catalogs.ownership(value.registration.harness)
+        value.installing = supervisor().harness_installs.active(value.registration.harness)
         if value.catalog_ownership:
             value.problems.append("catalog_" + value.catalog_ownership.status)
             value.selectable = False
@@ -51,9 +53,20 @@ def harness_router(
     @router.post("/{harness}/check")
     async def native_check(harness: HarnessKind) -> HarnessStatus:
         service = workspace()
-        return owned(
-            await supervisor().harness_checks.run(HarnessSettings(service).get(harness), os.environ)
-        )
+        registration = HarnessSettings(service).get(harness)
+        checked = await supervisor().harness_checks.run(registration, os.environ)
+        if HarnessSettings(service).get(harness) != registration:
+            raise ApplicationError(
+                "harness_changed",
+                "Host settings changed during the check. Reload and check again.",
+                409,
+            )
+        return owned(checked)
+
+    @router.post("/{harness}/install")
+    async def install(harness: HarnessKind) -> HarnessStatus:
+        await supervisor().harness_installs.run(harness)
+        return view(HarnessSettings(workspace()).get(harness))
 
     @router.post("/{harness}/catalog/confirm-stopped")
     def confirm_stopped(harness: HarnessKind, request: CatalogConfirmation) -> HarnessStatus:

@@ -181,6 +181,14 @@ previous executable paths and does not enable queues or change project access se
 
 ## Host harness settings
 
+The sidebar **Settings → Harnesses** shows each harness's service-host paths, detected
+setup, bridge and native versions. Optional overrides are saved independently for Codex
+and Claude Code; leave paths blank to use native defaults. **Install bridge** downloads
+the matching managed runtime. **Check saved setup** reads native version and sign-in status
+without sending a model prompt. Install and check actions run only when requested; opening
+Settings starts no native session. Native accounts and advanced configuration stay with
+the harness.
+
 With the service running, read or change its native executable and configuration directory:
 
 ```sh
@@ -219,6 +227,9 @@ remaining native discovery on the service host, then confirm the exact discovery
 ```sh
 flowfield harness confirm-stopped codex --discovery DISCOVERY_ID --json
 ```
+
+Settings also shows the discovery hold and offers the same explicit confirmation after
+you inspect and stop remaining native work.
 
 This confirmation clears the interrupted discovery hold. It starts no native process and
 does not accept old discovery results; refresh the choices afterward. Native process

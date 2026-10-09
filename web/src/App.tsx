@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/tooltip";
 import { WorkspaceFrame } from "./WorkspaceFrame";
 import { ThemeMenu } from "./ThemeMenu";
+import { HarnessSettings, SettingsLink } from "./HarnessSettings";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ContentStack } from "./DetailLayout";
@@ -212,6 +213,7 @@ export function App() {
         onAddProject={() => changeLocation("/new-project")}
         footer={
           <>
+            <SettingsLink active={pathname === "/settings/harnesses"} />
             <ThemeMenu />
             <NotificationButton />
             <Tooltip>
@@ -293,6 +295,8 @@ export function App() {
                 <h1>Page not found</h1>
                 <p>Choose a project to return to your workspace.</p>
               </section>
+            ) : pathname === "/settings/harnesses" ? (
+              <HarnessSettings onDirty={setUnsaved} />
             ) : projectId ? (
               <ProjectBoard
                 key={projectId}

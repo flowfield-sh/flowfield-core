@@ -77,3 +77,4 @@ class HarnessStatus(HarnessRecord):
     checked: bool = False
     problems: list[str] = Field(default_factory=list)
     catalog_ownership: CatalogOwnership | None = None
+    installing: bool = False
