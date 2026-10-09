@@ -74,6 +74,17 @@ still use fixed fixture IDs, so repeat those through separate Playwright invocat
 Use `uv run pytest --durations=25` to profile backend checks before optimizing them;
 keep real Git, cleanup, concurrency and exact-approval coverage intact.
 
+## CLI output
+
+Every data command must have a readable default reply: lead with its outcome or status,
+label details, state empty results explicitly, and show a concrete next step when blocked.
+Never dump JSON, Python dictionaries or lists as the default presentation. Preserve literal
+user-authored text and deliberate text exports. Reserve machine-readable output for an
+explicit `--json`; it must remain parseable without human prose, with errors on stderr and
+a nonzero exit status. Keep pagination and incomplete-data notices visible in human replies.
+When adding or changing a command, verify its default and JSON paths, including meaningful
+empty and error cases, against actual response shapes and mutation receipts.
+
 ## Database changes
 
 Schema 44 is the initialization baseline, captured in

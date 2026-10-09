@@ -31,11 +31,13 @@ def register(app: typer.Typer) -> None:
     commands = typer.Typer(no_args_is_help=True, help="Check for releases; never installs updates.")
     app.add_typer(commands, name="update")
 
-    def human(value: dict[str, Any]) -> None:
+    def human(value: dict[str, Any], client: Client) -> None:
         status = UpdateStatus.model_validate(value)
         typer.echo(f"Installed: {status.installed_version}")
         if status.cached:
             typer.echo("Service offline; showing saved update status.")
+            typer.echo(f"Start it with: {client.serve_command()}")
+            typer.echo("Keep that terminal open while using Flowfield.")
         if status.available_version:
             typer.echo(f"Flowfield {status.available_version} is available.", err=True)
             typer.echo(f"Release notes: {status.release_notes}", err=True)
@@ -56,7 +58,11 @@ def register(app: typer.Typer) -> None:
     @commands.command("status")
     def status(ctx: typer.Context, json_output: Json = False) -> None:
         """Read shared status, or its saved cache when the service is stopped."""
-        output(lambda: read_status(ctx.obj).model_dump(), json_output, human)
+        output(
+            lambda: read_status(ctx.obj).model_dump(),
+            json_output,
+            lambda value: human(value, ctx.obj),
+        )
 
     @commands.command("check")
     def check(ctx: typer.Context, json_output: Json = False) -> None:
@@ -73,4 +79,4 @@ def register(app: typer.Typer) -> None:
                     return value.model_dump()
                 time.sleep(0.1)
 
-        output(run, json_output, human)
+        output(run, json_output, lambda value: human(value, ctx.obj))

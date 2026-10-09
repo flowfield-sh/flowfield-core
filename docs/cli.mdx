@@ -7,6 +7,10 @@ Workspace commands talk to your running local service. Commands inside a registe
 project discover its identity from `.flowfield/config.toml`. Use `--project ID` when
 working elsewhere, and `--help` at any command level for its options.
 
+Commands show readable summaries, labeled details and explicit empty states by default.
+Add `--json` only when you want machine-readable data for a script or diagnostic report.
+JSON output is intentional when that flag is present; omit it for normal terminal use.
+
 ## Service and version
 
 ```sh
@@ -33,13 +37,14 @@ flowfield --port 8770 project list
 ```sh
 flowfield update status
 flowfield update check
-flowfield update status --json
 ```
 
 `status` reads the service's shared result, or the saved cache when the service is stopped.
 `check` requests a manual check from the running service and waits briefly for the result.
 Both accept `--json`; human update notices and errors use stderr. An unsuccessful manual
 check exits with an error. These commands do not install software or start a service.
+Offline status prints the command to start the service. Keep that terminal open while
+using Flowfield; upgrading the package does not restart the service.
 See [installation](/installation#update) for upgrade instructions and automatic checks.
 
 ## Storage and recovery
@@ -143,7 +148,7 @@ Configure the target branch and trusted project checks to match your repository.
 Repeat `--check` for multiple commands; `--setup` adds dependency setup. Your coordinator
 can configure and validate richer environment and run-command settings through MCP.
 Flowfield automatically uses the service host’s tools, credentials and native harness
-configuration. Use `flowfield project workers models --json` to see access modes, then pass
+configuration. Use `flowfield project workers models` to see access modes, then pass
 `--mode MODE_ID` to `flowfield project workers configure` with the model and its supported
 effort. A harness change clears inherited access; choose that harness's native access mode.
 See [Worker setup and checks](/worker-setup) for configuration order and validation.
@@ -167,8 +172,8 @@ missing executables or sign-in. Native accounts and advanced settings stay with 
 With the service running, read or change its native executable and configuration directory:
 
 ```sh
-flowfield harness status codex --json
-flowfield harness settings codex --json
+flowfield harness status codex
+flowfield harness settings codex
 flowfield harness configure codex --revision 1 \
   --executable /absolute/path/to/codex \
   --config-directory /absolute/path/to/native-config
@@ -196,11 +201,11 @@ Model and command discovery open disposable native sessions. They send no model 
 but native startup hooks can run. Model catalogs are scoped to the applicable project and
 host registration, cached briefly, and limited to one active discovery per harness.
 If discovery loses its native owner, Flowfield reserves that ownership across restart and
-does not automatically retry. Read `harness settings KIND --json`, inspect and stop any
+does not automatically retry. Read `harness settings KIND`, inspect and stop any
 remaining native discovery on the service host, then confirm the exact discovery ID:
 
 ```sh
-flowfield harness confirm-stopped codex --discovery DISCOVERY_ID --json
+flowfield harness confirm-stopped codex --discovery DISCOVERY_ID
 ```
 
 Settings also shows the discovery hold and offers the same explicit confirmation after

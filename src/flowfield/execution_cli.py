@@ -18,6 +18,8 @@ def register(project_app: typer.Typer, task_app: typer.Typer) -> None:
 
     def show_result(value: Any) -> None:
         items = value.get("items", [value])
+        if not items:
+            typer.echo("No results yet.")
         for item in items:
             typer.echo(
                 f"{item['task_key']} · Result v{item['version']} · {item['status']} · {item['id']}"
@@ -32,6 +34,8 @@ def register(project_app: typer.Typer, task_app: typer.Typer) -> None:
                 typer.echo(item["problem"])
             if item.get("report"):
                 typer.echo(item["report"]["summary"])
+        if value.get("next_before") is not None:
+            typer.echo(f"More: --before {value['next_before']}")
 
     @results.command("list")
     def result_list(
@@ -116,9 +120,20 @@ def register(project_app: typer.Typer, task_app: typer.Typer) -> None:
 
     def show(value: Any) -> None:
         if isinstance(value, list):
+            if not value:
+                typer.echo("No models available.")
             for model in value:
-                typer.echo(f"{model['id']} · {', '.join(model['efforts'])}")
+                typer.echo(f"{model['name']} · {model['id']}")
+                typer.echo("  Effort: " + (", ".join(model["efforts"]) or "Not configurable"))
+                for mode in model.get("modes", []):
+                    typer.echo(f"  Access: {mode['name']} (--mode {mode['id']})")
+                    if mode.get("description"):
+                        typer.echo(f"    {mode['description']}")
+                if model.get("fast"):
+                    typer.echo("  Fast mode supported")
         elif "items" in value:
+            if not value["items"]:
+                typer.echo("No attempts yet.")
             for item in value["items"]:
                 typer.echo(f"{item['task_key']} · {item['id']} · {item['status']}")
             if value.get("next_before"):
@@ -136,7 +151,11 @@ def register(project_app: typer.Typer, task_app: typer.Typer) -> None:
                 typer.echo(value["problem"])
         else:
             typer.echo(f"{value['task_key']} · {value['status']} · {value['id']}")
-            typer.echo(f"{value['model']} · {value['effort']} · revision {value['revision']}")
+            typer.echo(
+                f"{value['model']}"
+                + (f" · {value['effort']}" if value.get("effort") else "")
+                + f" · revision {value['revision']}"
+            )
             if value.get("problem"):
                 typer.echo(value["problem"])
             if value.get("result"):
@@ -192,7 +211,7 @@ def register(project_app: typer.Typer, task_app: typer.Typer) -> None:
         harness: str = "codex",
         mode: str | None = typer.Option(
             None,
-            help="Access mode from `workers models --json`; choose explicitly for a new harness.",
+            help="Access mode from `workers models`; choose explicitly for a new harness.",
         ),
         max_parallel: int = typer.Option(1, min=1, max=16),
         project: ProjectOption = None,

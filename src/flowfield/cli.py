@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-from flowfield import __version__
+from flowfield import __version__, cli_views
 from flowfield.client import Client
 from flowfield.errors import ApplicationError
 from flowfield.project_config import discover_project
@@ -129,7 +129,7 @@ def harness_status(ctx: typer.Context, harness: str, json_output: Json = False) 
             ctx.obj.directory, offline_registration(ctx.obj.directory, kind), os.environ
         ).model_dump()
 
-    output(run, json_output)
+    output(run, json_output, lambda value: cli_views.harness_status(value, ctx.obj.port))
 
 
 @harness_app.command("settings")
@@ -142,7 +142,7 @@ def harness_settings(ctx: typer.Context, harness: str, json_output: Json = False
             raise ApplicationError("unsupported_harness", "This harness is not supported.")
         return ctx.obj.request("GET", "harnesses/" + harness)
 
-    output(run, json_output)
+    output(run, json_output, lambda value: cli_views.harness_status(value, ctx.obj.port))
 
 
 @harness_app.command("confirm-stopped")
@@ -164,7 +164,11 @@ def harness_confirm_stopped(
             "POST", f"harnesses/{harness}/catalog/confirm-stopped", {"id": discovery}
         )
 
-    output(run, json_output)
+    output(
+        run,
+        json_output,
+        lambda _: typer.echo(f"Confirmed discovery {discovery} stopped for {harness}."),
+    )
 
 
 @harness_app.command("configure")
@@ -196,7 +200,15 @@ def harness_configure(
             },
         )
 
-    output(run, json_output)
+    output(
+        run,
+        json_output,
+        lambda value: typer.echo(
+            f"Saved {harness} host settings · revision {value['revision']}\n"
+            f"Executable override: {executable or 'Automatic detection'}\n"
+            f"Configuration override: {config_directory or 'Native default'}"
+        ),
+    )
 
 
 @integration_app.command()
@@ -324,6 +336,7 @@ def project_guidance(
                 "POST",
                 path,
                 {"action": action, "expected_revision": expected_revision or current["revision"]},
+                compact=json_output,
             )
         return current
 
@@ -704,6 +717,7 @@ def search_context(
             "GET", "context/" + project_path(project) + "/search?" + urlencode(parameters)
         ),
         json_output,
+        cli_views.search,
     )
 
 
@@ -804,7 +818,9 @@ def task_stages(
 ) -> None:
     """Read the current plan and revision before editing or preparing a task."""
     output(
-        lambda: ctx.obj.request("GET", item_path(project, "tasks", task) + "/stages"), json_output
+        lambda: ctx.obj.request("GET", item_path(project, "tasks", task) + "/stages"),
+        json_output,
+        cli_views.stages,
     )
 
 

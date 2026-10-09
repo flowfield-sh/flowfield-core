@@ -13,6 +13,8 @@ def register(project_app: typer.Typer) -> None:
 
     def show(value: Any) -> None:
         if "items" in value:
+            if not value["items"]:
+                typer.echo("No integrations yet.")
             for item in value["items"]:
                 typer.echo(f"{item['id']} · {item['task_key']} · {item['status']}")
             if value.get("next_before"):
