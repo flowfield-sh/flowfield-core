@@ -241,3 +241,11 @@ Add `--json` to data commands for structured output. Errors go to stderr with a 
 exit status. Versioned edits require the current revision; do not overwrite newer intent
 from an outdated read. Paged reads return cursors and truncation metadata: follow them
 rather than treating the first page as complete history.
+
+Read older saved coordinator exchanges with `flowfield project coordinator-history
+--project PROJECT --json`. It returns newest first; pass `next_cursor` as `--before`.
+Read an exchange's retained text with `flowfield project coordinator-text TURN
+--project PROJECT --field human --revision REVISION --json`, or use `--field coordinator`
+for public reply prose. Follow `next_offset` as `--offset` while keeping the revision;
+restart the read if output changed. Marked omissions are not recoverable, and these
+reads do not reconstruct native tool history or transfer permissions or approval.

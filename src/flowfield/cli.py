@@ -450,6 +450,8 @@ def display(result: Any) -> None:
             typer.echo(f"Saved {result.get('key', result['id'])} · Revision {result['revision']}")
     elif isinstance(result, dict) and "text" in result:
         typer.echo(result["text"])
+        if result.get("output_omitted"):
+            typer.echo("Some public output was omitted and cannot be recovered.")
         if result.get("next_offset") is not None:
             typer.echo(
                 f"More: --offset {result['next_offset']}"
@@ -1367,6 +1369,56 @@ def activity_entry(
 ) -> None:
     """Read a project or task activity entry's full text in chunks by entry ID."""
     read_text(ctx, "activity", entry, project, "body", None, offset, limit, json_output)
+
+
+@project_app.command("coordinator-history")
+def coordinator_history(
+    ctx: typer.Context,
+    project: ProjectOption = None,
+    before: int | None = None,
+    limit: int = 20,
+    json_output: Json = False,
+) -> None:
+    """Page saved public coordinator exchanges, newest first."""
+    query = urlencode(
+        {k: v for k, v in {"before": before, "limit": limit}.items() if v is not None}
+    )
+    output(
+        lambda: ctx.obj.request(
+            "GET", "context/" + project_path(project) + "/coordinator-history?" + query
+        ),
+        json_output,
+        display_coordinator_history,
+    )
+
+
+def display_coordinator_history(result: dict[str, Any]) -> None:
+    for item in result["items"]:
+        typer.echo(f"Exchange {item['number']} · {item['status']} · {item['id']}")
+        typer.echo(f"Human: {item['human']}\nCoordinator: {item['coordinator']}")
+        if item.get("truncated_fields"):
+            typer.echo("Excerpt; use project coordinator-text for retained text.")
+        if item["output_omitted"]:
+            typer.echo("Some public output was omitted and cannot be recovered.")
+    if not result["items"]:
+        typer.echo("No saved coordinator exchanges.")
+    if result.get("next_cursor") is not None:
+        typer.echo(f"More available: --before {result['next_cursor']}")
+
+
+@project_app.command("coordinator-text")
+def coordinator_text(
+    ctx: typer.Context,
+    turn: str,
+    project: ProjectOption = None,
+    field: str = "human",
+    revision: int | None = None,
+    offset: int = 0,
+    limit: int = 4000,
+    json_output: Json = False,
+) -> None:
+    """Read a saved exchange's human/coordinator text in chunks."""
+    read_text(ctx, "coordinator", turn, project, field, revision, offset, limit, json_output)
 
 
 def read_text(

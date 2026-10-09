@@ -8,6 +8,66 @@ from flowfield.cli import app
 runner = CliRunner()
 
 
+def test_coordinator_history_cli_cursor_and_full_text(monkeypatch):
+    from flowfield.client import Client
+
+    calls = []
+
+    def request(self, method, path, payload=None, **kwargs):
+        calls.append((method, path))
+        if "/text?" in path:
+            return {
+                "text": "Retained reply",
+                "revision": 3,
+                "next_offset": 14,
+                "output_omitted": True,
+            }
+        return {
+            "items": [
+                {
+                    "number": 4,
+                    "status": "completed",
+                    "id": "older",
+                    "human": "Original requirement",
+                    "coordinator": "Saved reply",
+                    "output_omitted": False,
+                }
+            ],
+            "next_cursor": 4,
+        }
+
+    monkeypatch.setattr(Client, "request", request)
+    page = runner.invoke(
+        app,
+        ["project", "coordinator-history", "--project", "harbor", "--before", "5", "--limit", "1"],
+    )
+    assert page.exit_code == 0, page.output
+    assert "Original requirement" in page.output and "--before 4" in page.output
+    assert calls[-1] == ("GET", "context/projects/harbor/coordinator-history?before=5&limit=1")
+    full = runner.invoke(
+        app,
+        [
+            "project",
+            "coordinator-text",
+            "older",
+            "--project",
+            "harbor",
+            "--field",
+            "coordinator",
+            "--revision",
+            "3",
+            "--offset",
+            "2",
+        ],
+    )
+    assert full.exit_code == 0, full.output
+    assert "Retained reply" in full.output and "--offset 14 --revision 3" in full.output
+    assert "cannot be recovered" in full.output
+    assert (
+        "resource=coordinator&identity=older&field=coordinator&revision=3&offset=2" in calls[-1][1]
+    )
+
+
 def test_cli_help_and_versions() -> None:
     assert runner.invoke(app, ["--help"]).exit_code == 0
     result = runner.invoke(app, ["--version"])

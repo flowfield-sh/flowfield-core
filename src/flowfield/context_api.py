@@ -143,7 +143,9 @@ def context_router(workspace: Callable[[], Workspace]) -> APIRouter:
     def text(
         context: Reads,
         project_id: str,
-        resource: Literal["task", "project", "milestone", "activity", "question", "result"],
+        resource: Literal[
+            "task", "project", "milestone", "activity", "question", "result", "coordinator"
+        ],
         identity: str | None = None,
         field: str = "body",
         revision: int | None = None,
@@ -151,6 +153,12 @@ def context_router(workspace: Callable[[], Workspace]) -> APIRouter:
         limit: int = 4000,
     ) -> dict[str, Any]:
         return context.text(project_id, resource, identity, field, revision, offset, limit)
+
+    @router.get("/{project_id}/coordinator-history")
+    def coordinator_history(
+        context: Reads, project_id: str, before: int | None = None, limit: int = 20
+    ) -> dict[str, Any]:
+        return context.coordinator_history(project_id, before=before, limit=limit)
 
     @router.get("/{project_id}/questions")
     def questions(

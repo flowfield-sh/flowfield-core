@@ -5,7 +5,7 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from flowfield.activity import EntryKind
 from flowfield.application import STATUSES, TaskRevision, Workspace, now
@@ -203,6 +203,64 @@ class ContextReads:
             **excerpt(self.workspace.project(project_id).model_dump()),
             "url": self.url(project_id),
         }
+
+    def coordinator_history(
+        self, project_id: str, *, before: int | None = None, limit: int = DEFAULT_LIMIT
+    ) -> dict[str, Any]:
+        """Bounded public exchanges, not native history or portable permission grants."""
+        validate_page(limit, before)
+        if before is not None and before > 2**63 - 1:
+            raise ApplicationError("invalid_request", "Cursor exceeds the saved history range.")
+        with self.workspace.connection() as db:
+            self.workspace._project(db, project_id)
+            rows = db.execute(
+                "SELECT id,number,status,json_extract(data,'$.created_at') created_at, "
+                "json_extract(data,'$.text') human,json_extract(data,'$.activity') activity "
+                "FROM coordinator_turns WHERE project_id=? AND number<? "
+                "ORDER BY number DESC LIMIT ?",
+                (project_id, before or 2**63 - 1, limit + 1),
+            ).fetchall()
+            items = []
+            for row in rows:
+                activity = json.loads(row["activity"])
+                revision = activity.get("revision", 0)
+                prose = [entry for entry in activity["items"] if entry["kind"] == "agent"]
+                item = excerpt(
+                    {
+                        "id": row["id"],
+                        "number": row["number"],
+                        "status": row["status"],
+                        "created_at": row["created_at"],
+                        "revision": revision,
+                        "human": row["human"],
+                        "coordinator": "\n\n".join(entry["text"] for entry in prose),
+                        "output_omitted": activity.get("omitted", False)
+                        or any(entry.get("omitted", False) for entry in prose),
+                    },
+                    1000,
+                )
+                item["text_sources"] = {
+                    field: {
+                        "tool": "get_text",
+                        "resource": "coordinator",
+                        "identity": row["id"],
+                        "field": field,
+                        "revision": revision,
+                        "url": f"{self.browser_origin}/api/context/projects/"
+                        f"{quote(project_id, safe='')}/text?"
+                        + urlencode(
+                            {
+                                "resource": "coordinator",
+                                "identity": row["id"],
+                                "field": field,
+                                "revision": revision,
+                            }
+                        ),
+                    }
+                    for field in ("human", "coordinator")
+                }
+                items.append(item)
+            return page(items, limit, "number")
 
     def milestones(
         self, project_id: str, *, after: str | None = None, limit: int = DEFAULT_LIMIT
@@ -765,7 +823,9 @@ class ContextReads:
     def text(
         self,
         project_id: str,
-        resource: Literal["task", "milestone", "project", "activity", "question", "result"],
+        resource: Literal[
+            "task", "milestone", "project", "activity", "question", "result", "coordinator"
+        ],
         identity: str | None = None,
         field: str = "body",
         revision: int | None = None,
@@ -777,6 +837,7 @@ class ContextReads:
                 "invalid_request", "Offset must be nonnegative; limit must be 1–4000 characters."
             )
         allowed = {
+            "coordinator": ("human", "coordinator"),
             "task": (
                 "body",
                 "change_note",
@@ -800,7 +861,26 @@ class ContextReads:
             raise ApplicationError(
                 "invalid_request", "Choose an identity and a text field for this resource."
             )
-        if resource == "task":
+        item: dict[str, Any]
+        if resource == "coordinator":
+            from flowfield.coordinator_store import CoordinatorStore
+
+            turn = CoordinatorStore(self.workspace).get(project_id, identity or "")
+            if revision is not None and turn.activity.revision != revision:
+                raise ApplicationError(
+                    "revision_conflict", "Coordinator output changed. Start reading again.", 409
+                )
+            item = {
+                "id": turn.id,
+                "revision": turn.activity.revision,
+                "human": turn.text,
+                "coordinator": "\n\n".join(
+                    entry.text for entry in turn.activity.items if entry.kind == "agent"
+                ),
+                "output_omitted": turn.activity.omitted
+                or any(entry.omitted for entry in turn.activity.items if entry.kind == "agent"),
+            }
+        elif resource == "task":
             with self.workspace.connection() as db:
                 task_id = self.workspace._activity_scope(db, project_id, identity)
                 row = db.execute(
@@ -848,4 +928,5 @@ class ContextReads:
             "offset": offset,
             "total_characters": len(body),
             "next_offset": offset + len(text) if offset + len(text) < len(body) else None,
+            **({"output_omitted": item["output_omitted"]} if resource == "coordinator" else {}),
         }

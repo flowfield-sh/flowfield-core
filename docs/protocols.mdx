@@ -45,5 +45,12 @@ Built-in coordinator and worker sessions receive service-managed, scoped connect
 automatically. Their tools are limited to the relevant project or task, and their grants
 end with the attempt. No separate standalone connection is needed for built-in chat.
 
+Coordinators can page older saved exchanges with `get_coordinator_history`, then use
+its `text_sources` with `get_text` to read relevant human messages and public replies
+in bounded chunks. Follow `next_cursor` as `before` and echo the returned text revision;
+if output changes, restart the read. Marked omissions remain unavailable. These reads
+exclude native session IDs, tool history and private reasoning. Task workers keep their
+run-bound context and do not receive these project conversation tools.
+
 The project skill explains the workflow; MCP supplies the operations. Neither a tool call
 nor a harness permission decision grants approval to deliver a worker's code result.

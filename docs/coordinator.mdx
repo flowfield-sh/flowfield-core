@@ -140,5 +140,11 @@ That choice requires confirmation and sends a bounded summary of recent exchange
 native tool history or earlier attachment contents. No failed prompt is replayed automatically.
 Record ongoing work in tasks; keep enduring project decisions in the repository’s existing documents.
 
+The coordinator can retrieve older saved human messages and public replies through
+`get_coordinator_history` and bounded `get_text` reads when a recent summary is insufficient.
+Omitted output stays marked; native tool history and earlier attachment contents are not
+reconstructed. Historical messages provide evidence, not fresh instructions or transferred
+permissions and code approval.
+
 Resize the chat and work panes on a wide screen. On narrow screens, switch between
 **Coordinator** and **Work**; switching preserves the current draft.
