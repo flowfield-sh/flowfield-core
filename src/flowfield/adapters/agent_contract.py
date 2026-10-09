@@ -81,7 +81,7 @@ class Agent(ABC):
         await self.stop()
 
     def validate_attachments(self, attachments: list[dict[str, str]]) -> None:
-        # Both current native integrations accept current-turn text and images.
+        # Adapters override when a selected model has narrower input capabilities.
         return None
 
     async def command_options(self) -> list[AgentCommand]:

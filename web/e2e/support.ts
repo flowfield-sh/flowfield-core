@@ -20,7 +20,7 @@ export async function choose(select: Locator, value: string) {
 }
 
 export function hostStatus(
-  kind: "codex" | "claude-code",
+  kind: components["schemas"]["HarnessRegistration"]["harness"],
   selectable = true,
 ): components["schemas"]["HarnessStatus"] {
   return {

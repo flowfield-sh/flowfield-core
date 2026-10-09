@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-HarnessKind = Literal["codex", "claude-code"]
+HarnessKind = Literal["codex", "claude-code", "pi"]
 
 
 class HarnessRecord(BaseModel):

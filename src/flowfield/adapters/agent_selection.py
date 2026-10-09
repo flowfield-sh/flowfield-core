@@ -10,6 +10,8 @@ from flowfield.adapters.claude_agent import model_options as claude_models
 from flowfield.adapters.codex_agent import CodexAgent
 from flowfield.adapters.codex_agent import command_options as codex_commands
 from flowfield.adapters.codex_agent import model_options as codex_models
+from flowfield.adapters.pi_agent import PiAgent
+from flowfield.adapters.pi_agent import model_options as pi_models
 from flowfield.agent_models import AgentChoice, AgentCommand
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import ModelOption
@@ -37,6 +39,13 @@ def create(
         )
     if choice.harness == "codex":
         return CodexAgent(directory, cwd, environment, registration=registration)
+    if choice.harness == "pi":
+        return PiAgent(
+            directory,
+            cwd,
+            environment,
+            registration=registration or HarnessRegistration(harness="pi"),
+        )
     assert_never(choice.harness)
 
 
@@ -54,6 +63,8 @@ async def model_options(
         discover = claude_models
     elif kind == "codex":
         discover = codex_models
+    elif kind == "pi":
+        discover = pi_models
     else:
         assert_never(kind)
     return await discover(directory, registration=registration, cwd=cwd, on_cleanup=on_cleanup)
@@ -73,8 +84,8 @@ async def command_options(
         raise ApplicationError(
             "harness_registration_mismatch", "Host settings belong to another harness.", 409
         )
-    if choice.harness == "claude-code":
-        # No Claude slash command has passed its integrated native semantics yet.
+    if choice.harness == "claude-code" or choice.harness == "pi":
+        # Native slash commands require integrated semantics before exposure.
         return []
     if choice.harness == "codex":
         return await codex_commands(

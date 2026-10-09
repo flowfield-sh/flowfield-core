@@ -22,6 +22,8 @@ class JsonRpc:
         self,
         notification: Callable[[str, dict[str, Any]], None],
         request: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]],
+        *,
+        frame_limit: int = MAX_FRAME,
     ):
         self.notification, self.request = notification, request
         self.owner: LocalProcess | None = None
@@ -33,10 +35,13 @@ class JsonRpc:
         self.closed = False
         self.failed = False
         self._write_lock = asyncio.Lock()
+        self.frame_limit = frame_limit
 
     async def start(self, command: list[str], cwd: Path, env: Mapping[str, str]) -> None:
         try:
-            self.owner = await LocalProcess.start(command, cwd=cwd, env=env, limit=MAX_FRAME + 1)
+            self.owner = await LocalProcess.start(
+                command, cwd=cwd, env=env, limit=self.frame_limit + 1
+            )
         except LocalLaunchCancelled as error:
             self.owner = error.owner
             raise
@@ -48,7 +53,11 @@ class JsonRpc:
 
     async def send(self, message: dict[str, Any]) -> None:
         frame = json.dumps(message, separators=(",", ":")).encode() + b"\n"
-        limit = MAX_INPUT if message.get("method") in {"prompt", "turn/start"} else MAX_FRAME
+        limit = (
+            MAX_INPUT
+            if message.get("method", message.get("type")) in {"prompt", "turn/start"}
+            else MAX_FRAME
+        )
         if len(frame) > limit or self.closed or not self.owner:
             raise NativeError("Native transport unavailable or request exceeds its bound")
         stream = self.owner.process.stdin
@@ -67,11 +76,23 @@ class JsonRpc:
         future: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
         self.pending[identity] = future
         try:
-            await self.send({"id": identity, "method": method, "params": params})
+            await self.send(self.call_frame(identity, method, params))
             async with asyncio.timeout(timeout):
                 return await future
         finally:
             self.pending.pop(identity, None)
+
+    def call_frame(self, identity: int, method: str, params: dict[str, Any]) -> dict[str, Any]:
+        return {"id": identity, "method": method, "params": params}
+
+    def decode_frame(self, value: dict[str, Any]) -> dict[str, Any]:
+        return value
+
+    def response_frame(self, identity: Any, result: dict[str, Any]) -> dict[str, Any]:
+        return {"id": identity, "result": result}
+
+    def error_frame(self, identity: Any) -> dict[str, Any]:
+        return {"id": identity, "error": {"code": -32603, "message": "Request unavailable"}}
 
     async def _read(self) -> None:
         assert self.owner and self.owner.process.stdout
@@ -80,11 +101,12 @@ class JsonRpc:
             while frame := await self.owner.process.stdout.readline():
                 messages += 1
                 traffic += len(frame)
-                if len(frame) > MAX_FRAME or traffic > 64 * 1024 * 1024 or messages > 100000:
+                if len(frame) > self.frame_limit or traffic > 64 * 1024 * 1024 or messages > 100000:
                     raise NativeError("Native output exceeded its bound")
                 value = json.loads(frame)
                 if not isinstance(value, dict):
                     raise NativeError("Invalid native frame")
+                value = self.decode_frame(value)
                 if "method" in value:
                     params = value.get("params", {})
                     if not isinstance(params, dict):
@@ -124,12 +146,10 @@ class JsonRpc:
     async def _respond(self, identity: Any, method: str, params: dict[str, Any]) -> None:
         try:
             result = await self.request(method, params)
-            await self.send({"id": identity, "result": result})
+            await self.send(self.response_frame(identity, result))
         except (Exception, asyncio.CancelledError):
             with contextlib.suppress(Exception):
-                await self.send(
-                    {"id": identity, "error": {"code": -32603, "message": "Request unavailable"}}
-                )
+                await self.send(self.error_frame(identity))
 
     async def _drain(self) -> None:
         assert self.owner and self.owner.process.stderr

@@ -409,12 +409,12 @@ export function FlowfieldSettings({
           hidden={tab !== "harnesses"}
         >
           <p className="detail-metadata">
-            Use Codex or Claude Code installed on the service host. Choose
-            models in project settings; override detected paths only when
-            needed.
+            Use harnesses installed on the service host. Choose models in
+            project settings; override detected paths only when needed.
           </p>
-          <HarnessEntry kind="codex" onDirty={changed} />
-          <HarnessEntry kind="claude-code" onDirty={changed} />
+          {(Object.keys(names) as Kind[]).map((kind) => (
+            <HarnessEntry key={kind} kind={kind} onDirty={changed} />
+          ))}
         </ContentStack>
       </ContentStack>
     </section>

@@ -35,6 +35,7 @@ NATIVE_PATHS: dict[HarnessKind, NativePaths] = {
         "claude-sdk-v1",
         ("auth", "status", "--json"),
     ),
+    "pi": NativePaths("pi", "PI_PATH", "PI_CODING_AGENT_DIR", ".pi/agent", "pi-rpc-v1", ()),
 }
 
 
@@ -202,6 +203,10 @@ async def check(
             raise ValueError("Unrecognized native version")
         result.native_version = version[1].decode("ascii")
         args = NATIVE_PATHS[registration.harness].auth_command
+        if not args:
+            # Pi authentication belongs to a provider/model, not the whole harness.
+            result.problems.append("authentication_unverified")
+            return result
         code, output, error_output = await _native_command(
             [launch.native_executable, *args], directory, env
         )

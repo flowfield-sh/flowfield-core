@@ -29,7 +29,7 @@ def offline_registration(directory: Path, harness: HarnessKind) -> HarnessRegist
         require_supported(actual)
         return (
             HarnessSettings.read(db, harness)
-            if actual >= 45
+            if actual >= (52 if harness == "pi" else 45)
             else HarnessRegistration(harness=harness)
         )
 

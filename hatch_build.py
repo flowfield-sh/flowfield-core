@@ -32,6 +32,7 @@ class CustomBuildHook(BuildHookInterface):
             "tailwindcss-license.txt",
             "react-remove-scroll-bar-license.txt",
             "harness-icons-license.txt",
+            "pi-logo-notice.txt",
         ]
         if any(
             not (web / "assets" / notice).is_file()

@@ -95,6 +95,7 @@ def verify(directory: Path, version: str, install_check: Path) -> None:
             check = scratch / "check-install.py"
             shutil.copyfile(install_check, check)
             shutil.copyfile(ROOT / "tests/fake_claude_cli.py", scratch / "native-fixture.py")
+            shutil.copyfile(ROOT / "tests/fake_pi.py", scratch / "pi-fixture.py")
             isolated = {
                 **env,
                 "PATH": str(python.parent),

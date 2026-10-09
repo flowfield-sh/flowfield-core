@@ -2149,7 +2149,7 @@ export interface components {
        * @default codex
        * @enum {string}
        */
-      harness: "codex" | "claude-code";
+      harness: "codex" | "claude-code" | "pi";
       /** Model */
       model: string;
       /** Effort */
@@ -2166,7 +2166,7 @@ export interface components {
        * @default codex
        * @enum {string}
        */
-      harness: "codex" | "claude-code";
+      harness: "codex" | "claude-code" | "pi";
       /** Model */
       model: string;
       /** Effort */
@@ -2321,7 +2321,7 @@ export interface components {
        * Harness
        * @enum {string}
        */
-      harness: "codex" | "claude-code";
+      harness: "codex" | "claude-code" | "pi";
       /** Project Id */
       project_id: string | null;
       /**
@@ -2735,7 +2735,7 @@ export interface components {
        * Harness
        * @enum {string}
        */
-      harness: "codex" | "claude-code";
+      harness: "codex" | "claude-code" | "pi";
       /** Registration Revision */
       registration_revision: number;
       /** Native Executable */
@@ -2767,7 +2767,7 @@ export interface components {
        * Harness
        * @enum {string}
        */
-      harness: "codex" | "claude-code";
+      harness: "codex" | "claude-code" | "pi";
       /**
        * Revision
        * @default 1
@@ -7297,7 +7297,7 @@ export interface operations {
     parameters: {
       query?: {
         refresh?: boolean;
-        harness?: "codex" | "claude-code";
+        harness?: "codex" | "claude-code" | "pi";
         project_id?: string | null;
         project_path?: string | null;
       };
@@ -8362,7 +8362,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        harness: "codex" | "claude-code";
+        harness: "codex" | "claude-code" | "pi";
       };
       cookie?: never;
     };
@@ -8393,7 +8393,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        harness: "codex" | "claude-code";
+        harness: "codex" | "claude-code" | "pi";
       };
       cookie?: never;
     };
@@ -8428,7 +8428,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        harness: "codex" | "claude-code";
+        harness: "codex" | "claude-code" | "pi";
       };
       cookie?: never;
     };
@@ -8459,7 +8459,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        harness: "codex" | "claude-code";
+        harness: "codex" | "claude-code" | "pi";
       };
       cookie?: never;
     };

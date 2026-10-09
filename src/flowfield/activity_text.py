@@ -4,6 +4,12 @@ import re
 import shlex
 
 
+def mcp_title(server: str, tool: str) -> str:
+    if re.fullmatch(r"flowfield(?:_[a-f0-9]+)?", server):
+        server = "Flowfield"
+    return f"{server} · {tool.replace('_', ' ').capitalize()}"
+
+
 def command_title(command: str) -> str:
     try:
         parts = shlex.split(command)

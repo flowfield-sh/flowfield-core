@@ -1,11 +1,13 @@
 import { ChoiceSelect } from "@/components/ui/choice-select";
 import claude from "./assets/claude.svg";
 import codex from "./assets/openai.svg";
+import pi from "./assets/pi.svg";
 import type { HarnessKind } from "./HarnessModels";
 
 const logos: Record<HarnessKind, string> = {
   codex,
   "claude-code": claude,
+  pi,
 };
 
 export function HarnessLogo({ kind }: { kind: HarnessKind }) {

@@ -173,6 +173,27 @@ def coordinator_prose(db: sqlite3.Connection) -> None:
         )
 
 
+def pi_harness(db: sqlite3.Connection) -> None:
+    # Rebuild only the two constrained registries; preserve saved settings and
+    # uncertain catalog ownership exactly. Application history is untouched.
+    db.execute("ALTER TABLE harness_settings RENAME TO previous_harness_settings")
+    db.execute(
+        "CREATE TABLE harness_settings (harness TEXT PRIMARY KEY "
+        "CHECK(harness IN ('codex','claude-code','pi')), revision INTEGER NOT NULL "
+        "CHECK(revision>=1), executable TEXT, config_directory TEXT)"
+    )
+    db.execute("INSERT INTO harness_settings SELECT * FROM previous_harness_settings")
+    db.execute("INSERT INTO harness_settings VALUES ('pi',1,NULL,NULL)")
+    db.execute("DROP TABLE previous_harness_settings")
+    db.execute("ALTER TABLE harness_catalogs RENAME TO previous_harness_catalogs")
+    db.execute(
+        "CREATE TABLE harness_catalogs (harness TEXT PRIMARY KEY "
+        "CHECK(harness IN ('codex','claude-code','pi')), data TEXT NOT NULL)"
+    )
+    db.execute("INSERT INTO harness_catalogs SELECT * FROM previous_harness_catalogs")
+    db.execute("DROP TABLE previous_harness_catalogs")
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(45, host_harnesses),
     Migration(46, harness_catalogs),
@@ -181,6 +202,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(49, coordinator_generations),
     Migration(50, native_adapter_provenance),
     Migration(51, coordinator_prose),
+    Migration(52, pi_harness),
 )
 
 

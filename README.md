@@ -38,7 +38,7 @@ This README describes development main. For published 0.2.1, use its
 [versioned setup guide](https://github.com/flowfield-sh/flowfield-core/blob/v0.2.1/README.md#install).
 
 Install and sign in to [Codex CLI](https://developers.openai.com/codex/cli/) or
-[Claude Code](https://code.claude.com/docs/en/setup), then:
+[Claude Code](https://code.claude.com/docs/en/setup) or [Pi](https://pi.dev), then:
 
 ```sh
 uv tool install flowfield-core
@@ -58,7 +58,7 @@ Start planning in the [Coordinator](https://docs.flowfield.sh/coordinator), or c
 Development builds use installed Codex through its native app-server and installed
 [Claude Code](https://docs.flowfield.sh/integrations/claude-code) through the official
 Agent SDK. Flowfield includes the SDK runtime; no extra integration install is needed.
-Choose either harness independently for the Coordinator and workers. Published 0.2.1
+Pi 1.1+ uses its installed native RPC interface. Choose any harness independently for the Coordinator and workers. Published 0.2.1
 predates this native integration update. Pi is the next planned integration.
 
 ## Fits your existing project

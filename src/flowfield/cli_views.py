@@ -8,7 +8,7 @@ import typer
 
 def harness_status(value: dict[str, Any], port: int) -> None:
     registration, launch = value["registration"], value["launch"]
-    name = "Codex" if registration["harness"] == "codex" else "Claude Code"
+    name = {"codex": "Codex", "claude-code": "Claude Code", "pi": "Pi"}[registration["harness"]]
     typer.echo(f"{name} · settings revision {registration['revision']}")
     typer.echo(f"Executable: {launch['native_executable'] or 'Not found'}")
     typer.echo(f"Configuration directory: {launch['config_directory']}")

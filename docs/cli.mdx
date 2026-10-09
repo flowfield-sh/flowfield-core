@@ -168,7 +168,7 @@ All three commands accept `codex` or `claude-code`. See
 
 ## Host harness settings
 
-**Settings → Harnesses** detects native Codex and Claude Code installations. No separate
+**Settings → Harnesses** detects native Codex, Claude Code and Pi installations. No separate
 support install is needed. Optional path overrides and **Check saved setup** help resolve
 missing executables or sign-in. Native accounts and advanced settings stay with the harness.
 
@@ -184,7 +184,8 @@ flowfield harness configure codex --revision 1 \
 
 Use the revision returned by settings. Each configure command replaces both overrides;
 omit both paths to restore native defaults. Paths belong to the service host. The configuration
-location is a directory (`CODEX_HOME` for Codex, `CLAUDE_CONFIG_DIR` for Claude), not a settings
+location is a directory (`CODEX_HOME` for Codex, `CLAUDE_CONFIG_DIR` for Claude,
+`PI_CODING_AGENT_DIR` for Pi), not a settings
 file. Saved overrides
 take precedence over native environment variables; otherwise Flowfield detects the native
 installation and configuration location. No native files, accounts or credentials change.
@@ -195,7 +196,7 @@ observed launch locations. A changed native session location requires a fresh co
 session through the existing recovery flow; the saved chat remains. External native files
 and account changes remain user-owned and are not frozen by Flowfield.
 
-There is one configuration per supported harness kind. Use Codex, Claude Code or both;
+There is one configuration per supported harness kind. Use Codex, Claude Code, Pi or a mix;
 the Coordinator and workers choose independently. Native installation, authentication and verified model access are separate facts. Detecting
 paths starts no native process; explicit readiness checks use version/login-status commands
 and never send a model prompt. Such checks cannot establish successful inference or billing.

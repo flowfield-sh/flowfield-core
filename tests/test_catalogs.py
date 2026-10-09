@@ -117,7 +117,7 @@ def test_host_changes_during_discovery_do_not_return_stale_choices(tmp_path, mon
     asyncio.run(exercise())
 
 
-def test_two_harnesses_have_independent_bounded_owners(tmp_path, monkeypatch):
+def test_harnesses_have_independent_bounded_owners(tmp_path, monkeypatch):
     workspace = fixture(tmp_path).workspace
     catalogs = Catalogs(workspace)
     release = asyncio.Event()
@@ -138,8 +138,8 @@ def test_two_harnesses_have_independent_bounded_owners(tmp_path, monkeypatch):
         ]
         await asyncio.sleep(0)
         await asyncio.sleep(0)
-        assert started == {"codex", "claude-code"}
-        assert len(catalogs.jobs) == 2
+        assert started == {"codex", "claude-code", "pi"}
+        assert len(catalogs.jobs) == 3
         assert all(catalogs.ownership(kind).status == "running" for kind in started)
         release.set()
         values = await asyncio.gather(*tasks)

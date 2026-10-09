@@ -1,10 +1,9 @@
 """Public Codex tool labels and bounded diagnostic details."""
 
 import json
-import re
 from typing import Any
 
-from flowfield.activity_text import command_title
+from flowfield.activity_text import command_title, mcp_title
 from flowfield.adapters.agent_contract import bounded_details
 
 
@@ -23,9 +22,7 @@ def describe(item: dict[str, Any]) -> tuple[str, str]:
         )
     elif kind == "mcpToolCall":
         server = str(item.get("server", "MCP"))
-        if re.fullmatch(r"flowfield(?:_[a-f0-9]+)?", server):
-            server = "Flowfield"
-        title = f"{server} · {str(item.get('tool', 'Tool')).replace('_', ' ').capitalize()}"
+        title = mcp_title(server, str(item.get("tool", "Tool")))
         arguments = item.get("arguments", {})
         if isinstance(arguments, dict):
             target = next(

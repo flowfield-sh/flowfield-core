@@ -16,3 +16,5 @@ Supplemental notices copied into the UI:
 When upgrading these dependencies, review the supplemental notices as well as the generated
 license file. Packaging rejects missing notice files; installed-package checks verify they
 are served from the bundled UI.
+
+The Pi mark comes from the official Pi press assets; see `public/assets/pi-logo-notice.txt`.

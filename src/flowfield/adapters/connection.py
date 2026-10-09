@@ -1,9 +1,11 @@
 """Shared standalone MCP connection lifecycle; native configuration stays in adapters."""
 
+import json
 import shutil
 import subprocess
 import tempfile
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any
 
 import anyio
@@ -70,11 +72,31 @@ class Connection(ABC):
     @abstractmethod
     def matches(self, config: dict[str, Any]) -> bool: ...
 
+    def read_json_configuration(self, path: Path) -> dict[str, Any] | None:
+        """Read documented native JSON; writes always go through the native CLI."""
+        try:
+            data = json.loads(path.read_text())
+            servers = data.get("mcpServers", {})
+            if not isinstance(servers, dict):
+                raise ValueError("Invalid server map")
+            config = servers.get(self.name)
+            if config is not None and not isinstance(config, dict):
+                raise ValueError("Invalid server")
+            return config
+        except FileNotFoundError:
+            return None
+        except (OSError, ValueError, AttributeError) as error:
+            raise ApplicationError(
+                f"{self.command}_response_invalid",
+                f"Cannot read {self.label} MCP configuration. "
+                f"Run {self.command} mcp list to diagnose.",
+            ) from error
+
     def conflict(self) -> ApplicationError:
         return ApplicationError(
             "connection_conflict",
             f"{self.label} already has a different server named {self.name}. "
-            f"Use --name with another name, or inspect {self.command} mcp get {self.name}. "
+            f"Use --name with another name, or inspect {self.command} mcp list. "
             "Existing settings were preserved.",
         )
 

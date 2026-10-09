@@ -1,0 +1,52 @@
+---
+title: Pi
+description: Use installed Pi with shared model, session and worker controls.
+---
+
+Install [Pi](https://pi.dev/docs/latest/quickstart) 1.1 or newer and configure a provider
+in Pi. Flowfield detects the installed `pi` command. No plugin or bridge installation
+is required. See the [shared setup](/integrations/overview).
+
+Pi support is in development source; published 0.2.1 does not include it.
+
+## Models and access
+
+Models and thinking levels load from Pi automatically. Model choices include their
+provider, so identically named models from different providers stay distinct. Accounts
+and custom model definitions remain in Pi; selecting a model in Flowfield does not change
+Pi's saved defaults. A harness-wide sign-in check cannot verify every provider.
+
+Pi's native tools run with **Full access**, without per-tool approval prompts or a
+built-in sandbox. Flowfield still requires exact approval before delivering worker code.
+Managed sessions load standard Pi tools and scoped Flowfield MCP tools. Custom extensions
+and trust-gated project configuration are excluded; ordinary project instructions remain.
+This keeps unverified extension/background lifecycles outside managed execution.
+
+## Sessions and Stop
+
+The Coordinator resumes its native Pi session when saved settings are unchanged.
+Changed settings or harnesses start a fresh native session with saved Flowfield history;
+earlier messages remain available through history tools. Pi-reported context usage guides
+the handoff. Flowfield never automatically replays an uncertain prompt.
+
+**Stop** clears queued work, aborts native execution, verifies idle state and closes the
+owned session. Pi's standard tools have no separate native background-task API; arbitrary
+detached commands and third-party background extensions are not a supported managed path.
+Unconfirmed cleanup retains ownership for inspection and recovery.
+
+Current-turn text attachments are supported. Images require a model that advertises image
+input. Native slash commands are not exposed yet.
+
+## Standalone conversation
+
+The [shared connection commands](/integrations/overview#standalone-conversations) also
+support `pi`:
+
+```sh
+flowfield integration connect pi
+flowfield integration status pi
+flowfield integration disconnect pi
+```
+
+These use Pi's native user-scoped MCP configuration. Your standalone Pi extensions and
+settings remain under your control.

@@ -17,6 +17,7 @@ type Model = components["schemas"]["ModelOption"];
 export const harnessNames: Record<HarnessKind, string> = {
   codex: "Codex",
   "claude-code": "Claude Code",
+  pi: "Pi",
 };
 
 export function choiceLabel(choice: Choice) {

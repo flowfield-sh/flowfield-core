@@ -3,12 +3,11 @@ title: Overview
 description: Use installed coding harnesses with one setup and shared project controls.
 ---
 
-Use Codex, Claude Code, or both. Install and sign in to the harness on the machine
+Use Codex, Claude Code, Pi, or a mix. Install and sign in to the harness on the machine
 running Flowfield, then choose it for your Coordinator and workers. Integration support
 ships with Flowfield; there is no separate bridge to install.
 
 These native integrations are in development source; published 0.2.1 predates them.
-Pi is next and is not selectable yet.
 
 ## Built-in Coordinator and workers
 
@@ -25,24 +24,24 @@ Opening a project preloads its configured models; reconnecting after a service r
 checks them again. Other choices load when their selector opens. Loading controls stay
 disabled. Discovery sends no model prompt, although native startup hooks can run.
 
-| Capability | Codex | Claude Code |
-| --- | --- | --- |
-| Coordinator and managed workers | Yes | Yes |
-| Automatic Flowfield tools and model discovery | Yes | Yes |
-| Independent choices per role and task | Yes | Yes |
-| Native continuation and Stop | Yes | Yes |
-| Standalone connect/status/disconnect | Yes | Yes |
-| Model and access controls | Native advertised choices | Native advertised choices |
+| Capability | Codex | Claude Code | Pi |
+| --- | --- | --- | --- |
+| Coordinator and managed workers | Yes | Yes | Yes |
+| Automatic Flowfield tools and model discovery | Yes | Yes | Yes |
+| Independent choices per role and task | Yes | Yes | Yes |
+| Native continuation and Stop | Yes | Yes | Yes |
+| Standalone connect/status/disconnect | Yes | Yes | Yes |
+| Model and access controls | Native advertised choices | Native advertised choices | Provider/model, thinking; full access |
 
 Built-in roles receive scoped Flowfield tools automatically. Workers use separate
 checkouts and task-bound instructions. Native permission choices never approve delivery
 of code to your project. See [Codex](/integrations/codex) and
-[Claude Code](/integrations/claude-code) for native controls and limitations.
+[Claude Code](/integrations/claude-code) and [Pi](/integrations/pi) for native controls and limitations.
 
 ## Standalone conversations
 
 To keep the Coordinator conversation in your own coding harness, run the same commands
-with `codex` or `claude-code`. Flowfield must already be running:
+with `codex`, `claude-code` or `pi`. Flowfield must already be running:
 
 ```sh
 flowfield integration connect claude-code

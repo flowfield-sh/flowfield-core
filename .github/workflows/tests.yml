@@ -152,7 +152,7 @@ jobs:
       - run: pnpm --dir runtimes/claude-sdk install --frozen-lockfile --ignore-scripts
       - run: node runtimes/claude-sdk/build.mjs --host
       - run: node --test runtimes/claude-sdk/cleanup.test.mjs
-      - run: uv run --no-sync pytest tests/test_native_adapters.py tests/test_claude_agent.py tests/test_local_execution.py
+      - run: uv run --no-sync pytest tests/test_native_adapters.py tests/test_claude_agent.py tests/test_pi_agent.py tests/test_local_execution.py
 
   checked:
     name: All checks passed

@@ -60,7 +60,7 @@ def test_one_registration_per_kind_conflicts_reset_and_no_native_writes(tmp_path
     workspace = Workspace(tmp_path / "state")
     settings = HarnessSettings(workspace)
     initial = settings.all()
-    assert [item.harness for item in initial] == ["codex", "claude-code"]
+    assert [item.harness for item in initial] == ["codex", "claude-code", "pi"]
     missing = tmp_path / "not-created"
     saved = settings.edit(
         "claude-code", HarnessEdit(expected_revision=1, config_directory=str(missing))
@@ -71,7 +71,7 @@ def test_one_registration_per_kind_conflicts_reset_and_no_native_writes(tmp_path
     reset = settings.edit("claude-code", HarnessEdit(expected_revision=2))
     assert reset.revision == 3 and reset.executable is None and reset.config_directory is None
     assert settings.get("codex") == initial[0]
-    assert len(HarnessSettings(Workspace(workspace.directory)).all()) == 2
+    assert len(HarnessSettings(Workspace(workspace.directory)).all()) == 3
     for field in ("account", "api_key", "name", "enabled"):
         with pytest.raises(ValidationError):
             HarnessEdit(expected_revision=3, **{field: "not-owned"})
@@ -391,7 +391,7 @@ def test_schema_44_upgrade_preserves_choices_and_recovery_and_is_database_only(
     upgraded = Workspace(workspace.directory)
     assert upgraded.schema_version == migrations.current_version()
     assert AgentSettings(upgraded).get("harbor", "coordinator") == before
-    assert len(HarnessSettings(upgraded).all()) == 2
+    assert len(HarnessSettings(upgraded).all()) == 3
     assert CoordinatorStore(upgraded).session("harbor", "codex", str(tmp_path)) == "old-session"
     backup = storage.backups(upgraded.directory)[0]
     assert backup["schema_version"] == 44
@@ -480,6 +480,7 @@ def test_http_host_settings_are_independent_and_do_not_start_models(tmp_path, mo
                 assert [item["registration"]["harness"] for item in statuses] == [
                     "codex",
                     "claude-code",
+                    "pi",
                 ]
                 saved = await client.put(
                     "/api/harnesses/claude-code",

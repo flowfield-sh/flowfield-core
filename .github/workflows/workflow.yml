@@ -67,6 +67,7 @@ jobs:
             scripts/check_dist.py
             scripts/check-install.py
             tests/fake_claude_cli.py
+            tests/fake_pi.py
           if-no-files-found: error
           retention-days: 30
 

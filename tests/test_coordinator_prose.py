@@ -76,7 +76,7 @@ def test_prose_migration_preserves_retained_text_and_omissions_and_rolls_back(
         workspace = fixture(tmp_path).workspace
         turn = saved_exchange(workspace, "Retained " + "x" * 10000)
     before = logical_data(workspace.directory)
-    migration = migrations.MIGRATIONS[-1]
+    migration = next(item for item in migrations.MIGRATIONS if item.version == 51)
 
     def fail(db):
         migration.apply(db)
@@ -84,7 +84,12 @@ def test_prose_migration_preserves_retained_text_and_omissions_and_rolls_back(
 
     with monkeypatch.context() as failure:
         failure.setattr(
-            migrations, "MIGRATIONS", (*migrations.MIGRATIONS[:-1], migrations.Migration(51, fail))
+            migrations,
+            "MIGRATIONS",
+            tuple(
+                migrations.Migration(51, fail) if item.version == 51 else item
+                for item in migrations.MIGRATIONS
+            ),
         )
         with pytest.raises(ApplicationError, match="rolled back"):
             Workspace(workspace.directory)

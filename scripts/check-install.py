@@ -106,9 +106,42 @@ async def check_mcp(base: str, task: dict) -> None:
 
 
 async def check_native_runtime(directory: Path) -> None:
+    import flowfield.adapters.pi_agent as pi_module
     from flowfield.adapters.claude_agent import ClaudeAgent
+    from flowfield.adapters.pi_agent import PiAgent
     from flowfield.agent_models import AgentChoice
     from flowfield.harness_models import HarnessRegistration
+
+    assert Path(pi_module.__file__).with_name("pi_extension.js").is_file()
+    pi_native = directory / "pi-cli"
+    pi_native.write_text(
+        "#!/bin/sh\nexec "
+        + shlex.quote(sys.executable)
+        + " "
+        + shlex.quote(str(Path(__file__).with_name("pi-fixture.py")))
+        + ' "$@"\n'
+    )
+    pi_native.chmod(0o700)
+    pi_config = directory / "pi-config"
+    pi_config.mkdir()
+    pi_agent = PiAgent(
+        directory,
+        directory,
+        os.environ,
+        registration=HarnessRegistration(
+            harness="pi",
+            executable=str(pi_native),
+            config_directory=str(pi_config),
+        ),
+    )
+    try:
+        await pi_agent.start([])
+        await pi_agent.configure(
+            AgentChoice(harness="pi", model="first/shared-model", effort="low", mode="full-access")
+        )
+        assert await pi_agent.prompt("Scripted Pi install check", None) == {"status": "completed"}
+    finally:
+        assert await pi_agent.stop()
 
     native = directory / "native-cli"
     native.write_text(

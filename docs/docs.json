@@ -7,7 +7,7 @@
     "groups": [
       { "group": "Start here", "pages": ["getting-started", "concepts", "coordinator"] },
       { "group": "Reference", "pages": ["installation", "worker-setup", "cli", "protocols", "storage"] },
-      { "group": "Integrations", "pages": ["integrations/overview", "integrations/codex", "integrations/claude-code"] }
+      { "group": "Integrations", "pages": ["integrations/overview", "integrations/codex", "integrations/claude-code", "integrations/pi"] }
     ]
   },
   "navbar": {

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add installed Pi 1.1+ for the Coordinator and workers through native RPC, with automatic
+  model discovery, provider-qualified choices, native continuation and shared Stop/setup.
+- Upgrade stored harness settings to schema 52, preserving existing choices and history.
 - Support Apple Silicon Macs and Linux arm64/x64; drop Intel Mac builds.
 - Surface native Codex MCP tool approvals instead of silently rejecting worker stage
   updates and result submission. Decisions apply once to the exact active turn.
@@ -34,7 +37,7 @@
   unchecked sign-in status from signed-out status.
 
 **Upgrade:** stop Flowfield before updating. Schema-44 workspaces from 0.2.0/0.2.1
-upgrade automatically through schema 51 after a verified snapshot. The queue stays
+upgrade automatically through schema 52 after a verified snapshot. The queue stays
 paused after restart. Older native session bindings require revalidation; uncertain
 prompts are not replayed. No separate integration install is needed. Update project
 guidance and restart standalone conversations. See [storage](https://docs.flowfield.sh/storage).
