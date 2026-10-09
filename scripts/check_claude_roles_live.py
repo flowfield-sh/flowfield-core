@@ -9,6 +9,7 @@ import argparse
 import asyncio
 import json
 import shutil
+import traceback
 from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
@@ -23,8 +24,12 @@ from flowfield.coordinator_models import CoordinatorSend
 from flowfield.execution_models import QueueEdit, SettingsEdit
 from flowfield.harness_models import HarnessEdit
 from flowfield.harness_settings import HarnessSettings
+from flowfield.inspection import Inspections
+from flowfield.inspection_models import InspectionPrepare
 from flowfield.integration_models import IntegrationConfig
 from flowfield.permission_models import PermissionAnswer
+from flowfield.questions import QuestionAnswer, Questions
+from flowfield.result_models import ResultReview
 from flowfield.stage_models import Stage
 from flowfield.supervisor import Supervisor
 
@@ -144,6 +149,140 @@ async def continuity(service, project, conversation, nonce, calls, observed, set
     report["simulatedHistoricalMessages"] = 10
 
 
+async def worker_journey(
+    service, project, task, paused, repo, initial, permissions, observed, report
+):
+    """Simulated human input/review through ordinary owners; scheduling continues once."""
+
+    async def wait(read):
+        async with asyncio.timeout(180):
+            while True:
+                for request in service.permissions.page(project).pending:
+                    option = next((v for v in request.options if v.kind == "allow_once"), None)
+                    assert option is not None
+                    service.permissions.answer(
+                        project,
+                        request.id,
+                        PermissionAnswer(
+                            expected_revision=request.revision,
+                            option_id=option.id,
+                        ),
+                    )
+                    permissions.append({"role": request.role, "kind": option.kind})
+                runs = service.execution.page(project, task_id=task).items
+                assert len(runs) <= 3, "Trial exceeded three worker attempts"
+                latest = runs[0]
+                if latest.status in {"failed", "uncertain", "stopped"}:
+                    report["workerFailure"] = {"status": latest.status, "problem": latest.problem}
+                    raise AssertionError("Worker journey stopped")
+                value = read()
+                if value is not None:
+                    return value
+                await asyncio.sleep(0.05)
+
+    async def result_ready():
+        def read():
+            page = service.results.page(project, task)
+            if not page.items:
+                return None
+            current = page.items[0]
+            if current.status in {"blocked", "stale", "cancelled"}:
+                report["resultFailure"] = {"status": current.status, "problem": current.problem}
+                raise AssertionError("Result preparation failed")
+            return current if current.status == "ready" else None
+
+        return await wait(read)
+
+    report["phase"] = "answer"
+    questions = Questions(service.workspace)
+    question = questions.get(project, paused.question_id)
+    assert question.status == "open" and not (repo / "label.txt").exists()
+    assert service.loop_task is not None and service.execution.settings(project).enabled
+    answer = QuestionAnswer(expected_revision=question.revision, answer="Use Teal.")
+    saved = questions.answer(project, question.id, answer)
+    assert saved.answer == "Use Teal."
+    assert questions.answer(project, question.id, answer).answer == "Use Teal."
+    first = await result_ready()
+    continued = service.execution.get(project, first.run_id)
+    assert continued.id != paused.id and continued.input_base_commit == paused.input_checkpoint
+    assert continued.applied_agent == CHOICE and observed[-1].cleanup_confirmed
+    report["answerDeliveredOnce"] = (
+        questions.get(project, question.id).continuation_run_id == continued.id
+    )
+    assert report["answerDeliveredOnce"]
+    assert len(service.execution.page(project, task_id=task).items) == 2
+    assert baseline(repo) == initial and not (repo / "label.txt").exists()
+    assert first.approved_at is None and service.workspace.task(project, task).status == "in_review"
+    report["phase"] = "inspect"
+    copy = await asyncio.to_thread(
+        Inspections(service.workspace).prepare,
+        project,
+        InspectionPrepare(result_id=first.id, expected_revision=first.revision),
+    )
+    assert copy.status == "ready" and copy.commit == first.candidate_commit
+    assert (Path(copy.workspace) / "label.txt").read_text() == "teal\n"
+    assert baseline(repo) == initial and first.approved_at is None
+    report["inspectionPassed"] = True
+    report["firstLimitations"] = first.report.limitations
+    report["phase"] = "request_changes"
+    first = service.results.get(project, first.id)
+    service.results.review(
+        project,
+        first.id,
+        ResultReview(
+            expected_revision=first.revision,
+            candidate_commit=first.candidate_commit,
+            action="request_changes",
+            note="Use uppercase for the same chosen color in label.txt. "
+            "Keep the newline and all other files unchanged.",
+            author="simulated-human",
+        ),
+    )
+    revised = await result_ready()
+    assert revised.id != first.id and revised.run_id != first.run_id
+    successor = service.execution.get(project, revised.run_id)
+    assert successor.base_commit == first.source_commit
+    assert successor.applied_agent == CHOICE and observed[-1].cleanup_confirmed
+    assert git(repo, "show", revised.candidate_commit + ":label.txt") == b"TEAL\n"
+    assert baseline(repo) == initial and not (repo / "label.txt").exists()
+    assert revised.approved_at is None
+    report["phase"] = "approve_exact_candidate"
+    approved = service.results.review(
+        project,
+        revised.id,
+        ResultReview(
+            expected_revision=revised.revision,
+            candidate_commit=revised.candidate_commit,
+            action="approve",
+            note="Simulated human verified the exact uppercase label candidate.",
+            author="simulated-human",
+        ),
+    )
+    assert approved.status == "delivering"
+    delivered = await wait(
+        lambda: (
+            service.results.get(project, revised.id)
+            if service.results.get(project, revised.id).status == "delivered"
+            else None
+        )
+    )
+    assert delivered.approved_by == "simulated-human"
+    assert baseline(repo) == revised.candidate_commit
+    assert (repo / "label.txt").read_text() == "TEAL\n"
+    assert service.workspace.task(project, task).status == "done"
+    assert len(observed) == 3 and all(v.cleanup_confirmed for v in observed)
+    report.update(
+        status="delivered",
+        phase="delivered",
+        workerAttempts=3,
+        requestedChangesApplied=True,
+        exactApproval=True,
+        deliveryPassed=True,
+        finalLimitations=revised.report.limitations,
+        queryLimits="Ordinary native worker settings; three attempts, 180s phase bounds",
+    )
+
+
 async def proof(
     trial: Path,
     bridge: Path,
@@ -232,7 +371,7 @@ async def proof(
                 directory=directory,
                 registration=registration,
                 choice=choice,
-                proof_limits=True,
+                proof_limits=role != "journey",
             )
         else:
             agent = create(
@@ -330,13 +469,20 @@ async def proof(
                         expected_revision=1,
                         target_branch="main",
                         runtime="local",
-                        checks=["test -f CLAUDE.md"],
+                        checks=["test -f label.txt"]
+                        if role == "journey"
+                        else ["test -f CLAUDE.md"],
                     ),
                 )
                 configured = service.execution.configure(
                     project.id,
                     SettingsEdit(expected_revision=1, selection=CHOICE),
                 )
+                if role == "journey":
+                    # Startup intentionally pauses queues. Enable the fresh fixture only
+                    # after startup, before its first attempt and the single saved answer.
+                    await service.start()
+                    configured = service.execution.settings(project.id)
                 service.execution.queue(
                     project.id,
                     QueueEdit(
@@ -350,12 +496,34 @@ async def proof(
                         id="label",
                         title="Clarify the fixture label",
                         status="up_next",
-                        body="Read repository guidance and the frozen task context. Ask the human "
-                        "whether the fixture label should be Amber or Teal through the scoped "
-                        "ask_question tool, recommend Teal, then end the turn. Do not edit files "
-                        "or submit a result before the answer. This is the required outcome.",
+                        body=(
+                            "Create label.txt after the human chooses Amber or Teal. Ask for that "
+                            "choice before editing; when a saved answer exists, continue with it "
+                            "without asking again. Write the chosen lowercase color followed by "
+                            "a newline, verify the file and preserve repository guidance. Only "
+                            "edit label.txt. Report any unclear tools/context in your limitations."
+                            if role == "journey"
+                            else "Read repository guidance and the frozen task context. "
+                            "Ask the human whether the fixture label should be Amber or Teal "
+                            "through ask_question, recommend Teal, then end the turn. Do not edit "
+                            "or submit a result before the answer. This is the required outcome."
+                        ),
                         stages=[
-                            Stage(id="clarify", title="Clarify", outcome="Obtain the label choice")
+                            Stage(id="clarify", title="Clarify", outcome="Obtain the label choice"),
+                            *(
+                                [
+                                    Stage(
+                                        id="implement",
+                                        title="Implement",
+                                        outcome="Write the chosen label",
+                                    ),
+                                    Stage(
+                                        id="verify", title="Verify", outcome="Verify the label file"
+                                    ),
+                                ]
+                                if role == "journey"
+                                else []
+                            ),
                         ],
                     ),
                 )
@@ -364,7 +532,7 @@ async def proof(
                     task.id,
                     TaskPublish(
                         expected_revision=task.revision,
-                        completion="report",
+                        completion="code" if role == "journey" else "report",
                     ),
                 )
                 AgentSettings(workspace).edit(
@@ -379,7 +547,10 @@ async def proof(
                 run = service.execution.claim(project.id, initial, {initial: set()})
                 assert run is not None
                 print(json.dumps({"started": role, "trial": str(trial)}), flush=True)
-                await settle(asyncio.create_task(service._execute(run, repo)))
+                job = asyncio.create_task(service._execute(run, repo))
+                service.jobs[run.id] = job
+                job.add_done_callback(lambda done: service._job_finished(run.id, done))
+                await settle(job)
                 outcome = service.execution.get(project.id, run.id)
                 report.update(status=outcome.status)
                 assert outcome.status == "waiting_for_input", outcome.problem
@@ -393,19 +564,37 @@ async def proof(
                     "ask_question",
                     "submit_result",
                 }
+                if role == "journey":
+                    await worker_journey(
+                        service,
+                        project.id,
+                        task.id,
+                        outcome,
+                        repo,
+                        initial,
+                        permissions,
+                        observed,
+                        report,
+                    )
             assert all(v.cleanup_confirmed for v in observed)
-            if role != "continuity":
+            if role not in {"continuity", "journey"}:
                 assert len(observed) == 1
             assert (repo / "CLAUDE.md").read_text() == guidance
-            if role != "continuity":
+            if role not in {"continuity", "journey"}:
                 assert baseline(repo) == initial
                 assert not git(repo, "status", "--porcelain").strip()
-            else:
+            elif role == "continuity":
                 assert git(repo, "status", "--porcelain").strip() == b"?? shipping-label.txt"
+            else:
+                assert baseline(repo) != initial and not git(repo, "status", "--porcelain").strip()
             report["passed"] = True
     except Exception as error:
         # No raw native diagnostics/account state in the report.
-        report.update(failure=type(error).__name__)
+        frame = traceback.extract_tb(error.__traceback__)[-1]
+        report.update(
+            failure=type(error).__name__,
+            failureLocation={"file": Path(frame.filename).name, "line": frame.lineno},
+        )
     finally:
         await service.close()
         report.update(
@@ -430,11 +619,15 @@ def main():
     )
     parser.add_argument("--native", type=Path, required=True)
     parser.add_argument("--trial-root", type=Path, required=True)
-    parser.add_argument("--role", choices=["coordinator", "worker", "continuity"], required=True)
+    parser.add_argument(
+        "--role", choices=["coordinator", "worker", "continuity", "journey"], required=True
+    )
     parser.add_argument("--codex-bundle", type=Path)
     parser.add_argument("--codex-native", type=Path)
     parser.add_argument("--invoke-live", action="store_true", required=True)
     args = parser.parse_args()
+    if args.role == "journey" and not args.bundle:
+        parser.error("The complete worker journey requires the original installed bundle")
     if args.role == "continuity" and not (args.bundle and args.codex_bundle and args.codex_native):
         parser.error("Continuity requires installed Claude and explicit Codex bundle/native paths")
     root = args.trial_root.resolve(strict=True)

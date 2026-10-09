@@ -102,6 +102,13 @@ Claude prompts remain exact Sonnet 5.5/low; Codex uses Sol 6.1/medium. It verifi
 retained native bindings and cleanup through both original installed bundles. It does
 not supply a direct model API client or establish browser/human acceptance.
 
+`--role journey --bundle` tests the complete three-attempt worker path with simulated
+human input and review: question, saved answer and automatic fresh continuation, independent
+candidate inspection, requested changes, exact approval and local delivery. It uses
+ordinary native worker query settings rather than the cleanup proof's four-turn limit.
+The fixture limits itself to three attempts and bounded waits; no personal service or
+public repository is used. Model simulation does not accept the human experience.
+
 ## Explicit model-free native check
 
 ```sh
