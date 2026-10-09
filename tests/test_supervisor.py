@@ -96,7 +96,7 @@ class FakeWorker:
 
 
 def test_managed_claim_result_review_and_restart(tmp_path, monkeypatch):
-    monkeypatch.setattr("flowfield.supervisor.CodexAgent", FakeWorker)
+    monkeypatch.setattr("flowfield.adapters.agent_selection.CodexAgent", FakeWorker)
     monkeypatch.setattr("flowfield.supervisor.process_stamp", lambda pid: "fixture-process")
     execution = fixture(tmp_path)
     repo = tmp_path / "harbor"
@@ -225,7 +225,7 @@ def test_parallel_queue_capacity_pause_and_exact_delivery(tmp_path, monkeypatch)
                 self.release.set()
             return True
 
-    monkeypatch.setattr("flowfield.supervisor.CodexAgent", ControlledWorker)
+    monkeypatch.setattr("flowfield.adapters.agent_selection.CodexAgent", ControlledWorker)
     monkeypatch.setattr("flowfield.supervisor.process_stamp", lambda pid: "fixture-process")
     execution = fixture(tmp_path, count=3, cap=2)
     from flowfield.browser import BrowserReads

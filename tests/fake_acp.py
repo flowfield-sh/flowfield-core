@@ -20,7 +20,7 @@ CONFIG = [
         "options": [{"value": "first", "name": "First"}, {"value": "second", "name": "Second"}],
     }
 ]
-if "managed" in sys.argv:
+if "managed" in sys.argv or "claude" in sys.argv:
     CONFIG[0]["options"] = [{"value": "test-model", "name": "Test model"}]
     CONFIG[0]["currentValue"] = "test-model"
     CONFIG.extend(
@@ -57,6 +57,16 @@ if "fast" in sys.argv:
             "options": [{"value": "on", "name": "On"}, {"value": "off", "name": "Off"}],
         }
     )
+
+if "claude" in sys.argv:
+    CONFIG[0]["options"] = [{"value": "sonnet", "name": "Sonnet"}]
+    CONFIG[0]["currentValue"] = "sonnet"
+    next(item for item in CONFIG if item["id"] == "reasoning_effort")["id"] = "effort"
+    mode = next(item for item in CONFIG if item["id"] == "mode")
+    mode["currentValue"] = "default"
+    mode["options"] = [{"value": v, "name": v} for v in ("default", "acceptEdits", "plan")]
+    if "fast" in sys.argv:
+        next(item for item in CONFIG if item["id"] == "fast-mode")["id"] = "fast"
 
 
 def send(message):
@@ -330,7 +340,9 @@ async def main():
                                 "flowfield.cleanup": {
                                     "version": 1,
                                     "method": "_flowfield/quiesce",
-                                    "scope": "native-turns-and-terminals",
+                                    "scope": "native-turns-and-tasks"
+                                    if "claude" in sys.argv
+                                    else "native-turns-and-terminals",
                                 }
                             }
                             if "cleanup" in sys.argv
@@ -386,24 +398,48 @@ async def main():
                 ] = request["params"]["value"]
             reply(request, {"configOptions": CONFIG})
         elif method == "session/prompt":
+            if marker := os.environ.get("FLOWFIELD_TEST_PROMPT_MARKER"):
+                Path(marker).write_text("prompt dispatched")
             stopped.clear()
             task = asyncio.create_task(prompt(request))
             tasks.add(task)
             task.add_done_callback(tasks.discard)
         elif method == "session/cancel":
             stopped.set()
+        elif method == "_flowfield/proofStatus":
+            wrong_model = "wrong-model" in sys.argv
+            if marker := os.environ.get("FLOWFIELD_TEST_MODEL_DRIFT"):
+                wrong_model = wrong_model or Path(marker).exists()
+            reply(
+                request,
+                {
+                    "sessionId": "wrong" if "wrong-model-session" in sys.argv else "test-session",
+                    "model": "claude-opus-5-5" if wrong_model else "claude-sonnet-5-5",
+                    "account": {"tokenSource": "PRIVATE ACCOUNT DETAILS"},
+                },
+            )
         elif method == "_flowfield/quiesce":
             reply(
                 request,
                 {
                     "version": 1,
                     "method": "_flowfield/quiesce",
-                    "scope": "native-turns-and-terminals",
+                    "scope": "native-turns-and-tasks"
+                    if "claude" in sys.argv
+                    else "native-turns-and-terminals",
                     "sessionId": "wrong" if "cleanup-wrong-session" in sys.argv else "test-session",
                     "status": "uncertain" if "cleanup-uncertain" in sys.argv else "confirmed",
                     "reason": None,
-                    "checkedThreads": 1,
-                    "stoppedTerminals": 0,
+                    **(
+                        {
+                            "checkedNativeOwners": 1,
+                            "stoppedTasks": 0,
+                            "quietObservations": 2,
+                            "nativeOwnerExited": True,
+                        }
+                        if "claude" in sys.argv
+                        else {"checkedThreads": 1, "stoppedTerminals": 0}
+                    ),
                 },
             )
         elif method == "session/close":

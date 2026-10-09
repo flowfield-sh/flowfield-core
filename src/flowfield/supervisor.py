@@ -11,8 +11,9 @@ from typing import Any, BinaryIO
 
 from flowfield.adapters import git_integration as gitops
 from flowfield.adapters import local_checks
+from flowfield.adapters.acp_agent import AcpAgent
 from flowfield.adapters.acp_permissions import permission_handler
-from flowfield.adapters.codex_agent import CodexAgent, model_options
+from flowfield.adapters.agent_selection import create, model_options, require_available
 from flowfield.adapters.git_workspace import GitWorkspace, contains
 from flowfield.adapters.harness_host import HarnessChecks, resolve
 from flowfield.adapters.local_execution import LocalAttempt, LocalHost
@@ -57,7 +58,7 @@ class Supervisor:
         self.results = Results(workspace)
         self.setup_validation = SetupValidation(workspace)
         self.delivery_jobs: dict[str, asyncio.Task[None]] = {}
-        self.clients: dict[str, CodexAgent] = {}
+        self.clients: dict[str, AcpAgent] = {}
         self.permissions = Permissions(workspace)
         self.harness_checks = HarnessChecks(workspace.directory)
         from flowfield.coordinator import Coordinator
@@ -137,6 +138,7 @@ class Supervisor:
     async def validate_agent_choice(
         self, choice: AgentChoice, project_id: str | None = None
     ) -> None:
+        require_available(choice.harness)
         models = await self.model_options()
         if not any(
             item.id == choice.model
@@ -228,7 +230,7 @@ class Supervisor:
             )
 
     async def _execute(self, run: Run, repository: Path) -> None:
-        client: CodexAgent | None = None
+        client: AcpAgent | None = None
         environment: LocalAttempt | None = None
         scope_stack = contextlib.AsyncExitStack()
         activity: ActivityRecorder | None = None
@@ -268,7 +270,13 @@ class Supervisor:
                 "common_git": str(environment.common_git),
             }
             self.execution.save_local(run.id, metadata)
-            client = CodexAgent(
+            choice = (
+                run.agent_settings.choice
+                if run.agent_settings
+                else AgentChoice(model=run.model, effort=run.effort)
+            )
+            client = create(
+                choice,
                 self.workspace.directory,
                 environment.checkout,
                 environment.launch_environment(),
@@ -288,11 +296,6 @@ class Supervisor:
                 process_stamp=await asyncio.to_thread(process_stamp, client.process.pid),
             )
             self.execution.save_local(run.id, metadata)
-            choice = (
-                run.agent_settings.choice
-                if run.agent_settings
-                else AgentChoice(model=run.model, effort=run.effort)
-            )
             applied_agent = await client.configure(choice)
             if getattr(client, "supports_activity", False):
                 activity = ActivityRecorder(self.workspace, run.project_id, run.id)

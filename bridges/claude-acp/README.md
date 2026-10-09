@@ -1,8 +1,9 @@
 # Claude capability proof
 
 This is development proof tooling. Claude is not yet a selectable Flowfield harness.
-It reuses Flowfield's `AcpSession` and `LocalProcess` owners; it adds no application
-settings, adapter, service or runtime installation.
+It reuses Flowfield's `AcpSession` and `LocalProcess` owners. The internal Claude
+adapter requires an explicit development artifact; there is no Claude runtime installation
+or production selection yet.
 
 `proof.json` pins [claude-agent-acp 0.88.0](https://github.com/agentclientprotocol/claude-agent-acp/releases/tag/v0.88.0),
 ACP SDK 1.7.0 and Claude Agent SDK 0.3.293. The measured host CLI is Claude Code
@@ -131,6 +132,16 @@ receipt; the test's live owner subsequently stops it. No persisted PID is used t
 recover ownership and no native Claude/model is invoked by this scripted probe.
 
 Ordinary checks run only controller/receipt tests, not the native/scripted commands.
+
+The internal `ClaudeAgent` uses the shared ACP activity, attachments, permission and Stop
+owners. Its startup metadata selects the exact native model, effort and access mode; it
+checks the candidate's session-fenced actual native model before every prompt. The candidate
+currently bounds inference to four native turns and a $0.50 native estimated budget per
+query. These are development proof bounds, not application defaults or billing guarantees.
+Same-session model changes, optional effort and native commands remain unverified. The
+application selection owner rejects Claude launches/discovery unless proof code supplies
+the explicit artifact; API settings validation retains that gate. Integrated scripted role
+tests exercise the actual coordinator/supervisor and scoped HTTP MCP owners without models.
 These scripted results establish integration mechanics; the explicit native trials below
 measure actual tool, hook, subagent and persisted-session behavior. Integrated application
 scope/service-restart journeys and goals/Monitor/workflows remain unverified.

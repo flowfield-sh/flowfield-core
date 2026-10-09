@@ -415,7 +415,7 @@ def test_enabled_scheduler_picks_up_dependent_after_explicit_integration(tmp_pat
             assert (self.cwd / "loader.py").read_text().endswith("return 42\n")
             return await super().run(*args)
 
-    monkeypatch.setattr("flowfield.supervisor.CodexAgent", DependentWorker)
+    monkeypatch.setattr("flowfield.adapters.agent_selection.CodexAgent", DependentWorker)
     monkeypatch.setattr("flowfield.supervisor.process_stamp", lambda pid: "fixture-process")
 
     async def journey():

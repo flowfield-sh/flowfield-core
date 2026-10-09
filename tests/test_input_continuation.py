@@ -236,7 +236,7 @@ def test_supervisor_preserves_pre_question_code_and_report_baseline(tmp_path, mo
                 )
             return {"status": "completed"}
 
-    monkeypatch.setattr("flowfield.supervisor.CodexAgent", AskingWorker)
+    monkeypatch.setattr("flowfield.adapters.agent_selection.CodexAgent", AskingWorker)
     monkeypatch.setattr("flowfield.supervisor.process_stamp", lambda pid: "fixture")
     execution = fixture(tmp_path)
     repo = Path(tmp_path / "harbor")

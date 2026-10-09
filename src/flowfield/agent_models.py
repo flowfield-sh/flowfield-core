@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from flowfield.harness_models import HarnessRegistration
+from flowfield.harness_models import HarnessKind, HarnessRegistration
 
 
 class AgentRecord(BaseModel):
@@ -12,7 +12,7 @@ class AgentRecord(BaseModel):
 
 
 class AgentChoice(AgentRecord):
-    harness: Literal["codex"] = "codex"
+    harness: HarnessKind = "codex"
     model: str = Field(min_length=1, max_length=200)
     effort: str = Field(min_length=1, max_length=40)
     mode: str | None = Field(default=None, min_length=1, max_length=200)

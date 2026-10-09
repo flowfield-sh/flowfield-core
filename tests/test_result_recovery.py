@@ -297,7 +297,7 @@ def test_setup_failure_does_not_launch_model_and_retains_location(tmp_path, monk
 
     from test_supervisor import FakeWorker
 
-    monkeypatch.setattr("flowfield.supervisor.CodexAgent", FakeWorker)
+    monkeypatch.setattr("flowfield.adapters.agent_selection.CodexAgent", FakeWorker)
     monkeypatch.setattr(FakeWorker, "run", forbidden, raising=False)
     asyncio.run(service._execute(correction, repo))
     failed = service.execution.get("harbor", correction.id)

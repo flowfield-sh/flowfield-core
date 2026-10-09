@@ -9,9 +9,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from flowfield.activity_text import retain
+from flowfield.adapters.acp_agent import AcpAgent
 from flowfield.adapters.acp_permissions import permission_handler
 from flowfield.adapters.agent_mcp import serve_scope
-from flowfield.adapters.codex_agent import CodexAgent, command_options
+from flowfield.adapters.agent_selection import command_options, create
 from flowfield.adapters.harness_host import resolve
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_models import AgentCommand
@@ -193,7 +194,7 @@ class Coordinator:
 
     async def _run(self, turn: CoordinatorTurn) -> None:
         workspace = self.supervisor.workspace
-        client: CodexAgent | None = None
+        client: AcpAgent | None = None
         temporary: tempfile.TemporaryDirectory[str] | None = None
         recorder = ActivityRecorder(workspace, turn.project_id, turn.id, store=self.store)
         status: Literal["completed", "failed", "stopped"] = "failed"
@@ -212,7 +213,8 @@ class Coordinator:
                     environment = LocalHost(os.environ).launch_environment(
                         Path(project.path), Path(temporary.name)
                     )
-                    client = CodexAgent(
+                    client = create(
+                        turn.settings.choice,
                         workspace.directory,
                         Path(project.path),
                         environment,

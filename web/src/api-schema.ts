@@ -2113,9 +2113,9 @@ export interface components {
       /**
        * Harness
        * @default codex
-       * @constant
+       * @enum {string}
        */
-      harness: "codex";
+      harness: "codex" | "claude-code";
       /** Model */
       model: string;
       /** Effort */
@@ -2130,9 +2130,9 @@ export interface components {
       /**
        * Harness
        * @default codex
-       * @constant
+       * @enum {string}
        */
-      harness: "codex";
+      harness: "codex" | "claude-code";
       /** Model */
       model: string;
       /** Effort */
