@@ -68,7 +68,7 @@ class ClaudeAgent(AcpAgent):
         self.launch = resolve(registration, environment)
         self.environment = launch_environment(self.launch, environment)
         self.environment.pop("CLAUDE_AGENT_LOGS", None)
-        self.environment.pop("CLAUDE_ACP_EXPERIMENTAL_V2", None)
+        self.environment.pop("CLAUDE_AGENT_ACP_EXPERIMENTAL_V2", None)
         self.launch.bridge_executable = str(bridge)
         self.launch.bridge_version = "0.88.0-flowfield.proof.3"
         self.command = [str(bridge), "--flowfield-proof-cleanup"]

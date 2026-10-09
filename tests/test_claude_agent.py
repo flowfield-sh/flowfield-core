@@ -49,7 +49,7 @@ def candidate(tmp_path, *flags):
             }
         ),
         "CLAUDE_AGENT_LOGS": "PRIVATE LOG TARGET",
-        "CLAUDE_ACP_EXPERIMENTAL_V2": "1",
+        "CLAUDE_AGENT_ACP_EXPERIMENTAL_V2": "1",
     }
     registration = HarnessRegistration(harness="claude-code", revision=7, executable=sys.executable)
     return create(
@@ -68,7 +68,7 @@ def test_candidate_applies_native_choices_and_shares_public_activity_attachments
         assert isinstance(agent, ClaudeAgent)
         assert agent.launch.registration_revision == 7
         assert "CLAUDE_AGENT_LOGS" not in agent.environment
-        assert "CLAUDE_ACP_EXPERIMENTAL_V2" not in agent.environment
+        assert "CLAUDE_AGENT_ACP_EXPERIMENTAL_V2" not in agent.environment
         activity = []
         agent.on_activity = activity.append
         try:

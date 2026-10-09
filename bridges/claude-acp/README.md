@@ -142,6 +142,22 @@ Same-session model changes, optional effort and native commands remain unverifie
 application selection owner rejects Claude launches/discovery unless proof code supplies
 the explicit artifact; API settings validation retains that gate. Integrated scripted role
 tests exercise the actual coordinator/supervisor and scoped HTTP MCP owners without models.
+
+The explicit service-loss probe starts an independent fixture service and interrupts its
+live `LocalProcess` owner while a native Bash helper is running. A fresh Supervisor opens
+the retained state: coordinator turns stay uncertain, worker capacity remains reserved,
+and no native prompt is replayed. A helper's observed exit is not promoted to a native
+cleanup receipt. Saved PIDs are never termination authority. The helper expires after
+75 seconds; no personal service is started or reset.
+
+```sh
+uv run scripts/check_claude_restart_live.py bridges/claude-acp/.work/claude-acp-proof \
+  --native /absolute/path/to/claude --trial-root /dedicated/private/trials \
+  --role worker --invoke-live
+```
+
+Use `--role coordinator` for the coordinator loss/recovery boundary. These commands
+invoke exact Sonnet 5.5/low through native Claude Code and remain outside ordinary CI.
 These scripted results establish integration mechanics; the explicit native trials below
 measure actual tool, hook, subagent and persisted-session behavior. Integrated application
 scope/service-restart journeys and goals/Monitor/workflows remain unverified.
