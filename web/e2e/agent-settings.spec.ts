@@ -341,7 +341,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   await page.route("**/permissions/request-2?*", (route) =>
     route.fulfill({ json: permission }),
   );
-  await page.route("**/permissions/request-2/answer", (route) => {
+  await page.route("**/permissions/request-2/answer", async (route) => {
     expect(route.request().postDataJSON()).toEqual({
       expected_revision: 1,
       option_id: "allow",
@@ -353,6 +353,18 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
       answer: "allow",
       released_at: new Date().toISOString(),
     };
+    // A real permission answer emits a project change. The intercepted answer
+    // must also exercise that stream instead of relying on unrelated activity.
+    expect(
+      (
+        await request.post("/api/projects/agent-settings/tasks", {
+          data: {
+            stages: fixtureStages(),
+            title: "Record scripted permission receipt",
+          },
+        })
+      ).ok(),
+    ).toBe(true);
     return route.fulfill({ json: permission });
   });
   await page.goto("/projects/agent-settings/inbox");

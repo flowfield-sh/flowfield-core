@@ -503,6 +503,7 @@ export function CoordinatorChat({
                 path={`projects/${projectId}/coordinator-settings`}
                 refresh={refresh}
                 coordinator
+                coordinatorActive={!!active}
                 open={controlsActive && (settingsOpen ?? (!choice && !taskKey))}
                 autoOpened={settingsOpen === undefined && !choice && !taskKey}
                 onOpenChange={setSettingsOpen}

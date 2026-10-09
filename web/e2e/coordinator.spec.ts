@@ -287,6 +287,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   await expect(
     page.getByRole("dialog", { name: "Coordinator model settings" }),
   ).toBeVisible();
+  await expect(page.getByLabel("Harness", { exact: true })).toBeEnabled();
   await page.keyboard.press("Escape");
   await input.click();
   await input.fill("/unknown");
@@ -334,6 +335,20 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   expect(sends).toBe(0);
   await input.press("Enter");
   await expect(page.getByText("Let’s plan the work.")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Codex · test-model · low", exact: true })
+    .click();
+  const activeSettings = page.getByRole("dialog", {
+    name: "Coordinator model settings",
+  });
+  await expect(
+    activeSettings.getByLabel("Harness", { exact: true }),
+  ).toBeDisabled();
+  await expect(activeSettings).toContainText("If cleanup is uncertain");
+  await expect(
+    activeSettings.getByRole("button", { name: "Load models", exact: true }),
+  ).toBeEnabled();
+  await page.keyboard.press("Escape");
   const now = new Date().toISOString();
   const longPermissionLabel =
     "Yes, and don't ask again for commands that start with `node -e '" +
@@ -429,6 +444,11 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     ),
   ).toBeVisible();
   await expect(input).toHaveValue("A draft for the next turn");
+  await page
+    .getByRole("button", { name: "Codex · test-model · low", exact: true })
+    .click();
+  await expect(page.getByLabel("Harness", { exact: true })).toBeEnabled();
+  await page.keyboard.press("Escape");
   await expect(page.getByLabel("Tool", { exact: true })).toBeVisible();
   const timeline = page.locator(
     ".coordinator-message:not(.coordinator-human) > [data-kind]",
@@ -580,6 +600,29 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   await expect(reset).toHaveCount(0);
   expect(resets).toBe(1);
   expect(sends).toBe(1);
+  active = turns[0];
+  active.status = "uncertain";
+  active.notice = "Native cleanup needs confirmation.";
+  await page.route(`**${historyPath}/turns/*/confirm-stopped`, (route) => {
+    active!.status = "interrupted";
+    active = null;
+    return route.fulfill({ status: 204 });
+  });
+  await page.reload();
+  await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Codex · test-model · low", exact: true })
+    .click();
+  await expect(page.getByLabel("Harness", { exact: true })).toBeDisabled();
+  await page.keyboard.press("Escape");
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("button", { name: "Confirm coordinator stopped", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Codex · test-model · low", exact: true })
+    .click();
+  await expect(page.getByLabel("Harness", { exact: true })).toBeEnabled();
 });
 
 test("single coordinator requires a saved model, labels loading and cancels dismissed settings", async ({

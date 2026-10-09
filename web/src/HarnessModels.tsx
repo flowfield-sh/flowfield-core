@@ -81,11 +81,13 @@ export function HarnessModelSource({
   change,
   compact = false,
   disabled = false,
+  harnessLocked = false,
 }: {
   source: ReturnType<typeof useHarnessModels>;
   change: (kind: HarnessKind) => void;
   compact?: boolean;
   disabled?: boolean;
+  harnessLocked?: boolean;
 }) {
   const { kind, hosts, host, loaded, catalog } = source;
   const unavailable = !!hosts.error || !host?.selectable || !!host.installing;
@@ -97,7 +99,7 @@ export function HarnessModelSource({
           aria-label="Harness"
           size={compact ? "sm" : "default"}
           value={kind ?? ""}
-          disabled={disabled || hosts.loading}
+          disabled={disabled || harnessLocked || hosts.loading}
           onChange={(event) => change(event.target.value as HarnessKind)}
         >
           <option value="" disabled>
@@ -120,6 +122,12 @@ export function HarnessModelSource({
           })}
         </NativeSelect>
       </Label>
+      {harnessLocked && (
+        <p className="detail-metadata">
+          Finish or Stop this message before switching harnesses. If cleanup is
+          uncertain, confirm the coordinator stopped.
+        </p>
+      )}
       {hosts.error && (
         <Alert>
           <AlertDescription>{hosts.error}</AlertDescription>

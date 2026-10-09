@@ -163,6 +163,7 @@ type AgentSettingsProps = {
   refresh: unknown;
   onDirty: (value: boolean) => void;
   coordinator?: boolean;
+  coordinatorActive?: boolean;
   onReady?: (choice: Choice | null) => void;
   onSaved?: () => void;
   onSaveError?: () => void;
@@ -177,6 +178,7 @@ function useAgentSettingsContent({
   refresh,
   onDirty,
   coordinator = false,
+  coordinatorActive = false,
   onReady,
   onSaved,
   onSaveError,
@@ -304,7 +306,14 @@ function useAgentSettingsContent({
             source={source}
             compact={compact}
             change={changeHarness}
+            harnessLocked={coordinatorActive}
           />
+          {coordinator && !coordinatorActive && (
+            <p className="detail-metadata">
+              Switching harnesses starts a fresh session with recent saved chat.
+              Older messages stay in Flowfield; reattach files needed again.
+            </p>
+          )}
           <AgentModelFields
             model={model}
             effort={effort}
@@ -321,6 +330,8 @@ function useAgentSettingsContent({
               size="sm"
               disabled={
                 !draft ||
+                (coordinatorActive &&
+                  selection?.harness !== data?.effective?.choice.harness) ||
                 catalog.loading ||
                 stale ||
                 !selection ||

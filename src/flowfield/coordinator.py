@@ -217,6 +217,14 @@ class Coordinator:
                         current.native_started = True
                         current.launch = client.launch
                         self.store._save(db, current)
+                    if not session_id:
+                        recorder.emit(
+                            ActivityUpdate(
+                                key="session",
+                                kind="status",
+                                text="Starting a fresh agent session…",
+                            )
+                        )
                     await client.start([server], resume=session_id, persistent=True)
                     assert client.session.session_id
                     self.store.sessions.created(
@@ -268,9 +276,10 @@ class Coordinator:
                     if handoff:
                         session_note += (
                             f" Included {len(handoff)} recent saved exchanges; "
-                            "earlier native tool history is not available in this session."
+                            "older messages remain available through Flowfield history. "
+                            "Previous tool history and attachment contents are not transferred."
                         )
-                    if handoff or native_command:
+                    if not session_id or native_command:
                         recorder.emit(
                             ActivityUpdate(key="session", kind="status", text=session_note)
                         )
