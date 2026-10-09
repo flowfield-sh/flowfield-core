@@ -13,7 +13,7 @@ from flowfield.adapters import git_integration as gitops
 from flowfield.adapters import local_checks
 from flowfield.adapters.acp_agent import AcpAgent
 from flowfield.adapters.acp_permissions import permission_handler
-from flowfield.adapters.agent_selection import create, require_available
+from flowfield.adapters.agent_selection import create
 from flowfield.adapters.git_workspace import GitWorkspace, contains
 from flowfield.adapters.harness_host import HarnessChecks
 from flowfield.adapters.local_execution import LocalAttempt, LocalHost
@@ -113,7 +113,6 @@ class Supervisor:
     ) -> list[ModelOption]:
         if self.closing:
             raise ApplicationError("service_stopping", "The service is stopping.", 409)
-        require_available(harness)
         return await self.catalogs.run(
             HarnessSettings(self.workspace).get(harness), project_id=project_id, refresh=refresh
         )
@@ -125,7 +124,6 @@ class Supervisor:
     async def validate_agent_choice(
         self, choice: AgentChoice, project_id: str | None = None
     ) -> None:
-        require_available(choice.harness)
         models = await self.model_options(project_id=project_id, harness=choice.harness)
         if not any(
             item.id == choice.model

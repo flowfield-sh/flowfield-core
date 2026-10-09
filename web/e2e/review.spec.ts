@@ -592,7 +592,8 @@ test("existing-project adoption previews and preserves coordinator guidance", as
   ).toBeVisible();
   await expect(
     page.getByText(
-      "Start a fresh Codex conversation; open sessions do not reload guidance.",
+      "Start a fresh coding conversation; open sessions do not reload guidance. " +
+        "Ask the harness to read AGENTS.md and the coordinator skill explicitly.",
       { exact: true },
     ),
   ).toBeVisible();

@@ -9,6 +9,10 @@ this boundary; the service owns assignments, input delivery, approval and integr
   workers or wake an inactive conversation.
 - `codex_agent.py` resolves the installed standalone bridge and native choices over ACP.
   Local workers use native coding tools and a revocable, run-bound Flowfield MCP endpoint.
+- `claude_agent.py` launches installed, unmodified Claude Code through its standalone
+  ACP/Agent SDK bridge. Exact native model identity is confirmed before dispatch;
+  Default/Accept edits retain native semantics. Plan, Fast and commands are not exposed.
+  `agent_selection.py` owns both roles and project-bound discovery for either harness.
 - `local_execution.py` prepares Local attempts. Git adapters own
   worktrees, candidate checks and delivery. The supervisor reserves work, freezes input,
   starts workers and reconciles recovery through the shared application operations.
@@ -49,7 +53,11 @@ The embedded coordinator uses the same ACP adapter with scoped planning tools an
 Access mode. It runs in the registered project directory and resumes the native session across
 turns and service restarts. Application history remains durable; explicit recovery from a missing
 session uses a bounded handoff instead of claiming to replay the complete native history.
-Mid-run steering and additional production harnesses remain future work. Deterministic adapters test application behavior without model calls.
+Harness or changed Claude control choices start a fresh retained native generation with
+a frozen, bounded Flowfield handoff; unchanged Claude choices resume. Events, permissions
+and tool grants are fenced by the exact turn/generation. Older public evidence is available
+through scoped source reads; native transcript conversion and permission transfer are absent.
+Mid-run steering remains future work. Deterministic adapters test application behavior without model calls.
 The installed service requires no Node runtime.
 
 Local setup, validation and inspection use the same host/tooling model. Saved inspection

@@ -31,19 +31,27 @@ Activate that environment to use the shorter command:
 . ~/.local/share/flowfield-venv/bin/activate
 ```
 
-## Set up Codex
+## Set up your harnesses
 
 Install and sign in to [Codex CLI](https://developers.openai.com/codex/cli/), then install
-Flowfield’s managed runtime for the Coordinator and workers:
+Flowfield’s managed bridge for the Coordinator and workers:
 
 ```sh
 flowfield harness install codex
 ```
 
-This downloads the matching ACP bridge; it does not install Codex or change your login.
-Make sure `codex` is on PATH in the terminal where you start Flowfield. Workers also need Git.
+Alternatively, install and sign in to [Claude Code](https://code.claude.com/docs/en/setup)
+and install its matching bridge. Claude support is currently in development source;
+published 0.2.1 supports Codex. You can use either harness alone or both in development builds.
+See [Claude Code setup](/integrations/claude-code) for native configuration and controls.
+
+This downloads the matching ACP bridge; it does not install a harness or change your login.
+Make sure your chosen harness is on PATH in the terminal where you start Flowfield. Workers also need Git.
 Once the service is running, **Settings → Harnesses** provides the same bridge installation
 and optional service-host path overrides, plus an explicit native version/sign-in check.
+Flowfield keeps one registration per harness kind; native accounts and account switching
+remain in each harness. The optional configuration path is a directory: `CODEX_HOME` or
+`CLAUDE_CONFIG_DIR`, not a settings file.
 
 ## Start and stop
 

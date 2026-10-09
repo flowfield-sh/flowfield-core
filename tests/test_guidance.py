@@ -40,7 +40,7 @@ def test_install_idempotent_and_remove_preserves_exact_existing_text(tmp_path: P
     installed = change(service)
     assert installed.status == "installed"
     assert set(installed.changed_files) == {"AGENTS.md", GUIDE, MANIFEST}
-    assert any("fresh Codex" in step for step in installed.next_steps)
+    assert any("fresh coding conversation" in step for step in installed.next_steps)
     assert (root / "AGENTS.md").read_bytes().startswith(original)
     snapshot = {name: (root / name).read_bytes() for name in ["AGENTS.md", GUIDE, MANIFEST]}
     unchanged = change(service)

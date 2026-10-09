@@ -112,11 +112,7 @@ export function HarnessModelSource({
             return (
               <option key={value} value={value} disabled={!status?.selectable}>
                 {name}
-                {status?.selectable
-                  ? ""
-                  : status?.problems.includes("adapter_not_available")
-                    ? " (in progress)"
-                    : " (setup needed)"}
+                {status?.selectable ? "" : " (setup needed)"}
               </option>
             );
           })}
@@ -135,9 +131,7 @@ export function HarnessModelSource({
       )}
       {!hosts.loading && unavailable && (
         <p className="detail-metadata">
-          {host?.problems.includes("adapter_not_available")
-            ? "This harness's managed integration is in progress."
-            : "Set up an available harness or resolve its discovery hold."}{" "}
+          Set up an available harness or resolve its discovery hold.{" "}
           <WorkspaceLink to="/settings/harnesses">
             Harness settings
           </WorkspaceLink>

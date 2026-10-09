@@ -1,9 +1,10 @@
 # Claude bridge and capability proof
 
-This is development proof tooling. Claude is not yet a selectable Flowfield harness.
-It reuses Flowfield's `AcpSession` and `LocalProcess` owners. The internal Claude
-adapter requires an explicit development artifact. A verified standalone runtime can be
-installed for integration checks; production role selection remains gated.
+This directory builds the standalone runtime and explicit development proof variants.
+Claude is selectable in development source through Flowfield's shared `AcpSession`,
+`LocalProcess` and role-selection owners. Published 0.2.1 has no Claude runtime assets;
+install a verified local bundle until the next authorized release. Native accounts stay
+in the installed Claude Code CLI.
 
 `proof.json` pins [claude-agent-acp 0.88.0](https://github.com/agentclientprotocol/claude-agent-acp/releases/tag/v0.88.0),
 ACP SDK 1.7.0 and Claude Agent SDK 0.3.293. The measured host CLI is Claude Code
@@ -80,7 +81,7 @@ Fast, automatic permission classification, Plan transitions and unverified comma
 are not offered. Changed model/access controls start a fresh native session; unchanged
 Claude coordinator choices can resume the current session.
 Unresolved aliases are omitted. Discovery must close with confirmed native cleanup;
-durable service ownership/recovery of discovery remains required before selection opens.
+discovery uses the service's durable ownership/recovery and bounded project catalog owner.
 
 Explicit role trials can test the original installed bundle with development query
 bounds. They use exact Sonnet 5.5/low through native Claude Code, not a direct model client:
@@ -123,6 +124,14 @@ then changes access mode to create a fresh native generation and Stops a bounded
 foreground Bash helper. The live adapter owns termination; the fixture observes the
 helper's exit independently and checks permission release and idle coordinator state.
 
+`scripts/check_claude_standalone_live.py --native /absolute/path/to/claude
+--trial-root /dedicated/private/trials --invoke-live` checks the separate standalone
+journey using the native CLI, installed project guidance and the actual unscoped local
+Flowfield MCP interface. It confirms Sonnet 5.5/low in native init and result metadata,
+project identity/board reads and unchanged files. It registers no personal MCP connection;
+the fixture passes temporary configuration and limits native tools to reads/tool discovery.
+Process-group exit here is not a managed native-work cleanup receipt.
+
 ## Explicit model-free native check
 
 ```sh
@@ -148,6 +157,9 @@ All temporary user configuration is deleted after owned process-group shutdown.
 
 ## Measured limits
 
+This section records the initial model-free upstream baseline. Installed runtime and
+later explicit native trials below provide the subsequent integration evidence.
+
 On macOS arm64, the standalone artifact opened/closed a real native session without
 Node/Bun on PATH. The alternate `CLAUDE_CONFIG_DIR` was a **directory**, containing
 `settings.json`; its Sonnet model/allowlist appeared in the ACP catalog. This is metadata
@@ -158,8 +170,8 @@ The released bridge advertises close/load/resume, HTTP/SSE MCP and images. It ex
 native `mode`, `model`, `effort` and `fast` option IDs. Neither these advertisements nor
 upstream's mocked tests establish a complete Flowfield journey. Images, public streaming,
 usage, native guidance, permission/plan transitions, hooks, connected scoped MCP,
-persisted-session continuity and actual foreground/background/subagent tools still
-need end-to-end proof. Flowfield's current client does not advertise form elicitation;
+persisted-session continuity and actual foreground/background/subagent tools were not
+established by that initial check. Flowfield's client does not advertise form elicitation;
 the bridge disables native `AskUserQuestion` in that case. Durable Flowfield questions
 must retain their existing scoped MCP path.
 
@@ -167,8 +179,9 @@ Session-close acknowledgment and native-owner/process-group exit are separate fr
 native-work cleanup. The default proof deliberately asserts `owned_work_stopped is None`:
 the released bridge has no negotiated `flowfield.cleanup` receipt. The opt-in candidate
 below adds one for measurement. Until its native tool ownership/termination is verified,
-managed Claude launch must stay unavailable and unknown cleanup must continue to block
-capacity. Neither proof claims containment of arbitrary daemons or external MCP services.
+this unextended upstream build is unsuitable for managed work. The installed runtime
+requires the verified extension; unknown cleanup continues to block capacity. Neither
+proof claims containment of arbitrary daemons or external MCP services.
 
 ## Opt-in cleanup candidate
 
@@ -224,9 +237,10 @@ owners. Its startup metadata selects the exact native model, effort and access m
 checks the candidate's session-fenced actual native model before every prompt. The candidate
 currently bounds inference to four native turns and a $0.50 native estimated budget per
 query. These are development proof bounds, not application defaults or billing guarantees.
-Same-session model changes, optional effort and native commands remain unverified. The
-application selection owner rejects Claude launches/discovery unless proof code supplies
-the explicit artifact; API settings validation retains that gate. Integrated scripted role
+Changed Claude controls start fresh; unchanged settings resume the native session. Optional
+effort follows native discovery. Plan, Fast and native commands remain unavailable. The
+application selection owner dispatches either installed harness for roles and catalogs.
+Integrated scripted role
 tests exercise the actual coordinator/supervisor and scoped HTTP MCP owners without models.
 
 The explicit service-loss probe starts an independent fixture service and interrupts its
@@ -246,7 +260,8 @@ Use `--role coordinator` for the coordinator loss/recovery boundary. These comma
 invoke exact Sonnet 5.5/low through native Claude Code and remain outside ordinary CI.
 These scripted results establish integration mechanics; the explicit native trials below
 measure actual tool, hook, subagent and persisted-session behavior. Integrated application
-scope/service-restart journeys and goals/Monitor/workflows remain unverified.
+scope/service-restart uncertainty has passed separately; goals/Monitor/workflow cleanup
+remains unverified and continues to reserve capacity.
 
 ## Explicit native Sonnet trials
 

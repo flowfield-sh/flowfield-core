@@ -9,13 +9,14 @@ Open a card to discuss that task without losing the conversation.
 
 ## Start planning
 
-Install and sign in to [Codex](/integrations/codex), then run `flowfield harness install codex`.
+Install and sign in to [Codex](/integrations/codex) or [Claude Code](/integrations/claude-code),
+then install its managed bridge from **Settings → Harnesses** or the CLI.
 Add an existing project using **Add project → Choose directory** or `flowfield project init`.
 In the Coordinator settings beside the input, select a ready harness and **Load models**,
 then choose its model and supported effort/access controls and save. Loading opens a native
 session for this project; startup hooks can run, but no model prompt is sent. The host setup
-page is **Settings → Harnesses**. Claude Code setup is available while its managed integration
-is still in progress.
+page is **Settings → Harnesses**. Use either harness alone or configure both; the
+Coordinator and workers have independent choices.
 The Coordinator uses the service host’s tools and credentials. Configure worker setup when
 you are ready to run tasks. Its Flowfield connection is automatic; standalone Codex sessions
 use [a separate connection](/integrations/codex#connect-a-standalone-coordinator).
@@ -35,14 +36,20 @@ code result in chat; the Coordinator records that exact approval and Flowfield d
 without a second confirmation. These actions are also available in task feeds.
 
 Use the model button beside the input to change harness, model, effort or access. Changes apply to the next
-message; a running turn keeps its saved choice. Standalone coding-agent settings are separate.
+message; a running turn keeps its saved choice. Harness changes require an idle coordinator
+or confirmed Stop. Switching harnesses starts a fresh native session with a bounded
+Flowfield handoff; switching back also starts fresh. Changed Claude model, effort or
+access controls start fresh; unchanged Claude settings resume. Codex supports model/control
+changes within its saved session. Standalone coding-agent settings are separate.
 Save to apply your choices; Cancel or closing the popup discards unsaved changes.
 
-Access modes come from Codex, including Read only, workspace access and Auto review.
+Access modes retain their native meaning. Codex offers Read only, workspace access and Auto review.
 Auto review uses Codex's native
 reviewer; permission requests that need your answer appear in the chat and **Needs you**.
 Answer one of the offered options while the turn is waiting. Stopping or ending the turn
-closes its requests. Tool permission does not approve a worker's code result.
+closes its requests. Claude offers Default and Accept edits; Default can request permission
+for edits and is not a read-only mode. Claude Plan, Fast and slash commands are not available.
+Tool permission does not approve a worker's code result.
 
 ## Composer controls
 
@@ -53,7 +60,7 @@ with the conversation and can be downloaded from their message links.
 You can attach up to four files: UTF-8 text/code up to 64 KiB each, or PNG, JPEG and WebP
 images up to 2 MiB each. Their contents accompany the message sent to the agent; images
 require image support from the connected harness. Coordinator attachments remain part of
-its native session history, subject to Codex's context management. Reattach a file if you
+its native session history, subject to the harness's context management. Reattach a file if you
 start a new session or need details that compaction has omitted. Previously sent files
 remain available to download. Task-feed answers and feedback accompany separate worker
 attempts; attach files again when later input needs their contents.
@@ -61,7 +68,8 @@ Each project has 128 MiB of attachment storage. Unsent uploads expire after 24 h
 
 Type `/` to see the available coordinator commands. Use arrow keys and Enter to select,
 then send the command. Escape returns to ordinary writing. The list contains only commands
-supported by both Flowfield and the connected Codex session; discovery starts no model turn.
+supported by both Flowfield and the connected Codex session; Claude currently has no exposed
+slash commands. Discovery starts no model turn.
 Select **Load commands** to discover the list; opening the composer or slash menu starts
 no native session. Discovery opens a disposable native session and startup hooks can run,
 but no model prompt is sent. Flowfield briefly caches the result. Commands are revalidated
@@ -130,12 +138,12 @@ are saved by the service. Older messages load on demand and stay visible as new 
 Long output is bounded and omissions are marked. Tool activity shows names, status and
 available commands or paths.
 
-Messages resume the same native Codex session, including its tool history and native
-context management, across turns and service restarts. Each turn gets a fresh scoped
+With compatible unchanged settings, messages resume the same native session, including
+its tool history and native context management, across turns and service restarts. Each turn gets a fresh scoped
 Flowfield connection. Stopping a turn ends its processes without deleting the saved session.
 
-If Codex cannot resume a session, Flowfield keeps the chat and reports the failure. Check
-Codex on the service host and send a new message to retry, or choose **Start new session**.
+If the harness cannot resume a session, Flowfield keeps the chat and reports the failure. Check
+it on the service host and send a new message to retry, or choose **Start new session**.
 That choice requires confirmation and sends a bounded summary of recent exchanges; it does not restore
 native tool history or earlier attachment contents. No failed prompt is replayed automatically.
 The recent-exchange handoff is frozen when the new message is accepted, before native

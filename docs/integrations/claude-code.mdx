@@ -1,0 +1,88 @@
+---
+title: Claude Code
+description: Configure native Claude Code for the Coordinator and task workers.
+---
+
+Claude Code integration is available in development source. Published Flowfield 0.2.1
+supports Codex; Claude bridge downloads require a future release. For development builds,
+install the matching standalone bundle with `flowfield harness install claude-code
+--bundle /path/to/bundle.zip --sha256 CHECKSUM`.
+
+Native journeys have been verified with Claude Code 2.1.295 on macOS arm64. Standalone
+bundle checks cover macOS/Linux arm64/x64 with scripted native peers; those checks do not
+establish live native compatibility on the other hosts.
+
+## Native setup
+
+Install [Claude Code](https://code.claude.com/docs/en/setup) and sign in using its native
+CLI on the service host. Flowfield launches that installed, unmodified CLI through its
+ACP bridge. It does not collect credentials, offer its own Claude login, or switch accounts.
+Native account configuration determines model access and billing.
+
+In **Settings → Harnesses**, leave paths blank to detect native defaults or save an absolute
+executable path and configuration directory. The configuration path is `CLAUDE_CONFIG_DIR`,
+a directory containing native settings; it is not `settings.json` itself. **Check saved setup**
+reads native version/sign-in status without a model prompt. A successful check does not prove
+model access; that requires a successful native turn. No Node/Bun runtime is needed.
+
+You can use Claude alone, Codex alone, or both. There is one registration per harness type;
+change accounts within the native harness. After changing native login/configuration,
+check setup and explicitly reload models. Running work keeps its saved Flowfield choice and
+launch registration, but externally edited native files and credentials are not frozen.
+
+## Choose roles
+
+In the [Coordinator](/coordinator), select Claude Code, **Load models**, choose a native
+model and supported effort/access controls, then save. The service supplies project-scoped
+Flowfield tools automatically. Native `CLAUDE.md` and existing project instructions remain
+intact. The Coordinator runs in your project and can change it within its native access mode.
+
+Configure [Workers](/worker-setup) independently; task **Agent settings** can override the
+default for the next attempt. Workers use separate checkouts and run-scoped tools. They ask
+durable questions through Flowfield, and saved answers continue in fresh worker attempts.
+Native tool permission is separate from exact approval of a code candidate for delivery.
+
+Supported access modes are **Default** and **Accept edits**, with their native semantics.
+Default may request approval for edits. Plan, Fast and Claude slash commands are not exposed.
+Model availability and effort choices come from native project-bound discovery. Loading
+models opens a disposable session: startup hooks can run, but no model prompt is sent.
+
+## Continue and switch
+
+Unchanged compatible Claude choices resume the saved native coordinator session. Changing
+harness, Claude model, effort or access controls starts a fresh session with a bounded
+Flowfield handoff. Harness switches require idle state or confirmed Stop. Switching back
+also starts fresh; old native bindings and public conversation evidence remain retained.
+
+The handoff includes up to eight recent public exchanges. Older messages remain available
+through scoped history/full-text tools. It does not convert native session files, private
+reasoning, tool history or permissions. Reattach older files when their contents matter;
+current-turn UTF-8 text and PNG/JPEG/WebP images accompany the message.
+
+**Stop** ends the selected turn and its observed native work. If cleanup cannot be confirmed,
+Flowfield keeps that ownership occupied until you inspect/stop remaining native work and
+confirm the exact turn or worker. Unsupported native goals, Monitor or workflow ownership
+can require this recovery. Flowfield never automatically replays an uncertain prompt.
+
+## Standalone conversation
+
+Built-in chat needs no separately registered MCP connection. For an external Claude Code
+conversation, use its [native MCP configuration](https://code.claude.com/docs/en/mcp) to
+connect the running local service at `http://127.0.0.1:8765/mcp/` (or your chosen port).
+Flowfield's `integration connect` helper currently configures Codex only.
+
+From the adopted project directory, while Flowfield is running:
+
+```sh
+claude mcp add --transport http flowfield http://127.0.0.1:8765/mcp/
+claude mcp get flowfield
+```
+
+These are native Claude commands. Inspect an existing connection with that name before
+changing it; use your chosen service port if it differs.
+
+Install [project guidance](/getting-started#add-your-project) and start a fresh Claude
+conversation in the adopted project. Ask it to read `AGENTS.md` and
+`.agents/skills/flowfield-coordinator/SKILL.md`, then read the correct Flowfield board.
+Keep existing `CLAUDE.md`; Flowfield does not rewrite native instructions or assume Claude
+automatically loads Codex's skill location.

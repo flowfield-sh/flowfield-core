@@ -25,9 +25,15 @@ commands instead. Flowfield does not choose a language environment for you.
 2. Save the Integration settings, then run **Validate setup**. It checks the saved branch
    in a fresh worktree, runs setup and validation, and reports checkout readiness. It starts
    no model and does not enable the queue.
-3. In **Workers**, select a model, reasoning effort and access mode. Start with one worker
+3. In **Workers**, select a ready Codex or Claude Code harness, then **Load models** and
+   choose its model and supported effort/access controls. Start with one worker
    slot; increase it when independent tasks can run without sharing mutable resources.
 4. Move a prepared task to **Up next** and choose **Run queue**.
+
+Coordinator and worker choices are independent. Task **Agent settings** can override the
+worker default; changes apply to the next attempt. Every running attempt keeps its frozen
+choice and host registration. Different harnesses can run independent tasks in parallel,
+with separate worktrees and scoped Flowfield connections. Native accounts stay in the harness.
 
 Workers run until they finish or you stop them. **Stop worker** preserves unfinished work;
 use **Retry worker** to queue a fresh attempt. Setup and validation commands have their own

@@ -22,12 +22,12 @@ function host(kind: "codex" | "claude-code") {
     native_installed: true,
     config_available: true,
     bridge_installed: true,
-    selectable: kind === "codex",
+    selectable: true,
     authentication: "unknown",
     model_access: "unverified",
     native_version: null as string | null,
     checked: false,
-    problems: kind === "claude-code" ? ["adapter_not_available"] : [],
+    problems: [] as string[],
     installing: false,
     catalog_ownership: null as null | {
       id: string;
@@ -101,7 +101,7 @@ test("central harness settings preserve host drafts and configure kinds independ
   await expect(
     first.getByLabel("Executable override", { exact: true }),
   ).toHaveValue("/service/custom/codex");
-  await expect(second).toContainText("Integration in progress");
+  await expect(second).toContainText("Setup detected");
   await second
     .getByLabel("Executable override", { exact: true })
     .fill("/service/alternative/claude");

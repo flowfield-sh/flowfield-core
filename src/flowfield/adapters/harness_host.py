@@ -114,9 +114,6 @@ def status(
         )
     except (ApplicationError, OSError):
         problems.append("bridge_missing_or_invalid")
-    if registration.harness == "claude-code":
-        # Installation is verified; production role integration is still gated.
-        problems.append("adapter_not_available")
     return HarnessStatus(
         registration=registration,
         launch=launch,

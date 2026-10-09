@@ -183,7 +183,7 @@ class Guidance:
                 and not (Path(directory) / name).is_symlink()
             )
             visited += 1
-            for name in ("AGENTS.md", "AGENTS.override.md"):
+            for name in ("AGENTS.md", "AGENTS.override.md", "CLAUDE.md", "CLAUDE.local.md"):
                 if name in names:
                     found.append(str((Path(directory) / name).relative_to(root)))
             if visited >= 2000 or len(found) >= 100:
@@ -300,7 +300,8 @@ class Guidance:
                     "rules before running workers."
                 )
             next_steps.append(
-                "Start a fresh Codex conversation; open sessions do not reload guidance."
+                "Start a fresh coding conversation; open sessions do not reload guidance. "
+                "Ask the harness to read AGENTS.md and the coordinator skill explicitly."
             )
         return GuidanceView(
             project_id=project_id,

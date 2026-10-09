@@ -51,8 +51,6 @@ function setupLabel(value: Status) {
   if (!value.bridge_installed) return "Bridge needed";
   if (!value.config_available) return "Configuration directory missing";
   if (value.authentication === "signed-out") return "Sign-in required";
-  if (value.problems.includes("adapter_not_available"))
-    return "Integration in progress";
   return value.checked && value.authentication === "authenticated"
     ? "Setup checked"
     : "Setup detected";
@@ -165,12 +163,6 @@ function HarnessEntry({
               <p>
                 Sign in with {names[kind]} on the service host, then check
                 again.
-              </p>
-            )}
-            {status.problems.includes("adapter_not_available") && (
-              <p>
-                Claude Code setup is available. Managed model selection is still
-                being integrated.
               </p>
             )}
             <div className="actions">
@@ -372,11 +364,7 @@ function HarnessEntry({
                 <dt>Model access</dt>
                 <dd>Requires a successful model turn</dd>
                 <dt>Managed roles</dt>
-                <dd>
-                  {status.problems.includes("adapter_not_available")
-                    ? "Not available yet"
-                    : "Coordinator and task workers"}
-                </dd>
+                <dd>Coordinator and task workers</dd>
               </dl>
             </Disclosure>
           </>

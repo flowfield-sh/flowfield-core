@@ -119,6 +119,18 @@ def page(
     }
 
 
+def coordinator_output_omitted(activity: dict[str, Any]) -> bool:
+    # A recorded delivery gap may have lost prose even when surviving entries fit.
+    return bool(
+        activity.get("omitted", False)
+        or any(
+            entry.get("omitted", False)
+            for entry in activity["items"]
+            if entry["kind"] == "agent" or entry["key"] == "stream-gap"
+        )
+    )
+
+
 def coordinator_exchanges(
     db: sqlite3.Connection, project: str, before: int, limit: int
 ) -> list[dict[str, Any]]:
@@ -143,8 +155,7 @@ def coordinator_exchanges(
                 "revision": activity.get("revision", 0),
                 "human": row["human"],
                 "coordinator": "\n\n".join(entry["text"] for entry in prose),
-                "output_omitted": activity.get("omitted", False)
-                or any(entry.get("omitted", False) for entry in prose),
+                "output_omitted": coordinator_output_omitted(activity),
                 "task_context": json.loads(row["task_context"]) if row["task_context"] else None,
             }
         )
@@ -891,8 +902,7 @@ class ContextReads:
                 "coordinator": "\n\n".join(
                     entry.text for entry in turn.activity.items if entry.kind == "agent"
                 ),
-                "output_omitted": turn.activity.omitted
-                or any(entry.omitted for entry in turn.activity.items if entry.kind == "agent"),
+                "output_omitted": coordinator_output_omitted(turn.activity.model_dump()),
             }
         elif resource == "task":
             with self.workspace.connection() as db:

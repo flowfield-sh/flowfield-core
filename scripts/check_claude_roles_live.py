@@ -583,6 +583,8 @@ async def proof(
         assert choice == CODEX_CHOICE or choice.harness == "claude-code" and choice.model == MODEL
         if choice.harness == "codex":
             agent = create(choice, directory, cwd, environment, registration=registration)
+        elif bundle and role in {"journey", "planned", "parallel", "controls"}:
+            agent = create(choice, directory, cwd, environment, registration=registration)
         elif bundle:
             from flowfield.adapters.claude_agent import ClaudeAgent
 
@@ -642,6 +644,9 @@ async def proof(
             patch("flowfield.supervisor.create", partial(managed, worker=True)),
             patch.object(ScopedTools, "call", recorded_call),
         ):
+            if bundle and role in {"journey", "planned", "parallel", "controls"}:
+                await service.validate_agent_choice(CHOICE, project.id)
+                report["installedCatalogValidated"] = True
             if role in {"coordinator", "continuity", "planned", "controls"}:
                 AgentSettings(workspace).edit(
                     project.id,

@@ -20,6 +20,10 @@ flowfield serve
 ```
 
 The harness command installs Flowfield’s Codex bridge once; Codex itself is installed separately.
+You can use [Claude Code](/integrations/claude-code) instead: install/sign in to its native
+CLI and install the matching bridge. Claude currently requires a development build and
+local bundle; published 0.2.1 supports Codex. Either
+harness can run the Coordinator and workers; configuring both lets you choose independently.
 Your browser opens at [localhost:8765](http://127.0.0.1:8765). Keep the terminal open;
 Ctrl-C stops the service. Use `--no-open` to keep the browser closed.
 See [Installation](/installation#alternative-pip) for the pip alternative. Managed workers also need Git.

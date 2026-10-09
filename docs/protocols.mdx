@@ -16,18 +16,20 @@ Flowfield uses two complementary protocols:
 between coding agents and their client applications. Flowfield acts as the client for
 the Coordinator and managed task workers, using a local subprocess connection.
 
-The Codex adapter connects through an installed ACP bridge. It discovers model capabilities,
-applies model, effort, Access mode and supported Fast settings, streams public text/tool
-activity, and handles native permission requests. Coordinator messages resume their saved
-Codex session; workers run scoped task attempts in their own workspaces.
+Codex and Claude Code adapters connect through installed ACP bridges. They discover native
+model capabilities, apply supported settings, stream public text/tool activity and handle
+native permission requests. Compatible coordinator settings resume saved native sessions;
+workers run scoped task attempts in their own workspaces.
 
 Flowfield provides the coordinator commands `/status`, `/compact`, `/mcp` and `/skills` when
-the harness advertises them. Other advertised commands are not exposed. See
+the Codex harness advertises them. Claude commands are not exposed. See
 [Coordinator](/coordinator) for the controls and session behavior.
 
-Flowfield currently supports Codex through its packaged ACP bridge, including session
-continuity and native process cleanup. Install it with
-`flowfield harness install codex`; authenticate Codex separately.
+Install the selected bridge with `flowfield harness install codex` or
+`flowfield harness install claude-code`; install and authenticate the native harness
+separately. No Node/Bun runtime is required. Harness switches use a fresh native session
+and a bounded Flowfield handoff, retaining public history and older scoped source reads.
+Native session files, private reasoning and permission grants are not converted.
 
 ## MCP: working with Flowfield
 

@@ -98,6 +98,36 @@ def test_older_exchanges_and_exact_text_survive_paging_and_restart(tmp_path):
     )
 
 
+def test_delivery_gap_marks_history_full_text_and_frozen_handoff_partial(tmp_path):
+    execution = fixture(tmp_path)
+    store = CoordinatorStore(execution.workspace)
+    turn = saved_exchange(execution.workspace, "Short retained text", finish=False)
+    store.write(
+        "harbor",
+        turn.id,
+        [
+            ActivityUpdate(
+                key="stream-gap", kind="status", text="Activity delivery gap", omitted=True
+            )
+        ],
+    )
+    with execution.workspace.connection(write=True) as db:
+        finished = store._get(db, "harbor", turn.id)
+        finished.status = "completed"
+        store._save(db, finished)
+    reads = ContextReads(execution.workspace)
+    assert reads.coordinator_history("harbor")["items"][0]["output_omitted"]
+    reply = reads.text("harbor", "coordinator", turn.id, "coordinator")
+    assert reply["output_omitted"] and reply["text"] == "Public reply Short retained text"
+    fresh, _ = store.reserve(
+        "harbor",
+        turn.conversation_id,
+        CoordinatorSend(id=uuid4().hex, text="Continue with saved evidence"),
+    )
+    handoff = store.handoff("harbor", fresh.id)
+    assert handoff["history_is_partial"] and handoff["recent_conversation"][0]["output_omitted"]
+
+
 def test_history_scope_validation_and_changing_output(tmp_path):
     execution = fixture(tmp_path)
     turn = saved_exchange(execution.workspace, "Agreed intent", finish=False)

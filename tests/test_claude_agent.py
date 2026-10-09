@@ -34,14 +34,14 @@ def installed_candidate(tmp_path, *flags):
     metadata["claudeCode"]["options"].pop("maxTurns")
     metadata["claudeCode"]["options"].pop("maxBudgetUsd")
     environment["FLOWFIELD_TEST_META"] = json.dumps(metadata)
-    return ClaudeAgent(
+    return create(
+        CHOICE,
+        tmp_path / "state",
         tmp_path,
         environment,
-        directory=tmp_path / "state",
         registration=HarnessRegistration(
             harness="claude-code", revision=7, executable=sys.executable
         ),
-        choice=CHOICE,
     )
 
 
@@ -84,8 +84,6 @@ def test_installed_adapter_blocks_incompatible_or_unoffered_native_identity(tmp_
 
 @pytest.mark.parametrize("flag", ["normal", "hidden-model", "cleanup-uncertain"])
 def test_installed_catalog_has_exact_identities_and_checks_cleanup(tmp_path, flag):
-    from flowfield.adapters.claude_agent import model_options as claude_models
-
     agent = installed_candidate(tmp_path, flag)
     environment = dict(agent.environment)
     environment["FLOWFIELD_TEST_META"] = json.dumps(
@@ -104,7 +102,7 @@ def test_installed_catalog_has_exact_identities_and_checks_cleanup(tmp_path, fla
     async def exercise():
         with patch.dict("os.environ", environment, clear=True):
             if flag == "normal":
-                catalog = await claude_models(
+                catalog = await model_options(
                     tmp_path / "state",
                     cwd=tmp_path,
                     registration=HarnessRegistration(
@@ -117,7 +115,7 @@ def test_installed_catalog_has_exact_identities_and_checks_cleanup(tmp_path, fla
                 assert not catalog[0].fast
             else:
                 with pytest.raises(ApplicationError):
-                    await claude_models(
+                    await model_options(
                         tmp_path / "state",
                         cwd=tmp_path,
                         registration=HarnessRegistration(
@@ -302,37 +300,51 @@ def test_native_fast_setting_is_disabled_before_claiming_applied_false(tmp_path)
     asyncio.run(exercise())
 
 
-def test_service_rejects_claude_choices_before_starting_catalog_discovery(tmp_path, monkeypatch):
+def test_service_validates_claude_using_its_project_catalog(tmp_path, monkeypatch):
     from flowfield.application import Workspace
+    from flowfield.execution_models import ModelOption, NativeMode
     from flowfield.supervisor import Supervisor
 
     service = Supervisor(Workspace(tmp_path / "state"))
 
-    async def forbidden(**kwargs):
-        raise AssertionError("An unavailable harness must not launch another harness for discovery")
+    calls = []
 
-    monkeypatch.setattr(service, "model_options", forbidden)
+    async def catalog(**kwargs):
+        calls.append(kwargs)
+        return [
+            ModelOption(
+                id=MODEL,
+                name="Sonnet",
+                efforts=["low"],
+                modes=[NativeMode(id="default", name="Default")],
+            )
+        ]
+
+    monkeypatch.setattr(service, "model_options", catalog)
 
     async def exercise():
         try:
-            with pytest.raises(ApplicationError, match="not available for managed work"):
-                await service.validate_agent_choice(CHOICE)
+            await service.validate_agent_choice(CHOICE, "project")
+            assert calls == [{"project_id": "project", "harness": "claude-code"}]
+            with pytest.raises(ApplicationError, match="supported controls"):
+                await service.validate_agent_choice(
+                    CHOICE.model_copy(update={"mode": "plan"}), "project"
+                )
         finally:
             await service.close()
 
     asyncio.run(exercise())
 
 
-def test_production_selection_and_discovery_remain_gated(tmp_path):
+def test_missing_claude_bundle_fails_without_codex_fallback(tmp_path):
     registration = HarnessRegistration(harness="claude-code", revision=1)
-    with pytest.raises(ApplicationError, match="not available for managed work"):
+    with pytest.raises(ApplicationError, match="Install"):
         create(CHOICE, tmp_path, tmp_path, {})
 
     async def exercise():
-        with pytest.raises(ApplicationError, match="not available for managed work"):
+        with pytest.raises(ApplicationError, match="Install"):
             await model_options(tmp_path, registration=registration)
-        with pytest.raises(ApplicationError, match="not available for managed work"):
-            await command_options(tmp_path, tmp_path, CHOICE, registration=registration)
+        assert await command_options(tmp_path, tmp_path, CHOICE, registration=registration) == []
 
     asyncio.run(exercise())
 

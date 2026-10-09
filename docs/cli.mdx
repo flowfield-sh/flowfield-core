@@ -167,8 +167,9 @@ flowfield harness status codex
 
 Install downloads the standalone ACP executable matching your Flowfield release and
 platform, verifies its checksum, and saves it in the selected data directory. It uses
-your existing Codex installation. Node and Bun are not required to run the bridge.
-Status checks installed files and the Codex path without starting an agent.
+your existing native harness installation. Use `claude-code` instead of `codex` for Claude's
+bridge. Node and Bun are not required to run either bridge. Status checks installed files
+and the native path without starting an agent.
 
 For a locally built or downloaded bundle:
 
@@ -200,7 +201,8 @@ flowfield harness configure codex --revision 1 \
 
 Use the revision returned by settings. Each configure command replaces both overrides;
 omit both paths to restore native defaults. Paths belong to the service host. The configuration
-location is a directory (`CODEX_HOME` for Codex), not `config.toml` itself. Saved overrides
+location is a directory (`CODEX_HOME` for Codex, `CLAUDE_CONFIG_DIR` for Claude), not a settings
+file. Saved overrides
 take precedence over native environment variables; otherwise Flowfield detects the native
 installation and configuration location. No native files, accounts or credentials change.
 Installation/status still work offline; offline status uses saved executable overrides and
@@ -211,8 +213,8 @@ observed launch locations. A changed native session location requires a fresh co
 session through the existing recovery flow; the saved chat remains. External native files
 and account changes remain user-owned and are not frozen by Flowfield.
 
-There is one configuration per harness kind. Claude Code paths may be saved during setup,
-but its development adapter is not available for model selection yet. Native installation,
+There is one configuration per supported harness kind. Use Codex, Claude Code or both;
+the Coordinator and workers choose independently. Native installation,
 bridge installation, authentication and verified model access are separate facts. Detecting
 paths starts no native process; explicit readiness checks use version/login-status commands
 and never send a model prompt. Such checks cannot establish successful inference or billing.

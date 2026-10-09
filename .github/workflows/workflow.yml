@@ -132,13 +132,20 @@ jobs:
           pattern: codex-bridge-*
           path: bridge-assets
           merge-multiple: true
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: claude-bridge-*
+          path: bridge-assets
+          merge-multiple: true
       - name: Verify tested standalone bundles
         working-directory: bridge-assets
         run: |
-          set -- ./*.zip
-          test "$#" -eq 4
-          set -- ./*.sha256
-          test "$#" -eq 4
+          for harness in codex claude; do
+            set -- ./flowfield-${harness}-acp-*.zip
+            test "$#" -eq 4
+            set -- ./flowfield-${harness}-acp-*.sha256
+            test "$#" -eq 4
+          done
           for checksum in ./*.sha256; do shasum -a 256 -c "$checksum"; done
       - name: Verify original artifact bytes
         working-directory: dist
