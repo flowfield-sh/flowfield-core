@@ -183,7 +183,9 @@ def test_unsupported_images_fail_explicitly_without_silently_dropping_them(tmp_p
         saved = await settled(service, turn)
         assert saved.status == "failed"
         assert "cannot receive images" in saved.notice
-        assert not saved.activity.items
+        assert [(item.kind, item.text) for item in saved.activity.items] == [
+            ("status", "Fresh agent session did not receive this message.")
+        ]
         assert (
             service.coordinator.store.session(
                 "harbor", "codex", service.workspace.project("harbor").path

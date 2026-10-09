@@ -69,6 +69,9 @@ class FakeWorker:
 
     async def run(self, model, effort, prompt, tools):
         brief = json.loads(prompt)
+        assert brief["task_key"] in brief["task"]
+        if "stages" in brief["context"]:
+            assert json.loads(brief["context"]["stages"])["task_id"] == brief["task_id"]
         assert brief["flowfield_connection"] in brief["instructions"]
         assert "Before ending, call submit_result" in brief["instructions"]
         assert "A final chat summary does not submit a result" in brief["instructions"]

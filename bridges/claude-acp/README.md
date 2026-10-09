@@ -109,6 +109,20 @@ ordinary native worker query settings rather than the cleanup proof's four-turn 
 The fixture limits itself to three attempts and bounded waits; no personal service or
 public repository is used. Model simulation does not accept the human experience.
 
+`--role planned --bundle` adds actual coordinator task creation/preparation before
+that worker journey, then verifies a fresh coordinator retrieves the delivered candidate,
+saved human answer and requested changes through scoped project tools.
+
+`--role parallel` requires the same explicit Codex paths as continuity. The actual
+scheduler runs one Sonnet 5.5/low and one Sol 6.1/medium report task in independent
+workspaces, verifies overlapping distinct native sessions, frozen role choices and
+confirmed cleanup, and leaves the original checkout unchanged.
+
+`--role controls --bundle` verifies current-turn uploaded UTF-8 text and PNG input,
+then changes access mode to create a fresh native generation and Stops a bounded
+foreground Bash helper. The live adapter owns termination; the fixture observes the
+helper's exit independently and checks permission release and idle coordinator state.
+
 ## Explicit model-free native check
 
 ```sh

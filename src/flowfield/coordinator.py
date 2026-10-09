@@ -161,6 +161,7 @@ class Coordinator:
         status: Literal["completed", "failed", "stopped"] = "failed"
         notice = ""
         generation_id: str | None = None
+        startup_pending = False
 
         def live_scope() -> None:
             if generation_id is None:
@@ -218,6 +219,7 @@ class Coordinator:
                         current.launch = client.launch
                         self.store._save(db, current)
                     if not session_id:
+                        startup_pending = True
                         recorder.emit(
                             ActivityUpdate(
                                 key="session",
@@ -283,6 +285,7 @@ class Coordinator:
                         recorder.emit(
                             ActivityUpdate(key="session", kind="status", text=session_note)
                         )
+                    startup_pending = False
                     client.on_activity = recorder.emit
                     assert client.session.session_id
                     async with self.supervisor.permissions.turn(
@@ -343,6 +346,16 @@ class Coordinator:
                     self.store._save(db, current)
             if temporary is not None:
                 temporary.cleanup()
+            if startup_pending:
+                recorder.emit(
+                    ActivityUpdate(
+                        key="session",
+                        kind="status",
+                        text="Fresh agent session startup stopped."
+                        if status == "stopped"
+                        else "Fresh agent session did not receive this message.",
+                    )
+                )
             await recorder.close()
             with workspace.connection(write=True, project_id=turn.project_id) as db:
                 if self.store.owns(db, turn.project_id, turn.id, generation_id):

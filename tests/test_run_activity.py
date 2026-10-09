@@ -2,6 +2,7 @@
 
 import asyncio
 import sqlite3
+import threading
 
 import pytest
 from test_execution import BASE, fixture
@@ -13,7 +14,7 @@ from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import QueueEdit
 from flowfield.questions import QuestionCreate, Questions
-from flowfield.run_activity import ActivityRecorder, ActivityUpdate, RunActivity
+from flowfield.run_activity import MAX_TEXT, ActivityRecorder, ActivityUpdate, RunActivity
 
 
 def test_bounded_snapshot_replays_after_restart_and_rejects_late_output(tmp_path):
@@ -77,6 +78,91 @@ def test_buffer_drains_and_marks_overflow_without_board_invalidations(tmp_path):
     page = RunActivity(execution.workspace).read("harbor", run.id)
     assert page.omitted or any(e.omitted for e in page.items)
     assert all("\x1b" not in e.text for e in page.items)
+
+
+def test_stream_burst_preserves_complete_reply_and_interleaved_tools(tmp_path):
+    execution = fixture(tmp_path)
+    run = execution.claim("harbor", BASE, {})
+    store = RunActivity(execution.workspace)
+    store.write("harbor", run.id, [ActivityUpdate(key="reply", kind="agent", text="obsolete")])
+    reply = "TEAL, exact candidate " + "1234567890" * 40 + "; delivered."
+
+    async def exercise():
+        recorder = ActivityRecorder(execution.workspace, "harbor", run.id)
+        for index, character in enumerate(reply):
+            recorder.emit(
+                ActivityUpdate(key="reply", kind="agent", text=character, append=index > 0)
+            )
+            if index == 20:
+                recorder.emit(ActivityUpdate(key="tool", kind="tool", text="Reading task"))
+            if index == 30:
+                recorder.emit(ActivityUpdate(key="tool", kind="tool", text="Task read"))
+        assert len(recorder.pending) == 2 and not recorder.lost
+        await recorder.close()
+        recorder.emit(ActivityUpdate(key="late", kind="agent", text="ignored"))
+
+    asyncio.run(exercise())
+    page = store.read("harbor", run.id)
+    assert [(entry.key, entry.text) for entry in page.items] == [
+        ("reply", reply),
+        ("tool", "Task read"),
+    ]
+    assert not page.omitted and not any(entry.omitted for entry in page.items)
+
+
+def test_stream_bounds_retain_opening_and_tail_and_reset_before_appending(tmp_path):
+    execution = fixture(tmp_path)
+    run = execution.claim("harbor", BASE, {})
+
+    async def exercise():
+        recorder = ActivityRecorder(execution.workspace, "harbor", run.id)
+        recorder.emit(ActivityUpdate(key="reply", kind="agent", text="discard me"))
+        recorder.emit(ActivityUpdate(key="reply", kind="agent", text="Opening. "))
+        for _ in range(2000):
+            recorder.emit(ActivityUpdate(key="reply", kind="agent", text="middle ", append=True))
+        recorder.emit(ActivityUpdate(key="reply", kind="agent", text="The end.", append=True))
+        assert len(recorder.pending) == 1 and len(recorder.pending[0].text) <= MAX_TEXT
+        await recorder.close()
+
+    asyncio.run(exercise())
+    entry = RunActivity(execution.workspace).read("harbor", run.id).items[0]
+    assert entry.text.startswith("Opening. ") and entry.text.endswith("The end.")
+    assert "discard me" not in entry.text
+    assert entry.omitted and "middle omitted" in entry.text
+
+
+def test_concurrent_flushes_preserve_append_order(tmp_path):
+    execution = fixture(tmp_path)
+    run = execution.claim("harbor", BASE, {})
+    entered, release = threading.Event(), threading.Event()
+    store = RunActivity(execution.workspace)
+    write = store.write
+
+    def delayed_write(project, attempt, updates):
+        if updates[0].text == "Opening":
+            entered.set()
+            assert release.wait(timeout=3)
+        write(project, attempt, updates)
+
+    store.write = delayed_write
+
+    async def exercise():
+        recorder = ActivityRecorder(execution.workspace, "harbor", run.id, store=store)
+        recorder.emit(ActivityUpdate(key="reply", kind="agent", text="Opening"))
+        first = asyncio.create_task(recorder.flush())
+        assert await asyncio.to_thread(entered.wait, 3)
+        recorder.emit(ActivityUpdate(key="reply", kind="agent", text=" tail", append=True))
+        second = asyncio.create_task(recorder.flush())
+        try:
+            await asyncio.sleep(0.02)
+            assert not second.done()
+        finally:
+            release.set()
+        await asyncio.gather(first, second)
+        await recorder.close()
+
+    asyncio.run(exercise())
+    assert store.read("harbor", run.id).items[0].text == "Opening tail"
 
 
 def test_shared_state_matches_question_attention_and_static_pause(tmp_path):

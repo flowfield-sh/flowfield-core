@@ -7,9 +7,16 @@ This is capability evidence, not the complete journey or human milestone accepta
 
 import argparse
 import asyncio
+import base64
 import json
+import os
+import shlex
 import shutil
+import struct
+import sys
 import traceback
+import zlib
+from functools import partial
 from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
@@ -20,7 +27,8 @@ from flowfield.agent_models import AgentChoice, AgentSettingsEdit
 from flowfield.agent_settings import AgentSettings
 from flowfield.agent_tools import ScopedTools
 from flowfield.application import ProjectSetup, TaskCreate, TaskPublish, Workspace
-from flowfield.coordinator_models import CoordinatorSend
+from flowfield.attachments import Attachments, AttachmentUpload
+from flowfield.coordinator_models import CoordinatorSend, CoordinatorTaskSelection
 from flowfield.execution_models import QueueEdit, SettingsEdit
 from flowfield.harness_models import HarnessEdit
 from flowfield.harness_settings import HarnessSettings
@@ -283,6 +291,212 @@ async def worker_journey(
     )
 
 
+async def controls(service, project, conversation, trial, nonce, observed, settle, report):
+    """Actual current-turn files and Stop, including retained generation authority."""
+
+    def chunk(name, data):
+        return (
+            struct.pack(">I", len(data)) + name + data + struct.pack(">I", zlib.crc32(name + data))
+        )
+
+    image = (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", 64, 64, 8, 6, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress((b"\0" + b"\xff\0\0\xff" * 64) * 64))
+        + chunk(b"IEND", b"")
+    )
+    attachments = Attachments(service.workspace)
+    attachment_word = uuid4().hex
+    note, swatch = [
+        attachments.upload(
+            project,
+            AttachmentUpload(name=name, mime=mime, data=base64.b64encode(content).decode()),
+        )
+        for name, mime, content in [
+            (
+                "note.txt",
+                "text/plain",
+                f"The attachment-only verification word is {attachment_word}.\n".encode(),
+            ),
+            ("swatch.png", "image/png", image),
+        ]
+    ]
+    turn = service.coordinator.send(
+        project,
+        conversation.id,
+        CoordinatorSend(
+            id=uuid4().hex,
+            text="Read the attached note and image. Repeat the exact verification word "
+            "from the note and describe the image's single solid color. Do not read "
+            "repository files or use tools. Do not edit anything.\n"
+            f"[Note]({note.href}) [Image]({swatch.href})",
+        ),
+    )
+    await settle(service.coordinator.jobs[turn.id])
+    completed = service.coordinator.store.get(project, turn.id)
+    text = "\n".join(item.text for item in completed.activity.items if item.kind == "agent")
+    assert completed.status == "completed" and attachment_word in text and "red" in text.lower()
+    assert completed.applied.choice == CHOICE and observed[-1].cleanup_confirmed
+    report["currentAttachmentsPassed"] = True
+    current = AgentSettings(service.workspace).get(project, "coordinator")
+    AgentSettings(service.workspace).edit(
+        project,
+        "coordinator",
+        AgentSettingsEdit(
+            expected_revision=current.revision,
+            selection=CHOICE.model_copy(update={"mode": "acceptEdits"}),
+        ),
+    )
+    helper, marker = trial / "bounded_helper.py", trial / "ready.json"
+    helper.write_text(
+        "import json, os, time\nfrom pathlib import Path\n"
+        f"Path({str(marker)!r}).write_text(json.dumps("
+        f"{{'pid': os.getpid(), 'nonce': {nonce!r}}}))\n"
+        "time.sleep(60)\n"
+    )
+    command = shlex.quote(sys.executable) + " " + shlex.quote(str(helper))
+    turn = service.coordinator.send(
+        project,
+        conversation.id,
+        CoordinatorSend(
+            id=uuid4().hex,
+            text="Run this exact bounded fixture command once with native Bash in the "
+            "foreground, then wait. Do not background it, edit files or run any other "
+            "command. This is an explicit Stop test: " + command,
+        ),
+    )
+
+    async def stop_at_marker():
+        while not marker.exists():
+            assert not service.coordinator.jobs[turn.id].done()
+            await asyncio.sleep(0.05)
+        ready = json.loads(marker.read_text())
+        assert ready["nonce"] == nonce
+        current = service.coordinator.store.get(project, turn.id)
+        assert current.session == "new" and current.status == "running"
+        stopped = await service.coordinator.stop(project, turn.id)
+        assert stopped.status == "stopped" and observed[-1].cleanup_confirmed
+        # PID is only a lifetime observation; cleanup belongs to the live adapter.
+        async with asyncio.timeout(5):
+            while True:
+                try:
+                    os.kill(ready["pid"], 0)
+                except ProcessLookupError:
+                    break
+                await asyncio.sleep(0.05)
+        assert service.coordinator.store.page(project).active is None
+        assert not service.permissions.page(project).pending
+        report["freshGenerationStopPassed"] = True
+        report["foregroundToolExitObserved"] = True
+
+    job = asyncio.create_task(stop_at_marker())
+    try:
+        await settle(job)
+    finally:
+        if not job.done():
+            job.cancel()
+            await asyncio.gather(job, return_exceptions=True)
+
+
+async def parallel(service, project, nonce, workers, settle, report):
+    """Actual scheduler, two harnesses/workspaces; no code or account changes."""
+    service.integrations.configure(
+        project,
+        IntegrationConfig(
+            expected_revision=1,
+            target_branch="main",
+            runtime="local",
+            checks=["test -f CLAUDE.md"],
+        ),
+    )
+    service.execution.configure(
+        project, SettingsEdit(expected_revision=1, selection=CHOICE, max_parallel=2)
+    )
+    tasks = []
+    for index, choice in enumerate([CHOICE, CODEX_CHOICE]):
+        task = service.workspace.create_task(
+            project,
+            TaskCreate(
+                id=f"guidance-{index}",
+                title=f"Read guidance with {choice.harness}",
+                status="up_next",
+                body="Read CLAUDE.md and AGENTS.md in your assigned workspace and your scoped "
+                "task context. Report the exact fixture guidance word and your task title "
+                "in your result summary. Do not edit files, create questions or access "
+                "another task. This is report-only work. Complete the Reading stage and "
+                "submit a complete result. Report unclear context/tool steps as limitations.",
+                stages=[
+                    Stage(id="read", title="Reading", outcome="Guidance and task identity verified")
+                ],
+            ),
+        )
+        service.workspace.publish_task(
+            project,
+            task.id,
+            TaskPublish(expected_revision=task.revision, completion="report"),
+        )
+        if choice != CHOICE:
+            AgentSettings(service.workspace).edit(
+                project,
+                "worker",
+                AgentSettingsEdit(expected_revision=1, selection=choice),
+                task.id,
+            )
+        tasks.append(task)
+    await service.start()
+    configured = service.execution.settings(project)
+    service.execution.queue(project, QueueEdit(expected_revision=configured.revision, enabled=True))
+    overlap = False
+
+    async def completed():
+        nonlocal overlap
+        while not all(service.workspace.task(project, task.id).status == "done" for task in tasks):
+            assert len(service.execution.page(project).items) <= 2
+            running = [
+                worker
+                for worker in workers
+                if worker.session.session_id
+                and worker.process is not None
+                and worker.process.returncode is None
+            ]
+            overlap |= len(running) == 2
+            if any(
+                run.status in {"failed", "uncertain"}
+                for run in service.execution.page(project).items
+            ):
+                raise AssertionError("Mixed native worker failed or lost ownership")
+            await asyncio.sleep(0.05)
+
+    job = asyncio.create_task(completed())
+    try:
+        await settle(job)
+    finally:
+        if not job.done():
+            job.cancel()
+            await asyncio.gather(job, return_exceptions=True)
+    assert overlap and len(workers) == 2
+    assert len({worker.session.session_id for worker in workers}) == 2
+    runs = service.execution.page(project).items
+    assert len({run.environment_id for run in runs}) == 2
+    assert {run.applied_agent.harness for run in runs} == {"codex", "claude-code"}
+    assert all(worker.cleanup_confirmed for worker in workers)
+    for task, choice in zip(tasks, [CHOICE, CODEX_CHOICE], strict=True):
+        result = service.results.page(project, task.id).items[0]
+        run = service.execution.get(project, result.run_id)
+        assert result.status == "delivered" and result.approved_at is None
+        assert nonce in result.report.summary and task.title in result.report.summary
+        assert run.applied_agent == choice and run.status == "accepted"
+    report.update(
+        parallelOwnershipPassed=True,
+        independentEnvironments=True,
+        nativeSessionOverlap=True,
+        workerAttempts=2,
+        resultLimitations=[
+            service.results.page(project, task.id).items[0].report.limitations for task in tasks
+        ],
+    )
+
+
 async def proof(
     trial: Path,
     bridge: Path,
@@ -340,7 +554,7 @@ async def proof(
     HarnessSettings(workspace).edit(
         "claude-code", HarnessEdit(expected_revision=1, executable=str(native))
     )
-    if role == "continuity":
+    if role in {"continuity", "parallel"}:
         from flowfield.adapters import codex_install
 
         assert bundle and codex_bundle and codex_native
@@ -349,16 +563,23 @@ async def proof(
             "codex", HarnessEdit(expected_revision=1, executable=str(codex_native))
         )
     observed = []
+    workers = []
     calls = []
     permissions = []
     original_call = ScopedTools.call
 
     async def recorded_call(grant, name, arguments):
         result = await original_call(grant, name, arguments)
-        calls.append({"tool": name, "failed": bool(result.isError)})
+        calls.append(
+            {
+                "role": "coordinator" if "get_project" in grant.tools else "worker",
+                "tool": name,
+                "failed": bool(result.isError),
+            }
+        )
         return result
 
-    def managed(choice, directory, cwd, environment, *, registration=None):
+    def managed(choice, directory, cwd, environment, *, registration=None, worker=False):
         assert choice == CODEX_CHOICE or choice.harness == "claude-code" and choice.model == MODEL
         if choice.harness == "codex":
             agent = create(choice, directory, cwd, environment, registration=registration)
@@ -371,7 +592,7 @@ async def proof(
                 directory=directory,
                 registration=registration,
                 choice=choice,
-                proof_limits=role != "journey",
+                proof_limits=role not in {"journey", "planned", "parallel"},
             )
         else:
             agent = create(
@@ -383,6 +604,8 @@ async def proof(
                 claude_proof_bridge=executable,
             )
         observed.append(agent)
+        if worker:
+            workers.append(agent)
         return agent
 
     async def settle(job):
@@ -412,13 +635,14 @@ async def proof(
         "passed": False,
         "installedRuntime": bundle,
     }
+    complete = role in {"journey", "planned"}
     try:
         with (
-            patch("flowfield.coordinator.create", managed),
-            patch("flowfield.supervisor.create", managed),
+            patch("flowfield.coordinator.create", partial(managed, worker=False)),
+            patch("flowfield.supervisor.create", partial(managed, worker=True)),
             patch.object(ScopedTools, "call", recorded_call),
         ):
-            if role in {"coordinator", "continuity"}:
+            if role in {"coordinator", "continuity", "planned", "controls"}:
                 AgentSettings(workspace).edit(
                     project.id,
                     "coordinator",
@@ -438,6 +662,12 @@ async def proof(
                     observed,
                     settle,
                     report,
+                )
+            elif role == "parallel":
+                await parallel(service, project.id, nonce, workers, settle, report)
+            elif role == "controls":
+                await controls(
+                    service, project.id, conversation, trial, nonce, observed, settle, report
                 )
             elif role == "coordinator":
                 turn = service.coordinator.send(
@@ -469,72 +699,99 @@ async def proof(
                         expected_revision=1,
                         target_branch="main",
                         runtime="local",
-                        checks=["test -f label.txt"]
-                        if role == "journey"
-                        else ["test -f CLAUDE.md"],
+                        checks=["test -f label.txt"] if complete else ["test -f CLAUDE.md"],
                     ),
                 )
                 configured = service.execution.configure(
                     project.id,
                     SettingsEdit(expected_revision=1, selection=CHOICE),
                 )
-                if role == "journey":
+                if complete:
                     # Startup intentionally pauses queues. Enable the fresh fixture only
                     # after startup, before its first attempt and the single saved answer.
                     await service.start()
                     configured = service.execution.settings(project.id)
-                service.execution.queue(
-                    project.id,
-                    QueueEdit(
-                        expected_revision=configured.revision,
-                        enabled=True,
-                    ),
-                )
-                task = workspace.create_task(
-                    project.id,
-                    TaskCreate(
-                        id="label",
-                        title="Clarify the fixture label",
-                        status="up_next",
-                        body=(
-                            "Create label.txt after the human chooses Amber or Teal. Ask for that "
-                            "choice before editing; when a saved answer exists, continue with it "
-                            "without asking again. Write the chosen lowercase color followed by "
-                            "a newline, verify the file and preserve repository guidance. Only "
-                            "edit label.txt. Report any unclear tools/context in your limitations."
-                            if role == "journey"
-                            else "Read repository guidance and the frozen task context. "
-                            "Ask the human whether the fixture label should be Amber or Teal "
-                            "through ask_question, recommend Teal, then end the turn. Do not edit "
-                            "or submit a result before the answer. This is the required outcome."
+                if role == "planned":
+                    planned = service.coordinator.send(
+                        project.id,
+                        conversation.id,
+                        CoordinatorSend(
+                            id=uuid4().hex,
+                            text="Create and prepare one agreed code task Up next: write label.txt "
+                            "with the human's chosen color, lowercase, plus a newline. The worker "
+                            "must ask me to choose Amber or Teal before editing, then use the "
+                            "saved "
+                            "answer without asking again. Only label.txt may change; preserve "
+                            "repository guidance. Use broad phases for clarification, writing and "
+                            "verification. Setup, checks and worker settings are configured. "
+                            "Do not "
+                            "edit files, change settings or enable the queue.",
                         ),
-                        stages=[
-                            Stage(id="clarify", title="Clarify", outcome="Obtain the label choice"),
-                            *(
-                                [
-                                    Stage(
-                                        id="implement",
-                                        title="Implement",
-                                        outcome="Write the chosen label",
-                                    ),
-                                    Stage(
-                                        id="verify", title="Verify", outcome="Verify the label file"
-                                    ),
-                                ]
-                                if role == "journey"
-                                else []
+                    )
+                    print(json.dumps({"started": "planning", "trial": str(trial)}), flush=True)
+                    await settle(service.coordinator.jobs[planned.id])
+                    outcome = service.coordinator.store.get(project.id, planned.id)
+                    assert outcome.status == "completed" and outcome.applied.choice == CHOICE
+                    tasks = workspace.tasks(project.id)
+                    assert len(tasks) == 1
+                    task = tasks[0]
+                    assert task.status == "up_next" and task.publication
+                    assert task.publication.completion == "code"
+                    assert not service.execution.settings(project.id).enabled
+                    assert observed[-1].cleanup_confirmed
+                    report["nativePlanningPassed"] = True
+                else:
+                    task = workspace.create_task(
+                        project.id,
+                        TaskCreate(
+                            id="label",
+                            title="Clarify the fixture label",
+                            status="up_next",
+                            body=(
+                                "Create label.txt after the human chooses Amber or Teal. "
+                                "Ask for that choice before editing; when a saved answer exists, "
+                                "continue with it without asking again. Write the chosen lowercase "
+                                "color followed by "
+                                "a newline, verify the file and preserve repository guidance. Only "
+                                "edit label.txt. Report unclear tools/context in your limitations."
+                                if complete
+                                else "Read repository guidance and the frozen task context. "
+                                "Ask the human whether the fixture label should be Amber or Teal "
+                                "through ask_question, recommend Teal, then end the turn. "
+                                "Do not edit or submit a result before the answer. "
+                                "This is the required outcome."
                             ),
-                        ],
-                    ),
-                )
-                task = workspace.publish_task(
-                    project.id,
-                    task.id,
-                    TaskPublish(
-                        expected_revision=task.revision,
-                        completion="code" if role == "journey" else "report",
-                    ),
-                )
+                            stages=[
+                                Stage(
+                                    id="clarify", title="Clarify", outcome="Obtain the label choice"
+                                ),
+                                *(
+                                    [
+                                        Stage(
+                                            id="implement",
+                                            title="Implement",
+                                            outcome="Write the chosen label",
+                                        ),
+                                        Stage(
+                                            id="verify",
+                                            title="Verify",
+                                            outcome="Verify the label file",
+                                        ),
+                                    ]
+                                    if complete
+                                    else []
+                                ),
+                            ],
+                        ),
+                    )
+                    task = workspace.publish_task(
+                        project.id,
+                        task.id,
+                        TaskPublish(
+                            expected_revision=task.revision,
+                            completion="code" if complete else "report",
+                        ),
+                    )
                 AgentSettings(workspace).edit(
                     project.id,
                     "worker",
@@ -543,6 +800,11 @@ async def proof(
                         selection=CHOICE,
                     ),
                     task.id,
+                )
+                configured = service.execution.settings(project.id)
+                service.execution.queue(
+                    project.id,
+                    QueueEdit(expected_revision=configured.revision, enabled=True),
                 )
                 run = service.execution.claim(project.id, initial, {initial: set()})
                 assert run is not None
@@ -557,14 +819,14 @@ async def proof(
                 assert outcome.applied_agent == CHOICE
                 assert service.execution.local(run.id)["native_cleanup_confirmed"]
                 assert any(item["tool"] == "ask_question" and not item["failed"] for item in calls)
-                assert {item["tool"] for item in calls} <= {
+                assert {item["tool"] for item in calls if item["role"] == "worker"} <= {
                     "read_context",
                     "search_context",
                     "update_stages",
                     "ask_question",
                     "submit_result",
                 }
-                if role == "journey":
+                if complete:
                     await worker_journey(
                         service,
                         project.id,
@@ -573,14 +835,51 @@ async def proof(
                         repo,
                         initial,
                         permissions,
-                        observed,
+                        workers,
                         report,
                     )
+                if role == "planned":
+                    current = AgentSettings(workspace).get(project.id, "coordinator")
+                    choice = CHOICE.model_copy(update={"mode": "acceptEdits"})
+                    AgentSettings(workspace).edit(
+                        project.id,
+                        "coordinator",
+                        AgentSettingsEdit(
+                            expected_revision=current.revision,
+                            selection=choice,
+                        ),
+                    )
+                    delivered = service.results.page(project.id, task.id).items[0]
+                    task = workspace.task(project.id, task.id)
+                    review = service.coordinator.send(
+                        project.id,
+                        conversation.id,
+                        CoordinatorSend(
+                            id=uuid4().hex,
+                            text="Review the delivered task. Tell me the recorded human color "
+                            "choice, the requested change, and the exact final file content. "
+                            "Include the full "
+                            "delivered candidate commit and mention any unclear tools/context. "
+                            "Read actual saved task evidence; do not edit or change anything.",
+                            task_context=CoordinatorTaskSelection(
+                                task_id=task.id,
+                                task_revision=task.revision,
+                                result_id=delivered.id,
+                            ),
+                        ),
+                    )
+                    await settle(service.coordinator.jobs[review.id])
+                    outcome = service.coordinator.store.get(project.id, review.id)
+                    public = "\n".join(v.text for v in outcome.activity.items if v.kind == "agent")
+                    assert outcome.status == "completed" and outcome.session == "new"
+                    assert outcome.applied.choice == choice and observed[-1].cleanup_confirmed
+                    assert "TEAL" in public and delivered.candidate_commit in public
+                    report["freshCoordinatorReviewPassed"] = True
             assert all(v.cleanup_confirmed for v in observed)
-            if role not in {"continuity", "journey"}:
+            if role not in {"continuity", "journey", "planned", "parallel", "controls"}:
                 assert len(observed) == 1
             assert (repo / "CLAUDE.md").read_text() == guidance
-            if role not in {"continuity", "journey"}:
+            if role not in {"continuity", "journey", "planned"}:
                 assert baseline(repo) == initial
                 assert not git(repo, "status", "--porcelain").strip()
             elif role == "continuity":
@@ -620,16 +919,28 @@ def main():
     parser.add_argument("--native", type=Path, required=True)
     parser.add_argument("--trial-root", type=Path, required=True)
     parser.add_argument(
-        "--role", choices=["coordinator", "worker", "continuity", "journey"], required=True
+        "--role",
+        choices=[
+            "coordinator",
+            "worker",
+            "continuity",
+            "journey",
+            "planned",
+            "parallel",
+            "controls",
+        ],
+        required=True,
     )
     parser.add_argument("--codex-bundle", type=Path)
     parser.add_argument("--codex-native", type=Path)
     parser.add_argument("--invoke-live", action="store_true", required=True)
     args = parser.parse_args()
-    if args.role == "journey" and not args.bundle:
+    if args.role in {"journey", "planned", "controls"} and not args.bundle:
         parser.error("The complete worker journey requires the original installed bundle")
-    if args.role == "continuity" and not (args.bundle and args.codex_bundle and args.codex_native):
-        parser.error("Continuity requires installed Claude and explicit Codex bundle/native paths")
+    if args.role in {"continuity", "parallel"} and not (
+        args.bundle and args.codex_bundle and args.codex_native
+    ):
+        parser.error("Mixed trials require installed Claude and explicit Codex bundle/native paths")
     root = args.trial_root.resolve(strict=True)
     source = Path(__file__).resolve().parents[1]
     if source.parent in (root, *root.parents) or any(

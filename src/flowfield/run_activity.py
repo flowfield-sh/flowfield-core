@@ -148,24 +148,50 @@ class ActivityRecorder:
         self.pending: list[ActivityUpdate] = []
         self.lost = False
         self.closed = False
+        self.flush_lock = asyncio.Lock()
         self.job = asyncio.create_task(self._pump())
 
     def emit(self, update: ActivityUpdate) -> None:
         if self.closed:
             return
-        self.pending.append(
-            update.model_copy(
-                update={
-                    "text": retain(update.text, MAX_TEXT),
-                    "omitted": update.omitted or len(update.text) > MAX_TEXT,
-                }
-            )
+        # Native peers may send hundreds of tiny deltas without yielding. Bound
+        # complete entries rather than dropping the beginning of a streamed reply.
+        previous = next(
+            (
+                item
+                for item in self.pending
+                if (item.context is not None and update.context is not None)
+                or (item.context is None and update.context is None and item.key == update.key)
+            ),
+            None,
         )
-        if len(self.pending) > 100:
+        text = (previous.text if previous and update.append else "") + update.text
+        combined = update.model_copy(
+            update={
+                "text": retain(text, MAX_TEXT),
+                "append": previous.append if previous and update.append else update.append,
+                "omitted": update.omitted
+                or len(text) > MAX_TEXT
+                or bool(previous and previous.omitted),
+            }
+        )
+        if previous is not None:
+            self.pending[self.pending.index(previous)] = combined
+        else:
+            self.pending.append(combined)
+        while (
+            len(self.pending) > MAX_ENTRIES
+            or sum(len(item.text) for item in self.pending) > MAX_TOTAL
+        ):
             self.pending.pop(0)
             self.lost = True
 
     async def flush(self) -> None:
+        # A manual/final flush must not race the pump and reorder append writes.
+        async with self.flush_lock:
+            await self._flush()
+
+    async def _flush(self) -> None:
         updates, self.pending = self.pending, []
         if self.lost:
             updates.insert(

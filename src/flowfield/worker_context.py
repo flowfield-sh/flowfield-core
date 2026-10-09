@@ -163,7 +163,8 @@ def brief_context(sections: dict[str, str]) -> dict[str, object]:
         "context": context,
         "context_policy": (
             "Sections in context are complete frozen evidence; use them directly instead of "
-            "reading them again. Other sections remain available through read_context. "
+            "reading them again. Use read_context for other listed sections and referenced "
+            "attempt:<id> sources. Do not request absent section names. "
             "Skip empty sections; retrieve full omitted essentials before acting."
         ),
         "sections": {key: len(value) for key, value in sections.items()},

@@ -326,6 +326,8 @@ class Supervisor:
             sections = self.execution.assignment(run.project_id, run.id)
             brief: dict[str, Any] = {
                 "task": sections["title"],
+                "task_id": run.task_id,
+                "task_key": run.task_key,
                 "task_type": sections.get("task_type", "feature"),
                 "base_commit": run.base_commit,
                 "agreement_revision": run.agreement_revision,
@@ -335,7 +337,10 @@ class Supervisor:
                 "instructions": (
                     "Read complete description/feedback pages when listed as truncated. "
                     "Read input, correction and validation when present. "
-                    "Read stages and earlier_answers before work; attempt_history for orientation. "
+                    "task_id is the stored identity; task_key is its human-facing key. "
+                    "Both identify this same assigned task. "
+                    "Read stages and nonempty earlier_answers when listed in sections; "
+                    "attempt_history for orientation. "
                     "Use update_stages at broad phase transitions and explain what changed. "
                     "Phases describe the process, not file edits or implementation checklists. "
                     "Keep human approval/integration outside agent stages; Flowfield tracks them. "
