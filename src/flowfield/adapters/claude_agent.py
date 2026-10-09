@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
 from flowfield.activity_text import command_title
 from flowfield.adapters.agent_contract import (
+    COMMANDS,
     Agent,
     McpServer,
     PermissionHandler,
@@ -22,7 +23,7 @@ from flowfield.adapters.agent_contract import (
 from flowfield.adapters.claude_runtime import ADAPTER_VERSION, executable
 from flowfield.adapters.harness_host import launch_environment, resolve
 from flowfield.adapters.json_rpc import MAX_INPUT, JsonRpc, NativeError
-from flowfield.agent_models import AgentChoice
+from flowfield.agent_models import AgentChoice, AgentCommand
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import ModelOption, NativeMode
 from flowfield.harness_models import HarnessRegistration
@@ -202,6 +203,14 @@ class ClaudeAgent(Agent):
         self._configured = True
         return choice.model_copy(deep=True)
 
+    async def command_options(self) -> list[AgentCommand]:
+        available = await self.rpc.call("commands", {"sessionId": self.session_id})
+        return [
+            item.model_copy()
+            for item in COMMANDS
+            if item.name != "compact" or available.get("compact") is True
+        ]
+
     async def prompt(
         self,
         text: str,
@@ -213,6 +222,18 @@ class ClaudeAgent(Agent):
             return {"status": "stopped"}
         if not self._configured or not self.choice or self._running:
             raise NativeError("Apply native settings before dispatch")
+        if text in {"/status", "/mcp", "/skills"}:
+            response = await self.rpc.call(
+                "command", {"sessionId": self.session_id, "name": text[1:]}
+            )
+            self.activity(
+                ActivityUpdate(
+                    key="command",
+                    kind="agent",
+                    text=bounded_details(str(response.get("text") or "None available.")),
+                )
+            )
+            return {"status": "stopped" if self.stopping else "completed"}
         content: list[dict[str, Any]] = [{"type": "text", "text": text}]
         for item in attachments or []:
             content.append({"type": "text", "text": "Human attachment: " + item["name"]})

@@ -1,0 +1,42 @@
+---
+title: Claude Code
+description: Use Claude Code for your Coordinator and workers.
+---
+
+## Setup
+
+Install [Claude Code](https://code.claude.com/docs/en/setup) and sign in on the machine running Flowfield. Flowfield uses the official Agent SDK with your installed CLI. The SDK helper ships with Flowfield; no additional Node runtime is required.
+
+In **Settings → Harnesses**, keep detected paths or override the executable and configuration directory. Accounts stay in Claude Code. See [shared setup](/agents/overview).
+
+## Models and access
+
+Models and effort levels come from Claude, with resolved model versions shown in the picker. Access modes are **Default**, **Accept edits**, **Auto (review actions)** when supported, and **Bypass permissions**. Claude organization policy still applies. Plan and Fast are not exposed.
+
+Choose Coordinator and worker defaults independently; task **Agent settings** can override the next worker attempt. Models load automatically. See [worker setup](/worker-setup).
+
+## Commands
+
+The Coordinator supports `/compact`, `/status`, `/mcp` and `/skills`. Compaction uses Claude’s native `/compact`. Status reports model/context usage, MCP lists native connection status, and skills lists the SDK’s available skills.
+
+## Sessions and Stop
+
+Unchanged settings resume the native Coordinator session. Changing model, effort or access mode starts a fresh session. Stop interrupts the turn and stops observed native tasks; unsupported goal, Monitor or workflow activity can require recovery.
+
+Fresh sessions can retrieve saved Flowfield history. Reattach earlier files when their contents matter. Unconfirmed cleanup keeps the attempt occupied until recovery; interrupted prompts are never automatically replayed. See [Coordinator](/coordinator).
+
+## Native customization
+
+Claude loads native user/project settings, instructions and skills. Managed sessions use Flowfield’s scoped MCP configuration. Native question and Plan tools are replaced by Flowfield’s task conversation workflow.
+
+## Standalone conversation
+
+Use the [shared connection steps](/agents/overview#standalone-conversations) with `claude-code`:
+
+```sh
+flowfield integration connect claude-code
+flowfield integration status claude-code
+flowfield integration disconnect claude-code
+```
+
+These commands manage the native user-scoped MCP connection. Built-in Coordinator and workers receive their connections automatically.

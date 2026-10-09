@@ -19,7 +19,12 @@ def harness_status(value: dict[str, Any], port: int) -> None:
         "authenticated": "Signed in",
         "signed-out": "Signed out",
     }
-    typer.echo(f"Sign-in: {authentication[value['authentication']]}")
+    sign_in = (
+        "Managed by Pi per provider"
+        if value["registration"]["harness"] == "pi"
+        else authentication[value["authentication"]]
+    )
+    typer.echo(f"Sign-in: {sign_in}")
     typer.echo("Model access: Not verified")
     problems = {
         "native_missing": "Install the native harness or correct its executable path.",

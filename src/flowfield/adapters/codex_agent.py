@@ -11,6 +11,7 @@ from typing import Any
 
 from flowfield import __version__
 from flowfield.adapters.agent_contract import (
+    COMMANDS,
     Agent,
     McpServer,
     PermissionHandler,
@@ -39,14 +40,6 @@ def command(directory: Path, environment: Mapping[str, str]) -> tuple[list[str],
     if not executable:
         raise ApplicationError("harness_missing", "Install Codex on the service host.", 409)
     return [executable, "app-server"], dict(environment)
-
-
-COMMANDS = [
-    AgentCommand(name="compact", description="Compact this conversation", input_hint=None),
-    AgentCommand(name="status", description="Show current model and access", input_hint=None),
-    AgentCommand(name="mcp", description="List native MCP connections", input_hint=None),
-    AgentCommand(name="skills", description="List project skills", input_hint=None),
-]
 
 
 class CodexAgent(Agent):
@@ -760,16 +753,3 @@ async def model_options(
                 raise ApplicationError(
                     "agent_cleanup_unconfirmed", "Native catalog cleanup is unconfirmed.", 409
                 )
-
-
-async def command_options(
-    directory: Path,
-    cwd: Path,
-    choice: AgentChoice,
-    *,
-    registration: HarnessRegistration | None = None,
-    on_cleanup: Callable[[bool], None] | None = None,
-) -> list[AgentCommand]:
-    if on_cleanup:
-        on_cleanup(True)
-    return [item.model_copy() for item in COMMANDS]

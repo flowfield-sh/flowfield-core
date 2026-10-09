@@ -115,7 +115,17 @@ def main() -> None:
                 initialize_count += 1
                 response = {
                     "commands": [
-                        {"name": "context", "description": "Synthetic command", "argumentHint": ""}
+                        {
+                            "name": "compact",
+                            "description": "Compact",
+                            "argumentHint": "",
+                            "builtin": True,
+                        },
+                        {
+                            "name": "fixture-skill",
+                            "description": "Fixture skill",
+                            "argumentHint": "",
+                        },
                     ],
                     "agents": [],
                     "models": [
@@ -152,6 +162,8 @@ def main() -> None:
                     stop_tool()
                     tasks = []
                     snapshot()
+            elif subtype == "mcp_status":
+                response = {"mcpServers": [{"name": "fixture-mcp", "status": "connected"}]}
             elif subtype == "get_context_usage":
                 time.sleep(float(os.environ.get("FLOWFIELD_TEST_CONTEXT_DELAY", "0")))
                 response = {

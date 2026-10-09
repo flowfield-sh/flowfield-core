@@ -168,7 +168,7 @@ def test_settings_and_resume_require_exact_native_confirmation(tmp_path):
                 await agent.configure(choice())
             with pytest.raises(NativeError, match="settings"):
                 await agent.prompt("must not dispatch", None)
-            assert await agent._request("extension_ui_request", {"method": "confirm"}) == {
+            assert await agent._request("extension_ui_request", {"method": "input"}) == {
                 "cancelled": True
             }
         finally:
@@ -210,13 +210,72 @@ def test_native_tool_scope_and_text_image_attachments(tmp_path, monkeypatch, ser
         finally:
             assert await agent.stop()
         command = commands[0]
-        assert "--no-extensions" in command and "--no-approve" in command
+        assert "--no-extensions" not in command and "--no-approve" not in command
         assert len(servers) == 1 and servers[0]["config"]["url"] == "http://127.0.0.1:1/mcp"
         namespace = "mcp__" + servers[0]["name"] + "__"
-        assert command[command.index("--tools") + 1].endswith(namespace + "*")
+        assert "--tools" not in command
         assert len(namespace + "get_integration_settings") <= 64
         calls = [json.loads(line) for line in (tmp_path / "calls.jsonl").read_text().splitlines()]
         prompt = next(call for call in calls if call["type"] == "prompt")
         assert "text" in prompt["message"] and prompt["images"][0]["mimeType"] == "image/png"
+
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("command", ["status", "skills", "mcp", "compact"])
+def test_commands_use_native_controls_without_extra_turns(tmp_path, command):
+    async def exercise():
+        agent, _ = fixture(tmp_path)
+        updates = []
+        agent.on_activity = updates.append
+        try:
+            await agent.start([])
+            await agent.configure(choice())
+            assert {c.name for c in await agent.command_options()} == {
+                "compact",
+                "status",
+                "mcp",
+                "skills",
+            }
+            assert (
+                await agent.command_prompt("/" + command, has_history=True, attachments=[])
+                == "/" + command
+            )
+            assert await agent.prompt("/" + command, None) == {"status": "completed"}
+            assert updates[-1].text or command == "mcp"
+            if command == "skills":
+                assert "skill:fixture" in updates[-1].text and "arbitrary" not in updates[-1].text
+            with pytest.raises(ApplicationError):
+                await agent.command_prompt("/arbitrary", has_history=True, attachments=[])
+            with pytest.raises(ApplicationError):
+                await agent.command_prompt("/compact", has_history=False, attachments=[])
+        finally:
+            assert await agent.stop()
+        calls = [json.loads(line) for line in (tmp_path / "calls.jsonl").read_text().splitlines()]
+        assert [c["message"] for c in calls if c["type"] == "prompt"] == (
+            ["/mcp"] if command == "mcp" else []
+        )
+
+    asyncio.run(exercise())
+
+
+def test_extension_confirmation_and_failed_shutdown(tmp_path):
+    async def exercise():
+        agent, _ = fixture(tmp_path)
+        await agent.start([])
+
+        async def permission(request):
+            assert request.title == "Allow extension?"
+            return "allow"
+
+        agent._permission = permission
+        assert await agent._request(
+            "extension_ui_request", {"method": "confirm", "title": "Allow extension?"}
+        ) == {"confirmed": True}
+        agent._event(
+            "extension_error", {"event": "session_shutdown", "error": "Fixture cleanup failed"}
+        )
+        assert not await agent.stop()
+        assert agent.process.returncode is not None
 
     asyncio.run(exercise())

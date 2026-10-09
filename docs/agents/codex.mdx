@@ -1,0 +1,42 @@
+---
+title: Codex
+description: Use Codex for your Coordinator and workers.
+---
+
+## Setup
+
+Install the [Codex CLI](https://developers.openai.com/codex/cli/) and sign in on the machine running Flowfield. Flowfield uses the installed `codex app-server` directly.
+
+In **Settings → Harnesses**, keep detected paths or override the executable and configuration directory. Accounts stay in Codex. See [shared setup](/agents/overview).
+
+## Models and access
+
+Models, reasoning effort, access modes and Fast availability come from Codex. Tool approval requests offer one-time allow/deny choices; choose the saved access mode for broader policy changes. Persistent permission grants are not exposed.
+
+Choose Coordinator and worker defaults independently; task **Agent settings** can override the next worker attempt. Models load automatically. See [worker setup](/worker-setup).
+
+## Commands
+
+The Coordinator supports `/compact`, `/status`, `/mcp` and `/skills`. Compaction uses the native thread control. Status shows the current choice; MCP and skills use native inventories.
+
+## Sessions and Stop
+
+Compatible model and access choices resume the native Coordinator session. Stop interrupts active turns and checks supported native background work.
+
+Fresh sessions can retrieve saved Flowfield history. Reattach earlier files when their contents matter. Unconfirmed cleanup keeps the attempt occupied until recovery; interrupted prompts are never automatically replayed. See [Coordinator](/coordinator).
+
+## Native customization
+
+Codex loads its native repository instructions and skills. Flowfield supplies the project- or task-scoped MCP connection for each managed session.
+
+## Standalone conversation
+
+Use the [shared connection steps](/agents/overview#standalone-conversations) with `codex`:
+
+```sh
+flowfield integration connect codex
+flowfield integration status codex
+flowfield integration disconnect codex
+```
+
+These commands manage the native user-scoped MCP connection. Built-in Coordinator and workers receive their connections automatically.

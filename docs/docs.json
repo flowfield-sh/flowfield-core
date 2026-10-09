@@ -2,15 +2,64 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Flowfield Docs",
-  "colors": { "primary": "#2563eb" },
+  "colors": {
+    "primary": "#2563eb"
+  },
   "navigation": {
     "groups": [
-      { "group": "Start here", "pages": ["getting-started", "concepts", "coordinator"] },
-      { "group": "Reference", "pages": ["installation", "worker-setup", "cli", "protocols", "storage"] },
-      { "group": "Integrations", "pages": ["integrations/overview", "integrations/codex", "integrations/claude-code", "integrations/pi"] }
+      {
+        "group": "Start here",
+        "pages": [
+          "getting-started",
+          "concepts"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "coordinator",
+          "installation",
+          "worker-setup",
+          "cli",
+          "protocols",
+          "storage"
+        ]
+      },
+      {
+        "group": "Agents",
+        "pages": [
+          "agents/overview",
+          "agents/codex",
+          "agents/claude-code",
+          "agents/pi"
+        ]
+      }
     ]
   },
   "navbar": {
-    "links": [{ "label": "GitHub", "href": "https://github.com/flowfield-sh/flowfield-core" }]
-  }
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/flowfield-sh/flowfield-core"
+      }
+    ]
+  },
+  "redirects": [
+    {
+      "source": "/integrations/overview",
+      "destination": "/agents/overview"
+    },
+    {
+      "source": "/integrations/codex",
+      "destination": "/agents/codex"
+    },
+    {
+      "source": "/integrations/claude-code",
+      "destination": "/agents/claude-code"
+    },
+    {
+      "source": "/integrations/pi",
+      "destination": "/agents/pi"
+    }
+  ]
 }

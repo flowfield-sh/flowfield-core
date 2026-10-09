@@ -1,0 +1,59 @@
+---
+title: Overview
+description: Connect the coding harness you already use.
+---
+
+Use [Codex](/agents/codex), [Claude Code](/agents/claude-code), [Pi](/agents/pi),
+or a mix. Install and sign in on the machine running Flowfield, then select a harness
+and model for your Coordinator and workers. Support ships with Flowfield.
+
+## Setup
+
+1. Add your existing project.
+2. Choose a harness and model for each role during project creation or in project settings.
+3. Configure and validate [worker delivery](/worker-setup) before running tasks.
+
+**Settings → Harnesses** detects native installations. Override executable/configuration
+paths only when needed. Accounts and native settings stay with the harness.
+**Check saved setup** reads native installation and available sign-in diagnostics.
+Pi manages authentication per provider.
+
+Models load automatically when you open a selector. Saved project choices preload on open
+and reconnect. Discovery sends no model prompt, though native startup hooks can run.
+Capabilities and access modes are described on each agent's page.
+
+## Standalone conversations
+
+To keep the conversation in your own harness, connect it to the running Flowfield service.
+Replace `claude-code` with `codex` or `pi` as needed:
+
+```sh
+flowfield integration connect claude-code
+flowfield integration status claude-code
+```
+
+Connect saves a user-scoped native MCP connection, preserving other servers. Status checks
+configuration, service reachability and tool discovery. Start a fresh harness conversation
+to load a new connection; native project overrides and organization policy still apply.
+
+Install guidance in your [adopted project](/getting-started#add-your-project):
+
+```sh
+flowfield project guidance preview
+flowfield project guidance install
+```
+
+This adds the coordinator skill and an `AGENTS.md` reference while preserving existing
+instructions. Review and commit the files. Ask a fresh conversation to read the guidance,
+then your Flowfield board.
+
+For another service port or connection name, use matching options:
+
+```sh
+flowfield --port 8770 integration connect claude-code --name flowfield-local
+flowfield --port 8770 integration status claude-code --name flowfield-local
+flowfield --port 8770 integration disconnect claude-code --name flowfield-local
+```
+
+Disconnect removes that connection. Restart the harness to unload its tools. Projects,
+conversations and tasks stay saved. Built-in roles need none of these standalone commands.

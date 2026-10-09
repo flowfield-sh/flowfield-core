@@ -14,11 +14,18 @@ from urllib.parse import quote, unquote
 from uuid import uuid4
 
 from flowfield.activity_text import command_title, mcp_title
-from flowfield.adapters.agent_contract import Agent, McpServer, PermissionHandler, bounded_details
+from flowfield.adapters.agent_contract import (
+    COMMANDS,
+    Agent,
+    McpServer,
+    PermissionHandler,
+    PermissionRequest,
+    bounded_details,
+)
 from flowfield.adapters.harness_host import launch_environment, resolve
 from flowfield.adapters.json_rpc import MAX_INPUT, NativeError
 from flowfield.adapters.pi_rpc import PiRpc
-from flowfield.agent_models import AgentChoice
+from flowfield.agent_models import AgentChoice, AgentCommand
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import ModelOption, NativeMode
 from flowfield.harness_models import HarnessRegistration
@@ -63,6 +70,8 @@ class PiAgent(Agent):
         self._message = 0
         self._tools: dict[str, dict[str, Any]] = {}
         self._error = False
+        self._extension_failed = False
+        self._permission: PermissionHandler | None = None
         self.session_id = None
         self.stopping = False
         self.cleanup_confirmed = True
@@ -98,20 +107,11 @@ class PiAgent(Agent):
                 self.launch.native_executable,
                 "--mode",
                 "rpc",
-                "--no-extensions",
-                "--no-approve",
                 "--session-dir",
                 str(sessions),
                 "--extension",
                 str(Path(__file__).with_name("pi_extension.js")),
             ]
-            if servers:
-                command += ["--extension", "builtin:mcp"]
-                tools = ["read", "bash", "edit", "write", "grep", "find", "ls"]
-                tools += ["mcp__" + server.name + "__*" for server in servers]
-                command += ["--tools", ",".join(tools)]
-            else:
-                command += ["--no-mcp"]
             if resume:
                 command += ["--session", resume]
             elif persistent:
@@ -212,6 +212,14 @@ class PiAgent(Agent):
                 "agent_image_unsupported", "This Pi model does not accept images.", 409
             )
 
+    async def command_options(self) -> list[AgentCommand]:
+        commands = (await self.rpc.call("get_commands", {})).get("commands", [])
+        return [
+            item.model_copy()
+            for item in COMMANDS
+            if item.name != "mcp" or any(c.get("name") == "mcp" for c in commands)
+        ]
+
     async def prompt(
         self,
         text: str,
@@ -223,6 +231,33 @@ class PiAgent(Agent):
             return {"status": "stopped"}
         if not self.choice or self._completion is not None:
             raise NativeError("Apply Pi settings before dispatch")
+        if text in {"/status", "/skills", "/compact"}:
+            if text == "/status":
+                state = await self.rpc.call("get_state", {})
+                result = " · ".join(
+                    [
+                        model_id(state.get("model", {})),
+                        str(state.get("thinkingLevel", "off")),
+                        "Full access",
+                    ]
+                )
+            elif text == "/skills":
+                commands = (await self.rpc.call("get_commands", {})).get("commands", [])
+                if not isinstance(commands, list) or len(commands) > 2048:
+                    raise NativeError("Pi command inventory exceeded its bound")
+                result = "\n".join(
+                    str(c.get("name", "Skill")) for c in commands if c.get("source") == "skill"
+                )
+            else:
+                await self.rpc.call("compact", {}, timeout=3600)
+                await self._context()
+                result = "Conversation compacted."
+            self.activity(
+                ActivityUpdate(
+                    key="command", kind="agent", text=bounded_details(result or "None available.")
+                )
+            )
+            return {"status": "stopped" if self.stopping else "completed"}
         self.validate_attachments(attachments or [])
         images = []
         for item in attachments or []:
@@ -233,19 +268,42 @@ class PiAgent(Agent):
                 text += base64.b64decode(item["data"]).decode("utf-8")
         self._error = False
         self._tools.clear()
+        self._permission = on_permission
         completion = self._completion = asyncio.get_running_loop().create_future()
         try:
-            response = await self.rpc.call("prompt", {"message": text, "images": images})
-            if response.get("disposition") != "started":
+            response = await self.rpc.call(
+                "prompt", {"message": text, "images": images}, timeout=3600
+            )
+            if self.stopping:
+                return {"status": "stopped"}
+            if response.get("disposition") == "handled":
+                state = await self.rpc.call("get_state", {})
+                if (
+                    state.get("isStreaming")
+                    or state.get("isCompacting")
+                    or state.get("pendingMessageCount")
+                ):
+                    async with asyncio.timeout(3600):
+                        result = await completion
+                else:
+                    result = "stopped" if self.stopping else "completed"
+            elif response.get("disposition") == "started":
+                async with asyncio.timeout(3600):
+                    result = await completion
+            else:
                 raise NativeError("Pi did not start the requested turn; nothing was replayed")
-            async with asyncio.timeout(3600):
-                result = await completion
             if result == "failed":
                 raise NativeError("Pi could not complete the turn. Check its provider settings.")
             if not self.stopping:
+                state = await self.rpc.call("get_state", {})
+                if state.get("sessionId") != self.session_id:
+                    raise NativeError(
+                        "Pi extension changed the managed session; nothing was replayed"
+                    )
                 await self._context()
             return {"status": result}
         finally:
+            self._permission = None
             self._completion = None
             if not completion.done():
                 completion.cancel()
@@ -253,11 +311,30 @@ class PiAgent(Agent):
                 completion.exception()  # Observe an early disconnect before prompt acknowledgement.
 
     def _event(self, method: str, data: dict[str, Any]) -> None:
+        if method == "extension_error":
+            if data.get("event") == "session_shutdown":
+                self._extension_failed = True
+            self.activity(
+                ActivityUpdate(
+                    key="extension-error",
+                    kind="tool",
+                    text="Pi extension failed · "
+                    + bounded_details(str(data.get("error", "Unknown error"))),
+                )
+            )
         if method == "extension_ui_request" and data.get("method") == "notify":
             if data.get("message") == "flowfield:ready:v1":
                 self._ready.set()
             elif data.get("message") == "flowfield:closed:v1":
                 self._shutdown = True
+            elif self._completion is not None and not self.stopping:
+                self.activity(
+                    ActivityUpdate(
+                        key="extension-notice",
+                        kind="agent",
+                        text=bounded_details(str(data.get("message", ""))),
+                    )
+                )
             return
         completion = self._completion
         if method == "transport/closed":
@@ -344,12 +421,29 @@ class PiAgent(Agent):
             )
 
     async def _request(self, method: str, data: dict[str, Any]) -> dict[str, Any]:
-        # Managed Pi loads no third-party extensions. Never translate an arbitrary
-        # extension dialog into a tool grant or an answer on the human's behalf.
+        if data.get("method") == "confirm" and self._permission and not self.stopping:
+            selection = await self._permission(
+                PermissionRequest(
+                    str(data.get("id", "extension"))[:500],
+                    str(data.get("title") or "Pi extension confirmation")[:1000],
+                    (("allow", "Confirm", "allow_once"), ("deny", "Cancel", "reject_once")),
+                    bounded_details(str(data.get("message", ""))),
+                )
+            )
+            return {"confirmed": selection == "allow" and not self.stopping}
+        self.activity(
+            ActivityUpdate(
+                key="extension-ui",
+                kind="tool",
+                text="Pi extension needs terminal input. This interaction was cancelled.",
+            )
+        )
         return {"cancelled": True}
 
     async def stop(self) -> bool:
         self.stopping = True
+        for job in self.rpc.jobs:
+            job.cancel()
         if self._close_task is None:
             self._close_task = asyncio.create_task(self._stop())
         return await asyncio.shield(self._close_task)
@@ -380,7 +474,12 @@ class PiAgent(Agent):
         except (Exception, asyncio.CancelledError):
             confirmed = False
         exited = await self.rpc.close()
-        self.cleanup_confirmed = confirmed and exited and (self.rpc.owner is None or self._shutdown)
+        self.cleanup_confirmed = (
+            confirmed
+            and exited
+            and not self._extension_failed
+            and (self.rpc.owner is None or self._shutdown)
+        )
         return self.cleanup_confirmed
 
 

@@ -15,8 +15,8 @@ does not stop the service's enabled queue. The browser gives you direct control 
 priorities, answers, pause, stop and approval.
 
 Flowfield uses native harness interfaces to run coding conversations and **MCP** to
-give agents project/task tools. See [Native integrations and MCP](/protocols) for the connections and
-supported capabilities; [Integrations](/integrations/overview) covers setup.
+give agents project/task tools. See [Native agents and MCP](/protocols) for the connections and
+supported capabilities; [Agents](/agents/overview) covers setup.
 
 ## Projects, tasks and milestones
 
@@ -97,13 +97,13 @@ historical attempts keep their original choices.
 Each project has one [Coordinator](/coordinator), with its model, effort and access mode
 selected beside the chat input. Changes apply to subsequent messages and do not configure
 your standalone coding agent.
-Model loading is explicit and scoped to that project and harness. It starts a disposable
+Models load automatically for that project and harness. It starts a disposable
 native session; startup hooks can run without a model prompt. Changing harness clears
 dependent model, effort, access and Fast choices. Unavailable harnesses remain visible
 with their setup remedy, and do not block another ready harness.
 
-Agents use the tools and credentials on the machine running Flowfield. Codex supplies
-the available access modes; choose one beside the Coordinator input or in Workers settings.
+Agents use the tools and credentials on the machine running Flowfield. Each harness
+supplies its access modes; choose one beside the Coordinator input or in Workers settings.
 
 Tool permission requests from connected harness sessions have durable answers
 and response controls in the Coordinator, the task view and **Needs you**. Requests expire or close when

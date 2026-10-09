@@ -4,11 +4,10 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import assert_never
 
-from flowfield.adapters.agent_contract import Agent
+from flowfield.adapters.agent_contract import COMMANDS, Agent
 from flowfield.adapters.claude_agent import ClaudeAgent
 from flowfield.adapters.claude_agent import model_options as claude_models
 from flowfield.adapters.codex_agent import CodexAgent
-from flowfield.adapters.codex_agent import command_options as codex_commands
 from flowfield.adapters.codex_agent import model_options as codex_models
 from flowfield.adapters.pi_agent import PiAgent
 from flowfield.adapters.pi_agent import model_options as pi_models
@@ -84,11 +83,4 @@ async def command_options(
         raise ApplicationError(
             "harness_registration_mismatch", "Host settings belong to another harness.", 409
         )
-    if choice.harness == "claude-code" or choice.harness == "pi":
-        # Native slash commands require integrated semantics before exposure.
-        return []
-    if choice.harness == "codex":
-        return await codex_commands(
-            directory, cwd, choice, registration=registration, on_cleanup=on_cleanup
-        )
-    assert_never(choice.harness)
+    return [item.model_copy() for item in COMMANDS]

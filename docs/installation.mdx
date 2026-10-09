@@ -15,9 +15,8 @@ uv keeps Flowfield in its own environment and exposes the `flowfield` command.
 If the command is missing from PATH, run `uv tool update-shell` and open a new terminal.
 The package contains the CLI, service, browser UI and agent guidance. Node and pnpm are
 only needed for development. Installing the source archive uses its prebuilt artifacts.
-Development builds require Python 3.12+ and either macOS 13+ on Apple Silicon or
+Flowfield requires Python 3.12+ and either macOS 13+ on Apple Silicon or
 glibc 2.28+ Linux on arm64/x64. Intel Macs are not supported.
-Published 0.2.1 predates the native integration update.
 
 ## Alternative: pip
 
@@ -44,10 +43,8 @@ Workers also need Git.
 
 **Settings → Harnesses** detects the installed executables and native configuration.
 Override a path only when detection needs help. **Check saved setup** checks version and
-sign-in status without a model prompt. Accounts stay with each harness. Models load
+available sign-in diagnostics without a model prompt. Accounts stay with each harness. Models load
 when you open a project’s role selector.
-
-Published 0.2.1 predates this setup; these native integrations are in development source.
 
 ## Start and stop
 

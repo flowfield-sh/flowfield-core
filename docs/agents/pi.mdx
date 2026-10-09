@@ -1,0 +1,44 @@
+---
+title: Pi
+description: Use Pi for your Coordinator and workers.
+---
+
+## Setup
+
+Install [Pi](https://pi.dev/docs/latest/quickstart) 1.1 or newer and configure a provider on the machine running Flowfield. Flowfield uses the installed `pi` command directly.
+
+In **Settings → Harnesses**, keep detected paths or override the executable and configuration directory. Accounts stay in Pi. See [shared setup](/agents/overview).
+
+## Models and access
+
+Models and thinking levels come directly from Pi, including provider names and custom model definitions. The list reflects Pi’s available catalog; actual access depends on the provider account. Selecting a model leaves Pi’s saved defaults unchanged. Sign-in is managed by Pi per provider.
+
+Pi tools use **Full access**, without built-in per-tool approvals or a sandbox. Flowfield still requires exact approval before delivering worker code.
+
+Choose Coordinator and worker defaults independently; task **Agent settings** can override the next worker attempt. Models load automatically. See [worker setup](/worker-setup).
+
+## Commands
+
+The Coordinator supports `/compact`, `/status`, `/mcp` and `/skills`. Compaction uses Pi’s native RPC control. Status shows model/thinking settings, MCP uses Pi’s connection inventory, and skills lists native skill commands. Terminal-only commands are not exposed.
+
+## Sessions and Stop
+
+Unchanged settings resume the native Coordinator session. Stop clears queued work, aborts native execution and closes the session, including extension shutdown hooks. Extensions must honor Pi’s cancellation and cleanup contracts; arbitrary detached services are outside managed cleanup.
+
+Fresh sessions can retrieve saved Flowfield history. Reattach earlier files when their contents matter. Unconfirmed cleanup keeps the attempt occupied until recovery; interrupted prompts are never automatically replayed. See [Coordinator](/coordinator).
+
+## Native customization
+
+Pi loads installed extensions, custom tools and native MCP settings, respecting its saved project-trust decisions. The Flowfield extension loads automatically alongside them. Extension confirmations appear in Flowfield; terminal widgets and free-text extension dialogs require Pi’s terminal interface. Other extension dialogs are cancelled with a visible notice. Extension shutdown failures retain uncertain ownership for recovery.
+
+## Standalone conversation
+
+Use the [shared connection steps](/agents/overview#standalone-conversations) with `pi`:
+
+```sh
+flowfield integration connect pi
+flowfield integration status pi
+flowfield integration disconnect pi
+```
+
+These commands manage the native user-scoped MCP connection. Built-in Coordinator and workers receive their connections automatically.

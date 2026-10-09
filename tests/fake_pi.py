@@ -71,9 +71,22 @@ for line in sys.stdin:
         state["thinkingLevel"] = request["level"] if scenario != "wrong-effort" else "off"
     elif method == "get_session_stats":
         data = {"contextUsage": {"tokens": 2000, "contextWindow": 10000}}
+    elif method == "get_commands":
+        data = {
+            "commands": [
+                {"name": "skill:fixture", "source": "skill"},
+                {"name": "arbitrary", "source": "extension"},
+                {"name": "mcp", "source": "extension"},
+            ]
+        }
     elif method == "prompt":
         state["isStreaming"] = True
-        data = {"disposition": "queued" if scenario == "queued" else "started"}
+        if request.get("message") == "/mcp":
+            notify("fixture-mcp · connected")
+            data = {"disposition": "handled"}
+            state["isStreaming"] = False
+        else:
+            data = {"disposition": "queued" if scenario == "queued" else "started"}
     elif method == "abort":
         if scenario == "refused":
             success = False
@@ -89,7 +102,11 @@ for line in sys.stdin:
             "data": data,
         }
     )
-    if method == "prompt" and scenario not in {"foreground", "queued"}:
+    if (
+        method == "prompt"
+        and request.get("message") != "/mcp"
+        and scenario not in {"foreground", "queued"}
+    ):
         event("message_start", message={"role": "assistant"})
         event(
             "message_update",

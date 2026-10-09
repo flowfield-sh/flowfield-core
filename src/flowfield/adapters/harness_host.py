@@ -205,7 +205,6 @@ async def check(
         args = NATIVE_PATHS[registration.harness].auth_command
         if not args:
             # Pi authentication belongs to a provider/model, not the whole harness.
-            result.problems.append("authentication_unverified")
             return result
         code, output, error_output = await _native_command(
             [launch.native_executable, *args], directory, env

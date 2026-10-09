@@ -1,45 +1,31 @@
 ---
-title: Native integrations and MCP
-description: How Flowfield runs coding harnesses and supplies scoped project tools.
+title: Native agents and MCP
+description: How Flowfield runs coding harnesses and supplies scoped tools.
 ---
 
-Flowfield runs Codex through its installed app-server and Claude Code through the official
-Agent SDK. The SDK helper is included with Flowfield; no separate support installation
-or Node runtime is needed. Native login, repository instructions and tool policy remain
-with the harness. See [Codex](/integrations/codex) and [Claude Code](/integrations/claude-code).
+Flowfield uses installed Codex and Pi processes directly, and the official Agent SDK with
+installed Claude Code. Native adapters map models, settings, public activity, sessions and
+Stop into shared application controls. See [Agents](/agents/overview) for setup and capabilities.
 
-Both adapters discover native models, apply supported settings, stream public activity
-and route tool permissions into Flowfield. Compatible coordinator settings resume native
-history; harness changes start a fresh session with saved Flowfield context. Current-turn
-attachments accompany the prompt. Private reasoning and permission grants are not transferred.
+## MCP tools
 
-Stop interrupts active turns and stops supported native background work. Unconfirmed
-cleanup retains ownership and capacity until the exact work is reconciled. Native process
-exit alone does not establish background-work cleanup. Arbitrary daemons and external
+[MCP](https://modelcontextprotocol.io/docs/getting-started/intro) connects agents to tools
+and context. Flowfield's tools use the same revisions, saved answers and exact-result
+approval rules as the GUI and CLI. Discovery supplies names, descriptions and schemas.
+
+Built-in Coordinator and workers receive scoped connections automatically. Each connection
+belongs to its project or task attempt. For external conversations, use the
+[standalone connection steps](/agents/overview#standalone-conversations).
+
+The Coordinator reads older saved exchanges with `get_coordinator_history` and full text
+with `get_text`. Follow the returned cursors and text revisions. Native tool history and
+private reasoning remain with the harness. Workers receive their task-bound context.
+
+## Execution and recovery
+
+Compatible Coordinator sessions resume native history. Fresh sessions use saved Flowfield
+context. Stop interrupts active turns, stops supported native background work and closes
+owned processes. Unconfirmed cleanup retains ownership until recovery. Arbitrary detached
 services remain outside that guarantee.
 
-## MCP: working with Flowfield
-
-[MCP](https://modelcontextprotocol.io/docs/getting-started/intro) connects AI applications
-to tools and context. Flowfield exposes project and task operations through its local service.
-The tools use the same revisions, saved answers and exact-result approval rules as the GUI
-and CLI. MCP discovery supplies their names, descriptions and input schemas.
-
-For a standalone coding conversation, connect the harness to
-`http://127.0.0.1:8765/mcp/` and install the project guidance. Follow the
-[Codex setup instructions](/integrations/codex#connect-a-standalone-coordinator).
-Use your configured service port if it differs from the default.
-
-Built-in coordinator and worker sessions receive service-managed, scoped connections
-automatically. Their tools are limited to the relevant project or task, and their grants
-end with the attempt. No separate standalone connection is needed for built-in chat.
-
-Coordinators can page older saved exchanges with `get_coordinator_history`, then use
-its `text_sources` with `get_text` to read relevant human messages and public replies
-in bounded chunks. Follow `next_cursor` as `before` and echo the returned text revision;
-if output changes, restart the read. Marked omissions remain unavailable. These reads
-exclude native session IDs, tool history and private reasoning. Task workers keep their
-run-bound context and do not receive these project conversation tools.
-
-The project skill explains the workflow; MCP supplies the operations. Neither a tool call
-nor a harness permission decision grants approval to deliver a worker's code result.
+A tool call or native permission decision never approves delivery of a worker's code.

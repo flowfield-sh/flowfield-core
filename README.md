@@ -54,12 +54,9 @@ flowfield project init
 ```
 
 Start planning in the [Coordinator](https://docs.flowfield.sh/coordinator), or connect a
-[standalone coding agent](https://docs.flowfield.sh/integrations/overview#standalone-conversations).
-Development builds use installed Codex through its native app-server and installed
-[Claude Code](https://docs.flowfield.sh/integrations/claude-code) through the official
-Agent SDK. Flowfield includes the SDK runtime; no extra integration install is needed.
-Pi 1.1+ uses its installed native RPC interface. Choose any harness independently for the Coordinator and workers. Published 0.2.1
-predates this native integration update. Pi is the next planned integration.
+[standalone coding agent](https://docs.flowfield.sh/agents/overview#standalone-conversations).
+Connect the harness you already use: Codex, Claude Code or Pi 1.1+. Choose independently
+for the Coordinator and workers. Native support ships with Flowfield.
 
 ## Fits your existing project
 
@@ -73,7 +70,7 @@ delivers it to your project’s configured branch. Your working changes stay pro
 ## Documentation
 
 [Getting Started](https://docs.flowfield.sh/getting-started) · [Concepts](https://docs.flowfield.sh/concepts) ·
-[CLI](https://docs.flowfield.sh/cli) · [Integrations](https://docs.flowfield.sh/integrations/overview)
+[CLI](https://docs.flowfield.sh/cli) · [Agents](https://docs.flowfield.sh/agents/overview)
 
 ## Build from source
 

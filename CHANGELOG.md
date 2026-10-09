@@ -4,15 +4,17 @@
 
 - Add installed Pi 1.1+ for the Coordinator and workers through native RPC, with automatic
   model discovery, provider-qualified choices, native continuation and shared Stop/setup.
+- Load Pi extensions with native project trust, confirmation prompts and shutdown handling.
+- Map compact, status, MCP and skills commands across Codex, Claude Code and Pi.
+- Organize concise, consistent agent documentation under Agents.
 - Upgrade stored harness settings to schema 52, preserving existing choices and history.
 - Support Apple Silicon Macs and Linux arm64/x64; drop Intel Mac builds.
 - Surface native Codex MCP tool approvals instead of silently rejecting worker stage
   updates and result submission. Decisions apply once to the exact active turn.
-- Connect standalone Codex and Claude Code with the same `integration connect`, `status`
+- Connect standalone Codex, Claude Code and Pi with the same `integration connect`, `status`
   and `disconnect` commands, preserving other native MCP connections.
 - Preserve full public coordinator replies and retrieve saved history through scoped
-  tools. Fresh-session handoffs use reported context headroom instead of fixed exchange
-  or text limits. Existing lost text cannot be reconstructed; older excerpts stay marked.
+  tools. Fresh-session handoffs use reported context headroom.
 - Choose Coordinator and worker settings while adding a project. Preload saved models
   on project open/reconnect and show disabled loading controls during discovery.
 - Give Needs you columns the board's independent scrolling and keep cards inside columns.
@@ -28,7 +30,7 @@
 - Stop foreground turns and tracked native background work through native controls;
   preserve recovery holds when cleanup cannot be confirmed.
 - Load models automatically when choosing a harness, simplify settings and selector
-  copy, and show harness logos. Codex and Claude are supported; Pi is next.
+  copy, and show harness logos.
 - Migrate existing launch records without dropping conversation or execution evidence.
   Revalidate prior adapter bindings before continuing a native conversation.
 - Accept Codex's native Fast-tier confirmation when starting or resuming sessions,

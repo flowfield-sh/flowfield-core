@@ -322,13 +322,15 @@ function HarnessEntry({
                 <dd>{status.native_version ?? "Run Check saved setup"}</dd>
                 <dt>Sign-in</dt>
                 <dd>
-                  {status.authentication === "unknown"
-                    ? status.checked
-                      ? "Could not determine sign-in status"
-                      : "Not checked — run Check saved setup"
-                    : status.authentication === "authenticated"
-                      ? "Signed in"
-                      : "Signed out"}
+                  {kind === "pi"
+                    ? "Managed by Pi per provider"
+                    : status.authentication === "unknown"
+                      ? status.checked
+                        ? "Could not determine sign-in status"
+                        : "Not checked — run Check saved setup"
+                      : status.authentication === "authenticated"
+                        ? "Signed in"
+                        : "Signed out"}
                 </dd>
                 <dt>Model access</dt>
                 <dd>Requires a successful model turn</dd>

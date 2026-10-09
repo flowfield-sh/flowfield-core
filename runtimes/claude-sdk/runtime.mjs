@@ -94,6 +94,10 @@ async function consume() {
         for (const block of message.message?.content ?? []) {
           if (block.type === "tool_result") await emit({kind: "tool", key: block.tool_use_id, status: block.is_error ? "failed" : "completed"});
         }
+      } else if (message.type === "system" && message.subtype === "local_command_output") {
+        await emit({kind: "text", key: "command", text: message.content ?? ""});
+      } else if (message.type === "system" && message.subtype === "compact_boundary") {
+        await emit({kind: "text", key: "command", text: "Conversation compacted."});
       } else if (message.type === "result") {
         const usage = message.context_usage;
         if (usage) await emit({kind: "usage", used: usage.total_tokens, size: usage.raw_max_tokens});
@@ -160,6 +164,28 @@ async function handle(method, params) {
     return await cleanup.stop(sessionId);
   }
   if (stopping) throw new Error("native session stopped");
+  if (method === "commands") {
+    const commands = await q.supportedCommands();
+    return {compact: commands.some(c => c.name === "compact" && c.builtin === true)};
+  }
+  if (method === "command") {
+    if (promptResult) throw new Error("native turn already active");
+    if (params.name === "status") {
+      const context = await q.getContextUsage({detail: "summary"});
+      return {text: [context.model, context.totalTokens == null ? null : context.totalTokens + " context tokens"].filter(Boolean).join(" · ")};
+    }
+    if (params.name === "mcp") {
+      const servers = await q.mcpServerStatus();
+      if (servers.length > 256) throw new Error("MCP inventory bound");
+      return {text: servers.map(s => s.name + " · " + s.status).join("\n")};
+    }
+    if (params.name === "skills") {
+      const skills = await q.supportedCommands();
+      if (skills.length > 256) throw new Error("skill inventory bound");
+      return {text: skills.filter(s => !s.builtin).map(s => s.name + (s.description ? " — " + s.description : "")).join("\n")};
+    }
+    throw new Error("unsupported command");
+  }
   if (method === "info") return await info();
   if (method === "selectMode") {
     await q.setPermissionMode(params.mode);
@@ -172,6 +198,10 @@ async function handle(method, params) {
     if (stopping) return {status: "stopped"};
     if (promptResult) throw new Error("native turn already active");
     if (metadata.model !== params.model) throw new Error("native model changed");
+    if (params.content?.length === 1 && params.content[0].text === "/compact") {
+      const commands = await q.supportedCommands();
+      if (!commands.some(c => c.name === "compact" && c.builtin === true)) throw new Error("native compact unavailable");
+    }
     streamed.clear();
     const result = new Promise((resolve, reject) => { promptResult = {resolve, reject}; });
     queue.push({type: "user", uuid: randomUUID(), session_id: sessionId, parent_tool_use_id: null,

@@ -43,6 +43,14 @@ class PermissionRequest:
 PermissionHandler = Callable[[PermissionRequest], Coroutine[Any, Any, str | None]]
 
 
+COMMANDS = [
+    AgentCommand(name="compact", description="Compact this conversation", input_hint=None),
+    AgentCommand(name="status", description="Show native session status", input_hint=None),
+    AgentCommand(name="mcp", description="List native MCP connections", input_hint=None),
+    AgentCommand(name="skills", description="List available skills", input_hint=None),
+]
+
+
 class Agent(ABC):
     supports_activity = True
     input_tokens_available: int | None = None

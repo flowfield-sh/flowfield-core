@@ -9,16 +9,12 @@ Open a card to discuss that task without losing the conversation.
 
 ## Start planning
 
-Install and sign in to [Codex](/integrations/codex) or [Claude Code](/integrations/claude-code),
+Set up a supported [agent](/agents/overview),
 then check detected paths in **Settings → Harnesses** if needed.
 Add an existing project using **Add project → Choose directory** or `flowfield project init`.
-In the Coordinator settings beside the input, select a ready harness and wait for models to load,
-then choose its model and supported effort/access controls and save. Discovery is project-scoped and sends no model prompt. Claude startup hooks can run. The host setup
-page is **Settings → Harnesses**. Use either harness alone or configure both; the
-Coordinator and workers have independent choices.
-The Coordinator uses the service host’s tools and credentials. Configure worker setup when
-you are ready to run tasks. Its Flowfield connection is automatic; standalone Codex sessions
-use [a separate connection](/integrations/codex#connect-a-standalone-coordinator).
+Choose the Coordinator's harness, model and access controls beside the input. Models load
+automatically; save your choice to start. Worker settings are independent. The Coordinator
+uses the service host's tools and credentials and receives Flowfield tools automatically.
 
 Write your message and select **Send** (or press Enter). Use Command/Ctrl+Enter or
 Shift+Enter for a new line. Send is available once you have saved your model settings.
@@ -34,21 +30,13 @@ request changes, try results or recover blocked work. You can explicitly approve
 code result in chat; the Coordinator records that exact approval and Flowfield delivers it
 without a second confirmation. These actions are also available in task feeds.
 
-Use the model button beside the input to change harness, model, effort or access. Changes apply to the next
-message; a running turn keeps its saved choice. Harness changes require an idle coordinator
-or confirmed Stop. Switching harnesses starts a fresh native session with a bounded
-Flowfield handoff; switching back also starts fresh. Changed Claude model, effort or
-access controls start fresh; unchanged Claude settings resume. Codex supports model/control
-changes within its saved session. Standalone coding-agent settings are separate.
-Save to apply your choices; Cancel or closing the popup discards unsaved changes.
+Use the model button to change harness, model, effort or access for the next message.
+Switch harnesses when idle or after confirmed Stop. A switch starts a fresh native session
+with saved Flowfield context. See each [agent's page](/agents/overview) for continuation and
+access modes. Save applies your choices; Cancel or closing the popup discards edits.
 
-Access modes retain their native meaning. Codex offers Read only, workspace access and Auto review.
-Auto review uses Codex's native
-reviewer; permission requests that need your answer appear in the chat and **Needs you**.
-Answer one of the offered options while the turn is waiting. Stopping or ending the turn
-closes its requests. Claude offers Default and Accept edits; Default can request permission
-for edits and is not a read-only mode. Claude Plan, Fast and slash commands are not available.
-Tool permission does not approve a worker's code result.
+Permission requests appear in the chat and **Needs you**. Answer while the turn is waiting;
+Stop closes its requests. Tool permission is separate from approval to deliver worker code.
 
 ## Composer controls
 
@@ -65,25 +53,18 @@ remain available to download. Task-feed answers and feedback accompany separate 
 attempts; attach files again when later input needs their contents.
 Each project has 128 MiB of attachment storage. Unsent uploads expire after 24 hours.
 
-Type `/` to see the available coordinator commands. Use arrow keys and Enter to select,
-then send the command. Escape returns to ordinary writing. The list contains only commands
-supported by both Flowfield and the connected Codex session; Claude currently has no exposed
-slash commands. Discovery starts no model turn.
-Select **Load commands** to discover the list; opening the composer or slash menu starts
-no native session. Codex commands use native controls and send no model prompt. Flowfield briefly caches
-the menu. Unsupported commands fail without replay. Commands are validated
-before dispatch.
+Type `/` and select **Load commands** to see the Coordinator commands. Use arrow keys
+and Enter to select, then send. Escape returns to ordinary writing.
 
 | Command | Effect |
 | --- | --- |
-| `/status` | Show the current model, effort and access settings. |
-| `/compact` | Ask Codex to compact the ongoing conversation. Requires an existing conversation. |
-| `/mcp` | List the session's MCP connections. |
-| `/skills` | List skills discovered by Codex. |
+| `/status` | Show native model/settings or context status. |
+| `/compact` | Compact the existing native conversation. |
+| `/mcp` | Show native MCP connections. |
+| `/skills` | List available skills. |
 
-Commands do not accept attachments or arguments. Use the paperclip, model settings and Stop
-buttons for those actions. Task-feed answers and feedback support attachments but do not
-expose session commands.
+These four commands map to each harness's native controls. Discovery and inventory commands
+send no model prompt; compaction may use the model. Commands take no arguments or attachments.
 
 **Fast mode** appears as a lightning button beside model settings when the selected model
 supports it. Select it to save Fast on or off for subsequent messages. It provides faster
@@ -134,44 +115,24 @@ be confirmed, stop the remaining coordinator process on the host before choosing
 
 Each project has one ongoing coordinator conversation. Messages, public output and turn settings
 are saved by the service. Older messages load on demand and stay visible as new replies arrive.
-Long public replies are saved separately from the bounded activity preview; use **Read full
-reply** when the preview is shortened. Text already lost in older versions cannot be recovered
-and remains marked. Tool activity shows names, status and available commands or paths.
-Tool failures include a short reason. Command previews show the command itself; expand
-**Retained output** for saved details. While a turn is active, a **Working…** indicator
-appears in the reply area, changing to **Waiting for permission** when your input is needed.
-It indicates an active turn, not access to the model's private reasoning.
+Use **Read full reply** for shortened previews and **Retained output** for tool details.
+**Working…** appears during an active turn; **Waiting for permission** indicates that your
+input is needed.
 
 With compatible unchanged settings, messages resume the same native session, including
 its tool history and native context management, across turns and service restarts. Each turn gets a fresh scoped
 Flowfield connection. Stopping a turn ends its processes without deleting the saved session.
 
-If the harness cannot resume a session, Flowfield keeps the chat and reports the failure. Check
-it on the service host and send a new message to retry, or choose **Start new session**.
-That choice requires confirmation. Fresh sessions receive recent public exchanges that fit
-the harness's reported context headroom, with space reserved for the current message and
-attachments. There is no fixed exchange count or 48 KB history limit. When headroom is
-unavailable, as with Codex before its first turn, the coordinator is instructed to retrieve
-saved history through Flowfield tools. Large exchanges may be excerpted; their full saved
-text remains retrievable. Compatible native resumes keep their native history.
-The handoff does not restore native tool history or earlier attachment contents.
-The source boundary is frozen when the new message is accepted, before native startup;
-the actual inline budget is recorded before dispatch. It refers to immutable saved turns
-instead of duplicating the transcript on every message. Service restart cannot substitute
-later conversation evidence.
-Earlier files must be reattached when their contents matter. Failed or interrupted prompts
-are never automatically resent, and historical prompts are not reconstructed during upgrades.
-Replacement sessions retain earlier native bindings as historical evidence. Flowfield does
-not automatically switch back to them or undo native side effects if startup fails.
-Unknown cleanup keeps the project occupied and counts toward the service's coordinator
-capacity until you stop remaining native work and confirm the exact interrupted turn.
-Record ongoing work in tasks; keep enduring project decisions in the repository’s existing documents.
+If the harness cannot resume, check it on the service host and retry, or choose
+**Start new session**. Your saved Flowfield conversation remains available. Fresh sessions
+receive recent exchanges that fit the reported context headroom and can retrieve older
+messages through history tools. Native tool history stays with the original session;
+reattach earlier files when their contents matter. Interrupted prompts are never replayed
+automatically.
 
-The coordinator can retrieve older saved human messages and public replies through
-`get_coordinator_history` and bounded `get_text` reads when a recent summary is insufficient.
-Omitted output stays marked; native tool history and earlier attachment contents are not
-reconstructed. Historical messages provide evidence, not fresh instructions or transferred
-permissions and code approval.
+If cleanup remains uncertain, inspect and stop the remaining native work before confirming
+that the exact turn has stopped. Record ongoing work in tasks and durable decisions in
+your repository.
 
 Resize the chat and work panes on a wide screen. On narrow screens, switch between
 **Coordinator** and **Work**; switching preserves the current draft.

@@ -7,9 +7,7 @@ Workspace commands talk to your running local service. Commands inside a registe
 project discover its identity from `.flowfield/config.toml`. Use `--project ID` when
 working elsewhere, and `--help` at any command level for its options.
 
-Commands show readable summaries, labeled details and explicit empty states by default.
-Add `--json` only when you want machine-readable data for a script or diagnostic report.
-JSON output is intentional when that flag is present; omit it for normal terminal use.
+Commands show readable output by default. Add `--json` for scripts or diagnostic reports.
 
 ## Service and version
 
@@ -159,12 +157,13 @@ See [Worker setup and checks](/worker-setup) for configuration order and validat
 ```sh
 flowfield integration connect codex
 flowfield integration connect claude-code
+flowfield integration connect pi
 flowfield integration status codex
 flowfield integration disconnect codex
 ```
 
 All three commands accept `codex` or `claude-code`. See
-[standalone connections](/integrations/overview#standalone-conversations) for shared setup.
+[standalone connections](/agents/overview#standalone-conversations) for shared setup.
 
 ## Host harness settings
 
@@ -196,14 +195,12 @@ observed launch locations. A changed native session location requires a fresh co
 session through the existing recovery flow; the saved chat remains. External native files
 and account changes remain user-owned and are not frozen by Flowfield.
 
-There is one configuration per supported harness kind. Use Codex, Claude Code, Pi or a mix;
-the Coordinator and workers choose independently. Native installation, authentication and verified model access are separate facts. Detecting
-paths starts no native process; explicit readiness checks use version/login-status commands
-and never send a model prompt. Such checks cannot establish successful inference or billing.
+Coordinator and worker choices are independent. Native setup checks read version and
+available sign-in diagnostics without model calls; Pi manages sign-in per provider.
 
-Model and command discovery open disposable native sessions. They send no model prompt,
-but native startup hooks can run. Model catalogs are scoped to the applicable project and
-host registration, cached briefly, and limited to one active discovery per harness.
+Model discovery opens a disposable native session, so startup hooks can run. Catalogs
+are project-scoped, briefly cached and limited to one active discovery per harness.
+The four-command menu requires no native startup; execution checks the current session.
 If discovery loses its native owner, Flowfield reserves that ownership across restart and
 does not automatically retry. Read `harness settings KIND`, inspect and stop any
 remaining native discovery on the service host, then confirm the exact discovery ID:

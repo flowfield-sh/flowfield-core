@@ -349,3 +349,33 @@ def test_claude_model_labels_keep_verified_identity(name, resolved, expected):
     from flowfield.adapters.claude_agent import model_name
 
     assert model_name(name, resolved) == expected
+
+
+@pytest.mark.parametrize("command", ["status", "skills", "mcp", "compact"])
+def test_compiled_sdk_commands_use_native_inventory_and_compaction(tmp_path, command):
+    async def exercise():
+        agent = installed_candidate(tmp_path)
+        events = []
+        agent.on_activity = events.append
+        try:
+            await agent.start([], persistent=True)
+            await agent.configure(CHOICE)
+            assert {c.name for c in await agent.command_options()} == {
+                "compact",
+                "status",
+                "mcp",
+                "skills",
+            }
+            assert await agent.prompt("/" + command, None) == {"status": "completed"}
+            assert events
+            if command == "skills":
+                assert "fixture-skill" in events[-1].text and "Compact" not in events[-1].text
+        finally:
+            assert await agent.stop()
+        records = [
+            json.loads(line) for line in (tmp_path / "native.jsonl").read_text().splitlines()
+        ]
+        users = [r for r in records if r.get("input")]
+        assert bool(users) is (command == "compact")
+
+    asyncio.run(exercise())
