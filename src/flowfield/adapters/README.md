@@ -13,6 +13,8 @@ and never reconstructs ownership from saved PIDs. No automatic prompt replay.
 
 Pi reuses the bounded transport/process owner through a wire-format codec. Provider/model
 identity is escaped unambiguously; thinking levels and context headroom come from native
-reports. Managed Pi disables custom extensions and trust-gated project configuration;
-standard tools have no separate native background-task API. Stop clears queued work before
-native abort, checks idle state and requires graceful session shutdown plus owned exit.
+reports. Pi loads native extensions, tools and settings under its saved project trust.
+Extension confirmations use the shared permission owner; terminal-only input is cancelled
+with visible feedback. Standard tools have no separate native background-task API. Stop
+clears queued work before native abort, checks idle state and requires graceful session
+shutdown plus owned exit. Extension shutdown errors keep cleanup unconfirmed.

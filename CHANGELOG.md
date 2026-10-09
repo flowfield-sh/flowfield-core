@@ -1,49 +1,41 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
-- Add installed Pi 1.1+ for the Coordinator and workers through native RPC, with automatic
-  model discovery, provider-qualified choices, native continuation and shared Stop/setup.
-- Load Pi extensions with native project trust, confirmation prompts and shutdown handling.
-- Map compact, status, MCP and skills commands across Codex, Claude Code and Pi.
-- Organize concise, consistent agent documentation under Agents.
-- Upgrade stored harness settings to schema 52, preserving existing choices and history.
-- Support Apple Silicon Macs and Linux arm64/x64; drop Intel Mac builds.
-- Surface native Codex MCP tool approvals instead of silently rejecting worker stage
-  updates and result submission. Decisions apply once to the exact active turn.
-- Connect standalone Codex, Claude Code and Pi with the same `integration connect`, `status`
-  and `disconnect` commands, preserving other native MCP connections.
-- Preserve full public coordinator replies and retrieve saved history through scoped
-  tools. Fresh-session handoffs use reported context headroom.
-- Choose Coordinator and worker settings while adding a project. Preload saved models
-  on project open/reconnect and show disabled loading controls during discovery.
-- Give Needs you columns the board's independent scrolling and keep cards inside columns.
-- Show concise tool names, command previews and working feedback; keep Send/Stop visible
-  in narrow Coordinator panes. Simplify permission presentation and settings tabs.
-- Show verified Claude model versions and native Auto/Bypass access modes where supported.
-  Native tool access remains separate from code-delivery approval.
-- Make CLI output readable by default, with explicit JSON output for automation, and
-  accept human task/milestone references regardless of letter case.
+Use Codex, Claude Code or Pi for your Coordinator and workers, with independent choices
+for each role and native accounts, models and settings.
 
-- Use installed Codex directly through its app-server and installed Claude Code through
-  the official Agent SDK, included with Flowfield. Remove separate ACP installs.
-- Stop foreground turns and tracked native background work through native controls;
-  preserve recovery holds when cleanup cannot be confirmed.
-- Load models automatically when choosing a harness, simplify settings and selector
-  copy, and show harness logos.
-- Migrate existing launch records without dropping conversation or execution evidence.
-  Revalidate prior adapter bindings before continuing a native conversation.
-- Accept Codex's native Fast-tier confirmation when starting or resuming sessions,
-  and avoid a false browser error after session recovery.
-- Use matching harness/model menus, place Refresh models beside Save, and distinguish
-  unchecked sign-in status from signed-out status.
+- Run installed Codex and Pi directly and Claude Code through the bundled official
+  Agent SDK. Harness support needs no separate installation.
+- Load Pi extensions, custom tools and MCP settings with native project trust;
+  show extension confirmations and honor shutdown hooks. Pi uses Full access;
+  terminal widgets and selection/text-entry dialogs require its terminal interface.
+- Support `/compact`, `/status`, `/mcp` and `/skills` across all three harnesses.
+  Standalone conversations share `integration connect`, `status` and `disconnect`.
+  Handle large Codex MCP inventories without losing the native connection.
+- Stop active turns and supported native background work. Keep recovery holds when
+  cleanup cannot be confirmed, and never replay interrupted prompts automatically.
+- Choose project agents during creation, load models automatically and preload saved
+  choices on reconnect. Simplify settings, matching selectors and harness logos.
+  Show resolved Claude model versions and native Auto/Bypass modes where supported.
+- Preserve full public Coordinator replies and make saved history available through
+  scoped tools. Continue compatible native sessions across service restarts; fix Codex
+  Fast-session settings and session-recovery errors.
+- Show readable tool names, command previews and working feedback. Keep Send/Stop visible
+  in narrow Coordinator panes; surface native Codex MCP approvals for the exact live turn.
+  Tool permissions remain separate from approval to deliver worker code.
+- Give Needs you columns independent scrolling and contain cards within columns.
+  Make CLI replies readable by default, retain explicit JSON output, and accept task/
+  milestone references regardless of letter case.
+- Standardize agent documentation under Agents and consolidate shared connection guidance.
+- Support Apple Silicon Macs and Linux arm64/x64. Intel Mac builds are discontinued.
 
-**Upgrade:** stop Flowfield before updating. Schema-44 workspaces from 0.2.0/0.2.1
-upgrade automatically through schema 52 after a verified snapshot. The queue stays
-paused after restart. Older native session bindings require revalidation; uncertain
-prompts are not replayed. No separate integration install is needed. Update project
-guidance and restart standalone conversations. See [storage](https://docs.flowfield.sh/storage).
-
+**Upgrade:** stop Flowfield before updating. Workspaces from 0.2.0/0.2.1 upgrade
+automatically after a verified database snapshot, preserving settings, conversations and
+execution evidence. The queue starts paused. Older native session bindings need
+revalidation. Previously shortened replies retain only the text that was saved.
+Update installed project guidance and restart standalone conversations.
+See [storage](https://docs.flowfield.sh/storage) for backup and recovery.
 
 ## 0.2.1
 

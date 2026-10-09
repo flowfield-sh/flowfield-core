@@ -90,6 +90,19 @@ def test_unavailable_choices_are_rejected_before_any_prompt(tmp_path, field, val
     asyncio.run(exercise())
 
 
+def test_large_mcp_inventory_keeps_public_output_small_and_cleanup_confirmed(tmp_path):
+    async def exercise():
+        events = []
+        agent = await start(tmp_path, events, "large-mcp")
+        try:
+            assert await agent.prompt("/mcp", None) == {"status": "completed"}
+            assert events[-1].text == "flowfield · connected"
+        finally:
+            assert await agent.stop()
+
+    asyncio.run(exercise())
+
+
 def test_frame_bounds_allow_images_only_in_prompt_operations():
     class Writer:
         content = b""

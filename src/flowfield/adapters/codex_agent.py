@@ -59,7 +59,9 @@ class CodexAgent(Agent):
         self.environment.pop("APP_SERVER_LOGS", None)
         self.command, self.environment = command(directory, self.environment)
         self.cwd = cwd
-        self.rpc = JsonRpc(self._event, self._request)
+        # Native MCP inventories include full tool schemas, and native replies can
+        # include retained tool output. Use the bounded large-frame transport.
+        self.rpc = JsonRpc(self._event, self._request, frame_limit=MAX_INPUT)
         self.choice: AgentChoice | None = None
         self.models: list[dict[str, Any]] = []
         self.servers: list[McpServer] = []
@@ -116,7 +118,7 @@ class CodexAgent(Agent):
                     "cursor": cursor,
                     **(
                         {"limit": min(limit, 100)}
-                        if method in {"model/list", "thread/loaded/list"}
+                        if method in {"model/list", "thread/loaded/list", "mcpServerStatus/list"}
                         else {}
                     ),
                 },
@@ -255,7 +257,7 @@ class CodexAgent(Agent):
                     ]
                 )
             elif text == "/mcp":
-                items = await self._page("mcpServerStatus/list", {}, 64)
+                items = await self._page("mcpServerStatus/list", {"threadId": self.session_id}, 64)
                 result = "\n".join(
                     str(item.get("name", "MCP"))
                     + " · "

@@ -219,7 +219,7 @@ async def main():
         if mode == "disconnect":
             os._exit(2)
         if mode == "oversized":
-            print("x" * 300000, flush=True)
+            print("x" * (24 * 1024 * 1024 + 1), flush=True)
             return
         if mode == "malformed":
             print("[]", flush=True)
@@ -391,10 +391,14 @@ async def main():
                 },
             )
         elif method == "mcpServerStatus/list":
+            servers = [{"name": "flowfield", "connectionStatus": "connected"}]
+            if "large-mcp" in sys.argv:
+                assert params["threadId"] == "test-session" and params["limit"] == 64
+                servers[0]["tools"] = {"fixture": {"description": "x" * (512 * 1024)}}
             reply(
                 request,
                 {
-                    "data": [{"name": "flowfield", "connectionStatus": "connected"}],
+                    "data": servers,
                     "nextCursor": None,
                 },
             )

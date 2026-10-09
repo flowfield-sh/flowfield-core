@@ -683,6 +683,17 @@ test("sidebar rail names remain accessible and idle input opens deliberately", a
     },
   });
   expect(question.ok()).toBe(true);
+  // Other journeys adopt projects concurrently. Keep this rail's actual records
+  // scoped so a new sibling project cannot scroll the focused trigger away.
+  await page.route("**/api/projects", async (route) => {
+    const response = await route.fetch();
+    const projects = await response.json();
+    await route.fulfill({
+      json: projects.filter((project: { id: string }) =>
+        ["sidebar-names", "short-name"].includes(project.id),
+      ),
+    });
+  });
   await page.goto("/projects/sidebar-names");
   const settings = page.getByRole("dialog", {
     name: "Coordinator model settings",
@@ -706,7 +717,11 @@ test("sidebar rail names remain accessible and idle input opens deliberately", a
   await long.hover();
   await expect(page.getByRole("tooltip")).toHaveText(name);
   await page.keyboard.press("Escape");
-  await long.focus();
+  await page.mouse.move(0, 0);
+  await short.focus();
+  await expect(page.getByRole("tooltip")).toHaveText("Short");
+  await page.keyboard.press("Tab");
+  await expect(long).toBeFocused();
   await expect(page.getByRole("tooltip")).toHaveText(name);
   await page.keyboard.press("Escape");
   // Mobile uses a conventional project drawer; project views remain above work.
