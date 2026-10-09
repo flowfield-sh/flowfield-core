@@ -45,10 +45,13 @@ class CustomBuildHook(BuildHookInterface):
             )
             system = platform.system().lower()
             target = os.environ.get("FLOWFIELD_BUILD_TARGET")
-            if target:
-                if target not in {"darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64"}:
-                    raise RuntimeError("Unsupported native wheel target.")
-                system, machine = target.split("-")
+            target = target or f"{system}-{machine}"
+            if target not in {"darwin-arm64", "linux-arm64", "linux-x64"}:
+                raise RuntimeError(
+                    "Flowfield supports Apple Silicon Macs and Linux arm64/x64. "
+                    "Intel Macs are not supported."
+                )
+            system, machine = target.split("-")
             native = Path(self.root) / "src/flowfield/_native" / f"claude-sdk-{system}-{machine}"
             binary = native / "claude-sdk"
             if not binary.is_file() and (native / "claude-sdk.xz").is_file():
@@ -68,7 +71,7 @@ class CustomBuildHook(BuildHookInterface):
                     "flowfield/_native/claude-sdk/" + name
                 )
             if system == "darwin":
-                tag = f"macosx_13_0_{'arm64' if machine == 'arm64' else 'x86_64'}"
+                tag = "macosx_13_0_arm64"
             elif system == "linux":
                 tag = f"manylinux_2_28_{'aarch64' if machine == 'arm64' else 'x86_64'}"
             else:

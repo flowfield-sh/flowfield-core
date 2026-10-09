@@ -16,6 +16,10 @@ def executable() -> Path:
         platform.machine()
     )
     system = platform.system().lower()
+    if f"{system}-{machine}" not in {"darwin-arm64", "linux-arm64", "linux-x64"}:
+        raise ApplicationError(
+            "platform_unsupported", "Use an Apple Silicon Mac or Linux arm64/x64 host.", 409
+        )
     root = Path(__file__).resolve().parents[1] / "_native"
     directory = root / "claude-sdk"
     if not directory.is_dir():

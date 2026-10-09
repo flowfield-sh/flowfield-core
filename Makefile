@@ -32,7 +32,7 @@ build:
 	node runtimes/claude-sdk/build.mjs
 	uv run --no-sync python scripts/pack_native.py
 	uv build --clear --no-sources --sdist
-	for runtime_target in darwin-arm64 darwin-x64 linux-arm64 linux-x64; do FLOWFIELD_BUILD_TARGET=$$runtime_target uv build --wheel --no-sources || exit; done
+	for runtime_target in darwin-arm64 linux-arm64 linux-x64; do FLOWFIELD_BUILD_TARGET=$$runtime_target uv build --wheel --no-sources || exit; done
 
 check-dist:
 	uv run --no-sync python scripts/check_dist.py

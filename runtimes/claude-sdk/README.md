@@ -6,8 +6,8 @@ Users do not install Node, Bun, an ACP adapter, or a separate Flowfield runtime.
 
 Developers install dependencies with pnpm and set FLOWFIELD_BUILD_BUN to Bun 1.3.11.
 Run node runtimes/claude-sdk/build.mjs --host for local checks, or make build for all
-macOS/Linux arm64/x64 binaries and distributions. Generated binaries are ignored.
-Platform wheels contain one runtime; the source archive contains all four compressed with XZ.
+Apple Silicon and Linux arm64/x64 binaries and distributions. Generated binaries are ignored.
+Platform wheels contain one runtime; the source archive contains all three compressed with XZ.
 The Python build hook expands only the selected platform; no JavaScript tools are needed.
 
 runtime.mjs translates public SDK messages and permissions. cleanup.mjs interrupts

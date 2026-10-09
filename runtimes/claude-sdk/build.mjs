@@ -7,7 +7,7 @@ const compiler = process.env.FLOWFIELD_BUILD_BUN;
 if (!compiler || execFileSync(compiler, ["--version"], {encoding: "utf8"}).trim() !== "1.3.11") throw new Error("Set FLOWFIELD_BUILD_BUN to Bun 1.3.11");
 const pkg = JSON.parse(await readFile(join(root, "node_modules/@anthropic-ai/claude-agent-sdk/package.json")));
 if (pkg.version !== "0.3.293") throw new Error("Unexpected SDK version");
-const all = ["darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64"];
+const all = ["darwin-arm64", "linux-arm64", "linux-x64"];
 const targets = process.argv.includes("--host") ? [`${process.platform}-${process.arch}`] : all;
 let notices = "Flowfield Claude SDK runtime\n\n" + await readFile(join(root, "../../LICENSE"), "utf8") + "\n\n" + await readFile(join(root, "compiler-LICENSE.md"), "utf8");
 const store = join(root, "node_modules/.pnpm");
