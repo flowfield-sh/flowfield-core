@@ -282,3 +282,158 @@ def test_public_tool_labels_preserve_names_errors_and_command_details(tmp_path):
         preview("Bash · completed\ncommand: git status\ncwd: /project", "command")
         == "git status · completed"
     )
+
+
+@pytest.mark.parametrize(
+    "selection,action",
+    [("allow", "accept"), ("deny", "decline"), ("always", "cancel"), (None, "cancel")],
+)
+def test_scoped_mcp_approval_maps_only_one_time_decisions(tmp_path, selection, action):
+    from flowfield.adapters.agent_contract import McpServer
+
+    async def exercise():
+        agent = await start(
+            tmp_path,
+            [],
+            servers=[McpServer(name="flowfield_ab12", url="http://127.0.0.1:1/mcp", headers=[])],
+        )
+        agent._completion = asyncio.get_running_loop().create_future()
+        agent.turns[agent.session_id] = "owned-turn"
+        offered = []
+
+        async def choose(request):
+            offered.append(request)
+            return selection
+
+        agent._permission = choose
+        request = {
+            "threadId": agent.session_id,
+            "turnId": "owned-turn",
+            "serverName": "flowfield_ab12",
+            "mode": "form",
+            "message": 'Allow the flowfield_ab12 MCP server to run tool "submit_result"?',
+            "requestedSchema": {"type": "object", "properties": {}},
+            "_meta": {
+                "codex_approval_kind": "mcp_tool_call",
+                "persist": ["session", "always"],
+                "tool_params": {"summary": "Done"},
+            },
+        }
+        try:
+            result = await agent._request("mcpServer/elicitation/request", request)
+            assert result == {
+                "action": action,
+                "content": {} if action == "accept" else None,
+                "_meta": None,
+            }
+            assert offered[0].title == "Flowfield · Submit result"
+            assert [option[2] for option in offered[0].options] == ["allow_once", "reject_once"]
+            assert '"summary": "Done"' in offered[0].details
+            for update in (
+                {"threadId": "other"},
+                {"turnId": None},
+                {"serverName": "ambient"},
+                {"mode": "url"},
+                {
+                    "requestedSchema": {
+                        "type": "object",
+                        "properties": {"secret": {"type": "string"}},
+                    }
+                },
+                {"_meta": {"codex_approval_kind": "browser_auth"}},
+            ):
+                assert (
+                    await agent._request("mcpServer/elicitation/request", {**request, **update})
+                )["action"] == "cancel"
+            assert len(offered) == 1
+
+            async def stopped(_):
+                agent.stopping = True
+                return "allow"
+
+            agent._permission = stopped
+            assert (await agent._request("mcpServer/elicitation/request", request))[
+                "action"
+            ] == "cancel"
+        finally:
+            agent._completion = None
+            agent.turns.clear()
+            assert await agent.stop()
+
+    asyncio.run(exercise())
+
+
+def test_mcp_user_input_approval_requires_observed_scoped_call(tmp_path):
+    from flowfield.adapters.agent_contract import McpServer
+
+    async def exercise():
+        agent = await start(
+            tmp_path,
+            [],
+            servers=[McpServer(name="flowfield_ab12", url="http://127.0.0.1:1/mcp", headers=[])],
+        )
+        agent._completion = asyncio.get_running_loop().create_future()
+        agent.turns[agent.session_id] = "owned-turn"
+        agent._foreground_id = "owned-turn"
+        seen = []
+
+        async def choose(request):
+            seen.append(request)
+            return "allow"
+
+        agent._permission = choose
+        request = {
+            "threadId": agent.session_id,
+            "turnId": "owned-turn",
+            "itemId": "call-1",
+            "questions": [
+                {
+                    "id": "mcp_tool_call_approval_call-1",
+                    "isOther": False,
+                    "isSecret": False,
+                    "options": [
+                        {"label": "Allow"},
+                        {"label": "Allow for this session"},
+                        {"label": "Cancel"},
+                    ],
+                }
+            ],
+        }
+        event = {
+            "threadId": agent.session_id,
+            "turnId": "owned-turn",
+            "item": {
+                "id": "call-1",
+                "type": "mcpToolCall",
+                "server": "flowfield_ab12",
+                "tool": "submit_result",
+                "arguments": {"summary": "Done"},
+            },
+        }
+        try:
+            assert await agent._request("item/tool/requestUserInput", request) == {"answers": {}}
+            agent._event("item/started", event)
+            assert await agent._request("item/tool/requestUserInput", request) == {
+                "answers": {"mcp_tool_call_approval_call-1": {"answers": ["Allow"]}}
+            }
+            assert seen[0].title == "Flowfield · Submit result"
+            assert len(seen[0].options) == 2
+            # Ordinary model questions and unoffered grants cannot reuse approval state.
+            assert await agent._request(
+                "item/tool/requestUserInput",
+                {**request, "questions": [{**request["questions"][0], "id": "ordinary-question"}]},
+            ) == {"answers": {}}
+
+            async def completed(_):
+                agent._event("item/completed", event)
+                return "allow"
+
+            agent._permission = completed
+            assert await agent._request("item/tool/requestUserInput", request) == {"answers": {}}
+            assert len(seen) == 1
+        finally:
+            agent._completion = None
+            agent.turns.clear()
+            assert await agent.stop()
+
+    asyncio.run(exercise())

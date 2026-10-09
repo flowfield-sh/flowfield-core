@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Surface native Codex MCP tool approvals instead of silently rejecting worker stage
+  updates and result submission. Decisions apply once to the exact active turn.
 - Connect standalone Codex and Claude Code with the same `integration connect`, `status`
   and `disconnect` commands, preserving other native MCP connections.
 - Preserve full public coordinator replies and retrieve saved history through scoped

@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import os
+import re
 import tempfile
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -77,6 +78,7 @@ class CodexAgent(Agent):
         self.tools: dict[str, str] = {}
         self._completion: asyncio.Future[str] | None = None
         self._permission: PermissionHandler | None = None
+        self._mcp_approvals: dict[str, tuple[str, str, str]] = {}
         self._foreground_id: str | None = None
         self._close_task: asyncio.Task[bool] | None = None
         self._startup_lock = asyncio.Lock()
@@ -285,6 +287,7 @@ class CodexAgent(Agent):
             )
             return {"status": "stopped" if self.stopping else "completed"}
         self._foreground_id = None
+        self._mcp_approvals.clear()
         self._permission = on_permission
         self._completion = asyncio.get_running_loop().create_future()
         content: list[dict[str, Any]] = [{"type": "text", "text": text}]
@@ -393,6 +396,17 @@ class CodexAgent(Agent):
             if kind in {"commandExecution", "fileChange", "mcpToolCall", "webSearch"}:
                 identity = str(item.get("id", "tool"))[:90]
                 title, details = describe(item)
+                if kind == "mcpToolCall":
+                    if method == "item/started":
+                        self._mcp_approvals[identity] = (
+                            str(item.get("server", "")),
+                            title,
+                            details,
+                        )
+                        while len(self._mcp_approvals) > 100:
+                            del self._mcp_approvals[next(iter(self._mcp_approvals))]
+                    else:
+                        self._mcp_approvals.pop(identity, None)
                 self.tools[identity] = details
                 while len(self.tools) > 100:
                     del self.tools[next(iter(self.tools))]
@@ -423,15 +437,18 @@ class CodexAgent(Agent):
                 )
 
     async def _request(self, method: str, data: dict[str, Any]) -> dict[str, Any]:
-        eligible = (
-            not self.stopping
-            and self._completion
-            and self._permission
-            and data.get("threadId") == self.session_id
-            and data.get("turnId") == self.turns.get(self.session_id or "")
-        )
+        def eligible() -> bool:
+            return (
+                not self.stopping
+                and self._completion is not None
+                and not self._completion.done()
+                and self._permission is not None
+                and data.get("threadId") == self.session_id
+                and data.get("turnId") == self.turns.get(self.session_id or "")
+            )
+
         if method in {"item/commandExecution/requestApproval", "item/fileChange/requestApproval"}:
-            if not eligible:
+            if not eligible():
                 return {"decision": "cancel"}
             assert self._permission
             identity = str(data.get("itemId", "permission"))[:500]
@@ -470,12 +487,113 @@ class CodexAgent(Agent):
             )
             return {
                 "decision": {"allow": "accept", "deny": "decline"}[selection]
-                if selection in {option[0] for option in options} and not self.stopping
+                if selection in {option[0] for option in options} and eligible()
                 else "cancel"
             }
         if method == "item/permissions/requestApproval":
             # Never synthesize a broad permission profile from a boolean decision.
             return {"permissions": {}, "scope": "turn"}
+        if method == "item/tool/requestUserInput":
+            # Native Codex can route MCP approval through request_user_input
+            # instead of elicitation, depending on its feature configuration.
+            # Bind this special question to an observed active scoped tool; never
+            # turn ordinary model-authored questions into permission grants.
+            item = str(data.get("itemId", ""))
+            tool = self._mcp_approvals.get(item)
+            questions = data.get("questions")
+            if (
+                not eligible()
+                or tool is None
+                or tool[0] not in {server.name for server in self.servers}
+                or not isinstance(questions, list)
+                or len(questions) != 1
+            ):
+                return {"answers": {}}
+            question = questions[0]
+            if (
+                not isinstance(question, dict)
+                or question.get("id") != "mcp_tool_call_approval_" + item
+                or question.get("isOther")
+                or question.get("isSecret")
+            ):
+                return {"answers": {}}
+            offered = question.get("options")
+            if not isinstance(offered, list) or len(offered) > 16:
+                return {"answers": {}}
+            labels = {
+                option.get("label")
+                for option in offered
+                if isinstance(option, dict) and isinstance(option.get("label"), str)
+            }
+            options = tuple(
+                option
+                for native, option in (
+                    ("Allow", ("allow", "Allow once", "allow_once")),
+                    ("Cancel", ("deny", "Deny", "reject_once")),
+                )
+                if native in labels
+            )
+            if not options:
+                return {"answers": {}}
+            assert self._permission
+            selection = await self._permission(PermissionRequest(item, tool[1], options, tool[2]))
+            if (
+                not eligible()
+                or self._mcp_approvals.get(item) != tool
+                or selection not in {option[0] for option in options}
+            ):
+                return {"answers": {}}
+            return {
+                "answers": {
+                    question["id"]: {"answers": ["Allow" if selection == "allow" else "Cancel"]}
+                }
+            }
+        if method == "mcpServer/elicitation/request":
+            # Codex routes MCP tool approvals through an empty form. Only map
+            # that known approval shape, bound to this turn and its scoped server;
+            # arbitrary forms, authentication and persistent grants stay unsupported.
+            cancelled = {"action": "cancel", "content": None, "_meta": None}
+            meta, schema = data.get("_meta"), data.get("requestedSchema")
+            if (
+                not eligible()
+                or data.get("serverName") not in {server.name for server in self.servers}
+                or data.get("mode") != "form"
+                or not isinstance(meta, dict)
+                or meta.get("codex_approval_kind") != "mcp_tool_call"
+                or not isinstance(schema, dict)
+                or schema.get("type") != "object"
+                or schema.get("properties") != {}
+                or schema.get("required") not in (None, [])
+                or set(schema) - {"type", "properties", "required"}
+            ):
+                return cancelled
+            assert self._permission
+            message = str(data.get("message", "Tool permission"))
+            match = re.search(r'tool ["`]([^"`]+)["`]', message)
+            name = str(meta.get("tool_title") or (match[1] if match else "Tool permission"))
+            title, details = describe(
+                {
+                    "type": "mcpToolCall",
+                    "server": data["serverName"],
+                    "tool": name,
+                    "arguments": meta.get("tool_params", {}),
+                }
+            )
+            selection = await self._permission(
+                PermissionRequest(
+                    "mcp-" + name[:490],
+                    title,
+                    (("allow", "Allow once", "allow_once"), ("deny", "Deny", "reject_once")),
+                    bounded_details(message + "\n" + details),
+                )
+            )
+            if not eligible() or selection not in {"allow", "deny"}:
+                return cancelled
+            return {
+                "action": "accept" if selection == "allow" else "decline",
+                "content": {} if selection == "allow" else None,
+                "_meta": None,
+            }
         raise NativeError("Unsupported native request")
 
     async def stop(self) -> bool:
