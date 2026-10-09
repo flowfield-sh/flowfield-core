@@ -34,9 +34,6 @@ Flowfield protects your working changes and keeps approval tied to the code you 
 
 ## Install
 
-This README describes development main. For published 0.2.1, use its
-[versioned setup guide](https://github.com/flowfield-sh/flowfield-core/blob/v0.2.1/README.md#install).
-
 Install and sign in to [Codex CLI](https://developers.openai.com/codex/cli/) or
 [Claude Code](https://code.claude.com/docs/en/setup) or [Pi](https://pi.dev), then:
 
