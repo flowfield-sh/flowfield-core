@@ -50,6 +50,20 @@ class HarnessLaunch(HarnessRecord):
     bridge_version: str | None = None
 
 
+class CatalogOwnership(HarnessRecord):
+    id: str
+    harness: HarnessKind
+    project_id: str | None
+    status: Literal["running", "uncertain"]
+    started_at: str
+    launch: HarnessLaunch
+    operation: Literal["models", "commands"] = "models"
+
+
+class CatalogConfirmation(HarnessRecord):
+    id: str = Field(min_length=1, max_length=100)
+
+
 class HarnessStatus(HarnessRecord):
     registration: HarnessRegistration
     launch: HarnessLaunch
@@ -62,3 +76,4 @@ class HarnessStatus(HarnessRecord):
     native_version: str | None = None
     checked: bool = False
     problems: list[str] = Field(default_factory=list)
+    catalog_ownership: CatalogOwnership | None = None

@@ -7,7 +7,13 @@ from fastapi import APIRouter
 
 from flowfield.adapters.harness_host import status
 from flowfield.application import Workspace
-from flowfield.harness_models import HarnessEdit, HarnessKind, HarnessRegistration, HarnessStatus
+from flowfield.harness_models import (
+    CatalogConfirmation,
+    HarnessEdit,
+    HarnessKind,
+    HarnessRegistration,
+    HarnessStatus,
+)
 from flowfield.harness_settings import HarnessSettings
 from flowfield.supervisor import Supervisor
 
@@ -17,17 +23,26 @@ def harness_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/api/harnesses")
 
+    def owned(value: HarnessStatus) -> HarnessStatus:
+        value = value.model_copy(deep=True)
+        value.catalog_ownership = supervisor().catalogs.ownership(value.registration.harness)
+        if value.catalog_ownership:
+            value.problems.append("catalog_" + value.catalog_ownership.status)
+            value.selectable = False
+        return value
+
+    def view(item: HarnessRegistration) -> HarnessStatus:
+        return owned(status(workspace().directory, item, os.environ))
+
     @router.get("")
     def harnesses() -> list[HarnessStatus]:
         service = workspace()
-        return [
-            status(service.directory, item, os.environ) for item in HarnessSettings(service).all()
-        ]
+        return [view(item) for item in HarnessSettings(service).all()]
 
     @router.get("/{harness}")
     def harness(harness: HarnessKind) -> HarnessStatus:
         service = workspace()
-        return status(service.directory, HarnessSettings(service).get(harness), os.environ)
+        return view(HarnessSettings(service).get(harness))
 
     @router.put("/{harness}")
     def edit(harness: HarnessKind, request: HarnessEdit) -> HarnessRegistration:
@@ -36,8 +51,13 @@ def harness_router(
     @router.post("/{harness}/check")
     async def native_check(harness: HarnessKind) -> HarnessStatus:
         service = workspace()
-        return await supervisor().harness_checks.run(
-            HarnessSettings(service).get(harness), os.environ
+        return owned(
+            await supervisor().harness_checks.run(HarnessSettings(service).get(harness), os.environ)
         )
+
+    @router.post("/{harness}/catalog/confirm-stopped")
+    def confirm_stopped(harness: HarnessKind, request: CatalogConfirmation) -> HarnessStatus:
+        supervisor().catalogs.confirm_stopped(harness, request.id)
+        return view(HarnessSettings(workspace()).get(harness))
 
     return router

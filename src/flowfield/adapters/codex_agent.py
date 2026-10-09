@@ -4,7 +4,7 @@ import asyncio
 import json
 import os
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from acp.exceptions import RequestError
@@ -199,14 +199,22 @@ class CodexAgent(AcpAgent):
 
 
 async def model_options(
-    directory: Path, *, registration: HarnessRegistration | None = None
+    directory: Path,
+    *,
+    registration: HarnessRegistration | None = None,
+    cwd: Path | None = None,
+    on_cleanup: Callable[[bool], None] | None = None,
 ) -> list[ModelOption]:
     # Discovery opens a disposable native session, never a model turn. Bound total
     # work because model-dependent effort options require selecting each model.
     with tempfile.TemporaryDirectory(prefix="flowfield-catalog-") as temporary:
+        if on_cleanup:
+            on_cleanup(True)  # Construction starts no process.
         agent = CodexAgent(
-            directory, Path(temporary).resolve(), os.environ, registration=registration
+            directory, cwd or Path(temporary).resolve(), os.environ, registration=registration
         )
+        if on_cleanup:
+            on_cleanup(False)
         try:
             async with asyncio.timeout(120):
                 await agent.start([])
@@ -250,6 +258,12 @@ async def model_options(
                 return result
         finally:
             await agent.close()
+            if on_cleanup:
+                on_cleanup(agent.cleanup_confirmed)
+            if not agent.cleanup_confirmed:
+                raise ApplicationError(
+                    "agent_cleanup_unconfirmed", "Native catalog cleanup is unconfirmed.", 409
+                )
 
 
 async def command_options(
@@ -258,8 +272,13 @@ async def command_options(
     choice: AgentChoice,
     *,
     registration: HarnessRegistration | None = None,
+    on_cleanup: Callable[[bool], None] | None = None,
 ) -> list[AgentCommand]:
+    if on_cleanup:
+        on_cleanup(True)
     agent = CodexAgent(directory, cwd, os.environ, registration=registration)
+    if on_cleanup:
+        on_cleanup(False)
     try:
         async with asyncio.timeout(60):
             await agent.start([])
@@ -267,3 +286,9 @@ async def command_options(
             return await agent.command_options()
     finally:
         await agent.close()
+        if on_cleanup:
+            on_cleanup(agent.cleanup_confirmed)
+        if not agent.cleanup_confirmed:
+            raise ApplicationError(
+                "agent_cleanup_unconfirmed", "Native command discovery cleanup is unconfirmed.", 409
+            )

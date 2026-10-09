@@ -10,6 +10,7 @@ from pydantic import Field
 
 from flowfield.execution_history import ExecutionHistory
 from flowfield.execution_models import QueueEdit, RunAction, SettingsEdit
+from flowfield.harness_models import HarnessKind
 from flowfield.integration_models import IntegrationConfig
 from flowfield.reads import MAX_LIMIT, ContextReads, receipt
 from flowfield.result_models import ResultReview
@@ -117,10 +118,25 @@ def add_execution_tools(
             ).model_dump()
         )
 
-    @mcp.tool(annotations=read)
-    async def list_worker_models() -> list[dict[str, Any]]:
-        """Discover this Codex installation's models/efforts; no inference or implicit selection."""
-        return [item.model_dump() for item in await supervisor().model_options()]
+    @mcp.tool(annotations=write)
+    async def list_worker_models(
+        project_id: str | None = None,
+        harness: HarnessKind = "codex",
+    ) -> list[dict[str, Any]]:
+        """Discover exact native choices for a harness and optional project; no model prompt.
+
+        Starts a disposable native session when no current catalog is cached; native
+        startup hooks can run. Pass project_id for project-policy choices. No selection
+        is changed. Interrupted
+        native discovery can require host inspection and human confirmation before retry.
+        """
+        return [
+            item.model_dump()
+            for item in await supervisor().model_options(
+                project_id=project_id,
+                harness=harness,
+            )
+        ]
 
     @mcp.tool(annotations=read)
     def get_workers(project_id: str) -> dict[str, Any]:

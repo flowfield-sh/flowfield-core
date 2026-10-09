@@ -101,14 +101,21 @@ def status(
     )
     if not available:
         problems.append("config_directory_missing")
-    if registration.harness == "codex":
-        try:
-            launch.bridge_executable = str(codex_install.installed(directory))
-            launch.bridge_version = codex_install.VERSION
-        except (ApplicationError, OSError):
-            problems.append("bridge_missing_or_invalid")
-    else:
-        # The development proof is deliberately not a supported runtime installation.
+    from flowfield.adapters import claude_install
+
+    try:
+        launch.bridge_executable = str(
+            codex_install.installed(directory)
+            if registration.harness == "codex"
+            else claude_install.installed(directory)
+        )
+        launch.bridge_version = (
+            codex_install.VERSION if registration.harness == "codex" else claude_install.VERSION
+        )
+    except (ApplicationError, OSError):
+        problems.append("bridge_missing_or_invalid")
+    if registration.harness == "claude-code":
+        # Installation is verified; production role integration is still gated.
         problems.append("adapter_not_available")
     return HarnessStatus(
         registration=registration,

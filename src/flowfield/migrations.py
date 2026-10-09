@@ -25,7 +25,17 @@ def host_harnesses(db: sqlite3.Connection) -> None:
     db.execute("ALTER TABLE coordinator_sessions ADD COLUMN launch TEXT")
 
 
-MIGRATIONS: tuple[Migration, ...] = (Migration(45, host_harnesses),)
+def harness_catalogs(db: sqlite3.Connection) -> None:
+    db.execute(
+        "CREATE TABLE harness_catalogs (harness TEXT PRIMARY KEY "
+        "CHECK(harness IN ('codex','claude-code')), data TEXT NOT NULL)"
+    )
+
+
+MIGRATIONS: tuple[Migration, ...] = (
+    Migration(45, host_harnesses),
+    Migration(46, harness_catalogs),
+)
 
 
 def current_version() -> int:

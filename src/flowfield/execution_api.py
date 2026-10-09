@@ -19,6 +19,7 @@ from flowfield.execution_models import (
     WorkerOccupancy,
     WorkerSettings,
 )
+from flowfield.harness_models import HarnessKind
 from flowfield.review_models import ChangedFiles, FilePatch
 from flowfield.run_activity import RunActivity, RunActivityPage
 from flowfield.supervisor import Supervisor
@@ -28,8 +29,14 @@ def execution_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     router = APIRouter(prefix="/api")
 
     @router.get("/worker-models")
-    async def models(refresh: bool = False) -> list[ModelOption]:
-        return await supervisor().model_options(refresh=refresh)
+    async def models(
+        refresh: bool = False,
+        harness: HarnessKind = "codex",
+        project_id: str | None = None,
+    ) -> list[ModelOption]:
+        return await supervisor().model_options(
+            refresh=refresh, harness=harness, project_id=project_id
+        )
 
     @router.get("/projects/{project_id}/workers")
     def settings(project_id: str) -> WorkerSettings:

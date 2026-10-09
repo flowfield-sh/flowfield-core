@@ -3,7 +3,7 @@
 import asyncio
 import os
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Literal
 
@@ -262,12 +262,18 @@ class ClaudeAgent(AcpAgent):
 
 
 async def model_options(
-    directory: Path, *, cwd: Path | None = None, registration: HarnessRegistration | None = None
+    directory: Path,
+    *,
+    cwd: Path | None = None,
+    registration: HarnessRegistration | None = None,
+    on_cleanup: Callable[[bool], None] | None = None,
 ) -> list[ModelOption]:
     """Disposable model-free discovery; aliases resolve to exact policy-offered identities."""
     registration = registration or HarnessRegistration(harness="claude-code", revision=1)
     with tempfile.TemporaryDirectory(prefix="flowfield-claude-catalog-") as temporary:
         location = cwd or Path(temporary).resolve()
+        if on_cleanup:
+            on_cleanup(True)  # Resolution/verification starts no process.
         command, environment = claude_install.command(
             directory, os.environ, registration=registration
         )
@@ -276,6 +282,8 @@ async def model_options(
             cleanup=quiesce,
             shutdown_timeouts=CLAUDE_SHUTDOWN_TIMEOUTS,
         )
+        if on_cleanup:
+            on_cleanup(False)
         try:
             async with asyncio.timeout(120):
                 await session.start(
@@ -333,6 +341,8 @@ async def model_options(
                 return list(result.values())
         finally:
             receipt = await session.close()
+            if on_cleanup:
+                on_cleanup(receipt.owned_work_stopped is True and receipt.process_group_exited)
             if receipt.owned_work_stopped is not True or not receipt.process_group_exited:
                 raise ApplicationError(
                     "agent_cleanup_unconfirmed",

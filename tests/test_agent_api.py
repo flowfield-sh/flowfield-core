@@ -7,6 +7,7 @@ from test_execution import BASE, fixture
 from test_permissions import OPTIONS, pending
 
 from flowfield.api import create_app
+from flowfield.errors import ApplicationError
 from flowfield.execution_models import ModelOption, QueueEdit
 from flowfield.harness_models import HarnessEdit
 from flowfield.harness_settings import HarnessSettings
@@ -14,7 +15,7 @@ from flowfield.supervisor import Supervisor
 
 
 def test_settings_validation_and_permission_http_journey(tmp_path, monkeypatch):
-    async def models(self):
+    async def models(self, **kwargs):
         return [ModelOption(id="supported", name="Supported", efforts=["low", "high"])]
 
     monkeypatch.setattr(Supervisor, "model_options", models)
@@ -104,15 +105,16 @@ def test_model_catalog_coalesces_caches_refreshes_and_retries(tmp_path, monkeypa
     calls = 0
     fail = False
 
-    async def discover(directory, *, registration=None):
+    async def discover(directory, *, registration=None, cwd=None, on_cleanup=None):
         nonlocal calls
         calls += 1
         await asyncio.sleep(0)
+        on_cleanup(True)
         if fail:
             raise RuntimeError("discovery failed")
         return [ModelOption(id="supported", name="Supported", efforts=["low"])]
 
-    monkeypatch.setattr("flowfield.supervisor.model_options", discover)
+    monkeypatch.setattr("flowfield.catalogs.model_options", discover)
     service = Supervisor(fixture(tmp_path).workspace)
 
     async def exercise():
@@ -121,12 +123,12 @@ def test_model_catalog_coalesces_caches_refreshes_and_retries(tmp_path, monkeypa
         assert first == second and calls == 1
         assert await service.model_options() == first and calls == 1
         assert await service.model_options(refresh=True) == first and calls == 2
-        service.catalog_at -= 301
+        next(iter(service.catalogs.cache.values())).at -= 301
         assert await service.model_options() == first and calls == 3
         fail = True
         try:
             await service.model_options(refresh=True)
-        except RuntimeError:
+        except ApplicationError:
             pass
         else:
             raise AssertionError("Discovery failure was hidden")

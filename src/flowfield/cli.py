@@ -186,6 +186,28 @@ def harness_settings(ctx: typer.Context, harness: str, json_output: Json = False
     output(run, json_output)
 
 
+@harness_app.command("confirm-stopped")
+def harness_confirm_stopped(
+    ctx: typer.Context,
+    harness: str,
+    discovery: Annotated[
+        str, typer.Option(help="Exact uncertain discovery ID from harness settings.")
+    ],
+    json_output: Json = False,
+) -> None:
+    """Confirm you stopped remaining native discovery on the host; starts no process."""
+    from flowfield.harness_settings import KINDS
+
+    def run() -> Any:
+        if harness not in KINDS:
+            raise ApplicationError("unsupported_harness", "This harness is not supported.")
+        return ctx.obj.request(
+            "POST", f"harnesses/{harness}/catalog/confirm-stopped", {"id": discovery}
+        )
+
+    output(run, json_output)
+
+
 @harness_app.command("configure")
 def harness_configure(
     ctx: typer.Context,

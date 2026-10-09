@@ -1499,6 +1499,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/harnesses/{harness}/catalog/confirm-stopped": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Confirm Stopped */
+    post: operations["confirm_stopped_api_harnesses__harness__catalog_confirm_stopped_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/projects/{project_id}/attachments": {
     parameters: {
       query?: never;
@@ -2274,6 +2291,37 @@ export interface components {
        */
       deliver: boolean;
     };
+    /** CatalogConfirmation */
+    CatalogConfirmation: {
+      /** Id */
+      id: string;
+    };
+    /** CatalogOwnership */
+    CatalogOwnership: {
+      /** Id */
+      id: string;
+      /**
+       * Harness
+       * @enum {string}
+       */
+      harness: "codex" | "claude-code";
+      /** Project Id */
+      project_id: string | null;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "running" | "uncertain";
+      /** Started At */
+      started_at: string;
+      launch: components["schemas"]["HarnessLaunch"];
+      /**
+       * Operation
+       * @default models
+       * @enum {string}
+       */
+      operation: "models" | "commands";
+    };
     /** ChangedFile */
     ChangedFile: {
       /** Id */
@@ -2742,6 +2790,7 @@ export interface components {
       checked: boolean;
       /** Problems */
       problems: string[];
+      catalog_ownership: components["schemas"]["CatalogOwnership"] | null;
     };
     /** Health */
     Health: {
@@ -7194,6 +7243,8 @@ export interface operations {
     parameters: {
       query?: {
         refresh?: boolean;
+        harness?: "codex" | "claude-code";
+        project_id?: string | null;
       };
       header?: never;
       path?: never;
@@ -8327,6 +8378,41 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HarnessStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  confirm_stopped_api_harnesses__harness__catalog_confirm_stopped_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        harness: "codex" | "claude-code";
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CatalogConfirmation"];
+      };
+    };
     responses: {
       /** @description Successful Response */
       200: {

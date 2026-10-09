@@ -13,13 +13,14 @@ from flowfield.adapters import git_integration as gitops
 from flowfield.adapters import local_checks
 from flowfield.adapters.acp_agent import AcpAgent
 from flowfield.adapters.acp_permissions import permission_handler
-from flowfield.adapters.agent_selection import create, model_options, require_available
+from flowfield.adapters.agent_selection import create, require_available
 from flowfield.adapters.git_workspace import GitWorkspace, contains
-from flowfield.adapters.harness_host import HarnessChecks, resolve
+from flowfield.adapters.harness_host import HarnessChecks
 from flowfield.adapters.local_execution import LocalAttempt, LocalHost
 from flowfield.agent_models import AgentChoice
 from flowfield.application import Workspace
 from flowfield.attachments import Attachments
+from flowfield.catalogs import Catalogs
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.execution_models import (
@@ -33,6 +34,7 @@ from flowfield.execution_models import (
     WorkerResult,
     WorkerSettings,
 )
+from flowfield.harness_models import HarnessKind
 from flowfield.harness_settings import HarnessSettings
 from flowfield.integration import Integrations
 from flowfield.permissions import Permissions
@@ -66,9 +68,7 @@ class Supervisor:
         self.coordinator = Coordinator(self)
         self.jobs: dict[str, asyncio.Task[None]] = {}
         self.setup_jobs: dict[str, asyncio.Task[list[CheckResult]]] = {}
-        self.catalog_job: asyncio.Task[list[ModelOption]] | None = None
-        self.catalog_at = 0.0
-        self.catalog_signature = ""
+        self.catalogs = Catalogs(workspace)
         self.loop_task: asyncio.Task[None] | None = None
         self.lock: BinaryIO | None = None
         self.closing = False
@@ -83,6 +83,7 @@ class Supervisor:
             self.execution.restart()
             self.permissions.restart()
             self.coordinator.store.restart()
+            self.catalogs.restart()
             recovery = asyncio.create_task(asyncio.to_thread(self.integrations.restart))
             try:
                 await asyncio.shield(recovery)
@@ -101,32 +102,19 @@ class Supervisor:
             self.lock = None
             raise
 
-    async def model_options(self, *, refresh: bool = False) -> list[ModelOption]:
+    async def model_options(
+        self,
+        *,
+        refresh: bool = False,
+        harness: HarnessKind = "codex",
+        project_id: str | None = None,
+    ) -> list[ModelOption]:
         if self.closing:
             raise ApplicationError("service_stopping", "The service is stopping.", 409)
-        clock = asyncio.get_running_loop().time()
-        registration = HarnessSettings(self.workspace).get("codex")
-        signature = resolve(registration, os.environ).model_dump_json()
-        if self.catalog_job and not self.catalog_job.done() and signature != self.catalog_signature:
-            raise ApplicationError(
-                "models_loading", "Host settings changed; reload models shortly.", 409
-            )
-        if self.catalog_job is None or (
-            self.catalog_job.done()
-            and (
-                refresh
-                or signature != self.catalog_signature
-                or clock - self.catalog_at > 300
-                or self.catalog_job.cancelled()
-                or self.catalog_job.exception() is not None
-            )
-        ):
-            self.catalog_at = clock
-            self.catalog_signature = signature
-            self.catalog_job = asyncio.create_task(
-                model_options(self.workspace.directory, registration=registration)
-            )
-        return await asyncio.shield(self.catalog_job)
+        require_available(harness)
+        return await self.catalogs.run(
+            HarnessSettings(self.workspace).get(harness), project_id=project_id, refresh=refresh
+        )
 
     async def configure(self, project_id: str, request: SettingsEdit) -> WorkerSettings:
         await self.validate_agent_choice(
@@ -139,7 +127,7 @@ class Supervisor:
         self, choice: AgentChoice, project_id: str | None = None
     ) -> None:
         require_available(choice.harness)
-        models = await self.model_options()
+        models = await self.model_options(project_id=project_id, harness=choice.harness)
         if not any(
             item.id == choice.model
             and choice.effort in item.efforts
@@ -619,9 +607,7 @@ class Supervisor:
         await self.harness_checks.close()
         await self.coordinator.close()
         self.permissions.close()
-        if self.catalog_job and not self.catalog_job.done():
-            self.catalog_job.cancel()
-            await asyncio.gather(self.catalog_job, return_exceptions=True)
+        await self.catalogs.close()
         await self.setup_validation.close()
         if self.loop_task:
             self.loop_task.cancel()

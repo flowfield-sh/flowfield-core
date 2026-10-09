@@ -21,7 +21,7 @@ def agent_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     async def coordinator_edit(project_id: str, request: AgentSettingsEdit) -> AgentSettingsView:
         service = supervisor()
         if request.selection:
-            await service.validate_agent_choice(request.selection)
+            await service.validate_agent_choice(request.selection, project_id)
         return AgentSettings(service.workspace).edit(project_id, "coordinator", request)
 
     @router.get("/tasks/{task_id}/agent-settings")

@@ -25,7 +25,7 @@ from flowfield.client import Client
 from flowfield.coordinator_models import CoordinatorSend
 from flowfield.coordinator_store import CoordinatorStore
 from flowfield.errors import ApplicationError
-from flowfield.harness_models import HarnessEdit, HarnessRegistration
+from flowfield.harness_models import CatalogOwnership, HarnessEdit, HarnessRegistration
 from flowfield.harness_settings import HarnessSettings, offline_registration
 
 
@@ -380,7 +380,7 @@ def test_schema_44_upgrade_preserves_choices_and_recovery_and_is_database_only(
         harness_host, "resolve", lambda *args: pytest.fail("native detection during migration")
     )
     upgraded = Workspace(workspace.directory)
-    assert upgraded.schema_version == 45
+    assert upgraded.schema_version == migrations.current_version()
     assert AgentSettings(upgraded).get("harbor", "coordinator") == before
     assert len(HarnessSettings(upgraded).all()) == 2
     assert CoordinatorStore(upgraded).session("harbor", "codex", str(tmp_path)) == "old-session"
@@ -388,7 +388,7 @@ def test_schema_44_upgrade_preserves_choices_and_recovery_and_is_database_only(
     assert backup["schema_version"] == 44
     storage.restore(upgraded.directory, backup["id"])
     assert storage.status(upgraded.directory)["schema_version"] == 44
-    assert Workspace(upgraded.directory).schema_version == 45
+    assert Workspace(upgraded.directory).schema_version == migrations.current_version()
 
 
 def test_real_registration_migration_failure_rolls_back_new_table_and_binding_column(
@@ -420,6 +420,41 @@ def test_real_registration_migration_failure_rolls_back_new_table_and_binding_co
         ]
     monkeypatch.setattr(migrations, "MIGRATIONS", (original,))
     assert Workspace(workspace.directory).schema_version == 45
+
+
+def test_catalog_migration_failure_preserves_registration_and_recovers(tmp_path, monkeypatch):
+    registration_migration, catalog_migration = migrations.MIGRATIONS
+    with monkeypatch.context() as baseline:
+        baseline.setattr(migrations, "MIGRATIONS", (registration_migration,))
+        workspace = Workspace(tmp_path / "state")
+        saved = HarnessSettings(workspace).edit(
+            "claude-code", HarnessEdit(expected_revision=1, executable="/host/claude")
+        )
+
+    def fail(db):
+        catalog_migration.apply(db)
+        raise RuntimeError("after catalog DDL")
+
+    with monkeypatch.context() as broken:
+        broken.setattr(
+            migrations,
+            "MIGRATIONS",
+            (registration_migration, replace(catalog_migration, apply=fail)),
+        )
+        with pytest.raises(ApplicationError, match="rolled back"):
+            Workspace(workspace.directory)
+    with storage.connect(workspace.database) as db:
+        assert storage.version(db) == 45
+        assert (
+            db.execute("SELECT 1 FROM sqlite_master WHERE name='harness_catalogs'").fetchone()
+            is None
+        )
+    upgraded = Workspace(workspace.directory)
+    assert HarnessSettings(upgraded).get("claude-code") == saved
+    backup = storage.backups(upgraded.directory)[0]
+    storage.restore(upgraded.directory, backup["id"])
+    assert storage.status(upgraded.directory)["schema_version"] == 45
+    assert Workspace(upgraded.directory).schema_version == migrations.current_version()
 
 
 def test_http_host_settings_are_independent_and_do_not_start_models(tmp_path, monkeypatch):
@@ -460,7 +495,33 @@ def test_http_host_settings_are_independent_and_do_not_start_models(tmp_path, mo
                     and checked["authentication"] == "unknown"
                     and checked["model_access"] == "unverified"
                 )
-                assert app.state.supervisor.catalog_job is None and not app.state.supervisor.jobs
+                assert not app.state.supervisor.catalogs.jobs and not app.state.supervisor.jobs
+                ownership = CatalogOwnership(
+                    id="interrupted-exact-id",
+                    harness="claude-code",
+                    project_id=None,
+                    status="uncertain",
+                    started_at="2026-10-09T00:00:00Z",
+                    launch=harness_host.status(
+                        app.state.supervisor.workspace.directory,
+                        HarnessSettings(app.state.supervisor.workspace).get("claude-code"),
+                        {},
+                    ).launch,
+                )
+                with app.state.supervisor.workspace.connection(write=True) as db:
+                    db.execute(
+                        "INSERT INTO harness_catalogs VALUES (?,?)",
+                        ("claude-code", ownership.model_dump_json()),
+                    )
+                held = (await client.get("/api/harnesses/claude-code")).json()
+                assert held["catalog_ownership"]["id"] == ownership.id
+                assert "catalog_uncertain" in held["problems"] and not held["selectable"]
+                endpoint = "/api/harnesses/claude-code/catalog/confirm-stopped"
+                assert (await client.post(endpoint, json={"id": "stale"})).status_code == 409
+                assert (await client.get("/api/harnesses/claude-code")).json()["catalog_ownership"]
+                cleared = await client.post(endpoint, json={"id": ownership.id})
+                assert cleared.status_code == 200 and cleared.json()["catalog_ownership"] is None
+                assert not app.state.supervisor.catalogs.jobs
 
     asyncio.run(exercise())
 
@@ -519,3 +580,12 @@ def test_cli_host_configuration_targets_service_and_reset_is_revisioned(monkeypa
     assert result.exit_code == 0 and calls[-1][2]["config_directory"] is None
     result = runner.invoke(cli, ["harness", "settings", "codex", "--json"])
     assert result.exit_code == 0 and calls[-1][:2] == ("GET", "harnesses/codex")
+    result = runner.invoke(
+        cli, ["harness", "confirm-stopped", "claude-code", "--discovery", "exact-id", "--json"]
+    )
+    assert result.exit_code == 0, result.output
+    assert calls[-1] == (
+        "POST",
+        "harnesses/claude-code/catalog/confirm-stopped",
+        {"id": "exact-id"},
+    )

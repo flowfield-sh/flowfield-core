@@ -12,7 +12,7 @@ from flowfield.activity_text import retain
 from flowfield.adapters.acp_agent import AcpAgent
 from flowfield.adapters.acp_permissions import permission_handler
 from flowfield.adapters.agent_mcp import serve_scope
-from flowfield.adapters.agent_selection import command_options, create
+from flowfield.adapters.agent_selection import create
 from flowfield.adapters.harness_host import resolve
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_models import AgentCommand
@@ -117,9 +117,7 @@ class Coordinator:
                 break
             if self.command_jobs[key][2].done():
                 del self.command_jobs[key]
-        job = asyncio.create_task(
-            command_options(workspace.directory, Path(cwd), choice, registration=registration)
-        )
+        job = asyncio.create_task(self.supervisor.catalogs.commands(registration, project, choice))
         self.command_jobs[project] = (clock, signature, job)
         return await asyncio.shield(job)
 
