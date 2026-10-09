@@ -60,10 +60,10 @@ ProjectPrefix = Annotated[
     str, StringConstraints(to_upper=True, strip_whitespace=True, pattern=r"^[A-Za-z]{3}$")
 ]
 TaskIdentifier = Annotated[
-    str, StringConstraints(pattern=r"^(?:[a-z0-9][a-z0-9_-]{0,63}|[A-Z]{3}-[1-9][0-9]*)$")
+    str, StringConstraints(pattern=r"^(?:[a-z0-9][a-z0-9_-]{0,63}|[A-Za-z]{3}-[1-9][0-9]*)$")
 ]
 MilestoneIdentifier = Annotated[
-    str, StringConstraints(pattern=r"^(?:[a-z0-9][a-z0-9_-]{0,63}|M-[1-9][0-9]*)$")
+    str, StringConstraints(pattern=r"^(?:[a-z0-9][a-z0-9_-]{0,63}|[Mm]-[1-9][0-9]*)$")
 ]
 WorkStatus = Literal["backlog", "up_next", "in_progress", "in_review", "done"]
 PlanningStatus = Literal["backlog", "up_next"]
@@ -692,8 +692,9 @@ class Workspace:
 
     def _milestone(self, db: sqlite3.Connection, project_id: str, milestone_id: str) -> Milestone:
         row = db.execute(
-            "SELECT data FROM milestones WHERE project_id=? AND (id=? OR key=?)",
-            (project_id, milestone_id, milestone_id),
+            "SELECT data FROM milestones WHERE project_id=? "
+            "AND (id=? OR key=? COLLATE NOCASE) ORDER BY id=? DESC",
+            (project_id, milestone_id, milestone_id, milestone_id),
         ).fetchone()
         if not row:
             raise ApplicationError("not_found", "Milestone not found in this project.", 404)
@@ -772,7 +773,13 @@ class Workspace:
             row["key"]: row["id"]
             for row in db.execute("SELECT id, key FROM tasks WHERE project_id=?", (project_id,))
         }
-        return sorted({keys.get(reference, reference) for reference in references})
+        identities = set(keys.values())
+        return sorted(
+            {
+                reference if reference in identities else keys.get(reference.upper(), reference)
+                for reference in references
+            }
+        )
 
     def _dependency_order(self, records: dict[str, TaskRevision]) -> list[str]:
         remaining = {key: len(task.dependencies) for key, task in records.items()}
@@ -869,8 +876,9 @@ class Workspace:
         completed: set[str] | None = None,
     ) -> Task:
         row = db.execute(
-            "SELECT * FROM tasks WHERE project_id=? AND (id=? OR key=?)",
-            (project_id, task_id, task_id),
+            "SELECT * FROM tasks WHERE project_id=? "
+            "AND (id=? OR key=? COLLATE NOCASE) ORDER BY id=? DESC",
+            (project_id, task_id, task_id, task_id),
         ).fetchone()
         if not row:
             raise ApplicationError("not_found", "Task not found in this project.", 404)
@@ -1535,8 +1543,9 @@ class Workspace:
         if task_id is None:
             return None
         row = db.execute(
-            "SELECT id FROM tasks WHERE project_id=? AND (id=? OR key=?)",
-            (project_id, task_id, task_id),
+            "SELECT id FROM tasks WHERE project_id=? "
+            "AND (id=? OR key=? COLLATE NOCASE) ORDER BY id=? DESC",
+            (project_id, task_id, task_id, task_id),
         ).fetchone()
         if row is None:
             raise ApplicationError("not_found", "Task not found in this project.", 404)

@@ -15,6 +15,7 @@ from flowfield.adapters.agent_contract import (
     PermissionRequest,
     bounded_details,
 )
+from flowfield.adapters.codex_activity import describe
 from flowfield.adapters.harness_host import launch_environment, resolve
 from flowfield.adapters.json_rpc import MAX_INPUT, JsonRpc, NativeError
 from flowfield.agent_models import AgentChoice, AgentCommand
@@ -390,24 +391,20 @@ class CodexAgent(Agent):
             kind = item.get("type")
             if kind in {"commandExecution", "fileChange", "mcpToolCall", "webSearch"}:
                 identity = str(item.get("id", "tool"))[:90]
-                details = bounded_details(
-                    "\n".join(str(item[key]) for key in ("command", "cwd", "url") if key in item)
-                )
-                if kind == "fileChange":
-                    details = bounded_details(
-                        "\n".join(
-                            str(change.get("path", "")) + "\n" + str(change.get("diff", ""))
-                            for change in item.get("changes", [])
-                        )
-                    )
+                title, details = describe(item)
                 self.tools[identity] = details
                 while len(self.tools) > 100:
                     del self.tools[next(iter(self.tools))]
+                status = item.get("status") or (
+                    "completed" if method == "item/completed" else "running"
+                )
+                if status == "inProgress":
+                    status = "running"
                 self.activity(
                     ActivityUpdate(
                         key=identity,
                         kind="command" if kind == "commandExecution" else "tool",
-                        text=kind + " · " + str(item.get("status", "running")) + "\n" + details,
+                        text=title + " · " + str(status) + "\n" + details,
                     )
                 )
         elif not self.stopping and method == "thread/tokenUsage/updated":

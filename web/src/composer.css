@@ -44,6 +44,7 @@
   min-width: 2px;
 }
 .composer-model {
+  flex-shrink: 1;
   min-width: 0;
   max-width: min(65%, 240px);
   padding-inline: 6px;

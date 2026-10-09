@@ -88,12 +88,13 @@ export function useHarnessModels(
     hosts,
     host,
     loaded,
+    loading: (hosts.loading && !hosts.data) || catalog.loading,
     catalog,
     models: loaded
       ? !catalog.error
         ? (catalog.data ?? [])
         : []
-      : verified?.key === key
+      : !open && verified?.key === key
         ? verified.error
           ? []
           : (verified.data ?? [])

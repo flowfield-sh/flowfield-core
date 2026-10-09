@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
 import { request } from "./workspace";
@@ -89,11 +89,13 @@ export function AgentPermissions({
   taskId,
   role,
   refresh,
+  onPendingTurns,
 }: {
   projectId: string;
   taskId?: string;
   role?: "worker" | "coordinator";
   refresh: unknown;
+  onPendingTurns?: (ids: string[]) => void;
 }) {
   const [retry, setRetry] = useState(0);
   const path = `projects/${projectId}/permissions?retry=${retry}${taskId ? `&task_id=${encodeURIComponent(taskId)}` : ""}${role ? `&role=${role}` : ""}`;
@@ -102,6 +104,9 @@ export function AgentPermissions({
     refresh,
   );
   const pending = page.data?.pending ?? [];
+  useEffect(() => {
+    onPendingTurns?.(page.data?.pending.map((item) => item.turn_id) ?? []);
+  }, [page.data, onPendingTurns]);
   return (
     <>
       {page.error && (

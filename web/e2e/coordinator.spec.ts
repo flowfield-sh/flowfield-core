@@ -119,7 +119,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
       settings: {
         choice: {
           harness: "codex",
-          model: "test-model",
+          model: "test-model-with-a-very-long-model-identifier",
           effort: "low",
           mode: "read-only",
         },
@@ -188,7 +188,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     route.fulfill({
       json: [
         {
-          id: "test-model",
+          id: "test-model-with-a-very-long-model-identifier",
           name: "Test",
           efforts: ["low"],
           modes: [
@@ -215,14 +215,14 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
           revision: 1,
           selection: {
             harness: "codex",
-            model: "test-model",
+            model: "test-model-with-a-very-long-model-identifier",
             effort: "low",
             mode: "read-only",
           },
           effective: {
             choice: {
               harness: "codex",
-              model: "test-model",
+              model: "test-model-with-a-very-long-model-identifier",
               effort: "low",
               mode: "read-only",
             },
@@ -282,7 +282,10 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   expect(discoveries).toBe(1);
   await page.getByRole("combobox", { name: "Message coordinator" }).fill("");
   await page
-    .getByRole("button", { name: "Codex · test-model · low", exact: true })
+    .getByRole("button", {
+      name: "Codex · test-model-with-a-very-long-model-identifier · low",
+      exact: true,
+    })
     .click();
   await expect(
     page.getByRole("dialog", { name: "Coordinator model settings" }),
@@ -333,10 +336,44 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   await input.press("Shift+Enter");
   await expect(input).toHaveValue("Keep my project draft\n\n\n");
   expect(sends).toBe(0);
+  await page
+    .getByRole("separator", { name: "Resize coordinator and work" })
+    .press("Home");
+  async function actionFits(name: string) {
+    return page
+      .getByRole("button", { name, exact: true })
+      .evaluate((button) => {
+        const frame = button
+          .closest(".composer-input")!
+          .getBoundingClientRect();
+        const box = button.getBoundingClientRect();
+        return (
+          box.right <= frame.right - 4 &&
+          box.left >= frame.left &&
+          box.width >= 32
+        );
+      });
+  }
+  expect(await actionFits("Send")).toBe(true);
   await input.press("Enter");
   await expect(page.getByText("Let’s plan the work.")).toBeVisible();
+  expect(await actionFits("Stop")).toBe(true);
+  const activity = page.getByRole("status", {
+    name: "Coordinator activity",
+    exact: true,
+  });
+  await expect(activity).toHaveText("Working…");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(activity.locator("svg")).toHaveCSS("animation-name", "none");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.screenshot({
+    path: testInfo.outputPath("coordinator-working-minimum.png"),
+  });
   await page
-    .getByRole("button", { name: "Codex · test-model · low", exact: true })
+    .getByRole("button", {
+      name: "Codex · test-model-with-a-very-long-model-identifier · low",
+      exact: true,
+    })
     .click();
   const activeSettings = page.getByRole("dialog", {
     name: "Coordinator model settings",
@@ -409,6 +446,8 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   });
   await expect(longChoice).toHaveText(longPermissionLabel);
   await longChoice.scrollIntoViewIfNeeded();
+  await expect(activity).toHaveText("Waiting for permission");
+  await expect(activity.locator("svg")).toHaveCount(0);
   expect(
     await longChoice.evaluate(
       (button) =>
@@ -424,6 +463,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     path: testInfo.outputPath("coordinator-permission.png"),
   });
   await page.getByRole("button", { name: "Allow once", exact: true }).click();
+  await expect(activity).toHaveText("Working…");
   await expect(
     page.getByText("Tool permission history", { exact: true }),
   ).toHaveCount(0);
@@ -462,8 +502,12 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     ),
   ).toBeVisible();
   await expect(input).toHaveValue("A draft for the next turn");
+  await expect(activity).toHaveCount(0);
   await page
-    .getByRole("button", { name: "Codex · test-model · low", exact: true })
+    .getByRole("button", {
+      name: "Codex · test-model-with-a-very-long-model-identifier · low",
+      exact: true,
+    })
     .click();
   await expect(page.getByLabel("Harness", { exact: true })).toBeEnabled();
   await page.keyboard.press("Escape");
@@ -632,7 +676,10 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   await page.reload();
   await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
   await page
-    .getByRole("button", { name: "Codex · test-model · low", exact: true })
+    .getByRole("button", {
+      name: "Codex · test-model-with-a-very-long-model-identifier · low",
+      exact: true,
+    })
     .click();
   await expect(page.getByLabel("Harness", { exact: true })).toBeDisabled();
   await page.keyboard.press("Escape");
@@ -641,7 +688,10 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     .getByRole("button", { name: "Confirm coordinator stopped", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "Codex · test-model · low", exact: true })
+    .getByRole("button", {
+      name: "Codex · test-model-with-a-very-long-model-identifier · low",
+      exact: true,
+    })
     .click();
   await expect(page.getByLabel("Harness", { exact: true })).toBeEnabled();
 });
@@ -761,6 +811,8 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   const input = page.getByRole("textbox", { name: "Message coordinator" });
   await expect(model).toBeDisabled();
   await expect(model).toHaveText("Loading models…");
+  await expect(effort).toBeDisabled();
+  await expect(page.getByRole("listbox")).toHaveCount(0);
   await expect(effort).toHaveText("Loading efforts…");
   await input.click();
   await expect(model).not.toBeVisible();

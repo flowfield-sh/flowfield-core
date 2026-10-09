@@ -240,3 +240,45 @@ def test_native_offered_decisions_cannot_grant_persistent_or_unoffered_permissio
             assert await agent.stop()
 
     asyncio.run(exercise())
+
+
+def test_public_tool_labels_preserve_names_errors_and_command_details(tmp_path):
+    from flowfield.activity_text import preview
+    from flowfield.adapters.codex_activity import describe
+
+    item = {
+        "type": "mcpToolCall",
+        "server": "flowfield_" + "a" * 32,
+        "tool": "get_task",
+        "arguments": {"task_id": "fol-6"},
+        "result": {
+            "isError": True,
+            "structuredContent": {"error": {"message": "Task not found in this project."}},
+        },
+    }
+    title, details = describe(item)
+    assert title == "Flowfield · Get task · fol-6"
+    text = title + " · failed\n" + details
+    summary = preview(text, "tool")
+    assert "Task not found" in summary and "Arguments" not in summary
+    assert '"task_id": "fol-6"' in details and "a" * 32 not in title
+    item["result"] = {"structuredContent": None}
+    item["error"] = {"message": "Connection lost"}
+    assert "Connection lost" in describe(item)[1]
+    command = "/bin/zsh -lc 'git status --short'"
+    title, details = describe(
+        {"type": "commandExecution", "command": command, "cwd": "/project", "exitCode": 0}
+    )
+    assert title == "git status --short" and command in details and "/project" in details
+    assert (
+        preview(title + " · completed\n" + details, "command")
+        == "git status --short · completed\nExit code: 0"
+    )
+    assert (
+        preview("commandExecution · completed\n" + command + "\n/project", "command")
+        == "git status --short · completed"
+    )
+    assert (
+        preview("Bash · completed\ncommand: git status\ncwd: /project", "command")
+        == "git status · completed"
+    )

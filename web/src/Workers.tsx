@@ -249,8 +249,7 @@ export function WorkerSettings({
             mode={mode}
             fast={false}
             models={models}
-            loading={catalog.loading || !resource.data}
-            known={!!catalog.data && !catalog.error && source.loaded}
+            loading={source.loading || !resource.data}
             change={(model, effort, mode) =>
               setDraft({
                 harness: harness!,

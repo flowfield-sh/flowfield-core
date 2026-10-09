@@ -56,13 +56,19 @@ def test_key_aliases_share_graph_progress_and_revision_checks(tmp_path: Path) ->
     service = Workspace(tmp_path / "state")
     adopt(service, ProjectSetup(path=str(tmp_path / "harbor")))
     a = service.create_task("harbor", task_request(id="serializer", title="Serializer"))
+    assert service.task("harbor", a.key.lower()).id == a.id
+    assert service.task("harbor", "hAr-1").id == a.id
+    assert service.activity("harbor", task_id="har-1").items
     b = service.create_task(
-        "harbor", task_request(id="download", title="Download", dependencies=[a.key, a.id])
+        "harbor", task_request(id="download", title="Download", dependencies=[a.key.lower(), a.id])
     )
     assert b.dependencies == [a.id] and b.blocked_by[0].key == a.key
     assert service.task("harbor", a.key).dependents[0].key == b.key
     assert (
-        service.edit_task("harbor", b.key, TaskEdit(expected_revision=1, dependencies=[a.key])) == b
+        service.edit_task(
+            "harbor", b.key.lower(), TaskEdit(expected_revision=1, dependencies=[a.key])
+        )
+        == b
     )
     with pytest.raises(ApplicationError, match="cycle"):
         service.edit_task("harbor", a.key, TaskEdit(expected_revision=1, dependencies=[b.key]))
@@ -160,3 +166,20 @@ def test_configurable_prefix_validation_and_atomic_lock(tmp_path: Path) -> None:
         ).json()
         assert short["task_prefix"] == "ABX"
         assert other["task_prefix"] == "HWD"
+
+
+def test_case_insensitive_keys_keep_exact_ids_and_project_scope(tmp_path):
+    service = Workspace(tmp_path / "state")
+    adopt(service, ProjectSetup(path=str(tmp_path / "harbor")))
+    adopt(service, ProjectSetup(path=str(tmp_path / "other")))
+    first = service.create_task("harbor", task_request(id="first", title="First"))
+    exact = service.create_task("harbor", task_request(id="har-1", title="Exact ID"))
+    assert service.task("harbor", "HAR-1").id == first.id
+    assert service.task("harbor", "har-1").id == exact.id
+    assert service.task("harbor", "hAr-1").id == first.id
+    with pytest.raises(ApplicationError, match="not found"):
+        service.task("other", "hAr-1")
+    task = service.create_task(
+        "harbor", task_request(id="dependent", title="Dependent", dependencies=["har-1"])
+    )
+    assert task.dependencies == [exact.id]

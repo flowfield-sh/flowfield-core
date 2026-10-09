@@ -137,6 +137,10 @@ are saved by the service. Older messages load on demand and stay visible as new 
 Long public replies are saved separately from the bounded activity preview; use **Read full
 reply** when the preview is shortened. Text already lost in older versions cannot be recovered
 and remains marked. Tool activity shows names, status and available commands or paths.
+Tool failures include a short reason. Command previews show the command itself; expand
+**Retained output** for saved details. While a turn is active, a **Working…** indicator
+appears in the reply area, changing to **Waiting for permission** when your input is needed.
+It indicates an active turn, not access to the model's private reasoning.
 
 With compatible unchanged settings, messages resume the same native session, including
 its tool history and native context management, across turns and service restarts. Each turn gets a fresh scoped

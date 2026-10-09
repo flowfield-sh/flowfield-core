@@ -14,7 +14,7 @@ def test_display_collapses_source_and_keeps_command_failure():
     kept = retain(script, 6000)
     shown = preview(kept, "command")
     assert shown.startswith("python - <<'PY'") and shown.endswith("Exit code: 17")
-    assert "print('code')" not in shown and "source collapsed" in shown
+    assert "print('code')" not in shown and "source collapsed" not in shown
     assert "print('code')" in kept and "middle omitted" in kept
     assert (
         preview("test -f result.txt\nExit code: 0", "command") == "test -f result.txt\nExit code: 0"

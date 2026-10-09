@@ -15,7 +15,7 @@ import { ActivityEntries } from "./RunActivity";
 import { useFeedScroll } from "./useFeedScroll";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowUp, Square, X } from "lucide-react";
+import { ArrowUp, LoaderCircle, Square, X } from "lucide-react";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { taskHref } from "./navigation";
 type Page = components["schemas"]["CoordinatorPage"];
@@ -106,6 +106,7 @@ export function CoordinatorChat({
   }
   const [choice, setChoice] = useState<Choice | null>(null);
   const [settingsDirty, setSettingsDirty] = useState(false);
+  const [pendingPermissions, setPendingPermissions] = useState<string[]>([]);
   const [commands, setCommands] = useState<
     components["schemas"]["AgentCommand"][]
   >([]);
@@ -387,6 +388,29 @@ export function CoordinatorChat({
                     />
                   )}
                 {turn.notice && <p role="status">{turn.notice}</p>}
+                {["starting", "running", "stopping"].includes(turn.status) &&
+                  !resource.error && (
+                    <div
+                      role="status"
+                      className="detail-metadata flex items-center gap-2"
+                      aria-label="Coordinator activity"
+                    >
+                      {!pendingPermissions.includes(turn.id) && (
+                        <LoaderCircle
+                          size={14}
+                          className="animate-spin motion-reduce:animate-none"
+                          aria-hidden="true"
+                        />
+                      )}
+                      {turn.status === "stopping"
+                        ? "Stopping…"
+                        : pendingPermissions.includes(turn.id)
+                          ? "Waiting for permission"
+                          : turn.status === "starting"
+                            ? "Starting…"
+                            : "Working…"}
+                    </div>
+                  )}
                 <div className="detail-metadata" role="status">
                   Coordinator · {turn.status}
                 </div>
@@ -396,6 +420,7 @@ export function CoordinatorChat({
           <AgentPermissions
             projectId={projectId}
             role="coordinator"
+            onPendingTurns={setPendingPermissions}
             refresh={`${refresh}:${tick}`}
           />
         </div>

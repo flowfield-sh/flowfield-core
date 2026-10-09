@@ -33,7 +33,6 @@ export function AgentModelFields({
   fast,
   models,
   loading,
-  known = true,
   change,
   compact = false,
 }: {
@@ -43,7 +42,6 @@ export function AgentModelFields({
   fast: boolean;
   models: Model[];
   loading: boolean;
-  known?: boolean;
   change: (model: string, effort: string, mode: string, fast: boolean) => void;
   compact?: boolean;
 }) {
@@ -70,18 +68,16 @@ export function AgentModelFields({
           placeholder={
             loading
               ? "Loading models…"
-              : !known
-                ? "Loading models…"
-                : !models.length
-                  ? "Models unavailable"
-                  : "Choose a model"
+              : !models.length
+                ? "Models unavailable"
+                : "Choose a model"
           }
           options={[
             ...(!loading && model && !selected
               ? [
                   {
                     value: model,
-                    label: `${model} (${known ? "unavailable" : "saved"})`,
+                    label: `${model} (unavailable)`,
                   },
                 ]
               : []),
@@ -310,8 +306,7 @@ function useAgentSettingsContent({
             mode={mode}
             fast={fast}
             models={source.models}
-            loading={catalog.loading || !data}
-            known={!!catalog.data && !catalog.error && source.loaded}
+            loading={source.loading || !data}
             change={change}
             compact={compact}
           />

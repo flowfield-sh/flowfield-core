@@ -29,6 +29,7 @@ def test_milestone_keys_survive_edits_restart_and_concurrent_creation(tmp_path: 
         milestones = list(pool.map(create, range(12)))
     assert {m.key for m in milestones} == {f"M-{n}" for n in range(1, 13)}
     original = workspace.milestone("one", "M-1")
+    assert workspace.milestone("one", "m-1") == original
     edited = workspace.edit_milestone(
         "one", "M-1", MilestoneEdit(expected_revision=1, title="Renamed")
     )
@@ -46,7 +47,7 @@ def test_milestone_keys_survive_edits_restart_and_concurrent_creation(tmp_path: 
     with pytest.raises(ValueError):
         MilestoneCreate(id="M-1", title="Cannot shadow a key")
 
-    task = workspace.create_task("one", task_request(title="Member", milestone_id="M-1"))
+    task = workspace.create_task("one", task_request(title="Member", milestone_id="m-1"))
     assert task.milestone_id == original.id
     assert (
         workspace.edit_task(

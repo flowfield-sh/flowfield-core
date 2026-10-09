@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Select } from "radix-ui";
 import { Check, ChevronDown } from "lucide-react";
 import "./choice-select.css";
@@ -22,13 +22,18 @@ export function ChoiceSelect({
   compact?: boolean;
   required?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+  if (disabled && open) setOpen(false);
   return (
     <Select.Root
+      open={open && !disabled}
+      onOpenChange={(next) => setOpen(!disabled && next)}
       value={value}
       onValueChange={(next) => {
         // Radix's form control can emit an empty value when options reload.
         // Only an actual offered choice changes the draft.
         if (
+          !disabled &&
           next &&
           next !== value &&
           options.some((option) => option.value === next && !option.disabled)

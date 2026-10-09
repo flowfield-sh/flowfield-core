@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
+from flowfield.activity_text import command_title
 from flowfield.adapters.agent_contract import (
     Agent,
     McpServer,
@@ -274,11 +275,16 @@ class ClaudeAgent(Agent):
             details = bounded_details(
                 "\n".join(f"{key}: {value}" for key, value in tool.get("details", {}).items())
             )
+            label = (
+                command_title(str(tool.get("details", {}).get("command", "Run command")))
+                if title == "Bash"
+                else tool_title(title)
+            )
             self.activity(
                 ActivityUpdate(
                     key=identity,
                     kind="command" if title == "Bash" else "tool",
-                    text=f"{tool_title(title)} · {tool.get('status', 'running')}\n{details}",
+                    text=f"{label} · {tool.get('status', 'running')}\n{details}",
                 )
             )
         elif kind == "usage":

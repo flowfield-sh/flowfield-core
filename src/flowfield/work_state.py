@@ -84,8 +84,8 @@ def task_state(
         "json_extract(data,'$.archived') AS archived, "
         "json_extract(data,'$.agreement_revision') AS agreement_revision, "
         "json_extract(data,'$.reconciliation_reason') AS reason "
-        "FROM tasks WHERE project_id=? AND (id=? OR key=?)",
-        (project, task_id, task_id),
+        "FROM tasks WHERE project_id=? AND (id=? OR key=? COLLATE NOCASE) ORDER BY id=? DESC",
+        (project, task_id, task_id, task_id),
     ).fetchone()
     task_id = task["id"]
     href = f"/projects/{project}/tasks/{task['key']}"
