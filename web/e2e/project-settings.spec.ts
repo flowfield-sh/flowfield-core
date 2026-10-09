@@ -187,7 +187,7 @@ test("milestones group tasks with linked details and long project intent stays o
   await expect(page.getByText(description, { exact: true })).toHaveCount(0);
 });
 
-test("worker models load explicitly and retry without replacing setting drafts", async ({
+test("worker models load automatically and retry without replacing setting drafts", async ({
   page,
   request,
 }) => {
@@ -204,7 +204,8 @@ test("worker models load explicitly and retry without replacing setting drafts",
         status: 503,
         json: { error: { message: "Catalog temporarily unavailable" } },
       });
-    refreshCalls++;
+    if (new URL(route.request().url()).searchParams.get("refresh") === "true")
+      refreshCalls++;
     return route.fulfill({
       json: [
         { id: "model-one", name: "Model one", efforts: ["low", "high"] },
@@ -216,16 +217,13 @@ test("worker models load explicitly and retry without replacing setting drafts",
   await page.goto(`/projects/${project}/edit`);
   await page.getByRole("tab", { name: "Workers", exact: true }).click();
   const settings = page.getByRole("region", { name: "Worker settings" });
-  expect(calls).toBe(0);
-  await settings
-    .getByRole("button", { name: "Load models", exact: true })
-    .click();
+  await expect.poll(() => calls).toBe(1);
   await expect(settings).toContainText("Catalog temporarily unavailable");
   await expect(
     settings.getByRole("button", { name: "Refresh models" }),
-  ).toHaveCount(0);
+  ).toBeEnabled();
   await settings.getByLabel("Maximum parallel workers").fill("3");
-  await settings.getByRole("button", { name: "Reload models" }).click();
+  await settings.getByRole("button", { name: "Refresh models" }).click();
   const model = settings.getByLabel("Model", { exact: true });
   const effort = settings.getByLabel("Reasoning effort");
   await expect(model.getByRole("option", { name: "Model one" })).toBeAttached();

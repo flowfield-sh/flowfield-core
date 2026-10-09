@@ -52,11 +52,11 @@ flowfield project init
 
 Start planning in the [Coordinator](https://docs.flowfield.sh/coordinator), or connect a
 [standalone coding agent](https://docs.flowfield.sh/integrations/codex#connect-a-standalone-coordinator).
-Built-in chat and workers use your Codex login through the managed ACP runtime.
-Development builds also support [Claude Code](https://docs.flowfield.sh/integrations/claude-code)
-independently for the Coordinator and workers. Configure either harness alone or both in
-**Settings → Harnesses**. Published 0.2.1 supports Codex; Claude's setup guide covers the
-matching local bundle until its bridge is published.
+Development builds use installed Codex through its native app-server and installed
+[Claude Code](https://docs.flowfield.sh/integrations/claude-code) through the official
+Agent SDK. Flowfield includes the SDK runtime; no extra integration install is needed.
+Choose either harness independently for the Coordinator and workers. Published 0.2.1
+predates this native integration update. Pi is the next planned integration.
 
 ## Fits your existing project
 
@@ -74,7 +74,8 @@ delivers it to your project’s configured branch. Your working changes stay pro
 
 ## Build from source
 
-Requires Python 3.12+, uv, Node 24+ and pnpm 11.19.0.
+Requires Python 3.12+, uv, Node 24+, pnpm 11.19.0 and Bun 1.3.11.
+Set `FLOWFIELD_BUILD_BUN` to the Bun executable before `make setup`.
 
 ```sh
 make setup

@@ -46,8 +46,8 @@ class HarnessLaunch(HarnessRecord):
     executable_source: Literal["registration", "environment", "path"]
     config_directory: str
     config_source: Literal["registration", "environment", "default"]
-    bridge_executable: str | None = None
-    bridge_version: str | None = None
+    runtime_executable: str | None = None
+    adapter_version: str | None = None
 
 
 class CatalogOwnership(HarnessRecord):
@@ -69,7 +69,6 @@ class HarnessStatus(HarnessRecord):
     launch: HarnessLaunch
     native_installed: bool
     config_available: bool
-    bridge_installed: bool
     selectable: bool
     authentication: Literal["unknown", "authenticated", "signed-out"] = "unknown"
     model_access: Literal["unverified"] = "unverified"
@@ -77,4 +76,3 @@ class HarnessStatus(HarnessRecord):
     checked: bool = False
     problems: list[str] = Field(default_factory=list)
     catalog_ownership: CatalogOwnership | None = None
-    installing: bool = False

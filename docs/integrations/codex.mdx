@@ -8,10 +8,13 @@ Make sure `codex` is available in the terminal where you start Flowfield.
 
 ## Coordinator
 
-The [Coordinator](/coordinator) uses the same managed ACP runtime as workers.
-Install it with `flowfield harness install codex` and choose your model, effort and access mode beside
-the chat input. Flowfield uses Local automatically; worker delivery configuration can wait.
+The [Coordinator](/coordinator) and workers use your installed `codex app-server` directly.
+Choose your model, effort and access mode beside the chat input; models load automatically. Flowfield uses Local automatically; worker delivery configuration can wait.
 The service supplies a scoped MCP connection per turn; you do not need to register the standalone connection below for built-in chat.
+
+Managed tool approvals offer native one-time allow/deny choices. Requests for broader
+permission profiles or persistent grants are denied; choose an appropriate native
+access mode in model settings.
 
 ## Connect a standalone coordinator
 
@@ -40,7 +43,6 @@ coordinator can actually use the connection and identify the correct project.
 
 ## Configure workers
 
-Install the managed runtime with `flowfield harness install codex` (see [runtime installation](/cli#managed-runtime-installation)).
 Native Codex must be installed and authenticated on the machine running Flowfield.
 
 Follow [Worker setup and checks](/worker-setup) to configure and validate delivery.
@@ -59,7 +61,7 @@ explicit approval. Worktrees separate file edits; shared services, ports and dat
 still need their own isolation.
 
 If the service cannot find Codex, restart it from a terminal with the correct PATH, then use
-**Reload models**. Installing a bridge does not enable queues.
+**Refresh models**, or set an executable override in **Settings → Harnesses**.
 
 ## Disconnect
 

@@ -153,6 +153,7 @@ export function WorkerSettings({
     projectId,
     draft?.harness ?? resource.data?.selection?.harness,
     refresh,
+    !resource.loading,
   );
   const { catalog, models } = source;
   const harness = source.kind;

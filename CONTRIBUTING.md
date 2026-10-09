@@ -28,7 +28,8 @@ distinguishes current work from superseded text and archived tasks.
 
 ## Develop locally
 
-Python 3.12+, uv, Node 24+ and pnpm 11.19.0 are required.
+Python 3.12+, uv, Node 24+, pnpm 11.19.0 and Bun 1.3.11 are required.
+Set `FLOWFIELD_BUILD_BUN` to the Bun executable before setup.
 
 ```sh
 make setup
@@ -39,10 +40,11 @@ make build
 ```
 
 `make check` runs Python formatting, lint, types and deterministic tests, generated API
-type validation, bridge cleanup tests, frontend checks/build, and Mintlify validation/link checks. `make smoke`
-runs Chromium against the built application. `make build` produces a wheel and source
-archive with the compiled UI. Both install without Node, pnpm or a checkout at runtime.
-Use `scripts/check-install.py` from a clean installed environment to exercise the package.
+type validation, native cleanup tests, frontend checks/build, and Mintlify validation/link checks. `make smoke`
+runs Chromium against the built application. `make build` produces four platform wheels
+and a portable source archive with the compiled UI and SDK helper. Both install without Node, pnpm or a checkout at runtime.
+`scripts/check_dist.py` copies the install check and scripted native peer into each disposable
+environment to exercise the installed package.
 `make check-dist` installs both distributions through pip and the wheel through isolated
 `uv tool install`, then exercises each installed application outside the checkout.
 
@@ -104,6 +106,11 @@ Mintlify builds `docs/` from the `docs` branch. Advance that branch to the revie
 commit after publication, using a normal fast-forward push, then verify the hosted pages.
 Feature development continues on main.
 
+Native runtime builds use Bun 1.3.11, Node and pnpm during development only. Set
+`FLOWFIELD_BUILD_BUN` to the Bun executable before `make setup` or `make build`.
+The runtime uses pinned SDK 0.3.293 and ships inside macOS 13+ and glibc 2.28+ Linux
+arm64/x64 wheels. x64 builds use Bun's baseline CPU target. Windows is not supported.
+
 ## Versioning and releases
 
 `pyproject.toml` owns the version; uv keeps its entry in
@@ -116,11 +123,9 @@ tested migrations and recovery; a version bump does not permit discarding user s
 
 Every push to main runs the `Tests` workflow: Python 3.12 tests on Linux/macOS, Python and
 frontend quality checks, generated API validation, Mintlify validation, Chromium journeys
-and clean installed-package checks. Standalone Codex and Claude bridge bundles are built
-and checked against scripted native peers on macOS/Linux arm64/x64 without models;
-see [Codex builds](bridges/codex-acp/README.md) and
-[Claude builds and native checks](bridges/claude-acp/README.md). Scripted checks do not
-establish real native compatibility on each platform.
+and clean installed-package checks. The bundled Claude SDK runtime is built and checked against scripted native peers
+on macOS/Linux arm64/x64 without models; see [runtime builds](runtimes/claude-sdk/README.md).
+Scripted checks do not establish real native compatibility on each platform.
 Live model calls are separate from CI.
 
 ### Prepare and rehearse
@@ -145,8 +150,8 @@ and prints outgoing commits; it does not run checks or change files/refs.
 The `Release` workflow in `.github/workflows/workflow.yml` also supports a manual run on
 main. It runs CI, builds distributions once, and verifies those same artifacts on Linux/macOS.
 Manual runs stop after verification. Artifacts and checksums remain available for 30 days.
-Standalone bridge ZIPs and checksum sidecars come from the checked platform builds;
-publication attaches those original artifacts alongside the Python distributions.
+Platform wheels include the Claude SDK runtime. The source archive includes all four
+prebuilt, compressed runtimes so installing it needs no JavaScript tools.
 
 ### Publish
 

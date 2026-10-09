@@ -20,3 +20,4 @@ site/
 docs/.mintlify/
 release-notes.md
 SHA256SUMS
+src/flowfield/_native/

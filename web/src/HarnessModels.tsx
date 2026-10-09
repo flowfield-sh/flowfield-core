@@ -6,7 +6,8 @@ import { ContentStack } from "./DetailLayout";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import { HarnessSelect } from "./HarnessSelect";
+import "./harness-settings.css";
 
 type Status = components["schemas"]["HarnessStatus"];
 export type HarnessKind = Status["registration"]["harness"];
@@ -38,12 +39,13 @@ export function modelSupports(choice: Choice, models: Model[]) {
   );
 }
 
-// Detection is model-free. Native sessions start only after a deliberate load.
+// Discovery is model-free and starts only while the selector is visible.
 // The service owns coalescing, cleanup and bounded caches; this hook retains one view.
 export function useHarnessModels(
   projectId: string,
   requested: HarnessKind | undefined,
   refresh: unknown,
+  open = true,
 ) {
   const hosts = useResource<Status[]>("harnesses", refresh);
   const kind =
@@ -54,24 +56,48 @@ export function useHarnessModels(
   const [load, setLoad] = useState<{ key: string; revision: number } | null>(
     null,
   );
-  const loaded = load?.key === key;
+  if (load && (load.key !== key || !open)) setLoad(null);
+  const loaded = open && !!kind && !!host?.selectable;
   const query = new URLSearchParams({
     project_id: projectId,
     harness: kind ?? "",
-    refresh: "true",
+    refresh: load?.key === key ? "true" : "false",
   });
   const catalog = useResource<Model[]>(
     loaded && kind ? `worker-models?${query}` : null,
-    load?.revision,
+    JSON.stringify([key, load?.revision]),
     180000,
   );
+  const [verified, setVerified] = useState<{
+    key: string;
+    data: Model[] | null;
+    error: string;
+  } | null>(null);
+  if (
+    loaded &&
+    !catalog.loading &&
+    (catalog.data || catalog.error) &&
+    (verified?.key !== key ||
+      verified.data !== catalog.data ||
+      verified.error !== catalog.error)
+  ) {
+    setVerified({ key, data: catalog.data, error: catalog.error });
+  }
   return {
     kind,
     hosts,
     host,
     loaded,
     catalog,
-    models: loaded && !catalog.error ? (catalog.data ?? []) : [],
+    models: loaded
+      ? !catalog.error
+        ? (catalog.data ?? [])
+        : []
+      : verified?.key === key
+        ? verified.error
+          ? []
+          : (verified.data ?? [])
+        : [],
     load: () => setLoad({ key, revision: (load?.revision ?? 0) + 1 }),
   };
 }
@@ -90,40 +116,28 @@ export function HarnessModelSource({
   harnessLocked?: boolean;
 }) {
   const { kind, hosts, host, loaded, catalog } = source;
-  const unavailable = !!hosts.error || !host?.selectable || !!host.installing;
+  const unavailable = !!hosts.error || !host?.selectable;
   return (
     <ContentStack>
       <Label className="field block">
         Harness
-        <NativeSelect
-          aria-label="Harness"
-          size={compact ? "sm" : "default"}
+        <HarnessSelect
+          compact={compact}
           value={kind ?? ""}
           disabled={disabled || harnessLocked || hosts.loading}
-          onChange={(event) => change(event.target.value as HarnessKind)}
-        >
-          <option value="" disabled>
-            {hosts.loading ? "Loading harnesses…" : "Choose a harness"}
-          </option>
-          {Object.entries(harnessNames).map(([value, name]) => {
+          onChange={change}
+          options={Object.entries(harnessNames).map(([value, name]) => {
             const status = hosts.data?.find(
               (item) => item.registration.harness === value,
             );
-            return (
-              <option key={value} value={value} disabled={!status?.selectable}>
-                {name}
-                {status?.selectable ? "" : " (setup needed)"}
-              </option>
-            );
+            return {
+              value: value as HarnessKind,
+              name,
+              disabled: !status?.selectable,
+            };
           })}
-        </NativeSelect>
+        />
       </Label>
-      {harnessLocked && (
-        <p className="detail-metadata">
-          Finish or Stop this message before switching harnesses. If cleanup is
-          uncertain, confirm the coordinator stopped.
-        </p>
-      )}
       {hosts.error && (
         <Alert>
           <AlertDescription>{hosts.error}</AlertDescription>
@@ -137,10 +151,6 @@ export function HarnessModelSource({
           </WorkspaceLink>
         </p>
       )}
-      <p className="detail-metadata">
-        Loading models opens a native session for this project. Startup hooks
-        can run; no model prompt is sent.
-      </p>
       <div className="actions">
         <Button
           type="button"
@@ -149,11 +159,7 @@ export function HarnessModelSource({
           disabled={disabled || hosts.loading || unavailable || catalog.loading}
           onClick={source.load}
         >
-          {catalog.loading
-            ? "Loading models…"
-            : loaded
-              ? "Reload models"
-              : "Load models"}
+          {catalog.loading ? "Loading models…" : "Refresh models"}
         </Button>
       </div>
       {loaded &&

@@ -8,7 +8,6 @@ import shutil
 from collections.abc import Mapping
 from pathlib import Path
 
-from flowfield.adapters import codex_install
 from flowfield.adapters.local_process import LocalProcess
 from flowfield.errors import ApplicationError
 from flowfield.harness_models import HarnessLaunch, HarnessRegistration, HarnessStatus
@@ -16,12 +15,12 @@ from flowfield.harness_models import HarnessLaunch, HarnessRegistration, Harness
 
 def same_session_location(old: HarnessLaunch, new: HarnessLaunch) -> bool:
     # A saved revision/source or immutable installation generation can change
-    # without redirecting native history. A changed bridge version needs revalidation.
-    return (old.harness, old.native_executable, old.config_directory, old.bridge_version) == (
+    # without redirecting native history. A changed adapter version needs revalidation.
+    return (old.harness, old.native_executable, old.config_directory, old.adapter_version) == (
         new.harness,
         new.native_executable,
         new.config_directory,
-        new.bridge_version,
+        new.adapter_version,
     )
 
 
@@ -49,6 +48,7 @@ def resolve(registration: HarnessRegistration, environment: Mapping[str, str]) -
         if configured
         else "path",
         config_directory=str(location.resolve()) if location.is_absolute() else str(location),
+        adapter_version="codex-app-server-v1" if codex else "claude-sdk-v1",
         config_source="registration"
         if registration.config_directory
         else "environment"
@@ -101,25 +101,11 @@ def status(
     )
     if not available:
         problems.append("config_directory_missing")
-    from flowfield.adapters import claude_install
-
-    try:
-        launch.bridge_executable = str(
-            codex_install.installed(directory)
-            if registration.harness == "codex"
-            else claude_install.installed(directory)
-        )
-        launch.bridge_version = (
-            codex_install.VERSION if registration.harness == "codex" else claude_install.VERSION
-        )
-    except (ApplicationError, OSError):
-        problems.append("bridge_missing_or_invalid")
     return HarnessStatus(
         registration=registration,
         launch=launch,
         native_installed=launch.native_executable is not None,
         config_available=available,
-        bridge_installed=launch.bridge_executable is not None,
         selectable=not problems,
         problems=problems,
     )
@@ -178,7 +164,7 @@ async def _native_command(
 async def check(
     directory: Path, registration: HarnessRegistration, environment: Mapping[str, str]
 ) -> HarnessStatus:
-    """Explicit native version/login-status only; never an ACP/model session or login flow."""
+    """Explicit native version/login-status only; never a model turn or login flow."""
     result = status(directory, registration, environment)
     result.checked = True
     if not result.native_installed or not result.config_available:

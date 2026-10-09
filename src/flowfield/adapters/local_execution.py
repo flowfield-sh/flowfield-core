@@ -1,4 +1,4 @@
-"""Local machine preparation for ACP; no tool inventory, sandbox or provisioning.
+"""Local machine preparation for native agents; no tool inventory, sandbox or provisioning.
 
 The caller supplies the intended host environment explicitly (not a login shell
 command or a persisted bag of credentials). Each attempt owns its checkout and

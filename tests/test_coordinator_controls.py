@@ -1,4 +1,4 @@
-"""Native command and access-mode journeys, using offline ACP processes."""
+"""Native command and access-mode journeys, using scripted native processes."""
 
 import asyncio
 
@@ -60,7 +60,7 @@ def test_discovery_is_shared_model_free_and_dispatch_rechecks_current_commands(
             assert rejected.status == "failed" and not rejected.activity.items
         flags.append("no-compact")
         stale = service.coordinator.send("harbor", conversation.id, message("/compact"))
-        assert "not available" in (await settled(service, stale)).notice
+        assert (await settled(service, stale)).status == "failed"
         await service.close()
 
     asyncio.run(exercise())

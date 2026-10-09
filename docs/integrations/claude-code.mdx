@@ -3,20 +3,16 @@ title: Claude Code
 description: Configure native Claude Code for the Coordinator and task workers.
 ---
 
-Claude Code integration is available in development source. Published Flowfield 0.2.1
-supports Codex; Claude bridge downloads require a future release. For development builds,
-install the matching standalone bundle with `flowfield harness install claude-code
---bundle /path/to/bundle.zip --sha256 CHECKSUM`.
+Development builds include Claude support automatically. Published Flowfield 0.2.1 predates
+this integration; publication of the native integrations is pending.
 
-Native journeys have been verified with Claude Code 2.1.295 on macOS arm64. Standalone
-bundle checks cover macOS/Linux arm64/x64 with scripted native peers; those checks do not
-establish live native compatibility on the other hosts.
+The native adapter uses the official Agent SDK with your installed Claude Code.
 
 ## Native setup
 
 Install [Claude Code](https://code.claude.com/docs/en/setup) and sign in using its native
 CLI on the service host. Flowfield launches that installed, unmodified CLI through its
-ACP bridge. It does not collect credentials, offer its own Claude login, or switch accounts.
+official Agent SDK, whose helper ships with Flowfield. It does not collect credentials, offer its own Claude login, or switch accounts.
 Native account configuration determines model access and billing.
 
 In **Settings → Harnesses**, leave paths blank to detect native defaults or save an absolute
@@ -27,12 +23,12 @@ model access; that requires a successful native turn. No Node/Bun runtime is nee
 
 You can use Claude alone, Codex alone, or both. There is one registration per harness type;
 change accounts within the native harness. After changing native login/configuration,
-check setup and explicitly reload models. Running work keeps its saved Flowfield choice and
+check setup and refresh models. Running work keeps its saved Flowfield choice and
 launch registration, but externally edited native files and credentials are not frozen.
 
 ## Choose roles
 
-In the [Coordinator](/coordinator), select Claude Code, **Load models**, choose a native
+In the [Coordinator](/coordinator), select Claude Code and choose a native
 model and supported effort/access controls, then save. The service supplies project-scoped
 Flowfield tools automatically. Native `CLAUDE.md` and existing project instructions remain
 intact. The Coordinator runs in your project and can change it within its native access mode.

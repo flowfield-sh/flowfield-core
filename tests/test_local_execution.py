@@ -5,13 +5,13 @@ import json
 import os
 import signal
 import sys
-from pathlib import Path
 
 import pytest
+from test_native_adapters import start
 
-from flowfield.adapters.acp_session import AcpSession
 from flowfield.adapters.git_integration import candidate
 from flowfield.adapters.git_workspace import baseline, git
+from flowfield.adapters.json_rpc import JsonRpc
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.adapters.local_process import LocalProcess
 from flowfield.errors import ApplicationError
@@ -153,7 +153,7 @@ def test_parallel_workspaces_runtime_stop_and_conflicting_results(tmp_path):
     assert not (repo / "node_modules").exists()
 
 
-def test_acp_sessions_use_prepared_environments_and_stop_independently(tmp_path):
+def test_native_sessions_use_prepared_environments_and_stop_independently(tmp_path):
     repo, base = repository(tmp_path)
     host = LocalHost({})
 
@@ -163,20 +163,17 @@ def test_acp_sessions_use_prepared_environments_and_stop_independently(tmp_path)
             for identity in ("one", "two"):
                 attempt = host.prepare(tmp_path / "state", repo, identity, base)
                 started = asyncio.Event()
-                client = AcpSession(lambda event, started=started: started.set(), request_timeout=3)
-                clients.append(client)
-                await client.start(
-                    [sys.executable, str(Path(__file__).with_name("fake_acp.py"))],
-                    cwd=attempt.workspace.checkout,
-                    env=attempt.launch_environment(),
-                    mcp_servers=[],
+                events = []
+                client = await start(attempt.workspace.checkout, events)
+                client.on_activity = lambda value, started=started: (
+                    started.set() if "started" in value.text else None
                 )
-                prompts.append(asyncio.create_task(client.prompt('{"mode":"wait"}')))
+                clients.append(client)
+                prompts.append(asyncio.create_task(client.prompt('{"mode":"wait"}', None)))
                 await asyncio.wait_for(started.wait(), 3)
-            stopped = await clients[0].close()
-            assert stopped.turn_finished and stopped.process_group_exited
-            assert await prompts[0] == "cancelled"
-            assert clients[1].state == "running" and not prompts[1].done()
+            assert await clients[0].stop()
+            assert (await prompts[0])["status"] == "stopped"
+            assert not clients[1].stopping and not prompts[1].done()
         finally:
             for client in clients:
                 await client.close()
@@ -212,7 +209,7 @@ def test_cancelled_launch_still_stops_its_process(tmp_path, monkeypatch):
     asyncio.run(exercise())
 
 
-def test_acp_cancelled_launch_retains_unconfirmed_process_owner(tmp_path, monkeypatch):
+def test_native_cancelled_launch_retains_unconfirmed_process_owner(tmp_path, monkeypatch):
     async def exercise():
         spawned, release = asyncio.Event(), asyncio.Event()
         real_spawn, killpg = asyncio.create_subprocess_exec, os.killpg
@@ -230,22 +227,22 @@ def test_acp_cancelled_launch_retains_unconfirmed_process_owner(tmp_path, monkey
                 raise PermissionError("Cannot confirm cleanup")
             killpg(group, signum)
 
-        client = AcpSession(lambda event: None)
+        async def reject(method, params):
+            return {}
+
+        client = JsonRpc(lambda *_: None, reject)
         with monkeypatch.context() as patch:
             patch.setattr(asyncio, "create_subprocess_exec", delayed_spawn)
             patch.setattr(os, "killpg", deny)
-            task = asyncio.create_task(
-                client.start(["/bin/sleep", "60"], cwd=tmp_path, env={}, mcp_servers=[])
-            )
+            task = asyncio.create_task(client.start(["/bin/sleep", "60"], cwd=tmp_path, env={}))
             try:
                 await asyncio.wait_for(spawned.wait(), 3)
                 task.cancel()
                 release.set()
                 with pytest.raises(asyncio.CancelledError):
                     await task
-                assert client.process is processes[0]
-                assert client.state == "interrupted"
-                assert not (await client.close()).process_group_exited
+                assert client.owner.process is processes[0]
+                assert not await client.close()
             finally:
                 release.set()
                 if processes:

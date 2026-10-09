@@ -5,12 +5,7 @@ import { request } from "./workspace";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { useResource } from "./useResource";
 import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
-import {
-  ContentStack,
-  DetailHeading,
-  DetailSection,
-  Disclosure,
-} from "./DetailLayout";
+import { ContentStack, DetailHeading, Disclosure } from "./DetailLayout";
 import { Timestamp } from "./Timestamp";
 import { ConfirmButton } from "./ConfirmButton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -20,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { SidebarMenuButton, useSidebar } from "@/components/ui/sidebar";
 import "./harness-settings.css";
 import { harnessNames as names } from "./HarnessModels";
+import { HarnessLogo } from "./HarnessSelect";
 
 type Status = components["schemas"]["HarnessStatus"];
 type Registration = components["schemas"]["HarnessRegistration"];
@@ -46,9 +42,7 @@ function setupLabel(value: Status) {
   if (value.catalog_ownership?.status === "uncertain")
     return "Discovery needs attention";
   if (value.catalog_ownership) return "Discovering native choices";
-  if (value.installing) return "Installing bridge";
   if (!value.native_installed) return "Native harness missing";
-  if (!value.bridge_installed) return "Bridge needed";
   if (!value.config_available) return "Configuration directory missing";
   if (value.authentication === "signed-out") return "Sign-in required";
   return value.checked && value.authentication === "authenticated"
@@ -103,7 +97,7 @@ function HarnessEntry({
   const { element: harnessElement } = editor;
   const status = resource.data;
   async function operate(
-    operation: "check" | "install" | "catalog/confirm-stopped",
+    operation: "check" | "catalog/confirm-stopped",
     id?: string,
   ) {
     setAction(operation);
@@ -121,11 +115,9 @@ function HarnessEntry({
       resource.setData(result);
       resource.setError("");
       setNotice(
-        operation === "install"
-          ? "Bridge installed. Check the saved setup next."
-          : operation === "check"
-            ? "Setup checked. Model access still needs a successful turn."
-            : "Discovery hold cleared. Native choices can be loaded again.",
+        operation === "check"
+          ? "Setup checked."
+          : "Discovery hold cleared. Native choices can be loaded again.",
       );
     } catch (error) {
       setError((error as Error).message);
@@ -133,7 +125,7 @@ function HarnessEntry({
       setAction("");
     }
   }
-  const busy = !!action || editor.busy || !!status?.installing;
+  const busy = !!action || editor.busy;
   return (
     <section
       ref={harnessElement}
@@ -142,7 +134,12 @@ function HarnessEntry({
     >
       <ContentStack space="section">
         <DetailHeading
-          title={names[kind]}
+          title={
+            <span className="harness-name">
+              <HarnessLogo kind={kind} />
+              {names[kind]}
+            </span>
+          }
           status={
             status
               ? setupLabel(status)
@@ -166,17 +163,6 @@ function HarnessEntry({
               </p>
             )}
             <div className="actions">
-              {!status.bridge_installed && (
-                <Button
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => void operate("install")}
-                >
-                  {action === "install" || status.installing
-                    ? "Installing bridge…"
-                    : "Install bridge"}
-                </Button>
-              )}
               <Button
                 size="sm"
                 variant="outline"
@@ -190,7 +176,7 @@ function HarnessEntry({
               >
                 {action === "check" ? "Checking setup…" : "Check saved setup"}
               </Button>
-              {(status.installing || status.catalog_ownership) && (
+              {status.catalog_ownership && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -203,10 +189,6 @@ function HarnessEntry({
                 </Button>
               )}
             </div>
-            <p className="detail-metadata">
-              Checks read native version and sign-in status. They send no model
-              prompt and change no native configuration.
-            </p>
             {status.catalog_ownership && (
               <Alert>
                 <AlertTitle>
@@ -260,12 +242,7 @@ function HarnessEntry({
                 </AlertDescription>
               </Alert>
             )}
-            <DetailSection title="Native configuration">
-              <p className="detail-metadata">
-                Optional overrides on the service host. Leave blank to use
-                native defaults. Accounts and credentials stay with{" "}
-                {names[kind]}.
-              </p>
+            <Disclosure summary="Path overrides">
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
@@ -282,7 +259,7 @@ function HarnessEntry({
                   data-space="content"
                 >
                   <Label className="field block">
-                    Executable override
+                    Executable path
                     <Input
                       value={editor.values.executable}
                       placeholder={
@@ -295,26 +272,15 @@ function HarnessEntry({
                     />
                   </Label>
                   <Label className="field block">
-                    Configuration directory override
+                    Configuration directory
                     <Input
-                      aria-label="Configuration directory override"
-                      aria-describedby={`harness-${kind}-config-help`}
+                      aria-label="Configuration directory"
                       value={editor.values.config_directory}
                       placeholder={status.launch.config_directory}
                       onChange={(event) =>
                         editor.change("config_directory", event.target.value)
                       }
                     />
-                    <span
-                      id={`harness-${kind}-config-help`}
-                      className="detail-metadata"
-                    >
-                      Directory for{" "}
-                      {kind === "codex"
-                        ? "CODEX_HOME; not config.toml"
-                        : "CLAUDE_CONFIG_DIR; not settings.json"}
-                      .
-                    </span>
                   </Label>
                   <div className="actions">
                     <Button
@@ -339,7 +305,7 @@ function HarnessEntry({
                 </fieldset>
               </form>
               <EditorFeedback state={editor} />
-            </DetailSection>
+            </Disclosure>
             <Disclosure summary="Detected setup">
               <dl className="harness-facts">
                 <dt>Native executable</dt>
@@ -351,8 +317,6 @@ function HarnessEntry({
                 </dd>
                 <dt>Native version</dt>
                 <dd>{status.native_version ?? "Run Check saved setup"}</dd>
-                <dt>Bridge</dt>
-                <dd>{status.launch.bridge_version ?? "Not installed"}</dd>
                 <dt>Sign-in</dt>
                 <dd>
                   {status.authentication === "unknown"
@@ -414,13 +378,10 @@ export function HarnessSettings({
         <h1>Settings</h1>
         <ContentStack>
           <DetailHeading title="Harnesses" titleAs="h2" />
-          <p>
-            Use any supported harness you have set up. Project Coordinator and
-            Workers settings choose their models independently.
-          </p>
           <p className="detail-metadata">
-            Paths and installations belong to the Flowfield service host.
-            Running work keeps its captured settings.
+            Use Codex or Claude Code installed on the service host. Choose
+            models in project settings; override detected paths only when
+            needed.
           </p>
         </ContentStack>
         <HarnessEntry kind="codex" onDirty={changed} />

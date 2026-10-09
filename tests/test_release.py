@@ -198,7 +198,7 @@ def test_artifact_selection_rejects_stale_or_extra_distributions(tmp_path, monke
         (tmp_path / name).touch()
     assert [file.name for file in checker.artifacts(tmp_path, "0.1.0")] == names
     (tmp_path / "flowfield_core-0.0.1.tar.gz").touch()
-    with pytest.raises(ValueError, match="exactly"):
+    with pytest.raises(ValueError, match="Unexpected distribution artifacts"):
         checker.artifacts(tmp_path, "0.1.0")
     monkeypatch.setenv("FLOWFIELD_DATA_DIR", "/valuable-state")
     monkeypatch.setenv("PYTHONPATH", "/checkout")

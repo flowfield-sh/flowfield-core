@@ -8,9 +8,9 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
-from flowfield.adapters.acp_agent import AcpAgent
-from flowfield.adapters.acp_permissions import permission_handler
+from flowfield.adapters.agent_contract import Agent
 from flowfield.adapters.agent_mcp import serve_scope
+from flowfield.adapters.agent_permissions import permission_handler
 from flowfield.adapters.agent_selection import create
 from flowfield.adapters.harness_host import resolve
 from flowfield.adapters.local_execution import LocalHost
@@ -155,7 +155,7 @@ class Coordinator:
 
     async def _run(self, turn: CoordinatorTurn) -> None:
         workspace = self.supervisor.workspace
-        client: AcpAgent | None = None
+        client: Agent | None = None
         temporary: tempfile.TemporaryDirectory[str] | None = None
         recorder = ActivityRecorder(workspace, turn.project_id, turn.id, store=self.store)
         status: Literal["completed", "failed", "stopped"] = "failed"
@@ -228,15 +228,15 @@ class Coordinator:
                             )
                         )
                     await client.start([server], resume=session_id, persistent=True)
-                    assert client.session.session_id
+                    applied = await client.configure(turn.settings.choice)
+                    assert client.session_id
                     self.store.sessions.created(
                         turn.project_id,
                         turn.id,
                         generation_id,
-                        client.session.session_id,
+                        client.session_id,
                         launch=client.launch,
                     )
-                    applied = await client.configure(turn.settings.choice)
                     attachments = Attachments(workspace).inputs(turn.project_id, None, turn.text)
                     # Reject unsupported input before promoting the current binding:
                     # native history is only materialized by its first prompt.
@@ -244,7 +244,7 @@ class Coordinator:
                     native_command = await client.command_prompt(
                         turn.text, has_history=session_id is not None, attachments=attachments
                     )
-                    assert client.session.session_id
+                    assert client.session_id
                     with workspace.connection(write=True, project_id=turn.project_id) as db:
                         current = self.store._get(db, turn.project_id, turn.id)
                         if current.status != "starting":
@@ -287,11 +287,11 @@ class Coordinator:
                         )
                     startup_pending = False
                     client.on_activity = recorder.emit
-                    assert client.session.session_id
+                    assert client.session_id
                     async with self.supervisor.permissions.turn(
                         turn.project_id,
                         "coordinator",
-                        session_id=client.session.session_id,
+                        session_id=client.session_id,
                         turn_id=turn.id,
                         conversation_id=turn.conversation_id,
                         generation_id=generation_id,

@@ -8,13 +8,12 @@ from dataclasses import replace
 import httpx
 import pytest
 from pydantic import ValidationError
-from test_codex_install import bundle
 from test_coordinator import message, settled, setup
 from test_execution import BASE, fixture
 from typer.testing import CliRunner
 
 from flowfield import migrations, storage
-from flowfield.adapters import codex_install, harness_host
+from flowfield.adapters import harness_host
 from flowfield.adapters.codex_agent import CodexAgent
 from flowfield.adapters.coordinator_sessions import CoordinatorSessions, NativeGeneration
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit
@@ -136,7 +135,7 @@ def test_explicit_readiness_uses_only_bounded_native_status_and_no_sensitive_out
     checked = asyncio.run(harness_host.check(tmp_path, registration, env))
     assert checked.native_version == ("0.155.1" if harness == "codex" else "2.1.295")
     assert checked.authentication == ("authenticated" if logged_in else "signed-out")
-    assert checked.model_access == "unverified" and not checked.bridge_installed
+    assert checked.model_access == "unverified"
     assert "native-private-value" not in checked.model_dump_json()
     assert [json.loads(line) for line in log.read_text().splitlines()] == [
         ["--version"],
@@ -254,9 +253,7 @@ def test_worker_and_coordinator_freeze_registration_before_edits(tmp_path):
 
 
 def test_codex_override_launch_is_frozen_and_saved_session_rejects_redirect(tmp_path):
-    package, checksum = bundle(tmp_path)
     workspace = fixture(tmp_path).workspace
-    codex_install.install(workspace.directory, package, checksum)
     executable, _ = native(tmp_path, "codex")
     config = tmp_path / "native-config"
     config.mkdir()
@@ -274,7 +271,7 @@ def test_codex_override_launch_is_frozen_and_saved_session_rejects_redirect(tmp_
     ] == str(config)
     assert (
         agent.launch.registration_revision == 2
-        and agent.launch.bridge_executable == agent.command[0]
+        and agent.launch.adapter_version == "codex-app-server-v1"
     )
     with workspace.connection(write=True) as db:
         generation = NativeGeneration(
@@ -548,15 +545,15 @@ def test_offline_status_respects_saved_override_without_initializing_missing_sta
     saved = HarnessSettings(workspace).edit(
         "codex", HarnessEdit(expected_revision=1, executable=str(executable))
     )
-    package, checksum = bundle(tmp_path)
-    codex_install.install(workspace.directory, package, checksum)
     monkeypatch.setenv("PATH", "")
     result = CliRunner().invoke(
         cli, ["--data-dir", str(workspace.directory), "harness", "status", "codex", "--json"]
     )
     assert result.exit_code == 0, result.output
     status = json.loads(result.stdout)
-    assert status["registration"] == saved.model_dump() and status["codex"] == str(executable)
+    assert status["registration"] == saved.model_dump() and status["launch"][
+        "native_executable"
+    ] == str(executable)
     assert not log.exists() and storage.backups(workspace.directory) == []
 
 

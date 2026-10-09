@@ -1,4 +1,4 @@
-"""Durable browser coordination using real ACP subprocesses and scoped MCP, without models."""
+"""Durable browser coordination using real native subprocesses and scoped MCP, without models."""
 
 import asyncio
 import json
@@ -99,7 +99,7 @@ async def settled(service, turn):
     return service.coordinator.store.get("harbor", turn.id)
 
 
-def test_real_acp_capture_continuity_and_duplicate_send(tmp_path, monkeypatch):
+def test_real_native_capture_continuity_and_duplicate_send(tmp_path, monkeypatch):
     service, conversation = setup(tmp_path, monkeypatch)
     request = message()
 
@@ -244,8 +244,8 @@ def test_planning_before_worker_delivery_configuration(tmp_path, monkeypatch):
     asyncio.run(exercise())
 
 
-@pytest.mark.parametrize("choice", ["allow", "future", "deny"])
-def test_long_native_permission_reaches_coordinator_and_preserves_offered_choices(
+@pytest.mark.parametrize("choice", ["allow", "deny"])
+def test_native_permission_reaches_coordinator_and_preserves_offered_choices(
     tmp_path, monkeypatch, choice
 ):
     service, conversation = setup(
@@ -260,9 +260,7 @@ def test_long_native_permission_reaches_coordinator_and_preserves_offered_choice
                     await asyncio.sleep(0.02)
             pending = service.permissions.page("harbor").pending[0]
             assert pending.role == "coordinator" and pending.turn_id == turn.id
-            assert len(pending.options[1].label) > 400
-            assert pending.options[1].label.endswith('console.log("complete-prefix")\'`')
-            assert [o.id for o in pending.options] == ["allow", "future", "deny"]
+            assert [o.id for o in pending.options] == ["allow", "deny"]
             assert "command: inspect project" in pending.details
             service.permissions.answer(
                 "harbor",

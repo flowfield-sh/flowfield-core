@@ -1,4 +1,4 @@
-"""Scripted native SDK peer for an explicit model-free bridge conformance probe.
+"""Scripted native SDK peer for an explicit model-free SDK conformance probe.
 
 No Claude executable, model API, credentials or real project is used. The probe
 owns any supplied tool PID as a live LocalProcess handle in the same test run.
@@ -20,7 +20,12 @@ def main() -> None:
     scenario = os.environ["FLOWFIELD_TEST_SCENARIO"]
     record = Path(os.environ["FLOWFIELD_TEST_RECORD"])
     tool_pid = int(os.environ.get("FLOWFIELD_TEST_TOOL_PID", "0"))
-    session_id = next(arg.split("=", 1)[1] for arg in sys.argv if arg.startswith("--session-id="))
+    session_id = (
+        next((arg.split("=", 1)[1] for arg in sys.argv if arg.startswith("--session-id=")), None)
+        or sys.argv[sys.argv.index("--session-id") + 1]
+        if "--session-id" in sys.argv
+        else next(arg.split("=", 1)[1] for arg in sys.argv if arg.startswith("--session-id="))
+    )
     tasks = []
     active_prompt = None
     initialize_count = 0
@@ -117,8 +122,10 @@ def main() -> None:
                             "displayName": "Default",
                             "description": "Synthetic",
                             "resolvedModel": "claude-sonnet-5-5",
-                            "supportsEffort": True,
-                            "supportedEffortLevels": ["low", "medium", "high"],
+                            "supportsEffort": os.environ.get("FLOWFIELD_TEST_NO_EFFORT") != "1",
+                            "supportedEffortLevels": []
+                            if os.environ.get("FLOWFIELD_TEST_NO_EFFORT") == "1"
+                            else ["low", "medium", "high"],
                         },
                         {
                             "value": "sonnet",
@@ -143,6 +150,7 @@ def main() -> None:
                     tasks = []
                     snapshot()
             elif subtype == "get_context_usage":
+                time.sleep(float(os.environ.get("FLOWFIELD_TEST_CONTEXT_DELAY", "0")))
                 response = {"model": "claude-sonnet-5-5", "rawMaxTokens": 1000000}
             elif subtype not in {
                 "set_model",
@@ -173,6 +181,10 @@ def main() -> None:
             )
             if subtype == "initialize" and initialize_count > 1:
                 snapshot()
+        elif message.get("type") == "control_response":
+            save({"permission": message["response"]})
+            finish()
+            active_prompt = None
         elif message.get("type") == "user":
             active_prompt = message
             save({"input": message["message"]})
@@ -211,7 +223,26 @@ def main() -> None:
                     "session_id": session_id,
                 }
             )
-            if scenario in {"background", "refused", "bridge-failure"}:
+            if scenario == "permission":
+                emit(
+                    {
+                        "type": "control_request",
+                        "request_id": "fixture-permission",
+                        "request": {
+                            "subtype": "can_use_tool",
+                            "tool_name": "Bash",
+                            "tool_use_id": "owned-tool",
+                            "input": {
+                                "command": "echo public",
+                                "cwd": str(Path.cwd()),
+                                "private": "PRIVATE_TOOL_INPUT",
+                            },
+                            "permission_suggestions": [],
+                        },
+                    }
+                )
+                continue
+            if scenario in {"background", "refused", "runtime-failure"}:
                 tasks = [
                     {
                         "task_id": "owned-test-task",

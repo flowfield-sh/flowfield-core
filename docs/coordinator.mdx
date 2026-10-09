@@ -10,11 +10,10 @@ Open a card to discuss that task without losing the conversation.
 ## Start planning
 
 Install and sign in to [Codex](/integrations/codex) or [Claude Code](/integrations/claude-code),
-then install its managed bridge from **Settings → Harnesses** or the CLI.
+then check detected paths in **Settings → Harnesses** if needed.
 Add an existing project using **Add project → Choose directory** or `flowfield project init`.
-In the Coordinator settings beside the input, select a ready harness and **Load models**,
-then choose its model and supported effort/access controls and save. Loading opens a native
-session for this project; startup hooks can run, but no model prompt is sent. The host setup
+In the Coordinator settings beside the input, select a ready harness and wait for models to load,
+then choose its model and supported effort/access controls and save. Discovery is project-scoped and sends no model prompt. Claude startup hooks can run. The host setup
 page is **Settings → Harnesses**. Use either harness alone or configure both; the
 Coordinator and workers have independent choices.
 The Coordinator uses the service host’s tools and credentials. Configure worker setup when
@@ -71,13 +70,13 @@ then send the command. Escape returns to ordinary writing. The list contains onl
 supported by both Flowfield and the connected Codex session; Claude currently has no exposed
 slash commands. Discovery starts no model turn.
 Select **Load commands** to discover the list; opening the composer or slash menu starts
-no native session. Discovery opens a disposable native session and startup hooks can run,
-but no model prompt is sent. Flowfield briefly caches the result. Commands are revalidated
+no native session. Codex commands use native controls and send no model prompt. Flowfield briefly caches
+the menu. Unsupported commands fail without replay. Commands are validated
 before dispatch.
 
 | Command | Effect |
 | --- | --- |
-| `/status` | Show available session information. Usage may be unavailable immediately after resuming. |
+| `/status` | Show the current model, effort and access settings. |
 | `/compact` | Ask Codex to compact the ongoing conversation. Requires an existing conversation. |
 | `/mcp` | List the session's MCP connections. |
 | `/skills` | List skills discovered by Codex. |
@@ -90,7 +89,7 @@ expose session commands.
 supports it. Select it to save Fast on or off for subsequent messages. It provides faster
 responses with increased usage; hover or focus the button for its description and current state.
 Changing models starts at normal speed. Running turns keep their captured settings.
-After reloading the page, load models to verify current Fast support before changing it.
+After reloading the page, open model settings to verify current Fast support before changing it.
 Task workers have the same lightning control for subsequent attempts. Fast defaults to off
 for each task, with no project-wide speed setting.
 

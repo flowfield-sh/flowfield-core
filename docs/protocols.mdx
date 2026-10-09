@@ -1,35 +1,22 @@
 ---
-title: ACP and MCP
-description: How Flowfield communicates with coding agents and exposes project tools.
+title: Native integrations and MCP
+description: How Flowfield runs coding harnesses and supplies scoped project tools.
 ---
 
-Flowfield uses two complementary protocols:
+Flowfield runs Codex through its installed app-server and Claude Code through the official
+Agent SDK. The SDK helper is included with Flowfield; no separate support installation
+or Node runtime is needed. Native login, repository instructions and tool policy remain
+with the harness. See [Codex](/integrations/codex) and [Claude Code](/integrations/claude-code).
 
-| Protocol | Connection | Purpose |
-| --- | --- | --- |
-| Agent Client Protocol (ACP) | Flowfield → coding harness | Send messages, receive activity, select settings and handle tool permission requests. |
-| Model Context Protocol (MCP) | Coding harness → Flowfield | Read project context, maintain tasks and report work through scoped tools. |
+Both adapters discover native models, apply supported settings, stream public activity
+and route tool permissions into Flowfield. Compatible coordinator settings resume native
+history; harness changes start a fresh session with saved Flowfield context. Current-turn
+attachments accompany the prompt. Private reasoning and permission grants are not transferred.
 
-## ACP: running the conversation
-
-[ACP](https://agentclientprotocol.com/get-started/introduction) standardizes communication
-between coding agents and their client applications. Flowfield acts as the client for
-the Coordinator and managed task workers, using a local subprocess connection.
-
-Codex and Claude Code adapters connect through installed ACP bridges. They discover native
-model capabilities, apply supported settings, stream public text/tool activity and handle
-native permission requests. Compatible coordinator settings resume saved native sessions;
-workers run scoped task attempts in their own workspaces.
-
-Flowfield provides the coordinator commands `/status`, `/compact`, `/mcp` and `/skills` when
-the Codex harness advertises them. Claude commands are not exposed. See
-[Coordinator](/coordinator) for the controls and session behavior.
-
-Install the selected bridge with `flowfield harness install codex` or
-`flowfield harness install claude-code`; install and authenticate the native harness
-separately. No Node/Bun runtime is required. Harness switches use a fresh native session
-and a bounded Flowfield handoff, retaining public history and older scoped source reads.
-Native session files, private reasoning and permission grants are not converted.
+Stop interrupts active turns and stops supported native background work. Unconfirmed
+cleanup retains ownership and capacity until the exact work is reconciled. Native process
+exit alone does not establish background-work cleanup. Arbitrary daemons and external
+services remain outside that guarantee.
 
 ## MCP: working with Flowfield
 

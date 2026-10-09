@@ -1,4 +1,4 @@
-"""Production Local/ACP orchestration with real Git, subprocesses and scoped MCP; no models."""
+"""Production Local/native orchestration with real Git, subprocesses and scoped MCP; no models."""
 
 import asyncio
 import json
@@ -22,7 +22,7 @@ from flowfield.permission_models import PermissionAnswer
 from flowfield.setup_validation import SetupCheckRequest
 from flowfield.supervisor import Supervisor
 
-FAKE = Path(__file__).with_name("fake_acp.py")
+FAKE = Path(__file__).with_name("fake_native_codex.py")
 
 
 def configured(tmp_path, monkeypatch, *, count=1, scenario="normal", flags=()):
@@ -79,7 +79,7 @@ def test_local_workers_validate_and_inspect_with_host_tools(tmp_path, monkeypatc
     base = baseline(repo)
 
     async def exercise():
-        assert (await service.model_options())[0].modes[0].id == "workspace-write"
+        assert "workspace-write" in {mode.id for mode in (await service.model_options())[0].modes}
         checked = await service.setup_validation.check(
             "harbor", SetupCheckRequest(expected_revision=settings.revision)
         )
@@ -240,15 +240,12 @@ def test_parallel_mixed_language_project_delivery(tmp_path, monkeypatch, linked_
     asyncio.run(exercise())
 
 
-@pytest.mark.parametrize("long_label", [False, True])
-def test_native_permission_is_durable_and_does_not_approve_result(
-    tmp_path, monkeypatch, long_label
-):
+def test_native_permission_is_durable_and_does_not_approve_result(tmp_path, monkeypatch):
     service, repo, _ = configured(
         tmp_path,
         monkeypatch,
         scenario="permission",
-        flags=("long-permission",) if long_label else (),
+        flags=(),
     )
     base = baseline(repo)
     run = service.execution.claim("harbor", base, {base: set()})
@@ -261,12 +258,8 @@ def test_native_permission_is_durable_and_does_not_approve_result(
                     await asyncio.sleep(0.02)
             pending = service.permissions.page("harbor").pending[0]
             assert "command: inspect project" in pending.details
-            assert "Before:\nbefore" in pending.details and "After:\nafter" in pending.details
-            option = "future" if long_label else "allow"
-            if long_label:
-                assert len(pending.options[1].label) > 400
-                assert pending.options[1].label.endswith('console.log("complete-prefix")\'`')
-                assert [o.id for o in pending.options] == ["allow", "future", "deny"]
+            assert "Before: before" in pending.details and "After: after" in pending.details
+            option = "allow"
             service.permissions.answer(
                 "harbor",
                 pending.id,
@@ -394,33 +387,42 @@ def test_local_commits_capture_original_base_without_moving_shared_branch(tmp_pa
     assert baseline(repo) == base
 
 
-def test_public_permission_projection_keeps_commands_and_diff_but_not_private_inputs():
-    from acp.schema import ToolCallUpdate
+def test_public_permission_projection_keeps_commands_but_not_private_inputs(tmp_path):
+    from test_native_adapters import start
 
-    from flowfield.adapters.codex_agent import codex_permission_details
+    async def exercise():
+        agent = await start(tmp_path, [])
+        agent._completion = asyncio.get_running_loop().create_future()
+        agent.turns[agent.session_id] = "owned-turn"
+        observed = []
 
-    tool = ToolCallUpdate.model_validate(
-        {
-            "toolCallId": "edit",
-            "title": "Edit files",
-            "locations": [{"path": "/project/a"}],
-            "content": [
-                {"type": "diff", "path": "/project/a", "oldText": "before", "newText": "after"}
-            ],
-            "rawInput": {
-                "command": "pnpm test",
-                "cwd": "/project",
-                "authorization": "private-token",
-            },
-            "_meta": {"private": "private-metadata"},
-        }
-    )
-    detail = codex_permission_details(tool)
-    assert all(text in detail for text in ("pnpm test", "/project/a", "before", "after"))
-    assert "private-token" not in detail and "private-metadata" not in detail
-    tool.raw_input = {"command": "x" * 20000}
-    assert len(codex_permission_details(tool)) <= 16000
-    assert codex_permission_details(tool).endswith("[Details truncated]")
+        async def approve(request):
+            observed.append(request)
+            return "allow"
+
+        agent._permission = approve
+        try:
+            result = await agent._request(
+                "item/commandExecution/requestApproval",
+                {
+                    "threadId": agent.session_id,
+                    "turnId": "owned-turn",
+                    "itemId": "command",
+                    "command": "pnpm test",
+                    "cwd": "/project",
+                    "authorization": "private-token",
+                    "_meta": {"private": "private-metadata"},
+                },
+            )
+            assert result == {"decision": "accept"}
+            assert "pnpm test" in observed[0].details and "/project" in observed[0].details
+            assert "private" not in observed[0].details
+        finally:
+            agent._completion = None
+            agent.turns.clear()
+            assert await agent.stop()
+
+    asyncio.run(exercise())
 
 
 def test_recovery_never_signals_a_saved_local_pid(tmp_path, monkeypatch):
@@ -523,7 +525,7 @@ def test_local_setup_failure_explains_host_tools_not_retired_inventory(tmp_path,
     assert baseline(repo) == value.commit
 
 
-def test_stopping_one_parallel_acp_worker_keeps_the_other_permission_live(tmp_path, monkeypatch):
+def test_stopping_one_parallel_native_worker_keeps_the_other_permission_live(tmp_path, monkeypatch):
     service, repo, _ = configured(tmp_path, monkeypatch, count=2, scenario="permission")
     base = baseline(repo)
     runs = [service.execution.claim("harbor", base, {base: set()}) for _ in range(2)]

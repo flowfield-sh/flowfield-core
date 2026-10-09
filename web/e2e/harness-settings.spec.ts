@@ -16,19 +16,17 @@ function host(kind: "codex" | "claude-code") {
       executable_source: "path",
       config_directory: `/service/config/${kind}`,
       config_source: "default",
-      bridge_executable: `/service/bridges/${kind}/runtime`,
-      bridge_version: "fixture.1",
+      runtime_executable: `/service/runtime/${kind}/runtime`,
+      adapter_version: "fixture.1",
     },
     native_installed: true,
     config_available: true,
-    bridge_installed: true,
     selectable: true,
     authentication: "unknown",
     model_access: "unverified",
     native_version: null as string | null,
     checked: false,
     problems: [] as string[],
-    installing: false,
     catalog_ownership: null as null | {
       id: string;
       harness: string;
@@ -98,15 +96,17 @@ test("central harness settings preserve host drafts and configure kinds independ
     name: "Claude Code settings",
     exact: true,
   });
+  await first.getByText("Path overrides", { exact: true }).click();
+  await second.getByText("Path overrides", { exact: true }).click();
   await expect(
-    first.getByLabel("Executable override", { exact: true }),
+    first.getByLabel("Executable path", { exact: true }),
   ).toHaveValue("/service/custom/codex");
   await expect(second).toContainText("Setup detected");
   await second
-    .getByLabel("Executable override", { exact: true })
+    .getByLabel("Executable path", { exact: true })
     .fill("/service/alternative/claude");
   await second
-    .getByLabel("Configuration directory override", { exact: true })
+    .getByLabel("Configuration directory", { exact: true })
     .fill("/service/claude-config");
   await expect(
     second.getByRole("button", { name: "Check saved setup" }),
@@ -126,14 +126,12 @@ test("central harness settings preserve host drafts and configure kinds independ
   ).toBeDisabled();
   expect(codex.registration.revision).toBe(1);
   await screenshot(page, testInfo, "desktop");
-  await second
-    .getByLabel("Executable override", { exact: true })
-    .fill("/unsaved");
+  await second.getByLabel("Executable path", { exact: true }).fill("/unsaved");
   await page.getByRole("link", { name: "Flowfield", exact: true }).click();
   await expect(page.getByRole("alertdialog")).toBeVisible();
   await page.getByRole("button", { name: "Keep editing" }).click();
   await expect(
-    second.getByLabel("Executable override", { exact: true }),
+    second.getByLabel("Executable path", { exact: true }),
   ).toHaveValue("/unsaved");
   expect(discoveries).toBe(0);
 });
@@ -167,7 +165,8 @@ test("host configuration conflicts preserve drafts until explicit reload", async
     name: "Codex settings",
     exact: true,
   });
-  const executable = entry.getByLabel("Executable override", { exact: true });
+  await entry.getByText("Path overrides", { exact: true }).click();
+  const executable = entry.getByLabel("Executable path", { exact: true });
   await executable.fill("/service/my-draft/codex");
   await entry.getByRole("button", { name: "Save paths", exact: true }).click();
   await expect(entry).toContainText("Host settings changed elsewhere.");
@@ -180,12 +179,11 @@ test("host configuration conflicts preserve drafts until explicit reload", async
   ).toBeDisabled();
 });
 
-test("explicit host installation, readiness and exact interrupted-discovery confirmation", async ({
+test("native readiness and exact interrupted-discovery confirmation", async ({
   page,
 }) => {
   const codex = host("codex"),
     claude = host("claude-code");
-  codex.bridge_installed = false;
   codex.catalog_ownership = {
     id: "interrupted-exact-id",
     harness: "codex",
@@ -201,7 +199,6 @@ test("explicit host installation, readiness and exact interrupted-discovery conf
     const value = url.pathname.includes("claude-code") ? claude : codex;
     if (route.request().method() === "POST") {
       operations.push(url.pathname);
-      if (url.pathname.endsWith("/install")) value.bridge_installed = true;
       if (url.pathname.endsWith("/check"))
         Object.assign(value, {
           checked: true,
@@ -222,16 +219,9 @@ test("explicit host installation, readiness and exact interrupted-discovery conf
     name: "Codex settings",
     exact: true,
   });
-  await entry
-    .getByRole("button", { name: "Install bridge", exact: true })
-    .click();
-  await expect(
-    entry.getByRole("button", { name: "Install bridge", exact: true }),
-  ).toHaveCount(0);
+  await expect(entry.getByRole("button", { name: /Install/ })).toHaveCount(0);
   await entry.getByRole("button", { name: "Check saved setup" }).click();
-  await expect(entry).toContainText(
-    "Setup checked. Model access still needs a successful turn.",
-  );
+  await expect(entry).toContainText("Setup checked.");
   await entry.getByText("Detected setup", { exact: true }).click();
   await expect(entry).toContainText("fixture.native");
   await entry
@@ -246,7 +236,6 @@ test("explicit host installation, readiness and exact interrupted-discovery conf
     .click();
   await expect(entry).toContainText("Discovery hold cleared");
   expect(operations).toEqual([
-    "/api/harnesses/codex/install",
     "/api/harnesses/codex/check",
     "/api/harnesses/codex/catalog/confirm-stopped",
   ]);

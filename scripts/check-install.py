@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import re
+import shlex
 import socket
 import sqlite3
 import subprocess
@@ -104,6 +105,46 @@ async def check_mcp(base: str, task: dict) -> None:
         assert activity.structuredContent["items"][0]["id"] == "installed-handoff"
 
 
+async def check_native_runtime(directory: Path) -> None:
+    from flowfield.adapters.claude_agent import ClaudeAgent
+    from flowfield.agent_models import AgentChoice
+    from flowfield.harness_models import HarnessRegistration
+
+    native = directory / "native-cli"
+    native.write_text(
+        "#!/bin/sh\nexec "
+        + shlex.quote(sys.executable)
+        + " "
+        + shlex.quote(str(Path(__file__).with_name("native-fixture.py")))
+        + ' "$@"\n'
+    )
+    native.chmod(0o700)
+    config = directory / "native-config"
+    config.mkdir()
+    choice = AgentChoice(
+        harness="claude-code", model="claude-sonnet-5-5", effort="low", mode="default"
+    )
+    agent = ClaudeAgent(
+        directory,
+        {
+            "PATH": str(Path(sys.executable).parent),
+            "HOME": str(directory),
+            "FLOWFIELD_TEST_SCENARIO": "complete",
+            "FLOWFIELD_TEST_RECORD": str(directory / "native.jsonl"),
+        },
+        registration=HarnessRegistration(
+            harness="claude-code", executable=str(native), config_directory=str(config)
+        ),
+        choice=choice,
+    )
+    try:
+        await agent.start([], persistent=True)
+        await agent.configure(choice)
+        assert await agent.prompt("Scripted install fixture only", None) == {"status": "completed"}
+    finally:
+        assert await agent.stop()
+
+
 def main() -> None:
     executable = str(Path(sysconfig.get_path("scripts")) / "flowfield")
     env = {**os.environ, "PATH": sysconfig.get_path("scripts"), "FLOWFIELD_UPDATE_CHECKS": "0"}
@@ -133,17 +174,11 @@ def main() -> None:
             assert importlib.metadata.version("flowfield-core") == expected
             assert Path(flowfield.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
         assert json.loads(command("version", "--json")) == {"version": version}
-        for harness in ("codex", "claude-code"):
-            runtime = subprocess.run(
-                [executable, "harness", "status", harness, "--json"],
-                cwd=cwd,
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            assert runtime.returncode == 1
-            assert json.loads(runtime.stderr)["error"]["code"] == "bridge_missing"
+        from flowfield.adapters.claude_runtime import executable as sdk_executable
+
+        assert sdk_executable().is_file()
+        asyncio.run(check_native_runtime(Path(cwd)))
+        assert "harness install" not in command("harness", "--help")
         assert not state.exists()
 
         def read(path: str) -> bytes:

@@ -1,6 +1,7 @@
 """Explicit fast settings use native capability discovery and frozen attempt choices."""
 
 import asyncio
+import sys
 
 import pytest
 from test_coordinator import message, settled, setup
@@ -42,10 +43,10 @@ def test_fast_discovery_apply_clear_and_unsupported_choice(tmp_path, monkeypatch
         assert not (await service.model_options(refresh=True))[0].fast
         with pytest.raises(ApplicationError):
             await service.validate_agent_choice(choice.model_copy(update={"fast": True}))
-        agent = CodexAgent(service.workspace.directory, tmp_path, {})
+        agent = CodexAgent(service.workspace.directory, tmp_path, {"CODEX_PATH": sys.executable})
         try:
             await agent.start([])
-            with pytest.raises(ApplicationError, match="saved model"):
+            with pytest.raises(ApplicationError, match="requested native session settings"):
                 await agent.configure(choice.model_copy(update={"fast": True}))
         finally:
             await agent.close()

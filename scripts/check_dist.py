@@ -9,17 +9,24 @@ import tempfile
 import tomllib
 from pathlib import Path
 
+from packaging.tags import sys_tags
+from packaging.utils import parse_wheel_filename
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def artifacts(directory: Path, version: str) -> list[Path]:
-    expected = [
-        directory / f"flowfield_core-{version}-py3-none-any.whl",
-        directory / f"flowfield_core-{version}.tar.gz",
-    ]
-    if {p for p in directory.iterdir() if p.name != ".gitignore"} != set(expected):
-        raise ValueError("Expected exactly the selected version's wheel and source archive.")
-    return expected
+    wheels = sorted(directory.glob(f"flowfield_core-{version}-*.whl"))
+    source = directory / f"flowfield_core-{version}.tar.gz"
+    if not source.is_file() or not wheels:
+        raise ValueError("Missing the selected version's wheel or source archive.")
+    if {p for p in directory.iterdir() if p.name != ".gitignore"} != {*wheels, source}:
+        raise ValueError("Unexpected distribution artifacts.")
+    supported = set(sys_tags())
+    matches = [wheel for wheel in wheels if parse_wheel_filename(wheel.name)[3] & supported]
+    if len(matches) != 1:
+        raise ValueError("Expected exactly one wheel compatible with this platform.")
+    return [matches[0], source]
 
 
 def environment() -> dict[str, str]:
@@ -87,6 +94,7 @@ def verify(directory: Path, version: str, install_check: Path) -> None:
             # Copy the standalone check so the application never depends on the checkout.
             check = scratch / "check-install.py"
             shutil.copyfile(install_check, check)
+            shutil.copyfile(ROOT / "tests/fake_claude_cli.py", scratch / "native-fixture.py")
             isolated = {
                 **env,
                 "PATH": str(python.parent),

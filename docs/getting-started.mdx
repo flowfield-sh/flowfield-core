@@ -15,18 +15,12 @@ Install and sign in to [Codex CLI](https://developers.openai.com/codex/cli/). Th
 
 ```sh
 uv tool install flowfield-core
-flowfield harness install codex
 flowfield serve
 ```
 
-The harness command installs Flowfield’s Codex bridge once; Codex itself is installed separately.
-You can use [Claude Code](/integrations/claude-code) instead: install/sign in to its native
-CLI and install the matching bridge. Claude currently requires a development build and
-local bundle; published 0.2.1 supports Codex. Either
-harness can run the Coordinator and workers; configuring both lets you choose independently.
-Your browser opens at [localhost:8765](http://127.0.0.1:8765). Keep the terminal open;
-Ctrl-C stops the service. Use `--no-open` to keep the browser closed.
-See [Installation](/installation#alternative-pip) for the pip alternative. Managed workers also need Git.
+Flowfield uses installed Codex or Claude Code directly. No separate integration install
+is needed. Configure nonstandard paths in **Settings → Harnesses**. Published 0.2.1
+predates this update; Claude currently requires a development build.
 
 ## Add your project
 
@@ -52,7 +46,7 @@ desktop folder chooser is unavailable.
 
 ## Start planning
 
-Choose a ready harness beside the input in the [Coordinator](/coordinator), select **Load models**,
+Choose a ready harness beside the input in the [Coordinator](/coordinator), wait for models to load,
 then choose its model and supported effort/access controls and save. Native startup hooks
 can run during discovery; it sends no model prompt. Describe what you want to achieve. For example:
 
@@ -66,8 +60,7 @@ conversation, follow [standalone coordinator setup](/integrations/codex#connect-
 
 Ask your coordinator to configure the destination branch, dependency setup and checks,
 then validate setup. Add a run command if you want to try results locally. Choose a worker
-harness and model, with effort and access mode where supported. In the UI, load native
-models explicitly. You can also edit these under the project’s
+harness and model, with effort and access mode where supported. Models load automatically when you open the selector. You can also edit these under the project’s
 settings icon; see [Worker setup and checks](/worker-setup) for the fields and an example.
 
 Project **Workers** settings supply defaults for model, effort and access. Individual

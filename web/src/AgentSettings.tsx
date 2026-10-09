@@ -71,7 +71,7 @@ export function AgentModelFields({
             {loading
               ? "Loading models…"
               : !known
-                ? "Load models first"
+                ? "Loading models…"
                 : !models.length
                   ? "Models unavailable"
                   : "Choose a model"}
@@ -148,9 +148,6 @@ export function AgentModelFields({
               </option>
             ))}
           </NativeSelect>
-          <span className="detail-metadata">
-            {selected.modes.find((item) => item.id === mode)?.description}
-          </span>
         </Label>
       )}
     </>
@@ -206,7 +203,12 @@ function useAgentSettingsContent({
   const data = resource.data;
   const selection = draft ? draft.selection : data?.selection;
   const choice = selection ?? data?.effective?.choice;
-  const source = useHarnessModels(projectId, choice?.harness, refresh);
+  const source = useHarnessModels(
+    projectId,
+    choice?.harness,
+    refresh,
+    open && !!data,
+  );
   const { catalog } = source;
   const model = choice?.model ?? "";
   const effort = choice?.effort ?? "";
@@ -283,14 +285,13 @@ function useAgentSettingsContent({
   }
   const fields = (
     <ContentStack space="section">
-      {!compact && (
-        <p>
-          {coordinator
-            ? "Harness and model for your next message."
-            : "Applies to the next worker run."}
-        </p>
-      )}
-      {!coordinator && <p className="detail-metadata">Task overrides</p>}
+      <p className="detail-metadata">
+        {coordinatorActive
+          ? "Stop or finish this message before changing its settings."
+          : coordinator
+            ? "Applies to your next message. Switching harnesses starts a fresh session; saved chat stays available."
+            : "Overrides project defaults for the next worker run."}
+      </p>
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -308,12 +309,6 @@ function useAgentSettingsContent({
             change={changeHarness}
             harnessLocked={coordinatorActive}
           />
-          {coordinator && !coordinatorActive && (
-            <p className="detail-metadata">
-              Switching harnesses starts a fresh session with recent saved chat.
-              Older messages stay in Flowfield; reattach files needed again.
-            </p>
-          )}
           <AgentModelFields
             model={model}
             effort={effort}
@@ -447,7 +442,7 @@ function useAgentSettingsContent({
           Fast mode {saved.fast ? "on" : "off"}.{" "}
           {selected?.fast
             ? selected.fast_description || "Faster responses, increased usage."
-            : "Load models to verify current Fast support before changing it."}
+            : "Open model settings to verify Fast support."}
         </TooltipContent>
       </Tooltip>
     ) : null;

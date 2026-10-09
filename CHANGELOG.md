@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Use installed Codex directly through its app-server and installed Claude Code through
+  the official Agent SDK, included with Flowfield. Remove separate ACP installs.
+- Stop foreground turns and tracked native background work through native controls;
+  preserve recovery holds when cleanup cannot be confirmed.
+- Load models automatically when choosing a harness, simplify settings and selector
+  copy, and show harness logos. Codex and Claude are supported; Pi is next.
+- Migrate existing launch records without dropping conversation or execution evidence.
+  Revalidate prior adapter bindings before continuing a native conversation.
+
+
 ## 0.2.1
 
 - Fix an unnecessary vertical board scrollbar when horizontal scrolling is needed.

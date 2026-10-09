@@ -56,7 +56,7 @@ class FakeWorker:
 
         self.on_tool = call
         self.tools = [{"name": tool.name} for tool in (await session.list_tools()).tools]
-        self.session = SimpleNamespace(session_id="fixture-" + self.cwd.parent.name)
+        self.session_id = "fixture-" + self.cwd.parent.name
         self.process = SimpleNamespace(pid=os.getpid())
 
     async def configure(self, choice):

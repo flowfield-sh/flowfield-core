@@ -3,7 +3,7 @@ import { expect } from "@playwright/test";
 import { test, hostStatus, existingDirectory, state } from "./support";
 
 for (const onlyClaude of [false, true]) {
-  test(`worker choices support ${onlyClaude ? "Claude alone" : "independent supported harnesses"} with explicit scoped discovery`, async ({
+  test(`worker choices support ${onlyClaude ? "Claude alone" : "independent supported harnesses"} with automatic scoped discovery`, async ({
     page,
     request,
   }) => {
@@ -28,7 +28,7 @@ for (const onlyClaude of [false, true]) {
     await page.route("**/api/worker-models*", (route) => {
       const url = new URL(route.request().url());
       expect(url.searchParams.get("project_id")).toBe(project);
-      expect(url.searchParams.get("refresh")).toBe("true");
+      expect(url.searchParams.get("refresh")).toBe("false");
       const kind = url.searchParams.get("harness")!;
       discoveries.push(kind);
       return route.fulfill({
@@ -66,13 +66,12 @@ for (const onlyClaude of [false, true]) {
       name: "Worker settings",
       exact: true,
     });
-    await expect(form.getByLabel("Harness", { exact: true })).toHaveValue(
-      onlyClaude ? "claude-code" : "codex",
-    );
-    expect(discoveries).toEqual([]);
-    await form
-      .getByRole("button", { name: "Load models", exact: true })
-      .click();
+    await expect(
+      form.getByRole("combobox", { name: "Harness", exact: true }),
+    ).toContainText(onlyClaude ? "Claude Code" : "Codex");
+    await expect
+      .poll(() => discoveries)
+      .toEqual([onlyClaude ? "claude-code" : "codex"]);
     if (!onlyClaude) {
       await form
         .getByLabel("Model", { exact: true })
@@ -81,15 +80,15 @@ for (const onlyClaude of [false, true]) {
       await form.getByLabel("Access mode").selectOption("workspace-write");
       await form.getByLabel("Maximum parallel workers").fill("3");
       await form
-        .getByLabel("Harness", { exact: true })
-        .selectOption("claude-code");
+        .getByRole("combobox", { name: "Harness", exact: true })
+        .click();
+      await page
+        .getByRole("option", { name: "Claude Code", exact: true })
+        .click();
       await expect(form.getByLabel("Model", { exact: true })).toHaveValue("");
       await expect(form.getByLabel("Reasoning effort")).toHaveCount(0);
       await expect(form.getByLabel("Access mode")).toHaveCount(0);
-      expect(discoveries).toEqual(["codex"]);
-      await form
-        .getByRole("button", { name: "Load models", exact: true })
-        .click();
+      await expect.poll(() => discoveries).toEqual(["codex", "claude-code"]);
     }
     await form
       .getByLabel("Model", { exact: true })
@@ -146,7 +145,7 @@ for (const onlyClaude of [false, true]) {
   });
 }
 
-test("Claude-only coordinator saves native choices independently of worker defaults without loading while mounted", async ({
+test("Claude-only coordinator saves native choices independently of worker defaults without loading while closed", async ({
   page,
   request,
 }, testInfo) => {
@@ -245,13 +244,10 @@ test("Claude-only coordinator saves native choices independently of worker defau
   await page
     .getByRole("button", { name: "Model settings", exact: true })
     .click();
-  await expect(picker.getByLabel("Harness", { exact: true })).toHaveValue(
-    "claude-code",
-  );
-  expect(discoveries).toBe(0);
-  await picker
-    .getByRole("button", { name: "Load models", exact: true })
-    .click();
+  await expect(
+    picker.getByRole("combobox", { name: "Harness", exact: true }),
+  ).toContainText("Claude Code");
+  await expect.poll(() => discoveries).toBe(2);
   await picker
     .getByLabel("Model", { exact: true })
     .selectOption("claude-sonnet-5-5");
@@ -280,7 +276,7 @@ test("Claude-only coordinator saves native choices independently of worker defau
     await request.get(`/api/projects/${project}/workers`)
   ).json();
   expect(workers.selection).toBeNull();
-  expect(discoveries).toBe(1);
+  expect(discoveries).toBe(2);
   expect(commandDiscoveries).toBe(0);
   await page
     .getByRole("button", {

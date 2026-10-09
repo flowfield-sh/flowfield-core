@@ -1,6 +1,10 @@
 """Reject distributable artifacts missing their prebuilt admin UI."""
 
+import lzma
+import os
+import platform
 import re
+import shutil
 from pathlib import Path
 
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
@@ -27,6 +31,7 @@ class CustomBuildHook(BuildHookInterface):
             "shadcn-license.txt",
             "tailwindcss-license.txt",
             "react-remove-scroll-bar-license.txt",
+            "harness-icons-license.txt",
         ]
         if any(
             not (web / "assets" / notice).is_file()
@@ -34,3 +39,39 @@ class CustomBuildHook(BuildHookInterface):
             for notice in notices
         ):
             raise RuntimeError("Bundled UI license notices are missing. Rebuild the browser UI.")
+        if self.target_name == "wheel":
+            machine = {"arm64": "arm64", "aarch64": "arm64", "x86_64": "x64"}.get(
+                platform.machine()
+            )
+            system = platform.system().lower()
+            target = os.environ.get("FLOWFIELD_BUILD_TARGET")
+            if target:
+                if target not in {"darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64"}:
+                    raise RuntimeError("Unsupported native wheel target.")
+                system, machine = target.split("-")
+            native = Path(self.root) / "src/flowfield/_native" / f"claude-sdk-{system}-{machine}"
+            binary = native / "claude-sdk"
+            if not binary.is_file() and (native / "claude-sdk.xz").is_file():
+                with (
+                    lzma.open(native / "claude-sdk.xz", "rb") as source,
+                    binary.open("wb") as output,
+                ):
+                    shutil.copyfileobj(source, output)
+                binary.chmod(0o755)
+            if not all(
+                (native / name).is_file()
+                for name in ("claude-sdk", "version.json", "THIRD_PARTY_NOTICES.txt")
+            ):
+                raise RuntimeError("Claude SDK runtime is missing. Run the runtime build first.")
+            for name in ("claude-sdk", "version.json", "THIRD_PARTY_NOTICES.txt"):
+                build_data.setdefault("force_include", {})[str(native / name)] = (
+                    "flowfield/_native/claude-sdk/" + name
+                )
+            if system == "darwin":
+                tag = f"macosx_13_0_{'arm64' if machine == 'arm64' else 'x86_64'}"
+            elif system == "linux":
+                tag = f"manylinux_2_28_{'aarch64' if machine == 'arm64' else 'x86_64'}"
+            else:
+                raise RuntimeError("Native integration builds currently support macOS and Linux.")
+            build_data["tag"] = "py3-none-" + tag
+            build_data["pure_python"] = False

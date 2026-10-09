@@ -11,8 +11,8 @@ from typing import Any, BinaryIO
 
 from flowfield.adapters import git_integration as gitops
 from flowfield.adapters import local_checks
-from flowfield.adapters.acp_agent import AcpAgent
-from flowfield.adapters.acp_permissions import permission_handler
+from flowfield.adapters.agent_contract import Agent
+from flowfield.adapters.agent_permissions import permission_handler
 from flowfield.adapters.agent_selection import create
 from flowfield.adapters.git_workspace import GitWorkspace, contains
 from flowfield.adapters.harness_host import HarnessChecks
@@ -34,7 +34,6 @@ from flowfield.execution_models import (
     WorkerResult,
     WorkerSettings,
 )
-from flowfield.harness_installs import HarnessInstalls
 from flowfield.harness_models import HarnessKind
 from flowfield.harness_settings import HarnessSettings
 from flowfield.integration import Integrations
@@ -61,10 +60,9 @@ class Supervisor:
         self.results = Results(workspace)
         self.setup_validation = SetupValidation(workspace)
         self.delivery_jobs: dict[str, asyncio.Task[None]] = {}
-        self.clients: dict[str, AcpAgent] = {}
+        self.clients: dict[str, Agent] = {}
         self.permissions = Permissions(workspace)
         self.harness_checks = HarnessChecks(workspace.directory)
-        self.harness_installs = HarnessInstalls(workspace.directory)
         from flowfield.coordinator import Coordinator
 
         self.coordinator = Coordinator(self)
@@ -215,7 +213,7 @@ class Supervisor:
             )
 
     async def _execute(self, run: Run, repository: Path) -> None:
-        client: AcpAgent | None = None
+        client: Agent | None = None
         environment: LocalAttempt | None = None
         scope_stack = contextlib.AsyncExitStack()
         activity: ActivityRecorder | None = None
@@ -403,11 +401,11 @@ class Supervisor:
                 "resolve it before ending; do not replace submission with chat prose. "
                 + str(brief["instructions"])
             )
-            assert client.session.session_id
+            assert client.session_id
             async with self.permissions.turn(
                 run.project_id,
                 "worker",
-                session_id=client.session.session_id,
+                session_id=client.session_id,
                 turn_id=run.id,
                 run_id=run.id,
             ) as turn:
@@ -606,7 +604,6 @@ class Supervisor:
 
     async def close(self) -> None:
         self.closing = True
-        install_close = asyncio.create_task(self.harness_installs.close())
         await self.harness_checks.close()
         await self.coordinator.close()
         self.permissions.close()
@@ -626,7 +623,6 @@ class Supervisor:
             await asyncio.gather(*list(self.jobs.values()), return_exceptions=True)
         if self.delivery_jobs:
             await asyncio.gather(*list(self.delivery_jobs.values()), return_exceptions=True)
-        await install_close
         if self.lock:
             self.lock.close()
             self.lock = None

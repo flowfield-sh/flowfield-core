@@ -150,7 +150,6 @@ test("project workers have no speed setting even when the model supports Fast", 
   ).toBe(422);
   await page.goto("/projects/task-speed/edit/workers");
   const form = page.getByRole("region", { name: "Worker settings" });
-  await form.getByRole("button", { name: "Load models", exact: true }).click();
   await form.getByLabel("Model", { exact: true }).selectOption("test");
   await expect(form.getByRole("button", { name: "Fast mode" })).toHaveCount(0);
 });

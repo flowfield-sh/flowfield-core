@@ -34,7 +34,7 @@ app.add_typer(
     milestone_app, name="milestone", help="Group related tasks without gates or dependencies."
 )
 app.add_typer(integration_app, name="integration", help="Connect and check coding harnesses.")
-app.add_typer(harness_app, name="harness", help="Install and check locally managed agent runtimes.")
+app.add_typer(harness_app, name="harness", help="Configure and check native coding harnesses.")
 Json = Annotated[bool, typer.Option("--json", help="Emit clean JSON; operation errors use stderr.")]
 
 
@@ -114,63 +114,22 @@ def connection_command(
     output(run, json_output, display)
 
 
-@harness_app.command("install")
-def harness_install(
-    ctx: typer.Context,
-    harness: str,
-    bundle: Annotated[
-        Path | None, typer.Option(help="Install a verified local release bundle.")
-    ] = None,
-    sha256: Annotated[str | None, typer.Option(help="Required SHA-256 for a local bundle.")] = None,
-    json_output: Json = False,
-) -> None:
-    """Install the compatible agent runtime; does not enable workers or change project access."""
-    from flowfield.adapters import claude_install, codex_install
-
-    def run() -> dict[str, Any]:
-        if harness not in {"codex", "claude-code"}:
-            raise ApplicationError("unsupported_harness", "This harness is not supported.")
-        if (bundle is None) != (sha256 is None):
-            raise ApplicationError("invalid_request", "Use --bundle and --sha256 together.")
-        if bundle is not None and sha256 is not None:
-            install = codex_install.install if harness == "codex" else claude_install.install
-            install(ctx.obj.directory, bundle.expanduser(), sha256)
-        else:
-            download = (
-                codex_install.download_install
-                if harness == "codex"
-                else claude_install.download_install
-            )
-            download(ctx.obj.directory)
-        status = codex_install.status if harness == "codex" else claude_install.status
-        return status(ctx.obj.directory, os.environ)
-
-    output(run, json_output, lambda value: typer.echo(value["message"]))
-
-
 @harness_app.command("status")
 def harness_status(ctx: typer.Context, harness: str, json_output: Json = False) -> None:
-    """Check the installed runtime and native path without starting an agent."""
-    from flowfield.adapters import claude_install, codex_install
+    """Inspect detected native paths offline without starting an agent."""
+    from flowfield.adapters.harness_host import status
     from flowfield.harness_models import HarnessKind
-    from flowfield.harness_settings import offline_registration
+    from flowfield.harness_settings import KINDS, offline_registration
 
     def run() -> dict[str, Any]:
-        if harness not in {"codex", "claude-code"}:
+        if harness not in KINDS:
             raise ApplicationError("unsupported_harness", "This harness is not supported.")
         kind: HarnessKind = "codex" if harness == "codex" else "claude-code"
-        registration = offline_registration(ctx.obj.directory, kind)
-        environment = dict(os.environ)
-        if registration.executable:
-            environment["CODEX_PATH" if kind == "codex" else "CLAUDE_CODE_EXECUTABLE"] = (
-                registration.executable
-            )
-        status = codex_install.status if kind == "codex" else claude_install.status
-        value = status(ctx.obj.directory, environment)
-        value["registration"] = registration.model_dump()
-        return value
+        return status(
+            ctx.obj.directory, offline_registration(ctx.obj.directory, kind), os.environ
+        ).model_dump()
 
-    output(run, json_output, lambda value: typer.echo(value["message"]))
+    output(run, json_output)
 
 
 @harness_app.command("settings")

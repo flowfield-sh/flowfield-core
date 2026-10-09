@@ -159,16 +159,13 @@ def test_native_adapters_apply_absent_effort_only_when_control_is_absent(
         agent = installed_candidate(tmp_path, *flags)
         choice = CHOICE.model_copy(update={"effort": None})
         agent.choice = choice
-        metadata = json.loads(agent.environment["FLOWFIELD_TEST_META"])
-        metadata["claudeCode"]["options"].pop("effort")
-        agent.environment["FLOWFIELD_TEST_META"] = json.dumps(metadata)
     else:
         monkeypatch.setattr(
             "flowfield.adapters.codex_agent.command",
             lambda directory, env: (
                 [
                     sys.executable,
-                    str(Path(__file__).with_name("fake_acp.py")),
+                    str(Path(__file__).with_name("fake_native_codex.py")),
                     "managed",
                     "cleanup",
                     "close-session",
@@ -177,7 +174,7 @@ def test_native_adapters_apply_absent_effort_only_when_control_is_absent(
                 dict(env),
             ),
         )
-        agent = CodexAgent(tmp_path / "state", tmp_path, {})
+        agent = CodexAgent(tmp_path / "state", tmp_path, {"CODEX_PATH": sys.executable})
         choice = AgentChoice(model="test-model", mode="read-only", fast=False)
 
     async def exercise():

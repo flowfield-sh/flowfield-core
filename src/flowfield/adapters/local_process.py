@@ -1,4 +1,4 @@
-"""Owned POSIX process groups, shared by local execution and the ACP transport.
+"""Owned POSIX process groups, shared by local execution and native transports.
 
 Group exit does not prove that detached descendants exited. Never recover ownership
 from a persisted PID or terminate a process by name. Streams belong to the caller,

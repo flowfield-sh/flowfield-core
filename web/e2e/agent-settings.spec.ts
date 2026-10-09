@@ -156,9 +156,6 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     name: "Worker model settings",
     exact: true,
   });
-  await picker
-    .getByRole("button", { name: "Load models", exact: true })
-    .click();
   for (const label of ["Model", "Reasoning effort"]) {
     const select = picker.getByRole("combobox", { name: label, exact: true });
     await expect(select).toBeDisabled();
@@ -215,7 +212,9 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     .getByRole("button", { name: "Codex · second · medium", exact: true })
     .click();
   await expect(
-    picker.getByText("Task overrides", { exact: true }),
+    picker.getByText("Overrides project defaults for the next worker run.", {
+      exact: true,
+    }),
   ).toBeVisible();
   expect(settings.selection?.mode).toBe("read-only");
   expect(settings.selection?.fast).toBe(true);
@@ -243,7 +242,9 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     .getByRole("button", { name: "Codex · first · low", exact: true })
     .click();
   await expect(
-    picker.getByText("Task overrides", { exact: true }),
+    picker.getByText("Overrides project defaults for the next worker run.", {
+      exact: true,
+    }),
   ).toBeVisible();
   await picker.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(picker).not.toBeVisible();

@@ -9,13 +9,13 @@ from contextlib import asynccontextmanager, contextmanager
 from uuid import uuid4
 
 import uvicorn
-from acp.schema import HttpMcpServer
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import Receive, Scope, Send
 
+from flowfield.adapters.agent_contract import McpServer
 from flowfield.agent_tools import ScopedTools
 
 
@@ -29,7 +29,7 @@ class ScopeServer(uvicorn.Server):
 @asynccontextmanager
 async def serve_scope(
     grant: ScopedTools, *, lifetime: float = 3600, name: str | None = None
-) -> AsyncIterator[HttpMcpServer]:
+) -> AsyncIterator[McpServer]:
     """No public route, access logs, persisted token or ambient workspace authority.
 
     Only agents advertising HTTP MCP can use this endpoint. Stdio-only harnesses
@@ -92,7 +92,7 @@ async def serve_scope(
                         raise RuntimeError("Scoped MCP server did not start")
                     await asyncio.sleep(0.01)
             try:
-                yield HttpMcpServer.model_validate(
+                yield McpServer.model_validate(
                     {
                         "type": "http",
                         "name": name,

@@ -197,32 +197,3 @@ def test_unsupported_images_fail_explicitly_without_silently_dropping_them(tmp_p
         await service.close()
 
     asyncio.run(exercise())
-
-
-def test_prompt_image_budget_does_not_relax_inbound_or_other_frames():
-    from flowfield.adapters.acp_transport import MAX_FRAME, MAX_INPUT_FRAME, StdioTransport
-
-    class Writer:
-        content = b""
-
-        def write(self, content):
-            self.content = content
-
-        async def drain(self):
-            pass
-
-    async def exercise():
-        reader = asyncio.StreamReader(limit=MAX_FRAME)
-        writer = Writer()
-        transport = StdioTransport(reader, writer)
-        await transport.send({"method": "session/prompt", "params": {"prompt": "x" * MAX_FRAME}})
-        assert len(writer.content) > MAX_FRAME
-        with pytest.raises(ValueError, match="exceeds limit"):
-            await transport.send({"method": "session/new", "params": "x" * MAX_FRAME})
-        with pytest.raises(ValueError, match="exceeds limit"):
-            await transport.send({"method": "session/prompt", "params": "x" * MAX_INPUT_FRAME})
-        reader.feed_data(b"x" * (MAX_FRAME + 1) + b"\n")
-        with pytest.raises(ConnectionError, match="exceeds limit"):
-            await transport.receive()
-
-    asyncio.run(exercise())

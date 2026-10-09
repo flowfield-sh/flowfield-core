@@ -459,3 +459,65 @@ def test_cancelled_restart_keeps_ownership_until_its_thread_exits(tmp_path, monk
             pass
 
     asyncio.run(scenario())
+
+
+def test_native_provenance_upgrade_preserves_owned_records_and_can_restore(tmp_path, monkeypatch):
+    old_registry = tuple(item for item in migrations.MIGRATIONS if item.version <= 49)
+    with monkeypatch.context() as old:
+        old.setattr(migrations, "MIGRATIONS", old_registry)
+        workspace = execution_fixture(tmp_path).workspace
+        workspace.add_activity(
+            "harbor", ActivityCreate(task_id="task-0", body="Keep conversation evidence")
+        )
+        launch = {
+            "harness": "codex",
+            "registration_revision": 1,
+            "native_executable": "/original/codex",
+            "executable_source": "registration",
+            "config_directory": "/original/config",
+            "config_source": "registration",
+            "bridge_executable": "/old/runtime",
+            "bridge_version": "old-adapter-version",
+        }
+        owner = {
+            "id": "exact-interrupted-owner",
+            "harness": "codex",
+            "project_id": "harbor",
+            "status": "uncertain",
+            "started_at": "2026-10-08T00:00:00Z",
+            "launch": launch,
+            "operation": "models",
+        }
+        with workspace.connection(write=True) as db:
+            db.execute("INSERT INTO harness_catalogs VALUES (?,?)", ("codex", json.dumps(owner)))
+        before = logical_data(workspace.directory)
+        evidence = workspace.activity("harbor", task_id="task-0")
+    upgraded = Workspace(workspace.directory)
+    assert upgraded.activity("harbor", task_id="task-0") == evidence
+    with upgraded.connection() as db:
+        current = json.loads(db.execute("SELECT data FROM harness_catalogs").fetchone()[0])
+    assert current["id"] == owner["id"] and current["status"] == "uncertain"
+    assert current["launch"] == {
+        **{key: value for key, value in launch.items() if not key.startswith("bridge_")},
+        "runtime_executable": "/old/runtime",
+        "adapter_version": "old-adapter-version",
+    }
+    saved = storage.backups(workspace.directory)[0]["id"]
+    storage.restore(workspace.directory, saved)
+    assert logical_data(workspace.directory) == before
+    assert Workspace(workspace.directory).schema_version == CURRENT
+    with raw(workspace.directory) as db:
+        assert json.loads(db.execute("SELECT data FROM harness_catalogs").fetchone()[0]) == current
+
+
+def test_native_provenance_failure_rolls_back_all_records(tmp_path, monkeypatch):
+    old_registry = tuple(item for item in migrations.MIGRATIONS if item.version <= 49)
+    with monkeypatch.context() as old:
+        old.setattr(migrations, "MIGRATIONS", old_registry)
+        workspace = execution_fixture(tmp_path).workspace
+        with workspace.connection(write=True) as db:
+            db.execute("INSERT INTO harness_catalogs VALUES ('codex', 'malformed json')")
+        before = logical_data(workspace.directory)
+    with pytest.raises(ApplicationError):
+        Workspace(workspace.directory)
+    assert logical_data(workspace.directory) == before

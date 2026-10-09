@@ -27,7 +27,6 @@ def harness_router(
     def owned(value: HarnessStatus) -> HarnessStatus:
         value = value.model_copy(deep=True)
         value.catalog_ownership = supervisor().catalogs.ownership(value.registration.harness)
-        value.installing = supervisor().harness_installs.active(value.registration.harness)
         if value.catalog_ownership:
             value.problems.append("catalog_" + value.catalog_ownership.status)
             value.selectable = False
@@ -62,11 +61,6 @@ def harness_router(
                 409,
             )
         return owned(checked)
-
-    @router.post("/{harness}/install")
-    async def install(harness: HarnessKind) -> HarnessStatus:
-        await supervisor().harness_installs.run(harness)
-        return view(HarnessSettings(workspace()).get(harness))
 
     @router.post("/{harness}/catalog/confirm-stopped")
     def confirm_stopped(harness: HarnessKind, request: CatalogConfirmation) -> HarnessStatus:

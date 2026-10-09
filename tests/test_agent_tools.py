@@ -1,15 +1,12 @@
-"""Both roles use the same ACP client and real scoped MCP transport."""
+"""Both roles use the same native client and real scoped MCP transport."""
 
 import asyncio
 import json
-import sys
 
 import httpx
-import pytest
-from test_acp_session import FAKE
 from test_execution import BASE, fixture
+from test_native_adapters import start
 
-from flowfield.adapters.acp_session import AcpSession
 from flowfield.adapters.agent_mcp import serve_scope
 from flowfield.agent_tools import coordinator_scope, worker_scope
 from flowfield.mcp import create_mcp
@@ -83,20 +80,19 @@ def test_coordinator_reads_overlap_with_bounded_revocable_access(tmp_path):
 
 async def journey(tmp_path, grant, calls):
     events = []
-    client = AcpSession(events.append, request_timeout=5)
     async with serve_scope(grant) as server:
-        await client.start([sys.executable, str(FAKE)], cwd=tmp_path, env={}, mcp_servers=[server])
+        client = await start(tmp_path, events, servers=[server])
         try:
-            await client.select("model", "second")
-            assert await client.prompt(json.dumps({"calls": calls})) == "end_turn"
+            assert (await client.prompt(json.dumps({"calls": calls}), None))[
+                "status"
+            ] == "completed"
         finally:
-            receipt = await client.close()
-        assert receipt.turn_finished and receipt.process_group_exited
+            assert await client.stop()
     assert grant.revoked
     return [
-        json.loads(event.data["text"])
+        json.loads(event.text)
         for event in events
-        if event.kind == "text" and event.data["text"].startswith("{")
+        if event.kind == "agent" and event.text.startswith("{")
     ]
 
 
@@ -224,26 +220,6 @@ def test_scoped_endpoint_rejects_ambient_browser_and_expired_access(tmp_path):
                 headers={item.name: item.value for item in server.headers}
             ) as client:
                 assert (await client.get(server.url)).status_code == 403
-
-    asyncio.run(exercise())
-
-
-def test_no_silent_loss_of_tools_for_unsupported_harness(tmp_path):
-    execution = fixture(tmp_path)
-
-    async def exercise():
-        grant = await coordinator_scope(Supervisor(execution.workspace), "harbor")
-        async with serve_scope(grant) as server:
-            client = AcpSession(lambda event: None)
-            with pytest.raises(RuntimeError, match="HTTP MCP"):
-                await client.start(
-                    [sys.executable, str(FAKE), "no-http"],
-                    cwd=tmp_path,
-                    env={},
-                    mcp_servers=[server],
-                )
-            assert client.process.returncode is not None
-        assert grant.revoked
 
     asyncio.run(exercise())
 

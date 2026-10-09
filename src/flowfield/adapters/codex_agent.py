@@ -1,72 +1,52 @@
-"""Codex choices and public activity over ACP; native tools/policies stay in Codex."""
+"""Codex's installed app-server directly; native policy and history remain Codex-owned."""
 
 import asyncio
-import json
+import base64
 import os
 import tempfile
 from collections.abc import Callable, Mapping
 from pathlib import Path
+from typing import Any
 
-from acp.exceptions import RequestError
-from acp.schema import HttpMcpServer
-from pydantic import BaseModel
-
-from flowfield.adapters.acp_agent import AcpAgent, choices
-from flowfield.adapters.acp_session import (
-    AcpSession,
-    activity_locations,
+from flowfield.adapters.agent_contract import (
+    Agent,
+    McpServer,
+    PermissionHandler,
+    PermissionRequest,
     bounded_details,
-    permission_details,
 )
-from flowfield.adapters.codex_cleanup import CODEX_SHUTDOWN_TIMEOUTS, quiesce, require_cleanup
-from flowfield.adapters.codex_install import command
 from flowfield.adapters.harness_host import launch_environment, resolve
+from flowfield.adapters.json_rpc import JsonRpc, NativeError
 from flowfield.agent_models import AgentChoice, AgentCommand
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import ModelOption, NativeMode
-from flowfield.harness_models import HarnessLaunch, HarnessRegistration
+from flowfield.harness_models import HarnessRegistration
+from flowfield.run_activity import ActivityUpdate, ContextUsage
+
+MODES = [
+    NativeMode(id="read-only", name="Read-only"),
+    NativeMode(id="workspace-write", name="Workspace access"),
+    NativeMode(id="agent", name="Auto review"),
+    NativeMode(id="agent-full-access", name="Full access"),
+]
 
 
-def codex_permission_details(tool: BaseModel) -> str:
-    """Allowlisted native request facts; exclude unrelated raw inputs and metadata."""
-    data = tool.model_dump(by_alias=True, exclude_none=True)
-    raw = data.get("rawInput")
-    parts = [permission_details(tool)]
-    if isinstance(raw, dict):
-        for key in ("command", "cwd", "url", "additionalPermissions", "permissions"):
-            if key in raw:
-                value = raw[key]
-                parts.append(f"{key}: {value if isinstance(value, str) else json.dumps(value)}")
-    return bounded_details("\n\n".join(filter(None, parts)))
+def command(directory: Path, environment: Mapping[str, str]) -> tuple[list[str], dict[str, str]]:
+    executable = environment.get("CODEX_PATH")
+    if not executable:
+        raise ApplicationError("harness_missing", "Install Codex on the service host.", 409)
+    return [executable, "app-server"], dict(environment)
 
 
-def codex_activity_details(tool: BaseModel) -> str:
-    """Execution facts only; never prompts, arbitrary tool inputs or private reasoning."""
-    data = tool.model_dump(by_alias=True, exclude_none=True)
-    parts = [activity_locations(tool)]
-    raw = data.get("rawInput")
-    if isinstance(raw, dict):
-        for key in ("command", "cwd", "path"):
-            if isinstance(raw.get(key), str):
-                parts.append(f"{key}: {raw[key]}")
-    # MCP failures are reported in rawOutput by the bridge, without ACP text
-    # content. Retain only the public error message, not arbitrary tool results.
-    output = data.get("rawOutput")
-    if data.get("status") == "failed" and isinstance(output, dict):
-        error = output.get("error")
-        if isinstance(error, dict) and isinstance(error.get("message"), str):
-            parts.append(error["message"])
-        result = output.get("result")
-        if isinstance(result, dict):
-            structured = result.get("structuredContent")
-            if isinstance(structured, dict):
-                error = structured.get("error")
-                if isinstance(error, dict) and isinstance(error.get("message"), str):
-                    parts.append(error["message"])
-    return bounded_details("\n".join(filter(None, parts)))
+COMMANDS = [
+    AgentCommand(name="compact", description="Compact this conversation", input_hint=None),
+    AgentCommand(name="status", description="Show current model and access", input_hint=None),
+    AgentCommand(name="mcp", description="List native MCP connections", input_hint=None),
+    AgentCommand(name="skills", description="List project skills", input_hint=None),
+]
 
 
-class CodexAgent(AcpAgent):
+class CodexAgent(Agent):
     def __init__(
         self,
         directory: Path,
@@ -75,131 +55,559 @@ class CodexAgent(AcpAgent):
         *,
         registration: HarnessRegistration | None = None,
     ):
-        self.launch: HarnessLaunch | None = None
-        if registration is not None:
-            if registration.harness != "codex":
-                raise ValueError("Codex requires a Codex registration")
-            self.launch = resolve(registration, environment)
-            environment = launch_environment(self.launch, environment)
-        self.command, self.environment = command(directory, environment)
-        if self.launch:
-            from flowfield.adapters.codex_install import VERSION
-
-            self.launch.bridge_executable = self.command[0]
-            self.launch.bridge_version = VERSION
+        self.launch = resolve(registration or HarnessRegistration(harness="codex"), environment)
+        self.environment = launch_environment(self.launch, environment)
+        self.environment.pop("APP_SERVER_LOGS", None)
+        self.command, self.environment = command(directory, self.environment)
         self.cwd = cwd
-        session = AcpSession(
-            self._event,
-            cleanup=quiesce,
-            shutdown_timeouts=CODEX_SHUTDOWN_TIMEOUTS,
-            permission_projection=codex_permission_details,
-            activity_projection=codex_activity_details,
-        )
-        launch = self.launch
-        super().__init__(session)
-        self.launch = launch
+        self.rpc = JsonRpc(self._event, self._request)
+        self.choice: AgentChoice | None = None
+        self.models: list[dict[str, Any]] = []
+        self.servers: list[McpServer] = []
+        self.resume: str | None = None
+        self.persistent = False
+        self.turns: dict[str, str] = {}
+        self.epoch = 0
+        self.invalid = False
+        self.tools: dict[str, str] = {}
+        self._completion: asyncio.Future[str] | None = None
+        self._permission: PermissionHandler | None = None
+        self._foreground_id: str | None = None
+        self._close_task: asyncio.Task[bool] | None = None
+        self._startup_lock = asyncio.Lock()
+        self._operations: set[asyncio.Task[Any]] = set()
+        self.session_id = None
+        self.stopping = False
+        self.cleanup_confirmed = True
+
+    @property
+    def process(self) -> asyncio.subprocess.Process | None:
+        return self.rpc.owner.process if self.rpc.owner else None
 
     async def start(
-        self, servers: list[HttpMcpServer], *, resume: str | None = None, persistent: bool = False
+        self, servers: list[McpServer], *, resume: str | None = None, persistent: bool = False
     ) -> None:
-        self.cleanup_confirmed = False
-        try:
-            await self.session.start(
-                self.command,
-                cwd=self.cwd,
-                env=self.environment,
-                mcp_servers=servers,
-                resume_session_id=resume,
-                require_resume=persistent,
+        async with self._startup_lock:
+            if self.stopping:
+                raise NativeError("Agent stopped before startup")
+            self.servers, self.resume, self.persistent = servers, resume, persistent
+            self.cleanup_confirmed = False
+            assert self.launch and self.launch.native_executable
+            await self.rpc.start(self.command, self.cwd, self.environment)
+            await self.rpc.call(
+                "initialize",
+                {
+                    "clientInfo": {"name": "flowfield", "version": "0.2.1"},
+                    "capabilities": {"experimentalApi": True},
+                },
             )
-        except RequestError as error:
-            if resume:
-                raise ApplicationError(
-                    "agent_resume_failed",
-                    "The saved agent session could not be resumed. Check Codex on the host "
-                    "and retry, or explicitly start a new session. Nothing was replayed.",
-                    409,
-                ) from error
-            if error.code == -32000:
-                raise ApplicationError(
-                    "codex_login_required",
-                    "Codex requires authentication. Sign in with Codex on the service host, "
-                    "then reload available models.",
-                    409,
-                ) from error
-            raise ApplicationError(
-                "codex_start_failed",
-                "Codex could not open an ACP session. Check its native configuration and "
-                "the installed bridge before retrying.",
-                409,
-            ) from error
-        except (OSError, RuntimeError, TimeoutError) as error:
-            if resume:
-                raise ApplicationError(
-                    "agent_resume_failed",
-                    "The saved agent session could not be resumed. Check Codex on the host "
-                    "and retry, or explicitly start a new session. Nothing was replayed.",
-                    409,
-                ) from error
-            raise ApplicationError(
-                "codex_start_failed",
-                "Codex could not open an ACP session. Check the service PATH, native "
-                "configuration and installed bridge before retrying.",
-                409,
-            ) from error
-        require_cleanup(self.session.capabilities)
+            await self.rpc.send({"method": "initialized", "params": {}})
+            self.models = await self._page("model/list", {"includeHidden": False}, 64)
+
+    async def _page(self, method: str, params: dict[str, Any], limit: int) -> list[Any]:
+        items: list[Any] = []
+        cursors: set[str] = set()
+        cursor = None
+        for _ in range(16):
+            result = await self.rpc.call(
+                method,
+                {
+                    **params,
+                    "cursor": cursor,
+                    **(
+                        {"limit": min(limit, 100)}
+                        if method in {"model/list", "thread/loaded/list"}
+                        else {}
+                    ),
+                },
+            )
+            data, cursor = result.get("data"), result.get("nextCursor")
+            if not isinstance(data, list) or not (cursor is None or isinstance(cursor, str)):
+                raise NativeError("Invalid native page")
+            items.extend(data)
+            if len(items) > limit or cursor in cursors:
+                raise NativeError("Native catalog or ownership inventory exceeded its bound")
+            if cursor is None:
+                return items
+            cursors.add(cursor)
+        raise NativeError("Native pagination exceeded its bound")
 
     async def configure(self, choice: AgentChoice) -> AgentChoice:
         if self.stopping:
-            raise ApplicationError("agent_stopping", "The agent is stopping.", 409)
-        if not choice.mode:
-            raise ApplicationError(
-                "agent_mode_required", "Choose an Access mode in agent settings.", 409
-            )
+            raise NativeError("Agent is stopping")
+        task = asyncio.current_task()
+        assert task
+        self._operations.add(task)
         try:
-            await self.session.select("mode", choice.mode)
-            await self.session.select("model", choice.model)
-            expected = {
-                "model": choice.model,
-                "mode": choice.mode,
+            model = next((m for m in self.models if m.get("id") == choice.model), None)
+            if not model or choice.mode not in {m.id for m in MODES}:
+                raise ValueError("Unavailable model or access mode")
+            efforts = [e["reasoningEffort"] for e in model["supportedReasoningEfforts"]]
+            if choice.effort not in efforts and (choice.effort is not None or efforts):
+                raise ValueError("Unavailable reasoning effort")
+            fast = "fast" in model.get("additionalSpeedTiers", []) or any(
+                tier.get("id") == "fast" for tier in model.get("serviceTiers", [])
+            )
+            if choice.fast and not fast:
+                raise ValueError("Fast unavailable")
+            config = (
+                await self.rpc.call("config/read", {"includeLayers": True, "cwd": str(self.cwd)})
+            ).get("config", {})
+            existing = config.get("mcp_servers", {})
+            if not isinstance(existing, dict):
+                raise NativeError("Invalid native MCP configuration")
+            mcp: dict[str, Any] = {name: {"enabled": False} for name in existing}
+            for server in self.servers:
+                mcp[server.name] = {
+                    "enabled": True,
+                    "url": server.url,
+                    "http_headers": {h.name: h.value for h in server.headers},
+                }
+            access = self._access(choice)
+            params = {
+                "cwd": str(self.cwd),
+                "model": model.get("model", choice.model),
+                "approvalPolicy": access["approvalPolicy"],
+                "approvalsReviewer": access["approvalsReviewer"],
+                "sandbox": access["sandbox"],
+                "serviceTier": "fast" if choice.fast else None,
+                "config": {"mcp_servers": mcp, "model_reasoning_effort": choice.effort},
             }
-            efforts = choices(self.session.config, "reasoning_effort")
-            if choice.effort is not None:
-                await self.session.select("reasoning_effort", choice.effort)
-                expected["reasoning_effort"] = choice.effort
-            elif efforts:
-                raise ValueError("Choose an explicit effort for this model")
-            if choice.fast is not None:
-                available = {item["value"] for item in choices(self.session.config, "fast-mode")}
-                if {"on", "off"} <= available:
-                    fast_value = "on" if choice.fast else "off"
-                    expected["fast-mode"] = fast_value
-                    await self.session.select("fast-mode", fast_value)
-                elif choice.fast:
-                    raise ValueError("Fast mode is unavailable for this model")
-            current = {item["id"]: item.get("currentValue") for item in self.session.config}
-            if any(current.get(key) != value for key, value in expected.items()):
-                raise RuntimeError("Native settings changed while configuring")
-            return choice.model_copy(update={"mode": expected["mode"]})
-        except (ValueError, RuntimeError, RequestError) as error:
+            if self.session_id:
+                # Coordinator clients are created afresh per turn, so reconfiguration
+                # would hide native binding changes and is deliberately rejected.
+                raise NativeError("Native choices already applied")
+            if self.resume:
+                response = await self.rpc.call(
+                    "thread/resume", {**params, "threadId": self.resume, "excludeTurns": True}
+                )
+            else:
+                response = await self.rpc.call(
+                    "thread/start", {**params, "ephemeral": not self.persistent}
+                )
+            identity = response.get("thread", {}).get("id")
+            if not isinstance(identity, str) or not identity or len(identity) > 500:
+                raise NativeError("Invalid native thread identity")
+            self.session_id = identity
+            expected_type = {
+                "read-only": "readOnly",
+                "workspace-write": "workspaceWrite",
+                "danger-full-access": "dangerFullAccess",
+            }[access["sandbox"]]
+            if (
+                self.resume
+                and identity != self.resume
+                or response.get("model") != params["model"]
+                or response.get("approvalPolicy") != params["approvalPolicy"]
+                or response.get("approvalsReviewer") != params["approvalsReviewer"]
+                or response.get("sandbox", {}).get("type") != expected_type
+                or response.get("reasoningEffort") != choice.effort
+                or (choice.fast and response.get("serviceTier") != "fast")
+            ):
+                raise NativeError("Native choices were not confirmed")
+            if self.stopping:
+                raise NativeError("Agent stopped while configuring")
+            self.choice = choice.model_copy(deep=True)
+            return choice.model_copy(deep=True)
+        except (ValueError, NativeError) as error:
             raise ApplicationError(
-                "agent_choice_unavailable",
-                "Codex could not apply the saved model, effort, access or fast mode. "
-                "Reload available choices and save settings.",
+                "agent_resume_failed" if self.resume else "agent_choice_unavailable",
+                "Codex could not apply the requested native session settings. "
+                "Refresh models or start a fresh session. Nothing was replayed.",
                 409,
             ) from error
+        finally:
+            self._operations.discard(task)
+
+    @staticmethod
+    def _access(choice: AgentChoice) -> dict[str, str]:
+        return {
+            "approvalPolicy": "never" if choice.mode == "agent-full-access" else "on-request",
+            "approvalsReviewer": "auto_review" if choice.mode == "agent" else "user",
+            "sandbox": "danger-full-access"
+            if choice.mode == "agent-full-access"
+            else "read-only"
+            if choice.mode == "read-only"
+            else "workspace-write",
+        }
+
+    async def prompt(
+        self,
+        text: str,
+        on_permission: PermissionHandler | None,
+        *,
+        attachments: list[dict[str, str]] | None = None,
+    ) -> dict[str, str]:
+        if self.stopping:
+            return {"status": "stopped"}
+        if not self.choice or not self.session_id or self._completion:
+            raise NativeError("Apply native choices before dispatch")
+        if text in {"/status", "/mcp", "/skills"}:
+            if text == "/status":
+                result = " · ".join(
+                    [
+                        self.choice.model,
+                        self.choice.effort or "default effort",
+                        self.choice.mode or "default access",
+                    ]
+                )
+            elif text == "/mcp":
+                items = await self._page("mcpServerStatus/list", {}, 64)
+                result = "\n".join(
+                    str(item.get("name", "MCP"))
+                    + " · "
+                    + str(item.get("connectionStatus", "unknown"))
+                    for item in items
+                )
+            else:
+                response = await self.rpc.call(
+                    "skills/list", {"cwds": [str(self.cwd)], "forceReload": False}
+                )
+                groups = response.get("data", [])
+                if not isinstance(groups, list) or len(groups) > 64:
+                    raise NativeError("Native skill inventory exceeded its bound")
+                skills = [skill for group in groups for skill in group.get("skills", [])]
+                if len(skills) > 256:
+                    raise NativeError("Native skill inventory exceeded its bound")
+                result = "\n".join(str(skill.get("name", "Skill")) for skill in skills)
+            self.activity(
+                ActivityUpdate(
+                    key="command", kind="agent", text=bounded_details(result or "None available.")
+                )
+            )
+            return {"status": "stopped" if self.stopping else "completed"}
+        self._foreground_id = None
+        self._permission = on_permission
+        self._completion = asyncio.get_running_loop().create_future()
+        content: list[dict[str, Any]] = [{"type": "text", "text": text}]
+        for item in attachments or []:
+            content.append({"type": "text", "text": "Human attachment: " + item["name"]})
+            if item["mime"].startswith("image/"):
+                content.append(
+                    {"type": "image", "url": f"data:{item['mime']};base64,{item['data']}"}
+                )
+            else:
+                content.append(
+                    {"type": "text", "text": base64.b64decode(item["data"]).decode("utf-8")}
+                )
+        try:
+            if text == "/compact":
+                await self.rpc.call("thread/compact/start", {"threadId": self.session_id})
+            else:
+                await self.rpc.call(
+                    "turn/start",
+                    {
+                        "threadId": self.session_id,
+                        "input": content,
+                        "model": self.choice.model,
+                        "effort": self.choice.effort,
+                        "serviceTierForTurn": "fast" if self.choice.fast else "default",
+                    },
+                )
+            return {"status": await self._completion}
+        finally:
+            self._completion = None
+            self._foreground_id = None
+            self._permission = None
+
+    def validate_attachments(self, attachments: list[dict[str, str]]) -> None:
+        if not any(item["mime"].startswith("image/") for item in attachments):
+            return
+        model = next(
+            (m for m in self.models if self.choice and m.get("id") == self.choice.model), None
+        )
+        if not model or "image" not in model.get("inputModalities", []):
+            raise ApplicationError(
+                "attachment_unsupported", "This model cannot receive images.", 409
+            )
 
     async def command_options(self) -> list[AgentCommand]:
+        return [item.model_copy() for item in COMMANDS]
+
+    def _event(self, method: str, data: dict[str, Any]) -> None:
+        if method in {"turn/started", "turn/completed", "thread/started", "thread/closed"}:
+            self.epoch += 1
+            if method.startswith("turn/"):
+                identity, turn = data.get("threadId"), data.get("turn", {})
+                if (
+                    not isinstance(identity, str)
+                    or not isinstance(turn.get("id"), str)
+                    or len(self.turns) > 64
+                ):
+                    self.invalid = True
+                elif method == "turn/started":
+                    self.turns[identity] = turn["id"]
+                elif self.turns.get(identity) == turn["id"]:
+                    del self.turns[identity]
+        if method == "transport/closed":
+            if self._completion and not self._completion.done():
+                self._completion.set_exception(
+                    NativeError("Native process exited; nothing was replayed")
+                )
+            return
+        if data.get("threadId") != self.session_id or not self._completion:
+            return
+        if method == "turn/started":
+            identity = data.get("turn", {}).get("id")
+            if self._foreground_id is not None and self._foreground_id != identity:
+                self.invalid = True
+                if not self._completion.done():
+                    self._completion.set_exception(
+                        NativeError("Concurrent native foreground turns")
+                    )
+            else:
+                self._foreground_id = identity
+        if data.get("turnId") and data["turnId"] != self._foreground_id:
+            return
+        if method == "turn/completed":
+            if data.get("turn", {}).get("id") != self._foreground_id:
+                return
+            if not self._completion.done():
+                status = data.get("turn", {}).get("status")
+                if status == "failed":
+                    self._completion.set_exception(NativeError("Native turn failed"))
+                else:
+                    self._completion.set_result(
+                        "completed" if status == "completed" and not self.stopping else "stopped"
+                    )
+        elif not self.stopping and method == "item/agentMessage/delta":
+            self.activity(
+                ActivityUpdate(
+                    key="agent-" + str(data.get("itemId", "text"))[:80],
+                    kind="agent",
+                    text=data.get("delta", ""),
+                    append=True,
+                )
+            )
+        elif not self.stopping and method in {"item/started", "item/completed"}:
+            item = data.get("item", {})
+            kind = item.get("type")
+            if kind in {"commandExecution", "fileChange", "mcpToolCall", "webSearch"}:
+                identity = str(item.get("id", "tool"))[:90]
+                details = bounded_details(
+                    "\n".join(str(item[key]) for key in ("command", "cwd", "url") if key in item)
+                )
+                if kind == "fileChange":
+                    details = bounded_details(
+                        "\n".join(
+                            str(change.get("path", "")) + "\n" + str(change.get("diff", ""))
+                            for change in item.get("changes", [])
+                        )
+                    )
+                self.tools[identity] = details
+                while len(self.tools) > 100:
+                    del self.tools[next(iter(self.tools))]
+                self.activity(
+                    ActivityUpdate(
+                        key=identity,
+                        kind="command" if kind == "commandExecution" else "tool",
+                        text=kind + " · " + str(item.get("status", "running")) + "\n" + details,
+                    )
+                )
+        elif not self.stopping and method == "thread/tokenUsage/updated":
+            usage = data.get("tokenUsage", {})
+            used, size = usage.get("last", {}).get("totalTokens"), usage.get("modelContextWindow")
+            if type(used) is int and type(size) is int and size > 0 and used >= 0:
+                self.activity(
+                    ActivityUpdate(
+                        key="context",
+                        kind="status",
+                        text="",
+                        context=ContextUsage(used=used, size=size),
+                    )
+                )
+
+    async def _request(self, method: str, data: dict[str, Any]) -> dict[str, Any]:
+        eligible = (
+            not self.stopping
+            and self._completion
+            and self._permission
+            and data.get("threadId") == self.session_id
+            and data.get("turnId") == self.turns.get(self.session_id or "")
+        )
+        if method in {"item/commandExecution/requestApproval", "item/fileChange/requestApproval"}:
+            if not eligible:
+                return {"decision": "cancel"}
+            assert self._permission
+            identity = str(data.get("itemId", "permission"))[:500]
+            details = bounded_details(
+                "\n".join(
+                    [
+                        self.tools.get(identity, ""),
+                        *[
+                            str(data[key])
+                            for key in ("command", "cwd", "reason", "grantRoot")
+                            if data.get(key)
+                        ],
+                    ]
+                )
+            )
+            offered = data.get("availableDecisions")
+            if offered is not None and (not isinstance(offered, list) or len(offered) > 16):
+                return {"decision": "cancel"}
+            options = tuple(
+                option
+                for decision, option in (
+                    ("accept", ("allow", "Allow once", "allow_once")),
+                    ("decline", ("deny", "Deny", "reject_once")),
+                )
+                if offered is None or decision in offered
+            )
+            if not options:
+                return {"decision": "cancel"}
+            selection = await self._permission(
+                PermissionRequest(
+                    identity,
+                    "Command permission" if "commandExecution" in method else "File permission",
+                    options,
+                    details,
+                )
+            )
+            return {
+                "decision": {"allow": "accept", "deny": "decline"}[selection]
+                if selection in {option[0] for option in options} and not self.stopping
+                else "cancel"
+            }
+        if method == "item/permissions/requestApproval":
+            # Never synthesize a broad permission profile from a boolean decision.
+            return {"permissions": {}, "scope": "turn"}
+        raise NativeError("Unsupported native request")
+
+    async def stop(self) -> bool:
+        self.stopping = True
+        for job in self.rpc.jobs:
+            job.cancel()
+        if self._close_task is None:
+            self._close_task = asyncio.create_task(self._stop())
+        return await asyncio.shield(self._close_task)
+
+    async def _stop(self) -> bool:
+        confirmed = False
         try:
-            await asyncio.wait_for(self.session.commands_received.wait(), 10)
-        except TimeoutError as error:
-            raise ApplicationError(
-                "commands_unavailable",
-                "Codex did not return its commands. Try reloading them.",
-                409,
-            ) from error
-        supported = {"compact", "status", "mcp", "skills"}
-        return [item for item in self.session.commands if item.name in supported]
+            async with asyncio.timeout(15):
+                async with self._startup_lock:
+                    if self.rpc.owner is None:
+                        confirmed = True
+                    else:
+                        pending = [
+                            task for task in self._operations if task is not asyncio.current_task()
+                        ]
+                        if pending:
+                            await asyncio.gather(
+                                *(asyncio.shield(task) for task in pending), return_exceptions=True
+                            )
+                        await self._quiesce()
+                        confirmed = True
+        except (Exception, asyncio.CancelledError):
+            pass
+        exited = await self.rpc.close()
+        self.cleanup_confirmed = confirmed and exited
+        return self.cleanup_confirmed
+
+    async def _quiesce(self) -> None:
+        checked: set[str] = set()
+        previous: tuple[tuple[str, ...], int] | None = None
+        stopped = 0
+        for _ in range(100):
+            if self.invalid or self.rpc.failed:
+                raise NativeError("Native ownership unknown")
+            epoch = self.epoch
+            ids = await self._page("thread/loaded/list", {}, 64)
+            if any(not isinstance(i, str) or not i or len(i) > 500 for i in ids) or len(
+                set(ids)
+            ) != len(ids):
+                raise NativeError("Invalid native ownership")
+            if (self.session_id and self.session_id not in ids) or not checked.issubset(ids):
+                raise NativeError("Native owner disappeared")
+            idle = True
+            for identity in ids:
+                checked.add(identity)
+                metadata = (
+                    await self.rpc.call(
+                        "thread/read", {"threadId": identity, "includeTurns": False}
+                    )
+                ).get("thread", {})
+                if metadata.get("id") != identity or type(metadata.get("ephemeral")) is not bool:
+                    raise NativeError("Invalid native owner metadata")
+                goal = (
+                    None
+                    if metadata["ephemeral"]
+                    else (await self.rpc.call("thread/goal/get", {"threadId": identity})).get(
+                        "goal", {}
+                    )
+                )
+                if goal is not None:
+                    status = goal.get("status")
+                    if status not in {
+                        "active",
+                        "paused",
+                        "blocked",
+                        "usageLimited",
+                        "budgetLimited",
+                        "complete",
+                    }:
+                        raise NativeError("Unknown native goal")
+                    if status == "active":
+                        await self.rpc.call(
+                            "thread/goal/set", {"threadId": identity, "status": "paused"}
+                        )
+                        idle = False
+                if identity in self.turns:
+                    await self.rpc.call(
+                        "turn/interrupt", {"threadId": identity, "turnId": self.turns[identity]}
+                    )
+                    idle = False
+                for terminal in await self._page(
+                    "thread/backgroundTerminals/list", {"threadId": identity}, 256
+                ):
+                    process_id = terminal.get("processId")
+                    stopped += 1
+                    if not isinstance(process_id, str) or not process_id or stopped > 256:
+                        raise NativeError("Invalid native terminal inventory")
+                    if (
+                        await self.rpc.call(
+                            "thread/backgroundTerminals/terminate",
+                            {"threadId": identity, "processId": process_id},
+                        )
+                    ).get("terminated") is not True:
+                        raise NativeError("Native terminal stop unconfirmed")
+                    idle = False
+                state = (
+                    await self.rpc.call(
+                        "thread/read", {"threadId": identity, "includeTurns": False}
+                    )
+                ).get("thread", {})
+                if state.get("id") != identity or state.get("status", {}).get("type") not in {
+                    "idle",
+                    "active",
+                }:
+                    raise NativeError("Native state unconfirmed")
+                idle = idle and state["status"]["type"] == "idle"
+            signature = (tuple(sorted(ids)), self.epoch)
+            if idle and not self.turns and epoch == self.epoch:
+                if previous == signature:
+                    return
+                previous = signature
+            else:
+                previous = None
+            await asyncio.sleep(0.05)
+        raise NativeError("Native shutdown exceeded its bound")
+
+
+def catalog(agent: CodexAgent) -> list[ModelOption]:
+    return [
+        ModelOption(
+            id=m["id"],
+            name=m["displayName"],
+            efforts=[e["reasoningEffort"] for e in m["supportedReasoningEfforts"]],
+            modes=MODES,
+            fast="fast" in m.get("additionalSpeedTiers", [])
+            or any(t.get("id") == "fast" for t in m.get("serviceTiers", [])),
+            fast_description="Faster responses, increased usage.",
+        )
+        for m in agent.models
+        if not m.get("hidden")
+    ]
 
 
 async def model_options(
@@ -209,57 +617,18 @@ async def model_options(
     cwd: Path | None = None,
     on_cleanup: Callable[[bool], None] | None = None,
 ) -> list[ModelOption]:
-    # Discovery opens a disposable native session, never a model turn. Bound total
-    # work because model-dependent effort options require selecting each model.
     with tempfile.TemporaryDirectory(prefix="flowfield-catalog-") as temporary:
         if on_cleanup:
-            on_cleanup(True)  # Construction starts no process.
+            on_cleanup(True)
         agent = CodexAgent(
             directory, cwd or Path(temporary).resolve(), os.environ, registration=registration
         )
-        if on_cleanup:
-            on_cleanup(False)
         try:
+            if on_cleanup:
+                on_cleanup(False)
             async with asyncio.timeout(120):
                 await agent.start([])
-                catalog = choices(agent.session.config, "model")
-                if len(catalog) > 64:
-                    raise ApplicationError(
-                        "agent_catalog_limit", "Codex returned too many models.", 409
-                    )
-                modes = [
-                    NativeMode(
-                        id=item["value"],
-                        name=item["name"],
-                        description=item.get("description") or "",
-                    )
-                    for item in choices(agent.session.config, "mode")
-                ]
-                result = []
-                for item in catalog:
-                    await agent.session.select("model", item["value"])
-                    result.append(
-                        ModelOption(
-                            id=item["value"],
-                            name=item["name"],
-                            efforts=[
-                                c["value"]
-                                for c in choices(agent.session.config, "reasoning_effort")
-                            ],
-                            modes=modes,
-                            fast={"on", "off"}
-                            <= {c["value"] for c in choices(agent.session.config, "fast-mode")},
-                            fast_description=next(
-                                (
-                                    c.get("description") or ""
-                                    for c in agent.session.config
-                                    if c["id"] == "fast-mode"
-                                ),
-                                "",
-                            )[:1000],
-                        )
-                    )
-                return result
+                return catalog(agent)
         finally:
             await agent.close()
             if on_cleanup:
@@ -280,19 +649,4 @@ async def command_options(
 ) -> list[AgentCommand]:
     if on_cleanup:
         on_cleanup(True)
-    agent = CodexAgent(directory, cwd, os.environ, registration=registration)
-    if on_cleanup:
-        on_cleanup(False)
-    try:
-        async with asyncio.timeout(60):
-            await agent.start([])
-            await agent.configure(choice)
-            return await agent.command_options()
-    finally:
-        await agent.close()
-        if on_cleanup:
-            on_cleanup(agent.cleanup_confirmed)
-        if not agent.cleanup_confirmed:
-            raise ApplicationError(
-                "agent_cleanup_unconfirmed", "Native command discovery cleanup is unconfirmed.", 409
-            )
+    return [item.model_copy() for item in COMMANDS]

@@ -3,7 +3,7 @@
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from flowfield.adapters.acp_agent import AcpAgent
+from flowfield.adapters.agent_contract import Agent
 from flowfield.adapters.claude_agent import ClaudeAgent
 from flowfield.adapters.claude_agent import model_options as claude_models
 from flowfield.adapters.codex_agent import CodexAgent
@@ -22,8 +22,7 @@ def create(
     environment: Mapping[str, str],
     *,
     registration: HarnessRegistration | None = None,
-    claude_proof_bridge: Path | None = None,
-) -> AcpAgent:
+) -> Agent:
     if registration is not None and registration.harness != choice.harness:
         raise ApplicationError(
             "harness_registration_mismatch", "Frozen host settings belong to another harness.", 409
@@ -33,7 +32,6 @@ def create(
             cwd,
             environment,
             registration=registration or HarnessRegistration(harness="claude-code", revision=1),
-            bridge=claude_proof_bridge,
             directory=directory,
             choice=choice,
         )

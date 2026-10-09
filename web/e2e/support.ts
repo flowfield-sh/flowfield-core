@@ -28,20 +28,18 @@ export function hostStatus(
       executable_source: "path",
       config_directory: `/fixture/config/${kind}`,
       config_source: "default",
-      bridge_executable: selectable ? `/fixture/bridge/${kind}` : null,
-      bridge_version: "fixture",
+      runtime_executable: selectable ? `/fixture/runtime/${kind}` : null,
+      adapter_version: "fixture",
     },
     native_installed: true,
     config_available: true,
-    bridge_installed: selectable,
     selectable,
     authentication: "unknown",
     model_access: "unverified",
     native_version: null,
     checked: false,
-    problems: selectable ? [] : ["bridge_missing_or_invalid"],
+    problems: selectable ? [] : ["native_missing"],
     catalog_ownership: null,
-    installing: false,
   };
 }
 

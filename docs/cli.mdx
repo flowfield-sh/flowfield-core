@@ -158,41 +158,16 @@ flowfield integration disconnect codex
 
 See [Codex](/integrations/codex) for project setup and fresh-session verification.
 
-## Managed runtime installation
-
-```sh
-flowfield harness install codex
-flowfield harness status codex
-```
-
-Install downloads the standalone ACP executable matching your Flowfield release and
-platform, verifies its checksum, and saves it in the selected data directory. It uses
-your existing native harness installation. Use `claude-code` instead of `codex` for Claude's
-bridge. Node and Bun are not required to run either bridge. Status checks installed files
-and the native path without starting an agent.
-
-For a locally built or downloaded bundle:
-
-```sh
-flowfield harness install codex --bundle /path/to/bundle.zip --sha256 CHECKSUM
-```
-
-Both commands work with the service stopped and accept `--json`. Installation preserves
-previous executable paths and does not enable queues or change project access settings.
-
 ## Host harness settings
 
-The sidebar **Settings → Harnesses** shows each harness's service-host paths, detected
-setup, bridge and native versions. Optional overrides are saved independently for Codex
-and Claude Code; leave paths blank to use native defaults. **Install bridge** downloads
-the matching managed runtime. **Check saved setup** reads native version and sign-in status
-without sending a model prompt. Install and check actions run only when requested; opening
-Settings starts no native session. Native accounts and advanced configuration stay with
-the harness.
+**Settings → Harnesses** detects native Codex and Claude Code installations. No separate
+support install is needed. Optional path overrides and **Check saved setup** help resolve
+missing executables or sign-in. Native accounts and advanced settings stay with the harness.
 
 With the service running, read or change its native executable and configuration directory:
 
 ```sh
+flowfield harness status codex --json
 flowfield harness settings codex --json
 flowfield harness configure codex --revision 1 \
   --executable /absolute/path/to/codex \
@@ -205,8 +180,7 @@ location is a directory (`CODEX_HOME` for Codex, `CLAUDE_CONFIG_DIR` for Claude)
 file. Saved overrides
 take precedence over native environment variables; otherwise Flowfield detects the native
 installation and configuration location. No native files, accounts or credentials change.
-Installation/status still work offline; offline status uses saved executable overrides and
-the calling terminal's environment. Service settings show the service's detected locations.
+Service settings show the service host’s detected locations.
 
 Host edits apply to future turns/attempts. Running work retains its saved registration and
 observed launch locations. A changed native session location requires a fresh coordinator
@@ -214,8 +188,7 @@ session through the existing recovery flow; the saved chat remains. External nat
 and account changes remain user-owned and are not frozen by Flowfield.
 
 There is one configuration per supported harness kind. Use Codex, Claude Code or both;
-the Coordinator and workers choose independently. Native installation,
-bridge installation, authentication and verified model access are separate facts. Detecting
+the Coordinator and workers choose independently. Native installation, authentication and verified model access are separate facts. Detecting
 paths starts no native process; explicit readiness checks use version/login-status commands
 and never send a model prompt. Such checks cannot establish successful inference or billing.
 

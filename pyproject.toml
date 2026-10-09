@@ -11,7 +11,6 @@ requires-python = ">=3.12"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 dependencies = [
-  "agent-client-protocol>=0.12.1,<0.13",
   "anyio>=4.5,<5",
   "fastapi>=0.115,<1",
   "httpx>=0.28,<1",
@@ -46,9 +45,9 @@ packages = ["src/flowfield"]
 artifacts = ["src/flowfield/_web/**"]
 
 [tool.hatch.build.targets.sdist]
-include = ["/src", "/web", "/bridges", "/scripts", "/examples", "/tests", "/docs", "/.github", "/README.md", "/CHANGELOG.md", "/CONTRIBUTING.md", "/pyproject.toml", "/uv.lock", "/Makefile", "/hatch_build.py", "/LICENSE"]
-exclude = ["/web/node_modules", "/web/test-results", "/web/playwright-report", "/docs/node_modules", "/docs/.mintlify", "/bridges/codex-acp/.work", "/bridges/claude-acp/.work"]
-artifacts = ["src/flowfield/_web/**"]
+include = ["/src", "/web", "/runtimes", "/scripts", "/examples", "/tests", "/docs", "/.github", "/README.md", "/CHANGELOG.md", "/CONTRIBUTING.md", "/pyproject.toml", "/uv.lock", "/Makefile", "/hatch_build.py", "/LICENSE"]
+exclude = ["/web/node_modules", "/web/test-results", "/web/playwright-report", "/docs/node_modules", "/docs/.mintlify", "/runtimes/claude-sdk/node_modules", "/src/flowfield/_native/**/claude-sdk"]
+artifacts = ["src/flowfield/_web/**", "src/flowfield/_native/**/*.xz", "src/flowfield/_native/**/version.json", "src/flowfield/_native/**/THIRD_PARTY_NOTICES.txt"]
 
 [tool.ruff]
 target-version = "py312"

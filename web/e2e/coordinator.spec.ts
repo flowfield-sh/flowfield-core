@@ -344,9 +344,9 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   await expect(
     activeSettings.getByLabel("Harness", { exact: true }),
   ).toBeDisabled();
-  await expect(activeSettings).toContainText("If cleanup is uncertain");
+  await expect(activeSettings).toContainText("Stop or finish this message");
   await expect(
-    activeSettings.getByRole("button", { name: "Load models", exact: true }),
+    activeSettings.getByRole("button", { name: "Refresh models", exact: true }),
   ).toBeEnabled();
   await page.keyboard.press("Escape");
   const now = new Date().toISOString();
@@ -739,7 +739,6 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   const send = page.getByRole("button", { name: "Send", exact: true });
   const input = page.getByRole("textbox", { name: "Message coordinator" });
   await expect(model).toBeDisabled();
-  await page.getByRole("button", { name: "Load models", exact: true }).click();
   await expect(model.locator("option:checked")).toHaveText("Loading models…");
   await expect(effort.locator("option:checked")).toHaveText("Loading efforts…");
   await input.click();

@@ -5,10 +5,10 @@ import json
 from contextlib import suppress
 
 import pytest
-from test_acp_session import start
 from test_execution import BASE, fixture
+from test_native_adapters import start
 
-from flowfield.adapters.acp_permissions import permission_handler
+from flowfield.adapters.agent_permissions import permission_handler
 from flowfield.attention import attention_page
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import RunAction
@@ -183,7 +183,7 @@ def test_restart_cancels_orphaned_saved_answer(tmp_path, status):
 
 
 @pytest.mark.parametrize("action", ["allow", "deny", "close"])
-def test_real_acp_permission_roundtrip_and_disconnect(tmp_path, action):
+def test_real_native_permission_roundtrip_and_disconnect(tmp_path, action):
     async def exercise():
         _, run, owner = setup(tmp_path)
         events = []
@@ -192,19 +192,22 @@ def test_real_acp_permission_roundtrip_and_disconnect(tmp_path, action):
             async with owner.turn(
                 "harbor", "worker", session_id=client.session_id, turn_id="one", run_id=run.id
             ) as turn:
-                client.on_permission = permission_handler(turn)
-                task = asyncio.create_task(client.prompt('{"mode":"permission"}'))
+                task = asyncio.create_task(
+                    client.prompt('{"mode":"permission"}', permission_handler(turn))
+                )
                 record = await pending(owner)
                 if action == "close":
                     await client.close()
-                    assert await task == "cancelled"
+                    assert (await task)["status"] == "stopped"
                     assert owner.page("harbor").items[0].status == "cancelled"
                 else:
                     owner.answer(
                         "harbor", record.id, PermissionAnswer(expected_revision=1, option_id=action)
                     )
-                    assert await task == "end_turn"
-                    assert json.loads(events[0].data["text"])["outcome"] == {
+                    assert (await task)["status"] == "completed"
+                    assert json.loads(
+                        next(value.text for value in events if value.kind == "agent")
+                    )["outcome"] == {
                         "outcome": "selected",
                         "optionId": action,
                     }
@@ -267,7 +270,9 @@ def test_transport_loss_cancels_durable_pending_request(tmp_path):
                 "harbor", "worker", session_id=client.session_id, turn_id="lost", run_id=run.id
             ) as turn:
                 client.on_permission = permission_handler(turn)
-                prompt = asyncio.create_task(client.prompt('{"mode":"permission_disconnect"}'))
+                prompt = asyncio.create_task(
+                    client.prompt('{"mode":"permission_disconnect"}', permission_handler(turn))
+                )
                 record = await pending(owner)
                 with pytest.raises((ConnectionError, RuntimeError)):
                     await prompt

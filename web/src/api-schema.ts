@@ -1516,23 +1516,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/harnesses/{harness}/install": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Install */
-    post: operations["install_api_harnesses__harness__install_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/harnesses/{harness}/catalog/confirm-stopped": {
     parameters: {
       query?: never;
@@ -2769,10 +2752,10 @@ export interface components {
        * @enum {string}
        */
       config_source: "registration" | "environment" | "default";
-      /** Bridge Executable */
-      bridge_executable: string | null;
-      /** Bridge Version */
-      bridge_version: string | null;
+      /** Runtime Executable */
+      runtime_executable: string | null;
+      /** Adapter Version */
+      adapter_version: string | null;
     };
     /** HarnessRegistration */
     HarnessRegistration: {
@@ -2799,8 +2782,6 @@ export interface components {
       native_installed: boolean;
       /** Config Available */
       config_available: boolean;
-      /** Bridge Installed */
-      bridge_installed: boolean;
       /** Selectable */
       selectable: boolean;
       /**
@@ -2825,11 +2806,6 @@ export interface components {
       /** Problems */
       problems: string[];
       catalog_ownership: components["schemas"]["CatalogOwnership"] | null;
-      /**
-       * Installing
-       * @default false
-       */
-      installing: boolean;
     };
     /** Health */
     Health: {
@@ -8440,37 +8416,6 @@ export interface operations {
     };
   };
   native_check_api_harnesses__harness__check_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        harness: "codex" | "claude-code";
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HarnessStatus"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  install_api_harnesses__harness__install_post: {
     parameters: {
       query?: never;
       header?: never;

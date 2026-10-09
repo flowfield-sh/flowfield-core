@@ -14,7 +14,9 @@ uv tool install flowfield-core
 uv keeps Flowfield in its own environment and exposes the `flowfield` command.
 If the command is missing from PATH, run `uv tool update-shell` and open a new terminal.
 The package contains the CLI, service, browser UI and agent guidance. Node and pnpm are
-only needed to develop from source. Flowfield requires Python 3.12 or newer.
+only needed for development. Installing the source archive uses its prebuilt artifacts.
+Development builds require Python 3.12+, macOS 13+ or glibc 2.28+ Linux, on arm64/x64.
+Published 0.2.1 predates the native integration update.
 
 ## Alternative: pip
 
@@ -33,25 +35,18 @@ Activate that environment to use the shorter command:
 
 ## Set up your harnesses
 
-Install and sign in to [Codex CLI](https://developers.openai.com/codex/cli/), then install
-Flowfield’s managed bridge for the Coordinator and workers:
+Install and sign in to [Codex CLI](https://developers.openai.com/codex/cli/) or
+[Claude Code](https://code.claude.com/docs/en/setup) on the machine running Flowfield.
+If already installed, no additional harness-support installation is needed. Flowfield
+uses Codex directly and includes its official Claude SDK helper. Node/Bun is not needed.
+Workers also need Git.
 
-```sh
-flowfield harness install codex
-```
+**Settings → Harnesses** detects the installed executables and native configuration.
+Override a path only when detection needs help. **Check saved setup** checks version and
+sign-in status without a model prompt. Accounts stay with each harness. Models load
+when you open a project’s role selector.
 
-Alternatively, install and sign in to [Claude Code](https://code.claude.com/docs/en/setup)
-and install its matching bridge. Claude support is currently in development source;
-published 0.2.1 supports Codex. You can use either harness alone or both in development builds.
-See [Claude Code setup](/integrations/claude-code) for native configuration and controls.
-
-This downloads the matching ACP bridge; it does not install a harness or change your login.
-Make sure your chosen harness is on PATH in the terminal where you start Flowfield. Workers also need Git.
-Once the service is running, **Settings → Harnesses** provides the same bridge installation
-and optional service-host path overrides, plus an explicit native version/sign-in check.
-Flowfield keeps one registration per harness kind; native accounts and account switching
-remain in each harness. The optional configuration path is a directory: `CODEX_HOME` or
-`CLAUDE_CONFIG_DIR`, not a settings file.
+Published 0.2.1 predates this setup; these native integrations are in development source.
 
 ## Start and stop
 
