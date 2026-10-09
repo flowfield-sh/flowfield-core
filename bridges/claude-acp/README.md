@@ -137,5 +137,10 @@ subagent, persisted-session or service-restart behavior. H1.1 remains open.
 Anthropic's [Agent SDK authentication guidance](https://code.claude.com/docs/en/agent-sdk/overview)
 documents API/provider authentication and requires prior approval for third-party products
 offering claude.ai login/rate limits. Flowfield owns no account switching or credentials.
-Establish the supported native authentication/billing route before live Sonnet checks;
-the bridge exposing a login method or accepting a token is insufficient evidence.
+The bridge/SDK already launches the installed, unmodified Claude Code binary; it is not
+a direct model Client SDK integration. The separate
+[Claude Code guidance](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use)
+explicitly preserves end-user sign-in to that binary with their own subscription, including
+platform-hosted instances. Establish how the intended native-client wrapper fits both
+documents before claiming supported billing; neither blanket API-key-only eligibility nor
+permission inferred from a bridge login method/token is established by these probes.
