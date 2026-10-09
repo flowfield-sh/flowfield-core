@@ -143,8 +143,10 @@ Flowfield connection. Stopping a turn ends its processes without deleting the sa
 
 If the harness cannot resume a session, Flowfield keeps the chat and reports the failure. Check
 it on the service host and send a new message to retry, or choose **Start new session**.
-That choice requires confirmation and sends a bounded summary of recent exchanges; it does not restore
-native tool history or earlier attachment contents. No failed prompt is replayed automatically.
+That choice requires confirmation and sends up to eight recent public exchanges within
+a 48 KB byte budget. Large exchanges may be abridged or fewer included. This is a
+fresh-session context limit, not a saved-history limit; compatible native resumes keep
+their native history. The handoff does not restore native tool history or earlier attachment contents. No failed prompt is replayed automatically.
 The recent-exchange handoff is frozen when the new message is accepted, before native
 startup. It records source identities/revisions, omissions and attachment identities;
 startup or service restart cannot silently rebuild it from different conversation evidence.

@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router";
+import { DetailTabs } from "./Presentation";
+import { AppearanceSettings, type useTheme } from "./AppearanceSettings";
 import { Settings } from "lucide-react";
 import type { components } from "./api-schema";
 import { request } from "./workspace";
@@ -357,11 +360,16 @@ function HarnessEntry({
   );
 }
 
-export function HarnessSettings({
+export function FlowfieldSettings({
   onDirty,
+  appearance,
+  tab,
 }: {
   onDirty: (value: boolean) => void;
+  appearance: ReturnType<typeof useTheme>;
+  tab: "harnesses" | "appearance";
 }) {
+  const navigate = useNavigate();
   const [dirty, setDirty] = useState<Record<string, boolean>>({});
   const changed = useCallback(
     (kind: Kind, value: boolean) =>
@@ -378,16 +386,36 @@ export function HarnessSettings({
     <section className="harness-settings-page" aria-label="Flowfield settings">
       <ContentStack space="section" className="harness-settings-content">
         <h1>Settings</h1>
-        <ContentStack>
-          <DetailHeading title="Harnesses" titleAs="h2" />
+        <DetailTabs
+          id="flowfield-settings"
+          title="Flowfield settings"
+          tabs={["harnesses", "appearance"] as const}
+          active={tab}
+          change={(value) => navigate(`/settings/${value}`)}
+        />
+        <div
+          role="tabpanel"
+          id="flowfield-settings-appearance"
+          aria-labelledby="flowfield-settings-appearance-tab"
+          hidden={tab !== "appearance"}
+        >
+          <AppearanceSettings appearance={appearance} />
+        </div>
+        <ContentStack
+          space="section"
+          role="tabpanel"
+          id="flowfield-settings-harnesses"
+          aria-labelledby="flowfield-settings-harnesses-tab"
+          hidden={tab !== "harnesses"}
+        >
           <p className="detail-metadata">
             Use Codex or Claude Code installed on the service host. Choose
             models in project settings; override detected paths only when
             needed.
           </p>
+          <HarnessEntry kind="codex" onDirty={changed} />
+          <HarnessEntry kind="claude-code" onDirty={changed} />
         </ContentStack>
-        <HarnessEntry kind="codex" onDirty={changed} />
-        <HarnessEntry kind="claude-code" onDirty={changed} />
       </ContentStack>
     </section>
   );

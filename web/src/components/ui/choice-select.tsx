@@ -39,6 +39,7 @@ export function ChoiceSelect({
       required={required}
     >
       <Select.Trigger
+        data-slot="choice-select"
         className="choice-select"
         data-compact={compact}
         data-value={value}

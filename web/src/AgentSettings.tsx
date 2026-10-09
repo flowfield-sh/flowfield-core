@@ -282,7 +282,7 @@ function useAgentSettingsContent({
     <ContentStack space="section">
       <p className="detail-metadata">
         {coordinatorActive
-          ? "Stop or finish this message before changing its settings."
+          ? "Stop or finish this message to switch harnesses. Other settings apply to the next message."
           : coordinator
             ? "Applies to your next message. Switching harnesses starts a fresh session; saved chat stays available."
             : "Overrides project defaults for the next worker run."}

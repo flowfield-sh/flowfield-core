@@ -277,7 +277,7 @@ class Coordinator:
                     )
                     if handoff:
                         session_note += (
-                            f" Included {len(handoff)} recent saved exchanges; "
+                            f" Included the latest {len(handoff)} saved exchanges; "
                             "older messages remain available through Flowfield history. "
                             "Previous tool history and attachment contents are not transferred."
                         )

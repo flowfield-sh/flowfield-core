@@ -110,6 +110,12 @@ test("central harness settings preserve host drafts and configure kinds independ
   await second
     .getByLabel("Configuration directory", { exact: true })
     .fill("/service/claude-config");
+  await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+  await expect(page.getByLabel("Theme", { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Harnesses", exact: true }).click();
+  await expect(
+    second.getByLabel("Configuration directory", { exact: true }),
+  ).toHaveValue("/service/claude-config");
   await expect(
     second.getByRole("button", { name: "Check saved setup" }),
   ).toBeDisabled();
@@ -277,4 +283,30 @@ test("mobile settings close project navigation and keep long host paths inside t
     ),
   ).toBe(true);
   await screenshot(page, testInfo, "mobile");
+});
+
+test("appearance lives in routed settings tabs and follows system changes outside settings", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/settings/appearance");
+  await expect(
+    page.getByRole("tab", { name: "Appearance", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("button", { name: /^Appearance:/ })).toHaveCount(
+    0,
+  );
+  const theme = page.getByLabel("Theme", { exact: true });
+  await theme.click();
+  await page.getByRole("option", { name: "Dark", exact: true }).click();
+  await expect(page.locator("html")).toHaveClass("dark");
+  await page.reload();
+  await expect(theme).toContainText("Dark");
+  await screenshot(page, testInfo, "appearance-dark");
+  await theme.click();
+  await page.getByRole("option", { name: "System", exact: true }).click();
+  await expect(page.locator("html")).not.toHaveClass("dark");
+  await page.getByRole("link", { name: "Flowfield", exact: true }).click();
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveClass("dark");
 });

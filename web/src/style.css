@@ -1028,6 +1028,7 @@
   }
   .field > [data-slot="input"],
   .field > [data-slot="textarea"],
+  .field > [data-slot="choice-select"],
   .field > [data-slot="native-select-wrapper"] {
     margin-top: 6px;
   }

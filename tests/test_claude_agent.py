@@ -248,3 +248,103 @@ def test_stop_during_native_metadata_never_sends_late_prompt(tmp_path):
         assert not any("input" in record for record in records)
 
     asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("mode", ["default", "acceptEdits", "auto", "bypassPermissions"])
+def test_native_access_mode_is_explicit_and_confirmed_before_prompt(tmp_path, mode):
+    async def exercise():
+        agent = installed_candidate(tmp_path)
+        agent.choice = CHOICE.model_copy(update={"mode": mode})
+        try:
+            await agent.start([])
+            await agent.configure(agent.choice)
+        finally:
+            assert await agent.stop()
+        records = [
+            json.loads(line) for line in (tmp_path / "native.jsonl").read_text().splitlines()
+        ]
+        args = next(record["args"] for record in records if "args" in record)
+        assert "--disallowedTools" in args
+        assert all(
+            name in " ".join(args) for name in ["AskUserQuestion", "EnterPlanMode", "ExitPlanMode"]
+        )
+        assert ("--allow-dangerously-skip-permissions" in args) == (mode == "bypassPermissions")
+        assert any(
+            record.get("control") == {"subtype": "set_permission_mode", "mode": mode}
+            for record in records
+        )
+        assert not any("input" in record for record in records)
+
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("scenario", ["mode-refused", "no-auto"])
+def test_unavailable_native_mode_never_sends_a_prompt(tmp_path, scenario):
+    async def exercise():
+        agent = installed_candidate(tmp_path, scenario)
+        agent.choice = CHOICE.model_copy(update={"mode": "auto"})
+        try:
+            with pytest.raises(ApplicationError):
+                await agent.start([])
+                await agent.configure(agent.choice)
+            assert not agent._configured
+        finally:
+            assert await agent.stop()
+        assert not any(
+            "input" in json.loads(line)
+            for line in (tmp_path / "native.jsonl").read_text().splitlines()
+        )
+
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("scenario", ["complete", "no-auto"])
+def test_catalog_exposes_verified_version_and_model_specific_auto(tmp_path, monkeypatch, scenario):
+    from flowfield.adapters.claude_agent import model_options
+
+    agent = installed_candidate(tmp_path, scenario)
+    for key, value in agent.environment.items():
+        monkeypatch.setenv(key, value)
+    registration = HarnessRegistration(
+        harness="claude-code",
+        executable=str(tmp_path / "native-fixture"),
+        config_directory=str(tmp_path / "config"),
+    )
+    models = asyncio.run(model_options(tmp_path, cwd=tmp_path, registration=registration))
+    assert len(models) == 1
+    assert models[0].id == MODEL and models[0].name == "Sonnet 5.5"
+    assert {mode.id for mode in models[0].modes} == {
+        "default",
+        "acceptEdits",
+        "bypassPermissions",
+    } | ({"auto"} if scenario == "complete" else set())
+
+
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        ("mcp__flowfield_9c2faa714516495184bec40458adaf5f__get_workers", "Flowfield · Get workers"),
+        ("mcp__flowfield_9c2faa7145164951__get_workers", "Flowfield · Get workers"),
+        ("mcp__other_server__get_workers", "mcp__other_server__get_workers"),
+        ("Bash", "Bash"),
+    ],
+)
+def test_claude_scoped_tool_title(name, expected):
+    from flowfield.adapters.claude_agent import tool_title
+
+    assert tool_title(name) == expected
+
+
+@pytest.mark.parametrize(
+    "name,resolved,expected",
+    [
+        ("Sonnet", "claude-sonnet-5-5", "Sonnet 5.5"),
+        ("Fable", "claude-fable-5-1", "Fable 5.1"),
+        ("Sonnet 4.5", "claude-sonnet-4-5-20250929", "Sonnet 4.5"),
+        ("Custom (1M)", "provider/deployment-v2", "Custom (1M) (provider/deployment-v2)"),
+    ],
+)
+def test_claude_model_labels_keep_verified_identity(name, resolved, expected):
+    from flowfield.adapters.claude_agent import model_name
+
+    assert model_name(name, resolved) == expected

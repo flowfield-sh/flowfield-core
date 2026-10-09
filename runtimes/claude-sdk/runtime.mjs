@@ -42,8 +42,6 @@ const cleanup = new Cleanup(id => id === sessionId && q ? {
 
 async function permission(toolName, args, context) {
   if (stopping || !promptResult || context.signal.aborted) return {behavior: "deny", message: "Turn stopped"};
-  if (toolName === "AskUserQuestion") return {behavior: "deny", message: "Use the scoped Flowfield question tool for durable human input."};
-  if (toolName === "ExitPlanMode" || toolName === "EnterPlanMode") return {behavior: "deny", message: "Managed Plan transitions are unavailable."};
   if (permissions.size >= 16) throw new Error("permission bound");
   const id = "permission-" + (++requestSequence);
   const details = Object.fromEntries(["command", "cwd", "file_path", "path", "url"].filter(k => typeof args[k] === "string").map(k => [k, args[k].slice(0, 4000)]));
@@ -117,6 +115,7 @@ async function info() {
   return {sessionId, model: context.model, models: init.models.map(m => ({
     id: m.value, name: m.displayName, resolvedModel: m.resolvedModel ?? null,
     efforts: m.supportsEffort ? (m.supportedEffortLevels ?? []) : [],
+    autoMode: m.supportsAutoMode === true,
   }))};
 }
 async function handle(method, params) {
@@ -124,16 +123,19 @@ async function handle(method, params) {
     if (started || stopping) throw new Error("one native session per runtime");
     started = true;
     if (typeof params.executable !== "string" || typeof params.cwd !== "string" ||
-        !["default", "acceptEdits"].includes(params.mode)) throw new Error("invalid startup");
+        !["default", "acceptEdits", "auto", "bypassPermissions"].includes(params.mode)) throw new Error("invalid startup");
     sessionId = params.resume ?? randomUUID();
     await cleanup.attach(async () => {
       const options = {
         pathToClaudeCodeExecutable: params.executable, cwd: params.cwd,
         env: process.env, settingSources: ["user", "project", "local"],
         tools: {type: "preset", preset: "claude_code"},
+        // Flowfield owns durable questions; managed Plan transitions are unsupported.
+        // Exclude these natively so every access mode obeys the same boundary.
+        disallowedTools: ["AskUserQuestion", "EnterPlanMode", "ExitPlanMode"],
         systemPrompt: {type: "preset", preset: "claude_code"},
         persistSession: params.persistent === true, strictMcpConfig: true,
-        allowDangerouslySkipPermissions: false, permissionMode: params.mode,
+        allowDangerouslySkipPermissions: params.mode === "bypassPermissions", permissionMode: params.mode,
         includePartialMessages: true, canUseTool: permission,
         mcpServers: params.servers ?? {},
         spawnClaudeCodeProcess: options => cleanup.spawn(sessionId, options),
@@ -157,6 +159,10 @@ async function handle(method, params) {
   }
   if (stopping) throw new Error("native session stopped");
   if (method === "info") return await info();
+  if (method === "selectMode") {
+    await q.setPermissionMode(params.mode);
+    return {};
+  }
   if (method === "selectModel") { await q.setModel(params.model); return await info(); }
   if (method === "prompt") {
     if (promptResult) throw new Error("native turn already active");

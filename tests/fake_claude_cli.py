@@ -37,6 +37,8 @@ def main() -> None:
         with record.open("a") as output:
             output.write(json.dumps(message) + "\n")
 
+    save({"args": sys.argv[1:]})
+
     def snapshot():
         emit(
             {
@@ -129,10 +131,11 @@ def main() -> None:
                         },
                         {
                             "value": "sonnet",
-                            "displayName": "Sonnet 5.5",
+                            "displayName": "Sonnet",
                             "description": "Synthetic",
                             "resolvedModel": "claude-sonnet-5-5",
                             "supportsEffort": True,
+                            "supportsAutoMode": scenario != "no-auto",
                             "supportedEffortLevels": ["low", "medium", "high"],
                         },
                     ],
@@ -152,6 +155,18 @@ def main() -> None:
             elif subtype == "get_context_usage":
                 time.sleep(float(os.environ.get("FLOWFIELD_TEST_CONTEXT_DELAY", "0")))
                 response = {"model": "claude-sonnet-5-5", "rawMaxTokens": 1000000}
+            elif subtype == "set_permission_mode" and scenario == "mode-refused":
+                emit(
+                    {
+                        "type": "control_response",
+                        "response": {
+                            "subtype": "error",
+                            "request_id": message["request_id"],
+                            "error": "Native policy does not allow this mode",
+                        },
+                    }
+                )
+                continue
             elif subtype not in {
                 "set_model",
                 "set_permission_mode",

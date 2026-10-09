@@ -345,6 +345,17 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     activeSettings.getByLabel("Harness", { exact: true }),
   ).toBeDisabled();
   await expect(activeSettings).toContainText("Stop or finish this message");
+  await expect(activeSettings.getByLabel("Harness", { exact: true })).toHaveCSS(
+    "margin-top",
+    "6px",
+  );
+  await expect(activeSettings.getByLabel("Model", { exact: true })).toHaveCSS(
+    "margin-top",
+    "6px",
+  );
+  await expect(
+    page.locator(".coordinator-message > .detail-metadata").last(),
+  ).toHaveText(/^Coordinator · \w+$/);
   await expect(
     activeSettings.getByRole("button", { name: "Refresh models", exact: true }),
   ).toBeEnabled();
@@ -364,7 +375,9 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     binding: "test-binding",
     turn_id: active!.id,
     tool_id: "setup-tool",
-    title: "Install project dependencies",
+    title:
+      "mcp__flowfield_9c2faa714516495184bec40458adaf5f__" +
+      "get_workers".repeat(12),
     details: "command: pnpm install",
     options: [
       { id: "yes", label: "Allow once", kind: "allow_once" },
@@ -402,13 +415,18 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
         button.scrollWidth <= button.clientWidth && button.clientHeight > 32,
     ),
   ).toBe(true);
+  expect(
+    await page
+      .locator(".coordinator-scroll")
+      .evaluate((el) => el.scrollWidth <= el.clientWidth),
+  ).toBe(true);
   await page.screenshot({
     path: testInfo.outputPath("coordinator-permission.png"),
   });
   await page.getByRole("button", { name: "Allow once", exact: true }).click();
   await expect(
     page.getByText("Tool permission history", { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   expect(turns[0].text).toContain(
     "[screen.png](/api/projects/chat-browser/attachments/",
   );
@@ -468,7 +486,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   const rail = page.locator('[data-sidebar="sidebar"]').first();
   for (const control of [
     page.getByRole("link", { name: "Flowfield", exact: true }),
-    page.getByRole("button", { name: /^Appearance:/ }),
+    page.getByRole("link", { name: "Settings", exact: true }),
     page.getByRole("button", { name: /^Notifications/ }),
     page.getByRole("button", { name: "Add project", exact: true }),
     page.getByRole("link", { name: "Chat Browser", exact: true }),

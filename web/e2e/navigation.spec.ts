@@ -1,4 +1,4 @@
-import { fixtureStages } from "./support";
+import { choose, fixtureStages } from "./support";
 import { join } from "node:path";
 
 import { expect } from "@playwright/test";
@@ -838,8 +838,12 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await expect(
     page.getByRole("button", { name: /Collapse projects|Expand projects/ }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: /^Appearance:/ }).click();
-  await page.getByRole("menuitemradio", { name: "Light", exact: true }).click();
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+  await choose(page.getByLabel("Theme", { exact: true }), "light");
+  await page
+    .getByRole("link", { name: "Workspace frame", exact: true })
+    .click();
   await expect(page.locator("html")).not.toHaveClass("dark");
   expect(
     await page
@@ -857,9 +861,11 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await expect(
     page.getByRole("button", { name: "Expand projects", exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: /^Appearance:/ }).click();
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+  await choose(page.getByLabel("Theme", { exact: true }), "system");
   await page
-    .getByRole("menuitemradio", { name: "System", exact: true })
+    .getByRole("link", { name: "Workspace frame", exact: true })
     .click();
   await expect(page.locator("html")).toHaveClass("dark");
   await page.emulateMedia({ colorScheme: "light" });

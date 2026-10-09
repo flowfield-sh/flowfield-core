@@ -249,33 +249,6 @@
   color: var(--warning-foreground);
   background: var(--warning-background);
 }
-.theme-menu {
-  z-index: 70;
-  min-width: 150px;
-  border: 1px solid var(--border);
-  padding: 4px;
-  border-radius: var(--radius);
-  background: var(--popover);
-  color: var(--popover-foreground);
-  box-shadow: 0 4px 12px #0002;
-}
-.theme-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
-  outline: none;
-}
-.theme-option[data-highlighted] {
-  background: var(--accent);
-  color: var(--accent-foreground);
-}
-.theme-check {
-  width: 14px;
-}
 .workspace-project-view {
   flex: 1;
   min-height: 0;
@@ -286,6 +259,8 @@
   display: none;
 }
 .coordinator-scroll {
+  min-width: 0;
+  overflow-wrap: anywhere;
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -296,6 +271,7 @@
   min-width: 0;
 }
 .coordinator-message {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;

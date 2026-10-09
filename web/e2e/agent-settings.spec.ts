@@ -304,8 +304,9 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     0,
   );
   await page.reload();
-  await detail.getByText("Tool permission history", { exact: true }).click();
-  await expect(detail.getByText(/Reject once · Answer recorded/)).toBeVisible();
+  await expect(
+    detail.getByText("Tool permission history", { exact: true }),
+  ).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: "/tmp/flowfield-slice2-mobile.png" });
   expect(

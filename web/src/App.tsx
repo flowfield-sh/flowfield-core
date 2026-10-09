@@ -11,8 +11,8 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { WorkspaceFrame } from "./WorkspaceFrame";
-import { ThemeMenu } from "./ThemeMenu";
-import { HarnessSettings, SettingsLink } from "./HarnessSettings";
+import { useTheme } from "./AppearanceSettings";
+import { FlowfieldSettings, SettingsLink } from "./FlowfieldSettings";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ContentStack } from "./DetailLayout";
@@ -75,6 +75,7 @@ type Selection = { kind: "task" | "milestone" | "project"; id?: string };
 type WorkRecord = Project | Milestone | Task;
 
 export function App() {
+  const appearance = useTheme();
   const [chatDrafts] = useState<ChatDrafts>(() => new Map());
   const [chatSettingsDirty, setChatSettingsDirty] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -213,8 +214,7 @@ export function App() {
         onAddProject={() => changeLocation("/new-project")}
         footer={
           <>
-            <SettingsLink active={pathname === "/settings/harnesses"} />
-            <ThemeMenu />
+            <SettingsLink active={pathname.startsWith("/settings/")} />
             <NotificationButton />
             <Tooltip>
               <TooltipTrigger asChild>
@@ -295,8 +295,16 @@ export function App() {
                 <h1>Page not found</h1>
                 <p>Choose a project to return to your workspace.</p>
               </section>
-            ) : pathname === "/settings/harnesses" ? (
-              <HarnessSettings onDirty={setUnsaved} />
+            ) : pathname.startsWith("/settings/") ? (
+              <FlowfieldSettings
+                onDirty={setUnsaved}
+                appearance={appearance}
+                tab={
+                  pathname === "/settings/appearance"
+                    ? "appearance"
+                    : "harnesses"
+                }
+              />
             ) : projectId ? (
               <ProjectBoard
                 key={projectId}

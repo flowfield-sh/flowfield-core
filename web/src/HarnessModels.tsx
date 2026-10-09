@@ -124,7 +124,7 @@ export function HarnessModelSource({
         <HarnessSelect
           compact={compact}
           value={kind ?? ""}
-          disabled={disabled || harnessLocked || hosts.loading}
+          disabled={disabled || harnessLocked || (hosts.loading && !hosts.data)}
           onChange={change}
           options={Object.entries(harnessNames).map(([value, name]) => {
             const status = hosts.data?.find(

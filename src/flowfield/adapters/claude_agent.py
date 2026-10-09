@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import os
+import re
 import tempfile
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -26,7 +27,24 @@ from flowfield.execution_models import ModelOption, NativeMode
 from flowfield.harness_models import HarnessRegistration
 from flowfield.run_activity import ActivityUpdate, ContextUsage
 
-MODES = {"default", "acceptEdits"}
+MODES = {"default", "acceptEdits", "auto", "bypassPermissions"}
+
+
+def tool_title(name: str) -> str:
+    """Present Claude's scoped MCP identifier without the per-session server suffix."""
+    match = re.fullmatch(r"mcp__flowfield(?:_[a-f0-9]{16}|_[a-f0-9]{32})?__(\w+)", name)
+    if match:
+        return ("Flowfield · " + match[1].replace("_", " ").capitalize())[:4000]
+    return name[:4000]
+
+
+def model_name(name: str, resolved: str) -> str:
+    # Native display names can be bare aliases. Keep the verified version visible.
+    match = re.fullmatch(r"claude-([a-z]+)-(\d+)-(\d+)(?:-\d{8})?", resolved)
+    if match:
+        version = f"{match[2]}.{match[3]}"
+        return name if version in name else f"{match[1].capitalize()} {version}"
+    return name if resolved in name else f"{name} ({resolved})"
 
 
 class CleanupReceipt(BaseModel):
@@ -118,8 +136,8 @@ class ClaudeAgent(Agent):
             except (NativeError, OSError, TimeoutError) as error:
                 raise ApplicationError(
                     "agent_resume_failed" if resume else "claude_start_failed",
-                    "Claude could not open the requested session. Check its native login "
-                    "and configuration. Nothing was replayed.",
+                    "Claude could not open the requested session or access mode. "
+                    "Check native login/settings and refresh models. Nothing was replayed.",
                     409,
                 ) from error
 
@@ -145,6 +163,13 @@ class ClaudeAgent(Agent):
         model = next(m for m in self.info["models"] if m.get("resolvedModel") == choice.model)
         if (
             choice.mode not in MODES
+            or (
+                choice.mode == "auto"
+                and not any(
+                    item.get("resolvedModel") == choice.model and item.get("autoMode") is True
+                    for item in self.info["models"]
+                )
+            )
             or choice.fast
             or (
                 choice.effort not in model["efforts"]
@@ -157,6 +182,16 @@ class ClaudeAgent(Agent):
                 "The requested native effort or access mode is unavailable.",
                 409,
             )
+        try:
+            # Confirm policy/version acceptance before any prompt, including resumes.
+            await self.rpc.call("selectMode", {"sessionId": self.session_id, "mode": choice.mode})
+        except NativeError as error:
+            raise ApplicationError(
+                "agent_choice_unavailable",
+                "Claude did not accept this access mode. Refresh models or choose another mode. "
+                "No prompt was sent.",
+                409,
+            ) from error
         self._configured = True
         return choice.model_copy(deep=True)
 
@@ -237,7 +272,7 @@ class ClaudeAgent(Agent):
                 ActivityUpdate(
                     key=identity,
                     kind="command" if title == "Bash" else "tool",
-                    text=f"{title} · {tool.get('status', 'running')}\n{details}",
+                    text=f"{tool_title(title)} · {tool.get('status', 'running')}\n{details}",
                 )
             )
         elif kind == "usage":
@@ -267,7 +302,7 @@ class ClaudeAgent(Agent):
         selection = await self._permission(
             PermissionRequest(
                 str(data.get("toolId", "permission"))[:500],
-                str(data.get("title", "Tool permission"))[:4000],
+                tool_title(str(data.get("title", "Tool permission"))),
                 (("allow", "Allow once", "allow_once"), ("deny", "Deny", "reject_once")),
                 details,
             )
@@ -348,11 +383,17 @@ async def model_options(
                         raise NativeError("Native model identity unconfirmed")
                     result[resolved] = ModelOption(
                         id=resolved,
-                        name=model["name"],
+                        name=model_name(model["name"], resolved),
                         efforts=model["efforts"],
                         modes=[
                             NativeMode(id="default", name="Default"),
                             NativeMode(id="acceptEdits", name="Accept edits"),
+                            *(
+                                [NativeMode(id="auto", name="Auto (review actions)")]
+                                if model.get("autoMode") is True
+                                else []
+                            ),
+                            NativeMode(id="bypassPermissions", name="Bypass permissions"),
                         ],
                         fast=False,
                     )

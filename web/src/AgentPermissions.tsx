@@ -1,10 +1,10 @@
 import { useState } from "react";
 import type { components } from "./api-schema";
-import { usePage, useResource } from "./useResource";
+import { useResource } from "./useResource";
 import { request } from "./workspace";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
+import { ContentStack, DetailSection } from "./DetailLayout";
 import { Timestamp } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { taskHref } from "./navigation";
@@ -100,10 +100,11 @@ export function AgentPermissions({
 }) {
   const [retry, setRetry] = useState(0);
   const path = `projects/${projectId}/permissions?retry=${retry}${taskId ? `&task_id=${encodeURIComponent(taskId)}` : ""}${role ? `&role=${role}` : ""}`;
-  const page = usePage<components["schemas"]["PermissionPage"]>(path, refresh);
-  const items = page.data?.items ?? [];
+  const page = useResource<components["schemas"]["PermissionPage"]>(
+    path,
+    refresh,
+  );
   const pending = page.data?.pending ?? [];
-  const history = items.filter((item) => item.status !== "pending");
   return (
     <>
       {page.error && (
@@ -130,29 +131,6 @@ export function AgentPermissions({
             />
           ))}
         </ContentStack>
-      )}
-      {!!history.length && (
-        <Disclosure summary="Tool permission history">
-          <ContentStack space="section">
-            {history.map((record) => (
-              <PermissionControl
-                key={record.id}
-                record={record}
-                answered={() => setRetry((n) => n + 1)}
-              />
-            ))}
-            {page.data?.next_before && (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={page.loadingMore}
-                onClick={() => void page.older()}
-              >
-                Load more permissions
-              </Button>
-            )}
-          </ContentStack>
-        </Disclosure>
       )}
     </>
   );

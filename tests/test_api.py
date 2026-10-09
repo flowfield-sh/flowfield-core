@@ -25,6 +25,8 @@ def test_built_ui_and_api_coexist(tmp_path: Path) -> None:
         assert client.get("/asset.js").status_code == 200
         assert client.get("/projects/harbor/tasks/HAR-1/activity").text == "<h1>Flowfield</h1>"
         assert client.get("/projects/harbor/settings").text == "<h1>Flowfield</h1>"
+        assert client.get("/settings/harnesses").text == "<h1>Flowfield</h1>"
+        assert client.get("/settings/appearance").text == "<h1>Flowfield</h1>"
         assert client.get("/api/health").status_code == 200
         assert client.get("/api/unknown").json() == {"detail": "Not Found"}
         assert client.get("/missing.js").status_code == 404

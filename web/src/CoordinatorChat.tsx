@@ -374,8 +374,6 @@ export function CoordinatorChat({
                 {turn.notice && <p role="status">{turn.notice}</p>}
                 <div className="detail-metadata" role="status">
                   Coordinator · {turn.status}
-                  {turn.applied &&
-                    ` · ${choiceLabel(turn.applied.choice)}${turn.applied.choice.mode ? ` · ${turn.applied.choice.mode}` : ""}${turn.applied.choice.fast ? " · Fast" : ""}`}
                 </div>
               </div>
             </article>

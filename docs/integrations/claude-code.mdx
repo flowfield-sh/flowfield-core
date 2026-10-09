@@ -38,9 +38,15 @@ default for the next attempt. Workers use separate checkouts and run-scoped tool
 durable questions through Flowfield, and saved answers continue in fresh worker attempts.
 Native tool permission is separate from exact approval of a code candidate for delivery.
 
-Supported access modes are **Default** and **Accept edits**, with their native semantics.
-Default may request approval for edits. Plan, Fast and Claude slash commands are not exposed.
-Model availability and effort choices come from native project-bound discovery. Loading
+Access modes use Claude’s native semantics: **Default**, **Accept edits**,
+**Auto (review actions)** when the model advertises support, and **Bypass permissions**.
+Auto uses Claude’s action classifier; Bypass skips most permission prompts and is an
+explicit opt-in. Native organization rules still apply. Claude must accept the selected
+mode before Flowfield sends a prompt; unavailable modes fail without sending one. See
+[Claude’s permission modes](https://code.claude.com/docs/en/agent-sdk/permissions).
+Plan, Fast and Claude slash commands are not exposed.
+Model availability and effort choices come from native project-bound discovery. Bare
+model names include the verified version; saved choices use the resolved native model ID. Loading
 models opens a disposable session: startup hooks can run, but no model prompt is sent.
 
 ## Continue and switch
@@ -50,7 +56,8 @@ harness, Claude model, effort or access controls starts a fresh session with a b
 Flowfield handoff. Harness switches require idle state or confirmed Stop. Switching back
 also starts fresh; old native bindings and public conversation evidence remain retained.
 
-The handoff includes up to eight recent public exchanges. Older messages remain available
+The handoff includes up to eight recent public exchanges within a 48 KB byte budget.
+This limits what is sent to the new session, not how much conversation Flowfield saves. Older messages remain available
 through scoped history/full-text tools. It does not convert native session files, private
 reasoning, tool history or permissions. Reattach older files when their contents matter;
 current-turn UTF-8 text and PNG/JPEG/WebP images accompany the message.

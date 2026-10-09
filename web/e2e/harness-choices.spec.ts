@@ -347,3 +347,79 @@ test("Claude-only coordinator saves native choices independently of worker defau
     animations: "disabled",
   });
 });
+
+test("switching harnesses disables dependent controls and ignores late catalogs", async ({
+  page,
+  request,
+}) => {
+  const project = "harness-switch-race";
+  expect(
+    (
+      await request.post("/api/projects/initialize", {
+        data: {
+          path: existingDirectory(join(state, project)),
+          task_prefix: "HSR",
+        },
+      })
+    ).ok(),
+  ).toBe(true);
+  await page.route("**/api/harnesses", (route) =>
+    route.fulfill({ json: [hostStatus("codex"), hostStatus("claude-code")] }),
+  );
+  let releaseClaude!: () => void;
+  const delayed = new Promise<void>((resolve) => {
+    releaseClaude = resolve;
+  });
+  let requestedClaude = false;
+  await page.route("**/api/worker-models*", async (route) => {
+    const claude =
+      new URL(route.request().url()).searchParams.get("harness") ===
+      "claude-code";
+    if (claude) {
+      requestedClaude = true;
+      await delayed;
+    }
+    await route
+      .fulfill({
+        json: [
+          {
+            id: claude ? "claude-model" : "codex-model",
+            name: claude ? "Claude model" : "Codex model",
+            efforts: ["low"],
+            modes: [{ id: "default", name: "Default" }],
+            fast: false,
+          },
+        ],
+      })
+      .catch(() => {});
+  });
+  await page.goto(`/projects/${project}/edit/workers`);
+  const form = page.getByRole("region", {
+    name: "Worker settings",
+    exact: true,
+  });
+  const harness = form.getByLabel("Harness", { exact: true });
+  const model = form.getByLabel("Model", { exact: true });
+  await expect(model).toBeEnabled();
+  await choose(model, "codex-model");
+  await choose(harness, "claude-code");
+  await expect.poll(() => requestedClaude).toBe(true);
+  await expect(harness).toBeEnabled();
+  await expect(model).toBeDisabled();
+  await expect(form.getByLabel("Reasoning effort")).toBeDisabled();
+  await expect(
+    form.getByRole("button", { name: "Save worker settings" }),
+  ).toBeDisabled();
+  await choose(harness, "codex");
+  await expect(model).toBeEnabled();
+  await choose(model, "codex-model");
+  releaseClaude();
+  await expect(model).toHaveAttribute("data-value", "codex-model");
+  await model.click();
+  await expect(
+    page.getByRole("option", { name: "Codex model", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("option", { name: "Claude model", exact: true }),
+  ).toHaveCount(0);
+});
