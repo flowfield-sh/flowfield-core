@@ -129,6 +129,30 @@ def test_stop_interrupts_turn_and_rejects_future_prompts(tmp_path):
     asyncio.run(exercise())
 
 
+@pytest.mark.parametrize("failed_check", [1, 2])
+def test_failed_idle_check_retains_uncertain_cleanup(tmp_path, monkeypatch, failed_check):
+    async def exercise():
+        agent, _ = fixture(tmp_path)
+        await agent.start([])
+        call = agent.rpc.call
+        checks = 0
+
+        async def failing(method, params):
+            nonlocal checks
+            if method == "get_state":
+                checks += 1
+                if checks == failed_check:
+                    raise NativeError("Idle state unavailable")
+            return await call(method, params)
+
+        monkeypatch.setattr(agent.rpc, "call", failing)
+        assert not await agent.stop()
+        assert agent._shutdown and agent.process.returncode is not None
+        assert not agent.cleanup_confirmed
+
+    asyncio.run(exercise())
+
+
 def test_settings_and_resume_require_exact_native_confirmation(tmp_path):
     async def exercise():
         agent, _ = fixture(tmp_path, "wrong-session")

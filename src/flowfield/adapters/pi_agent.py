@@ -378,7 +378,7 @@ class PiAgent(Agent):
                                 confirmed = False
                             await asyncio.sleep(0.05)
         except (Exception, asyncio.CancelledError):
-            pass
+            confirmed = False
         exited = await self.rpc.close()
         self.cleanup_confirmed = confirmed and exited and (self.rpc.owner is None or self._shutdown)
         return self.cleanup_confirmed
