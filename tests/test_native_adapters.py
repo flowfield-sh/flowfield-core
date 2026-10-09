@@ -117,6 +117,55 @@ def test_frame_bounds_allow_images_only_in_prompt_operations():
     asyncio.run(exercise())
 
 
+@pytest.mark.parametrize("resume", [None, "test-session"])
+@pytest.mark.parametrize(
+    "requested,returned,accepted",
+    [
+        (True, "priority", True),
+        (True, "fast", True),
+        (True, "default", False),
+        (False, "priority", False),
+        (False, "default", True),
+    ],
+)
+def test_native_fast_tier_confirmation_on_start_and_resume(
+    tmp_path, resume, requested, returned, accepted
+):
+    from flowfield.adapters.codex_agent import catalog
+
+    async def exercise():
+        agent = CodexAgent(tmp_path, tmp_path, {"CODEX_PATH": sys.executable})
+        agent.command = [sys.executable, str(FAKE)]
+        await agent.start([], resume=resume)
+        # Native model/list may advertise only the canonical service tier.
+        agent.models[0]["serviceTiers"] = [{"id": "priority", "name": "Fast"}]
+        assert catalog(agent)[0].fast
+        call = agent.rpc.call
+
+        async def response(method, params):
+            if method in {"thread/start", "thread/resume"}:
+                assert params["serviceTier"] == ("fast" if requested else "default")
+            result = await call(method, params)
+            if method in {"thread/start", "thread/resume"}:
+                result["serviceTier"] = returned
+            return result
+
+        agent.rpc.call = response
+        choice = CHOICE.model_copy(update={"fast": requested})
+        try:
+            if accepted:
+                assert await agent.configure(choice) == choice
+                assert await agent.prompt('{"mode":"normal"}', None) == {"status": "completed"}
+            else:
+                with pytest.raises(ApplicationError):
+                    await agent.configure(choice)
+                assert agent.choice is None
+        finally:
+            assert await agent.stop()
+
+    asyncio.run(exercise())
+
+
 @pytest.mark.parametrize(
     "flags,confirmed",
     [(("native-background",), True), (("native-background", "terminal-refused"), False)],

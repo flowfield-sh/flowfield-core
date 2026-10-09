@@ -1,4 +1,4 @@
-import { fixtureStages } from "./support";
+import { choose, fixtureStages } from "./support";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
@@ -598,6 +598,9 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   page.once("dialog", (dialog) => dialog.accept());
   await reset.click();
   await expect(reset).toHaveCount(0);
+  await expect(
+    page.locator(".coordinator-composer").getByRole("alert"),
+  ).toHaveCount(0);
   expect(resets).toBe(1);
   expect(sends).toBe(1);
   active = turns[0];
@@ -739,8 +742,8 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   const send = page.getByRole("button", { name: "Send", exact: true });
   const input = page.getByRole("textbox", { name: "Message coordinator" });
   await expect(model).toBeDisabled();
-  await expect(model.locator("option:checked")).toHaveText("Loading models…");
-  await expect(effort.locator("option:checked")).toHaveText("Loading efforts…");
+  await expect(model).toHaveText("Loading models…");
+  await expect(effort).toHaveText("Loading efforts…");
   await input.click();
   await expect(model).not.toBeVisible();
   await input.fill("Plan something useful");
@@ -760,17 +763,13 @@ test("single coordinator requires a saved model, labels loading and cancels dism
     .getByRole("button", { name: "Model settings", exact: true })
     .click();
   await expect(model).toBeEnabled();
-  await expect(model.locator("option:checked")).toHaveText("Choose a model");
+  await expect(model).toHaveText("Choose a model");
   await expect(effort).toBeDisabled();
-  await expect(effort.locator("option:checked")).toHaveText(
-    "Select a model first",
-  );
-  await model.selectOption("second");
+  await expect(effort).toHaveText("Select a model first");
+  await choose(model, "second");
   await expect(effort).toBeEnabled();
-  await effort.selectOption("high");
-  await page
-    .getByRole("combobox", { name: "Access mode" })
-    .selectOption("agent");
+  await choose(effort, "high");
+  await choose(page.getByRole("combobox", { name: "Access mode" }), "agent");
   await expect(send).toBeDisabled();
   await input.click();
   await expect(model).not.toBeVisible();
@@ -778,12 +777,10 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   await page
     .getByRole("button", { name: "Model settings", exact: true })
     .click();
-  await expect(model).toHaveValue("");
-  await model.selectOption("second");
-  await effort.selectOption("high");
-  await page
-    .getByRole("combobox", { name: "Access mode" })
-    .selectOption("agent");
+  await expect(model).toHaveAttribute("data-value", "");
+  await choose(model, "second");
+  await choose(effort, "high");
+  await choose(page.getByRole("combobox", { name: "Access mode" }), "agent");
   await expect(model).toHaveCSS("height", "32px");
   await expect(
     page
@@ -813,7 +810,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   await page
     .getByRole("button", { name: "Codex · second · high", exact: true })
     .click();
-  await model.selectOption("first");
+  await choose(model, "first");
   await page.getByRole("tab", { name: "Work", exact: true }).click();
   await expect(model).not.toBeVisible();
   await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
@@ -821,7 +818,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   await page
     .getByRole("button", { name: "Codex · second · high", exact: true })
     .click();
-  await expect(model).toHaveValue("second");
+  await expect(model).toHaveAttribute("data-value", "second");
   await page.keyboard.press("Escape");
   await expect(send).toBeEnabled();
   const fastBounds = await fastButton.boundingBox();
@@ -833,11 +830,11 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   await page
     .getByRole("button", { name: "Codex · second · high", exact: true })
     .click();
-  await expect(model).toHaveValue("second");
+  await expect(model).toHaveAttribute("data-value", "second");
   await expect(page.getByRole("button", { name: "Use defaults" })).toHaveCount(
     0,
   );
-  await model.selectOption("first");
+  await choose(model, "first");
   await page.keyboard.press("Escape");
   await expect(send).toBeEnabled();
   await expect(fastButton).toBeEnabled();
@@ -845,8 +842,8 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   await page
     .getByRole("button", { name: "Codex · second · high", exact: true })
     .click();
-  await expect(model).toHaveValue("second");
-  await expect(effort).toHaveValue("high");
+  await expect(model).toHaveAttribute("data-value", "second");
+  await expect(effort).toHaveAttribute("data-value", "high");
   await input.click();
   await send.click();
   await expect(page.getByRole("alert")).toContainText("Model is unavailable");

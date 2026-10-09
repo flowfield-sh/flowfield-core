@@ -447,7 +447,7 @@ async def main():
                     }[params["sandbox"]]
                 },
                 "reasoningEffort": params["config"].get("model_reasoning_effort"),
-                "serviceTier": params.get("serviceTier"),
+                "serviceTier": "priority" if params.get("serviceTier") == "fast" else "default",
             }
             reply(request, current)
         elif method == "thread/loaded/list":

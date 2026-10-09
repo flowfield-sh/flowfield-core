@@ -1,4 +1,4 @@
-import { fixtureProgress } from "./support";
+import { choose, fixtureProgress } from "./support";
 import { fixtureStages } from "./support";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -226,20 +226,27 @@ test("worker models load automatically and retry without replacing setting draft
   await settings.getByRole("button", { name: "Refresh models" }).click();
   const model = settings.getByLabel("Model", { exact: true });
   const effort = settings.getByLabel("Reasoning effort");
-  await expect(model.getByRole("option", { name: "Model one" })).toBeAttached();
-  await expect(model).toHaveValue("");
+  await expect(model).toBeEnabled();
+  await model.click();
+  await expect(
+    page.getByRole("option", { name: "Model one", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(model).toHaveAttribute("data-value", "");
   await expect(settings.getByLabel("Maximum parallel workers")).toHaveValue(
     "3",
   );
-  await model.selectOption("model-one");
-  await effort.selectOption("high");
-  await model.selectOption("model-two");
-  await expect(effort).toHaveValue("");
+  await choose(model, "model-one");
+  await choose(effort, "high");
+  await choose(model, "model-two");
+  await expect(effort).toHaveAttribute("data-value", "");
+  await effort.click();
   await expect(
-    effort.getByRole("option", { name: "high", exact: true }),
+    page.getByRole("option", { name: "high", exact: true }),
   ).toHaveCount(0);
-  await effort.selectOption("medium");
-  await model.selectOption("no-effort");
+  await page.keyboard.press("Escape");
+  await choose(effort, "medium");
+  await choose(model, "no-effort");
   await expect(effort).toHaveCount(0);
   let captured: unknown;
   await page.route(`**/api/projects/${project}/workers`, async (route) => {

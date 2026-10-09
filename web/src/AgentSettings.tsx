@@ -4,7 +4,7 @@ import { useResource } from "./useResource";
 import { request } from "./workspace";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
+import { ChoiceSelect } from "@/components/ui/choice-select";
 import {
   Tooltip,
   TooltipContent,
@@ -16,6 +16,7 @@ import { ChevronDown, Zap } from "lucide-react";
 import { ContentStack } from "./DetailLayout";
 import {
   HarnessModelSource,
+  RefreshModels,
   modelSupports,
   useHarnessModels,
   type HarnessKind,
@@ -51,103 +52,97 @@ export function AgentModelFields({
     <>
       <Label className="field block">
         Model
-        <NativeSelect
-          size={compact ? "sm" : "default"}
-          aria-label="Model"
+        <ChoiceSelect
+          compact={compact}
+          label="Model"
           value={loading ? "" : model}
           required
           disabled={loading || !models.length}
-          onChange={(event) => {
-            const next = models.find((item) => item.id === event.target.value);
+          onChange={(value) => {
+            const next = models.find((item) => item.id === value);
             change(
-              event.target.value,
+              value,
               "",
               next?.modes?.some((item) => item.id === mode) ? mode : "",
               false,
             );
           }}
-        >
-          <option value="">
-            {loading
+          placeholder={
+            loading
               ? "Loading models…"
               : !known
                 ? "Loading models…"
                 : !models.length
                   ? "Models unavailable"
-                  : "Choose a model"}
-          </option>
-          {!loading && model && !selected && (
-            <option value={model}>
-              {model} ({known ? "unavailable" : "saved"})
-            </option>
-          )}
-          {models.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </NativeSelect>
+                  : "Choose a model"
+          }
+          options={[
+            ...(!loading && model && !selected
+              ? [
+                  {
+                    value: model,
+                    label: `${model} (${known ? "unavailable" : "saved"})`,
+                  },
+                ]
+              : []),
+            ...models.map((item) => ({ value: item.id, label: item.name })),
+          ]}
+        />
       </Label>
       {(loading ||
         (!model && models.some((item) => item.efforts.length)) ||
         !!selected?.efforts.length) && (
         <Label className="field block">
           Reasoning effort
-          <NativeSelect
-            size={compact ? "sm" : "default"}
-            aria-label="Reasoning effort"
+          <ChoiceSelect
+            compact={compact}
+            label="Reasoning effort"
             value={loading ? "" : effort}
             required
             disabled={loading || !model || !selected?.efforts.length}
-            onChange={(event) => change(model, event.target.value, mode, fast)}
-          >
-            <option value="">
-              {loading
+            onChange={(value) => change(model, value, mode, fast)}
+            placeholder={
+              loading
                 ? "Loading efforts…"
                 : !model
                   ? "Select a model first"
                   : !selected?.efforts.length
                     ? "Efforts unavailable"
-                    : "Choose an effort"}
-            </option>
-            {!loading && effort && !selected?.efforts.includes(effort) && (
-              <option value={effort}>{effort} (unavailable)</option>
-            )}
-            {selected?.efforts.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </NativeSelect>
+                    : "Choose an effort"
+            }
+            options={[
+              ...(!loading && effort && !selected?.efforts.includes(effort)
+                ? [{ value: effort, label: `${effort} (unavailable)` }]
+                : []),
+              ...(selected?.efforts.map((value) => ({ value, label: value })) ??
+                []),
+            ]}
+          />
         </Label>
       )}
       {!!selected?.modes?.length && (
         <Label className="field block">
           Access mode
-          <NativeSelect
-            size={compact ? "sm" : "default"}
-            aria-label="Access mode"
+          <ChoiceSelect
+            compact={compact}
+            label="Access mode"
             value={loading ? "" : mode}
             required
             disabled={loading}
-            onChange={(event) =>
-              change(model, effort, event.target.value, fast)
-            }
-          >
-            <option value="">
-              {loading ? "Loading modes…" : "Choose a mode"}
-            </option>
-            {!loading &&
+            onChange={(value) => change(model, effort, value, fast)}
+            placeholder={loading ? "Loading modes…" : "Choose a mode"}
+            options={[
+              ...(!loading &&
               mode &&
-              !selected.modes.some((item) => item.id === mode) && (
-                <option value={mode}>{mode} (unavailable)</option>
-              )}
-            {selected.modes.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </NativeSelect>
+              !selected.modes.some((item) => item.id === mode)
+                ? [{ value: mode, label: `${mode} (unavailable)` }]
+                : []),
+              ...selected.modes.map((item) => ({
+                value: item.id,
+                label: item.name,
+              })),
+            ]}
+          />
         </Label>
       )}
     </>
@@ -315,7 +310,7 @@ function useAgentSettingsContent({
             mode={mode}
             fast={fast}
             models={source.models}
-            loading={catalog.loading || resource.loading}
+            loading={catalog.loading || !data}
             known={!!catalog.data && !catalog.error && source.loaded}
             change={change}
             compact={compact}
@@ -336,17 +331,7 @@ function useAgentSettingsContent({
             >
               {busy ? "Saving…" : "Save"}
             </Button>
-            {!coordinator && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={stale || (!data?.selection && !draft)}
-                onClick={() => void save(true)}
-              >
-                Use defaults
-              </Button>
-            )}
+            <RefreshModels source={source} />
             {(draft || error || resource.error) &&
               (!compact || stale || error || resource.error) && (
                 <Button
@@ -396,6 +381,18 @@ function useAgentSettingsContent({
               </Button>
             )}
           </div>
+          {!coordinator && (
+            <Button
+              type="button"
+              size="sm"
+              variant="link"
+              className="w-fit"
+              disabled={stale || (!data?.selection && !draft)}
+              onClick={() => void save(true)}
+            >
+              Use defaults
+            </Button>
+          )}
         </fieldset>
       </form>
       {(error || resource.error || stale) && (

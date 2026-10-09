@@ -7,8 +7,17 @@ import {
   type Page,
   type APIRequestContext,
   type BrowserContext,
+  type Locator,
 } from "@playwright/test";
 import type { components } from "../src/api-schema";
+
+export async function choose(select: Locator, value: string) {
+  await select.click();
+  const menu = select.page().getByRole("listbox");
+  await menu
+    .locator(`[role="option"][data-value=${JSON.stringify(value)}]`)
+    .click();
+}
 
 export function hostStatus(
   kind: "codex" | "claude-code",

@@ -320,7 +320,9 @@ function HarnessEntry({
                 <dt>Sign-in</dt>
                 <dd>
                   {status.authentication === "unknown"
-                    ? "Not verified"
+                    ? status.checked
+                      ? "Could not determine sign-in status"
+                      : "Not checked — run Check saved setup"
                     : status.authentication === "authenticated"
                       ? "Signed in"
                       : "Signed out"}

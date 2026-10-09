@@ -1,5 +1,4 @@
-import { Select } from "radix-ui";
-import { Check, ChevronDown } from "lucide-react";
+import { ChoiceSelect } from "@/components/ui/choice-select";
 import claude from "./assets/claude.svg";
 import codex from "./assets/openai.svg";
 import type { HarnessKind } from "./HarnessModels";
@@ -29,50 +28,23 @@ export function HarnessSelect({
   onChange: (value: HarnessKind) => void;
 }) {
   return (
-    <Select.Root
+    <ChoiceSelect
       value={value}
-      onValueChange={(value) => onChange(value as HarnessKind)}
+      label="Harness"
+      placeholder="Choose a harness"
+      compact={compact}
+      onChange={(value) => onChange(value as HarnessKind)}
       disabled={disabled}
-    >
-      <Select.Trigger
-        className="harness-select"
-        data-compact={compact}
-        aria-label="Harness"
-      >
-        <Select.Value placeholder="Choose a harness" />
-        <Select.Icon>
-          <ChevronDown size={14} />
-        </Select.Icon>
-      </Select.Trigger>
-      <Select.Portal>
-        <Select.Content
-          className="harness-select-menu"
-          position="popper"
-          sideOffset={4}
-        >
-          <Select.Viewport>
-            {options.map((option) => (
-              <Select.Item
-                key={option.value}
-                value={option.value}
-                disabled={option.disabled}
-                className="harness-select-option"
-              >
-                <Select.ItemText>
-                  <span className="harness-name">
-                    <HarnessLogo kind={option.value} />
-                    {option.name}
-                    {option.disabled ? " (setup needed)" : ""}
-                  </span>
-                </Select.ItemText>
-                <Select.ItemIndicator>
-                  <Check size={14} />
-                </Select.ItemIndicator>
-              </Select.Item>
-            ))}
-          </Select.Viewport>
-        </Select.Content>
-      </Select.Portal>
-    </Select.Root>
+      options={options.map((option) => ({
+        ...option,
+        label: (
+          <span className="harness-name">
+            <HarnessLogo kind={option.value} />
+            {option.name}
+            {option.disabled ? " (setup needed)" : ""}
+          </span>
+        ),
+      }))}
+    />
   );
 }

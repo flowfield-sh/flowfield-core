@@ -52,6 +52,7 @@ export async function request<T>(
       ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
       : AbortSignal.timeout(timeoutMs),
   });
+  if (response.status === 204) return undefined as T;
   const data = await response.json();
   if (!response.ok)
     throw new RequestError(

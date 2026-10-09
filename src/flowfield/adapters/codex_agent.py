@@ -146,7 +146,7 @@ class CodexAgent(Agent):
             if choice.effort not in efforts and (choice.effort is not None or efforts):
                 raise ValueError("Unavailable reasoning effort")
             fast = "fast" in model.get("additionalSpeedTiers", []) or any(
-                tier.get("id") == "fast" for tier in model.get("serviceTiers", [])
+                tier.get("id") in {"fast", "priority"} for tier in model.get("serviceTiers", [])
             )
             if choice.fast and not fast:
                 raise ValueError("Fast unavailable")
@@ -170,7 +170,7 @@ class CodexAgent(Agent):
                 "approvalPolicy": access["approvalPolicy"],
                 "approvalsReviewer": access["approvalsReviewer"],
                 "sandbox": access["sandbox"],
-                "serviceTier": "fast" if choice.fast else None,
+                "serviceTier": "fast" if choice.fast else "default",
                 "config": {"mcp_servers": mcp, "model_reasoning_effort": choice.effort},
             }
             if self.session_id:
@@ -202,7 +202,10 @@ class CodexAgent(Agent):
                 or response.get("approvalsReviewer") != params["approvalsReviewer"]
                 or response.get("sandbox", {}).get("type") != expected_type
                 or response.get("reasoningEffort") != choice.effort
-                or (choice.fast and response.get("serviceTier") != "fast")
+                # Codex accepts the speed alias "fast" and reports its canonical
+                # service tier "priority". Both identify the requested Fast mode.
+                or (choice.fast and response.get("serviceTier") not in {"fast", "priority"})
+                or (not choice.fast and response.get("serviceTier") in {"fast", "priority"})
             ):
                 raise NativeError("Native choices were not confirmed")
             if self.stopping:
@@ -602,7 +605,7 @@ def catalog(agent: CodexAgent) -> list[ModelOption]:
             efforts=[e["reasoningEffort"] for e in m["supportedReasoningEfforts"]],
             modes=MODES,
             fast="fast" in m.get("additionalSpeedTiers", [])
-            or any(t.get("id") == "fast" for t in m.get("serviceTiers", [])),
+            or any(t.get("id") in {"fast", "priority"} for t in m.get("serviceTiers", [])),
             fast_description="Faster responses, increased usage.",
         )
         for m in agent.models

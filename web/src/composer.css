@@ -108,9 +108,6 @@
 .composer-settings {
   padding: 12px;
 }
-.composer-settings [data-slot="native-select-wrapper"] {
-  width: 100%;
-}
 .composer-command-menu [cmdk-item] {
   display: flex;
   gap: 8px;

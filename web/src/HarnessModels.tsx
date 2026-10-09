@@ -151,17 +151,6 @@ export function HarnessModelSource({
           </WorkspaceLink>
         </p>
       )}
-      <div className="actions">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={disabled || hosts.loading || unavailable || catalog.loading}
-          onClick={source.load}
-        >
-          {catalog.loading ? "Loading models…" : "Refresh models"}
-        </Button>
-      </div>
       {loaded &&
         !catalog.loading &&
         (catalog.error || !source.models.length) && (
@@ -173,5 +162,28 @@ export function HarnessModelSource({
           </Alert>
         )}
     </ContentStack>
+  );
+}
+
+export function RefreshModels({
+  source,
+}: {
+  source: ReturnType<typeof useHarnessModels>;
+}) {
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      disabled={
+        source.hosts.loading ||
+        !source.host?.selectable ||
+        !!source.hosts.error ||
+        source.catalog.loading
+      }
+      onClick={source.load}
+    >
+      Refresh models
+    </Button>
   );
 }

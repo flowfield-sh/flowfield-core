@@ -1,6 +1,13 @@
 import { join } from "node:path";
 import { expect } from "@playwright/test";
-import { test, hostStatus, existingDirectory, state } from "./support";
+import {
+  choose,
+  test,
+  hostStatus,
+  existingDirectory,
+  state,
+  fixtureStages,
+} from "./support";
 
 for (const onlyClaude of [false, true]) {
   test(`worker choices support ${onlyClaude ? "Claude alone" : "independent supported harnesses"} with automatic scoped discovery`, async ({
@@ -73,11 +80,9 @@ for (const onlyClaude of [false, true]) {
       .poll(() => discoveries)
       .toEqual([onlyClaude ? "claude-code" : "codex"]);
     if (!onlyClaude) {
-      await form
-        .getByLabel("Model", { exact: true })
-        .selectOption("codex-model");
-      await form.getByLabel("Reasoning effort").selectOption("low");
-      await form.getByLabel("Access mode").selectOption("workspace-write");
+      await choose(form.getByLabel("Model", { exact: true }), "codex-model");
+      await choose(form.getByLabel("Reasoning effort"), "low");
+      await choose(form.getByLabel("Access mode"), "workspace-write");
       await form.getByLabel("Maximum parallel workers").fill("3");
       await form
         .getByRole("combobox", { name: "Harness", exact: true })
@@ -85,34 +90,43 @@ for (const onlyClaude of [false, true]) {
       await page
         .getByRole("option", { name: "Claude Code", exact: true })
         .click();
-      await expect(form.getByLabel("Model", { exact: true })).toHaveValue("");
+      await expect(form.getByLabel("Model", { exact: true })).toHaveAttribute(
+        "data-value",
+        "",
+      );
       await expect(form.getByLabel("Reasoning effort")).toHaveCount(0);
       await expect(form.getByLabel("Access mode")).toHaveCount(0);
       await expect.poll(() => discoveries).toEqual(["codex", "claude-code"]);
     }
-    await form
-      .getByLabel("Model", { exact: true })
-      .selectOption("claude-sonnet-5-5");
+    await choose(
+      form.getByLabel("Model", { exact: true }),
+      "claude-sonnet-5-5",
+    );
     await expect(form.getByLabel("Reasoning effort")).toHaveCount(0);
-    await form.getByLabel("Access mode").selectOption("default");
+    await choose(form.getByLabel("Access mode"), "default");
     await expect(form.getByRole("button", { name: "Fast mode" })).toHaveCount(
       0,
     );
     let captured: unknown;
+    let savedSettings: unknown;
+    let savedReads = 0;
     await page.route(`**/api/projects/${project}/workers`, (route) => {
-      if (route.request().method() !== "PUT") return route.continue();
+      if (route.request().method() !== "PUT") {
+        if (!savedSettings) return route.continue();
+        savedReads++;
+        return route.fulfill({ json: savedSettings });
+      }
       const body = route.request().postDataJSON();
       captured = body;
-      return route.fulfill({
-        json: {
-          project_id: project,
-          revision: 2,
-          enabled: false,
-          problem: null,
-          selection: body.selection,
-          max_parallel: body.max_parallel,
-        },
-      });
+      savedSettings = {
+        project_id: project,
+        revision: 2,
+        enabled: false,
+        problem: null,
+        selection: body.selection,
+        max_parallel: body.max_parallel,
+      };
+      return route.fulfill({ json: savedSettings });
     });
     await form
       .getByRole("button", { name: "Save worker settings", exact: true })
@@ -133,6 +147,20 @@ for (const onlyClaude of [false, true]) {
     await expect(
       form.getByRole("button", { name: "Save worker settings", exact: true }),
     ).toBeDisabled();
+    // A project event refreshes settings while their model menu remains open.
+    // It must not close/reopen discovery or clear the saved model.
+    expect(
+      (
+        await request.post(`/api/projects/${project}/tasks`, {
+          data: { title: "Refresh project settings", stages: fixtureStages() },
+        })
+      ).ok(),
+    ).toBe(true);
+    await expect.poll(() => savedReads).toBeGreaterThan(0);
+    await expect(form.getByLabel("Model", { exact: true })).toHaveAttribute(
+      "data-value",
+      "claude-sonnet-5-5",
+    );
     expect(discoveries).toEqual(
       onlyClaude ? ["claude-code"] : ["codex", "claude-code"],
     );
@@ -248,11 +276,12 @@ test("Claude-only coordinator saves native choices independently of worker defau
     picker.getByRole("combobox", { name: "Harness", exact: true }),
   ).toContainText("Claude Code");
   await expect.poll(() => discoveries).toBe(2);
-  await picker
-    .getByLabel("Model", { exact: true })
-    .selectOption("claude-sonnet-5-5");
-  await picker.getByLabel("Reasoning effort").selectOption("low");
-  await picker.getByLabel("Access mode").selectOption("default");
+  await choose(
+    picker.getByLabel("Model", { exact: true }),
+    "claude-sonnet-5-5",
+  );
+  await choose(picker.getByLabel("Reasoning effort"), "low");
+  await choose(picker.getByLabel("Access mode"), "default");
   await picker.getByRole("button", { name: "Save", exact: true }).click();
   await expect
     .poll(() => captured)
@@ -288,6 +317,14 @@ test("Claude-only coordinator saves native choices independently of worker defau
     path: testInfo.outputPath("claude-choice-desktop.png"),
     animations: "disabled",
   });
+  for (const name of ["Harness", "Model"]) {
+    await picker.getByRole("combobox", { name, exact: true }).click();
+    await page.screenshot({
+      path: testInfo.outputPath(`${name.toLowerCase()}-menu.png`),
+      animations: "disabled",
+    });
+    await page.keyboard.press("Escape");
+  }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
   await expect(

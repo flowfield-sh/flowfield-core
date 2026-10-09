@@ -12,6 +12,7 @@ import { useResource } from "./useResource";
 import { projectHref } from "./navigation";
 import {
   HarnessModelSource,
+  RefreshModels,
   modelSupports,
   useHarnessModels,
   type HarnessKind,
@@ -153,7 +154,7 @@ export function WorkerSettings({
     projectId,
     draft?.harness ?? resource.data?.selection?.harness,
     refresh,
-    !resource.loading,
+    !!resource.data,
   );
   const { catalog, models } = source;
   const harness = source.kind;
@@ -188,11 +189,7 @@ export function WorkerSettings({
     >
       <p>
         Choose the default model for task workers. Tasks can override it;
-        running attempts keep their settings. Workers can download and install
-        project dependencies in their separate workspaces.
-      </p>
-      <p className="detail-metadata">
-        Native tool decisions never approve code delivery.
+        running attempts keep their settings.
       </p>
       <form
         onSubmit={async (event) => {
@@ -252,7 +249,7 @@ export function WorkerSettings({
             mode={mode}
             fast={false}
             models={models}
-            loading={catalog.loading || resource.loading}
+            loading={catalog.loading || !resource.data}
             known={!!catalog.data && !catalog.error && source.loaded}
             change={(model, effort, mode) =>
               setDraft({
@@ -287,6 +284,7 @@ export function WorkerSettings({
           <div className="actions editor-actions">
             <Button
               size="sm"
+              aria-label="Save worker settings"
               disabled={
                 !dirty ||
                 catalog.loading ||
@@ -305,8 +303,22 @@ export function WorkerSettings({
                 )
               }
             >
-              Save worker settings
+              Save
             </Button>
+            <RefreshModels source={source} />
+            {dirty && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setDraft(null);
+                  setError("");
+                }}
+              >
+                Cancel
+              </Button>
+            )}
           </div>
         </fieldset>
       </form>

@@ -10,6 +10,10 @@
   copy, and show harness logos. Codex and Claude are supported; Pi is next.
 - Migrate existing launch records without dropping conversation or execution evidence.
   Revalidate prior adapter bindings before continuing a native conversation.
+- Accept Codex's native Fast-tier confirmation when starting or resuming sessions,
+  and avoid a false browser error after session recovery.
+- Use matching harness/model menus, place Refresh models beside Save, and distinguish
+  unchecked sign-in status from signed-out status.
 
 
 ## 0.2.1

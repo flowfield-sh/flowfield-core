@@ -1,4 +1,4 @@
-import { fixtureStages } from "./support";
+import { choose, fixtureStages } from "./support";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
@@ -150,7 +150,7 @@ test("project workers have no speed setting even when the model supports Fast", 
   ).toBe(422);
   await page.goto("/projects/task-speed/edit/workers");
   const form = page.getByRole("region", { name: "Worker settings" });
-  await form.getByLabel("Model", { exact: true }).selectOption("test");
+  await choose(form.getByLabel("Model", { exact: true }), "test");
   await expect(form.getByRole("button", { name: "Fast mode" })).toHaveCount(0);
 });
 

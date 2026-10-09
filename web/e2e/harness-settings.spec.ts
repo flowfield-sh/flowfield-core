@@ -102,6 +102,8 @@ test("central harness settings preserve host drafts and configure kinds independ
     first.getByLabel("Executable path", { exact: true }),
   ).toHaveValue("/service/custom/codex");
   await expect(second).toContainText("Setup detected");
+  await second.getByText("Detected setup", { exact: true }).click();
+  await expect(second).toContainText("Not checked — run Check saved setup");
   await second
     .getByLabel("Executable path", { exact: true })
     .fill("/service/alternative/claude");

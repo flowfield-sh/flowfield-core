@@ -1,4 +1,4 @@
-import { fixtureStages, test } from "./support";
+import { choose, fixtureStages, test } from "./support";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
@@ -159,17 +159,21 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   for (const label of ["Model", "Reasoning effort"]) {
     const select = picker.getByRole("combobox", { name: label, exact: true });
     await expect(select).toBeDisabled();
-    await expect(select.locator("option:checked")).toHaveText(/^Loading/);
+    await expect(select).toHaveText(/^Loading/);
     await expect(select).not.toContainText("unavailable");
   }
   releaseModels();
-  await expect(picker.getByLabel("Model", { exact: true })).toHaveValue(
+  await expect(picker.getByLabel("Model", { exact: true })).toHaveAttribute(
+    "data-value",
     "first",
   );
-  await picker.getByLabel("Model", { exact: true }).selectOption("second");
-  await expect(picker.getByLabel("Reasoning effort")).toHaveValue("");
-  await picker.getByLabel("Reasoning effort").selectOption("medium");
-  await picker.getByLabel("Access mode").selectOption("read-only");
+  await choose(picker.getByLabel("Model", { exact: true }), "second");
+  await expect(picker.getByLabel("Reasoning effort")).toHaveAttribute(
+    "data-value",
+    "",
+  );
+  await choose(picker.getByLabel("Reasoning effort"), "medium");
+  await choose(picker.getByLabel("Access mode"), "read-only");
   await expect(
     picker.getByRole("button", { name: "Fast mode", exact: true }),
   ).toHaveCount(0);
@@ -180,7 +184,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
     const tops = await Promise.all(
-      ["Save", "Use defaults", "Cancel"].map(
+      ["Save", "Refresh models", "Cancel"].map(
         async (name) =>
           (await picker
             .getByRole("button", { name, exact: true })
@@ -188,19 +192,33 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
       ),
     );
     expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(1);
+    const lefts = await Promise.all(
+      ["Save", "Refresh models", "Cancel"].map(
+        async (name) =>
+          (await picker
+            .getByRole("button", { name, exact: true })
+            .boundingBox())!.x,
+      ),
+    );
+    expect(lefts[0]).toBeLessThan(lefts[1]);
+    expect(lefts[1]).toBeLessThan(lefts[2]);
   }
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.keyboard.press("Escape");
   await page
     .getByRole("button", { name: "Codex · first · low", exact: true })
     .click();
-  await expect(picker.getByLabel("Model", { exact: true })).toHaveValue(
+  await expect(picker.getByLabel("Model", { exact: true })).toHaveAttribute(
+    "data-value",
     "first",
   );
-  await expect(picker.getByLabel("Reasoning effort")).toHaveValue("low");
-  await picker.getByLabel("Model", { exact: true }).selectOption("second");
-  await picker.getByLabel("Reasoning effort").selectOption("medium");
-  await picker.getByLabel("Access mode").selectOption("read-only");
+  await expect(picker.getByLabel("Reasoning effort")).toHaveAttribute(
+    "data-value",
+    "low",
+  );
+  await choose(picker.getByLabel("Model", { exact: true }), "second");
+  await choose(picker.getByLabel("Reasoning effort"), "medium");
+  await choose(picker.getByLabel("Access mode"), "read-only");
   await picker.getByLabel("Access mode").scrollIntoViewIfNeeded();
   await page.screenshot({ path: "/tmp/flowfield-slice3-native-modes.png" });
   await picker.getByRole("button", { name: "Save" }).click();
@@ -218,8 +236,8 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   ).toBeVisible();
   expect(settings.selection?.mode).toBe("read-only");
   expect(settings.selection?.fast).toBe(true);
-  await picker.getByLabel("Model", { exact: true }).selectOption("first");
-  await picker.getByLabel("Reasoning effort").selectOption("high");
+  await choose(picker.getByLabel("Model", { exact: true }), "first");
+  await choose(picker.getByLabel("Reasoning effort"), "high");
   settings = { ...settings, revision: settings.revision + 1 };
   await request.post("/api/projects/agent-settings/tasks", {
     data: { stages: fixtureStages(), title: "Cause settings refresh" },
@@ -229,11 +247,15 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
       "Settings changed elsewhere. Load the latest settings before saving.",
     ),
   ).toBeVisible();
-  await expect(picker.getByLabel("Reasoning effort")).toHaveValue("high");
+  await expect(picker.getByLabel("Reasoning effort")).toHaveAttribute(
+    "data-value",
+    "high",
+  );
   await expect(picker.getByRole("button", { name: "Save" })).toBeDisabled();
   page.once("dialog", (dialog) => dialog.accept());
   await picker.getByRole("button", { name: "Reload", exact: true }).click();
-  await expect(picker.getByLabel("Model", { exact: true })).toHaveValue(
+  await expect(picker.getByLabel("Model", { exact: true })).toHaveAttribute(
+    "data-value",
     "second",
   );
   await picker.getByRole("button", { name: "Use defaults" }).click();
