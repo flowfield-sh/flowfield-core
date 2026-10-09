@@ -20,30 +20,11 @@ Managed tool approvals offer native one-time allow/deny choices. Requests for br
 permission profiles or persistent grants are denied; choose an appropriate native
 access mode in model settings.
 
-## Connect a standalone coordinator
+## Standalone conversation
 
-With `flowfield serve` running:
-
-```sh
-flowfield integration connect codex
-flowfield integration status codex
-```
-
-Connect verifies the service and saves a native MCP connection in Codex's user settings.
-Repeated connections are idempotent. Status checks reachability and tool discovery without
-starting a model turn. Other configured MCP connections remain intact.
-
-[Add your project](/getting-started#add-your-project) first. Then, in its directory,
-install coordinator guidance:
-
-```sh
-flowfield project guidance preview
-flowfield project guidance install
-```
-
-Review and commit adoption files under your project's rules. Start a fresh Codex conversation
-in the project, inspect `/mcp`, and ask it to read your Flowfield board. This checks that the
-coordinator can actually use the connection and identify the correct project.
+Use the [shared connection steps](/integrations/overview#standalone-conversations)
+with `codex`. The same connect, status and disconnect commands work for either harness.
+Start a fresh Codex conversation in the adopted project and ask it to read your board.
 
 ## Configure workers
 
@@ -66,18 +47,3 @@ still need their own isolation.
 
 If the service cannot find Codex, restart it from a terminal with the correct PATH, then use
 **Refresh models**, or set an executable override in **Settings → Harnesses**.
-
-## Disconnect
-
-```sh
-flowfield integration disconnect codex
-```
-
-Restart Codex to unload the connection. Project state and saved work remain intact.
-For a custom connection name or service port, use the same options for connect, status and disconnect:
-
-```sh
-flowfield --port 8770 integration connect codex --name flowfield-local
-flowfield --port 8770 integration status codex --name flowfield-local
-flowfield --port 8770 integration disconnect codex --name flowfield-local
-```

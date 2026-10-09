@@ -8,6 +8,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
+from flowfield import __version__
 from flowfield.adapters.agent_contract import (
     Agent,
     McpServer,
@@ -101,7 +102,7 @@ class CodexAgent(Agent):
             await self.rpc.call(
                 "initialize",
                 {
-                    "clientInfo": {"name": "flowfield", "version": "0.2.1"},
+                    "clientInfo": {"name": "flowfield", "version": __version__},
                     "capabilities": {"experimentalApi": True},
                 },
             )

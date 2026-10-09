@@ -1,46 +1,82 @@
 ---
 title: Overview
-description: Connect your coding harness through project skills and MCP.
+description: Use installed coding harnesses with one setup and shared project controls.
 ---
 
-Flowfield connects your coding conversation to its workspace through two complementary tools.
-Use the [Coordinator](/coordinator) in the browser or keep the coordinator conversation
-in your coding harness. Both work with the same board, task feeds and review.
+Use Codex, Claude Code, or both. Install and sign in to the harness on the machine
+running Flowfield, then choose it for your Coordinator and workers. Integration support
+ships with Flowfield; there is no separate bridge to install.
 
-Built-in chat supplies its own scoped MCP connection. Standalone coding conversations use
-the project skill and an explicitly registered MCP connection.
+These native integrations are in development source; published 0.2.1 predates them.
+Pi is next and is not selectable yet.
 
-The Coordinator and task workers use each harness’s native interface. Flowfield includes
-its integration support automatically. [Native integrations and MCP](/protocols) explains
-the runtime and scoped-tool connections.
+## Built-in Coordinator and workers
 
-Pi is the next planned integration; it is not selectable yet.
+1. Start Flowfield and add your existing project.
+2. Choose a harness and model for each role during project creation or in project settings.
+3. Configure and validate [worker delivery](/worker-setup) when you're ready to run tasks.
 
-**The project skill** explains how a coordinator captures agreed work, reads the board,
-prepares tasks, answers project-level questions and helps you review results. Installation
-adds `.agents/skills/flowfield-coordinator/SKILL.md` and a short reference in your project's
-`AGENTS.md`, preserving existing instructions.
+**Settings → Harnesses** detects native installations. Override executable/configuration
+paths only when detection needs help. Accounts and advanced native settings stay with
+the harness. **Check saved setup** checks version and sign-in without sending a prompt;
+**Not checked** does not block a working conversation.
 
-**MCP** exposes project and task operations through the local service at
-`http://127.0.0.1:8765/mcp/`. Tools share the browser and CLI's revision checks, input
-bindings and exact-result approval rules. Agents receive bounded briefings and can retrieve
-specific definitions, feed entries, previous results and source evidence when needed.
-The server publishes each tool's name, description and parameter schema through MCP
-discovery; your agent reads these directly.
+Opening a project preloads its configured models; reconnecting after a service restart
+checks them again. Other choices load when their selector opens. Loading controls stay
+disabled. Discovery sends no model prompt, although native startup hooks can run.
 
-Managed workers receive a task assignment and tools scoped to that task. The coordinator
-skill guides planning and review; workers receive separate instructions for implementation.
+| Capability | Codex | Claude Code |
+| --- | --- | --- |
+| Coordinator and managed workers | Yes | Yes |
+| Automatic Flowfield tools and model discovery | Yes | Yes |
+| Independent choices per role and task | Yes | Yes |
+| Native continuation and Stop | Yes | Yes |
+| Standalone connect/status/disconnect | Yes | Yes |
+| Model and access controls | Native advertised choices | Native advertised choices |
 
-## Harnesses
+Built-in roles receive scoped Flowfield tools automatically. Workers use separate
+checkouts and task-bound instructions. Native permission choices never approve delivery
+of code to your project. See [Codex](/integrations/codex) and
+[Claude Code](/integrations/claude-code) for native controls and limitations.
 
-[Codex](/integrations/codex) and [Claude Code](/integrations/claude-code) support the
-Coordinator and service-managed workers. Configure either alone or both through
-**Settings → Harnesses**, then choose independently for each project role or task override.
-Each harness has one service-host registration and retains its native account/configuration.
+## Standalone conversations
 
-Opening a project preloads its configured model choices. Reconnecting after a service restart
-checks them again. Unconfigured choices load when you open their selector; loading controls
-stay disabled. Discovery sends no model prompt, but native startup hooks can run.
+To keep the Coordinator conversation in your own coding harness, run the same commands
+with `codex` or `claude-code`. Flowfield must already be running:
 
-Installing Flowfield does not install or authenticate a harness. After changing an MCP
-connection or project skill, start a fresh coding conversation to load the new configuration.
+```sh
+flowfield integration connect claude-code
+flowfield integration status claude-code
+```
+
+Connect verifies Flowfield and saves a user-scoped MCP connection through the native CLI.
+It uses the current terminal's native account/configuration, preserves other servers and
+refuses conflicting names. Repeating connect is harmless. Status checks configuration,
+service reachability and tool discovery; it does not prove that an open conversation has
+loaded the connection. Native project overrides or organization policy can still affect it.
+
+From your [adopted project](/getting-started#add-your-project), install shared guidance:
+
+```sh
+flowfield project guidance preview
+flowfield project guidance install
+```
+
+This adds `.agents/skills/flowfield-coordinator/SKILL.md` and a short `AGENTS.md` reference,
+preserving existing instructions. Review and commit these files under your project's rules.
+Start a fresh conversation in the project, ask it to read that guidance, and then read your
+Flowfield board. Existing `CLAUDE.md` and other native instructions remain intact.
+
+For another service port or connection name, use the same options for every operation:
+
+```sh
+flowfield --port 8770 integration connect claude-code --name flowfield-local
+flowfield --port 8770 integration status claude-code --name flowfield-local
+flowfield --port 8770 integration disconnect claude-code --name flowfield-local
+```
+
+Disconnect removes only that matching user connection. Restart the harness to unload its
+tools. Projects, conversations and tasks remain saved. Built-in roles need none of these
+standalone commands.
+
+[Native integrations and MCP](/protocols) explains the underlying connections and scope.

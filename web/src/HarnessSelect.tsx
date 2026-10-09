@@ -3,14 +3,14 @@ import claude from "./assets/claude.svg";
 import codex from "./assets/openai.svg";
 import type { HarnessKind } from "./HarnessModels";
 
+const logos: Record<HarnessKind, string> = {
+  codex,
+  "claude-code": claude,
+};
+
 export function HarnessLogo({ kind }: { kind: HarnessKind }) {
   return (
-    <img
-      className="harness-logo"
-      src={kind === "codex" ? codex : claude}
-      alt=""
-      aria-hidden="true"
-    />
+    <img className="harness-logo" src={logos[kind]} alt="" aria-hidden="true" />
   );
 }
 

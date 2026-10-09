@@ -18,8 +18,12 @@ Choose another workspace directory with `FLOWFIELD_DATA_DIR` or `flowfield --dat
 ## Upgrades
 
 Published Flowfield 0.2.0/0.2.1 use schema 44, the supported upgrade baseline. Current
-development builds add schema 45 for service-host harness settings while preserving
-existing Codex role choices and conversation history. Databases from 0.1.0 and earlier
+development builds upgrade through schema 51 for native harness settings, session
+continuity and full public reply storage. Existing role choices, retained history,
+approvals and execution ownership are preserved. Native sessions created by older
+adapters require revalidation before continuation; uncertain prompts are never replayed.
+Text already truncated by an older build cannot be recovered; retained excerpts remain
+available and are marked as incomplete. Databases from 0.1.0 and earlier
 development builds cannot be upgraded. Preserve the old workspace and use a separate
 data directory for a fresh start.
 
@@ -35,7 +39,7 @@ review interrupted work before enabling workers again.
 
 Database upgrades preserve project identity, installed guidance and execution artifacts.
 They do not rewrite project files or install new guidance. Update guidance separately
-using the [integration instructions](/integrations/codex).
+using the [integration instructions](/integrations/overview#standalone-conversations).
 
 ## Inspect and recover
 

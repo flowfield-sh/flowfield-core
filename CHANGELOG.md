@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Connect standalone Codex and Claude Code with the same `integration connect`, `status`
+  and `disconnect` commands, preserving other native MCP connections.
+- Preserve full public coordinator replies and retrieve saved history through scoped
+  tools. Fresh-session handoffs use reported context headroom instead of fixed exchange
+  or text limits. Existing lost text cannot be reconstructed; older excerpts stay marked.
+- Choose Coordinator and worker settings while adding a project. Preload saved models
+  on project open/reconnect and show disabled loading controls during discovery.
+- Give Needs you columns the board's independent scrolling and keep cards inside columns.
+- Show concise tool names, command previews and working feedback; keep Send/Stop visible
+  in narrow Coordinator panes. Simplify permission presentation and settings tabs.
+- Show verified Claude model versions and native Auto/Bypass access modes where supported.
+  Native tool access remains separate from code-delivery approval.
+- Make CLI output readable by default, with explicit JSON output for automation, and
+  accept human task/milestone references regardless of letter case.
+
 - Use installed Codex directly through its app-server and installed Claude Code through
   the official Agent SDK, included with Flowfield. Remove separate ACP installs.
 - Stop foreground turns and tracked native background work through native controls;
@@ -14,6 +29,12 @@
   and avoid a false browser error after session recovery.
 - Use matching harness/model menus, place Refresh models beside Save, and distinguish
   unchecked sign-in status from signed-out status.
+
+**Upgrade:** stop Flowfield before updating. Schema-44 workspaces from 0.2.0/0.2.1
+upgrade automatically through schema 51 after a verified snapshot. The queue stays
+paused after restart. Older native session bindings require revalidation; uncertain
+prompts are not replayed. No separate integration install is needed. Update project
+guidance and restart standalone conversations. See [storage](https://docs.flowfield.sh/storage).
 
 
 ## 0.2.1

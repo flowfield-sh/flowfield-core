@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Mapping
 from pathlib import Path
+from typing import assert_never
 
 from flowfield.adapters.agent_contract import Agent
 from flowfield.adapters.claude_agent import ClaudeAgent
@@ -34,7 +35,9 @@ def create(
             registration=registration or HarnessRegistration(harness="claude-code", revision=1),
             choice=choice,
         )
-    return CodexAgent(directory, cwd, environment, registration=registration)
+    if choice.harness == "codex":
+        return CodexAgent(directory, cwd, environment, registration=registration)
+    assert_never(choice.harness)
 
 
 async def model_options(
@@ -46,9 +49,13 @@ async def model_options(
 ) -> list[ModelOption]:
     if on_cleanup:
         on_cleanup(True)  # Selection/validation itself starts no native process.
-    discover = (
-        claude_models if registration and registration.harness == "claude-code" else codex_models
-    )
+    kind = registration.harness if registration else "codex"
+    if kind == "claude-code":
+        discover = claude_models
+    elif kind == "codex":
+        discover = codex_models
+    else:
+        assert_never(kind)
     return await discover(directory, registration=registration, cwd=cwd, on_cleanup=on_cleanup)
 
 
@@ -69,6 +76,8 @@ async def command_options(
     if choice.harness == "claude-code":
         # No Claude slash command has passed its integrated native semantics yet.
         return []
-    return await codex_commands(
-        directory, cwd, choice, registration=registration, on_cleanup=on_cleanup
-    )
+    if choice.harness == "codex":
+        return await codex_commands(
+            directory, cwd, choice, registration=registration, on_cleanup=on_cleanup
+        )
+    assert_never(choice.harness)

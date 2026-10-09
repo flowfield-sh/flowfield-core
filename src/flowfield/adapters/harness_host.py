@@ -7,10 +7,35 @@ import re
 import shutil
 from collections.abc import Mapping
 from pathlib import Path
+from typing import NamedTuple
 
 from flowfield.adapters.local_process import LocalProcess
 from flowfield.errors import ApplicationError
-from flowfield.harness_models import HarnessLaunch, HarnessRegistration, HarnessStatus
+from flowfield.harness_models import HarnessKind, HarnessLaunch, HarnessRegistration, HarnessStatus
+
+
+class NativePaths(NamedTuple):
+    command: str
+    executable_variable: str
+    config_variable: str
+    config_directory: str
+    adapter_version: str
+    auth_command: tuple[str, ...]
+
+
+NATIVE_PATHS: dict[HarnessKind, NativePaths] = {
+    "codex": NativePaths(
+        "codex", "CODEX_PATH", "CODEX_HOME", ".codex", "codex-app-server-v1", ("login", "status")
+    ),
+    "claude-code": NativePaths(
+        "claude",
+        "CLAUDE_CODE_EXECUTABLE",
+        "CLAUDE_CONFIG_DIR",
+        ".claude",
+        "claude-sdk-v1",
+        ("auth", "status", "--json"),
+    ),
+}
 
 
 def same_session_location(old: HarnessLaunch, new: HarnessLaunch) -> bool:
@@ -25,18 +50,14 @@ def same_session_location(old: HarnessLaunch, new: HarnessLaunch) -> bool:
 
 
 def resolve(registration: HarnessRegistration, environment: Mapping[str, str]) -> HarnessLaunch:
-    codex = registration.harness == "codex"
-    executable_variable = "CODEX_PATH" if codex else "CLAUDE_CODE_EXECUTABLE"
-    config_variable = "CODEX_HOME" if codex else "CLAUDE_CONFIG_DIR"
-    configured = registration.executable or environment.get(executable_variable)
-    native = shutil.which(
-        configured or ("codex" if codex else "claude"), path=environment.get("PATH", "")
-    )
-    config = registration.config_directory or environment.get(config_variable)
+    paths = NATIVE_PATHS[registration.harness]
+    configured = registration.executable or environment.get(paths.executable_variable)
+    native = shutil.which(configured or paths.command, path=environment.get("PATH", ""))
+    config = registration.config_directory or environment.get(paths.config_variable)
     location = (
         Path(config)
         if config
-        else Path(environment.get("HOME") or Path.home()) / (".codex" if codex else ".claude")
+        else Path(environment.get("HOME") or Path.home()) / paths.config_directory
     )
     return HarnessLaunch(
         harness=registration.harness,
@@ -48,7 +69,7 @@ def resolve(registration: HarnessRegistration, environment: Mapping[str, str]) -
         if configured
         else "path",
         config_directory=str(location.resolve()) if location.is_absolute() else str(location),
-        adapter_version="codex-app-server-v1" if codex else "claude-sdk-v1",
+        adapter_version=paths.adapter_version,
         config_source="registration"
         if registration.config_directory
         else "environment"
@@ -78,13 +99,9 @@ def launch_environment(launch: HarnessLaunch, environment: Mapping[str, str]) ->
             409,
         )
     result = dict(environment)
-    if launch.harness == "codex":
-        result.update(CODEX_PATH=launch.native_executable, CODEX_HOME=launch.config_directory)
-    else:
-        result.update(
-            CLAUDE_CODE_EXECUTABLE=launch.native_executable,
-            CLAUDE_CONFIG_DIR=launch.config_directory,
-        )
+    paths = NATIVE_PATHS[launch.harness]
+    result[paths.executable_variable] = launch.native_executable
+    result[paths.config_variable] = launch.config_directory
     return result
 
 
@@ -184,9 +201,7 @@ async def check(
         if code != 0 or version is None:
             raise ValueError("Unrecognized native version")
         result.native_version = version[1].decode("ascii")
-        args = (
-            ["login", "status"] if registration.harness == "codex" else ["auth", "status", "--json"]
-        )
+        args = NATIVE_PATHS[registration.harness].auth_command
         code, output, error_output = await _native_command(
             [launch.native_executable, *args], directory, env
         )

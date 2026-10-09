@@ -72,23 +72,11 @@ can require this recovery. Flowfield never automatically replays an uncertain pr
 
 ## Standalone conversation
 
-Built-in chat needs no separately registered MCP connection. For an external Claude Code
-conversation, use its [native MCP configuration](https://code.claude.com/docs/en/mcp) to
-connect the running local service at `http://127.0.0.1:8765/mcp/` (or your chosen port).
-Flowfield's `integration connect` helper currently configures Codex only.
+Use the [shared connection steps](/integrations/overview#standalone-conversations)
+with `claude-code`. Flowfield saves the connection through Claude's native CLI in its
+user scope, preserving other servers and existing project instructions.
 
-From the adopted project directory, while Flowfield is running:
-
-```sh
-claude mcp add --transport http flowfield http://127.0.0.1:8765/mcp/
-claude mcp get flowfield
-```
-
-These are native Claude commands. Inspect an existing connection with that name before
-changing it; use your chosen service port if it differs.
-
-Install [project guidance](/getting-started#add-your-project) and start a fresh Claude
-conversation in the adopted project. Ask it to read `AGENTS.md` and
-`.agents/skills/flowfield-coordinator/SKILL.md`, then read the correct Flowfield board.
-Keep existing `CLAUDE.md`; Flowfield does not rewrite native instructions or assume Claude
-automatically loads Codex's skill location.
+Start a fresh Claude conversation in the adopted project. Ask it to read `AGENTS.md`
+and `.agents/skills/flowfield-coordinator/SKILL.md`, then your Flowfield board.
+Keep existing `CLAUDE.md`; Flowfield does not replace native instructions or assume
+Claude automatically loads the shared skill location.

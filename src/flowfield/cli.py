@@ -82,34 +82,30 @@ def output(
 def connection_command(
     ctx: typer.Context, harness: str, name: str, operation: str, json_output: bool
 ) -> None:
-    from flowfield.adapters.codex_connection import CodexConnection
+    from flowfield.adapters.connection_selection import connection
 
     def run() -> dict[str, Any]:
-        if harness != "codex":
-            raise ApplicationError(
-                "unsupported_harness", "Only codex connections are supported yet."
-            )
         if re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", name) is None:
             raise ApplicationError(
                 "invalid_connection_name",
                 "Connection names use 1–64 lowercase letters, numbers, hyphens or underscores.",
             )
-        connection = CodexConnection(ctx.obj.port, name)
+        client = connection(harness, ctx.obj.port, name)
         return {
-            "connect": connection.connect,
-            "doctor": connection.doctor,
-            "disconnect": connection.disconnect,
+            "connect": client.connect,
+            "doctor": client.doctor,
+            "disconnect": client.disconnect,
         }[operation]()
 
     def display(result: dict[str, Any]) -> None:
         typer.echo(result["message"])
         if "url" in result:
             typer.echo(
-                f"Codex server: {name}\nEndpoint: {result['url']}\n"
+                f"MCP server: {name}\nEndpoint: {result['url']}\n"
                 f"MCP tools verified: {len(result['tools'])}"
             )
         if operation == "connect":
-            typer.echo("In Codex, ask: Use Flowfield to list my projects.")
+            typer.echo("In your harness, ask: Use Flowfield to list my projects.")
 
     output(run, json_output, display)
 
@@ -118,15 +114,13 @@ def connection_command(
 def harness_status(ctx: typer.Context, harness: str, json_output: Json = False) -> None:
     """Inspect detected native paths offline without starting an agent."""
     from flowfield.adapters.harness_host import status
-    from flowfield.harness_models import HarnessKind
     from flowfield.harness_settings import KINDS, offline_registration
 
     def run() -> dict[str, Any]:
         if harness not in KINDS:
             raise ApplicationError("unsupported_harness", "This harness is not supported.")
-        kind: HarnessKind = "codex" if harness == "codex" else "claude-code"
         return status(
-            ctx.obj.directory, offline_registration(ctx.obj.directory, kind), os.environ
+            ctx.obj.directory, offline_registration(ctx.obj.directory, harness), os.environ
         ).model_dump()
 
     output(run, json_output, lambda value: cli_views.harness_status(value, ctx.obj.port))
@@ -215,10 +209,10 @@ def harness_configure(
 def connect(
     ctx: typer.Context,
     harness: str,
-    name: Annotated[str, typer.Option(help="Codex MCP connection name.")] = "flowfield",
+    name: Annotated[str, typer.Option(help="Native MCP connection name.")] = "flowfield",
     json_output: Json = False,
 ) -> None:
-    """Connect Codex to the running service; preserve existing harness settings."""
+    """Connect a standalone harness to the running service; preserve existing harness settings."""
     connection_command(ctx, harness, name, "connect", json_output)
 
 
@@ -226,7 +220,7 @@ def connect(
 def doctor(
     ctx: typer.Context,
     harness: str,
-    name: Annotated[str, typer.Option(help="Codex MCP connection name.")] = "flowfield",
+    name: Annotated[str, typer.Option(help="Native MCP connection name.")] = "flowfield",
     json_output: Json = False,
 ) -> None:
     """Check harness configuration and discover service tools without a model call."""
@@ -237,10 +231,10 @@ def doctor(
 def disconnect(
     ctx: typer.Context,
     harness: str,
-    name: Annotated[str, typer.Option(help="Codex MCP connection name.")] = "flowfield",
+    name: Annotated[str, typer.Option(help="Native MCP connection name.")] = "flowfield",
     json_output: Json = False,
 ) -> None:
-    """Remove this service's Codex connection; retain projects and tasks."""
+    """Remove this service's standalone connection; retain projects and tasks."""
     connection_command(ctx, harness, name, "disconnect", json_output)
 
 

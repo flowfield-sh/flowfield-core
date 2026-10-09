@@ -34,11 +34,11 @@ Flowfield protects your working changes and keeps approval tied to the code you 
 
 ## Install
 
-Install and sign in to [Codex CLI](https://developers.openai.com/codex/cli/), then:
+Install and sign in to [Codex CLI](https://developers.openai.com/codex/cli/) or
+[Claude Code](https://code.claude.com/docs/en/setup), then:
 
 ```sh
 uv tool install flowfield-core
-flowfield harness install codex
 flowfield serve
 ```
 
@@ -51,7 +51,7 @@ flowfield project init
 ```
 
 Start planning in the [Coordinator](https://docs.flowfield.sh/coordinator), or connect a
-[standalone coding agent](https://docs.flowfield.sh/integrations/codex#connect-a-standalone-coordinator).
+[standalone coding agent](https://docs.flowfield.sh/integrations/overview#standalone-conversations).
 Development builds use installed Codex through its native app-server and installed
 [Claude Code](https://docs.flowfield.sh/integrations/claude-code) through the official
 Agent SDK. Flowfield includes the SDK runtime; no extra integration install is needed.

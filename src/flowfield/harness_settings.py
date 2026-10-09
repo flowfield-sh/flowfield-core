@@ -3,13 +3,14 @@
 import sqlite3
 from contextlib import closing
 from pathlib import Path
+from typing import cast, get_args
 
 from flowfield.application import Workspace
 from flowfield.errors import ApplicationError
 from flowfield.harness_models import HarnessEdit, HarnessKind, HarnessRegistration
 from flowfield.storage import acquire_lock, connect, require_supported, version
 
-KINDS: tuple[HarnessKind, ...] = ("codex", "claude-code")
+KINDS = cast(tuple[HarnessKind, ...], get_args(HarnessKind))
 
 
 def offline_registration(directory: Path, harness: HarnessKind) -> HarnessRegistration:

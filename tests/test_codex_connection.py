@@ -9,7 +9,7 @@ import pytest
 from test_connection import running_service
 from typer.testing import CliRunner
 
-from flowfield.adapters.codex_connection import probe
+from flowfield.adapters.connection import probe
 from flowfield.cli import app
 from flowfield.errors import ApplicationError
 
