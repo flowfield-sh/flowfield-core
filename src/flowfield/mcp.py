@@ -407,7 +407,7 @@ def create_mcp(
         offset: Annotated[int, Field(ge=0)] = 0,
         limit: Annotated[int, Field(ge=1, le=4000)] = 4000,
     ) -> CallToolResult:
-        """Deliberately read full text in bounded chunks; next_offset continues.
+        """Read 1–4000 characters per chunk; omit limit to use 4000. Follow next_offset.
 
         Task: body/change_note/reconciliation_reason/dependencies.
         Result: summary/checks/limitations/feedback/problem/correction.

@@ -76,7 +76,9 @@ The installed adapter consumes only model/session metadata, checks native offere
 identity before each prompt, and omits lab usage bounds in ordinary runtime launches.
 Exact native catalog discovery selects offered aliases without a prompt, resolves each
 to its actual model and collects its effort/access controls. Inherited/default effort,
-Fast, automatic permission classification and unverified commands are not offered.
+Fast, automatic permission classification, Plan transitions and unverified commands
+are not offered. Changed model/access controls start a fresh native session; unchanged
+Claude coordinator choices can resume the current session.
 Unresolved aliases are omitted. Discovery must close with confirmed native cleanup;
 durable service ownership/recovery of discovery remains required before selection opens.
 
@@ -91,6 +93,14 @@ uv run scripts/check_claude_roles_live.py /path/to/bundle.zip --bundle \
 
 Use `--role worker` for the run-scoped question path. These checkpoints do not replace
 complete answer/result/delivery or human experience acceptance.
+
+`--role continuity` requires `--codex-bundle /path/to/codex.zip` and
+`--codex-native /absolute/path/to/codex`. It seeds explicitly simulated saved human
+messages, then invokes five real coordinator turns: older history/full-text retrieval,
+Claude resume, Codex switch, fresh Claude switch-back and a fresh access-mode change.
+Claude prompts remain exact Sonnet 5.5/low; Codex uses Sol 6.1/medium. It verifies
+retained native bindings and cleanup through both original installed bundles. It does
+not supply a direct model API client or establish browser/human acceptance.
 
 ## Explicit model-free native check
 

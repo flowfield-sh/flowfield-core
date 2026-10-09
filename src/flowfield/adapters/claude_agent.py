@@ -27,7 +27,8 @@ from flowfield.execution_models import ModelOption, NativeMode
 from flowfield.harness_models import HarnessRegistration
 
 SESSION_INFO = {"version": 1, "method": "_flowfield/sessionInfo"}
-MODES = {"default", "acceptEdits", "plan"}
+# Plan exit/query replacement has not passed the managed ownership/input journey.
+MODES = {"default", "acceptEdits"}
 
 
 class NativeModel(BaseModel):

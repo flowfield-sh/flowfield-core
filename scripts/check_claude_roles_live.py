@@ -30,10 +30,129 @@ from flowfield.supervisor import Supervisor
 
 MODEL = "claude-sonnet-5-5"
 CHOICE = AgentChoice(harness="claude-code", model=MODEL, effort="low", mode="default", fast=False)
+CODEX_CHOICE = AgentChoice(
+    harness="codex", model="gpt-6.1-sol", effort="medium", mode="read-only", fast=False
+)
+
+
+async def continuity(service, project, conversation, nonce, calls, observed, settle, report):
+    """Simulated public prehistory, then five actual turns owned by the service."""
+    store = service.coordinator.store
+    note = (
+        "Unresolved shipping-label requirement. This long saved note has background, then "
+        "the exact requirement, then more background.\n"
+        + "Background remains unchanged.\n" * 100
+        + f"\nThe unresolved shipping label is {nonce}. Preserve it exactly.\n"
+        + "Additional background remains unchanged.\n" * 100
+    )
+    for text in [
+        note,
+        *(f"Later saved discussion {i}: no shipping-label decision." for i in range(9)),
+    ]:
+        turn, _ = store.reserve(
+            project, conversation.id, CoordinatorSend(id=uuid4().hex, text=text)
+        )
+        with service.workspace.connection(write=True) as db:
+            turn.status = "interrupted"
+            turn.notice = "Simulated saved human message; no native prompt was dispatched."
+            store._save(db, turn)
+
+    previous = []
+    report["turns"] = []
+    scenarios = [
+        (
+            CHOICE,
+            "Recover the unresolved shipping label from our older saved conversation and "
+            "repeat it exactly. The later discussions did not resolve it. Use Flowfield's "
+            "saved context as needed. Do not edit anything.",
+            "new",
+        ),
+        (
+            CHOICE,
+            "Repeat the unresolved shipping label from our conversation. Do not edit.",
+            "resumed",
+        ),
+        (
+            CODEX_CHOICE,
+            "We switched harnesses. Repeat the unresolved shipping label from our saved "
+            "conversation and name any unclear context/tool steps. Do not edit anything.",
+            "new",
+        ),
+        (
+            CHOICE,
+            "We switched back. Repeat the unresolved shipping label, preserving the "
+            "intervening discussion. Do not edit anything.",
+            "new",
+        ),
+        (
+            CHOICE.model_copy(update={"mode": "acceptEdits"}),
+            "Write shipping-label.txt containing exactly the unresolved shipping label "
+            "followed by a newline. Use the label from our saved conversation. Do not edit "
+            "other files or commit. Report the label and any unclear context/tool steps.",
+            "new",
+        ),
+    ]
+    for index, (choice, intent, session) in enumerate(scenarios):
+        settings = AgentSettings(service.workspace)
+        current = settings.get(project, "coordinator")
+        if current.selection != choice:
+            settings.edit(
+                project,
+                "coordinator",
+                AgentSettingsEdit(expected_revision=current.revision, selection=choice),
+            )
+        before = len(calls)
+        turn = service.coordinator.send(
+            project, conversation.id, CoordinatorSend(id=uuid4().hex, text=intent)
+        )
+        print(json.dumps({"started": "continuity", "step": index + 1}), flush=True)
+        await settle(service.coordinator.jobs[turn.id])
+        outcome = store.get(project, turn.id)
+        public = "\n".join(item.text for item in outcome.activity.items if item.kind == "agent")
+        report["turns"].append(
+            {
+                "step": index + 1,
+                "status": outcome.status,
+                "session": outcome.session,
+                "requested": choice.model_dump(),
+                "applied": outcome.applied.choice.model_dump() if outcome.applied else None,
+                "labelRecalled": nonce in public,
+                "scopedCalls": calls[before:],
+                "cleanupConfirmed": observed[-1].cleanup_confirmed,
+            }
+        )
+        assert outcome.status == "completed", outcome.notice
+        assert outcome.session == session and outcome.applied.choice == choice
+        assert nonce in public and observed[-1].cleanup_confirmed
+        with service.workspace.connection() as db:
+            current_generation, fresh = store.sessions.current(db, project)
+            assert not fresh and current_generation.session_id == observed[-1].session.session_id
+            if index == 1:
+                assert current_generation.id == previous[-1].id
+            elif previous:
+                assert current_generation.id != previous[-1].id
+                assert current_generation.source_id == previous[-1].id
+            for older in previous:
+                assert store.sessions.get(db, project, older.id).session_id == older.session_id
+            previous.append(current_generation)
+        if index == 0:
+            assert {"get_coordinator_history", "get_text"} <= {v["tool"] for v in calls[before:]}
+    assert (
+        Path(service.workspace.project(project).path) / "shipping-label.txt"
+    ).read_text() == nonce + "\n"
+    report["retainedGenerations"] = len({v.id for v in previous})
+    report["simulatedHistoricalMessages"] = 10
 
 
 async def proof(
-    trial: Path, bridge: Path, native: Path, role: str, *, bundle: bool = False
+    trial: Path,
+    bridge: Path,
+    native: Path,
+    role: str,
+    *,
+    bundle: bool = False,
+    codex_bundle: Path | None = None,
+    codex_native: Path | None = None,
 ) -> dict:
     repo = trial / "project"
     repo.mkdir()
@@ -82,6 +201,14 @@ async def proof(
     HarnessSettings(workspace).edit(
         "claude-code", HarnessEdit(expected_revision=1, executable=str(native))
     )
+    if role == "continuity":
+        from flowfield.adapters import codex_install
+
+        assert bundle and codex_bundle and codex_native
+        codex_install.install(workspace.directory, codex_bundle, codex_install.digest(codex_bundle))
+        HarnessSettings(workspace).edit(
+            "codex", HarnessEdit(expected_revision=1, executable=str(codex_native))
+        )
     observed = []
     calls = []
     permissions = []
@@ -93,8 +220,10 @@ async def proof(
         return result
 
     def managed(choice, directory, cwd, environment, *, registration=None):
-        assert choice.harness == "claude-code" and choice.model == MODEL
-        if bundle:
+        assert choice == CODEX_CHOICE or choice.harness == "claude-code" and choice.model == MODEL
+        if choice.harness == "codex":
+            agent = create(choice, directory, cwd, environment, registration=registration)
+        elif bundle:
             from flowfield.adapters.claude_agent import ClaudeAgent
 
             agent = ClaudeAgent(
@@ -150,7 +279,7 @@ async def proof(
             patch("flowfield.supervisor.create", managed),
             patch.object(ScopedTools, "call", recorded_call),
         ):
-            if role == "coordinator":
+            if role in {"coordinator", "continuity"}:
                 AgentSettings(workspace).edit(
                     project.id,
                     "coordinator",
@@ -160,6 +289,18 @@ async def proof(
                     ),
                 )
                 conversation = service.coordinator.store.new(project.id)
+            if role == "continuity":
+                await continuity(
+                    service,
+                    project.id,
+                    conversation,
+                    uuid4().hex,
+                    calls,
+                    observed,
+                    settle,
+                    report,
+                )
+            elif role == "coordinator":
                 turn = service.coordinator.send(
                     project.id,
                     conversation.id,
@@ -252,10 +393,15 @@ async def proof(
                     "ask_question",
                     "submit_result",
                 }
-            assert len(observed) == 1 and observed[0].cleanup_confirmed
+            assert all(v.cleanup_confirmed for v in observed)
+            if role != "continuity":
+                assert len(observed) == 1
             assert (repo / "CLAUDE.md").read_text() == guidance
-            assert baseline(repo) == initial
-            assert not git(repo, "status", "--porcelain").strip()
+            if role != "continuity":
+                assert baseline(repo) == initial
+                assert not git(repo, "status", "--porcelain").strip()
+            else:
+                assert git(repo, "status", "--porcelain").strip() == b"?? shipping-label.txt"
             report["passed"] = True
     except Exception as error:
         # No raw native diagnostics/account state in the report.
@@ -265,7 +411,9 @@ async def proof(
         report.update(
             scopedCalls=calls,
             nativePermissions=permissions,
-            observedModel=observed[0].native_model if observed else None,
+            observedModel=next(
+                (v.native_model for v in observed if hasattr(v, "native_model")), None
+            ),
             cleanupConfirmed=bool(observed) and all(v.cleanup_confirmed for v in observed),
             personalServicesStarted=False,
         )
@@ -282,9 +430,13 @@ def main():
     )
     parser.add_argument("--native", type=Path, required=True)
     parser.add_argument("--trial-root", type=Path, required=True)
-    parser.add_argument("--role", choices=["coordinator", "worker"], required=True)
+    parser.add_argument("--role", choices=["coordinator", "worker", "continuity"], required=True)
+    parser.add_argument("--codex-bundle", type=Path)
+    parser.add_argument("--codex-native", type=Path)
     parser.add_argument("--invoke-live", action="store_true", required=True)
     args = parser.parse_args()
+    if args.role == "continuity" and not (args.bundle and args.codex_bundle and args.codex_native):
+        parser.error("Continuity requires installed Claude and explicit Codex bundle/native paths")
     root = args.trial_root.resolve(strict=True)
     source = Path(__file__).resolve().parents[1]
     if source.parent in (root, *root.parents) or any(
@@ -301,6 +453,8 @@ def main():
             args.native.resolve(strict=True),
             args.role,
             bundle=args.bundle,
+            codex_bundle=args.codex_bundle.resolve(strict=True) if args.codex_bundle else None,
+            codex_native=args.codex_native.resolve(strict=True) if args.codex_native else None,
         )
     )
     (trial / "report.json").write_text(json.dumps(report, indent=2) + "\n")

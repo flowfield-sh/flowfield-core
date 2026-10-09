@@ -113,7 +113,7 @@ def test_installed_catalog_has_exact_identities_and_checks_cleanup(tmp_path, fla
                 )
                 assert [item.id for item in catalog] == [MODEL]
                 assert catalog[0].efforts == ["low"]
-                assert {item.id for item in catalog[0].modes} == {"default", "acceptEdits", "plan"}
+                assert {item.id for item in catalog[0].modes} == {"default", "acceptEdits"}
                 assert not catalog[0].fast
             else:
                 with pytest.raises(ApplicationError):
@@ -127,6 +127,18 @@ def test_installed_catalog_has_exact_identities_and_checks_cleanup(tmp_path, fla
         assert not (tmp_path / "prompt-marker").exists()
 
     asyncio.run(exercise())
+
+
+def test_unverified_plan_mode_is_rejected_before_native_launch(tmp_path):
+    with pytest.raises(ApplicationError, match="Choose a native access mode"):
+        ClaudeAgent(
+            tmp_path,
+            {},
+            directory=tmp_path / "state",
+            registration=HarnessRegistration(harness="claude-code", revision=1),
+            choice=CHOICE.model_copy(update={"mode": "plan"}),
+        )
+    assert not (tmp_path / "state").exists()
 
 
 def candidate(tmp_path, *flags):
