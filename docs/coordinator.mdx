@@ -138,6 +138,11 @@ If Codex cannot resume a session, Flowfield keeps the chat and reports the failu
 Codex on the service host and send a new message to retry, or choose **Start new session**.
 That choice requires confirmation and sends a bounded summary of recent exchanges; it does not restore
 native tool history or earlier attachment contents. No failed prompt is replayed automatically.
+The recent-exchange handoff is frozen when the new message is accepted, before native
+startup. It records source identities/revisions, omissions and attachment identities;
+startup or service restart cannot silently rebuild it from different conversation evidence.
+Earlier files must be reattached when their contents matter. Failed or interrupted prompts
+are never automatically resent, and historical prompts are not reconstructed during upgrades.
 Record ongoing work in tasks; keep enduring project decisions in the repository’s existing documents.
 
 The coordinator can retrieve older saved human messages and public replies through

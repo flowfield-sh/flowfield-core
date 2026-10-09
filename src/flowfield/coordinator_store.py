@@ -1,6 +1,8 @@
 """Transactional chat ownership, bounded public output and retained history."""
 
+import json
 import sqlite3
+from typing import Any
 from uuid import uuid4
 
 from flowfield.activity_text import preview
@@ -8,6 +10,7 @@ from flowfield.adapters.harness_host import same_session_location
 from flowfield.agent_settings import AgentSettings
 from flowfield.application import Workspace, now
 from flowfield.attachments import Attachments
+from flowfield.coordinator_handoff import freeze
 from flowfield.coordinator_models import (
     CoordinatorConversation,
     CoordinatorPage,
@@ -282,7 +285,27 @@ class CoordinatorStore:
             )
             turn.number = result.lastrowid or 0
             self._save(db, turn)
+            db.execute(
+                "INSERT INTO coordinator_handoffs VALUES (?,?)",
+                (turn.id, json.dumps(freeze(db, turn), ensure_ascii=False)),
+            )
             return turn, True
+
+    def handoff(self, project: str, identity: str) -> dict[str, Any]:
+        with self.workspace.connection() as db:
+            self._get(db, project, identity)
+            row = db.execute(
+                "SELECT data FROM coordinator_handoffs WHERE turn_id=?", (identity,)
+            ).fetchone()
+            if row is None:
+                raise ApplicationError(
+                    "handoff_unavailable",
+                    "This older message has no frozen handoff. "
+                    "Send a new message to continue; interrupted prompts are not replayed.",
+                    409,
+                )
+            value: dict[str, Any] = json.loads(row[0])
+            return value
 
     def get(self, project: str, identity: str) -> CoordinatorTurn:
         with self.workspace.connection() as db:

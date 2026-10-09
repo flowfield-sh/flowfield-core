@@ -119,6 +119,38 @@ def page(
     }
 
 
+def coordinator_exchanges(
+    db: sqlite3.Connection, project: str, before: int, limit: int
+) -> list[dict[str, Any]]:
+    """Retained public sources; callers bound excerpts/prompt bytes separately."""
+    rows = db.execute(
+        "SELECT id,number,status,json_extract(data,'$.created_at') created_at, "
+        "json_extract(data,'$.text') human,json_extract(data,'$.activity') activity, "
+        "json_extract(data,'$.task_context') task_context FROM coordinator_turns "
+        "WHERE project_id=? AND number<? ORDER BY number DESC LIMIT ?",
+        (project, before, limit),
+    ).fetchall()
+    items = []
+    for row in rows:
+        activity = json.loads(row["activity"])
+        prose = [entry for entry in activity["items"] if entry["kind"] == "agent"]
+        items.append(
+            {
+                "id": row["id"],
+                "number": row["number"],
+                "status": row["status"],
+                "created_at": row["created_at"],
+                "revision": activity.get("revision", 0),
+                "human": row["human"],
+                "coordinator": "\n\n".join(entry["text"] for entry in prose),
+                "output_omitted": activity.get("omitted", False)
+                or any(entry.get("omitted", False) for entry in prose),
+                "task_context": json.loads(row["task_context"]) if row["task_context"] else None,
+            }
+        )
+    return items
+
+
 def task_metadata(
     db: sqlite3.Connection, project_id: str
 ) -> tuple[dict[str, TaskRevision], dict[str, int]]:
@@ -213,30 +245,12 @@ class ContextReads:
             raise ApplicationError("invalid_request", "Cursor exceeds the saved history range.")
         with self.workspace.connection() as db:
             self.workspace._project(db, project_id)
-            rows = db.execute(
-                "SELECT id,number,status,json_extract(data,'$.created_at') created_at, "
-                "json_extract(data,'$.text') human,json_extract(data,'$.activity') activity "
-                "FROM coordinator_turns WHERE project_id=? AND number<? "
-                "ORDER BY number DESC LIMIT ?",
-                (project_id, before or 2**63 - 1, limit + 1),
-            ).fetchall()
+            rows = coordinator_exchanges(db, project_id, before or 2**63 - 1, limit + 1)
             items = []
             for row in rows:
-                activity = json.loads(row["activity"])
-                revision = activity.get("revision", 0)
-                prose = [entry for entry in activity["items"] if entry["kind"] == "agent"]
+                revision = row["revision"]
                 item = excerpt(
-                    {
-                        "id": row["id"],
-                        "number": row["number"],
-                        "status": row["status"],
-                        "created_at": row["created_at"],
-                        "revision": revision,
-                        "human": row["human"],
-                        "coordinator": "\n\n".join(entry["text"] for entry in prose),
-                        "output_omitted": activity.get("omitted", False)
-                        or any(entry.get("omitted", False) for entry in prose),
-                    },
+                    {key: value for key, value in row.items() if key != "task_context"},
                     1000,
                 )
                 item["text_sources"] = {

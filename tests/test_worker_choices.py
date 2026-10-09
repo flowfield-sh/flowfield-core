@@ -200,7 +200,8 @@ def test_native_adapters_apply_absent_effort_only_when_control_is_absent(
 def test_real_worker_choice_migration_preserves_and_restores_legacy_defaults(
     tmp_path, monkeypatch, fail_first
 ):
-    previous, migration = migrations.MIGRATIONS[:-1], migrations.MIGRATIONS[-1]
+    previous = tuple(m for m in migrations.MIGRATIONS if m.version <= 46)
+    migration = next(m for m in migrations.MIGRATIONS if m.version == 47)
     with monkeypatch.context() as baseline:
         baseline.setattr(migrations, "MIGRATIONS", previous)
         workspace = fixture(tmp_path).workspace
