@@ -391,14 +391,14 @@ async def main():
                 },
             )
         elif method == "mcpServerStatus/list":
-            servers = [{"name": "flowfield", "connectionStatus": "connected"}]
+            inventory = [{"name": "flowfield", "connectionStatus": "connected"}]
             if "large-mcp" in sys.argv:
                 assert params["threadId"] == "test-session" and params["limit"] == 64
-                servers[0]["tools"] = {"fixture": {"description": "x" * (512 * 1024)}}
+                inventory[0]["tools"] = {"fixture": {"description": "x" * (512 * 1024)}}
             reply(
                 request,
                 {
-                    "data": servers,
+                    "data": inventory,
                     "nextCursor": None,
                 },
             )
