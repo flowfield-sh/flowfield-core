@@ -134,15 +134,16 @@ def test_stop_rejects_answer_and_new_turn_does_not_replay(tmp_path):
             with pytest.raises(asyncio.CancelledError):
                 await task
         assert owner.page("harbor").items[0].status == "cancelled"
-        from flowfield.coordinator_store import CoordinatorStore
+        from test_coordinator_generations import start_coordinator
 
-        conversation = CoordinatorStore(execution.workspace).new("harbor").id
+        _, coordinator, generation = start_coordinator(execution.workspace)
         async with owner.turn(
             "harbor",
             "coordinator",
             session_id="native",
-            turn_id="two",
-            conversation_id=conversation,
+            turn_id=coordinator.id,
+            conversation_id=coordinator.conversation_id,
+            generation_id=generation.id,
         ) as turn:
             task = asyncio.create_task(turn.request("tool", "Same tool, new turn", OPTIONS))
             new = await pending(owner)

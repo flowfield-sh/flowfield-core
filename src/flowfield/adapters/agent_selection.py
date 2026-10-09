@@ -18,8 +18,8 @@ def require_available(harness: HarnessKind) -> None:
     if harness != "codex":
         raise ApplicationError(
             "harness_unavailable",
-            "Claude Code is not available for managed work yet. Catalog recovery "
-            "and role-choice integration are still required.",
+            "Claude Code is not available for managed work yet. Continuity and "
+            "native control verification are still required.",
             409,
         )
 

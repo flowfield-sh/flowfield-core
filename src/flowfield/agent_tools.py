@@ -30,6 +30,7 @@ class ScopedTools:
         call: Callable[[str, dict[str, Any]], Awaitable[CallToolResult]],
         *,
         parallel_reads: bool = False,
+        check: Callable[[], None] | None = None,
     ):
         self.tools = {tool.name: tool for tool in tools}
         self._call = call
@@ -37,6 +38,7 @@ class ScopedTools:
         self._lock = asyncio.Lock()
         self._parallel_reads = parallel_reads
         self._reading = 0
+        self._check = check
         self.server: Server[Any] = Server("flowfield-scoped")
 
         @self.server.list_tools()  # type: ignore[no-untyped-call, untyped-decorator]
@@ -51,6 +53,8 @@ class ScopedTools:
         try:
             if self.revoked:
                 raise ApplicationError("scope_closed", "This agent's tool access has ended.", 403)
+            if self._check:
+                self._check()
             if name not in self.tools:
                 raise ApplicationError(
                     "operation_denied", "Operation is outside this role's scope.", 403
@@ -113,7 +117,11 @@ def worker_scope(bridge: WorkerBridge) -> ScopedTools:
 
 
 async def coordinator_scope(
-    supervisor: "Supervisor", project_id: str, *, author: str = "agent"
+    supervisor: "Supervisor",
+    project_id: str,
+    *,
+    author: str = "agent",
+    check: Callable[[], None] | None = None,
 ) -> ScopedTools:
     workspace = supervisor.workspace
     workspace.project(project_id)
@@ -175,4 +183,4 @@ async def coordinator_scope(
             )
         return CallToolResult(content=list(result))
 
-    return ScopedTools(scoped, call, parallel_reads=True)
+    return ScopedTools(scoped, call, parallel_reads=True, check=check)

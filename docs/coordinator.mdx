@@ -143,6 +143,10 @@ startup. It records source identities/revisions, omissions and attachment identi
 startup or service restart cannot silently rebuild it from different conversation evidence.
 Earlier files must be reattached when their contents matter. Failed or interrupted prompts
 are never automatically resent, and historical prompts are not reconstructed during upgrades.
+Replacement sessions retain earlier native bindings as historical evidence. Flowfield does
+not automatically switch back to them or undo native side effects if startup fails.
+Unknown cleanup keeps the project occupied and counts toward the service's coordinator
+capacity until you stop remaining native work and confirm the exact interrupted turn.
 Record ongoing work in tasks; keep enduring project decisions in the repository’s existing documents.
 
 The coordinator can retrieve older saved human messages and public replies through

@@ -160,10 +160,27 @@ class Coordinator:
         recorder = ActivityRecorder(workspace, turn.project_id, turn.id, store=self.store)
         status: Literal["completed", "failed", "stopped"] = "failed"
         notice = ""
+        generation_id: str | None = None
+
+        def live_scope() -> None:
+            if generation_id is None:
+                raise ApplicationError("scope_closed", "The coordinator session is not ready.", 403)
+            with workspace.connection() as db:
+                self.store.sessions.actor(
+                    db,
+                    turn.project_id,
+                    turn.id,
+                    generation_id,
+                    statuses=("starting", "running"),
+                )
+
         try:
             project = workspace.project(turn.project_id)
             grant = await coordinator_scope(
-                self.supervisor, turn.project_id, author=f"coordinator:{turn.id}"
+                self.supervisor,
+                turn.project_id,
+                author=f"coordinator:{turn.id}",
+                check=live_scope,
             )
             # The same name replaces the previous endpoint on resume; credentials
             # and grants remain fresh and are revoked at the end of every turn.
@@ -181,24 +198,37 @@ class Coordinator:
                         environment,
                         registration=turn.settings.registration,
                     )
-                    session_id = self.store.session(
-                        turn.project_id,
-                        turn.settings.choice.harness,
-                        project.path,
-                        launch=client.launch,
-                    )
                     with workspace.connection(write=True, project_id=turn.project_id) as db:
                         current = self.store._get(db, turn.project_id, turn.id)
                         if current.status != "starting":
                             status = "stopped"
                             return
+                        generation, resumed = self.store.sessions.prepare(
+                            db,
+                            turn.project_id,
+                            turn.id,
+                            turn.settings.choice,
+                            project.path,
+                            client.launch,
+                        )
+                        generation_id = generation.id
+                        session_id = generation.session_id if resumed else None
+                        recorder.store = self.store.activity_store(generation_id)
                         current.native_started = True
                         current.launch = client.launch
                         self.store._save(db, current)
                     await client.start([server], resume=session_id, persistent=True)
+                    assert client.session.session_id
+                    self.store.sessions.created(
+                        turn.project_id,
+                        turn.id,
+                        generation_id,
+                        client.session.session_id,
+                        launch=client.launch,
+                    )
                     applied = await client.configure(turn.settings.choice)
                     attachments = Attachments(workspace).inputs(turn.project_id, None, turn.text)
-                    # Reject unsupported input before saving a new session identity:
+                    # Reject unsupported input before promoting the current binding:
                     # native history is only materialized by its first prompt.
                     client.validate_attachments(attachments)
                     native_command = await client.command_prompt(
@@ -210,27 +240,17 @@ class Coordinator:
                         if current.status != "starting":
                             status = "stopped"
                             return
+                        self.store.sessions.dispatch(
+                            db,
+                            turn.project_id,
+                            turn.id,
+                            generation_id,
+                            turn.settings.choice,
+                            command=bool(native_command),
+                        )
                         current.status = "running"
                         current.session = "resumed" if session_id else "new"
                         current.applied = turn.settings.model_copy(update={"choice": applied})
-                        if not native_command:
-                            db.execute(
-                                "INSERT INTO coordinator_sessions VALUES (?,?,?,?,?) "
-                                "ON CONFLICT(project_id) DO NOTHING",
-                                (
-                                    turn.project_id,
-                                    turn.settings.choice.harness,
-                                    client.session.session_id,
-                                    project.path,
-                                    client.launch.model_dump_json() if client.launch else None,
-                                ),
-                            )
-                            if client.launch:
-                                db.execute(
-                                    "UPDATE coordinator_sessions SET launch=? WHERE project_id=? "
-                                    "AND launch IS NULL",
-                                    (client.launch.model_dump_json(), turn.project_id),
-                                )
                         self.store._save(db, current)
                     prompt = native_command or self._prompt(
                         turn, server.name, resumed=session_id is not None
@@ -241,7 +261,7 @@ class Coordinator:
                     session_note = (
                         "Agent session resumed with native conversation history."
                         if session_id
-                        else "Checking Codex without starting a conversation."
+                        else "Checking the harness without starting a conversation."
                         if native_command
                         else "New agent session started."
                     )
@@ -262,6 +282,7 @@ class Coordinator:
                         session_id=client.session.session_id,
                         turn_id=turn.id,
                         conversation_id=turn.conversation_id,
+                        generation_id=generation_id,
                     ) as permission_turn:
                         outcome = await client.prompt(
                             prompt,
@@ -280,9 +301,10 @@ class Coordinator:
                     grant.revoke()
                     self.finishing.add(turn.id)
                     with workspace.connection(write=True, project_id=turn.project_id) as db:
-                        current = self.store._get(db, turn.project_id, turn.id)
-                        current.status = "stopping"
-                        self.store._save(db, current)
+                        if self.store.owns(db, turn.project_id, turn.id, generation_id):
+                            current = self.store._get(db, turn.project_id, turn.id)
+                            current.status = "stopping"
+                            self.store._save(db, current)
                     if client is not None:
                         await client.close()
         except asyncio.CancelledError:
@@ -292,9 +314,10 @@ class Coordinator:
             notice = str(error)
             if error.code == "agent_resume_failed":
                 with workspace.connection(write=True, project_id=turn.project_id) as db:
-                    current = self.store._get(db, turn.project_id, turn.id)
-                    current.session = "unavailable"
-                    self.store._save(db, current)
+                    if self.store.owns(db, turn.project_id, turn.id, generation_id):
+                        current = self.store._get(db, turn.project_id, turn.id)
+                        current.session = "unavailable"
+                        self.store._save(db, current)
         except Exception:
             notice = (
                 "The coordinator disconnected or could not complete this turn. "
@@ -305,24 +328,33 @@ class Coordinator:
             # Startup can fail before entering the scoped endpoint. Fence Stop here too,
             # so a late request cannot cancel the recorder while it commits final output.
             with workspace.connection(write=True, project_id=turn.project_id) as db:
-                current = self.store._get(db, turn.project_id, turn.id)
-                current.status = "stopping"
-                self.store._save(db, current)
+                if self.store.owns(db, turn.project_id, turn.id, generation_id):
+                    current = self.store._get(db, turn.project_id, turn.id)
+                    current.status = "stopping"
+                    self.store._save(db, current)
             if temporary is not None:
                 temporary.cleanup()
             await recorder.close()
             with workspace.connection(write=True, project_id=turn.project_id) as db:
-                current = self.store._get(db, turn.project_id, turn.id)
-                if client is not None and not client.cleanup_confirmed:
-                    current.status = "uncertain"
-                    current.notice = (
-                        "Native cleanup could not be confirmed. Stop any remaining "
-                        "coordinator process on the host, then confirm it stopped."
+                if self.store.owns(db, turn.project_id, turn.id, generation_id):
+                    current = self.store._get(db, turn.project_id, turn.id)
+                    self.store.sessions.finish(
+                        db,
+                        turn.project_id,
+                        turn.id,
+                        cleanup_confirmed=client is None or client.cleanup_confirmed,
+                        generation_id=generation_id,
                     )
-                else:
-                    current.status = status
-                    current.notice = notice
-                self.store._save(db, current)
+                    if client is not None and not client.cleanup_confirmed:
+                        current.status = "uncertain"
+                        current.notice = (
+                            "Native cleanup could not be confirmed. Stop any remaining "
+                            "coordinator process on the host, then confirm it stopped."
+                        )
+                    else:
+                        current.status = status
+                        current.notice = notice
+                    self.store._save(db, current)
 
     async def stop(self, project: str, identity: str) -> CoordinatorTurn:
         with self.supervisor.workspace.connection(write=True, project_id=project) as db:

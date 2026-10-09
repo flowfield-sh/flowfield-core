@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal
 from uuid import uuid4
 
+from flowfield.adapters.coordinator_sessions import CoordinatorSessions
 from flowfield.agent_models import AgentRole
 from flowfield.application import Workspace, now
 from flowfield.coordinator_store import CoordinatorStore
@@ -35,6 +36,7 @@ class PermissionTurn:
     run_id: str | None
     conversation_id: str | None
     task_id: str | None
+    generation_id: str | None = None
     id: str = field(default_factory=lambda: uuid4().hex)
     pending: dict[str, asyncio.Future[str]] = field(default_factory=dict)
     open: bool = True
@@ -138,6 +140,23 @@ class Permissions:
             ).fetchone()
             if row is None or row[0] != "running":
                 raise ApplicationError("permission_stale", "The worker is no longer running.", 409)
+        else:
+            if turn.generation_id is None:
+                raise ApplicationError(
+                    "permission_stale", "The coordinator has no live generation.", 409
+                )
+            CoordinatorSessions.actor(
+                db,
+                turn.project,
+                turn.turn_id,
+                turn.generation_id,
+                statuses=("running",),
+            )
+            generation = CoordinatorSessions.get(db, turn.project, turn.generation_id)
+            if generation.session_id != turn.session_id or generation.status != "prompting":
+                raise ApplicationError(
+                    "permission_stale", "The native permission session changed.", 409
+                )
 
     @asynccontextmanager
     async def turn(
@@ -149,6 +168,7 @@ class Permissions:
         turn_id: str,
         run_id: str | None = None,
         conversation_id: str | None = None,
+        generation_id: str | None = None,
     ) -> AsyncIterator[PermissionTurn]:
         if len(self.turns) >= 64 or not session_id or not turn_id:
             raise ApplicationError("permission_capacity", "No permission turn is available.", 409)
@@ -177,10 +197,20 @@ class Permissions:
         ):
             raise ApplicationError("permission_busy", "This agent already has a live turn.", 409)
         turn = PermissionTurn(
-            self, project, role, session_id, turn_id, run_id, conversation_id, task_id
+            self,
+            project,
+            role,
+            session_id,
+            turn_id,
+            run_id,
+            conversation_id,
+            task_id,
+            generation_id=generation_id,
         )
         self.turns[turn.id] = turn
         try:
+            with self.workspace.connection() as db:
+                self._live(db, turn)
             yield turn
         finally:
             self._close_turn(turn)

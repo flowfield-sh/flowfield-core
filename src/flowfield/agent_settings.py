@@ -2,6 +2,8 @@
 
 import sqlite3
 
+from flowfield.adapters.coordinator_sessions import CoordinatorSessions
+from flowfield.adapters.session_continuity import retains_session
 from flowfield.agent_models import (
     AgentChoice,
     AgentRole,
@@ -111,6 +113,25 @@ class AgentSettings:
                 scope = self.workspace._task(db, project, scope).id
             current = self._read(db, project, role, scope)
             self.workspace._current(current.revision, request.expected_revision)
+            if (
+                role == "coordinator"
+                and self.workspace.schema_version >= 49
+                and current.selection != request.selection
+                and not retains_session(current.selection, request.selection)
+            ):
+                active = db.execute(
+                    "SELECT id FROM coordinator_turns WHERE project_id=? "
+                    "AND status IN ('starting','running','stopping','uncertain')",
+                    (project,),
+                ).fetchone()
+                if active:
+                    raise ApplicationError(
+                        "coordinator_busy",
+                        "Stop the coordinator and confirm cleanup before "
+                        "changing harness or settings that need a fresh session.",
+                        409,
+                    )
+                CoordinatorSessions.fresh(db, project)
             db.execute(
                 "INSERT INTO agent_settings VALUES (?,?,?,?,?) "
                 "ON CONFLICT(project_id,role,scope) DO UPDATE SET "

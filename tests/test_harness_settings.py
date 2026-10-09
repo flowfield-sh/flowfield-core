@@ -16,10 +16,11 @@ from typer.testing import CliRunner
 from flowfield import migrations, storage
 from flowfield.adapters import codex_install, harness_host
 from flowfield.adapters.codex_agent import CodexAgent
+from flowfield.adapters.coordinator_sessions import CoordinatorSessions, NativeGeneration
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit
 from flowfield.agent_settings import AgentSettings
 from flowfield.api import create_app
-from flowfield.application import Workspace
+from flowfield.application import Workspace, now
 from flowfield.cli import app as cli
 from flowfield.client import Client
 from flowfield.coordinator_models import CoordinatorSend
@@ -276,9 +277,20 @@ def test_codex_override_launch_is_frozen_and_saved_session_rejects_redirect(tmp_
         and agent.launch.bridge_executable == agent.command[0]
     )
     with workspace.connection(write=True) as db:
+        generation = NativeGeneration(
+            id="a" * 32,
+            project_id="harbor",
+            created_at=now(),
+            harness="codex",
+            session_id="native-id",
+            cwd=str(tmp_path),
+            launch=agent.launch,
+            status="retained",
+        )
+        CoordinatorSessions.save(db, generation)
         db.execute(
-            "INSERT INTO coordinator_sessions VALUES (?,?,?,?,?)",
-            ("harbor", "codex", "native-id", str(tmp_path), agent.launch.model_dump_json()),
+            "INSERT INTO coordinator_sessions VALUES (?,?,0)",
+            ("harbor", generation.id),
         )
     store = CoordinatorStore(workspace)
     assert store.session("harbor", "codex", str(tmp_path), launch=agent.launch) == "native-id"

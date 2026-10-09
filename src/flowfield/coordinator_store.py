@@ -6,7 +6,7 @@ from typing import Any
 from uuid import uuid4
 
 from flowfield.activity_text import preview
-from flowfield.adapters.harness_host import same_session_location
+from flowfield.adapters.coordinator_sessions import CoordinatorSessions
 from flowfield.agent_settings import AgentSettings
 from flowfield.application import Workspace, now
 from flowfield.attachments import Attachments
@@ -27,34 +27,12 @@ from flowfield.run_activity import ActivityUpdate, ContextUsage, update_activity
 class CoordinatorStore:
     def __init__(self, workspace: Workspace):
         self.workspace = workspace
+        self.sessions = CoordinatorSessions(workspace)
 
     def session(
         self, project: str, harness: str, cwd: str, *, launch: HarnessLaunch | None = None
     ) -> str | None:
-        with self.workspace.connection() as db:
-            row = db.execute(
-                "SELECT harness,session_id,cwd,launch FROM coordinator_sessions WHERE project_id=?",
-                (project,),
-            ).fetchone()
-        if row and (row[0] != harness or row[2] != cwd):
-            raise ApplicationError(
-                "agent_resume_failed",
-                "The saved session belongs to a different harness or project directory. "
-                "Start a new session to continue here.",
-                409,
-            )
-        if row and launch:
-            old = HarnessLaunch.model_validate_json(row[3]) if row[3] else None
-            if (old and not same_session_location(old, launch)) or (
-                old is None and "registration" in (launch.executable_source, launch.config_source)
-            ):
-                raise ApplicationError(
-                    "agent_resume_failed",
-                    "The native harness location or host configuration changed. "
-                    "Start a new session to continue with the saved conversation.",
-                    409,
-                )
-        return row[1] if row else None
+        return self.sessions.session(project, harness, cwd, launch)
 
     @staticmethod
     def _recovery(db: sqlite3.Connection, project: str) -> str | None:
@@ -62,7 +40,8 @@ class CoordinatorStore:
             "SELECT t.id FROM coordinator_turns t JOIN coordinator_sessions s "
             "ON s.project_id=t.project_id WHERE t.project_id=? "
             "AND t.number=(SELECT MAX(number) FROM coordinator_turns WHERE project_id=?) "
-            "AND json_extract(t.data,'$.session')='unavailable'",
+            "AND json_extract(t.data,'$.session')='unavailable' "
+            "AND s.generation_id IS NOT NULL AND s.fresh=0",
             (project, project),
         ).fetchone()
         return row[0] if row and not CoordinatorStore._active(db, project) else None
@@ -73,7 +52,7 @@ class CoordinatorStore:
                 raise ApplicationError(
                     "session_changed", "Session recovery changed. Refresh before continuing.", 409
                 )
-            db.execute("DELETE FROM coordinator_sessions WHERE project_id=?", (project,))
+            self.sessions.fresh(db, project)
             turn = self._get(db, project, failed_turn)
             turn.notice += " New agent session selected. Your chat is saved."
             self._save(db, turn)
@@ -250,6 +229,19 @@ class CoordinatorStore:
                 raise ApplicationError(
                     "coordinator_busy", "The coordinator already has an active turn.", 409
                 )
+            if (
+                db.execute(
+                    "SELECT count(*) FROM coordinator_turns "
+                    "WHERE status IN ('starting','running','stopping','uncertain')"
+                ).fetchone()[0]
+                >= 16
+            ):
+                raise ApplicationError(
+                    "coordinator_capacity",
+                    "Coordinator capacity is reserved by active or "
+                    "unreconciled turns. Stop running work or confirm interrupted cleanup first.",
+                    409,
+                )
             if not request.text.strip():
                 raise ApplicationError("empty_message", "Write a message first.")
             settings = AgentSettings(self.workspace).resolve(db, project, "coordinator").effective
@@ -311,11 +303,25 @@ class CoordinatorStore:
         with self.workspace.connection() as db:
             return self._get(db, project, identity)
 
-    def write(self, project: str, identity: str, updates: list[ActivityUpdate]) -> None:
+    def write(
+        self,
+        project: str,
+        identity: str,
+        updates: list[ActivityUpdate],
+        *,
+        generation_id: str | None = None,
+    ) -> None:
         with self.workspace.connection(write=True, notify=False) as db:
             turn = self._get(db, project, identity)
             if turn.status not in ("starting", "running", "stopping"):
                 return
+            if generation_id is not None:
+                row = db.execute(
+                    "SELECT generation_id FROM coordinator_turns WHERE project_id=? AND id=?",
+                    (project, identity),
+                ).fetchone()
+                if row is None or row[0] != generation_id:
+                    return
             update_activity(turn.activity, updates)
             self._save(db, turn)
 
@@ -330,6 +336,7 @@ class CoordinatorStore:
             ).fetchall()
             for row in rows:
                 turn = CoordinatorTurn.model_validate_json(row[0])
+                self.sessions.finish(db, turn.project_id, turn.id, cleanup_confirmed=False)
                 turn.status = "uncertain" if turn.native_started else "interrupted"
                 turn.notice = "The service restarted during this turn. Nothing was replayed. " + (
                     "Stop any remaining coordinator process on the host, then confirm it stopped."
@@ -343,7 +350,31 @@ class CoordinatorStore:
             turn = self._get(db, project, identity)
             if turn.status != "uncertain":
                 raise ApplicationError("turn_changed", "This turn no longer needs recovery.", 409)
+            self.sessions.finish(db, project, identity, cleanup_confirmed=True)
             turn.status = "interrupted"
             turn.notice = "You confirmed the coordinator stopped. Nothing was replayed."
             self._save(db, turn)
             return turn
+
+    def activity_store(self, generation_id: str) -> "CoordinatorActivityStore":
+        return CoordinatorActivityStore(self, generation_id)
+
+    @staticmethod
+    def owns(
+        db: sqlite3.Connection, project: str, identity: str, generation_id: str | None
+    ) -> bool:
+        row = db.execute(
+            "SELECT status,generation_id FROM coordinator_turns WHERE project_id=? AND id=?",
+            (project, identity),
+        ).fetchone()
+        return bool(
+            row and row[0] in ("starting", "running", "stopping") and row[1] == generation_id
+        )
+
+
+class CoordinatorActivityStore:
+    def __init__(self, store: CoordinatorStore, generation_id: str):
+        self.store, self.generation_id = store, generation_id
+
+    def write(self, project: str, identity: str, updates: list[ActivityUpdate]) -> None:
+        self.store.write(project, identity, updates, generation_id=self.generation_id)
