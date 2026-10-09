@@ -209,6 +209,7 @@ test("worker models load automatically and retry without replacing setting draft
       json: [
         { id: "model-one", name: "Model one", efforts: ["low", "high"] },
         { id: "model-two", name: "Model two", efforts: ["medium"] },
+        { id: "no-effort", name: "No effort control", efforts: [] },
       ],
     });
   });
@@ -236,6 +237,38 @@ test("worker models load automatically and retry without replacing setting draft
     effort.getByRole("option", { name: "high", exact: true }),
   ).toHaveCount(0);
   await effort.selectOption("medium");
+  await model.selectOption("no-effort");
+  await expect(effort).toHaveCount(0);
+  let captured: unknown;
+  await page.route(`**/api/projects/${project}/workers`, async (route) => {
+    if (route.request().method() !== "PUT") return route.continue();
+    const body = route.request().postDataJSON();
+    captured = body;
+    await route.fulfill({
+      json: {
+        project_id: project,
+        revision: 2,
+        enabled: false,
+        problem: null,
+        selection: body.selection,
+        max_parallel: body.max_parallel,
+      },
+    });
+  });
+  await settings.getByRole("button", { name: "Save worker settings" }).click();
+  await expect
+    .poll(() => captured)
+    .toEqual({
+      expected_revision: 1,
+      max_parallel: 3,
+      selection: {
+        harness: "codex",
+        model: "no-effort",
+        effort: null,
+        mode: null,
+        fast: false,
+      },
+    });
   expect(calls).toBeGreaterThan(1);
   expect(refreshCalls).toBe(1);
 });

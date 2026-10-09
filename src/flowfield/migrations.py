@@ -1,5 +1,6 @@
 """Ordered database-only upgrades from the Flowfield schema-44 baseline."""
 
+import json
 import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -32,9 +33,25 @@ def harness_catalogs(db: sqlite3.Connection) -> None:
     )
 
 
+def worker_choices(db: sqlite3.Connection) -> None:
+    for project, raw in db.execute("SELECT project_id,data FROM worker_settings").fetchall():
+        data = json.loads(raw)
+        model, effort, mode = (data.pop(key, None) for key in ("model", "effort", "mode"))
+        if "selection" not in data:
+            data["selection"] = (
+                {"harness": "codex", "model": model, "effort": effort, "mode": mode, "fast": False}
+                if model and effort
+                else None
+            )
+        db.execute(
+            "UPDATE worker_settings SET data=? WHERE project_id=?", (json.dumps(data), project)
+        )
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(45, host_harnesses),
     Migration(46, harness_catalogs),
+    Migration(47, worker_choices),
 )
 
 

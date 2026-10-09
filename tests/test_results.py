@@ -10,6 +10,7 @@ from project_fixtures import adopt, task_request
 from flowfield.adapters import git_integration as gitops
 from flowfield.adapters.git_workspace import baseline, git
 from flowfield.adapters.local_execution import LocalHost
+from flowfield.agent_models import AgentChoice
 from flowfield.application import ProjectSetup, TaskProgress, TaskPublish, Workspace
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import QueueEdit, SettingsEdit, WorkerResult
@@ -67,7 +68,8 @@ def fixture(
         ),
     )
     settings = service.execution.configure(
-        "harbor", SettingsEdit(expected_revision=1, model="fixture", effort="low")
+        "harbor",
+        SettingsEdit(expected_revision=1, selection=AgentChoice(model="fixture", effort="low")),
     )
     service.execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=True))
     base = baseline(repo)

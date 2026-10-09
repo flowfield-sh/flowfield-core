@@ -13,6 +13,7 @@ from pathlib import Path
 
 from flowfield.adapters.git_workspace import baseline, git
 from flowfield.adapters.local_execution import LocalHost
+from flowfield.agent_models import AgentChoice
 from flowfield.application import ProjectSetup, TaskCreate, TaskPublish, Workspace
 from flowfield.execution import Execution
 from flowfield.execution_models import QueueEdit, SettingsEdit, Usage, WorkerResult
@@ -95,7 +96,10 @@ def main() -> None:
         tasks.append(task)
     execution = Execution(workspace)
     settings = execution.configure(
-        project.id, SettingsEdit(expected_revision=1, model="offline-fixture", effort="none")
+        project.id,
+        SettingsEdit(
+            expected_revision=1, selection=AgentChoice(model="offline-fixture", effort="none")
+        ),
     )
     execution.queue(project.id, QueueEdit(expected_revision=settings.revision, enabled=True))
 
@@ -214,7 +218,7 @@ def main() -> None:
     # Fixture-only setup: remove the fake model so the served preview cannot dispatch workers.
     with workspace.connection(write=True, project_id=project.id) as db:
         settings = execution._settings(db, project.id)
-        settings.enabled, settings.model, settings.effort = False, None, None
+        settings.enabled, settings.selection = False, None
         execution._save_settings(db, settings)
     print(
         json.dumps({"state": str(root / "state"), "project": project.id, "review_run": current.id})

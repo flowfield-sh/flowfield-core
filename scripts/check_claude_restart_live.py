@@ -125,7 +125,7 @@ async def child(trial: Path, bridge: Path, native: Path, role: str) -> None:
                 )
                 settings = service.execution.configure(
                     project.id,
-                    SettingsEdit(expected_revision=1, model=MODEL, effort="low", mode="default"),
+                    SettingsEdit(expected_revision=1, selection=CHOICE),
                 )
                 task = workspace.create_task(
                     project.id,

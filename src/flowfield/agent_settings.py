@@ -36,11 +36,7 @@ class AgentSettings:
             )
             return AgentSettingsView(
                 revision=current.revision,
-                selection=AgentChoice(
-                    model=current.model, effort=current.effort, mode=current.mode, fast=False
-                )
-                if current.model and current.effort
-                else None,
+                selection=current.selection,
             )
         if self.workspace.schema_version < 32:
             return AgentSettingsView()  # Baseline construction for migration verification.
@@ -94,7 +90,12 @@ class AgentSettings:
             request = request.model_copy(
                 update={"selection": request.selection.model_copy(update={"fast": False})}
             )
-        if role == "coordinator" and request.selection and request.selection.mode is None:
+        if (
+            role == "coordinator"
+            and request.selection
+            and request.selection.harness == "codex"
+            and request.selection.mode is None
+        ):
             # Old clients selected only model/effort. Preserve their existing access.
             request = request.model_copy(
                 update={"selection": request.selection.model_copy(update={"mode": "read-only"})}

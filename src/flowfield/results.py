@@ -412,10 +412,10 @@ class Results:
                         409,
                     )
                 workers = self.execution._settings(db, project_id)
-                if not workers.model or not workers.effort:
+                if not workers.selection:
                     raise ApplicationError(
                         "worker_settings_required",
-                        "Choose the correction model and effort in project Workers settings.",
+                        "Choose the correction harness and model in project Workers settings.",
                         409,
                     )
                 number = self.execution._correction_count(db, project_id, task.id) + 1

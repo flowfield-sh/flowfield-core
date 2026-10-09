@@ -324,7 +324,7 @@ def main() -> None:
                     assert board["columns"][1]["tasks"][0]["key"] == task["key"]
                     assert board["recommendation"]["action"] == "publish"
                     workers = json.loads(command("project", "workers", "show", "--json"))
-                    assert workers["model"] is None and workers["max_parallel"] == 1
+                    assert workers["selection"] is None and workers["max_parallel"] == 1
                     assert workers["enabled"] is False
                     assert json.loads(command("task", "runs", "list", "--json"))["items"] == []
                     assert board["observed_at"]

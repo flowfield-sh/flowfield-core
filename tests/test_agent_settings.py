@@ -31,7 +31,11 @@ def test_inheritance_override_reset_and_frozen_claim(tmp_path):
     default = execution.settings("harbor")
     execution.configure(
         "harbor",
-        SettingsEdit(expected_revision=default.revision, model="new", effort="low", max_parallel=2),
+        SettingsEdit(
+            expected_revision=default.revision,
+            max_parallel=2,
+            selection=AgentChoice(model="new", effort="low"),
+        ),
     )
     assert settings.get("harbor", "worker", "task-0").effective.choice.model == "other"
     assert settings.get("harbor", "worker", "task-1").effective.choice.model == "new"

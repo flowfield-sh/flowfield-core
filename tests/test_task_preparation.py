@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from project_fixtures import adopt, fixture_stage_change, task_request
 
+from flowfield.agent_models import AgentChoice
 from flowfield.application import (
     ProjectSetup,
     TaskEdit,
@@ -34,7 +35,8 @@ def test_capture_refinement_and_queue_are_separate(tmp_path: Path):
     w = setup(tmp_path)
     execution = Execution(w)
     settings = execution.configure(
-        "project", SettingsEdit(expected_revision=1, model="fake", effort="low")
+        "project",
+        SettingsEdit(expected_revision=1, selection=AgentChoice(model="fake", effort="low")),
     )
     snapshots = []
     w.on_change = lambda _: snapshots.append(w.tasks("project"))

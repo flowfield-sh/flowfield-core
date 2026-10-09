@@ -37,12 +37,14 @@ Repository instructions govern development conventions and permission to commit/
   agreed ongoing work through Flowfield; never bypass existing ownership or result delivery.
 - Inspect repository instructions, manifests and scripts. Agree one actual delivery branch,
   reproducible dependency setup, meaningful checks and a useful local run command. Prefer
-  the registered checkout's current branch. Choose paid worker model/effort only with human
+  the registered checkout's current branch. Choose worker harness/model/controls only with human
   authorization; no implicit fallback or account changes. Capacity defaults to one; configure
   the agreed maximum for parallel work. Lowering it limits new starts without stopping active work.
 - Read integration settings before configuring them. Flowfield uses Local automatically, with
   the service host’s installed tools, credentials and native harness configuration.
-  Select supported model/effort/native mode with human authority; never invent a universal
+  Discover choices for this project and harness. Select supported controls with human
+  authority; omit effort when no effort control is offered. Discovery can run native startup
+  hooks but sends no model prompt. Never invent a universal
   permission policy or silently broaden native harness access.
 - Local gives each attempt a checkout, temporary/output directories and FLOWFIELD_WORKSPACE /
   FLOWFIELD_RUNTIME_DIR. Project setup chooses its dependency tooling; no forced Python runtime

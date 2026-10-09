@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 from project_fixtures import adopt, fixture_stage_change, task_request
 
+from flowfield.agent_models import AgentChoice
 from flowfield.application import (
     ProjectSetup,
     TaskEdit,
@@ -55,7 +56,11 @@ def fixture(tmp_path: Path, *, count: int = 1, cap: int = 1, stages=None) -> Exe
     execution = Execution(workspace)
     configured = execution.configure(
         "harbor",
-        SettingsEdit(expected_revision=1, model="test-model", effort="low", max_parallel=cap),
+        SettingsEdit(
+            expected_revision=1,
+            max_parallel=cap,
+            selection=AgentChoice(model="test-model", effort="low"),
+        ),
     )
     execution.queue("harbor", QueueEdit(expected_revision=configured.revision, enabled=True))
     return execution
@@ -93,14 +98,18 @@ def test_no_implicit_model_or_queue_and_stale_settings(tmp_path: Path) -> None:
     adopt(workspace, ProjectSetup(path=str(tmp_path / "harbor")))
     execution = Execution(workspace)
     settings = execution.settings("harbor")
-    assert settings.model is None and settings.effort is None and settings.max_parallel == 1
-    with pytest.raises(ApplicationError, match="Choose a worker model"):
+    assert settings.selection is None and settings.max_parallel == 1
+    with pytest.raises(ApplicationError, match="Choose a worker harness"):
         execution.queue("harbor", QueueEdit(expected_revision=1, enabled=True))
-    execution.configure("harbor", SettingsEdit(expected_revision=1, model="explicit", effort="low"))
+    execution.configure(
+        "harbor",
+        SettingsEdit(expected_revision=1, selection=AgentChoice(model="explicit", effort="low")),
+    )
     assert not execution.settings("harbor").enabled
     with pytest.raises(ApplicationError):
         execution.configure(
-            "harbor", SettingsEdit(expected_revision=1, model="other", effort="high")
+            "harbor",
+            SettingsEdit(expected_revision=1, selection=AgentChoice(model="other", effort="high")),
         )
 
 

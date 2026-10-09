@@ -117,10 +117,7 @@ class Supervisor:
         )
 
     async def configure(self, project_id: str, request: SettingsEdit) -> WorkerSettings:
-        await self.validate_agent_choice(
-            AgentChoice(model=request.model, effort=request.effort, mode=request.mode, fast=False),
-            project_id,
-        )
+        await self.validate_agent_choice(request.selection, project_id)
         return self.execution.configure(project_id, request)
 
     async def validate_agent_choice(
@@ -130,14 +127,14 @@ class Supervisor:
         models = await self.model_options(project_id=project_id, harness=choice.harness)
         if not any(
             item.id == choice.model
-            and choice.effort in item.efforts
+            and (choice.effort in item.efforts if item.efforts else choice.effort is None)
             and (choice.mode is None or choice.mode in {mode.id for mode in item.modes})
             and (not choice.fast or item.fast)
             for item in models
         ):
             raise ApplicationError(
                 "model_unavailable",
-                "Choose a model and effort returned by this Codex installation.",
+                "Choose a model and supported controls returned by this harness for the project.",
                 409,
             )
 

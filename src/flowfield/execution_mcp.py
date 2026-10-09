@@ -140,7 +140,7 @@ def add_execution_tools(
 
     @mcp.tool(annotations=read)
     def get_workers(project_id: str) -> dict[str, Any]:
-        """Read queue enabled/paused state, explicit model/effort, cap and setup problems."""
+        """Read queue state, saved harness/model/controls, cap and setup problems."""
         return supervisor().execution.settings(project_id).model_dump()
 
     @mcp.tool(annotations=write)

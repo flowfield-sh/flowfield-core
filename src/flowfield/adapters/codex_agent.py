@@ -159,12 +159,16 @@ class CodexAgent(AcpAgent):
         try:
             await self.session.select("mode", choice.mode)
             await self.session.select("model", choice.model)
-            await self.session.select("reasoning_effort", choice.effort)
             expected = {
                 "model": choice.model,
-                "reasoning_effort": choice.effort,
                 "mode": choice.mode,
             }
+            efforts = choices(self.session.config, "reasoning_effort")
+            if choice.effort is not None:
+                await self.session.select("reasoning_effort", choice.effort)
+                expected["reasoning_effort"] = choice.effort
+            elif efforts:
+                raise ValueError("Choose an explicit effort for this model")
             if choice.fast is not None:
                 available = {item["value"] for item in choices(self.session.config, "fast-mode")}
                 if {"on", "off"} <= available:

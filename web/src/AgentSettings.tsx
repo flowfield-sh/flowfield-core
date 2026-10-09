@@ -49,7 +49,15 @@ export function AgentModelFields({
           value={loading ? "" : model}
           required
           disabled={loading || !models.length}
-          onChange={(event) => change(event.target.value, "", mode, false)}
+          onChange={(event) => {
+            const next = models.find((item) => item.id === event.target.value);
+            change(
+              event.target.value,
+              "",
+              next?.modes?.some((item) => item.id === mode) ? mode : "",
+              false,
+            );
+          }}
         >
           <option value="">
             {loading
@@ -68,35 +76,39 @@ export function AgentModelFields({
           ))}
         </NativeSelect>
       </Label>
-      <Label className="field block">
-        Reasoning effort
-        <NativeSelect
-          size={compact ? "sm" : "default"}
-          aria-label="Reasoning effort"
-          value={loading ? "" : effort}
-          required
-          disabled={loading || !model || !selected?.efforts.length}
-          onChange={(event) => change(model, event.target.value, mode, fast)}
-        >
-          <option value="">
-            {loading
-              ? "Loading efforts…"
-              : !model
-                ? "Select a model first"
-                : !selected?.efforts.length
-                  ? "Efforts unavailable"
-                  : "Choose an effort"}
-          </option>
-          {!loading && effort && !selected?.efforts.includes(effort) && (
-            <option value={effort}>{effort} (unavailable)</option>
-          )}
-          {selected?.efforts.map((value) => (
-            <option key={value} value={value}>
-              {value}
+      {(loading ||
+        (!model && models.some((item) => item.efforts.length)) ||
+        !!selected?.efforts.length) && (
+        <Label className="field block">
+          Reasoning effort
+          <NativeSelect
+            size={compact ? "sm" : "default"}
+            aria-label="Reasoning effort"
+            value={loading ? "" : effort}
+            required
+            disabled={loading || !model || !selected?.efforts.length}
+            onChange={(event) => change(model, event.target.value, mode, fast)}
+          >
+            <option value="">
+              {loading
+                ? "Loading efforts…"
+                : !model
+                  ? "Select a model first"
+                  : !selected?.efforts.length
+                    ? "Efforts unavailable"
+                    : "Choose an effort"}
             </option>
-          ))}
-        </NativeSelect>
-      </Label>
+            {!loading && effort && !selected?.efforts.includes(effort) && (
+              <option value={effort}>{effort} (unavailable)</option>
+            )}
+            {selected?.efforts.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </NativeSelect>
+        </Label>
+      )}
       {!!selected?.modes?.length && (
         <Label className="field block">
           Access mode
@@ -201,7 +213,9 @@ function useAgentSettingsContent({
       catalog.data.some(
         (item) =>
           item.id === saved?.model &&
-          item.efforts.includes(saved.effort) &&
+          (item.efforts.length
+            ? !!saved.effort && item.efforts.includes(saved.effort)
+            : !saved.effort) &&
           !!item.modes?.some((mode) => mode.id === saved.mode) &&
           (!saved.fast || item.fast),
       );
@@ -214,7 +228,7 @@ function useAgentSettingsContent({
         selection: {
           harness: "codex",
           model,
-          effort,
+          effort: effort || null,
           mode: mode || null,
           fast,
         },
@@ -303,7 +317,9 @@ function useAgentSettingsContent({
                 !catalog.data?.some(
                   (item) =>
                     item.id === model &&
-                    item.efforts.includes(effort) &&
+                    (item.efforts.length
+                      ? item.efforts.includes(effort)
+                      : !effort) &&
                     !!item.modes?.some((choice) => choice.id === mode) &&
                     (!fast || item.fast),
                 )

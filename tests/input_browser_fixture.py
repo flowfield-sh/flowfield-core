@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from project_fixtures import adopt, task_request
 
+from flowfield.agent_models import AgentChoice
 from flowfield.application import ProjectSetup, TaskPreparation, Workspace
 from flowfield.execution import Execution
 from flowfield.execution_models import SettingsEdit
@@ -28,7 +29,10 @@ if sys.argv[2] == "create":
             preparation=TaskPreparation(completion="report"),
         ),
     )
-    execution.configure(project, SettingsEdit(expected_revision=1, model="fake", effort="low"))
+    execution.configure(
+        project,
+        SettingsEdit(expected_revision=1, selection=AgentChoice(model="fake", effort="low")),
+    )
     settings = execution.settings(project).model_copy(update={"enabled": True})
     with patch.object(execution, "_settings", return_value=settings):
         run = execution.claim(project, base, {base: set()})

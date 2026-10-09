@@ -99,10 +99,7 @@ def test_human_testing_records_exact_result_without_work_and_reaches_successor(t
         service.execution.configure(
             "harbor",
             SettingsEdit(
-                expected_revision=settings.revision,
-                model=settings.model,
-                effort=settings.effort,
-                max_parallel=2,
+                expected_revision=settings.revision, max_parallel=2, selection=settings.selection
             ),
         )
         task = service.workspace.create_task(

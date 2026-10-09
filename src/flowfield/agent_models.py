@@ -14,7 +14,7 @@ class AgentRecord(BaseModel):
 class AgentChoice(AgentRecord):
     harness: HarnessKind = "codex"
     model: str = Field(min_length=1, max_length=200)
-    effort: str = Field(min_length=1, max_length=40)
+    effort: str | None = Field(default=None, min_length=1, max_length=40)
     mode: str | None = Field(default=None, min_length=1, max_length=200)
     fast: bool | None = None  # None preserves unknown historical/inherited configuration.
 

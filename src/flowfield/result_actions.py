@@ -171,7 +171,7 @@ def result_action(
                     "the coordinator."
                 ),
             )
-        if not settings.model or not settings.effort:
+        if not settings.selection:
             return ResultAction(
                 owner="human",
                 action="settings",

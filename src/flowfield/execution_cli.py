@@ -124,11 +124,13 @@ def register(project_app: typer.Typer, task_app: typer.Typer) -> None:
             if value.get("next_before"):
                 typer.echo(f"More: --before {value['next_before']}")
         elif "enabled" in value:
+            choice = value.get("selection") or {}
             typer.echo(
                 f"Queue {'running' if value['enabled'] else 'paused'} · "
-                f"{value['model'] or 'model not selected'} · "
-                f"{value['effort'] or 'effort not selected'}"
-                f" · maximum {value['max_parallel']} worker(s)"
+                f"{choice.get('harness') or 'harness not selected'} · "
+                f"{choice.get('model') or 'model not selected'}"
+                + (f" · {choice['effort']}" if choice.get("effort") else "")
+                + f" · maximum {value['max_parallel']} worker(s)"
             )
             if value.get("problem"):
                 typer.echo(value["problem"])
@@ -159,17 +161,38 @@ def register(project_app: typer.Typer, task_app: typer.Typer) -> None:
         )
 
     @workers.command("models")
-    def models(ctx: typer.Context, json_output: Json = False) -> None:
-        output(lambda: ctx.obj.request("GET", "worker-models"), json_output, show)
+    def models(
+        ctx: typer.Context,
+        harness: str = "codex",
+        project: ProjectOption = None,
+        refresh: bool = False,
+        json_output: Json = False,
+    ) -> None:
+        """Discover native choices; starts a disposable session and can run startup hooks."""
+        from urllib.parse import urlencode
+
+        def discover() -> Any:
+            project_id = project_path(project).split("/")[-1]
+            return ctx.obj.request(
+                "GET",
+                "worker-models?"
+                + urlencode(
+                    {"harness": harness, "project_id": project_id, "refresh": str(refresh).lower()}
+                ),
+                timeout=180,
+            )
+
+        output(discover, json_output, show)
 
     @workers.command("configure")
     def configure(
         ctx: typer.Context,
         model: str = typer.Option(...),
-        effort: str = typer.Option(...),
+        effort: str | None = None,
+        harness: str = "codex",
         mode: str | None = typer.Option(
             None,
-            help="Native mode ID from `worker models --json`. Omission preserves the current mode.",
+            help="Access mode from `workers models --json`; choose explicitly for a new harness.",
         ),
         max_parallel: int = typer.Option(1, min=1, max=16),
         project: ProjectOption = None,
@@ -178,14 +201,21 @@ def register(project_app: typer.Typer, task_app: typer.Typer) -> None:
         def perform() -> Any:
             path = project_path(project) + "/workers"
             current = ctx.obj.request("GET", path)
+            choice = current.get("selection") or {}
             ctx.obj.request(
                 "PUT",
                 path,
                 {
                     "expected_revision": current["revision"],
-                    "model": model,
-                    "effort": effort,
-                    "mode": mode if mode is not None else current.get("mode"),
+                    "selection": {
+                        "harness": harness,
+                        "model": model,
+                        "effort": effort,
+                        "mode": mode
+                        if mode is not None
+                        else (choice.get("mode") if choice.get("harness") == harness else None),
+                        "fast": False,
+                    },
                     "max_parallel": max_parallel,
                 },
             )

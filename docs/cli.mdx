@@ -123,8 +123,10 @@ when approved code is blocked from reaching the checkout.
 `task runs retry ATTEMPT_ID` returns stopped or failed work to Up next. It does not enable
 a paused queue or bypass the worker limit.
 
-Use `project workers models` to read model IDs and supported reasoning efforts, then
-`project workers configure --help` for explicit model, effort and parallel-worker settings.
+Use `project workers models --project PROJECT_ID` to discover the project's native model
+IDs and supported controls. `--refresh` reloads after native configuration or account
+changes. `project workers configure --help` lists harness, model, effort, access mode
+and parallel-worker settings. Omit effort only when that model offers no effort control.
 Saving worker settings does not enable the queue.
 
 Questions and replies preserve their task, attempt and result bindings. Answering does
@@ -142,7 +144,8 @@ Repeat `--check` for multiple commands; `--setup` adds dependency setup. Your co
 can configure and validate richer environment and run-command settings through MCP.
 Flowfield automatically uses the service host’s tools, credentials and native harness
 configuration. Use `flowfield project workers models --json` to see access modes, then pass
-`--mode MODE_ID` to `flowfield project workers configure` with the model and effort.
+`--mode MODE_ID` to `flowfield project workers configure` with the model and its supported
+effort. A harness change clears inherited access; choose that harness's native access mode.
 See [Worker setup and checks](/worker-setup) for configuration order and validation.
 
 ## Harness connections

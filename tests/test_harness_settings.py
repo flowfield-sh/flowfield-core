@@ -423,7 +423,7 @@ def test_real_registration_migration_failure_rolls_back_new_table_and_binding_co
 
 
 def test_catalog_migration_failure_preserves_registration_and_recovers(tmp_path, monkeypatch):
-    registration_migration, catalog_migration = migrations.MIGRATIONS
+    registration_migration, catalog_migration = migrations.MIGRATIONS[:2]
     with monkeypatch.context() as baseline:
         baseline.setattr(migrations, "MIGRATIONS", (registration_migration,))
         workspace = Workspace(tmp_path / "state")

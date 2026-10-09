@@ -283,9 +283,8 @@ def test_parallel_queue_capacity_pause_and_exact_delivery(tmp_path, monkeypatch)
             "harbor",
             SettingsEdit(
                 expected_revision=settings.revision,
-                model=settings.model,
-                effort=settings.effort,
                 max_parallel=value,
+                selection=settings.selection,
             ),
         )
 

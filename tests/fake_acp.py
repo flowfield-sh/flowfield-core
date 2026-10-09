@@ -68,6 +68,9 @@ if "claude" in sys.argv:
     if "fast" in sys.argv:
         next(item for item in CONFIG if item["id"] == "fast-mode")["id"] = "fast"
 
+if "no-effort" in sys.argv:
+    CONFIG[:] = [item for item in CONFIG if item["id"] not in {"effort", "reasoning_effort"}]
+
 
 def send(message):
     print(json.dumps({"jsonrpc": "2.0", **message}), flush=True)

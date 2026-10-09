@@ -12,6 +12,7 @@ from test_execution import fixture
 from test_results import approve
 
 from flowfield.adapters.git_workspace import baseline, git
+from flowfield.agent_models import AgentChoice
 from flowfield.application import TaskPublish
 from flowfield.execution_models import RunAction, SettingsEdit
 from flowfield.inspection import Inspections
@@ -57,10 +58,8 @@ def configured(tmp_path, monkeypatch, *, count=1, scenario="normal", flags=()):
         "harbor",
         SettingsEdit(
             expected_revision=workers.revision,
-            model="test-model",
-            effort="low",
-            mode="workspace-write",
             max_parallel=count,
+            selection=AgentChoice(model="test-model", effort="low", mode="workspace-write"),
         ),
     )
     for task in execution.workspace.tasks("harbor"):

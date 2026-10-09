@@ -141,12 +141,13 @@ class ClaudeAgent(AcpAgent):
         self.cleanup_confirmed = False
         options: dict[str, str | bool | float | None] = {
             "model": self.choice.model,
-            "effort": self.choice.effort,
             "permissionMode": self.choice.mode,
             "persistSession": persistent,
             "strictMcpConfig": True,
             "allowDangerouslySkipPermissions": False,
         }
+        if self.choice.effort is not None:
+            options["effort"] = self.choice.effort
         if self._limited:
             options.update(maxTurns=4, maxBudgetUsd=0.5)
         try:
@@ -222,8 +223,12 @@ class ClaudeAgent(AcpAgent):
             if choice.mode not in MODES or choice.fast:
                 raise ValueError("An explicit native mode is required; fast mode is unverified")
             await self.session.select("mode", choice.mode)
-            await self.session.select("effort", choice.effort)
-            expected = {"mode": choice.mode, "effort": choice.effort}
+            expected = {"mode": choice.mode}
+            if choice.effort is not None:
+                await self.session.select("effort", choice.effort)
+                expected["effort"] = choice.effort
+            elif any(item["value"] != "default" for item in choices(self.session.config, "effort")):
+                raise ValueError("Choose an explicit effort for this model")
             if choice.fast is False and any(item["id"] == "fast" for item in self.session.config):
                 await self.session.select("fast", "off")
                 expected["fast"] = "off"

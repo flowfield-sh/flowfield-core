@@ -59,7 +59,10 @@ def test_worker_speed_defaults_off_with_task_overrides_and_frozen_history(tmp_pa
     current = execution.settings("harbor")
     execution.configure(
         "harbor",
-        SettingsEdit(expected_revision=current.revision, model="test-model", effort="low"),
+        SettingsEdit(
+            expected_revision=current.revision,
+            selection=AgentChoice(model="test-model", effort="low"),
+        ),
     )
     settings = AgentSettings(execution.workspace)
     assert settings.get("harbor", "worker", "task-0").effective.choice.fast is False

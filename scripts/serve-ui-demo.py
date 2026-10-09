@@ -18,6 +18,7 @@ import uvicorn
 from flowfield import supervisor as worker_module
 from flowfield.adapters.git_workspace import git
 from flowfield.adapters.local_execution import LocalHost
+from flowfield.agent_models import AgentChoice
 from flowfield.api import create_app
 from flowfield.application import MilestoneCreate, ProjectSetup, TaskCreate, TaskPublish, Workspace
 from flowfield.execution import Execution
@@ -160,7 +161,10 @@ def seed(root):
         project.id, InspectionConfig(expected_revision=1, run_command=f"{node} server.mjs")
     )
     execution.configure(
-        project.id, SettingsEdit(expected_revision=1, model="demo-scripted", effort="none")
+        project.id,
+        SettingsEdit(
+            expected_revision=1, selection=AgentChoice(model="demo-scripted", effort="none")
+        ),
     )
     execution.queue(
         project.id,

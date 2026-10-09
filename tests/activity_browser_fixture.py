@@ -7,6 +7,7 @@ from pathlib import Path
 from project_fixtures import task_request
 
 from flowfield.activity import ActivityCreate
+from flowfield.agent_models import AgentChoice
 from flowfield.application import ProjectSetup, TaskPublish, Workspace
 from flowfield.execution import Execution
 from flowfield.execution_models import QueueEdit, SettingsEdit, Usage
@@ -36,7 +37,10 @@ if sys.argv[2] == "create":
         ),
     )
     execution.configure(
-        "stream-project", SettingsEdit(expected_revision=1, model="offline-fixture", effort="none")
+        "stream-project",
+        SettingsEdit(
+            expected_revision=1, selection=AgentChoice(model="offline-fixture", effort="none")
+        ),
     )
     execution.queue("stream-project", QueueEdit(expected_revision=2, enabled=True))
     run = execution.claim("stream-project", "a" * 40, {})

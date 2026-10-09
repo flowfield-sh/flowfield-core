@@ -2136,7 +2136,7 @@ export interface components {
       /** Model */
       model: string;
       /** Effort */
-      effort: string;
+      effort?: string | null;
       /** Mode */
       mode?: string | null;
       /** Fast */
@@ -2153,7 +2153,7 @@ export interface components {
       /** Model */
       model: string;
       /** Effort */
-      effort: string;
+      effort: string | null;
       /** Mode */
       mode: string | null;
       /** Fast */
@@ -3948,7 +3948,7 @@ export interface components {
       /** Model */
       model: string;
       /** Effort */
-      effort: string;
+      effort: string | null;
       /** Agreement Revision */
       agreement_revision: number;
       /** Base Commit */
@@ -4087,12 +4087,7 @@ export interface components {
     SettingsEdit: {
       /** Expected Revision */
       expected_revision: number;
-      /** Model */
-      model: string;
-      /** Effort */
-      effort: string;
-      /** Mode */
-      mode?: string | null;
+      selection: components["schemas"]["AgentChoice-Input"];
       /**
        * Max Parallel
        * @default 1
@@ -4894,12 +4889,7 @@ export interface components {
        * @default 1
        */
       revision: number;
-      /** Model */
-      model: string | null;
-      /** Effort */
-      effort: string | null;
-      /** Mode */
-      mode: string | null;
+      selection: components["schemas"]["AgentChoice-Output"] | null;
       /**
        * Max Parallel
        * @default 1

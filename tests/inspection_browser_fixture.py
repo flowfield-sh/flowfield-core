@@ -9,6 +9,7 @@ from project_fixtures import adopt, task_request
 
 from flowfield.adapters.git_workspace import git
 from flowfield.adapters.local_execution import LocalHost
+from flowfield.agent_models import AgentChoice
 from flowfield.application import ProjectSetup, TaskPreparation, Workspace
 from flowfield.execution_models import SettingsEdit, WorkerResult
 from flowfield.inspection import Inspections
@@ -47,7 +48,8 @@ if sys.argv[2] == "create":
     )
     git(repo, "switch", "delivery")
     service.execution.configure(
-        project, SettingsEdit(expected_revision=1, model="fake", effort="low")
+        project,
+        SettingsEdit(expected_revision=1, selection=AgentChoice(model="fake", effort="low")),
     )
     Inspections(workspace).configure(
         project, InspectionConfig(expected_revision=1, run_command="python app.py")

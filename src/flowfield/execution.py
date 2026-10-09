@@ -74,11 +74,18 @@ class Execution:
         )
 
     def configure(self, project_id: str, request: SettingsEdit) -> WorkerSettings:
+        if request.selection.fast:
+            raise ApplicationError(
+                "worker_speed_override",
+                "Set worker Fast mode on the individual task; project workers use normal speed.",
+                409,
+            )
         with self.workspace.connection(write=True, project_id=project_id) as db:
             settings = self._settings(db, project_id)
             self.workspace._current(settings.revision, request.expected_revision)
-            settings.model, settings.effort = request.model, request.effort
-            settings.mode = request.mode
+            settings.selection = request.selection.model_copy(deep=True)
+            if settings.selection.fast is None:
+                settings.selection.fast = False
             settings.max_parallel, settings.problem = request.max_parallel, None
             self._save_settings(db, settings)
             return settings
@@ -87,11 +94,11 @@ class Execution:
         with self.workspace.connection(write=True, project_id=project_id) as db:
             settings = self._settings(db, project_id)
             self.workspace._current(settings.revision, request.expected_revision)
-            if request.enabled and (not settings.model or not settings.effort):
+            if request.enabled and not settings.selection:
                 raise ApplicationError(
                     "worker_model_required",
                     (
-                        "Choose a worker model and reasoning effort in Project details, or"
+                        "Choose a worker harness and model in Project details, or"
                         " ask the coordinator to configure them."
                     ),
                     409,
@@ -223,12 +230,7 @@ class Execution:
                 ),
                 (project_id,),
             ).fetchone()[0]
-            if (
-                not settings.enabled
-                or not settings.model
-                or not settings.effort
-                or count >= settings.max_parallel
-            ):
+            if not settings.enabled or not settings.selection or count >= settings.max_parallel:
                 return None
             project = self.workspace._project(db, project_id)
             waiting_for_code = []

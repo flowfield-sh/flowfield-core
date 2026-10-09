@@ -93,7 +93,7 @@ export function QueueControls({
             >
               {data.enabled ? "Pause queue" : "Run queue"}
             </Button>
-            {!data.model && (
+            {!data.selection && (
               <Button size="xs" variant="outline" asChild>
                 <Link to={projectHref(projectId) + "/edit/workers"}>
                   Choose model
@@ -150,17 +150,17 @@ export function WorkerSettings({
     cap: number;
     revision: number;
   } | null>(null);
-  const model = draft?.model ?? resource.data?.model ?? "";
-  const effort = draft?.effort ?? resource.data?.effort ?? "";
-  const mode = draft?.mode ?? resource.data?.mode ?? "";
+  const model = draft?.model ?? resource.data?.selection?.model ?? "";
+  const effort = draft?.effort ?? resource.data?.selection?.effort ?? "";
+  const mode = draft?.mode ?? resource.data?.selection?.mode ?? "";
   const cap = draft?.cap ?? resource.data?.max_parallel ?? 1;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const dirty =
     !!resource.data &&
-    (model !== (resource.data.model ?? "") ||
-      effort !== (resource.data.effort ?? "") ||
-      mode !== (resource.data.mode ?? "") ||
+    (model !== (resource.data.selection?.model ?? "") ||
+      effort !== (resource.data.selection?.effort ?? "") ||
+      mode !== (resource.data.selection?.mode ?? "") ||
       cap !== resource.data.max_parallel);
   useEffect(() => {
     onDirty(dirty);
@@ -213,9 +213,13 @@ export function WorkerSettings({
               "PUT",
               {
                 expected_revision: draft?.revision ?? resource.data.revision,
-                model,
-                effort,
-                mode: mode || null,
+                selection: {
+                  harness: "codex",
+                  model,
+                  effort: effort || null,
+                  mode: mode || null,
+                  fast: false,
+                },
                 max_parallel: cap,
               },
               undefined,
@@ -278,7 +282,11 @@ export function WorkerSettings({
                 !dirty ||
                 stale ||
                 !models.some(
-                  (item) => item.id === model && item.efforts.includes(effort),
+                  (item) =>
+                    item.id === model &&
+                    (item.efforts.length
+                      ? item.efforts.includes(effort)
+                      : !effort),
                 )
               }
             >

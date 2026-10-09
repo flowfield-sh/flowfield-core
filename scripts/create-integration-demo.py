@@ -8,6 +8,7 @@ from pathlib import Path
 from flowfield.adapters.git_integration import run_checks
 from flowfield.adapters.git_workspace import baseline, git
 from flowfield.adapters.local_execution import LocalHost
+from flowfield.agent_models import AgentChoice
 from flowfield.application import MilestoneCreate, ProjectSetup, TaskCreate, TaskPublish, Workspace
 from flowfield.execution import Execution
 from flowfield.execution_models import QueueEdit, SettingsEdit, WorkerResult
@@ -95,7 +96,10 @@ def main() -> None:
         )
     execution = Execution(workspace)
     settings = execution.configure(
-        project.id, SettingsEdit(expected_revision=1, model="offline-fixture", effort="none")
+        project.id,
+        SettingsEdit(
+            expected_revision=1, selection=AgentChoice(model="offline-fixture", effort="none")
+        ),
     )
     execution.queue(project.id, QueueEdit(expected_revision=settings.revision, enabled=True))
     run = execution.claim(project.id, head, {head: set()})
@@ -184,7 +188,7 @@ def main() -> None:
     (repo / "README.md").write_text("# Harbor\n\nUnsaved human planning notes: preserve me.\n")
     with workspace.connection(write=True, project_id=project.id) as db:
         settings = execution._settings(db, project.id)
-        settings.enabled, settings.model, settings.effort = False, None, None
+        settings.enabled, settings.selection = False, None
         execution._save_settings(db, settings)
     print(
         json.dumps(

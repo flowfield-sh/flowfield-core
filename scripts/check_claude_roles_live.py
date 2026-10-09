@@ -194,12 +194,7 @@ async def proof(
                 )
                 configured = service.execution.configure(
                     project.id,
-                    SettingsEdit(
-                        expected_revision=1,
-                        model=MODEL,
-                        effort="low",
-                        mode="default",
-                    ),
+                    SettingsEdit(expected_revision=1, selection=CHOICE),
                 )
                 service.execution.queue(
                     project.id,

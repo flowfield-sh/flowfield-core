@@ -419,8 +419,7 @@ def test_coordinator_controls_workers_and_preserves_worker_scope(tmp_path, monke
             {
                 "settings": {
                     "expected_revision": settings.revision,
-                    "model": "fixture",
-                    "effort": "low",
+                    "selection": {"model": "fixture", "effort": "low"},
                     "max_parallel": 2,
                 }
             },

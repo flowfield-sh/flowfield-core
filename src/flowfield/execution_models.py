@@ -29,9 +29,7 @@ class Record(BaseModel):
 class WorkerSettings(Record):
     project_id: str
     revision: int = 1
-    model: str | None = None
-    effort: str | None = None
-    mode: str | None = None
+    selection: AgentChoice | None = None
     max_parallel: int = 1
     enabled: bool = False
     problem: str | None = None
@@ -44,9 +42,7 @@ class WorkerOccupancy(Record):
 
 class SettingsEdit(Record):
     expected_revision: int = Field(ge=1)
-    model: str = Field(min_length=1, max_length=200)
-    effort: str = Field(min_length=1, max_length=40)
-    mode: str | None = Field(default=None, min_length=1, max_length=200)
+    selection: AgentChoice
     max_parallel: int = Field(default=1, ge=1, le=16)
 
 
@@ -150,7 +146,7 @@ class Run(Record):
     setup_timeout_seconds: int = 120
     setup_checks: list[CheckResult] = Field(default_factory=list)
     model: str
-    effort: str
+    effort: str | None = None
     agreement_revision: int
     base_commit: str
     completion: Literal["code", "report"] = "code"
