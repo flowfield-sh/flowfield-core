@@ -11,7 +11,11 @@ Open a card to discuss that task without losing the conversation.
 
 Install and sign in to [Codex](/integrations/codex), then run `flowfield harness install codex`.
 Add an existing project using **Add project → Choose directory** or `flowfield project init`.
-In the Coordinator, choose a model, reasoning effort and access mode beside the input, then save.
+In the Coordinator settings beside the input, select a ready harness and **Load models**,
+then choose its model and supported effort/access controls and save. Loading opens a native
+session for this project; startup hooks can run, but no model prompt is sent. The host setup
+page is **Settings → Harnesses**. Claude Code setup is available while its managed integration
+is still in progress.
 The Coordinator uses the service host’s tools and credentials. Configure worker setup when
 you are ready to run tasks. Its Flowfield connection is automatic; standalone Codex sessions
 use [a separate connection](/integrations/codex#connect-a-standalone-coordinator).
@@ -30,7 +34,7 @@ request changes, try results or recover blocked work. You can explicitly approve
 code result in chat; the Coordinator records that exact approval and Flowfield delivers it
 without a second confirmation. These actions are also available in task feeds.
 
-Use the model button beside the input to change model, effort or access. Changes apply to the next
+Use the model button beside the input to change harness, model, effort or access. Changes apply to the next
 message; a running turn keeps its saved choice. Standalone coding-agent settings are separate.
 Save to apply your choices; Cancel or closing the popup discards unsaved changes.
 
@@ -58,8 +62,10 @@ Each project has 128 MiB of attachment storage. Unsent uploads expire after 24 h
 Type `/` to see the available coordinator commands. Use arrow keys and Enter to select,
 then send the command. Escape returns to ordinary writing. The list contains only commands
 supported by both Flowfield and the connected Codex session; discovery starts no model turn.
-Flowfield loads the list when the composer is ready and briefly caches it. Opening commands
-immediately may still show a loading state while Codex starts.
+Select **Load commands** to discover the list; opening the composer or slash menu starts
+no native session. Discovery opens a disposable native session and startup hooks can run,
+but no model prompt is sent. Flowfield briefly caches the result. Commands are revalidated
+before dispatch.
 
 | Command | Effect |
 | --- | --- |
@@ -76,6 +82,7 @@ expose session commands.
 supports it. Select it to save Fast on or off for subsequent messages. It provides faster
 responses with increased usage; hover or focus the button for its description and current state.
 Changing models starts at normal speed. Running turns keep their captured settings.
+After reloading the page, load models to verify current Fast support before changing it.
 Task workers have the same lightning control for subsequent attempts. Fast defaults to off
 for each task, with no project-wide speed setting.
 

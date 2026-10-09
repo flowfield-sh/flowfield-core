@@ -48,8 +48,9 @@ desktop folder chooser is unavailable.
 
 ## Start planning
 
-Choose your model, reasoning effort and access mode beside the input in the [Coordinator](/coordinator)
-and save. Describe what you want to achieve. For example:
+Choose a ready harness beside the input in the [Coordinator](/coordinator), select **Load models**,
+then choose its model and supported effort/access controls and save. Native startup hooks
+can run during discovery; it sends no model prompt. Describe what you want to achieve. For example:
 
 > Help me add CSV export to this project. Review the existing code and suggest a small first task before starting implementation.
 
@@ -61,7 +62,8 @@ conversation, follow [standalone coordinator setup](/integrations/codex#connect-
 
 Ask your coordinator to configure the destination branch, dependency setup and checks,
 then validate setup. Add a run command if you want to try results locally. Choose a worker
-model, reasoning effort and access mode. You can also edit these under the project’s
+harness and model, with effort and access mode where supported. In the UI, load native
+models explicitly. You can also edit these under the project’s
 settings icon; see [Worker setup and checks](/worker-setup) for the fields and an example.
 
 Project **Workers** settings supply defaults for model, effort and access. Individual

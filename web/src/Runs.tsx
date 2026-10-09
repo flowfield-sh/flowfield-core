@@ -13,6 +13,7 @@ import type { components } from "./api-schema";
 import type { DiffViewState } from "./CodeDiff";
 import { WorkspaceLink as Link } from "./WorkspaceLink";
 import { useResource } from "./useResource";
+import { choiceLabel } from "./HarnessModels";
 import { taskHref } from "./navigation";
 import { label } from "./workspace";
 import { Markdown } from "./Markdown";
@@ -110,7 +111,14 @@ function ExecutionDetail({
             {run.data && (
               <>
                 {" "}
-                · {run.data.model} · {run.data.effort}
+                ·{" "}
+                {run.data.applied_agent
+                  ? choiceLabel(run.data.applied_agent)
+                  : run.data.agent_settings
+                    ? choiceLabel(run.data.agent_settings.choice)
+                    : [run.data.model, run.data.effort]
+                        .filter(Boolean)
+                        .join(" · ")}
                 {run.data.applied_agent?.mode &&
                   ` · ${run.data.applied_agent.mode}`}
                 {run.data.applied_agent?.fast != null &&

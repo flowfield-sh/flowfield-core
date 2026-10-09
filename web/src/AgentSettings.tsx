@@ -14,6 +14,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Popover } from "radix-ui";
 import { ChevronDown, Zap } from "lucide-react";
 import { ContentStack } from "./DetailLayout";
+import {
+  HarnessModelSource,
+  modelSupports,
+  useHarnessModels,
+  type HarnessKind,
+} from "./HarnessModels";
 
 type Settings = components["schemas"]["AgentSettingsView"];
 type Choice = components["schemas"]["AgentChoice-Output"];
@@ -26,6 +32,7 @@ export function AgentModelFields({
   fast,
   models,
   loading,
+  known = true,
   change,
   compact = false,
 }: {
@@ -35,6 +42,7 @@ export function AgentModelFields({
   fast: boolean;
   models: Model[];
   loading: boolean;
+  known?: boolean;
   change: (model: string, effort: string, mode: string, fast: boolean) => void;
   compact?: boolean;
 }) {
@@ -62,12 +70,16 @@ export function AgentModelFields({
           <option value="">
             {loading
               ? "Loading models…"
-              : !models.length
-                ? "Models unavailable"
-                : "Choose a model"}
+              : !known
+                ? "Load models first"
+                : !models.length
+                  ? "Models unavailable"
+                  : "Choose a model"}
           </option>
           {!loading && model && !selected && (
-            <option value={model}>{model} (unavailable)</option>
+            <option value={model}>
+              {model} ({known ? "unavailable" : "saved"})
+            </option>
           )}
           {models.map((item) => (
             <option key={item.id} value={item.id}>
@@ -160,6 +172,7 @@ type AgentSettingsProps = {
 };
 
 function useAgentSettingsContent({
+  projectId,
   path,
   refresh,
   onDirty,
@@ -172,12 +185,6 @@ function useAgentSettingsContent({
   open = true,
 }: AgentSettingsProps) {
   const resource = useResource<Settings>(path, refresh);
-  const [retry, setRetry] = useState(0);
-  const catalog = useResource<Model[]>(
-    retry ? "worker-models?refresh=true" : "worker-models",
-    retry,
-    180000,
-  );
   const [draft, setDraft] = useState<{
     revision: number;
     selection: Choice | null;
@@ -197,6 +204,8 @@ function useAgentSettingsContent({
   const data = resource.data;
   const selection = draft ? draft.selection : data?.selection;
   const choice = selection ?? data?.effective?.choice;
+  const source = useHarnessModels(projectId, choice?.harness, refresh);
+  const { catalog } = source;
   const model = choice?.model ?? "";
   const effort = choice?.effort ?? "";
   const mode = choice?.mode ?? "";
@@ -209,28 +218,36 @@ function useAgentSettingsContent({
   useEffect(() => {
     const saved = data?.effective?.choice;
     const available =
+      !source.loaded ||
       !catalog.data ||
-      catalog.data.some(
-        (item) =>
-          item.id === saved?.model &&
-          (item.efforts.length
-            ? !!saved.effort && item.efforts.includes(saved.effort)
-            : !saved.effort) &&
-          !!item.modes?.some((mode) => mode.id === saved.mode) &&
-          (!saved.fast || item.fast),
-      );
+      (!!saved &&
+        saved.harness === source.kind &&
+        modelSupports(saved, catalog.data));
     onReady?.(!resource.error && available ? (saved ?? null) : null);
-  }, [data, resource.error, catalog.data, onReady]);
+  }, [data, resource.error, catalog.data, source.loaded, source.kind, onReady]);
   function change(model: string, effort: string, mode: string, fast: boolean) {
     if (data)
       setDraft({
         revision: draft?.revision ?? data.revision,
         selection: {
-          harness: "codex",
+          harness: source.kind!,
           model,
           effort: effort || null,
           mode: mode || null,
           fast,
+        },
+      });
+  }
+  function changeHarness(harness: HarnessKind) {
+    if (data)
+      setDraft({
+        revision: draft?.revision ?? data.revision,
+        selection: {
+          harness,
+          model: "",
+          effort: null,
+          mode: null,
+          fast: false,
         },
       });
   }
@@ -267,26 +284,11 @@ function useAgentSettingsContent({
       {!compact && (
         <p>
           {coordinator
-            ? "Model and effort for your next message."
+            ? "Harness and model for your next message."
             : "Applies to the next worker run."}
         </p>
       )}
       {!coordinator && <p className="detail-metadata">Task overrides</p>}
-      {(catalog.error || (!catalog.loading && !catalog.data?.length)) && (
-        <Alert>
-          <AlertDescription>
-            {catalog.error ||
-              "No models are available from this Codex installation."}{" "}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setRetry(retry + 1)}
-            >
-              Reload models
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -298,13 +300,19 @@ function useAgentSettingsContent({
           className="content-stack"
           data-space={compact ? "content" : "section"}
         >
+          <HarnessModelSource
+            source={source}
+            compact={compact}
+            change={changeHarness}
+          />
           <AgentModelFields
             model={model}
             effort={effort}
             mode={mode}
             fast={fast}
-            models={catalog.data ?? []}
+            models={source.models}
             loading={catalog.loading || resource.loading}
+            known={!!catalog.data && !catalog.error && source.loaded}
             change={change}
             compact={compact}
           />
@@ -313,16 +321,11 @@ function useAgentSettingsContent({
               size="sm"
               disabled={
                 !draft ||
+                catalog.loading ||
                 stale ||
-                !catalog.data?.some(
-                  (item) =>
-                    item.id === model &&
-                    (item.efforts.length
-                      ? item.efforts.includes(effort)
-                      : !effort) &&
-                    !!item.modes?.some((choice) => choice.id === mode) &&
-                    (!fast || item.fast),
-                )
+                !selection ||
+                !source.host?.selectable ||
+                !modelSupports(selection, source.models)
               }
             >
               {busy ? "Saving…" : "Save"}
@@ -402,9 +405,12 @@ function useAgentSettingsContent({
     </ContentStack>
   );
   const saved = data?.effective?.choice;
-  const selected = catalog.data?.find((item) => item.id === saved?.model);
+  const selected =
+    saved?.harness === source.kind
+      ? source.models.find((item) => item.id === saved?.model)
+      : undefined;
   const fastControl =
-    selected?.fast && saved ? (
+    saved && (selected?.fast || saved.fast) ? (
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -414,6 +420,7 @@ function useAgentSettingsContent({
             aria-label="Fast mode"
             aria-pressed={saved.fast ?? false}
             disabled={
+              !selected?.fast ||
               !!draft ||
               busy ||
               catalog.loading ||
@@ -427,7 +434,9 @@ function useAgentSettingsContent({
         </TooltipTrigger>
         <TooltipContent>
           Fast mode {saved.fast ? "on" : "off"}.{" "}
-          {selected.fast_description || "Faster responses, increased usage."}
+          {selected?.fast
+            ? selected.fast_description || "Faster responses, increased usage."
+            : "Load models to verify current Fast support before changing it."}
         </TooltipContent>
       </Tooltip>
     ) : null;

@@ -95,6 +95,10 @@ historical attempts keep their original choices.
 Each project has one [Coordinator](/coordinator), with its model, effort and access mode
 selected beside the chat input. Changes apply to subsequent messages and do not configure
 your standalone coding agent.
+Model loading is explicit and scoped to that project and harness. It starts a disposable
+native session; startup hooks can run without a model prompt. Changing harness clears
+dependent model, effort, access and Fast choices. Unavailable harnesses remain visible
+with their setup remedy, and do not block another ready harness.
 
 Agents use the tools and credentials on the machine running Flowfield. Codex supplies
 the available access modes; choose one beside the Coordinator input or in Workers settings.

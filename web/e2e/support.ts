@@ -8,12 +8,53 @@ import {
   type APIRequestContext,
   type BrowserContext,
 } from "@playwright/test";
+import type { components } from "../src/api-schema";
+
+export function hostStatus(
+  kind: "codex" | "claude-code",
+  selectable = true,
+): components["schemas"]["HarnessStatus"] {
+  return {
+    registration: {
+      harness: kind,
+      revision: 1,
+      executable: null,
+      config_directory: null,
+    },
+    launch: {
+      harness: kind,
+      registration_revision: 1,
+      native_executable: `/fixture/${kind}`,
+      executable_source: "path",
+      config_directory: `/fixture/config/${kind}`,
+      config_source: "default",
+      bridge_executable: `/fixture/bridge/${kind}`,
+      bridge_version: "fixture",
+    },
+    native_installed: true,
+    config_available: true,
+    bridge_installed: true,
+    selectable,
+    authentication: "unknown",
+    model_access: "unverified",
+    native_version: null,
+    checked: false,
+    problems: selectable ? [] : ["adapter_not_available"],
+    catalog_ownership: null,
+    installing: false,
+  };
+}
 
 // Ordinary browser checks never discover or start an installed agent.
 export const test = base.extend({
   context: async ({ context }, provide) => {
     // Register before any page opens: native tabs can load before their page event.
     await stubModelCatalog(context);
+    await context.route("**/api/harnesses", (route) =>
+      route.fulfill({
+        json: [hostStatus("codex"), hostStatus("claude-code", false)],
+      }),
+    );
     await provide(context);
   },
 });

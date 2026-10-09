@@ -187,7 +187,7 @@ test("milestones group tasks with linked details and long project intent stays o
   await expect(page.getByText(description, { exact: true })).toHaveCount(0);
 });
 
-test("worker models load automatically and retry without replacing setting drafts", async ({
+test("worker models load explicitly and retry without replacing setting drafts", async ({
   page,
   request,
 }) => {
@@ -199,7 +199,7 @@ test("worker models load automatically and retry without replacing setting draft
   let refreshCalls = 0;
   await page.route("**/api/worker-models*", async (route) => {
     calls++;
-    if (!route.request().url().includes("refresh=true"))
+    if (calls === 1)
       return route.fulfill({
         status: 503,
         json: { error: { message: "Catalog temporarily unavailable" } },
@@ -216,6 +216,10 @@ test("worker models load automatically and retry without replacing setting draft
   await page.goto(`/projects/${project}/edit`);
   await page.getByRole("tab", { name: "Workers", exact: true }).click();
   const settings = page.getByRole("region", { name: "Worker settings" });
+  expect(calls).toBe(0);
+  await settings
+    .getByRole("button", { name: "Load models", exact: true })
+    .click();
   await expect(settings).toContainText("Catalog temporarily unavailable");
   await expect(
     settings.getByRole("button", { name: "Refresh models" }),

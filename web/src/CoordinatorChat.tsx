@@ -5,6 +5,7 @@ import { request, RequestError, type Task } from "./workspace";
 import { Markdown } from "./Markdown";
 import { Timestamp } from "./Timestamp";
 import { AgentSettingsControl } from "./AgentSettings";
+import { choiceLabel } from "./HarnessModels";
 import { ActionTooltip } from "./ActionTooltip";
 import { Composer } from "./Composer";
 import { ContextRing } from "./ContextRing";
@@ -109,6 +110,8 @@ export function CoordinatorChat({
   >([]);
   const [commandsLoading, setCommandsLoading] = useState(false);
   const [commandsError, setCommandsError] = useState("");
+  const [commandsFor, setCommandsFor] = useState("");
+  const [commandsLoadedFor, setCommandsLoadedFor] = useState("");
   const commandsPending = useRef(false);
   const commandsFresh = useRef({ key: "", until: 0 });
   const commandsGeneration = useRef({ value: 0 });
@@ -131,15 +134,19 @@ export function CoordinatorChat({
       )
         return;
       if (commandChoice === "null") {
+        setCommandsFor(key);
         commandsFresh.current = { key: "", until: 0 };
         setCommands([]);
         setCommandsLoading(false);
-        setCommandsError("Choose model, effort and access mode first.");
+        setCommandsError(
+          "Save a harness and its supported model settings first.",
+        );
         return;
       }
       commandsPending.current = true;
       commandsFresh.current = { key: "", until: 0 };
       const generation = commandsGeneration.current.value;
+      setCommandsFor(key);
       setCommands([]);
       setCommandsLoading(true);
       setCommandsError("");
@@ -155,6 +162,7 @@ export function CoordinatorChat({
         );
         if (generation === commandsGeneration.current.value) {
           commandsFresh.current = { key, until: Date.now() + 300000 };
+          setCommandsLoadedFor(key);
           setCommands(discovered);
         }
       } catch (e) {
@@ -169,12 +177,6 @@ export function CoordinatorChat({
     },
     [base, commandChoice],
   );
-  useEffect(() => {
-    if (!controlsActive || commandChoice === "null") return;
-    // Warm discovery while the composer is ready, without starting a model turn.
-    const timer = window.setTimeout(() => void loadCommands(), 0);
-    return () => window.clearTimeout(timer);
-  }, [controlsActive, commandChoice, loadCommands]);
   const dirty = useCallback(
     (value: boolean) => {
       setSettingsDirty(value);
@@ -372,6 +374,8 @@ export function CoordinatorChat({
                 {turn.notice && <p role="status">{turn.notice}</p>}
                 <div className="detail-metadata" role="status">
                   Coordinator · {turn.status}
+                  {turn.applied &&
+                    ` · ${choiceLabel(turn.applied.choice)}${turn.applied.choice.mode ? ` · ${turn.applied.choice.mode}` : ""}${turn.applied.choice.fast ? " · Fast" : ""}`}
                 </div>
               </div>
             </article>
@@ -476,9 +480,10 @@ export function CoordinatorChat({
         <Composer
           projectId={projectId}
           nativeCommands={{
-            items: commands,
-            loading: commandsLoading,
-            error: commandsError,
+            items: commandsLoadedFor === base + commandChoice ? commands : [],
+            loaded: commandsLoadedFor === base + commandChoice,
+            loading: commandsLoading && commandsFor === base + commandChoice,
+            error: commandsFor === base + commandChoice ? commandsError : "",
             load: loadCommands,
           }}
           active={controlsActive}
@@ -503,11 +508,7 @@ export function CoordinatorChat({
                 onOpenChange={setSettingsOpen}
                 onDirty={dirty}
                 onReady={setChoice}
-                label={
-                  choice
-                    ? `${choice.model} · ${choice.effort}`
-                    : "Model settings"
-                }
+                label={choice ? choiceLabel(choice) : "Model settings"}
               />
               <ContextRing
                 context={active?.activity.context ?? page?.context}

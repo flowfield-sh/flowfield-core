@@ -10,9 +10,14 @@ import type { components } from "./api-schema";
 import { request } from "./workspace";
 import { useResource } from "./useResource";
 import { projectHref } from "./navigation";
+import {
+  HarnessModelSource,
+  modelSupports,
+  useHarnessModels,
+  type HarnessKind,
+} from "./HarnessModels";
 
 type Settings = components["schemas"]["WorkerSettings"];
-type Model = components["schemas"]["ModelOption"];
 
 export function QueueControls({
   projectId,
@@ -136,20 +141,21 @@ export function WorkerSettings({
 }) {
   const path = `projects/${projectId}/workers`;
   const resource = useResource<Settings>(path, refresh);
-  const [modelRetry, setModelRetry] = useState(0);
-  const catalog = useResource<Model[]>(
-    modelRetry ? "worker-models?refresh=true" : "worker-models",
-    modelRetry,
-    180000,
-  );
-  const models = catalog.data ?? [];
   const [draft, setDraft] = useState<{
+    harness: HarnessKind;
     model: string;
     effort: string;
     mode: string;
     cap: number;
     revision: number;
   } | null>(null);
+  const source = useHarnessModels(
+    projectId,
+    draft?.harness ?? resource.data?.selection?.harness,
+    refresh,
+  );
+  const { catalog, models } = source;
+  const harness = source.kind;
   const model = draft?.model ?? resource.data?.selection?.model ?? "";
   const effort = draft?.effort ?? resource.data?.selection?.effort ?? "";
   const mode = draft?.mode ?? resource.data?.selection?.mode ?? "";
@@ -157,8 +163,10 @@ export function WorkerSettings({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const dirty =
+    !!draft &&
     !!resource.data &&
-    (model !== (resource.data.selection?.model ?? "") ||
+    (harness !== resource.data.selection?.harness ||
+      model !== (resource.data.selection?.model ?? "") ||
       effort !== (resource.data.selection?.effort ?? "") ||
       mode !== (resource.data.selection?.mode ?? "") ||
       cap !== resource.data.max_parallel);
@@ -183,28 +191,12 @@ export function WorkerSettings({
         project dependencies in their separate workspaces.
       </p>
       <p className="detail-metadata">
-        Harness: Codex. Native tool decisions never approve code delivery.
+        Native tool decisions never approve code delivery.
       </p>
-      {catalog.loading && <p role="status">Loading available models…</p>}
-      {!catalog.loading && (catalog.error || !models.length) && (
-        <Alert variant={catalog.error ? "destructive" : "default"}>
-          <AlertDescription>
-            {catalog.error ||
-              "No models are available from this Codex installation."}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setModelRetry((value) => value + 1)}
-            >
-              Reload models
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
       <form
         onSubmit={async (event) => {
           event.preventDefault();
-          if (!resource.data) return;
+          if (!resource.data || !harness) return;
           setBusy(true);
           setError("");
           try {
@@ -214,7 +206,7 @@ export function WorkerSettings({
               {
                 expected_revision: draft?.revision ?? resource.data.revision,
                 selection: {
-                  harness: "codex",
+                  harness,
                   model,
                   effort: effort || null,
                   mode: mode || null,
@@ -240,6 +232,19 @@ export function WorkerSettings({
           className="content-stack"
           data-space="section"
         >
+          <HarnessModelSource
+            source={source}
+            change={(harness) =>
+              setDraft({
+                harness,
+                model: "",
+                effort: "",
+                mode: "",
+                cap,
+                revision: draft?.revision ?? resource.data!.revision,
+              })
+            }
+          />
           <AgentModelFields
             model={model}
             effort={effort}
@@ -247,8 +252,10 @@ export function WorkerSettings({
             fast={false}
             models={models}
             loading={catalog.loading || resource.loading}
+            known={!!catalog.data && !catalog.error && source.loaded}
             change={(model, effort, mode) =>
               setDraft({
+                harness: harness!,
                 model,
                 effort,
                 mode,
@@ -266,6 +273,7 @@ export function WorkerSettings({
               value={cap}
               onChange={(event) =>
                 setDraft({
+                  harness: harness!,
                   model,
                   effort,
                   mode,
@@ -280,13 +288,19 @@ export function WorkerSettings({
               size="sm"
               disabled={
                 !dirty ||
+                catalog.loading ||
                 stale ||
-                !models.some(
-                  (item) =>
-                    item.id === model &&
-                    (item.efforts.length
-                      ? item.efforts.includes(effort)
-                      : !effort),
+                !harness ||
+                !source.host?.selectable ||
+                !modelSupports(
+                  {
+                    harness: harness!,
+                    model,
+                    effort: effort || null,
+                    mode: mode || null,
+                    fast: false,
+                  },
+                  models,
                 )
               }
             >

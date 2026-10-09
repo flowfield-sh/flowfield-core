@@ -19,14 +19,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SidebarMenuButton, useSidebar } from "@/components/ui/sidebar";
 import "./harness-settings.css";
+import { harnessNames as names } from "./HarnessModels";
 
 type Status = components["schemas"]["HarnessStatus"];
 type Registration = components["schemas"]["HarnessRegistration"];
 type Kind = Registration["harness"];
-const names: Record<Kind, string> = {
-  codex: "Codex",
-  "claude-code": "Claude Code",
-};
 
 export function SettingsLink({ active }: { active: boolean }) {
   const { setOpenMobile } = useSidebar();

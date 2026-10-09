@@ -1,7 +1,8 @@
 import { fixtureStages } from "./support";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./support";
 import type { components } from "../src/api-schema";
 
 type Turn = components["schemas"]["CoordinatorTurn"];
@@ -261,8 +262,12 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     page.getByRole("link", { name: /CHT-1.*Plan the chat experience/ }),
   ).toBeVisible();
   const input = page.getByRole("textbox", { name: "Message coordinator" });
-  await expect.poll(() => discoveries).toBe(1);
+  expect(discoveries).toBe(0);
   await input.fill("/");
+  await page
+    .getByRole("option", { name: "Load commands", exact: true })
+    .click();
+  await expect.poll(() => discoveries).toBe(1);
   await expect(page.getByRole("option", { name: /\/compact/ })).toBeVisible();
   await expect(page.locator("[cmdk-item]")).toHaveCount(2);
   await expect(page.locator("[cmdk-item] svg")).toHaveCount(0);
@@ -277,7 +282,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   expect(discoveries).toBe(1);
   await page.getByRole("combobox", { name: "Message coordinator" }).fill("");
   await page
-    .getByRole("button", { name: "test-model · low", exact: true })
+    .getByRole("button", { name: "Codex · test-model · low", exact: true })
     .click();
   await expect(
     page.getByRole("dialog", { name: "Coordinator model settings" }),
@@ -358,13 +363,15 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     expires_at: now,
     released_at: null,
   };
-  await page.evaluate(() =>
-    window.dispatchEvent(
-      new CustomEvent("flowfield:activity", {
-        detail: { projects: ["chat-browser"] },
-      }),
-    ),
-  );
+  // Native permission persistence emits a project change, not an activity-only
+  // notification. Exercise the real change stream for this scripted permission.
+  expect(
+    (
+      await request.post("/api/projects/chat-browser/tasks", {
+        data: { stages: fixtureStages(), title: "Record the follow-up" },
+      })
+    ).ok(),
+  ).toBe(true);
   await expect(
     page.getByRole("button", { name: "Allow once", exact: true }),
   ).toBeVisible();
@@ -689,6 +696,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   const send = page.getByRole("button", { name: "Send", exact: true });
   const input = page.getByRole("textbox", { name: "Message coordinator" });
   await expect(model).toBeDisabled();
+  await page.getByRole("button", { name: "Load models", exact: true }).click();
   await expect(model.locator("option:checked")).toHaveText("Loading models…");
   await expect(effort.locator("option:checked")).toHaveText("Loading efforts…");
   await input.click();
@@ -761,7 +769,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
   await expect(fastButton).toBeVisible();
   await page
-    .getByRole("button", { name: "second · high", exact: true })
+    .getByRole("button", { name: "Codex · second · high", exact: true })
     .click();
   await model.selectOption("first");
   await page.getByRole("tab", { name: "Work", exact: true }).click();
@@ -769,7 +777,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
   await expect(model).not.toBeVisible();
   await page
-    .getByRole("button", { name: "second · high", exact: true })
+    .getByRole("button", { name: "Codex · second · high", exact: true })
     .click();
   await expect(model).toHaveValue("second");
   await page.keyboard.press("Escape");
@@ -781,7 +789,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page
-    .getByRole("button", { name: "second · high", exact: true })
+    .getByRole("button", { name: "Codex · second · high", exact: true })
     .click();
   await expect(model).toHaveValue("second");
   await expect(page.getByRole("button", { name: "Use defaults" })).toHaveCount(
@@ -793,7 +801,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   await expect(fastButton).toBeEnabled();
   await expect(input).toBeEditable();
   await page
-    .getByRole("button", { name: "second · high", exact: true })
+    .getByRole("button", { name: "Codex · second · high", exact: true })
     .click();
   await expect(model).toHaveValue("second");
   await expect(effort).toHaveValue("high");
@@ -811,7 +819,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   await page.reload();
   await expect(fastButton).toHaveAttribute("aria-pressed", "true");
   await expect(
-    page.getByRole("button", { name: "second · high", exact: true }),
+    page.getByRole("button", { name: "Codex · second · high", exact: true }),
   ).toBeVisible();
 });
 

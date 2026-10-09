@@ -68,6 +68,7 @@ export function Composer({
   onSend?: () => void;
   onBusy: (busy: boolean) => void;
   nativeCommands?: {
+    loaded: boolean;
     items: components["schemas"]["AgentCommand"][];
     loading: boolean;
     error: string;
@@ -101,10 +102,6 @@ export function Composer({
     focused &&
     !dismissed &&
     /^\/[a-z]*$/i.test(text);
-  const nativeLoad = nativeCommands?.load;
-  useEffect(() => {
-    if (menu) nativeLoad?.();
-  }, [menu, nativeLoad]);
   const nativeQuery = text.slice(1).toLowerCase();
   const agentCommands = (nativeCommands?.items ?? []).filter((item) =>
     item.name.startsWith(nativeQuery),
@@ -368,17 +365,31 @@ export function Composer({
                       <p className="detail-metadata" role="status">
                         {nativeCommands.error}
                       </p>
+                    ) : !nativeCommands.loaded ? (
+                      <>
+                        <p className="detail-metadata">
+                          Native startup hooks can run; no model prompt is sent.
+                        </p>
+                        <Command.Item
+                          value="load-native-commands"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onSelect={() => nativeCommands.load()}
+                        >
+                          Load commands
+                        </Command.Item>
+                      </>
                     ) : !agentCommands.length ? (
                       <p className="detail-metadata">
                         No matching commands. Esc to keep writing.
                       </p>
                     ) : null}
-                    {!nativeCommands.loading &&
+                    {nativeCommands.loaded &&
+                      !nativeCommands.loading &&
                       !nativeCommands.error &&
                       agentCommands.map((item) => (
                         <Command.Item
                           key={item.name}
-                          value={`codex:${item.name}`}
+                          value={`native:${item.name}`}
                           disabled={disabled}
                           onMouseDown={(event) => event.preventDefault()}
                           onSelect={() => {
@@ -394,7 +405,7 @@ export function Composer({
                       ))}
                     {nativeCommands.error && (
                       <Command.Item
-                        value="reload-codex-commands"
+                        value="reload-native-commands"
                         disabled={nativeCommands.loading}
                         onMouseDown={(event) => event.preventDefault()}
                         onSelect={() => nativeCommands.load(true)}

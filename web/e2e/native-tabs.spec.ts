@@ -81,10 +81,8 @@ test("task links open native tabs without losing the original selection or draft
           exact: true,
         }),
       ).toBeVisible();
-      // The new page must inherit the model-free fixture from its first request.
-      await expect
-        .poll(() => catalogs.some((r) => r.frame().page() === tab))
-        .toBe(true);
+      // Opening another tab must not start native discovery.
+      expect(catalogs.filter((r) => r.frame().page() === tab)).toHaveLength(0);
       for (const response of catalogs.filter((r) => r.frame().page() === tab)) {
         expect(response.status()).toBe(200);
         expect(await response.json()).toEqual([]);

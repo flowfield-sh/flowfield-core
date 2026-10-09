@@ -13,6 +13,7 @@ import { OverlayFooter, useOverlayBody } from "./EntityOverlay";
 import { Button } from "@/components/ui/button";
 import { Composer } from "./Composer";
 import { AgentSettingsControl } from "./AgentSettings";
+import { choiceLabel } from "./HarnessModels";
 import { ArrowUp } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ContentStack, DetailHeading } from "./DetailLayout";
@@ -200,7 +201,7 @@ export function TaskConversation({
       onOpenChange={setModelOpen}
       onDirty={settingsChanged}
       onReady={setChoice}
-      label={choice ? `${choice.model} · ${choice.effort}` : "Worker settings"}
+      label={choice ? choiceLabel(choice) : "Worker settings"}
     />
   );
   const [error, setError] = useState("");
