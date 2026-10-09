@@ -198,7 +198,7 @@ function useAgentSettingsContent({
     projectId,
     choice?.harness,
     refresh,
-    open && !!data,
+    !!data && (open || (coordinator && !!data.effective?.choice)),
   );
   const { catalog } = source;
   const model = choice?.model ?? "";

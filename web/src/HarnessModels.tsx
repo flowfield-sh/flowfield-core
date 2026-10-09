@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
 import { WorkspaceLink } from "./WorkspaceLink";
@@ -39,7 +39,7 @@ export function modelSupports(choice: Choice, models: Model[]) {
   );
 }
 
-// Discovery is model-free and starts only while the selector is visible.
+// Discovery is model-free: configured views preload; other selectors load on open.
 // The service owns coalescing, cleanup and bounded caches; this hook retains one view.
 export function useHarnessModels(
   projectId: string | undefined,
@@ -48,6 +48,12 @@ export function useHarnessModels(
   open = true,
   projectPath?: string,
 ) {
+  const [connection, setConnection] = useState(0);
+  useEffect(() => {
+    const reconnect = () => setConnection((value) => value + 1);
+    window.addEventListener("flowfield:reconnected", reconnect);
+    return () => window.removeEventListener("flowfield:reconnected", reconnect);
+  }, []);
   const hosts = useResource<Status[]>("harnesses", refresh);
   const kind =
     requested ??
@@ -70,7 +76,7 @@ export function useHarnessModels(
   });
   const catalog = useResource<Model[]>(
     loaded && kind ? `worker-models?${query}` : null,
-    JSON.stringify([key, load?.revision]),
+    JSON.stringify([key, load?.revision, connection]),
     180000,
   );
   const [verified, setVerified] = useState<{
@@ -130,7 +136,8 @@ export function HarnessModelSource({
         <HarnessSelect
           compact={compact}
           value={kind ?? ""}
-          disabled={disabled || harnessLocked || (hosts.loading && !hosts.data)}
+          loading={hosts.loading && !hosts.data}
+          disabled={disabled || harnessLocked}
           onChange={change}
           options={Object.entries(harnessNames).map(([value, name]) => {
             const status = hosts.data?.find(

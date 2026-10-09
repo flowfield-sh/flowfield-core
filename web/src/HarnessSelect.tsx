@@ -17,25 +17,27 @@ export function HarnessLogo({ kind }: { kind: HarnessKind }) {
 export function HarnessSelect({
   value,
   disabled,
+  loading = false,
   compact,
   options,
   onChange,
 }: {
   value: string;
   disabled: boolean;
+  loading?: boolean;
   compact: boolean;
   options: { value: HarnessKind; name: string; disabled: boolean }[];
   onChange: (value: HarnessKind) => void;
 }) {
   return (
     <ChoiceSelect
-      value={value}
+      value={loading ? "" : value}
       label="Harness"
-      placeholder="Choose a harness"
+      placeholder={loading ? "Loading harnesses…" : "Choose a harness"}
       compact={compact}
       onChange={(value) => onChange(value as HarnessKind)}
-      disabled={disabled}
-      options={options.map((option) => ({
+      disabled={disabled || loading}
+      options={(loading ? [] : options).map((option) => ({
         ...option,
         label: (
           <span className="harness-name">

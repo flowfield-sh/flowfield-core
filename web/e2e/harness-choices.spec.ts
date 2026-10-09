@@ -161,8 +161,12 @@ for (const onlyClaude of [false, true]) {
       "data-value",
       "claude-sonnet-5-5",
     );
+    // Saving the first defaults also activates the board's background preload.
+    // The service coalesces/caches these reads; the open editor retains its model.
     expect(discoveries).toEqual(
-      onlyClaude ? ["claude-code"] : ["codex", "claude-code"],
+      onlyClaude
+        ? ["claude-code", "claude-code"]
+        : ["codex", "claude-code", "claude-code"],
     );
     await page.setViewportSize({ width: 390, height: 844 });
     expect(
@@ -422,4 +426,138 @@ test("switching harnesses disables dependent controls and ignores late catalogs"
   await expect(
     page.getByRole("option", { name: "Claude model", exact: true }),
   ).toHaveCount(0);
+});
+
+test("configured project choices preload and unknown harness status stays loading", async ({
+  page,
+  request,
+  context,
+}) => {
+  const project = "preloaded-choices";
+  expect(
+    (
+      await request.post("/api/projects/initialize", {
+        data: {
+          path: existingDirectory(join(state, project)),
+          task_prefix: "PLC",
+        },
+      })
+    ).ok(),
+  ).toBe(true);
+  const choice = {
+    harness: "codex",
+    model: "saved-model",
+    effort: "low",
+    mode: "default",
+    fast: false,
+  };
+  await page.route(`**/api/projects/${project}/coordinator-settings`, (route) =>
+    route.fulfill({
+      json: {
+        revision: 1,
+        selection: choice,
+        effective: {
+          choice,
+          source: "project",
+          default_revision: 1,
+          override_revision: null,
+          registration: null,
+        },
+      },
+    }),
+  );
+  await page.route(`**/api/projects/${project}/workers`, (route) =>
+    route.fulfill({
+      json: {
+        project_id: project,
+        revision: 1,
+        selection: { ...choice, harness: "claude-code" },
+        max_parallel: 1,
+        enabled: false,
+        problem: null,
+      },
+    }),
+  );
+  let releaseHosts!: () => void;
+  const hosts = new Promise<void>((resolve) => {
+    releaseHosts = resolve;
+  });
+  await page.route("**/api/harnesses", async (route) => {
+    await hosts;
+    await route.fulfill({
+      json: [hostStatus("codex"), hostStatus("claude-code")],
+    });
+  });
+  let releaseModels!: () => void;
+  const models = new Promise<void>((resolve) => {
+    releaseModels = resolve;
+  });
+  const discovered: string[] = [];
+  await page.route("**/api/worker-models*", async (route) => {
+    const query = new URL(route.request().url()).searchParams;
+    expect(query.get("project_id")).toBe(project);
+    discovered.push(query.get("harness")!);
+    await models;
+    await route.fulfill({
+      json: [
+        {
+          id: "saved-model",
+          name: "Saved model",
+          efforts: ["low"],
+          modes: [{ id: "default", name: "Default" }],
+          fast: true,
+        },
+      ],
+    });
+  });
+  await page.goto(`/projects/${project}`);
+  const trigger = page.getByRole("button", {
+    name: "Codex · saved-model · low",
+    exact: true,
+  });
+  await trigger.click();
+  const picker = page.getByRole("dialog", {
+    name: "Coordinator model settings",
+    exact: true,
+  });
+  const harness = picker.getByRole("combobox", {
+    name: "Harness",
+    exact: true,
+  });
+  await expect(harness).toBeDisabled();
+  await expect(harness).toHaveText("Loading harnesses…");
+  await expect(picker).not.toContainText("setup needed");
+  await expect(
+    picker.getByRole("combobox", { name: "Model", exact: true }),
+  ).toBeDisabled();
+  await picker.getByRole("button", { name: "Cancel", exact: true }).click();
+  releaseHosts();
+  await expect
+    .poll(() => discovered.slice().sort())
+    .toEqual(["claude-code", "codex"]);
+  await expect(picker).toHaveCount(0);
+  releaseModels();
+  await expect(
+    page.getByRole("button", { name: "Fast mode", exact: true }),
+  ).toBeEnabled();
+  await trigger.click();
+  await expect(harness).toBeEnabled();
+  await expect(harness).toContainText("Codex");
+  await expect(
+    picker.getByRole("combobox", { name: "Model", exact: true }),
+  ).toHaveText("Saved model");
+  await expect(picker.getByText("Fast mode", { exact: true })).toHaveCount(0);
+  expect(discovered).toHaveLength(2);
+  await picker.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.reload();
+  await expect.poll(() => discovered.length).toBe(4);
+  await expect(picker).toHaveCount(0);
+  // Reconnection warms the active project's choices again without opening a picker.
+  await context.setOffline(true);
+  await expect(
+    page.getByRole("status", { name: "Disconnected", exact: true }),
+  ).toBeVisible();
+  await context.setOffline(false);
+  await expect.poll(() => discovered.length).toBe(6);
+  await expect(picker).toHaveCount(0);
 });

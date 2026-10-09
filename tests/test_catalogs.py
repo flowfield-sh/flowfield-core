@@ -41,12 +41,15 @@ def test_caller_cancellation_keeps_native_owner_and_coalesces_requests(tmp_path,
         assert catalogs.ownership("codex").id == identity
         with pytest.raises(ApplicationError, match="still owned"):
             catalogs.confirm_stopped("codex", identity)
-        with pytest.raises(ApplicationError, match="Another project"):
-            await catalogs.run(registration)
         next_waiter = asyncio.create_task(catalogs.run(registration, project_id="harbor"))
+        other_scope = asyncio.create_task(catalogs.run(registration))
+        await asyncio.sleep(0)
+        assert not other_scope.done() and len(calls) == 1
         release.set()
         models = await next_waiter
         assert len(calls) == 1 and str(calls[0][1]) == workspace.project("harbor").path
+        await other_scope
+        assert len(calls) == 2 and calls[1][1] is None
         assert catalogs.ownership("codex") is None
         models[0].id = "mutated"
         assert (await catalogs.run(registration, project_id="harbor"))[0].id == "exact"
@@ -242,5 +245,48 @@ def test_service_shutdown_waits_for_cleanup_and_preserves_uncertainty(
             await waiter
         record = catalogs.ownership("codex")
         assert record is None if confirmed else record.status == "uncertain"
+
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("cleaned", [True, False])
+def test_waiting_scope_does_not_inherit_other_error_or_bypass_cleanup(
+    tmp_path, monkeypatch, cleaned
+):
+    workspace = fixture(tmp_path).workspace
+    catalogs = Catalogs(workspace)
+    registration = HarnessSettings(workspace).get("codex")
+    release = asyncio.Event()
+    calls = []
+
+    async def discover(directory, *, cwd, on_cleanup, **kwargs):
+        calls.append(cwd)
+        if cwd is not None:
+            await release.wait()
+            on_cleanup(cleaned)
+            raise ApplicationError("unavailable_here", "Unavailable for first project", 409)
+        on_cleanup(True)
+        return [ModelOption(id="other", name="Other", efforts=[])]
+
+    monkeypatch.setattr("flowfield.catalogs.model_options", discover)
+
+    async def exercise():
+        first = asyncio.create_task(catalogs.run(registration, project_id="harbor"))
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        second = asyncio.create_task(catalogs.run(registration))
+        await asyncio.sleep(0)
+        assert len(calls) == 1 and not second.done()
+        release.set()
+        with pytest.raises(ApplicationError, match="Unavailable for first"):
+            await first
+        if cleaned:
+            assert (await second)[0].id == "other"
+            assert len(calls) == 2
+        else:
+            with pytest.raises(ApplicationError, match="cleanup is unconfirmed"):
+                await second
+            assert len(calls) == 1
+        await catalogs.close()
 
     asyncio.run(exercise())

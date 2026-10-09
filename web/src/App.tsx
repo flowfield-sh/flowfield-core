@@ -143,10 +143,15 @@ export function App() {
   useEffect(() => {
     if (!connected) return;
     let events: EventSource;
+    let opened = false;
     function connect() {
       events?.close();
       events = new EventSource("/api/events");
-      events.onopen = () => setLive(true);
+      events.onopen = () => {
+        setLive(true);
+        if (opened) window.dispatchEvent(new Event("flowfield:reconnected"));
+        opened = true;
+      };
       events.onerror = () => setLive(false);
       events.addEventListener("change", (event) => {
         const change = JSON.parse(event.data) as { projects: string[] | null };

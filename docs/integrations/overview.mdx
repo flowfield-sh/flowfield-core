@@ -38,5 +38,9 @@ Coordinator and service-managed workers. Configure either alone or both through
 **Settings → Harnesses**, then choose independently for each project role or task override.
 Each harness has one service-host registration and retains its native account/configuration.
 
+Opening a project preloads its configured model choices. Reconnecting after a service restart
+checks them again. Unconfigured choices load when you open their selector; loading controls
+stay disabled. Discovery sends no model prompt, but native startup hooks can run.
+
 Installing Flowfield does not install or authenticate a harness. After changing an MCP
 connection or project skill, start a fresh coding conversation to load the new configuration.

@@ -103,7 +103,7 @@ export function ProjectAgentChoice({
                   })
                 }
               />
-              {role === "Workers" ? (
+              {role === "Workers" && (
                 <Label className="field block">
                   Parallel workers
                   <Input
@@ -114,23 +114,6 @@ export function ProjectAgentChoice({
                     onChange={(event) => setCap(event.target.valueAsNumber)}
                   />
                 </Label>
-              ) : (
-                source.models.find((model) => model.id === draft?.model)
-                  ?.fast && (
-                  <Label>
-                    <input
-                      type="checkbox"
-                      checked={draft?.fast ?? false}
-                      disabled={source.loading}
-                      onChange={(event) =>
-                        setDraft(
-                          draft && { ...draft, fast: event.target.checked },
-                        )
-                      }
-                    />{" "}
-                    Fast mode
-                  </Label>
-                )
               )}
               <div className="actions">
                 <Button

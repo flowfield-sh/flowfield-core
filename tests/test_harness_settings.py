@@ -598,3 +598,42 @@ def test_cli_host_configuration_targets_service_and_reset_is_revisioned(monkeypa
         "harnesses/claude-code/catalog/confirm-stopped",
         {"id": "exact-id"},
     )
+
+
+def test_running_discovery_is_selectable_but_uncertain_cleanup_is_not(tmp_path, monkeypatch):
+    executable, log = native(tmp_path, "codex")
+    app = create_app(data_dir=tmp_path / "state")
+
+    async def exercise():
+        async with app.router.lifespan_context(app):
+            workspace = app.state.workspace
+            registration = HarnessSettings(workspace).edit(
+                "codex", HarnessEdit(expected_revision=1, executable=str(executable))
+            )
+            detected = harness_host.status(workspace.directory, registration, {})
+            assert detected.selectable
+            ownership = CatalogOwnership(
+                id="owned-discovery",
+                harness="codex",
+                project_id=None,
+                status="running",
+                started_at=now(),
+                launch=detected.launch,
+            )
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1"
+            ) as client:
+                for phase in ("running", "uncertain"):
+                    ownership.status = phase
+                    with workspace.connection(write=True) as db:
+                        db.execute(
+                            "INSERT OR REPLACE INTO harness_catalogs VALUES (?,?)",
+                            ("codex", ownership.model_dump_json()),
+                        )
+                    result = (await client.get("/api/harnesses/codex")).json()
+                    assert result["catalog_ownership"]["status"] == phase
+                    assert result["selectable"] is (phase == "running")
+                    assert f"catalog_{phase}" in result["problems"]
+            assert not log.exists()  # Availability reads never run the native executable.
+
+    asyncio.run(exercise())

@@ -34,6 +34,12 @@ export function QueueControls({
     `${path}/workers/occupancy`,
     refresh,
   );
+  useHarnessModels(
+    projectId,
+    resource.data?.selection?.harness,
+    refresh,
+    !!resource.data?.selection,
+  );
   const [busy, setBusy] = useState(false);
   const data = resource.data;
   const problem = data?.problem || resource.error || occupancy.error;

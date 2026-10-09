@@ -286,7 +286,7 @@ test("project creation keeps compact agent choices until Add project", async ({
           name: "Fixture model",
           efforts: ["low"],
           modes: [{ id: "default", name: "Default" }],
-          fast: false,
+          fast: true,
         },
       ],
     });
@@ -312,6 +312,7 @@ test("project creation keeps compact agent choices until Add project", async ({
     .getByRole("button", { name: "Coordinator settings", exact: true })
     .click();
   const popup = page.locator(".composer-settings");
+  await expect(popup.getByText("Fast mode", { exact: true })).toHaveCount(0);
   await choose(
     popup.getByRole("combobox", { name: "Model", exact: true }),
     "fixture-model",
@@ -321,6 +322,9 @@ test("project creation keeps compact agent choices until Add project", async ({
     "low",
   );
   await choose(popup.getByRole("combobox", { name: "Access mode" }), "default");
+  await expect(popup.getByRole("checkbox", { name: "Fast mode" })).toHaveCount(
+    0,
+  );
   await popup.getByRole("button", { name: "Save", exact: true }).click();
   await setup
     .getByRole("button", { name: "Workers settings", exact: true })

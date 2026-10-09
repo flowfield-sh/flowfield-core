@@ -91,14 +91,22 @@ class Catalogs:
         signature = repr((project_id, str(cwd), launch.model_dump_json()))
         kind = registration.harness
         live = self.jobs.get(kind)
-        if live and not live[1].done():
-            if live[0] != signature:
-                raise ApplicationError(
-                    "models_loading", "Another project or host configuration is being checked.", 409
-                )
-            models = await asyncio.shield(live[1])
+        while live and not live[1].done():
+            try:
+                models = await asyncio.shield(live[1])
+            except ApplicationError:
+                if live[0] == signature:
+                    raise
+                # An unrelated project's error is not this caller's result. The
+                # durable ownership check below still blocks unconfirmed cleanup.
+            else:
+                if live[0] == signature:
+                    self._current(registration)
+                    return [item.model_copy(deep=True) for item in models]
+            if self.closing:
+                raise ApplicationError("service_stopping", "The service is stopping.", 409)
             self._current(registration)
-            return [item.model_copy(deep=True) for item in models]
+            live = self.jobs.get(kind)
         ownership = self.ownership(kind)
         if ownership and ownership.status == "running":
             raise ApplicationError(

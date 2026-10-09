@@ -29,7 +29,9 @@ def harness_router(
         value.catalog_ownership = supervisor().catalogs.ownership(value.registration.harness)
         if value.catalog_ownership:
             value.problems.append("catalog_" + value.catalog_ownership.status)
-            value.selectable = False
+            # Owned discovery is loading, not a setup failure. Model reads join it.
+            if value.catalog_ownership.status == "uncertain":
+                value.selectable = False
         return value
 
     def view(item: HarnessRegistration) -> HarnessStatus:
