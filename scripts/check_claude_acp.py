@@ -17,6 +17,11 @@ from acp.exceptions import RequestError
 from acp.schema import HttpMcpServer
 
 from flowfield.adapters.acp_session import AcpSession
+from flowfield.adapters.claude_cleanup import (
+    CLAUDE_SHUTDOWN_TIMEOUTS,
+    quiesce,
+    require_cleanup,
+)
 from flowfield.adapters.local_process import LocalProcess
 
 
@@ -48,7 +53,7 @@ async def command(args: list[str], cwd: Path, env: dict[str, str]) -> str:
     return output.decode().strip()
 
 
-async def probe(bridge: Path, native: Path, scratch: Path) -> dict:
+async def probe(bridge: Path, native: Path, scratch: Path, *, cleanup: bool = False) -> dict:
     spec = json.loads(
         (Path(__file__).resolve().parents[1] / "bridges/claude-acp/proof.json").read_text()
     )
@@ -187,6 +192,27 @@ async def probe(bridge: Path, native: Path, scratch: Path) -> dict:
     assert failed_receipt.owned_work_stopped is None
     assert not unexpected_logs.exists()
     report["projectAutoloadDisabled"] = True
+    if cleanup:
+        candidate = AcpSession(
+            lambda _: None,
+            request_timeout=30,
+            cleanup=quiesce,
+            shutdown_timeouts=CLAUDE_SHUTDOWN_TIMEOUTS,
+        )
+        try:
+            await candidate.start(
+                [str(executable), "--flowfield-proof-cleanup"],
+                cwd=project,
+                env=env,
+                mcp_servers=[],
+            )
+            require_cleanup(candidate.capabilities)
+        finally:
+            candidate_receipt = await candidate.close()
+        report["candidateIdleCleanup"] = asdict(candidate_receipt)
+        assert candidate_receipt.owned_work_stopped is True
+        assert candidate_receipt.process_group_exited
+        assert candidate_receipt.session_closed is True
     report["managedLaunchReady"] = False
     return report
 
@@ -195,10 +221,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("bridge", type=Path)
     parser.add_argument("--native", type=Path, required=True)
+    parser.add_argument(
+        "--cleanup", action="store_true", help="Opt into candidate idle cleanup proof"
+    )
     args = parser.parse_args()
     bridge, native = args.bridge.resolve(strict=True), args.native.resolve(strict=True)
     with tempfile.TemporaryDirectory(prefix="flowfield-claude-acp-proof-") as scratch:
-        report = asyncio.run(probe(bridge, native, Path(scratch)))
+        report = asyncio.run(probe(bridge, native, Path(scratch), cleanup=args.cleanup))
     print(json.dumps(report, indent=2))
 
 

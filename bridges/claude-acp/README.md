@@ -22,8 +22,8 @@ checks, and compiles a standalone executable for the current POSIX platform/arch
 Generated source, dependencies and output stay in ignored `.work/`. The original Apache
 license remains in that source tree. This is not a distributable installation bundle.
 
-The proof changes the bridge version to `0.88.0-flowfield.proof.1` and applies one
-bounded patch, recorded in `build.mjs`: the released CLI's `tokenSource: "none"`
+The proof changes the bridge version to `0.88.0-flowfield.proof.2`. Its authentication
+patch, recorded in `build.mjs`, ensures the released CLI's `tokenSource: "none"`
 must count as signed out. Upstream's subscription guard otherwise treats that truthy
 string as a usable credential, accepting a signed-out session with `--hide-claude-auth`.
 The patch also prevents the sentinel from concealing subscription billing. It preserves
@@ -77,13 +77,62 @@ the bridge disables native `AskUserQuestion` in that case. Durable Flowfield que
 must retain their existing scoped MCP path.
 
 Session-close acknowledgment and native-owner/process-group exit are separate from
-native-work cleanup. This proof deliberately asserts `owned_work_stopped is None`:
-the released bridge has no negotiated `flowfield.cleanup` receipt. Its SDK offers
-background-task snapshots and `stopTask`, but cancellation/close must still be measured
-with real work, including detached tasks, hooks, queued continuation and bridge/service
-failure. Until a bounded cleanup extension is verified, managed Claude launch must stay
-unavailable and unknown cleanup must continue to block capacity. This proof never
-claims containment of arbitrary daemons or external MCP services.
+native-work cleanup. The default proof deliberately asserts `owned_work_stopped is None`:
+the released bridge has no negotiated `flowfield.cleanup` receipt. The opt-in candidate
+below adds one for measurement. Until its native tool ownership/termination is verified,
+managed Claude launch must stay unavailable and unknown cleanup must continue to block
+capacity. Neither proof claims containment of arbitrary daemons or external MCP services.
+
+## Opt-in cleanup candidate
+
+The development artifact enables its candidate extension only with the explicit
+`--flowfield-proof-cleanup` argument. Draft ACP v2 is disabled in the standalone entry,
+so every work-creating v1 route uses the same permanent fence. The bridge owns one
+root session, snapshots public SDK messages before ACP translation, and observes each
+native process through the SDK's documented spawn callback. Native-query replacement
+or a second root cannot silently inherit the old owner's cleanup authority.
+
+Cleanup seals requests, cancels the turn, waits for accepted requests to settle, requires
+an interrupt receipt with no queued work, and calls `stopTask` for known native task IDs.
+Fresh `reinitialize` background-membership snapshots must be empty twice with no intervening
+work. It then closes query input and waits for the exact native child to exit, rejecting
+late work during closure. There is no private SDK RPC, process scanning, history deletion
+or second application lifecycle. Local/native settings and native account ownership remain
+unchanged. Flowfield validates the exact session, scope, counts and observed-exit receipt
+through its existing optional ACP cleanup callback.
+
+Scope is `native-turns-and-tasks`, with a 10-second deadline, 256 tasks/termination
+attempts and 100 observation passes. Missing snapshots/interrupt receipts, queued work,
+unknown task types, query replacement, early native exit, active goals, unfinished hooks
+or late activity produce `uncertain`. Current known types are native local Bash, agent,
+monitor and workflow tasks; their actual stop semantics still need Claude-model proof.
+Active goals have no verified pause control in the public SDK, so they stay uncertain.
+Hook events are observed, but arbitrary hook descendants are not a containment claim.
+
+```sh
+node --test bridges/claude-acp/cleanup.test.mjs
+uv run scripts/check_claude_acp.py bridges/claude-acp/.work/claude-acp-proof \
+  --native /absolute/path/to/claude --cleanup
+uv run scripts/check_claude_acp_scripted.py bridges/claude-acp/.work/claude-acp-proof
+uv run scripts/check_claude_acp_scripted.py bridges/claude-acp/.work/claude-acp-proof --scenario foreground
+uv run scripts/check_claude_acp_scripted.py bridges/claude-acp/.work/claude-acp-proof --scenario background
+uv run scripts/check_claude_acp_scripted.py bridges/claude-acp/.work/claude-acp-proof --scenario refused
+uv run scripts/check_claude_acp_scripted.py bridges/claude-acp/.work/claude-acp-proof --scenario bridge-failure
+```
+
+The native check sends no prompt: the candidate's empty-state receipt was measured on
+macOS arm64 with CLI 2.1.295. The scripted check uses the actual built bridge and actual
+SDK against a fake native peer. It verifies public/private output separation, image input,
+permission replies, model/effort controls and injected MCP configuration. Foreground/
+background scenarios use an actual sleeping test process with a separate live `LocalProcess`
+owner outside the bridge group; confirmed receipts require its observed exit. Refused
+cleanup and bridge failure deliberately leave that process alive with an unconfirmed
+receipt; the test's live owner subsequently stops it. No persisted PID is used to
+recover ownership and no native Claude/model is invoked by this scripted probe.
+
+Ordinary checks run only controller/receipt tests, not the native/scripted commands.
+These results establish the integration mechanics, not actual Claude tool, hook, goal,
+subagent, persisted-session or service-restart behavior. H1.1 remains open.
 
 Anthropic's [Agent SDK authentication guidance](https://code.claude.com/docs/en/agent-sdk/overview)
 documents API/provider authentication and requires prior approval for third-party products

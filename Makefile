@@ -10,7 +10,7 @@ check:
 	uv run ruff check .
 	uv run mypy
 	uv run pytest
-	node --test bridges/codex-acp/cleanup.test.mjs
+	node --test bridges/codex-acp/cleanup.test.mjs bridges/claude-acp/cleanup.test.mjs
 	uv run scripts/generate-api-types.py --check
 	pnpm --dir web check
 	pnpm --dir web build
