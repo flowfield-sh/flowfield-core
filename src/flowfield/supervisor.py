@@ -108,11 +108,15 @@ class Supervisor:
         refresh: bool = False,
         harness: HarnessKind = "codex",
         project_id: str | None = None,
+        project_path: str | None = None,
     ) -> list[ModelOption]:
         if self.closing:
             raise ApplicationError("service_stopping", "The service is stopping.", 409)
         return await self.catalogs.run(
-            HarnessSettings(self.workspace).get(harness), project_id=project_id, refresh=refresh
+            HarnessSettings(self.workspace).get(harness),
+            project_id=project_id,
+            project_path=project_path,
+            refresh=refresh,
         )
 
     async def configure(self, project_id: str, request: SettingsEdit) -> WorkerSettings:
@@ -120,9 +124,11 @@ class Supervisor:
         return self.execution.configure(project_id, request)
 
     async def validate_agent_choice(
-        self, choice: AgentChoice, project_id: str | None = None
+        self, choice: AgentChoice, project_id: str | None = None, *, project_path: str | None = None
     ) -> None:
-        models = await self.model_options(project_id=project_id, harness=choice.harness)
+        models = await self.model_options(
+            project_id=project_id, project_path=project_path, harness=choice.harness
+        )
         if not any(
             item.id == choice.model
             and (choice.effort in item.efforts if item.efforts else choice.effort is None)

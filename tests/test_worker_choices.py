@@ -126,8 +126,9 @@ def test_absent_effort_is_valid_only_when_catalog_offers_no_efforts(tmp_path, mo
     service = Supervisor(fixture(tmp_path).workspace)
     offered = []
 
-    async def models(*, project_id, harness):
+    async def models(*, project_id, harness, project_path=None):
         assert project_id == "harbor" and harness == "codex"
+        assert project_path is None
         return [ModelOption(id="native", name="Native", efforts=offered)]
 
     monkeypatch.setattr(service, "model_options", models)

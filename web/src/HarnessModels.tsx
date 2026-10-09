@@ -42,24 +42,29 @@ export function modelSupports(choice: Choice, models: Model[]) {
 // Discovery is model-free and starts only while the selector is visible.
 // The service owns coalescing, cleanup and bounded caches; this hook retains one view.
 export function useHarnessModels(
-  projectId: string,
+  projectId: string | undefined,
   requested: HarnessKind | undefined,
   refresh: unknown,
   open = true,
+  projectPath?: string,
 ) {
   const hosts = useResource<Status[]>("harnesses", refresh);
   const kind =
     requested ??
     hosts.data?.find((item) => item.selectable)?.registration.harness;
   const host = hosts.data?.find((item) => item.registration.harness === kind);
-  const key = JSON.stringify([projectId, kind, host?.launch]);
+  const key = JSON.stringify([projectId, projectPath, kind, host?.launch]);
   const [load, setLoad] = useState<{ key: string; revision: number } | null>(
     null,
   );
   if (load && (load.key !== key || !open)) setLoad(null);
   const loaded = open && !!kind && !!host?.selectable;
   const query = new URLSearchParams({
-    project_id: projectId,
+    ...(projectId
+      ? { project_id: projectId }
+      : projectPath
+        ? { project_path: projectPath }
+        : {}),
     harness: kind ?? "",
     refresh: load?.key === key ? "true" : "false",
   });

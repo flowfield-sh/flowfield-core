@@ -145,7 +145,10 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
         )
 
     @router.post("/initialize")
-    def initialize(request: ProjectSetup, service: Service) -> Project:
+    async def initialize(request: ProjectSetup, service: Service) -> Project:
+        for choice in (request.coordinator, request.worker):
+            if choice:
+                await supervisor().validate_agent_choice(choice, project_path=request.path)
         return service.setup_project(request)
 
     @router.post("/setup-defaults")

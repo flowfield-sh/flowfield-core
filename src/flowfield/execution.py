@@ -74,21 +74,26 @@ class Execution:
         )
 
     def configure(self, project_id: str, request: SettingsEdit) -> WorkerSettings:
+        with self.workspace.connection(write=True, project_id=project_id) as db:
+            return self._configure(db, project_id, request)
+
+    def _configure(
+        self, db: sqlite3.Connection, project_id: str, request: SettingsEdit
+    ) -> WorkerSettings:
         if request.selection.fast:
             raise ApplicationError(
                 "worker_speed_override",
                 "Set worker Fast mode on the individual task; project workers use normal speed.",
                 409,
             )
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            settings = self._settings(db, project_id)
-            self.workspace._current(settings.revision, request.expected_revision)
-            settings.selection = request.selection.model_copy(deep=True)
-            if settings.selection.fast is None:
-                settings.selection.fast = False
-            settings.max_parallel, settings.problem = request.max_parallel, None
-            self._save_settings(db, settings)
-            return settings
+        settings = self._settings(db, project_id)
+        self.workspace._current(settings.revision, request.expected_revision)
+        settings.selection = request.selection.model_copy(deep=True)
+        if settings.selection.fast is None:
+            settings.selection.fast = False
+        settings.max_parallel, settings.problem = request.max_parallel, None
+        self._save_settings(db, settings)
+        return settings
 
     def queue(self, project_id: str, request: QueueEdit) -> WorkerSettings:
         with self.workspace.connection(write=True, project_id=project_id) as db:

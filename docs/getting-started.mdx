@@ -31,7 +31,10 @@ Choose **Add project** in the sidebar, then **Choose directory**. The native fol
 opens on the machine running Flowfield. Select your existing project directory, then review
 the prefilled **Name**, **Project ID** and **Task prefix** below it. All three are required and
 editable. Choose a unique ID and three-letter prefix if another project already uses them.
-Review the guidance option, then click **Add project**.
+Under **Agents**, choose a Coordinator and worker harness, model and supported controls.
+You can also set parallel worker capacity. These choices are optional and remain editable
+in Project settings. Review the guidance option, then click **Add project** to save everything;
+the worker queue starts paused.
 
 You can also register the same project from another terminal in its directory:
 
@@ -49,7 +52,7 @@ desktop folder chooser is unavailable.
 
 ## Start planning
 
-Choose a ready harness beside the input in the [Coordinator](/coordinator), wait for models to load,
+If you skipped the Coordinator choice during setup, choose a ready harness beside the input in the [Coordinator](/coordinator), wait for models to load,
 then choose its model and supported effort/access controls and save. Native startup hooks
 can run during discovery; it sends no model prompt. Describe what you want to achieve. For example:
 

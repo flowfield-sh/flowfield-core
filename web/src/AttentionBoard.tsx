@@ -9,6 +9,7 @@ import { questionHref } from "./Inbox";
 import { label } from "./workspace";
 import { WorkState } from "./WorkState";
 import { PermissionCard } from "./AgentPermissions";
+import { ContentStack } from "./DetailLayout";
 
 type Item = components["schemas"]["AttentionItem"];
 type Page = components["schemas"]["AttentionPage"];
@@ -98,79 +99,88 @@ function Column({
         {columns[column]}{" "}
         {page.data && <span className="column-count">{page.data.total}</span>}
       </h2>
-      {page.error && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            {page.error}{" "}
+      <div
+        className="column-cards"
+        role="region"
+        aria-label={`${columns[column]} items`}
+        tabIndex={0}
+      >
+        <ContentStack>
+          {page.error && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {page.error}{" "}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setRetry((value) => value + 1)}
+                >
+                  Retry
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+          {page.loading && !page.data && <p>Loading…</p>}
+          {page.data && !page.data.items.length && (
+            <p className="muted">
+              {column === "action"
+                ? "Nothing needs your attention."
+                : column === "waiting"
+                  ? "Nothing waiting on a worker, coordinator or service."
+                  : "No past items yet."}
+            </p>
+          )}
+          <ul>
+            {page.data?.items.map((item) => (
+              <li key={`${item.kind}:${item.id}`}>
+                {item.kind === "permission" ? (
+                  <PermissionCard
+                    projectId={projectId}
+                    id={item.id}
+                    taskKey={item.task_key}
+                    refresh={refresh}
+                  />
+                ) : (
+                  <AttentionCard
+                    href={
+                      item.state?.href ??
+                      (item.kind === "question"
+                        ? questionHref(projectId, item.id)
+                        : item.kind === "result"
+                          ? `${taskHref(projectId, { key: item.task_key! }, "result")}/${item.id}`
+                          : `${taskHref(projectId, { key: item.task_key! }, "runs")}/${item.run_id ?? item.id}${item.kind === "integration" ? `/integrations/${item.id}` : ""}`)
+                    }
+                    kind={item.kind === "result" ? "Changes" : label(item.kind)}
+                    reference={item.task_key ?? "Project"}
+                    title={item.title}
+                    selected={identity === item.id}
+                    action={
+                      item.state ? (
+                        <WorkState state={item.state} />
+                      ) : column === "history" ? (
+                        label(item.status)
+                      ) : (
+                        action(item)
+                      )
+                    }
+                  />
+                )}
+              </li>
+            ))}
+          </ul>
+          {page.data?.next_offset != null && (
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setRetry((value) => value + 1)}
+              className="quiet"
+              disabled={page.loadingMore || page.loading}
+              onClick={() => void page.older()}
             >
-              Retry
+              Load more
             </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-      {page.loading && !page.data && <p>Loading…</p>}
-      {page.data && !page.data.items.length && (
-        <p className="muted">
-          {column === "action"
-            ? "Nothing needs your attention."
-            : column === "waiting"
-              ? "Nothing waiting on a worker, coordinator or service."
-              : "No past items yet."}
-        </p>
-      )}
-      <ul>
-        {page.data?.items.map((item) => (
-          <li key={`${item.kind}:${item.id}`}>
-            {item.kind === "permission" ? (
-              <PermissionCard
-                projectId={projectId}
-                id={item.id}
-                taskKey={item.task_key}
-                refresh={refresh}
-              />
-            ) : (
-              <AttentionCard
-                href={
-                  item.state?.href ??
-                  (item.kind === "question"
-                    ? questionHref(projectId, item.id)
-                    : item.kind === "result"
-                      ? `${taskHref(projectId, { key: item.task_key! }, "result")}/${item.id}`
-                      : `${taskHref(projectId, { key: item.task_key! }, "runs")}/${item.run_id ?? item.id}${item.kind === "integration" ? `/integrations/${item.id}` : ""}`)
-                }
-                kind={item.kind === "result" ? "Changes" : label(item.kind)}
-                reference={item.task_key ?? "Project"}
-                title={item.title}
-                selected={identity === item.id}
-                action={
-                  item.state ? (
-                    <WorkState state={item.state} />
-                  ) : column === "history" ? (
-                    label(item.status)
-                  ) : (
-                    action(item)
-                  )
-                }
-              />
-            )}
-          </li>
-        ))}
-      </ul>
-      {page.data?.next_offset != null && (
-        <Button
-          size="sm"
-          variant="outline"
-          className="quiet"
-          disabled={page.loadingMore || page.loading}
-          onClick={() => void page.older()}
-        >
-          Load more
-        </Button>
-      )}
+          )}
+        </ContentStack>
+      </div>
     </section>
   );
 }
@@ -180,7 +190,7 @@ export function AttentionBoard(props: {
   refresh: unknown;
 }) {
   return (
-    <div className="attention-board">
+    <div className="board attention-board">
       <Column {...props} column="action" />
       <Column {...props} column="waiting" />
       <Column {...props} column="history" />

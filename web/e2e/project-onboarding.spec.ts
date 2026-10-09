@@ -259,3 +259,135 @@ test("registration conflict retains selection for a unique project ID", async ({
     path: testInfo.outputPath("project-setup-desktop.png"),
   });
 });
+
+test("project creation keeps compact agent choices until Add project", async ({
+  page,
+  request,
+}, testInfo) => {
+  const { choose, hostStatus } = await import("./support");
+  const directory = join(state, "agent-setup-project");
+  mkdirSync(directory, { recursive: true });
+  await page.route("**/api/harnesses", (route) =>
+    route.fulfill({ json: [hostStatus("codex"), hostStatus("claude-code")] }),
+  );
+  await page.route("**/api/projects/select-directory", (route) =>
+    route.fulfill({ json: { path: directory } }),
+  );
+  let modelRequests = 0;
+  await page.route("**/api/worker-models?*", async (route) => {
+    const url = new URL(route.request().url());
+    expect(url.searchParams.get("project_path")).toBe(directory);
+    expect(url.searchParams.has("project_id")).toBe(false);
+    modelRequests++;
+    await route.fulfill({
+      json: [
+        {
+          id: "fixture-model",
+          name: "Fixture model",
+          efforts: ["low"],
+          modes: [{ id: "default", name: "Default" }],
+          fast: false,
+        },
+      ],
+    });
+  });
+  // Browser verifies the creation payload; API tests verify native validation and atomic storage.
+  let received: Record<string, unknown> | null = null;
+  await page.route("**/api/projects/initialize", async (route) => {
+    received = route.request().postDataJSON();
+    const response = await request.post("/api/projects/initialize", {
+      data: { path: directory, task_prefix: "ASP" },
+    });
+    await route.fulfill({ response });
+  });
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "Choose directory", exact: true })
+    .click();
+  const setup = page.getByRole("region", {
+    name: "Project setup instructions",
+  });
+  expect(modelRequests).toBe(0);
+  await setup
+    .getByRole("button", { name: "Coordinator settings", exact: true })
+    .click();
+  const popup = page.locator(".composer-settings");
+  await choose(
+    popup.getByRole("combobox", { name: "Model", exact: true }),
+    "fixture-model",
+  );
+  await choose(
+    popup.getByRole("combobox", { name: "Reasoning effort" }),
+    "low",
+  );
+  await choose(popup.getByRole("combobox", { name: "Access mode" }), "default");
+  await popup.getByRole("button", { name: "Save", exact: true }).click();
+  await setup
+    .getByRole("button", { name: "Workers settings", exact: true })
+    .click();
+  await choose(popup.getByRole("combobox", { name: "Harness" }), "claude-code");
+  await choose(
+    popup.getByRole("combobox", { name: "Model", exact: true }),
+    "fixture-model",
+  );
+  await choose(
+    popup.getByRole("combobox", { name: "Reasoning effort" }),
+    "low",
+  );
+  await choose(popup.getByRole("combobox", { name: "Access mode" }), "default");
+  await popup.getByRole("spinbutton", { name: "Parallel workers" }).fill("3");
+  await popup.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(
+    setup.getByRole("button", { name: "Coordinator settings", exact: true }),
+  ).toContainText("Codex · fixture-model · low");
+  await expect(
+    setup.getByRole("button", { name: "Workers settings", exact: true }),
+  ).toContainText("Claude Code · fixture-model · low");
+  expect(existsSync(join(directory, ".flowfield"))).toBe(false);
+  await setup
+    .getByRole("button", { name: "Workers settings", exact: true })
+    .click();
+  await popup.getByRole("spinbutton", { name: "Parallel workers" }).fill("5");
+  await popup.getByRole("button", { name: "Cancel", exact: true }).click();
+  await setup
+    .getByRole("button", { name: "Workers settings", exact: true })
+    .click();
+  await expect(
+    popup.getByRole("spinbutton", { name: "Parallel workers" }),
+  ).toHaveValue("3");
+  await expect(
+    popup.getByRole("combobox", { name: "Model", exact: true }),
+  ).toBeEnabled();
+  await page.screenshot({
+    path: testInfo.outputPath("project-agent-picker.png"),
+  });
+  await popup.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 800 });
+  await setup
+    .getByRole("button", { name: "Workers settings", exact: true })
+    .scrollIntoViewIfNeeded();
+  expect(await setup.evaluate((n) => n.scrollWidth <= n.clientWidth)).toBe(
+    true,
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("project-agents-mobile.png"),
+  });
+  await setup.getByLabel("Install project guidance", { exact: true }).uncheck();
+  await setup.getByRole("button", { name: "Add project", exact: true }).click();
+  await expect(page).toHaveURL(/\/projects\/agent-setup-project$/);
+  expect(received).toMatchObject({
+    coordinator: {
+      harness: "codex",
+      model: "fixture-model",
+      effort: "low",
+      mode: "default",
+    },
+    worker: {
+      harness: "claude-code",
+      model: "fixture-model",
+      effort: "low",
+      mode: "default",
+    },
+    max_parallel: 3,
+  });
+});

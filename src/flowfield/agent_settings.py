@@ -88,60 +88,67 @@ class AgentSettings:
     def edit(
         self, project: str, role: AgentRole, request: AgentSettingsEdit, scope: str = ""
     ) -> AgentSettingsView:
-        if request.selection and request.selection.fast is None:
-            request = request.model_copy(
-                update={"selection": request.selection.model_copy(update={"fast": False})}
-            )
-        if (
-            role == "coordinator"
-            and request.selection
-            and request.selection.harness == "codex"
-            and request.selection.mode is None
-        ):
-            # Old clients selected only model/effort. Preserve their existing access.
-            request = request.model_copy(
-                update={"selection": request.selection.model_copy(update={"mode": "read-only"})}
-            )
+        with self.workspace.connection(write=True, project_id=project) as db:
+            return self._edit(db, project, role, request, scope)
+
+    def _edit(
+        self,
+        db: sqlite3.Connection,
+        project: str,
+        role: AgentRole,
+        request: AgentSettingsEdit,
+        scope: str = "",
+    ) -> AgentSettingsView:
+        request = request.model_copy(update={"selection": self.normalize(request.selection, role)})
         if role == "worker" and not scope:
             raise ApplicationError(
                 "worker_defaults", "Use worker settings to edit project defaults."
             )
         if role == "coordinator":
             scope = ""
-        with self.workspace.connection(write=True, project_id=project) as db:
-            if role == "worker" and scope:
-                scope = self.workspace._task(db, project, scope).id
-            current = self._read(db, project, role, scope)
-            self.workspace._current(current.revision, request.expected_revision)
-            if (
-                role == "coordinator"
-                and self.workspace.schema_version >= 49
-                and current.selection != request.selection
-                and not retains_session(current.selection, request.selection)
-            ):
-                active = db.execute(
-                    "SELECT id FROM coordinator_turns WHERE project_id=? "
-                    "AND status IN ('starting','running','stopping','uncertain')",
-                    (project,),
-                ).fetchone()
-                if active:
-                    raise ApplicationError(
-                        "coordinator_busy",
-                        "Stop the coordinator and confirm cleanup before "
-                        "changing harness or settings that need a fresh session.",
-                        409,
-                    )
-                CoordinatorSessions.fresh(db, project)
-            db.execute(
-                "INSERT INTO agent_settings VALUES (?,?,?,?,?) "
-                "ON CONFLICT(project_id,role,scope) DO UPDATE SET "
-                "revision=excluded.revision,selection=excluded.selection",
-                (
-                    project,
-                    role,
-                    scope,
-                    current.revision + 1,
-                    request.selection.model_dump_json() if request.selection else None,
-                ),
-            )
-            return self.resolve(db, project, role, scope)
+        if role == "worker" and scope:
+            scope = self.workspace._task(db, project, scope).id
+        current = self._read(db, project, role, scope)
+        self.workspace._current(current.revision, request.expected_revision)
+        if (
+            role == "coordinator"
+            and self.workspace.schema_version >= 49
+            and current.selection != request.selection
+            and not retains_session(current.selection, request.selection)
+        ):
+            active = db.execute(
+                "SELECT id FROM coordinator_turns WHERE project_id=? "
+                "AND status IN ('starting','running','stopping','uncertain')",
+                (project,),
+            ).fetchone()
+            if active:
+                raise ApplicationError(
+                    "coordinator_busy",
+                    "Stop the coordinator and confirm cleanup before "
+                    "changing harness or settings that need a fresh session.",
+                    409,
+                )
+            CoordinatorSessions.fresh(db, project)
+        db.execute(
+            "INSERT INTO agent_settings VALUES (?,?,?,?,?) "
+            "ON CONFLICT(project_id,role,scope) DO UPDATE SET "
+            "revision=excluded.revision,selection=excluded.selection",
+            (
+                project,
+                role,
+                scope,
+                current.revision + 1,
+                request.selection.model_dump_json() if request.selection else None,
+            ),
+        )
+        return self.resolve(db, project, role, scope)
+
+    @staticmethod
+    def normalize(choice: AgentChoice | None, role: AgentRole) -> AgentChoice | None:
+        if choice is None:
+            return None
+        choice = choice.model_copy(update={"fast": bool(choice.fast)})
+        if role == "coordinator" and choice.harness == "codex" and choice.mode is None:
+            # Old clients selected only model/effort. Preserve their existing access.
+            choice.mode = "read-only"
+        return choice

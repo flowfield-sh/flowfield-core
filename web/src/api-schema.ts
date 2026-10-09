@@ -3442,6 +3442,13 @@ export interface components {
       author: string;
       /** Task Prefix */
       task_prefix?: string | null;
+      coordinator?: components["schemas"]["AgentChoice-Input"] | null;
+      worker?: components["schemas"]["AgentChoice-Input"] | null;
+      /**
+       * Max Parallel
+       * @default 1
+       */
+      max_parallel: number;
     };
     /** ProjectSetupDefaults */
     ProjectSetupDefaults: {
@@ -7292,6 +7299,7 @@ export interface operations {
         refresh?: boolean;
         harness?: "codex" | "claude-code";
         project_id?: string | null;
+        project_path?: string | null;
       };
       header?: never;
       path?: never;

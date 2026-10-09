@@ -33,9 +33,10 @@ def execution_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
         refresh: bool = False,
         harness: HarnessKind = "codex",
         project_id: str | None = None,
+        project_path: str | None = None,
     ) -> list[ModelOption]:
         return await supervisor().model_options(
-            refresh=refresh, harness=harness, project_id=project_id
+            refresh=refresh, harness=harness, project_id=project_id, project_path=project_path
         )
 
     @router.get("/projects/{project_id}/workers")

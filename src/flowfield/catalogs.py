@@ -74,12 +74,19 @@ class Catalogs:
         registration: HarnessRegistration,
         *,
         project_id: str | None = None,
+        project_path: str | None = None,
         refresh: bool = False,
     ) -> list[ModelOption]:
         if self.closing:
             raise ApplicationError("service_stopping", "The service is stopping.", 409)
         self._current(registration)
         cwd = Path(self.workspace.project(project_id).path).resolve() if project_id else None
+        if project_path is not None:
+            if project_id is not None:
+                raise ApplicationError(
+                    "invalid_scope", "Choose a project ID or directory, not both."
+                )
+            cwd = self.workspace._setup_path(project_path)
         launch = status(self.workspace.directory, registration, os.environ).launch
         signature = repr((project_id, str(cwd), launch.model_dump_json()))
         kind = registration.harness

@@ -29,8 +29,9 @@ from flowfield.activity import (
     ActivityPage,
     EntryKind,
 )
+from flowfield.agent_models import AgentChoice, AgentSettingsEdit
 from flowfield.errors import ApplicationError
-from flowfield.execution_models import ACTIVE
+from flowfield.execution_models import ACTIVE, SettingsEdit
 from flowfield.execution_models import SCHEMA as EXECUTION_SCHEMA
 from flowfield.inspection_models import SCHEMA as INSPECTION_SCHEMA
 from flowfield.integration_models import SCHEMA as INTEGRATION_SCHEMA
@@ -91,6 +92,9 @@ class ProjectSetup(Input):
     name: Title | None = None
     author: Title = "human"
     task_prefix: ProjectPrefix | None = None
+    coordinator: AgentChoice | None = None
+    worker: AgentChoice | None = None
+    max_parallel: int = Field(default=1, ge=1, le=16)
 
 
 class ProjectSetupDefaults(Input):
@@ -540,6 +544,9 @@ class Workspace:
             return setup_defaults(path, config, Project(**dict(row)) if row else None)
 
     def setup_project(self, request: ProjectSetup) -> Project:
+        from flowfield.agent_settings import AgentSettings
+        from flowfield.execution import Execution
+
         path = self._setup_path(request.path)
         try:
             with self.connection(write=True) as db:
@@ -591,6 +598,24 @@ class Workspace:
                         409,
                     )
                 if existing:
+                    coordinator = AgentSettings(self)._read(db, existing.id, "coordinator")
+                    workers = Execution(self)._settings(db, existing.id)
+                    if (
+                        request.coordinator
+                        and AgentSettings.normalize(request.coordinator, "coordinator")
+                        != coordinator.selection
+                    ) or (
+                        request.worker
+                        and (
+                            AgentSettings.normalize(request.worker, "worker") != workers.selection
+                            or request.max_parallel != workers.max_parallel
+                        )
+                    ):
+                        raise ApplicationError(
+                            "project_exists",
+                            "This project is already added. Change its agents in Project settings.",
+                            409,
+                        )
                     if (
                         request.task_prefix is not None
                         and request.task_prefix != existing.task_prefix
@@ -609,9 +634,9 @@ class Workspace:
                     prefix = self._task_prefix(db, chosen.project_id)
                 # Validate identity before creating files. A valid config left by an
                 # interrupted registration can be registered by repeating init.
-                if config is None:
-                    write_config(path, chosen)
                 if existing:
+                    if config is None:
+                        write_config(path, chosen)
                     return existing
                 project = Project(
                     id=chosen.project_id,
@@ -623,6 +648,26 @@ class Workspace:
                     updated_by=request.author,
                 )
                 self._insert_project(db, project)
+                # Reuse the settings owners inside registration's transaction.
+                if request.coordinator:
+                    AgentSettings(self)._edit(
+                        db,
+                        project.id,
+                        "coordinator",
+                        AgentSettingsEdit(expected_revision=1, selection=request.coordinator),
+                    )
+                if request.worker:
+                    Execution(self)._configure(
+                        db,
+                        project.id,
+                        SettingsEdit(
+                            expected_revision=1,
+                            selection=request.worker,
+                            max_parallel=request.max_parallel,
+                        ),
+                    )
+                if config is None:
+                    write_config(path, chosen)
                 return project
         except OSError as error:
             raise ApplicationError(

@@ -136,6 +136,7 @@
     flex-direction: column;
     max-height: 100%;
     min-height: 0;
+    min-width: 0;
   }
   .board .column > h2,
   .board .column > .queue-controls {
@@ -143,6 +144,7 @@
   }
   .column-cards {
     min-height: 0;
+    min-width: 0;
     overflow: auto;
     overscroll-behavior-y: contain;
   }
@@ -958,6 +960,8 @@
     background: var(--background);
     color: var(--foreground);
     text-decoration: none;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   .attention-card:hover,
   .attention-card.selected {
@@ -974,6 +978,7 @@
     gap: 8px;
     font-size: 10px;
     color: var(--muted-foreground);
+    flex-wrap: wrap;
   }
   .attention-card-detail {
     color: var(--muted-foreground);
@@ -1044,15 +1049,23 @@
     flex: 0 0 auto;
   }
   .attention-board {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(3, minmax(280px, 1fr));
   }
   .attention-column ul {
     list-style: none;
     padding: 0;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 10px;
+    margin: 0;
+  }
+  .attention-column .column-cards {
+    overflow-x: hidden;
+    overflow-wrap: anywhere;
+  }
+  .attention-column li,
+  .attention-column li > [data-slot="card"] {
+    min-width: 0;
   }
   .attention-column h2 {
     display: flex;
@@ -1062,14 +1075,6 @@
   .column-count {
     font-size: 12px;
     color: var(--muted-foreground);
-  }
-  @media (max-width: 700px) {
-    .attention-board {
-      grid-template-columns: 1fr;
-    }
-    .attention-column {
-      min-height: 0;
-    }
   }
 }
 

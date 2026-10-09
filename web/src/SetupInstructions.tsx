@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
 import { ProjectGuidance } from "./ProjectGuidance";
+import { ProjectAgentChoice } from "./ProjectAgentChoice";
 import { FolderOpen } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,13 @@ export function SetupInstructions({
   const [id, setId] = useState("");
   const [name, setName] = useState("");
   const [prefix, setPrefix] = useState("");
+  const [coordinator, setCoordinator] = useState<
+    components["schemas"]["AgentChoice-Output"] | null
+  >(null);
+  const [worker, setWorker] = useState<
+    components["schemas"]["AgentChoice-Output"] | null
+  >(null);
+  const [capacity, setCapacity] = useState(1);
   const [busy, setBusy] = useState<"choosing" | "adding" | null>(null);
   const [error, setError] = useState("");
   const errorFeedback = error && (
@@ -71,7 +79,12 @@ export function SetupInstructions({
                     id: id.trim(),
                     name: name.trim(),
                     task_prefix: prefix.trim(),
+                    coordinator,
+                    worker,
+                    max_parallel: capacity,
                   },
+                  undefined,
+                  180000,
                 );
                 setRegistered(project);
                 if (installGuidance) {
@@ -136,6 +149,11 @@ export function SetupInstructions({
                           setId(defaults.id);
                           setName(defaults.name);
                           setPrefix(defaults.task_prefix);
+                          if (selection.path !== path) {
+                            setCoordinator(null);
+                            setWorker(null);
+                            setCapacity(1);
+                          }
                         }
                       } catch (failure) {
                         setError((failure as Error).message);
@@ -202,6 +220,34 @@ export function SetupInstructions({
                       </p>
                     </ContentStack>
                   </ContentStack>
+                </DetailSection>
+              )}
+              {path && (
+                <DetailSection title="Agents">
+                  <p className="detail-metadata">
+                    Optional. Change these later in Project settings.
+                  </p>
+                  <ProjectAgentChoice
+                    key={`${path}:coordinator`}
+                    path={path}
+                    role="Coordinator"
+                    value={coordinator}
+                    capacity={1}
+                    change={setCoordinator}
+                    disabled={!!busy}
+                  />
+                  <ProjectAgentChoice
+                    key={`${path}:worker`}
+                    path={path}
+                    role="Workers"
+                    value={worker}
+                    capacity={capacity}
+                    change={(choice, cap) => {
+                      setWorker(choice);
+                      setCapacity(cap);
+                    }}
+                    disabled={!!busy}
+                  />
                 </DetailSection>
               )}
               {path && (

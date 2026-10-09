@@ -715,7 +715,7 @@ function ProjectBoard({
         </div>
         <TabsContent
           value={view}
-          className={`workspace-work-content ${!showInbox && !milestonesView && !archive ? "workspace-task-board" : ""}`}
+          className={`workspace-work-content ${!milestonesView && !archive ? "workspace-task-board" : ""}`}
           hidden={!!taskRef}
         >
           <div className="board-toolbar">
