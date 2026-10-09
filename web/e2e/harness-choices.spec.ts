@@ -149,7 +149,7 @@ for (const onlyClaude of [false, true]) {
 test("Claude-only coordinator saves native choices independently of worker defaults without loading while mounted", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const project = "claude-only-chat";
   const initialized = await request.post("/api/projects/initialize", {
     data: { path: existingDirectory(join(state, project)), task_prefix: "KCC" },
@@ -289,7 +289,7 @@ test("Claude-only coordinator saves native choices independently of worker defau
     })
     .click();
   await page.screenshot({
-    path: "/private/tmp/flowfield-h1-claude-choice-desktop.png",
+    path: testInfo.outputPath("claude-choice-desktop.png"),
     animations: "disabled",
   });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -310,7 +310,7 @@ test("Claude-only coordinator saves native choices independently of worker defau
     ),
   ).toBe(true);
   await page.screenshot({
-    path: "/private/tmp/flowfield-h1-claude-choice-mobile.png",
+    path: testInfo.outputPath("claude-choice-mobile.png"),
     animations: "disabled",
   });
 });

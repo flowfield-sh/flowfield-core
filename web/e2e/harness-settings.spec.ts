@@ -1,5 +1,5 @@
 import { test } from "./support";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Page, type TestInfo } from "@playwright/test";
 
 function host(kind: "codex" | "claude-code") {
   return {
@@ -41,13 +41,13 @@ function host(kind: "codex" | "claude-code") {
   };
 }
 
-async function screenshot(page: Page, name: string) {
+async function screenshot(page: Page, testInfo: TestInfo, name: string) {
   if (process.env.FLOWFIELD_VISUAL_EVIDENCE) {
     await page.locator(".harness-settings-page").evaluate((element) => {
       element.scrollTop = 0;
     });
     await page.screenshot({
-      path: `/private/tmp/flowfield-h1-settings-${name}.png`,
+      path: testInfo.outputPath(`harness-settings-${name}.png`),
       fullPage: true,
     });
   }
@@ -55,7 +55,7 @@ async function screenshot(page: Page, name: string) {
 
 test("central harness settings preserve host drafts and configure kinds independently without native discovery", async ({
   page,
-}) => {
+}, testInfo) => {
   const codex = host("codex"),
     claude = host("claude-code");
   codex.registration.executable = "/service/custom/codex";
@@ -125,7 +125,7 @@ test("central harness settings preserve host drafts and configure kinds independ
     second.getByRole("button", { name: "Save paths" }),
   ).toBeDisabled();
   expect(codex.registration.revision).toBe(1);
-  await screenshot(page, "desktop");
+  await screenshot(page, testInfo, "desktop");
   await second
     .getByLabel("Executable override", { exact: true })
     .fill("/unsaved");
@@ -254,7 +254,7 @@ test("explicit host installation, readiness and exact interrupted-discovery conf
 
 test("mobile settings close project navigation and keep long host paths inside the page", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.route("**/api/harnesses/*", (route) => {
     const value = host(
@@ -285,5 +285,5 @@ test("mobile settings close project navigation and keep long host paths inside t
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
-  await screenshot(page, "mobile");
+  await screenshot(page, testInfo, "mobile");
 });
