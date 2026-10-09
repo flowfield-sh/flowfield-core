@@ -9,6 +9,7 @@ import { choiceLabel } from "./HarnessModels";
 import { ActionTooltip } from "./ActionTooltip";
 import { Composer } from "./Composer";
 import { ContextRing } from "./ContextRing";
+import { CoordinatorFullReply } from "./CoordinatorFullReply";
 import { AgentPermissions } from "./AgentPermissions";
 import { ActivityEntries } from "./RunActivity";
 import { useFeedScroll } from "./useFeedScroll";
@@ -361,7 +362,7 @@ export function CoordinatorChat({
                     <div key={entry.key} data-kind="agent">
                       <Markdown>{entry.text}</Markdown>
                       {entry.omitted && (
-                        <p className="muted">Some output was omitted.</p>
+                        <p className="muted">Reply preview shortened.</p>
                       )}
                     </div>
                   ) : (
@@ -369,8 +370,22 @@ export function CoordinatorChat({
                   ),
                 )}
                 {turn.activity.omitted && (
-                  <p className="muted">Earlier output was omitted.</p>
+                  <p className="muted">Earlier activity is hidden.</p>
                 )}
+                {(turn.activity.omitted ||
+                  turn.activity.items.some(
+                    (entry) => entry.kind === "agent" && entry.omitted,
+                  )) &&
+                  !["starting", "running", "stopping", "uncertain"].includes(
+                    turn.status,
+                  ) && (
+                    <CoordinatorFullReply
+                      key={turn.activity.revision}
+                      project={projectId}
+                      turn={turn.id}
+                      revision={turn.activity.revision}
+                    />
+                  )}
                 {turn.notice && <p role="status">{turn.notice}</p>}
                 <div className="detail-metadata" role="status">
                   Coordinator · {turn.status}

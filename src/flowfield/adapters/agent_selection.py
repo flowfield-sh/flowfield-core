@@ -32,7 +32,6 @@ def create(
             cwd,
             environment,
             registration=registration or HarnessRegistration(harness="claude-code", revision=1),
-            directory=directory,
             choice=choice,
         )
     return CodexAgent(directory, cwd, environment, registration=registration)

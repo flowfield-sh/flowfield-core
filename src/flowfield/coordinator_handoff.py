@@ -1,16 +1,13 @@
-"""Immutable bounded public source selection, made inside message reservation."""
+"""Frozen history boundaries; native context headroom decides inline selection."""
 
 import json
 import sqlite3
 from typing import Any
 
-from flowfield.activity_text import retain
+from flowfield.activity_text import OMISSION, retain
 from flowfield.attachments import REFERENCE
 from flowfield.coordinator_models import CoordinatorTurn
-from flowfield.reads import coordinator_exchanges, size
-
-HANDOFF_BYTES = 48_000
-HANDOFF_EXCHANGES = 8
+from flowfield.reads import iter_coordinator_exchanges, size
 
 
 def attachment_identities(project: str, text: str) -> list[dict[str, str]]:
@@ -22,31 +19,53 @@ def attachment_identities(project: str, text: str) -> list[dict[str, str]]:
 
 
 def freeze(db: sqlite3.Connection, turn: CoordinatorTurn) -> dict[str, Any]:
-    # Read the same transaction that accepts this message. No later launch, restart or
-    # retry may rebuild these sources from a changed chat or task selection.
-    sources = coordinator_exchanges(db, turn.project_id, turn.number, HANDOFF_EXCHANGES + 1)
-    result: dict[str, Any] = {
-        "version": 1,
+    # Previous turns are closed before reserve accepts another message. Their public
+    # text cannot change: the store rejects late writes. Freeze a boundary into those
+    # canonical sources instead of copying a growing transcript on every native resume.
+    count, latest = db.execute(
+        "SELECT count(*),max(number) FROM coordinator_turns WHERE project_id=? AND number<?",
+        (turn.project_id, turn.number),
+    ).fetchone()
+    return {
+        "version": 2,
         "source_before": turn.number,
-        "source_latest": sources[0]["number"] if sources else None,
-        "history_is_partial": len(sources) > HANDOFF_EXCHANGES,
+        "source_latest": latest,
+        "source_count": count,
+        "history_is_partial": bool(count),
         "recent_conversation": [],
         "current_attachments": attachment_identities(turn.project_id, turn.text),
         "earlier_attachment_contents": "not_transferred; reattach relevant files",
         "older_history": {"tool": "get_coordinator_history", "before": turn.number},
     }
-    for source in sources[:HANDOFF_EXCHANGES]:
-        entry: dict[str, Any] = {
-            "id": source["id"],
-            "number": source["number"],
-            "revision": source["revision"],
-            "human": source["human"],
-            "coordinator": source["coordinator"],
-            "status": source["status"],
-            "selected_task": json.dumps(source["task_context"]) if source["task_context"] else "",
-            "output_omitted": source["output_omitted"],
-            "attachments": attachment_identities(turn.project_id, source["human"]),
-            "text_sources": {
+
+
+def select(
+    db: sqlite3.Connection, project: str, snapshot: dict[str, Any], budget: int | None
+) -> dict[str, Any]:
+    if snapshot["version"] == 1:
+        return snapshot  # Preserve already accepted historical snapshots verbatim.
+    result = {**snapshot, "recent_conversation": [], "history_mode": "retrieve"}
+    if budget is None or budget <= size(result):
+        return result
+    result["history_mode"] = "inline"
+    result["history_is_partial"] = False
+    for source in iter_coordinator_exchanges(db, project, snapshot["source_before"]):
+        entry = {
+            key: source[key]
+            for key in (
+                "id",
+                "number",
+                "revision",
+                "human",
+                "coordinator",
+                "status",
+                "output_omitted",
+            )
+        }
+        entry.update(
+            selected_task=json.dumps(source["task_context"]) if source["task_context"] else "",
+            attachments=attachment_identities(project, source["human"]),
+            text_sources={
                 field: {
                     "tool": "get_text",
                     "resource": "coordinator",
@@ -56,23 +75,34 @@ def freeze(db: sqlite3.Connection, turn: CoordinatorTurn) -> dict[str, Any]:
                 }
                 for field in ("human", "coordinator")
             },
-        }
+        )
         existing = result["recent_conversation"]
         candidate = {**result, "recent_conversation": [entry, *existing]}
-        if size(candidate) > HANDOFF_BYTES:
+        if size(candidate) > budget:
             result["history_is_partial"] = True
             if existing:
                 break
-            original = dict(entry)
-            limit = max(len(entry["human"]), len(entry["coordinator"]))
-            while size(candidate) > HANDOFF_BYTES:
-                limit //= 2
+            original = entry.copy()
+            low, high = 0, max(len(entry["human"]), len(entry["coordinator"]))
+            fitting = None
+            while low <= high:
+                limit = (low + high) // 2
                 for field in ("human", "coordinator"):
-                    entry[field] = retain(original[field], limit)
+                    entry[field] = retain(original[field], limit) if limit > len(OMISSION) else ""
                 entry["abridged_fields"] = [
                     field for field in ("human", "coordinator") if entry[field] != original[field]
                 ]
-                candidate = {**result, "recent_conversation": [entry]}
-        result["recent_conversation"].insert(0, entry)
+                if size({**result, "recent_conversation": [entry]}) <= budget:
+                    fitting = entry.copy()
+                    low = limit + 1
+                else:
+                    high = limit - 1
+            if fitting:
+                existing.append(fitting)
+            break
+        existing.insert(0, entry)
         result["history_is_partial"] |= bool(source["output_omitted"] or entry["attachments"])
+    result["history_is_partial"] |= len(result["recent_conversation"]) < snapshot["source_count"]
+    if not result["recent_conversation"]:
+        result["history_mode"] = "retrieve"
     return result

@@ -199,7 +199,7 @@ def test_missing_native_session_requires_explicit_bound_reset(tmp_path, monkeypa
         fresh = service.coordinator.send("harbor", conversation.id, message())
         done = await settled(service, fresh)
         assert done.status == "completed" and done.session == "new"
-        assert "Included the latest 3 saved exchanges" in done.activity.items[0].text
+        assert "Saved history is available through Flowfield tools" in done.activity.items[0].text
         await service.close()
 
     asyncio.run(exercise())
@@ -519,14 +519,14 @@ def test_long_unicode_reply_keeps_latest_exchange_in_bounded_context(tmp_path, m
         previous.status = "completed"
         store._save(db, previous)
     current, _ = store.reserve("harbor", conversation.id, message("Yes, proceed."))
-    prompt = json.loads(service.coordinator._prompt(current, "scoped-tools"))
+    prompt = json.loads(service.coordinator._prompt(current, "scoped-tools", budget=60_000))
     assert len(prompt["recent_conversation"]) == 1
     retained = prompt["recent_conversation"][0]
     assert retained["human"].startswith("Keep this requirement:")
     assert retained["coordinator"].startswith("Start of reply.")
     assert retained["coordinator"].endswith("Final decision: preserve the API.")
     assert "omitted" in retained["coordinator"]
-    assert size(prompt["recent_conversation"]) <= 48000
+    assert size(prompt) <= 60_000
     assert prompt["history_is_partial"] is True
     assert prompt["human_message"] == "Yes, proceed."
     assert store.get("harbor", previous.id).activity == previous.activity
@@ -585,7 +585,7 @@ def test_task_focus_is_scoped_revision_bound_and_idempotent(tmp_path, monkeypatc
         )
     plain, _ = store.reserve("harbor", conversation.id, message("Discuss the project"))
     assert plain.task_context is None
-    prompt = json.loads(service.coordinator._prompt(plain, "scoped-tools"))
+    prompt = json.loads(service.coordinator._prompt(plain, "scoped-tools", budget=60_000))
     assert prompt["selected_task"] is None
     assert json.loads(prompt["recent_conversation"][0]["selected_task"])["task_id"] == task.id
 

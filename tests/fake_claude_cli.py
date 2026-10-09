@@ -154,7 +154,12 @@ def main() -> None:
                     snapshot()
             elif subtype == "get_context_usage":
                 time.sleep(float(os.environ.get("FLOWFIELD_TEST_CONTEXT_DELAY", "0")))
-                response = {"model": "claude-sonnet-5-5", "rawMaxTokens": 1000000}
+                response = {
+                    "model": "claude-sonnet-5-5",
+                    "rawMaxTokens": 1000000,
+                    "maxTokens": 900000,
+                    "totalTokens": 10000,
+                }
             elif subtype == "set_permission_mode" and scenario == "mode-refused":
                 emit(
                     {

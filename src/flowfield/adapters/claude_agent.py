@@ -20,7 +20,7 @@ from flowfield.adapters.agent_contract import (
 )
 from flowfield.adapters.claude_runtime import ADAPTER_VERSION, executable
 from flowfield.adapters.harness_host import launch_environment, resolve
-from flowfield.adapters.json_rpc import JsonRpc, NativeError
+from flowfield.adapters.json_rpc import MAX_INPUT, JsonRpc, NativeError
 from flowfield.agent_models import AgentChoice
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import ModelOption, NativeMode
@@ -62,6 +62,9 @@ class CleanupReceipt(BaseModel):
 
 
 class ClaudeAgent(Agent):
+    # JSON escaping can expand text sixfold; leave framing to the native adapter.
+    max_prompt_bytes = MAX_INPUT // 6
+
     def __init__(
         self,
         cwd: Path,
@@ -69,7 +72,6 @@ class ClaudeAgent(Agent):
         *,
         registration: HarnessRegistration,
         choice: AgentChoice | None = None,
-        directory: Path | None = None,
     ):
         if registration.harness != "claude-code":
             raise ValueError("Claude requires a Claude registration")
@@ -131,6 +133,10 @@ class ClaudeAgent(Agent):
                 ):
                     raise NativeError("Native session identity unconfirmed")
                 self.session_id = identity
+                headroom = self.info.get("inputTokensAvailable")
+                self.input_tokens_available = (
+                    headroom if type(headroom) is int and headroom >= 0 else None
+                )
                 if self.choice:
                     self._verify_model(self.choice)
             except (NativeError, OSError, TimeoutError) as error:
@@ -358,7 +364,6 @@ async def model_options(
             cwd or Path(temporary).resolve(),
             os.environ,
             registration=registration or HarnessRegistration(harness="claude-code"),
-            directory=directory,
         )
         try:
             if on_cleanup:

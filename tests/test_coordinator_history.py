@@ -90,7 +90,7 @@ def test_older_exchanges_and_exact_text_survive_paging_and_restart(tmp_path):
     assert recovered == text
     # Full text means all retained public prose, with loss explicitly recorded.
     reply = reads.text("harbor", "coordinator", first.id, "coordinator")
-    assert reply["output_omitted"]
+    assert not reply["output_omitted"]
     assert "PRIVATE" not in json.dumps(reply)
     CoordinatorStore(execution.workspace).restart()
     assert (
@@ -124,7 +124,7 @@ def test_delivery_gap_marks_history_full_text_and_frozen_handoff_partial(tmp_pat
         turn.conversation_id,
         CoordinatorSend(id=uuid4().hex, text="Continue with saved evidence"),
     )
-    handoff = store.handoff("harbor", fresh.id)
+    handoff = store.handoff("harbor", fresh.id, budget=200_000)
     assert handoff["history_is_partial"] and handoff["recent_conversation"][0]["output_omitted"]
 
 

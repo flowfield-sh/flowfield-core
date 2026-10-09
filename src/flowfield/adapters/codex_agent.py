@@ -16,7 +16,7 @@ from flowfield.adapters.agent_contract import (
     bounded_details,
 )
 from flowfield.adapters.harness_host import launch_environment, resolve
-from flowfield.adapters.json_rpc import JsonRpc, NativeError
+from flowfield.adapters.json_rpc import MAX_INPUT, JsonRpc, NativeError
 from flowfield.agent_models import AgentChoice, AgentCommand
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import ModelOption, NativeMode
@@ -47,6 +47,9 @@ COMMANDS = [
 
 
 class CodexAgent(Agent):
+    # JSON escaping can expand text sixfold; leave framing to the native adapter.
+    max_prompt_bytes = MAX_INPUT // 6
+
     def __init__(
         self,
         directory: Path,
@@ -411,6 +414,7 @@ class CodexAgent(Agent):
             usage = data.get("tokenUsage", {})
             used, size = usage.get("last", {}).get("totalTokens"), usage.get("modelContextWindow")
             if type(used) is int and type(size) is int and size > 0 and used >= 0:
+                self.input_tokens_available = max(0, size - used)
                 self.activity(
                     ActivityUpdate(
                         key="context",

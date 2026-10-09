@@ -143,6 +143,36 @@ def native_adapter_provenance(db: sqlite3.Connection) -> None:
                 )
 
 
+def coordinator_prose(db: sqlite3.Connection) -> None:
+    db.execute(
+        "CREATE TABLE coordinator_prose (turn_id TEXT PRIMARY KEY "
+        "REFERENCES coordinator_turns(id), data TEXT NOT NULL)"
+    )
+    for identity, raw in db.execute(
+        "SELECT id,json_extract(data,'$.activity') FROM coordinator_turns"
+    ):
+        activity = json.loads(raw)
+        value = {
+            "items": [
+                {"key": entry["key"], "text": entry["text"]}
+                for entry in activity["items"]
+                if entry["kind"] == "agent"
+            ],
+            "omitted": bool(
+                activity.get("omitted")
+                or any(
+                    entry.get("omitted")
+                    for entry in activity["items"]
+                    if entry["kind"] == "agent" or entry["key"] == "stream-gap"
+                )
+            ),
+        }
+        db.execute(
+            "INSERT INTO coordinator_prose VALUES (?,?)",
+            (identity, json.dumps(value, ensure_ascii=False)),
+        )
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(45, host_harnesses),
     Migration(46, harness_catalogs),
@@ -150,6 +180,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(48, coordinator_handoffs),
     Migration(49, coordinator_generations),
     Migration(50, native_adapter_provenance),
+    Migration(51, coordinator_prose),
 )
 
 

@@ -45,6 +45,8 @@ PermissionHandler = Callable[[PermissionRequest], Coroutine[Any, Any, str | None
 
 class Agent(ABC):
     supports_activity = True
+    input_tokens_available: int | None = None
+    max_prompt_bytes: int | None = None
     launch: HarnessLaunch | None = None
     session_id: str | None = None
     cleanup_confirmed = True

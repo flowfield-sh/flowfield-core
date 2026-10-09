@@ -32,9 +32,6 @@ export function PermissionControl({
       )}
       {record.status === "pending" ? (
         <>
-          <p>
-            The agent needs permission to continue. Code approval is separate.
-          </p>
           <div className="actions">
             {record.options.map((option) => (
               <Button

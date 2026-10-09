@@ -112,7 +112,9 @@ async function info() {
   const context = await q.getContextUsage({detail: "summary"});
   const init = await q.initializationResult();
   if (!Array.isArray(init.models) || init.models.length > 64) throw new Error("catalog bound");
-  return {sessionId, model: context.model, models: init.models.map(m => ({
+  return {sessionId, model: context.model,
+    inputTokensAvailable: Number.isSafeInteger(context.maxTokens) && Number.isSafeInteger(context.totalTokens) && context.maxTokens > 0 && context.totalTokens >= 0 ? Math.max(0, context.maxTokens - context.totalTokens) : null,
+    models: init.models.map(m => ({
     id: m.value, name: m.displayName, resolvedModel: m.resolvedModel ?? null,
     efforts: m.supportsEffort ? (m.supportedEffortLevels ?? []) : [],
     autoMode: m.supportsAutoMode === true,

@@ -56,9 +56,12 @@ harness, Claude model, effort or access controls starts a fresh session with a b
 Flowfield handoff. Harness switches require idle state or confirmed Stop. Switching back
 also starts fresh; old native bindings and public conversation evidence remain retained.
 
-The handoff includes up to eight recent public exchanges within a 48 KB byte budget.
-This limits what is sent to the new session, not how much conversation Flowfield saves. Older messages remain available
-through scoped history/full-text tools. It does not convert native session files, private
+The handoff uses context headroom reported by the Claude SDK, reserving room for the
+current message and attachments. Flowfield conservatively budgets UTF-8 bytes against
+available tokens instead of assuming a model's context size or tokenizer. There is no
+fixed exchange count. Earlier or excerpted messages remain available through scoped
+history/full-text tools. If headroom is unavailable, the coordinator retrieves history
+through those tools. The handoff does not convert native session files, private
 reasoning, tool history or permissions. Reattach older files when their contents matter;
 current-turn UTF-8 text and PNG/JPEG/WebP images accompany the message.
 

@@ -142,11 +142,19 @@ class ActivityRecorder:
     """Coalesce deltas before SQLite; bound queued output even when storage is slow."""
 
     def __init__(
-        self, workspace: "Workspace", project: str, run: str, *, store: ActivityStore | None = None
+        self,
+        workspace: "Workspace",
+        project: str,
+        run: str,
+        *,
+        store: ActivityStore | None = None,
+        preserve_prose: bool = False,
     ):
         self.store, self.project, self.run = store or RunActivity(workspace), project, run
+        self.preserve_prose = preserve_prose
         self.pending: list[ActivityUpdate] = []
         self.lost = False
+        self.lost_prose = False
         self.closed = False
         self.flush_lock = asyncio.Lock()
         self.job = asyncio.create_task(self._pump())
@@ -166,12 +174,13 @@ class ActivityRecorder:
             None,
         )
         text = (previous.text if previous and update.append else "") + update.text
+        preserve = self.preserve_prose and update.kind == "agent"
         combined = update.model_copy(
             update={
-                "text": retain(text, MAX_TEXT),
+                "text": text if preserve else retain(text, MAX_TEXT),
                 "append": previous.append if previous and update.append else update.append,
                 "omitted": update.omitted
-                or len(text) > MAX_TEXT
+                or (not preserve and len(text) > MAX_TEXT)
                 or bool(previous and previous.omitted),
             }
         )
@@ -179,11 +188,17 @@ class ActivityRecorder:
             self.pending[self.pending.index(previous)] = combined
         else:
             self.pending.append(combined)
+        # Coordinator prose goes to durable storage before activity is abridged.
+        # Native transports bound total turn output; presentation limits apply only
+        # to discardable activity here, never to the conversation itself.
+        discardable = [
+            item for item in self.pending if not (self.preserve_prose and item.kind == "agent")
+        ]
         while (
-            len(self.pending) > MAX_ENTRIES
-            or sum(len(item.text) for item in self.pending) > MAX_TOTAL
+            len(discardable) > MAX_ENTRIES
+            or sum(len(item.text) for item in discardable) > MAX_TOTAL
         ):
-            self.pending.pop(0)
+            self.pending.remove(discardable.pop(0))
             self.lost = True
 
     async def flush(self) -> None:
@@ -197,13 +212,16 @@ class ActivityRecorder:
             updates.insert(
                 0,
                 ActivityUpdate(
-                    key="stream-gap",
+                    key="stream-gap"
+                    if not self.preserve_prose or self.lost_prose
+                    else "activity-gap",
                     kind="status",
                     text="Some activity was omitted during interrupted or rapid output delivery.",
                     omitted=True,
                 ),
             )
             self.lost = False
+            self.lost_prose = False
         if updates:
             try:
                 await asyncio.to_thread(self.store.write, self.project, self.run, updates)
@@ -211,6 +229,9 @@ class ActivityRecorder:
                 # Activity must not stop execution or grow an unbounded retry queue.
                 # A later successful flush records the gap explicitly.
                 self.lost = True
+                self.lost_prose |= any(
+                    item.kind == "agent" or item.key == "stream-gap" for item in updates
+                )
 
     async def _pump(self) -> None:
         while not self.closed:

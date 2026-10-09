@@ -84,7 +84,10 @@ def test_switch_and_switch_back_keep_sources_and_native_bindings(tmp_path):
     store, second, b = start_coordinator(workspace, choice=CLAUDE, session="claude-new")
     assert second.conversation_id == first.conversation_id
     assert second.session == "new" and b.source_id == a.id
-    assert store.handoff("harbor", second.id)["recent_conversation"][-1]["id"] == first.id
+    assert (
+        store.handoff("harbor", second.id, budget=200_000)["recent_conversation"][-1]["id"]
+        == first.id
+    )
     finish_coordinator(store, second)
     store, third, c = start_coordinator(workspace, session="codex-fresh")
     assert third.session == "new" and c.source_id == b.id and c.id != a.id

@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
@@ -9,6 +10,7 @@ from urllib.parse import quote, urlencode
 
 from flowfield.activity import EntryKind
 from flowfield.application import STATUSES, TaskRevision, Workspace, now
+from flowfield.coordinator_prose import read as read_prose
 from flowfield.errors import ApplicationError
 from flowfield.input_delivery import question_delivery
 from flowfield.publication import (
@@ -119,47 +121,31 @@ def page(
     }
 
 
-def coordinator_output_omitted(activity: dict[str, Any]) -> bool:
-    # A recorded delivery gap may have lost prose even when surviving entries fit.
-    return bool(
-        activity.get("omitted", False)
-        or any(
-            entry.get("omitted", False)
-            for entry in activity["items"]
-            if entry["kind"] == "agent" or entry["key"] == "stream-gap"
-        )
-    )
-
-
-def coordinator_exchanges(
-    db: sqlite3.Connection, project: str, before: int, limit: int
-) -> list[dict[str, Any]]:
-    """Retained public sources; callers bound excerpts/prompt bytes separately."""
+def iter_coordinator_exchanges(
+    db: sqlite3.Connection, project: str, before: int, limit: int = -1
+) -> Iterator[dict[str, Any]]:
+    """Read one durable public source at a time; callers bound excerpts separately."""
     rows = db.execute(
         "SELECT id,number,status,json_extract(data,'$.created_at') created_at, "
         "json_extract(data,'$.text') human,json_extract(data,'$.activity') activity, "
         "json_extract(data,'$.task_context') task_context FROM coordinator_turns "
         "WHERE project_id=? AND number<? ORDER BY number DESC LIMIT ?",
         (project, before, limit),
-    ).fetchall()
-    items = []
+    )
     for row in rows:
         activity = json.loads(row["activity"])
-        prose = [entry for entry in activity["items"] if entry["kind"] == "agent"]
-        items.append(
-            {
-                "id": row["id"],
-                "number": row["number"],
-                "status": row["status"],
-                "created_at": row["created_at"],
-                "revision": activity.get("revision", 0),
-                "human": row["human"],
-                "coordinator": "\n\n".join(entry["text"] for entry in prose),
-                "output_omitted": coordinator_output_omitted(activity),
-                "task_context": json.loads(row["task_context"]) if row["task_context"] else None,
-            }
-        )
-    return items
+        prose = read_prose(db, row["id"])
+        yield {
+            "id": row["id"],
+            "number": row["number"],
+            "status": row["status"],
+            "created_at": row["created_at"],
+            "revision": activity.get("revision", 0),
+            "human": row["human"],
+            "coordinator": "\n\n".join(entry["text"] for entry in prose["items"]),
+            "output_omitted": prose["omitted"],
+            "task_context": json.loads(row["task_context"]) if row["task_context"] else None,
+        }
 
 
 def task_metadata(
@@ -256,7 +242,7 @@ class ContextReads:
             raise ApplicationError("invalid_request", "Cursor exceeds the saved history range.")
         with self.workspace.connection() as db:
             self.workspace._project(db, project_id)
-            rows = coordinator_exchanges(db, project_id, before or 2**63 - 1, limit + 1)
+            rows = iter_coordinator_exchanges(db, project_id, before or 2**63 - 1, limit + 1)
             items = []
             for row in rows:
                 revision = row["revision"]
@@ -890,7 +876,9 @@ class ContextReads:
         if resource == "coordinator":
             from flowfield.coordinator_store import CoordinatorStore
 
-            turn = CoordinatorStore(self.workspace).get(project_id, identity or "")
+            with self.workspace.connection() as db:
+                turn = CoordinatorStore._get(db, project_id, identity or "")
+                prose = read_prose(db, turn.id)
             if revision is not None and turn.activity.revision != revision:
                 raise ApplicationError(
                     "revision_conflict", "Coordinator output changed. Start reading again.", 409
@@ -899,10 +887,8 @@ class ContextReads:
                 "id": turn.id,
                 "revision": turn.activity.revision,
                 "human": turn.text,
-                "coordinator": "\n\n".join(
-                    entry.text for entry in turn.activity.items if entry.kind == "agent"
-                ),
-                "output_omitted": coordinator_output_omitted(turn.activity.model_dump()),
+                "coordinator": "\n\n".join(entry["text"] for entry in prose["items"]),
+                "output_omitted": prose["omitted"],
             }
         elif resource == "task":
             with self.workspace.connection() as db:

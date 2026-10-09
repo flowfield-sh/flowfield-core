@@ -134,8 +134,9 @@ be confirmed, stop the remaining coordinator process on the host before choosing
 
 Each project has one ongoing coordinator conversation. Messages, public output and turn settings
 are saved by the service. Older messages load on demand and stay visible as new replies arrive.
-Long output is bounded and omissions are marked. Tool activity shows names, status and
-available commands or paths.
+Long public replies are saved separately from the bounded activity preview; use **Read full
+reply** when the preview is shortened. Text already lost in older versions cannot be recovered
+and remains marked. Tool activity shows names, status and available commands or paths.
 
 With compatible unchanged settings, messages resume the same native session, including
 its tool history and native context management, across turns and service restarts. Each turn gets a fresh scoped
@@ -143,13 +144,17 @@ Flowfield connection. Stopping a turn ends its processes without deleting the sa
 
 If the harness cannot resume a session, Flowfield keeps the chat and reports the failure. Check
 it on the service host and send a new message to retry, or choose **Start new session**.
-That choice requires confirmation and sends up to eight recent public exchanges within
-a 48 KB byte budget. Large exchanges may be abridged or fewer included. This is a
-fresh-session context limit, not a saved-history limit; compatible native resumes keep
-their native history. The handoff does not restore native tool history or earlier attachment contents. No failed prompt is replayed automatically.
-The recent-exchange handoff is frozen when the new message is accepted, before native
-startup. It records source identities/revisions, omissions and attachment identities;
-startup or service restart cannot silently rebuild it from different conversation evidence.
+That choice requires confirmation. Fresh sessions receive recent public exchanges that fit
+the harness's reported context headroom, with space reserved for the current message and
+attachments. There is no fixed exchange count or 48 KB history limit. When headroom is
+unavailable, as with Codex before its first turn, the coordinator is instructed to retrieve
+saved history through Flowfield tools. Large exchanges may be excerpted; their full saved
+text remains retrievable. Compatible native resumes keep their native history.
+The handoff does not restore native tool history or earlier attachment contents.
+The source boundary is frozen when the new message is accepted, before native startup;
+the actual inline budget is recorded before dispatch. It refers to immutable saved turns
+instead of duplicating the transcript on every message. Service restart cannot substitute
+later conversation evidence.
 Earlier files must be reattached when their contents matter. Failed or interrupted prompts
 are never automatically resent, and historical prompts are not reconstructed during upgrades.
 Replacement sessions retain earlier native bindings as historical evidence. Flowfield does

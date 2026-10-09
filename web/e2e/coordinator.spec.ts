@@ -1166,3 +1166,111 @@ test("task focus preserves one coordinator, records context at send and restores
     animations: "disabled",
   });
 });
+
+test("abridged coordinator activity opens revision-bound saved reply pages", async ({
+  page,
+  request,
+}, testInfo) => {
+  const project = "chat-full-reply";
+  mkdirSync(join(state, project), { recursive: true });
+  expect(
+    (
+      await request.post("/api/projects/initialize", {
+        data: { path: join(state, project), task_prefix: "CFR" },
+      })
+    ).ok(),
+  ).toBe(true);
+  const conversation = await (
+    await request.post(`/api/projects/${project}/coordinator`)
+  ).json();
+  const now = new Date().toISOString();
+  const turn = {
+    id: "long-reply-turn",
+    number: 1,
+    project_id: project,
+    conversation_id: conversation.id,
+    text: "Explain the decision",
+    task_context: null,
+    created_at: now,
+    status: "completed",
+    native_started: true,
+    session: "new",
+    notice: "",
+    applied: null,
+    launch: null,
+    settings: {
+      choice: { harness: "codex", model: "test-model", effort: "low" },
+      source: "project",
+      default_revision: 1,
+    },
+    activity: {
+      revision: 7,
+      supported: true,
+      active: false,
+      changed: true,
+      omitted: false,
+      context: null,
+      items: [
+        {
+          key: "reply",
+          kind: "agent",
+          text: "Opening … middle omitted … conclusion",
+          omitted: true,
+          preview: "",
+          abridged: true,
+        },
+      ],
+    },
+  };
+  await page.route(`**/api/projects/${project}/coordinator{,?*}`, (route) =>
+    route.fulfill({
+      json: {
+        conversation,
+        items: [turn],
+        active: null,
+        next_before: null,
+        context: null,
+        session_recovery_turn_id: null,
+      },
+    }),
+  );
+  const offsets: string[] = [];
+  await page.route(`**/api/context/projects/${project}/text?*`, (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    expect(params.get("revision")).toBe("7");
+    expect(params.get("identity")).toBe(turn.id);
+    offsets.push(params.get("offset")!);
+    return route.fulfill({
+      json:
+        params.get("offset") === "0"
+          ? {
+              text: "Opening. Saved middle of the explanation. ",
+              next_offset: 41,
+              output_omitted: false,
+            }
+          : {
+              text: "Final decision: keep the public API.",
+              next_offset: null,
+              output_omitted: false,
+            },
+    });
+  });
+  await page.goto(`/projects/${project}`);
+  await expect(
+    page.getByText("Read full reply", { exact: true }),
+  ).toBeVisible();
+  expect(offsets).toEqual([]);
+  await page.getByText("Read full reply", { exact: true }).click();
+  await expect(page.getByText(/Saved middle of the explanation/)).toBeVisible();
+  await page.getByRole("button", { name: "Load more", exact: true }).click();
+  await expect(
+    page.getByText(/Final decision: keep the public API/),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Load more", exact: true }),
+  ).toHaveCount(0);
+  expect(offsets).toEqual(["0", "41"]);
+  await page.screenshot({
+    path: testInfo.outputPath("coordinator-full-reply.png"),
+  });
+});

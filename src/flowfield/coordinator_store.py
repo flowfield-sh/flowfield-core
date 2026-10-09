@@ -10,7 +10,7 @@ from flowfield.adapters.coordinator_sessions import CoordinatorSessions
 from flowfield.agent_settings import AgentSettings
 from flowfield.application import Workspace, now
 from flowfield.attachments import Attachments
-from flowfield.coordinator_handoff import freeze
+from flowfield.coordinator_handoff import freeze, select
 from flowfield.coordinator_models import (
     CoordinatorConversation,
     CoordinatorPage,
@@ -18,6 +18,7 @@ from flowfield.coordinator_models import (
     CoordinatorTaskContext,
     CoordinatorTurn,
 )
+from flowfield.coordinator_prose import write as write_prose
 from flowfield.errors import ApplicationError
 from flowfield.harness_models import HarnessLaunch
 from flowfield.results import Results
@@ -283,8 +284,10 @@ class CoordinatorStore:
             )
             return turn, True
 
-    def handoff(self, project: str, identity: str) -> dict[str, Any]:
-        with self.workspace.connection() as db:
+    def handoff(
+        self, project: str, identity: str, *, budget: int | None = None, record: bool = False
+    ) -> dict[str, Any]:
+        with self.workspace.connection(write=record, notify=False) as db:
             self._get(db, project, identity)
             row = db.execute(
                 "SELECT data FROM coordinator_handoffs WHERE turn_id=?", (identity,)
@@ -297,7 +300,16 @@ class CoordinatorStore:
                     409,
                 )
             value: dict[str, Any] = json.loads(row[0])
-            return value
+            if value["version"] == 2:
+                if "budget_bytes" in value:
+                    budget = value["budget_bytes"]
+                elif record:
+                    value["budget_bytes"] = budget
+                    db.execute(
+                        "UPDATE coordinator_handoffs SET data=? WHERE turn_id=?",
+                        (json.dumps(value, ensure_ascii=False), identity),
+                    )
+            return select(db, project, value, budget)
 
     def get(self, project: str, identity: str) -> CoordinatorTurn:
         with self.workspace.connection() as db:
@@ -322,6 +334,7 @@ class CoordinatorStore:
                 ).fetchone()
                 if row is None or row[0] != generation_id:
                     return
+            write_prose(db, identity, updates)
             update_activity(turn.activity, updates)
             self._save(db, turn)
 

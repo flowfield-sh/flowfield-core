@@ -258,6 +258,7 @@ def test_native_access_mode_is_explicit_and_confirmed_before_prompt(tmp_path, mo
         try:
             await agent.start([])
             await agent.configure(agent.choice)
+            assert agent.input_tokens_available == 890000
         finally:
             assert await agent.stop()
         records = [
