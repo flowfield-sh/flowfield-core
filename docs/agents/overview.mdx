@@ -22,6 +22,18 @@ Models load automatically when you open a selector. Saved project choices preloa
 and reconnect. Discovery sends no model prompt, though native startup hooks can run.
 Capabilities and access modes are described on each agent's page.
 
+## Flowfield tools
+
+Flowfield uses [MCP](https://modelcontextprotocol.io/docs/getting-started/intro) to give
+agents access to project work. Built-in Coordinator and workers receive scoped connections
+automatically, bound to their project or task attempt. Tools follow the same saved-answer,
+revision and exact-result approval rules as the browser and CLI. Tool permission decisions
+never approve delivery of worker code.
+
+The Coordinator can retrieve saved conversation history and full reply text through these
+tools; native tool history stays with the harness. See [Coordinator](/coordinator) for
+session continuation and recovery.
+
 ## Standalone conversations
 
 To keep the conversation in your own harness, connect it to the running Flowfield service.

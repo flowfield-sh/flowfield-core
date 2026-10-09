@@ -17,11 +17,10 @@
       {
         "group": "Reference",
         "pages": [
-          "coordinator",
           "installation",
+          "coordinator",
           "worker-setup",
           "cli",
-          "protocols",
           "storage"
         ]
       },
@@ -45,6 +44,10 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/protocols",
+      "destination": "/agents/overview"
+    },
     {
       "source": "/integrations/overview",
       "destination": "/agents/overview"
