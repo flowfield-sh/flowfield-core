@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useEffect, useState, useRef, type ReactNode } from "react";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { DetailHeader, DraftBadge, TaskTypeBadge } from "./Presentation";
@@ -40,7 +41,6 @@ export function TaskDetail({
   const [dirty, setDirty] = useState(false);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   useEffect(() => {
     setUnsaved(dirty || settingsDirty);
     return () => setUnsaved(false);
@@ -52,7 +52,6 @@ export function TaskDetail({
       : task.archive_blocker;
   async function archive() {
     setBusy(true);
-    setError("");
     try {
       const result = await request<Task>(
         path + "/view/tasks/" + task.id,
@@ -65,7 +64,7 @@ export function TaskDetail({
       );
       if (alive.current) saved(result);
     } catch (e) {
-      if (alive.current) setError((e as Error).message);
+      if (alive.current) toast.error((e as Error).message);
     } finally {
       if (alive.current) setBusy(false);
     }
@@ -167,7 +166,6 @@ export function TaskDetail({
         refresh={board}
         onDirty={setDirty}
         onSettingsDirty={setSettingsDirty}
-        taskActionContext={<>{error && <p role="alert">{error}</p>}</>}
         taskActions={
           <>
             {priorityControls}

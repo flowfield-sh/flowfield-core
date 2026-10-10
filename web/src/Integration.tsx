@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { lazy, Suspense, useEffect, useId, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -54,7 +55,6 @@ export function IntegrationSettings({
     checkTimeout: number;
   } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const inspection = useInspectionSettings(projectId, refresh);
   const target = draft?.target ?? resource.data?.target_branch ?? "";
   const checks = draft?.checks ?? resource.data?.checks.join("\n") ?? "";
@@ -87,10 +87,10 @@ export function IntegrationSettings({
       data-space="section"
     >
       <p>Worker setup, checks and local code delivery.</p>
-      {(error || resource.error || inspection.error) && (
+      {(resource.error || inspection.error) && (
         <Alert variant="destructive">
           <AlertDescription>
-            {error || resource.error || inspection.error}
+            {resource.error || inspection.error}
           </AlertDescription>
         </Alert>
       )}
@@ -99,7 +99,6 @@ export function IntegrationSettings({
           event.preventDefault();
           if (!resource.data) return;
           setBusy(true);
-          setError("");
           try {
             if (dirty) {
               const value = await request<Settings>(path, "PUT", {
@@ -118,8 +117,9 @@ export function IntegrationSettings({
               setDraft(null);
             }
             await inspection.save();
+            toast.success("Integration settings saved.");
           } catch (e) {
-            setError((e as Error).message);
+            toast.error((e as Error).message);
           } finally {
             setBusy(false);
           }
@@ -221,7 +221,6 @@ export function IntegrationSettings({
                       )
                     ) {
                       inspection.loadCurrent();
-                      setError("");
                     }
                   }}
                 >
@@ -304,7 +303,6 @@ function SetupValidation({
   const path = `projects/${projectId}/setup-validation`;
   const resource = useResource<Check>(path, `${revision}:${String(refresh)}`);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const value = resource.data;
   return (
     <DetailSection title="Validate setup">
@@ -323,15 +321,25 @@ function SetupValidation({
         }
         onClick={async () => {
           setBusy(true);
-          setError("");
           try {
             const checked = await request<Check>(path, "POST", {
               expected_revision: revision,
             });
             resource.invalidate();
             resource.setData(checked);
+            if (checked.status === "passed" && !checked.checkout_problem)
+              toast.success("Setup checks passed.");
+            else if (checked.status === "checking")
+              toast.info("Setup validation started.");
+            else if (checked.status === "failed")
+              toast.error(checked.problem || "Setup checks failed.");
+            else
+              toast.warning("Setup validation needs attention.", {
+                description:
+                  checked.problem || checked.checkout_problem || undefined,
+              });
           } catch (e) {
-            setError((e as Error).message);
+            toast.error((e as Error).message);
           } finally {
             setBusy(false);
           }
@@ -339,9 +347,9 @@ function SetupValidation({
       >
         {busy ? "Checking setup…" : "Validate saved setup"}
       </Button>
-      {(error || resource.error) && (
+      {resource.error && (
         <Alert variant="destructive">
-          <AlertDescription>{error || resource.error}</AlertDescription>
+          <AlertDescription>{resource.error}</AlertDescription>
         </Alert>
       )}
       {value && (

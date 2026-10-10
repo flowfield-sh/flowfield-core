@@ -183,15 +183,20 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   );
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    const tops = await Promise.all(
-      ["Save", "Refresh models", "Cancel"].map(
-        async (name) =>
-          (await picker
-            .getByRole("button", { name, exact: true })
-            .boundingBox())!.y,
-      ),
-    );
-    expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(1);
+    // Radix repositions on the next frame after a viewport change.
+    await expect
+      .poll(async () => {
+        const tops = await Promise.all(
+          ["Save", "Refresh models", "Cancel"].map(
+            async (name) =>
+              (await picker
+                .getByRole("button", { name, exact: true })
+                .boundingBox())!.y,
+          ),
+        );
+        return Math.max(...tops) - Math.min(...tops);
+      })
+      .toBeLessThan(1);
     const lefts = await Promise.all(
       ["Save", "Refresh models", "Cancel"].map(
         async (name) =>

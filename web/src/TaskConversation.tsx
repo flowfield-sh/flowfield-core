@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import {
   useCallback,
   useEffect,
@@ -97,7 +98,6 @@ export function TaskConversation({
   refresh,
   onDirty,
   taskActions,
-  taskActionContext,
   onSettingsDirty,
 }: {
   projectId: string;
@@ -106,7 +106,6 @@ export function TaskConversation({
   refresh: unknown;
   onDirty: (dirty: boolean) => void;
   taskActions: ReactNode;
-  taskActionContext: ReactNode;
   onSettingsDirty: (dirty: boolean) => void;
 }) {
   const route = useParams();
@@ -204,7 +203,6 @@ export function TaskConversation({
       label={choice ? choiceLabel(choice) : "Worker settings"}
     />
   );
-  const [error, setError] = useState("");
   const [olderBusy, setOlderBusy] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [seenResult, setSeenResult] = useState<string | null>(null);
@@ -379,7 +377,6 @@ export function TaskConversation({
     )
       return;
     setBusy(true);
-    setError("");
     try {
       if (draft.action === "approve") {
         await request(
@@ -405,7 +402,7 @@ export function TaskConversation({
       setChosen(null);
       setRevision((n) => n + 1);
     } catch (e) {
-      if (alive.current) setError((e as Error).message);
+      if (alive.current) toast.error((e as Error).message);
     } finally {
       if (alive.current) setBusy(false);
     }
@@ -422,7 +419,7 @@ export function TaskConversation({
       setItems((values) => merge(values, next.items));
       setCursor(next.next_cursor);
     } catch (e) {
-      if (alive.current) setError((e as Error).message);
+      if (alive.current) toast.error((e as Error).message);
     } finally {
       if (alive.current) setOlderBusy(false);
     }
@@ -435,7 +432,7 @@ export function TaskConversation({
       );
       setRevision((n) => n + 1);
     } catch (e) {
-      setError((e as Error).message);
+      toast.error((e as Error).message);
     }
   }
   return (
@@ -761,8 +758,6 @@ export function TaskConversation({
                 question or result.{" "}
               </p>
             )}
-            {error && <p role="alert">{error}</p>}
-            {taskActionContext}
             <div
               ref={setActionContext}
               className="task-action-context content-stack"

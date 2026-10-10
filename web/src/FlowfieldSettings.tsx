@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { DetailTabs } from "./Presentation";
@@ -69,8 +70,6 @@ function HarnessEntry({
   const path = `harnesses/${kind}`;
   const resource = useResource<Status>(path, 0);
   const [action, setAction] = useState("");
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const dirty = useCallback(
     (value: boolean) => onDirty(kind, value),
     [kind, onDirty],
@@ -97,7 +96,7 @@ function HarnessEntry({
       await read().catch((error: Error) => {
         resource.invalidate();
         resource.setData(null);
-        setError(error.message);
+        toast.error(error.message);
       });
     },
     read,
@@ -110,8 +109,6 @@ function HarnessEntry({
     id?: string,
   ) {
     setAction(operation);
-    setError("");
-    setNotice("");
     try {
       const result = await request<Status>(
         `${path}/${operation}`,
@@ -123,17 +120,21 @@ function HarnessEntry({
       resource.invalidate();
       resource.setData(result);
       resource.setError("");
-      setNotice(
-        operation === "check"
-          ? result.problems.length
-            ? ""
-            : kind === "pi"
+      if (operation === "check" && result.problems.length) {
+        toast.warning("Setup needs attention.", {
+          description: setupLabel(result),
+        });
+      } else {
+        toast.info(
+          operation === "check"
+            ? kind === "pi"
               ? "Pi installation checked. Choose a model to use its provider account."
               : "Setup checked."
-          : "Discovery hold cleared. Native choices can be loaded again.",
-      );
+            : "Discovery hold cleared. Native choices can be loaded again.",
+        );
+      }
     } catch (error) {
-      setError((error as Error).message);
+      toast.error((error as Error).message);
     } finally {
       setAction("");
     }
@@ -195,7 +196,9 @@ function HarnessEntry({
                   variant="outline"
                   disabled={busy}
                   onClick={() =>
-                    void read().catch((error: Error) => setError(error.message))
+                    void read().catch((error: Error) =>
+                      toast.error(error.message),
+                    )
                   }
                 >
                   Refresh detection
@@ -220,7 +223,9 @@ function HarnessEntry({
                   variant="outline"
                   disabled={!!action || editor.busy}
                   onClick={() =>
-                    void read().catch((error: Error) => setError(error.message))
+                    void read().catch((error: Error) =>
+                      toast.error(error.message),
+                    )
                   }
                 >
                   Reload status
@@ -375,9 +380,9 @@ function HarnessEntry({
             </Disclosure>
           </>
         )}
-        {(error || resource.error) && (
+        {resource.error && (
           <Alert variant="destructive">
-            <AlertDescription>{error || resource.error}</AlertDescription>
+            <AlertDescription>{resource.error}</AlertDescription>
           </Alert>
         )}
         {!status && !resource.loading && (
@@ -385,13 +390,12 @@ function HarnessEntry({
             size="sm"
             variant="outline"
             onClick={() =>
-              void read().catch((error: Error) => setError(error.message))
+              void read().catch((error: Error) => toast.error(error.message))
             }
           >
             Reload setup
           </Button>
         )}
-        {notice && <p role="status">{notice}</p>}
       </ContentStack>
     </section>
   );

@@ -1,3 +1,4 @@
+import { Separator } from "@/components/ui/separator";
 import { ContentStack } from "./DetailLayout";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -156,6 +157,7 @@ export function ProjectEditor({
             </div>
           </fieldset>
         </form>
+        <Separator />
         <QueueSettings projectId={incoming.id} refresh={incoming} />
       </div>
       <div

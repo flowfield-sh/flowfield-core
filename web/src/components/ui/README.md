@@ -20,3 +20,5 @@ registry's current generated import. Do not fork controls independently per view
 Resizable was added from the official `new-york-v4` registry on 2026-10-04,
 using react-resizable-panels 4.14.2 (MIT). It uses the current Group/Separator API;
 the legacy new-york wrapper targets an older library API.
+
+Sonner 2.0.8 (MIT) was added on 2026-10-10, following the official shadcn Sonner integration. The shared wrapper uses neutral theme tokens and Sonner’s semantic colors, timing, dismissal and accessible announcements. A stable portal moves its single viewport into the current Radix modal focus scope so keyboard and pointer dismissal work without losing active notifications.

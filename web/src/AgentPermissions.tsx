@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
@@ -20,7 +21,6 @@ export function PermissionControl({
   answered: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   return (
     <DetailSection title={record.title}>
       <p className="detail-metadata">
@@ -42,7 +42,6 @@ export function PermissionControl({
                 disabled={busy}
                 onClick={async () => {
                   setBusy(true);
-                  setError("");
                   try {
                     await request(
                       `projects/${record.project_id}/permissions/${record.id}/answer`,
@@ -54,7 +53,7 @@ export function PermissionControl({
                     );
                     answered();
                   } catch (error) {
-                    setError((error as Error).message);
+                    toast.error((error as Error).message);
                     answered();
                   } finally {
                     setBusy(false);
@@ -74,11 +73,6 @@ export function PermissionControl({
               ? "Expired. No permission was delivered."
               : `Cancelled.${record.answer ? " The saved answer was not delivered." : " No permission was delivered."}`}
         </p>
-      )}
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
       )}
     </DetailSection>
   );

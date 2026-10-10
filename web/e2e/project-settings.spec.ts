@@ -352,7 +352,9 @@ test("integration settings create an explicit local target without changing the 
     .getByRole("button", { name: "Save integration settings", exact: true })
     .click();
   expect((await saved).ok()).toBe(true);
-  await expect(settings).toContainText("Run command save interrupted");
+  await expect(
+    page.locator("[data-sonner-toast][data-type=error]"),
+  ).toContainText("Run command save interrupted");
   await expect(settings.getByLabel("Run command", { exact: true })).toHaveValue(
     "python app.py",
   );

@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { expect } from "@playwright/test";
 import { test, existingDirectory, state, stubModelCatalog } from "./support";
 
-test("queue errors open shared notifications with a direct settings action", async ({
+test("queue errors show a toast with a settings link and retain notification history", async ({
   page,
   request,
 }) => {
@@ -18,6 +18,11 @@ test("queue errors open shared notifications with a direct settings action", asy
     name: "Notifications",
     exact: true,
   });
+  await expect(notices).toHaveCount(0);
+  const failure = page.locator("[data-sonner-toast][data-type=error]");
+  await expect(failure).toContainText("Queue could not start");
+  await expect(failure).toContainText("Choose a worker harness and model");
+  await page.getByRole("button", { name: /Notifications/ }).click();
   await expect(notices).toBeVisible();
   await expect(notices).not.toContainText(
     "Messages from this browser session.",
@@ -34,9 +39,8 @@ test("queue errors open shared notifications with a direct settings action", asy
   await expect(notices).toContainText(/model/i);
   await expect(page.locator(".queue-controls [role=alert]")).toHaveCount(0);
 
-  await notices
-    .getByRole("alert")
-    .filter({ hasText: "Queue could not start" })
+  await notices.getByRole("button", { name: "Close", exact: true }).click();
+  await failure
     .getByRole("link", { name: "Worker settings", exact: true })
     .click();
   await expect(notices).toHaveCount(0);
@@ -49,7 +53,10 @@ test("queue errors open shared notifications with a direct settings action", asy
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: /Notifications/ }).click();
   await expect(
-    notices.getByText("Queue could not start", { exact: true }),
+    notices.getByRole("heading", {
+      name: "Queue could not start",
+      exact: true,
+    }),
   ).toBeVisible();
   await notices
     .getByRole("button", { name: "Clear notifications", exact: true })
@@ -287,4 +294,50 @@ test("update notifications persist, dismiss across browsers and share manual dis
     second.getByRole("heading", { name: "Flowfield 9.9.2 is available" }),
   ).toHaveCount(0);
   await secondContext.close();
+});
+
+test("manual update checks announce completion without reporting an early success", async ({
+  page,
+  request,
+}) => {
+  const original = await (await request.get("/api/updates")).json();
+  let checking = false;
+  let completed = false;
+  await page.route("**/api/updates", (route) =>
+    route.fulfill({
+      json: {
+        ...original,
+        checking: checking && !completed,
+        error: null,
+        latest_version: null,
+        available_version: null,
+      },
+    }),
+  );
+  await page.route("**/api/updates/check", (route) => {
+    if (route.request().postDataJSON().reason === "manual") checking = true;
+    return route.fulfill({
+      json: { ...original, checking, error: null, available_version: null },
+    });
+  });
+  await page.goto("/");
+  await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
+  await page.getByRole("button", { name: /Notifications/ }).click();
+  const sheet = page.getByRole("dialog", {
+    name: "Notifications",
+    exact: true,
+  });
+  await sheet
+    .getByRole("button", { name: "Check for updates", exact: true })
+    .click();
+  const info = page.locator("[data-sonner-toast][data-type=info]");
+  await expect(info).toContainText("Checking for updates…");
+  await expect(info).not.toContainText("No newer compatible release");
+  completed = true;
+  await expect(info).toContainText("No newer compatible release found.", {
+    timeout: 10000,
+  });
+  await info.getByRole("button", { name: "Close toast" }).click();
+  await expect(info).toHaveCount(0);
+  await expect(sheet).toBeVisible();
 });

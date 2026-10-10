@@ -31,9 +31,24 @@ test("home, welcome and editable settings form a complete project journey", asyn
     animations: "disabled",
     path: testInfo.outputPath("projects-desktop.png"),
   });
+  const rows = home.locator(".project-list-row");
+  expect(
+    await rows.evaluateAll((nodes) =>
+      nodes
+        .slice(1)
+        .every(
+          (row, i) =>
+            Math.abs(
+              row.getBoundingClientRect().top -
+                nodes[i].getBoundingClientRect().bottom,
+            ) < 1,
+        ),
+    ),
+  ).toBe(true);
   await home.getByRole("link", { name: /Garden planner/ }).click();
   const welcome = page.getByRole("article", { name: "Coordinator welcome" });
   await expect(welcome).toContainText("Starting fresh?");
+  await expect(welcome).not.toContainText("Coordinator · Welcome");
   await expect(welcome).toContainText("Existing project?");
   await expect(welcome).toContainText("Project settings → Integration");
   expect(
@@ -118,6 +133,21 @@ test("home, welcome and editable settings form a complete project journey", asyn
   await expect(
     editor.getByRole("button", { name: "Save changes", exact: true }),
   ).toBeDisabled();
+  const savedToast = page
+    .locator("[data-sonner-toast][data-type=success]")
+    .filter({ hasText: "Changes saved." });
+  await expect(savedToast).toBeVisible();
+  await page.screenshot({
+    animations: "disabled",
+    path: testInfo.outputPath("save-toast-desktop.png"),
+  });
+  await expect(savedToast.locator("[data-close-button]")).toHaveAccessibleName(
+    "Close toast",
+  );
+  await savedToast.locator("[data-close-button]").click();
+  await expect(savedToast).toHaveCount(0);
+  await expect(editor).toBeVisible();
+  await expect(editor.locator('[data-slot="separator"]')).toBeVisible();
   await editor.getByLabel("Run worker queue", { exact: true }).click();
   await expect(
     editor.getByLabel("Run worker queue", { exact: true }),
@@ -160,4 +190,83 @@ test("home, welcome and editable settings form a complete project journey", asyn
   await expect(
     page.getByRole("heading", { name: "Set up your project" }),
   ).toBeVisible();
+});
+
+test("settings toasts preserve drafts, support keyboard dismissal and expire across navigation", async ({
+  page,
+  request,
+}, testInfo) => {
+  const project = "toast-settings";
+  await request.post("/api/projects/initialize", {
+    data: {
+      path: existingDirectory(join(state, project)),
+      task_prefix: "TST",
+      name: "Toast settings",
+    },
+  });
+  await page.addInitScript(() =>
+    localStorage.setItem("flowfield.theme", "dark"),
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/projects/${project}/edit/general`);
+  const editor = page.getByRole("region", {
+    name: "Edit project",
+    exact: true,
+  });
+  await editor.getByLabel("Name", { exact: true }).fill("Preserved name");
+  const failureText =
+    "Settings could not be saved. Try again when the service is available.";
+  await page.route(`**/api/projects/${project}`, async (route) => {
+    if (route.request().method() === "PUT")
+      return route.fulfill({
+        status: 503,
+        json: { error: { message: failureText } },
+      });
+    await route.continue();
+  });
+  await editor
+    .getByRole("button", { name: "Save changes", exact: true })
+    .click();
+  const failure = page.locator("[data-sonner-toast][data-type=error]");
+  await expect(failure).toContainText(failureText);
+  await expect(editor.getByLabel("Name", { exact: true })).toHaveValue(
+    "Preserved name",
+  );
+  await expect(editor.getByText(failureText)).toHaveCount(0);
+  await expect(page.locator("[data-sonner-toaster]")).toHaveAttribute(
+    "data-sonner-theme",
+    "dark",
+  );
+  await page.keyboard.press("Alt+t");
+  await expect(page.locator("[data-sonner-toaster]")).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(failure).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    failure.getByRole("button", { name: "Close toast" }),
+  ).toBeFocused();
+  await page.screenshot({
+    animations: "disabled",
+    path: testInfo.outputPath("error-toast-mobile-dark.png"),
+  });
+  const bounds = await failure.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  await page.keyboard.press("Enter");
+  await expect(failure).toHaveCount(0);
+  await expect(editor).toBeVisible();
+  await page.unroute(`**/api/projects/${project}`);
+  await editor
+    .getByRole("button", { name: "Save changes", exact: true })
+    .click();
+  const success = page.locator("[data-sonner-toast][data-type=success]");
+  await expect(success).toContainText("Changes saved.");
+  await page
+    .getByRole("dialog", { name: "Project details", exact: true })
+    .getByRole("button", { name: "Close editor", exact: true })
+    .click();
+  await expect(editor).toHaveCount(0);
+  await expect(success).toBeVisible();
+  await page.mouse.move(1, 1);
+  await expect(success).toHaveCount(0, { timeout: 8000 });
 });

@@ -101,6 +101,12 @@ for (const [kind, name] of [
     value.problems = ["native_check_failed"];
     await entry.getByRole("button", { name: "Check saved setup" }).click();
     await expect(entry).toContainText("Setup check failed");
+    await expect(
+      page.locator("[data-sonner-toast][data-type=warning]"),
+    ).toContainText("Setup needs attention.");
+    await expect(
+      page.locator("[data-sonner-toast][data-type=success]"),
+    ).toHaveCount(0);
     await expect(entry).toContainText("The native setup check failed");
     await expect(entry).not.toContainText("Setup checked.");
     await expect(
@@ -111,15 +117,19 @@ for (const [kind, name] of [
     value.authentication = kind === "pi" ? "unknown" : "signed-out";
     value.native_version = "fixture.native";
     await entry.getByRole("button", { name: "Check saved setup" }).click();
-    await expect(entry).toContainText(
-      kind === "pi" ? "Pi installation checked" : "Sign-in required",
-    );
+    if (kind === "pi")
+      await expect(
+        page.locator("[data-sonner-toast][data-type=info]"),
+      ).toContainText("Pi installation checked");
+    else await expect(entry).toContainText("Sign-in required");
     await expect(entry).not.toContainText("Setup checked.");
     if (kind !== "pi") {
       value.problems = [];
       value.authentication = "authenticated";
       await entry.getByRole("button", { name: "Check saved setup" }).click();
-      await expect(entry).toContainText("Setup checked.");
+      await expect(
+        page.locator("[data-sonner-toast][data-type=info]"),
+      ).toContainText("Setup checked.");
     }
   });
 }
@@ -250,7 +260,9 @@ test("host configuration conflicts preserve drafts until explicit reload", async
   const executable = entry.getByLabel("Executable path", { exact: true });
   await executable.fill("/service/my-draft/codex");
   await entry.getByRole("button", { name: "Save paths", exact: true }).click();
-  await expect(entry).toContainText("Host settings changed elsewhere.");
+  await expect(
+    page.locator("[data-sonner-toast][data-type=error]"),
+  ).toContainText("Host settings changed elsewhere.");
   await expect(executable).toHaveValue("/service/my-draft/codex");
   page.once("dialog", (dialog) => dialog.accept());
   await entry.getByRole("button", { name: "Load latest", exact: true }).click();
@@ -302,7 +314,9 @@ test("native readiness and exact interrupted-discovery confirmation", async ({
   });
   await expect(entry.getByRole("button", { name: /Install/ })).toHaveCount(0);
   await entry.getByRole("button", { name: "Check saved setup" }).click();
-  await expect(entry).toContainText("Setup checked.");
+  await expect(
+    page.locator("[data-sonner-toast][data-type=info]"),
+  ).toContainText("Setup checked.");
   await entry.getByText("Detected setup", { exact: true }).click();
   await expect(entry).toContainText("fixture.native");
   await entry
@@ -315,7 +329,11 @@ test("native readiness and exact interrupted-discovery confirmation", async ({
   await confirmation
     .getByRole("button", { name: "Confirm discovery stopped" })
     .click();
-  await expect(entry).toContainText("Discovery hold cleared");
+  await expect(
+    page
+      .locator("[data-sonner-toast][data-type=info]")
+      .filter({ hasText: "Discovery hold cleared" }),
+  ).toBeVisible();
   expect(operations).toEqual([
     "/api/harnesses/codex/check",
     "/api/harnesses/codex/catalog/confirm-stopped",

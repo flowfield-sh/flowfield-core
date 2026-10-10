@@ -1,10 +1,10 @@
+import { toast } from "sonner";
 import { useState } from "react";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
 import { ProjectGuidance } from "./ProjectGuidance";
 import { ProjectAgentChoice } from "./ProjectAgentChoice";
 import { FolderOpen } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,12 +35,6 @@ export function SetupInstructions({
   >(null);
   const [capacity, setCapacity] = useState(1);
   const [busy, setBusy] = useState<"choosing" | "adding" | null>(null);
-  const [error, setError] = useState("");
-  const errorFeedback = error && (
-    <Alert variant="destructive">
-      <AlertDescription>{error}</AlertDescription>
-    </Alert>
-  );
   return (
     <section className="setup-page" aria-label="Project setup instructions">
       <ContentStack space="section" className="welcome">
@@ -56,7 +50,6 @@ export function SetupInstructions({
                 ? "Installing project guidance…"
                 : "Your project was added. Guidance installation needs attention; your existing files are preserved."}
             </p>
-            {errorFeedback}
             {!busy && <ProjectGuidance projectId={registered.id} active />}
             <Button disabled={!!busy} onClick={() => added(registered)}>
               Continue to project
@@ -69,7 +62,6 @@ export function SetupInstructions({
               if (!path || !id.trim() || !name.trim() || !prefix.trim() || busy)
                 return;
               setBusy("adding");
-              setError("");
               try {
                 const project = await request<Project>(
                   "projects/initialize",
@@ -100,7 +92,7 @@ export function SetupInstructions({
                 }
                 added(project);
               } catch (failure) {
-                setError((failure as Error).message);
+                toast.error((failure as Error).message);
               } finally {
                 setBusy(null);
               }
@@ -128,7 +120,6 @@ export function SetupInstructions({
                     variant={path ? "outline" : "default"}
                     onClick={async () => {
                       setBusy("choosing");
-                      setError("");
                       try {
                         const selection = await request<{
                           path: string | null;
@@ -156,7 +147,7 @@ export function SetupInstructions({
                           }
                         }
                       } catch (failure) {
-                        setError((failure as Error).message);
+                        toast.error((failure as Error).message);
                       } finally {
                         setBusy(null);
                       }
@@ -300,7 +291,6 @@ export function SetupInstructions({
                   </Disclosure>
                 </ContentStack>
               )}
-              {errorFeedback}
               {path && (
                 <div className="actions">
                   <Button type="submit">

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { ToastHost } from "./sonner";
 import { cn } from "cn";
 import { XIcon } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
@@ -67,6 +68,7 @@ function DialogContent({
         {...props}
       >
         {children}
+        <ToastHost />
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"

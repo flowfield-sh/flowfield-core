@@ -19,12 +19,12 @@ export function ProjectList({ projects }: { projects: Project[] }) {
             </WorkspaceLink>
           </Button>
         </div>
-        <div className="collection-layout">
+        <div className="project-list">
           {projects.map((project) => (
             <WorkspaceLink
               key={project.id}
               to={projectHref(project.id)}
-              className="collection-row project-list-row"
+              className="project-list-row"
             >
               <ProjectBadge id={project.id} name={project.name} />
               <ContentStack space="tight" className="min-w-0">

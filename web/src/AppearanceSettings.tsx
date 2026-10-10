@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { ChoiceSelect } from "@/components/ui/choice-select";
@@ -46,8 +47,11 @@ export function useTheme() {
       setTheme(value);
       try {
         localStorage.setItem(key, value);
+        toast.success("Appearance saved.");
       } catch {
-        /* Apply for this window. */
+        toast.warning(
+          "Appearance changed for this window. Browser storage is unavailable.",
+        );
       }
     },
   };

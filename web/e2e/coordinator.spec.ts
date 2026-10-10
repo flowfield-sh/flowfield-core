@@ -661,7 +661,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   await reset.click();
   await expect(reset).toHaveCount(0);
   await expect(
-    page.locator(".coordinator-composer").getByRole("alert"),
+    page.locator("[data-sonner-toast][data-type=error]"),
   ).toHaveCount(0);
   expect(resets).toBe(1);
   expect(sends).toBe(1);
@@ -916,7 +916,9 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   await expect(effort).toHaveAttribute("data-value", "high");
   await input.click();
   await send.click();
-  await expect(page.getByRole("alert")).toContainText("Model is unavailable");
+  await expect(
+    page.locator("[data-sonner-toast][data-type=error]"),
+  ).toContainText("Model is unavailable");
   await expect(page.getByRole("button", { name: "Refresh chat" })).toHaveCount(
     0,
   );
@@ -1155,7 +1157,9 @@ test("task focus preserves one coordinator, records context at send and restores
     page.getByRole("group", { name: "Message task context" }),
   ).toContainText("FOC-1");
   await page.getByRole("button", { name: "Send", exact: true }).click();
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(
+    page.locator("[data-sonner-toast][data-type=error]"),
+  ).toBeVisible();
   await request.put(`/api/projects/${project}/tasks/${tasks[0].id}`, {
     data: {
       expected_revision: tasks[0].revision,

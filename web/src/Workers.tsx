@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useNotifications } from "./Notifications";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
@@ -87,6 +88,11 @@ export function QueueControls({
                   );
                   resource.invalidate();
                   resource.setData(value);
+                  toast.success(
+                    value.enabled
+                      ? "Worker queue enabled."
+                      : "Worker queue paused.",
+                  );
                 } catch (e) {
                   notify({
                     key: `queue-action:${projectId}`,
@@ -224,8 +230,10 @@ export function WorkerSettings({
             resource.invalidate();
             resource.setData(updated);
             setDraft(null);
+            toast.success("Worker settings saved.");
           } catch (e) {
             setError((e as Error).message);
+            toast.error((e as Error).message);
           } finally {
             setBusy(false);
           }
@@ -329,13 +337,14 @@ export function WorkerSettings({
       </form>
       {(error || resource.error || stale) && (
         <>
-          <Alert variant="destructive">
-            <AlertDescription>
-              {error ||
-                resource.error ||
-                "Settings changed elsewhere. Load the latest settings before saving."}
-            </AlertDescription>
-          </Alert>
+          {(resource.error || stale) && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {resource.error ||
+                  "Settings changed elsewhere. Load the latest settings before saving."}
+              </AlertDescription>
+            </Alert>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -356,6 +365,7 @@ export function WorkerSettings({
                 setError("");
               } catch (e) {
                 setError((e as Error).message);
+                toast.error((e as Error).message);
               }
             }}
           >
@@ -378,7 +388,6 @@ export function QueueSettings({
   const path = `projects/${projectId}`;
   const resource = useResource<Settings>(`${path}/workers`, refresh);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const data = resource.data;
   return (
     <section
@@ -396,7 +405,6 @@ export function QueueSettings({
             if (!data) return;
             const enabled = event.target.checked;
             setBusy(true);
-            setError("");
             try {
               const updated = await request<Settings>(`${path}/queue`, "POST", {
                 expected_revision: data.revision,
@@ -404,8 +412,13 @@ export function QueueSettings({
               });
               resource.invalidate();
               resource.setData(updated);
+              toast.success(
+                updated.enabled
+                  ? "Worker queue enabled."
+                  : "Worker queue paused.",
+              );
             } catch (failure) {
-              setError((failure as Error).message);
+              toast.error((failure as Error).message);
             } finally {
               setBusy(false);
             }
@@ -422,9 +435,9 @@ export function QueueSettings({
           Choose a worker model first
         </Link>
       )}
-      {(error || resource.error) && (
+      {resource.error && (
         <Alert variant="destructive">
-          <AlertDescription>{error || resource.error}</AlertDescription>
+          <AlertDescription>{resource.error}</AlertDescription>
         </Alert>
       )}
     </section>

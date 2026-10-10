@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
@@ -64,7 +65,6 @@ export function WorkerActions({
     refresh,
   );
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const [saved, setSaved] = useState<Run | null>(null);
   const [queuedRevision, setQueuedRevision] = useState<number | null>(null);
   const run =
@@ -76,7 +76,6 @@ export function WorkerActions({
   async function act(action: string) {
     if (!run) return;
     setBusy(true);
-    setError("");
     try {
       setSaved(
         await request<Run>(
@@ -89,7 +88,7 @@ export function WorkerActions({
       resource.invalidate();
       changed();
     } catch (e) {
-      setError((e as Error).message);
+      toast.error((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -98,9 +97,7 @@ export function WorkerActions({
   return (
     <>
       <TaskActionContext>
-        {(error || resource.error) && (
-          <p role="alert">{error || resource.error}</p>
-        )}
+        {resource.error && <p role="alert">{resource.error}</p>}
       </TaskActionContext>
       {run && (active || run.status === "uncertain") && (
         <ConfirmButton

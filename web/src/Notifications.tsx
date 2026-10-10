@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { CountBadge } from "./CountBadge";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { ContentStack, DetailHeading } from "./DetailLayout";
@@ -29,6 +30,13 @@ type Notice = components["schemas"]["OperationNotice"];
 type Page = components["schemas"]["NotificationPage"];
 type Settings = components["schemas"]["NotificationSettings"];
 type Update = components["schemas"]["UpdateStatus"];
+function reportUpdate(result: Update) {
+  const options = { id: "update-check" };
+  if (result.error) toast.error(result.error, options);
+  else if (result.available_version)
+    toast.info(`Flowfield ${result.available_version} is available.`, options);
+  else toast.info("No newer compatible release found.", options);
+}
 const Context = createContext<{
   notify: (notice: Notice, open?: boolean) => void;
   show: () => void;
@@ -51,6 +59,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [unsavedNotice, setUnsavedNotice] = useState<Notice | null>(null);
   const opener = useRef<HTMLElement | null>(null);
   const generation = useRef(0);
+  const manualCheck = useRef(false);
   const show = useCallback(() => {
     if (document.activeElement instanceof HTMLElement)
       opener.current = document.activeElement;
@@ -68,6 +77,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setSettings(preferences);
     setUpdates(update);
     setLoadError("");
+    if (manualCheck.current && !update.checking) {
+      manualCheck.current = false;
+      reportUpdate(update);
+    }
   }, []);
   useEffect(() => {
     let stopped = false;
@@ -94,7 +107,23 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
   const notify = useCallback(
     (notice: Notice, reveal = true) => {
-      if (reveal) show();
+      if (reveal) {
+        toast.error(notice.title, {
+          id: notice.key,
+          description: notice.message,
+          duration: 8000,
+          action: notice.href ? (
+            <Button size="sm" variant="outline" asChild>
+              <WorkspaceLink
+                to={notice.href}
+                onClick={() => toast.dismiss(notice.key)}
+              >
+                {notice.action || "View details"}
+              </WorkspaceLink>
+            </Button>
+          ) : undefined,
+        });
+      }
       const occurrence =
         reveal && !notice.occurrence
           ? { ...notice, occurrence: crypto.randomUUID() }
@@ -109,9 +138,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         .catch((e: Error) => {
           setUnsavedNotice(occurrence);
           setError(`Notification could not be saved: ${e.message}`);
+          if (reveal)
+            toast.warning("Notification history could not be saved.", {
+              id: "notice-save-failed",
+              description: "Open Notifications to retry.",
+            });
         });
     },
-    [show, refresh],
+    [refresh],
   );
   async function act(action: () => Promise<unknown>) {
     setBusy(true);
@@ -121,7 +155,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       await action();
       await refresh();
     } catch (e) {
-      setError((e as Error).message);
+      toast.error((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -139,6 +173,20 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     await request("notifications/settings", "PUT", {
       browser_enabled: !settings.browser_enabled,
     });
+    toast.success(
+      settings.browser_enabled
+        ? "Browser notifications disabled."
+        : "Browser notifications enabled.",
+    );
+  }
+  async function checkUpdates() {
+    const result = await request<Update>("updates/check", "POST", {
+      reason: "manual",
+    });
+    if (result.checking) {
+      manualCheck.current = true;
+      toast.info("Checking for updates…", { id: "update-check" });
+    } else reportUpdate(result);
   }
   async function allowBrowser() {
     if ((await Notification.requestPermission()) !== "granted") {
@@ -210,21 +258,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                 <p>Latest compatible: {updates.latest_version}</p>
               )}
               {updates?.error && <p role="status">{updates.error}</p>}
-              {!updates?.error &&
-                updates?.last_success &&
-                !updates?.available_version && (
-                  <p>No newer compatible release found.</p>
-                )}
               <div className="actions">
                 <Button
                   size="sm"
                   variant="outline"
                   disabled={busy || updates?.checking}
-                  onClick={() =>
-                    void act(() =>
-                      request("updates/check", "POST", { reason: "manual" }),
-                    )
-                  }
+                  onClick={() => void act(checkUpdates)}
                 >
                   {updates?.checking ? "Checking…" : "Check for updates"}
                 </Button>
@@ -233,11 +272,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                   variant="outline"
                   disabled={busy || !updates || updates.disabled_by_environment}
                   onClick={() =>
-                    void act(() =>
-                      request("updates/settings", "PUT", {
+                    void act(async () => {
+                      await request("updates/settings", "PUT", {
                         automatic: !updates?.automatic,
-                      }),
-                    )
+                      });
+                      toast.success("Update preferences saved.");
+                    })
                   }
                 >
                   {updates?.automatic

@@ -1,3 +1,4 @@
+import { Toaster } from "@/components/ui/sonner";
 import { MilestoneBadge } from "./MilestoneBadge";
 import { useBrowserNotifications } from "./BrowserNotices";
 import { TaskNeeds, TaskState, hasTaskNeeds } from "./TaskNeeds";
@@ -206,6 +207,7 @@ export function App() {
   }
   return (
     <>
+      <Toaster theme={appearance.theme} />
       <WorkspaceFrame
         workLocation={pathname}
         projects={projects.map((project) => ({

@@ -347,7 +347,9 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
     .getByRole("textbox", { name: "Feedback for this result", exact: true })
     .fill("Include the source path in errors.");
   await page.getByRole("button", { name: "Send feedback" }).click();
-  await expect(page.getByRole("alert")).toContainText("Review changed");
+  await expect(
+    page.locator("[data-sonner-toast][data-type=error]"),
+  ).toContainText("Review changed");
   await expect(
     page.getByRole("textbox", {
       name: "Feedback for this result",
@@ -567,7 +569,9 @@ test("existing-project adoption previews and preserves coordinator guidance", as
   expect(readFileSync(agents, "utf8")).toBe(original);
   await page.getByRole("button", { name: "Install project guidance" }).click();
   await expect(
-    page.getByRole("status").filter({ hasText: "Project guidance installed" }),
+    page
+      .locator("[data-sonner-toast][data-type=success]")
+      .filter({ hasText: "Project guidance installed" }),
   ).toBeVisible();
   await expect(
     page.getByText(/^Untracked adoption files:.*config.toml.*guidance.json/),

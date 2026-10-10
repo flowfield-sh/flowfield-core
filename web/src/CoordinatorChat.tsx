@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
@@ -97,7 +98,6 @@ export function CoordinatorChat({
   const [loadingEarlier, setLoadingEarlier] = useState(false);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState<boolean | undefined>();
   const [controlsWereActive, setControlsWereActive] = useState(controlsActive);
   if (controlsWereActive !== controlsActive) {
@@ -224,7 +224,6 @@ export function CoordinatorChat({
     )
       return;
     setBusy(true);
-    setError("");
     try {
       const contextKey = JSON.stringify([
         taskContext?.task_id,
@@ -251,7 +250,7 @@ export function CoordinatorChat({
       // the original receipt and context, even if live task revisions advance.
       if (e instanceof RequestError && e.code === "task_context_changed")
         update(draft.text);
-      setError((e as Error).message);
+      toast.error((e as Error).message);
       setTick((n) => n + 1);
     } finally {
       setBusy(false);
@@ -276,11 +275,10 @@ export function CoordinatorChat({
     )
       return;
     setBusy(true);
-    setError("");
     try {
       await request(`${base}/turns/${turn.id}/${operation}`, "POST");
     } catch (e) {
-      setError((e as Error).message);
+      toast.error((e as Error).message);
     } finally {
       setBusy(false);
       setTick((n) => n + 1);
@@ -289,7 +287,6 @@ export function CoordinatorChat({
   async function older() {
     if (!cursor || loadingEarlier) return;
     setLoadingEarlier(true);
-    setError("");
     scroll.readingEarlier();
     try {
       const result = await request<Page>(`${base}?before=${cursor}`);
@@ -299,7 +296,7 @@ export function CoordinatorChat({
       }));
       setBefore(result.next_before);
     } catch (e) {
-      setError((e as Error).message);
+      toast.error((e as Error).message);
     } finally {
       setLoadingEarlier(false);
     }
@@ -332,7 +329,6 @@ export function CoordinatorChat({
               className="coordinator-message"
               aria-label="Coordinator welcome"
             >
-              <div className="detail-metadata">Coordinator · Welcome</div>
               <Markdown>{page.welcome}</Markdown>
             </article>
           )}
@@ -432,11 +428,6 @@ export function CoordinatorChat({
         </div>
       </div>
       <div className="coordinator-composer content-stack">
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
         {resource.error && (
           <Alert variant="destructive">
             <AlertDescription>

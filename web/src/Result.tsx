@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import {
   ContentStack,
   DetailGroup,
@@ -56,7 +57,6 @@ export function Result({
   const [views, setViews] = useState<Record<string, DiffViewState>>({});
   const [diffOpen, setDiffOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const evidence = useResource<components["schemas"]["Integration"]>(
     version?.integration_id
       ? `${path}/integrations/${version.integration_id}`
@@ -88,7 +88,6 @@ export function Result({
   ) {
     if (!version) return;
     setBusy(true);
-    setError("");
     try {
       const value = await request<Version>(
         `${path}/results/${version.id}/${action}`,
@@ -105,7 +104,7 @@ export function Result({
       availability.invalidate();
       setSaved(value);
     } catch (e) {
-      setError((e as Error).message);
+      toast.error((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -117,19 +116,10 @@ export function Result({
       aria-label="Proposed result"
       className="task-result"
     >
-      {error && current && version && (
-        <ResultActions
-          version={version.version}
-          context={<p role="alert">{error}</p>}
-        />
-      )}
-      {((error && !current) ||
-        page.error ||
-        detail.error ||
-        evidence.error) && (
+      {(page.error || detail.error || evidence.error) && (
         <Alert variant="destructive">
           <AlertDescription>
-            {error || page.error || detail.error || evidence.error}
+            {page.error || detail.error || evidence.error}
           </AlertDescription>
         </Alert>
       )}

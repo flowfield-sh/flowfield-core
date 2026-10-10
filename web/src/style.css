@@ -633,9 +633,32 @@
     background: var(--background);
     overflow-wrap: anywhere;
   }
+  .project-list {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
   .project-list-row {
+    display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    color: inherit;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+    background: var(--background);
+  }
+  .project-list-row + .project-list-row {
+    border-top: 1px solid var(--border);
+  }
+  .project-list-row:hover,
+  .project-list-row:focus-visible {
+    background: var(--accent);
+  }
+  .project-list-row:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
   }
   .collection-row:hover,
   .collection-row.selected {

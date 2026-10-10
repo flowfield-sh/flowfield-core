@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import {
   useEffect,
   useLayoutEffect,
@@ -92,7 +93,6 @@ export function Composer({
   const alive = useRef(true);
   const pending = useRef(false);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
   const [focused, setFocused] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const menu =
@@ -127,13 +127,12 @@ export function Composer({
   async function upload(selected: File[]) {
     if (disabled || pending.current || !selected.length) return;
     if (files.length + selected.length > 4) {
-      setError("Attach at most four files.");
+      toast.error("Attach at most four files.");
       return;
     }
     pending.current = true;
     setUploading(true);
     onBusy(true);
-    setError("");
     try {
       for (const file of selected) {
         if (!file.size || file.size > 2 * 1024 * 1024)
@@ -167,7 +166,7 @@ export function Composer({
         onChange(next);
       }
     } catch (e) {
-      if (alive.current) setError((e as Error).message);
+      if (alive.current) toast.error((e as Error).message);
     } finally {
       pending.current = false;
       if (alive.current) {
@@ -189,11 +188,6 @@ export function Composer({
           event.target.value = "";
         }}
       />
-      {error && (
-        <p role="alert" className="composer-error">
-          {error}
-        </p>
-      )}
       <Popover.Root
         open={menu}
         onOpenChange={(open) => {

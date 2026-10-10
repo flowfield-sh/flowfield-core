@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { authorLabel } from "./workspace";
 import { Disclosure, DetailSection, DetailHeading } from "./DetailLayout";
 import { Timestamp } from "./Timestamp";
@@ -231,7 +232,7 @@ function QuestionDetail({
         setCorrectionLink(questionHref(projectId, saved.id));
       }
     } catch (e) {
-      setError((e as Error).message);
+      toast.error((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -248,7 +249,7 @@ function QuestionDetail({
       });
       setRetry((value) => value + 1);
     } catch (e) {
-      setError((e as Error).message);
+      toast.error((e as Error).message);
     } finally {
       setBusy(false);
     }

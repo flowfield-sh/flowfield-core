@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useEffect, useRef, useState } from "react";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
@@ -181,14 +182,12 @@ function useAgentSettingsContent({
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [wasOpen, setWasOpen] = useState(open);
   if (wasOpen !== open) {
     setWasOpen(open);
     if (!open) {
       setDraft(null);
       setError("");
-      setNotice("");
     }
   }
   const data = resource.data;
@@ -250,7 +249,6 @@ function useAgentSettingsContent({
     if (!data) return;
     setBusy(true);
     setError("");
-    setNotice("");
     try {
       const updated = await request<Settings>(
         path,
@@ -265,10 +263,11 @@ function useAgentSettingsContent({
       resource.invalidate();
       resource.setData(updated);
       setDraft(null);
-      setNotice(reset ? "Using project defaults." : "Settings saved.");
+      toast.success(reset ? "Using project defaults." : "Settings saved.");
       onSaved?.();
     } catch (error) {
       setError((error as Error).message);
+      toast.error((error as Error).message);
       onSaveError?.();
     } finally {
       setBusy(false);
@@ -354,6 +353,7 @@ function useAgentSettingsContent({
                       setError("");
                     } catch (error) {
                       setError((error as Error).message);
+                      toast.error((error as Error).message);
                     }
                   }}
                 >
@@ -390,16 +390,14 @@ function useAgentSettingsContent({
           )}
         </fieldset>
       </form>
-      {(error || resource.error || stale) && (
+      {(resource.error || stale) && (
         <Alert variant="destructive">
           <AlertDescription>
-            {error ||
-              resource.error ||
+            {resource.error ||
               "Settings changed elsewhere. Load the latest settings before saving."}
           </AlertDescription>
         </Alert>
       )}
-      {notice && <p role="status">{notice}</p>}
     </ContentStack>
   );
   const saved = data?.effective?.choice;

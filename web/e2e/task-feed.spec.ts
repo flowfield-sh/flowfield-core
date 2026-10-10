@@ -368,7 +368,9 @@ test("coordinator updates refresh the agreement while project editing retains co
     },
   });
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("stale");
+  await expect(
+    page.locator("[data-sonner-toast][data-type=error]"),
+  ).toContainText("stale");
 });
 
 test("priority races preserve agent progress and message drafts; touch can prioritize", async ({
@@ -439,7 +441,7 @@ test("priority races preserve agent progress and message drafts; touch can prior
   release();
   await expect(
     priorityPage
-      .getByRole("alert")
+      .locator("[data-sonner-toast][data-type=error]")
       .filter({ hasText: "Priority could not change" }),
   ).toContainText("stale");
   await expect(
@@ -1522,7 +1524,9 @@ test("archive confirmation retains its selected revision across live changes", a
   await confirmation
     .getByRole("button", { name: "Archive", exact: true })
     .click();
-  await expect(page.getByRole("alert")).toContainText(/stale/i);
+  await expect(
+    page.locator("[data-sonner-toast][data-type=error]"),
+  ).toContainText(/stale/i);
   expect((await (await request.get(path + "/tasks/one")).json()).archived).toBe(
     false,
   );

@@ -232,15 +232,19 @@ test("registration conflict retains selection for a unique project ID", async ({
     name: "Project setup instructions",
   });
   await setup.getByRole("button", { name: "Add project", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("another directory");
+  await expect(
+    page.locator("[data-sonner-toast][data-type=error]"),
+  ).toContainText("another directory");
   expect(existsSync(join(selected, ".flowfield"))).toBe(false);
   await setup
     .getByRole("textbox", { name: "Project ID", exact: true })
     .fill("picked-unique");
   await setup.getByRole("button", { name: "Add project", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText(
-    "prefix PIC is already used",
-  );
+  await expect(
+    page
+      .locator("[data-sonner-toast][data-type=error]")
+      .filter({ hasText: "prefix PIC is already used" }),
+  ).toBeVisible();
   await setup
     .getByRole("textbox", { name: "Task prefix", exact: true })
     .fill("PKU");

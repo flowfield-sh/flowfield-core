@@ -88,11 +88,6 @@
   white-space: nowrap;
   max-width: 200px;
 }
-.composer-error {
-  font-size: 12px;
-  color: var(--destructive);
-  margin-bottom: 6px;
-}
 .composer-command-menu,
 .composer-settings {
   z-index: 60;

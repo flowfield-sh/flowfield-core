@@ -799,7 +799,9 @@ test("Needs you preserves conflicting drafts and follows up on the same canonica
   await detail
     .getByRole("button", { name: "Send answer", exact: true })
     .click();
-  await expect(detail.getByRole("alert")).toContainText("stale");
+  await expect(
+    page.locator("[data-sonner-toast][data-type=error]"),
+  ).toContainText("stale");
   page.once("dialog", (d) => d.accept());
   await detail
     .getByRole("button", { name: "Load latest", exact: true })

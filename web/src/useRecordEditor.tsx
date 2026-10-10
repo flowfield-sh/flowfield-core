@@ -1,4 +1,4 @@
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
 import { request, RequestError } from "./workspace";
@@ -32,8 +32,6 @@ export function useRecordEditor<R extends { revision: number }, V>({
   const [values, setValues] = useState(() => fields(incoming));
   const [editing, setEditing] = useState(!incoming);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [conflict, setConflict] = useState(false);
   const dirty = JSON.stringify(values) !== JSON.stringify(fields(loaded));
   useEffect(() => {
@@ -43,7 +41,6 @@ export function useRecordEditor<R extends { revision: number }, V>({
   function adopt(record: R) {
     setLoaded(record);
     setValues(fields(record));
-    if (conflict) setError("");
     setConflict(false);
   }
   if (incoming && (!loaded || newer) && !dirty && !busy) adopt(incoming);
@@ -56,8 +53,6 @@ export function useRecordEditor<R extends { revision: number }, V>({
   }
   async function run(method: string, payload?: unknown, suffix = "") {
     setBusy(true);
-    setError("");
-    setNotice("");
     try {
       const result =
         method === "GET" && read
@@ -68,11 +63,14 @@ export function useRecordEditor<R extends { revision: number }, V>({
         if (method !== "GET") setEditing(false);
         await saved(result, method);
         onDirty(otherDirty);
-        setNotice(method === "GET" ? "Latest version loaded." : "Saved.");
+        if (method === "GET") toast.info("Latest version loaded.");
+        else toast.success(method === "POST" ? "Created." : "Changes saved.");
       }
     } catch (error) {
       if (mounted.current) {
-        setError((error as Error).message);
+        toast.error((error as Error).message, {
+          description: "Your edits are preserved.",
+        });
         if (error instanceof RequestError && error.code === "revision_conflict")
           setConflict(true);
       }
@@ -100,8 +98,6 @@ export function useRecordEditor<R extends { revision: number }, V>({
     editing,
     setEditing,
     busy,
-    error,
-    notice,
     conflict,
     dirty,
     newer,
@@ -119,8 +115,6 @@ export function EditorFeedback({
     newer: boolean;
     conflict: boolean;
     busy: boolean;
-    error: string;
-    notice: string;
     reload: () => void;
   };
 }) {
@@ -144,14 +138,6 @@ export function EditorFeedback({
           </Button>
         </div>
       )}
-      {state.error && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            {state.error} Your edits are preserved.
-          </AlertDescription>
-        </Alert>
-      )}
-      {state.notice && <p role="status">{state.notice}</p>}
     </>
   );
 }

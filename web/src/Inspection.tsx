@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -26,7 +27,6 @@ export function Inspection({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
   const preparing = useRef(false);
   const resource = useResource<Copy>(
     identity && open ? `${path}/inspections/${identity}` : null,
@@ -38,7 +38,6 @@ export function Inspection({
     preparing.current = true;
     setBusy(true);
     setError("");
-    setCopied(false);
     try {
       const next = await request<Copy>(`${path}/inspection`, "POST", {
         result_id: result.id,
@@ -50,6 +49,7 @@ export function Inspection({
       resource.invalidate();
     } catch (e) {
       setError((e as Error).message);
+      toast.error((e as Error).message);
     } finally {
       preparing.current = false;
       setBusy(false);
@@ -69,9 +69,9 @@ export function Inspection({
       }}
     >
       {busy && <p role="status">Preparing inspection…</p>}
-      {(error || (open && resource.error)) && (
+      {open && resource.error && (
         <Alert variant="destructive">
-          <AlertDescription>{error || resource.error}</AlertDescription>
+          <AlertDescription>{resource.error}</AlertDescription>
         </Alert>
       )}
       {error && !value && (
@@ -135,15 +135,15 @@ export function Inspection({
                     variant="outline"
                     onClick={() => {
                       void navigator.clipboard.writeText(value.command).then(
-                        () => setCopied(true),
+                        () => toast.info("Commands copied."),
                         () =>
-                          setError(
+                          toast.error(
                             "Could not copy. Open Terminal commands and copy them manually.",
                           ),
                       );
                     }}
                   >
-                    {copied ? "Copied" : "Copy commands"}
+                    Copy commands
                   </Button>
                 </Disclosure>
               </>

@@ -1,3 +1,4 @@
+import { ToastProvider } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -24,7 +25,9 @@ const router = createBrowserRouter([
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TooltipProvider delayDuration={0}>
-      <RouterProvider router={router} />
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
     </TooltipProvider>
   </StrictMode>,
 );

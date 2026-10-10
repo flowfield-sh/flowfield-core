@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -19,16 +20,12 @@ export function ProjectGuidance({
   const [refresh, setRefresh] = useState(0);
   const resource = useResource<Guidance>(active ? path : null, refresh);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
   const value = resource.data;
   const nextSteps = value?.next_steps ?? [];
 
   async function install() {
     if (!value || resource.loading || busy) return;
     setBusy(true);
-    setError("");
-    setMessage("");
     resource.invalidate();
     try {
       const next = await request<Guidance>(path, "POST", {
@@ -37,9 +34,9 @@ export function ProjectGuidance({
       });
       resource.invalidate();
       resource.setData(next);
-      setMessage(next.message);
+      toast.success(next.message || "Project guidance installed.");
     } catch (failure) {
-      setError((failure as Error).message);
+      toast.error((failure as Error).message);
     } finally {
       setBusy(false);
     }
@@ -48,9 +45,9 @@ export function ProjectGuidance({
   async function copy(text: string) {
     try {
       await navigator.clipboard.writeText(text);
-      setMessage("Copied. Review before adding it to your project.");
+      toast.info("Copied. Review before adding it to your project.");
     } catch {
-      setError(
+      toast.error(
         "Could not copy automatically. Select and copy the preview text.",
       );
     }
@@ -62,12 +59,11 @@ export function ProjectGuidance({
         Install project instructions for standalone agents and worker
         preparation.
       </p>
-      {(error || resource.error) && (
+      {resource.error && (
         <Alert variant="destructive">
-          <AlertDescription>{error || resource.error}</AlertDescription>
+          <AlertDescription>{resource.error}</AlertDescription>
         </Alert>
       )}
-      {message && <p role="status">{message}</p>}
       {!value ? (
         <p>
           {resource.loading
@@ -108,8 +104,6 @@ export function ProjectGuidance({
               variant="outline"
               disabled={busy || resource.loading}
               onClick={() => {
-                setError("");
-                setMessage("");
                 setRefresh((v) => v + 1);
               }}
             >
