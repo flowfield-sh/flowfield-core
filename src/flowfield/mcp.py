@@ -536,7 +536,7 @@ def create_mcp(
         after: int | None = None,
         limit: PageLimit = 20,
     ) -> CallToolResult:
-        """Read bounded Needs you summaries; active includes open and answered, not applied."""
+        """Read bounded Inbox summaries; active includes open and answered, not applied."""
         return await invoke(
             lambda: reads().questions(
                 project_id, status=status, task_id=task_id, after=after, limit=limit

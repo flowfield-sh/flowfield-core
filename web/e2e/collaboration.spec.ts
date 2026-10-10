@@ -500,7 +500,7 @@ test("question-only cards omit empty needs while project questions remain visibl
   ).toBeVisible();
 });
 
-test("Needs you carries a free-text answer from browser to coordinator application", async ({
+test("Inbox carries a free-text answer from browser to coordinator application", async ({
   page,
   request,
 }) => {
@@ -603,7 +603,7 @@ test("Needs you carries a free-text answer from browser to coordinator applicati
     page.getByLabel("Your answer", { exact: true }),
   ).not.toBeFocused();
   await closeOverlay(page);
-  await page.getByRole("tab", { name: /^Needs you(?: \d+)?$/ }).click();
+  await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await page
     .getByRole("link", { name: /What should the export include/ })
     .click();
@@ -745,7 +745,7 @@ test("Needs you carries a free-text answer from browser to coordinator applicati
   );
 });
 
-test("Needs you preserves conflicting drafts and follows up on the same canonical question", async ({
+test("Inbox preserves conflicting drafts and follows up on the same canonical question", async ({
   page,
   request,
 }) => {
@@ -1284,13 +1284,13 @@ test("related questions preserve the page, drafts, focus and router history", as
     }),
   ).toBeVisible();
   await closeOverlay(page);
-  await page.getByRole("tab", { name: /^Needs you(?: \d+)?$/ }).click();
+  await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   for (const name of ["Needs your action", "Waiting", "History"])
     await expect(page.getByRole("region", { name, exact: true })).toBeVisible();
   await expect(page.getByLabel("Show resolved")).toHaveCount(0);
 });
 
-test("review journey preserves feedback, navigates complete files and reviews a successor from Needs you", async ({
+test("review journey preserves feedback, navigates complete files and reviews a successor from Inbox", async ({
   page,
   request,
 }) => {

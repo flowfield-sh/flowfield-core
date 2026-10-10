@@ -305,7 +305,7 @@ test("shared overlays preserve the workspace, related return paths and mobile cr
 
   await expect(
     page.getByRole("tablist", { name: "Project views", exact: true }),
-  ).toContainText("Needs you");
+  ).toContainText("Inbox");
   await expect(page.locator(".up_next .queue-controls")).toContainText(
     "Run queue",
   );
@@ -435,7 +435,7 @@ test("closing entity overlays returns through history without duplicate collecti
   const board = `/projects/${id}`;
   const inbox = `${board}/inbox`;
   await page.goto(board);
-  await page.getByRole("tab", { name: /^Needs you(?: \d+)?$/ }).click();
+  await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await page.locator(".attention-card").first().click();
   await page
     .getByRole("button", {
@@ -730,10 +730,10 @@ test("sidebar rail names remain accessible and idle input opens deliberately", a
     .getByRole("button", { name: "Open projects", exact: true })
     .click();
   await expect(long).toBeVisible();
-  await expect(long.getByLabel("Needs you: 1")).toHaveText("1");
+  await expect(long.getByLabel("Inbox: 1")).toHaveText("1");
   await long.click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByRole("tab", { name: /^Needs you 1$/ })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /^Inbox 1$/ })).toBeVisible();
   await expect(
     page.getByRole("link", { name: /item needs your attention/ }),
   ).toHaveCount(0);
@@ -887,7 +887,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await expect(page.locator("html")).not.toHaveClass("dark");
   await page.getByRole("tab", { name: /^Board/ }).focus();
   await page.keyboard.press("ArrowRight");
-  await expect(page.getByRole("tab", { name: /^Needs you/ })).toBeFocused();
+  await expect(page.getByRole("tab", { name: /^Inbox/ })).toBeFocused();
   await expect(page).toHaveURL(/\/projects\/workspace-frame$/);
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/inbox$/);

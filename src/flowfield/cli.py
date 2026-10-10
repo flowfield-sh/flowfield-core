@@ -492,7 +492,7 @@ def display(result: Any) -> None:
         typer.echo(f"{project['name']}\nDescription: {project['description'] or 'Not set'}")
         if result.get("needs_you_count") or result.get("awaiting_application_count"):
             typer.echo(
-                f"Needs you: {result.get('needs_you_count', 0)} · "
+                f"Inbox: {result.get('needs_you_count', 0)} · "
                 f"Coordinator input: {result.get('awaiting_application_count', 0)}"
             )
         for column in result["columns"]:
@@ -518,7 +518,7 @@ def display(result: Any) -> None:
                 f"\nSuggested next: {label(item['action'])} "
                 f"{item.get('task_key', item.get('id', ''))} — {item['reason']}"
             )
-            for status, heading in (("open", "Needs you"), ("answered", "Answers sent")):
+            for status, heading in (("open", "Inbox"), ("answered", "Answers sent")):
                 group = result["attention"][status]
                 typer.echo(f"{heading}: {group['count']}")
                 for question in group["items"]:

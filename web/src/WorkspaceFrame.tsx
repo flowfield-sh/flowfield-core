@@ -38,7 +38,7 @@ export type WorkspaceProject = {
   id: string;
   name: string;
   href: string;
-  needsYou: number;
+  inboxCount: number;
 };
 const compactQuery = "(max-width: 1023px)";
 function subscribeCompact(callback: () => void) {
@@ -91,7 +91,7 @@ function ProjectItem({
               }}
             >
               <ProjectBadge id={project.id} name={project.name} />
-              <CountBadge count={project.needsYou} label="Needs you" />
+              <CountBadge count={project.inboxCount} label="Inbox" />
               <span ref={text} data-sidebar="label">
                 {project.name}
               </span>

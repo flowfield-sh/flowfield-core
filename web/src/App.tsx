@@ -205,7 +205,7 @@ export function App() {
           id: project.id,
           name: project.name,
           href: projectHref(project.id),
-          needsYou: attentionCounts?.[project.id] ?? 0,
+          inboxCount: attentionCounts?.[project.id] ?? 0,
         }))}
         activeProjectId={projectId ?? ""}
         onProjectSelect={(project) => changeLocation(project.href)}
@@ -687,7 +687,7 @@ function ProjectBoard({
               )}
             </TabsTrigger>
             <TabsTrigger {...viewTrigger("inbox")}>
-              <Inbox /> Needs you
+              <Inbox /> Inbox
               {board.needs_you_count > 0 && (
                 <span className="nav-count needs-attention">
                   {board.needs_you_count}

@@ -138,7 +138,7 @@ test("board columns scroll independently with fixed headings and reachable cards
   });
 });
 
-test("Needs you shares board scrolling and wraps long cards", async ({
+test("Inbox shares board scrolling and wraps long cards", async ({
   page,
   request,
 }, testInfo) => {

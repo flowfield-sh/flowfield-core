@@ -164,7 +164,7 @@ class WorkerBridge:
             )
             self.question_id = question.id
             return (
-                "Question recorded in Needs you. End your turn so the service can preserve "
+                "Question recorded in Inbox. End your turn so the service can preserve "
                 "your work. A saved answer will be supplied to an eligible fresh attempt."
             )
         if name == "submit_result":

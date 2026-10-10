@@ -16,7 +16,7 @@
 Explore ideas, turn them into milestones and tasks, and refine the plan while workers build. Open a card beside the conversation to discuss its scope or results.
 
 **📋 Organize work on the board**\
-Prioritize tasks, track dependencies, and see what’s queued, running or ready for review. Needs you brings questions, blockers and review requests into one place.
+Prioritize tasks, track dependencies, and see what’s queued, running or ready for review. Inbox brings questions, blockers and review requests into one place.
 
 **🧵 Follow each task in its feed**\
 Keep definitions, progress, tool activity, questions, answers and results together. See what changed and respond to the work that needs your attention.

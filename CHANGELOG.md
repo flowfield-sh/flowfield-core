@@ -27,7 +27,7 @@ Use Codex, Claude Code or Pi for your Coordinator and workers, with independent 
 - Choose project agents during creation, load models automatically and preload saved choices on reconnect. Simplify settings, matching selectors and harness logos. Show resolved Claude model versions and native Auto/Bypass modes where supported.
 - Preserve full public Coordinator replies and make saved history available through scoped tools. Continue compatible native sessions across service restarts; fix Codex Fast-session settings and session-recovery errors.
 - Show readable tool names, command previews and working feedback. Keep Send/Stop visible in narrow Coordinator panes; surface native Codex MCP approvals for the exact live turn. Tool permissions remain separate from approval to deliver worker code.
-- Give Needs you columns independent scrolling and contain cards within columns. Make CLI replies readable by default, retain explicit JSON output, and accept task/milestone references regardless of letter case.
+- Give Inbox columns independent scrolling and contain cards within columns. Make CLI replies readable by default, retain explicit JSON output, and accept task/milestone references regardless of letter case.
 - Standardize agent documentation under Agents and consolidate shared connection guidance.
 - Support Apple Silicon Macs and Linux arm64/x64. Intel Mac builds are discontinued.
 
@@ -67,7 +67,7 @@ Install the matching managed bridge with `flowfield harness install codex`; keep
 Initial Flowfield release: a shared task feed and workspace for agent software development.
 
 - Adopt existing repositories and keep task intent, activity, questions, answers and results together in a durable conversation. Group tasks into milestones and track dependencies.
-- Use the board and Needs you to prioritize work, answer questions and review results.
+- Use the board and Inbox to prioritize work, answer questions and review results.
 - Run independent tasks in isolated Git checkouts with configurable worker capacity and a paused-by-default queue. Codex is the first supported worker harness.
 - Inspect and try an exact result, then explicitly approve delivery into the project checkout. Changed code or destination requires fresh approval; checkout blockers retain approval.
 - Connect coordinators through MCP and installed project guidance. The CLI and web app use the same local service and persisted workspace.
