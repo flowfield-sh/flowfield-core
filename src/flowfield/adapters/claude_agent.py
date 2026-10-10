@@ -262,6 +262,15 @@ class ClaudeAgent(Agent):
                 timeout=3600,
             )
             if response.get("status") not in {"completed", "stopped"}:
+                if response.get("error") == "authentication_failed":
+                    raise ApplicationError(
+                        "claude_authentication_failed",
+                        "Claude Code could not authenticate. Sign in with Claude Code on the "
+                        "machine running Flowfield, using the executable and configuration "
+                        "directory shown in Settings → Harnesses. Check saved setup, then "
+                        "resend your message.",
+                        409,
+                    )
                 raise NativeError("Native turn failed")
             return {"status": response["status"]}
         finally:

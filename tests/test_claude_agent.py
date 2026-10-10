@@ -129,6 +129,71 @@ def test_plan_is_rejected_before_native_launch(tmp_path):
         )
 
 
+@pytest.mark.parametrize("scenario", ["authentication-error", "result-error", "assistant-error"])
+def test_native_api_errors_never_complete_a_turn(tmp_path, scenario):
+    from flowfield.adapters.json_rpc import NativeError
+
+    async def exercise():
+        agent = installed_candidate(tmp_path, scenario)
+        try:
+            await agent.start([])
+            await agent.configure(CHOICE)
+            if scenario == "result-error":
+                with pytest.raises(NativeError, match="Native turn failed"):
+                    await agent.prompt("Synthetic API error", None)
+            else:
+                with pytest.raises(ApplicationError, match="Settings → Harnesses") as failure:
+                    await agent.prompt("Synthetic API error", None)
+                assert failure.value.code == "claude_authentication_failed"
+                assert "resend" in str(failure.value)
+        finally:
+            await agent.close()
+            assert agent.cleanup_confirmed
+        records = [
+            json.loads(line) for line in (tmp_path / "native.jsonl").read_text().splitlines()
+        ]
+        assert sum("input" in record for record in records) == 1
+
+    asyncio.run(exercise())
+
+
+def test_switch_from_codex_to_claude_keeps_auth_failure_and_recovery_notice(tmp_path, monkeypatch):
+    from test_coordinator import message, settled, setup
+
+    from flowfield.agent_models import AgentSettingsEdit
+    from flowfield.agent_settings import AgentSettings
+
+    service, conversation = setup(tmp_path, monkeypatch)
+    agent = installed_candidate(tmp_path, "authentication-error")
+
+    async def exercise():
+        try:
+            first = await settled(
+                service, service.coordinator.send("harbor", conversation.id, message())
+            )
+            assert first.status == "completed"
+            AgentSettings(service.workspace).edit(
+                "harbor", "coordinator", AgentSettingsEdit(expected_revision=2, selection=CHOICE)
+            )
+            monkeypatch.setattr("flowfield.coordinator.create", lambda *args, **kwargs: agent)
+            failed = await settled(
+                service,
+                service.coordinator.send("harbor", conversation.id, message("Continue in Claude")),
+            )
+            assert failed.status == "failed" and failed.session == "new"
+            assert "Claude Code could not authenticate" in failed.notice
+            assert "Settings → Harnesses" in failed.notice
+            assert "Not logged in" in failed.activity.model_dump_json()
+            assert [turn.id for turn in service.coordinator.store.page("harbor").items] == [
+                first.id,
+                failed.id,
+            ]
+        finally:
+            await service.close()
+
+    asyncio.run(exercise())
+
+
 @pytest.mark.parametrize(
     "field,value", [("model", "wrong-model"), ("effort", "unsupported"), ("fast", True)]
 )

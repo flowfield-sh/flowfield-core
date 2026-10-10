@@ -66,13 +66,13 @@ def main() -> None:
             time.sleep(0.01)
         raise RuntimeError("The explicitly supplied test tool did not exit")
 
-    def finish(cancelled=False):
+    def finish(cancelled=False, *, is_error=False):
         emit(
             {
                 "type": "result",
                 "subtype": "success",
                 "stop_reason": "interrupt" if cancelled else "end_turn",
-                "is_error": False,
+                "is_error": is_error,
                 "result": "",
                 "errors": [],
                 "duration_ms": 0,
@@ -230,6 +230,26 @@ def main() -> None:
                     "isReplay": True,
                 }
             )
+            if scenario in {"authentication-error", "result-error", "assistant-error"}:
+                if scenario != "result-error":
+                    emit(
+                        {
+                            "type": "assistant",
+                            "error": "authentication_failed",
+                            "message": {
+                                "id": "fixture-auth-error",
+                                "role": "assistant",
+                                "content": [
+                                    {"type": "text", "text": "Not logged in · Please run /login"}
+                                ],
+                            },
+                            "parent_tool_use_id": None,
+                            "uuid": str(uuid4()),
+                            "session_id": session_id,
+                        }
+                    )
+                finish(is_error=scenario != "assistant-error")
+                continue
             emit(
                 {
                     "type": "assistant",

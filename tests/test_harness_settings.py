@@ -123,6 +123,43 @@ def test_native_precedence_resolved_launch_and_config_semantics(tmp_path):
 
 
 @pytest.mark.parametrize("harness", ["codex", "claude-code"])
+@pytest.mark.parametrize("source", ["default", "environment", "registration"])
+def test_native_config_environment_preserves_default_claude_account(tmp_path, harness, source):
+    executable, _ = native(tmp_path, harness)
+    variable = harness_host.NATIVE_PATHS[harness].config_variable
+    config = tmp_path / harness_host.NATIVE_PATHS[harness].config_directory
+    config.mkdir()
+    environment = {"HOME": str(tmp_path), "PATH": ""}
+    registration = HarnessRegistration(harness=harness, executable=str(executable))
+    if source == "environment":
+        environment[variable] = str(config)
+    elif source == "registration":
+        registration.config_directory = str(config)
+    launch = harness_host.resolve(registration, environment)
+    actual = harness_host.launch_environment(launch, environment)
+    assert launch.config_directory == str(config) and launch.config_source == source
+    if harness == "claude-code" and source == "default":
+        assert variable not in actual
+    else:
+        assert actual[variable] == str(config)
+
+
+def test_claude_default_and_explicit_config_do_not_share_native_binding(tmp_path):
+    executable, _ = native(tmp_path)
+    environment = {"HOME": str(tmp_path), "PATH": ""}
+    registration = HarnessRegistration(harness="claude-code", executable=str(executable))
+    default = harness_host.resolve(registration, environment)
+    explicit = harness_host.resolve(
+        registration.model_copy(update={"config_directory": default.config_directory}), environment
+    )
+    from_environment = harness_host.resolve(
+        registration, {**environment, "CLAUDE_CONFIG_DIR": default.config_directory}
+    )
+    assert not harness_host.same_session_location(default, explicit)
+    assert harness_host.same_session_location(explicit, from_environment)
+
+
+@pytest.mark.parametrize("harness", ["codex", "claude-code"])
 @pytest.mark.parametrize("logged_in", [True, False])
 def test_explicit_readiness_uses_only_bounded_native_status_and_no_sensitive_output(
     tmp_path, harness, logged_in

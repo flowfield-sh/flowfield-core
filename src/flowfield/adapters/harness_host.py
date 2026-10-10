@@ -47,6 +47,9 @@ def same_session_location(old: HarnessLaunch, new: HarnessLaunch) -> bool:
         new.native_executable,
         new.config_directory,
         new.adapter_version,
+    ) and (
+        old.harness != "claude-code"
+        or (old.config_source == "default") == (new.config_source == "default")
     )
 
 
@@ -102,7 +105,12 @@ def launch_environment(launch: HarnessLaunch, environment: Mapping[str, str]) ->
     result = dict(environment)
     paths = NATIVE_PATHS[launch.harness]
     result[paths.executable_variable] = launch.native_executable
-    result[paths.config_variable] = launch.config_directory
+    if launch.harness == "claude-code" and launch.config_source == "default":
+        # On macOS, even an explicit ~/.claude selects a different Keychain entry
+        # from an unset variable. Preserve native default account discovery.
+        result.pop(paths.config_variable, None)
+    else:
+        result[paths.config_variable] = launch.config_directory
     return result
 
 

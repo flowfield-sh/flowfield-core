@@ -11,6 +11,7 @@ let requestSequence = 0, messages = 0, bytes = 0;
 let currentMessage = "text";
 const streamed = new Set();
 let initialized = false, started = false, stopping = false;
+let turnError = null;
 const bounded = async (operation, ms = 15000) => {
   let timer;
   try { return await Promise.race([operation(), new Promise((_, reject) => {
@@ -80,6 +81,7 @@ async function consume() {
           await emit({kind: "tool", key: event.content_block.id, title: event.content_block.name, status: "running"});
         }
       } else if (message.type === "assistant") {
+        if (message.error) turnError = message.error === "authentication_failed" ? "authentication_failed" : "native_turn_failed";
         for (const [index, block] of (message.message.content ?? []).entries()) {
           if (block.type === "text" && !streamed.has(message.message.id + "-" + index)) {
             streamed.add(message.message.id + "-" + index);
@@ -102,7 +104,8 @@ async function consume() {
         const usage = message.context_usage;
         if (usage) await emit({kind: "usage", used: usage.total_tokens, size: usage.raw_max_tokens});
         const result = promptResult; promptResult = null;
-        result.resolve({status: message.subtype === "success" ? "completed" : "failed"});
+        const failed = message.subtype !== "success" || message.is_error !== false || turnError !== null;
+        result.resolve({status: failed ? "failed" : "completed", ...(turnError ? {error: turnError} : {})});
       }
     }
     if (promptResult) { promptResult.reject(new Error("native process exited")); promptResult = null; }
@@ -203,6 +206,7 @@ async function handle(method, params) {
       if (!commands.some(c => c.name === "compact" && c.builtin === true)) throw new Error("native compact unavailable");
     }
     streamed.clear();
+    turnError = null;
     const result = new Promise((resolve, reject) => { promptResult = {resolve, reject}; });
     queue.push({type: "user", uuid: randomUUID(), session_id: sessionId, parent_tool_use_id: null,
       message: {role: "user", content: params.content}});
