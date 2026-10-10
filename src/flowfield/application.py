@@ -335,7 +335,7 @@ class Board(BaseModel):
     awaiting_application_count: int = 0
 
 
-# Initialization baseline for schema 44. New database changes belong in migrations.py.
+# Initialization baseline for schema 44. New database changes belong in migrations/.
 SCHEMA = """
 CREATE TABLE projects (
     id TEXT PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL UNIQUE,
