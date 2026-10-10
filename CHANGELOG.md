@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.1
+
+### Bug fixes
+
+- Preserve Claude Code's native sign-in when using default or custom configuration directories, and report failed Claude Code and Pi turns correctly.
+- Show actionable sign-in, provider, model-access and usage-limit recovery messages across Codex, Claude Code and Pi.
+- Load larger Pi model catalogs when multiple providers are configured.
+
+### Improvements
+
+- Refresh harness detection after installation, report failed setup checks clearly, and distinguish Pi installation checks from provider access. See [harness setup and recovery](https://docs.flowfield.sh/agents/overview#setup).
+
+### Upgrade
+
+Stop Flowfield before updating, then restart it. Existing workspaces remain compatible.
+
 ## 0.3.0
 
 Use Codex, Claude Code or Pi for your Coordinator and workers, with independent choices for each role and native accounts, models and settings.
