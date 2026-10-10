@@ -24,6 +24,9 @@ test("queue errors show a toast with a settings link and retain notification his
   await expect(failure).toContainText("Choose a worker harness and model");
   await page.getByRole("button", { name: /Notifications/ }).click();
   await expect(notices).toBeVisible();
+  await expect.poll(async () => (await failure.boundingBox())?.y).toBe(24);
+  const bounds = (await failure.boundingBox())!;
+  expect(bounds.x + bounds.width).toBe(page.viewportSize()!.width - 24);
   await expect(notices).not.toContainText(
     "Messages from this browser session.",
   );

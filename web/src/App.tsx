@@ -1,3 +1,4 @@
+import { reportError } from "./requestFeedback";
 import { Toaster } from "@/components/ui/sonner";
 import { MilestoneBadge } from "./MilestoneBadge";
 import { useBrowserNotifications } from "./BrowserNotices";
@@ -16,17 +17,9 @@ import { WorkspaceFrame } from "./WorkspaceFrame";
 import { useTheme } from "./AppearanceSettings";
 import { FlowfieldSettings, SettingsLink } from "./FlowfieldSettings";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ContentStack } from "./DetailLayout";
 import { Card } from "@/components/ui/card";
-import {
-  Settings,
-  Columns3,
-  Inbox,
-  Flag,
-  Archive,
-  CircleAlert,
-} from "lucide-react";
+import { Settings, Columns3, Inbox, Flag, Archive } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
@@ -84,7 +77,6 @@ export function App() {
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState(false);
-  const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
   const [projectRefresh, setProjectRefresh] = useState<Record<string, number>>(
     {},
@@ -129,11 +121,10 @@ export function App() {
         if (active) {
           setProjects(items);
           setConnected(true);
-          setError("");
         }
       })
       .catch((e: Error) => {
-        if (active) setError(e.message);
+        if (active) reportError(e, "Could not load projects", true);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -269,15 +260,6 @@ export function App() {
         }
         work={
           <>
-            {error && (
-              <Alert variant="destructive">
-                <CircleAlert aria-hidden="true" />
-                <AlertTitle>Could not refresh the workspace</AlertTitle>
-                <AlertDescription>
-                  <p>{error}</p>
-                </AlertDescription>
-              </Alert>
-            )}
             {!connected ? (
               <section className="welcome">
                 <h1>
@@ -390,6 +372,7 @@ function ProjectBoard({
     data: taskDetail,
     setData: setTaskDetail,
     error: detailError,
+    errorCode: detailErrorCode,
     loading: detailLoading,
     invalidate: invalidateDetail,
   } = useResource<Task>(
@@ -530,22 +513,13 @@ function ProjectBoard({
       <section className="welcome content-stack" data-space="section">
         <h1>{error ? "Could not open project" : "Loading board…"}</h1>
         {error && (
-          <Alert variant="destructive">
-            <CircleAlert aria-hidden="true" />
-            <AlertTitle>Board unavailable</AlertTitle>
-            <AlertDescription>
-              <ContentStack>
-                <p>{error}</p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setRetry((v) => v + 1)}
-                >
-                  Retry board
-                </Button>
-              </ContentStack>
-            </AlertDescription>
-          </Alert>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setRetry((v) => v + 1)}
+          >
+            Retry board
+          </Button>
         )}
       </section>
     );
@@ -596,14 +570,27 @@ function ProjectBoard({
         ) : (
           <section className="editor" role="alert">
             <DetailHeader
-              title={`${label(selection.kind)} not found`}
+              title={
+                detailError && detailErrorCode !== "not_found"
+                  ? `Could not load ${selection.kind}`
+                  : `${label(selection.kind)} not found`
+              }
               close={() => choose(null)}
             />
-            {detailError && <p>{detailError}</p>}
-            <p>
-              This reference does not identify a {selection.kind} in this
-              project.
-            </p>
+            {detailError && detailErrorCode !== "not_found" ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setRetry((v) => v + 1)}
+              >
+                Retry loading task
+              </Button>
+            ) : (
+              <p>
+                This reference does not identify a {selection.kind} in this
+                project.
+              </p>
+            )}
           </section>
         ))}
       {selection &&
@@ -805,22 +792,13 @@ function ProjectBoard({
               className={archive ? undefined : "board-content"}
             >
               {error && (
-                <Alert variant="destructive">
-                  <CircleAlert aria-hidden="true" />
-                  <AlertTitle>Could not refresh the board</AlertTitle>
-                  <AlertDescription>
-                    <ContentStack>
-                      <p>{error}</p>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setRetry((v) => v + 1)}
-                      >
-                        Refresh board
-                      </Button>
-                    </ContentStack>
-                  </AlertDescription>
-                </Alert>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setRetry((v) => v + 1)}
+                >
+                  Refresh board
+                </Button>
               )}
               <div className={archive ? "collection-layout" : "board-layout"}>
                 {archive ? (

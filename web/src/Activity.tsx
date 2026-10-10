@@ -1,10 +1,11 @@
 import { authorLabel } from "./workspace";
 import { Disclosure } from "./DetailLayout";
 import { Timestamp } from "./Timestamp";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ResourceRetry } from "./ResourceRetry";
+import { useResource } from "./useResource";
 import { useState } from "react";
 import { Markdown } from "./Markdown";
-import { request, type ActivityEntry } from "./workspace";
+import { type ActivityEntry } from "./workspace";
 
 export function RelatedActivity({
   path,
@@ -15,24 +16,19 @@ export function RelatedActivity({
   id: string;
   label: string;
 }) {
-  const [entry, setEntry] = useState<ActivityEntry | null>(null);
-  const [error, setError] = useState("");
+  const [open, setOpen] = useState(false);
+  const resource = useResource<ActivityEntry>(
+    open ? `${path}/${encodeURIComponent(id)}` : null,
+    null,
+  );
+  const entry = resource.data;
   return (
     <Disclosure
       summary={<>{label}</>}
       className="history-disclosure"
-      onToggle={(e) => {
-        if (e.currentTarget.open && !entry)
-          void request<ActivityEntry>(`${path}/${encodeURIComponent(id)}`)
-            .then(setEntry)
-            .catch((e: Error) => setError(e.message));
-      }}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
     >
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+      <ResourceRetry resources={[resource]} />
       {entry ? (
         <>
           <p className="detail-metadata">
@@ -41,7 +37,7 @@ export function RelatedActivity({
           <Markdown>{entry.body}</Markdown>
         </>
       ) : (
-        <p>Loading entry…</p>
+        resource.loading && <p>Loading entry…</p>
       )}
     </Disclosure>
   );

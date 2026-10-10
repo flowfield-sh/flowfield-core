@@ -1,3 +1,4 @@
+import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
 import { CountBadge } from "./CountBadge";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
@@ -91,7 +92,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         await refresh(controller.signal);
         if (!stopped) setLoadError("");
       } catch (e) {
-        if (!stopped) setLoadError((e as Error).message);
+        if (!stopped) {
+          setLoadError((e as Error).message);
+          reportError(e, "Could not load notifications", true);
+        }
       }
       if (!stopped) timer = setTimeout(() => void poll(), 3000);
     }
@@ -133,7 +137,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         .then(() => {
           setUnsavedNotice(null);
           setError("");
-          void refresh().catch((e: Error) => setLoadError(e.message));
+          void refresh().catch((e: Error) => {
+            setLoadError(e.message);
+            reportError(e, "Could not load notifications", true);
+          });
         })
         .catch((e: Error) => {
           setUnsavedNotice(occurrence);
@@ -151,11 +158,18 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setBusy(true);
     setError("");
     ++generation.current;
+    let completed = false;
     try {
       await action();
+      completed = true;
       await refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      reportError(
+        e,
+        completed
+          ? "Could not refresh notifications"
+          : "Could not update notifications",
+      );
     } finally {
       setBusy(false);
     }
@@ -292,29 +306,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
               )}
             </section>
             {(error || loadError) && (
-              <Alert variant="destructive">
-                <AlertDescription>
-                  <ContentStack>
-                    <p>{error || loadError}</p>
-                    {unsavedNotice && (
-                      <p>
-                        {unsavedNotice.title}: {unsavedNotice.message}
-                      </p>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        unsavedNotice
-                          ? notify(unsavedNotice)
-                          : void act(() => refresh())
-                      }
-                    >
-                      Retry
-                    </Button>
-                  </ContentStack>
-                </AlertDescription>
-              </Alert>
+              <ContentStack>
+                {unsavedNotice && (
+                  <p>
+                    {unsavedNotice.title}: {unsavedNotice.message}
+                  </p>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    unsavedNotice
+                      ? notify(unsavedNotice)
+                      : void act(() => refresh())
+                  }
+                >
+                  Retry
+                </Button>
+              </ContentStack>
             )}
             {!page.items.length && <p className="muted">No notifications.</p>}
             {page.items.map((item) => (

@@ -1,6 +1,7 @@
+import { ResourceRetry } from "./ResourceRetry";
+import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
 import { useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { useResource } from "./useResource";
@@ -36,7 +37,7 @@ export function ProjectGuidance({
       resource.setData(next);
       toast.success(next.message || "Project guidance installed.");
     } catch (failure) {
-      toast.error((failure as Error).message);
+      reportError(failure, "Could not install project guidance");
     } finally {
       setBusy(false);
     }
@@ -59,11 +60,7 @@ export function ProjectGuidance({
         Install project instructions for standalone agents and worker
         preparation.
       </p>
-      {resource.error && (
-        <Alert variant="destructive">
-          <AlertDescription>{resource.error}</AlertDescription>
-        </Alert>
-      )}
+      {!value && <ResourceRetry resources={[resource]} />}
       {!value ? (
         <p>
           {resource.loading

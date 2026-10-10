@@ -1,5 +1,4 @@
 import { Disclosure, DetailSection } from "./DetailLayout";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useResource } from "./useResource";
 import { useState } from "react";
@@ -75,14 +74,9 @@ export function TaskChanges({
       onToggle={(e) => setOpen(e.currentTarget.open)}
     >
       {open && (beforeRead.error || afterRead.error) && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            {beforeRead.error || afterRead.error}{" "}
-            <Button size="sm" onClick={() => setRetry((v) => v + 1)}>
-              Retry
-            </Button>
-          </AlertDescription>
-        </Alert>
+        <Button size="sm" onClick={() => setRetry((v) => v + 1)}>
+          Retry
+        </Button>
       )}
       {open &&
         (!after || (revision > 1 && !before)) &&

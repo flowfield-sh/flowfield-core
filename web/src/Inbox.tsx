@@ -1,8 +1,8 @@
-import { toast } from "sonner";
+import { ResourceRetry } from "./ResourceRetry";
+import { reportError } from "./requestFeedback";
 import { authorLabel } from "./workspace";
 import { Disclosure, DetailSection, DetailHeading } from "./DetailLayout";
 import { Timestamp } from "./Timestamp";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -59,6 +59,7 @@ function PreviousAnswers({
       }));
     } catch (e) {
       setError((e as Error).message);
+      reportError(e, "Could not load previous answers");
     } finally {
       setBusy(false);
     }
@@ -104,7 +105,9 @@ function PreviousAnswers({
                           },
                       ),
                     )
-                    .catch((e) => setError(e.message))
+                    .catch((e) =>
+                      reportError(e, "Could not load full response"),
+                    )
                 }
               >
                 Read full response
@@ -113,17 +116,12 @@ function PreviousAnswers({
           </div>
         ))}
       {error && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            {error}
-            <Button
-              size="sm"
-              onClick={() => void read(page?.next_cursor ?? revision)}
-            >
-              Retry
-            </Button>
-          </AlertDescription>
-        </Alert>
+        <Button
+          size="sm"
+          onClick={() => void read(page?.next_cursor ?? revision)}
+        >
+          Retry
+        </Button>
       )}
       {busy && <p>Loading…</p>}
       {page?.next_cursor && (
@@ -201,7 +199,10 @@ function QuestionDetail({
         if (!dirtyRef.current) setError("");
       })
       .catch((e) => {
-        if (current === generation.current) setError(e.message);
+        if (current === generation.current) {
+          setError(e.message);
+          reportError(e, "Could not load question", true);
+        }
       });
     return () => {
       generation.current += 1;
@@ -222,17 +223,25 @@ function QuestionDetail({
         },
       );
       generation.current += 1;
-      const current = correcting ? await request<Question>(path) : saved;
-      setLoaded(current);
-      setIncoming(current);
       setDraft("");
       setEditing(false);
       if (correcting) {
         setCorrecting(false);
         setCorrectionLink(questionHref(projectId, saved.id));
+        try {
+          const current = await request<Question>(path);
+          setLoaded(current);
+          setIncoming(current);
+        } catch (error) {
+          setError((error as Error).message);
+          reportError(error, "Correction saved; could not refresh question");
+        }
+      } else {
+        setLoaded(saved);
+        setIncoming(saved);
       }
     } catch (e) {
-      toast.error((e as Error).message);
+      reportError(e, "Could not save answer");
     } finally {
       setBusy(false);
     }
@@ -249,7 +258,7 @@ function QuestionDetail({
       });
       setRetry((value) => value + 1);
     } catch (e) {
-      toast.error((e as Error).message);
+      reportError(e, "Could not stop continuation");
     } finally {
       setBusy(false);
     }
@@ -265,19 +274,14 @@ function QuestionDetail({
       aria-label="Question"
     >
       {error && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            {error} {dirty && "Your answer is preserved."}
-            <Button
-              size="sm"
-              variant="link"
-              className="text-button"
-              onClick={() => setRetry((v) => v + 1)}
-            >
-              Reload question
-            </Button>
-          </AlertDescription>
-        </Alert>
+        <Button
+          size="sm"
+          variant="link"
+          className="text-button"
+          onClick={() => setRetry((v) => v + 1)}
+        >
+          Reload question
+        </Button>
       )}
       {!loaded ? (
         !error && <p>Loading question…</p>
@@ -571,7 +575,7 @@ export function QuestionOverlay({
   return (
     <EntityOverlay title="Question" close={close}>
       {question.error ? (
-        <p role="alert">{question.error}</p>
+        <ResourceRetry resources={[question]} />
       ) : question.data ? (
         <QuestionDetail key={props.identity} {...props} close={close} />
       ) : (

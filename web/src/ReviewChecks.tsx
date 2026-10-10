@@ -1,6 +1,5 @@
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import type { components } from "./api-schema";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckEvidence } from "./Integration";
 import { Markdown } from "./Markdown";
 import { WorkspaceLink } from "./WorkspaceLink";
@@ -11,7 +10,6 @@ type Integration = components["schemas"]["Integration"];
 export function ReviewChecks({
   preparation,
   availability,
-  availabilityError,
   report,
   completion,
   branch,
@@ -19,7 +17,6 @@ export function ReviewChecks({
 }: {
   preparation: Integration | null;
   availability: Integration | null;
-  availabilityError: string;
   report: string;
   completion: string;
   branch: string | null;
@@ -27,11 +24,6 @@ export function ReviewChecks({
 }) {
   return (
     <ContentStack space="flush" className="review-checks">
-      {availabilityError && (
-        <Alert variant="destructive">
-          <AlertDescription>{availabilityError}</AlertDescription>
-        </Alert>
-      )}
       {availability && (
         <DetailSection
           aria-label="Current branch checks"

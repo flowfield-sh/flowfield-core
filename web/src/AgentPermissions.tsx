@@ -1,10 +1,9 @@
-import { toast } from "sonner";
+import { reportError } from "./requestFeedback";
 import { useEffect, useState } from "react";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
 import { request } from "./workspace";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ContentStack, DetailSection } from "./DetailLayout";
 import { Timestamp } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
@@ -53,7 +52,7 @@ export function PermissionControl({
                     );
                     answered();
                   } catch (error) {
-                    toast.error((error as Error).message);
+                    reportError(error, "Could not send permission decision");
                     answered();
                   } finally {
                     setBusy(false);
@@ -104,18 +103,9 @@ export function AgentPermissions({
   return (
     <>
       {page.error && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            {page.error}{" "}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setRetry(retry + 1)}
-            >
-              Reload permissions
-            </Button>
-          </AlertDescription>
-        </Alert>
+        <Button variant="outline" size="sm" onClick={() => setRetry(retry + 1)}>
+          Reload permissions
+        </Button>
       )}
       {!!pending.length && (
         <ContentStack space="section" aria-label="Tool permissions">
@@ -157,16 +147,13 @@ export function PermissionCard({
           </WorkspaceLink>
         )}
         {resource.error && (
-          <p role="alert">
-            {resource.error}{" "}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setRetry(retry + 1)}
-            >
-              Retry
-            </Button>
-          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setRetry(retry + 1)}
+          >
+            Retry
+          </Button>
         )}
         {resource.data && (
           <PermissionControl

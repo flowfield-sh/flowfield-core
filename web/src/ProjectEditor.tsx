@@ -47,6 +47,7 @@ export function ProjectEditor({
   const [workerDirty, setWorkerDirty] = useState(false);
   const [integrationDirty, setIntegrationDirty] = useState(false);
   const state = useRecordEditor({
+    recordName: "project settings",
     incoming,
     fields,
     path: () => path,

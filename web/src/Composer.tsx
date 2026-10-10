@@ -1,3 +1,4 @@
+import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
 import {
   useEffect,
@@ -166,7 +167,7 @@ export function Composer({
         onChange(next);
       }
     } catch (e) {
-      if (alive.current) toast.error((e as Error).message);
+      if (alive.current) reportError(e, "Could not attach file");
     } finally {
       pending.current = false;
       if (alive.current) {
@@ -355,11 +356,7 @@ export function Composer({
                       <p className="detail-metadata" role="status">
                         Loading commands…
                       </p>
-                    ) : nativeCommands.error ? (
-                      <p className="detail-metadata" role="status">
-                        {nativeCommands.error}
-                      </p>
-                    ) : !nativeCommands.loaded ? (
+                    ) : nativeCommands.error ? null : !nativeCommands.loaded ? (
                       <>
                         <p className="detail-metadata">
                           Native startup hooks can run; no model prompt is sent.

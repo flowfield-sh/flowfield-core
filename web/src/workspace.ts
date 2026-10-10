@@ -1,3 +1,5 @@
+import { RequestError, requestRecovered } from "./requestFeedback";
+export { RequestError } from "./requestFeedback";
 import type { components } from "./api-schema";
 export const columns = [
   "backlog",
@@ -29,14 +31,6 @@ export type RecordMeta = Pick<
   Project,
   "id" | "revision" | "updated_at" | "updated_by"
 >;
-export class RequestError extends Error {
-  constructor(
-    message: string,
-    readonly code?: string,
-  ) {
-    super(message);
-  }
-}
 export async function request<T>(
   path: string,
   method = "GET",
@@ -44,24 +38,70 @@ export async function request<T>(
   signal?: AbortSignal,
   timeoutMs = 10000,
 ): Promise<T> {
-  const response = await fetch(`/api/${path}`, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    signal: signal
-      ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
-      : AbortSignal.timeout(timeoutMs),
-  });
-  if (response.status === 204) return undefined as T;
-  const data = await response.json();
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
+  const payload = body === undefined ? undefined : JSON.stringify(body);
+  const uncertain =
+    method !== "GET"
+      ? " Reload to check whether the action completed before trying again."
+      : " Try again once the service is available.";
+  const failed = (message: string, code: string) =>
+    new RequestError(message, code, path, method);
+  let response: Response;
+  try {
+    response = await fetch("/api/" + path, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+      signal: combined,
+    });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    if (timeout.aborted)
+      throw failed(
+        "Flowfield took too long to respond." + uncertain,
+        "request_timeout",
+      );
+    throw failed(
+      "Cannot reach Flowfield. Check that the service is running." + uncertain,
+      "service_unavailable",
+    );
+  }
+  if (response.status === 204) {
+    requestRecovered(path);
+    return undefined as T;
+  }
+  let data;
+  try {
+    data = await response.json();
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    if (timeout.aborted)
+      throw failed(
+        "Flowfield took too long to respond." + uncertain,
+        "request_timeout",
+      );
+    throw failed(
+      response.ok
+        ? "Flowfield returned an unreadable response." + uncertain
+        : "Flowfield returned an error (" + response.status + ")." + uncertain,
+      "invalid_response",
+    );
+  }
   if (!response.ok)
     throw new RequestError(
-      data.error?.message ??
-        (response.status === 422
-          ? "Check your fields: a title is required, and text must fit the field limits."
-          : "Request failed. Please try again."),
-      data.error?.code,
+      typeof data?.error?.message === "string"
+        ? data.error.message
+        : response.status >= 500
+          ? "Flowfield returned an error (" + response.status + ")." + uncertain
+          : "Flowfield rejected the request (" +
+            response.status +
+            "). Check your input and try again.",
+      data?.error?.code,
+      path,
+      method,
     );
+  requestRecovered(path);
   return data as T;
 }
 

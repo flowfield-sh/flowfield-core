@@ -1,3 +1,5 @@
+import { ResourceRetry } from "./ResourceRetry";
+import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
 import { useNotifications } from "./Notifications";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -43,7 +45,7 @@ export function QueueControls({
   );
   const [busy, setBusy] = useState(false);
   const data = resource.data;
-  const problem = data?.problem || resource.error || occupancy.error;
+  const problem = data?.problem;
   useEffect(() => {
     if (problem)
       notify(
@@ -60,6 +62,9 @@ export function QueueControls({
   }, [problem, projectId, notify]);
   return (
     <div className="queue-controls" aria-label="Worker queue">
+      <ResourceRetry resources={[resource, occupancy]}>
+        Retry queue status
+      </ResourceRetry>
       {data && (
         <>
           <span className="muted">
@@ -233,7 +238,7 @@ export function WorkerSettings({
             toast.success("Worker settings saved.");
           } catch (e) {
             setError((e as Error).message);
-            toast.error((e as Error).message);
+            reportError(e, "Could not save worker settings");
           } finally {
             setBusy(false);
           }
@@ -337,11 +342,11 @@ export function WorkerSettings({
       </form>
       {(error || resource.error || stale) && (
         <>
-          {(resource.error || stale) && (
+          {stale && (
             <Alert variant="destructive">
               <AlertDescription>
-                {resource.error ||
-                  "Settings changed elsewhere. Load the latest settings before saving."}
+                Settings changed elsewhere. Load the latest settings before
+                saving.
               </AlertDescription>
             </Alert>
           )}
@@ -365,7 +370,7 @@ export function WorkerSettings({
                 setError("");
               } catch (e) {
                 setError((e as Error).message);
-                toast.error((e as Error).message);
+                reportError(e, "Could not reload worker settings");
               }
             }}
           >
@@ -418,7 +423,7 @@ export function QueueSettings({
                   : "Worker queue paused.",
               );
             } catch (failure) {
-              toast.error((failure as Error).message);
+              reportError(failure, "Could not update worker queue");
             } finally {
               setBusy(false);
             }
@@ -435,11 +440,7 @@ export function QueueSettings({
           Choose a worker model first
         </Link>
       )}
-      {resource.error && (
-        <Alert variant="destructive">
-          <AlertDescription>{resource.error}</AlertDescription>
-        </Alert>
-      )}
+      <ResourceRetry resources={[resource]} />
     </section>
   );
 }

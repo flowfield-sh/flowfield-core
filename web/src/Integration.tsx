@@ -1,3 +1,5 @@
+import { ResourceRetry } from "./ResourceRetry";
+import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { lazy, Suspense, useEffect, useId, useState } from "react";
@@ -87,18 +89,14 @@ export function IntegrationSettings({
       data-space="section"
     >
       <p>Worker setup, checks and local code delivery.</p>
-      {(resource.error || inspection.error) && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            {resource.error || inspection.error}
-          </AlertDescription>
-        </Alert>
-      )}
+      <ResourceRetry resources={[resource, inspection]} />
       <form
         onSubmit={async (event) => {
           event.preventDefault();
           if (!resource.data) return;
           setBusy(true);
+          let integrationSaved = false;
+          let savingRun = false;
           try {
             if (dirty) {
               const value = await request<Settings>(path, "PUT", {
@@ -115,11 +113,20 @@ export function IntegrationSettings({
               resource.invalidate();
               resource.setData(value);
               setDraft(null);
+              integrationSaved = true;
             }
+            savingRun = true;
             await inspection.save();
             toast.success("Integration settings saved.");
           } catch (e) {
-            toast.error((e as Error).message);
+            reportError(
+              e,
+              integrationSaved
+                ? "Integration saved; run command save was not confirmed"
+                : savingRun
+                  ? "Could not save run command"
+                  : "Could not save integration settings",
+            );
           } finally {
             setBusy(false);
           }
@@ -339,7 +346,7 @@ function SetupValidation({
                   checked.problem || checked.checkout_problem || undefined,
               });
           } catch (e) {
-            toast.error((e as Error).message);
+            reportError(e, "Could not validate setup");
           } finally {
             setBusy(false);
           }
@@ -347,11 +354,7 @@ function SetupValidation({
       >
         {busy ? "Checking setup…" : "Validate saved setup"}
       </Button>
-      {resource.error && (
-        <Alert variant="destructive">
-          <AlertDescription>{resource.error}</AlertDescription>
-        </Alert>
-      )}
+      <ResourceRetry resources={[resource]} />
       {value && (
         <ContentStack>
           <p>

@@ -28,6 +28,7 @@ export function MilestoneEditor({
   viewTasks?: ReactNode;
 }) {
   const state = useRecordEditor({
+    recordName: "milestone",
     incoming,
     fields,
     path: (record) =>

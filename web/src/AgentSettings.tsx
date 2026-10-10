@@ -1,3 +1,4 @@
+import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
 import { useEffect, useRef, useState } from "react";
 import type { components } from "./api-schema";
@@ -267,7 +268,7 @@ function useAgentSettingsContent({
       onSaved?.();
     } catch (error) {
       setError((error as Error).message);
-      toast.error((error as Error).message);
+      reportError(error, "Could not save model settings");
       onSaveError?.();
     } finally {
       setBusy(false);
@@ -353,7 +354,7 @@ function useAgentSettingsContent({
                       setError("");
                     } catch (error) {
                       setError((error as Error).message);
-                      toast.error((error as Error).message);
+                      reportError(error, "Could not reload model settings");
                     }
                   }}
                 >
@@ -390,11 +391,10 @@ function useAgentSettingsContent({
           )}
         </fieldset>
       </form>
-      {(resource.error || stale) && (
+      {stale && (
         <Alert variant="destructive">
           <AlertDescription>
-            {resource.error ||
-              "Settings changed elsewhere. Load the latest settings before saving."}
+            Settings changed elsewhere. Load the latest settings before saving.
           </AlertDescription>
         </Alert>
       )}

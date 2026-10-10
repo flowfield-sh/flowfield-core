@@ -1,5 +1,6 @@
+import { reportError } from "./requestFeedback";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { request } from "./workspace";
+import { RequestError, request } from "./workspace";
 
 // Every read owns an abort signal. Navigation, refresh and a successful local
 // mutation invalidate stale replies; writes are never silently cancelled.
@@ -13,12 +14,19 @@ export function useResource<T>(
     isActive?: (data: T) => boolean;
   },
 ) {
+  const [retryVersion, setRetryVersion] = useState(0);
+  const retry = useCallback(() => setRetryVersion((value) => value + 1), []);
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState<string | undefined>();
   const [loading, setLoading] = useState(!!path);
-  const [key, setKey] = useState({ path, refresh });
-  if (key.path !== path || key.refresh !== refresh) {
-    setKey({ path, refresh });
+  const [key, setKey] = useState({ path, refresh, retryVersion });
+  if (
+    key.path !== path ||
+    key.refresh !== refresh ||
+    key.retryVersion !== retryVersion
+  ) {
+    setKey({ path, refresh, retryVersion });
     setLoading(!!path);
     setError("");
     if (key.path !== path) setData(null);
@@ -60,7 +68,13 @@ export function useResource<T>(
               window.removeEventListener("flowfield:activity", updated);
           }
         } catch (error) {
-          if (!pending.signal.aborted) setError((error as Error).message);
+          if (!pending.signal.aborted) {
+            setError((error as Error).message);
+            setErrorCode(
+              error instanceof RequestError ? error.code : undefined,
+            );
+            reportError(error, "Could not load data", true);
+          }
         } finally {
           if (!pending.signal.aborted) setLoading(false);
         }
@@ -90,8 +104,17 @@ export function useResource<T>(
       pending.abort();
       window.removeEventListener("flowfield:activity", updated);
     };
-  }, [path, refresh, timeoutMs, projectId, attemptId, isActive]);
-  return { data, setData, error, setError, loading, invalidate };
+  }, [path, refresh, retryVersion, timeoutMs, projectId, attemptId, isActive]);
+  return {
+    data,
+    setData,
+    error,
+    errorCode: error ? errorCode : undefined,
+    setError,
+    loading,
+    invalidate,
+    retry,
+  };
 }
 
 export function usePage<
@@ -137,7 +160,10 @@ export function usePage<
         setError("");
       }
     } catch (error) {
-      if (!pending.signal.aborted) setError((error as Error).message);
+      if (!pending.signal.aborted) {
+        setError((error as Error).message);
+        reportError(error, "Could not load more items");
+      }
     } finally {
       if (!pending.signal.aborted) {
         more.current = null;
@@ -145,5 +171,15 @@ export function usePage<
       }
     }
   }
-  return { ...resource, loadingMore, older };
+  return {
+    ...resource,
+    loadingMore,
+    older,
+    retry() {
+      more.current?.abort();
+      more.current = null;
+      setLoadingMore(false);
+      resource.retry();
+    },
+  };
 }

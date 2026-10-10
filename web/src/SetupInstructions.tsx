@@ -1,4 +1,5 @@
-import { toast } from "sonner";
+import { ResourceRetry } from "./ResourceRetry";
+import { reportError } from "./requestFeedback";
 import { useState } from "react";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
@@ -92,7 +93,7 @@ export function SetupInstructions({
                 }
                 added(project);
               } catch (failure) {
-                toast.error((failure as Error).message);
+                reportError(failure, "Could not finish adding project");
               } finally {
                 setBusy(null);
               }
@@ -147,7 +148,10 @@ export function SetupInstructions({
                           }
                         }
                       } catch (failure) {
-                        toast.error((failure as Error).message);
+                        reportError(
+                          failure,
+                          "Could not choose project directory",
+                        );
                       } finally {
                         setBusy(null);
                       }
@@ -271,7 +275,7 @@ export function SetupInstructions({
                     onToggle={(event) => setPreview(event.currentTarget.open)}
                   >
                     <ContentStack space="section">
-                      {templates.error && <p role="alert">{templates.error}</p>}
+                      <ResourceRetry resources={[templates]} />
                       {templates.loading && <p>Loading guidance…</p>}
                       {templates.data && (
                         <ContentStack space="section">

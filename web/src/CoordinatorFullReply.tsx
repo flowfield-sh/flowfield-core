@@ -1,3 +1,4 @@
+import { reportError } from "./requestFeedback";
 import { useState } from "react";
 import { Disclosure } from "./DetailLayout";
 import { Markdown } from "./Markdown";
@@ -42,6 +43,7 @@ export function CoordinatorFullReply({
       setOmitted(value.output_omitted);
     } catch (error) {
       setError((error as Error).message);
+      reportError(error, "Could not load full reply");
     } finally {
       setBusy(false);
     }
@@ -57,7 +59,6 @@ export function CoordinatorFullReply({
       {omitted && (
         <p className="detail-metadata">Some original output was not saved.</p>
       )}
-      {error && <p role="alert">{error}</p>}
       {offset !== null && (
         <Button
           size="sm"

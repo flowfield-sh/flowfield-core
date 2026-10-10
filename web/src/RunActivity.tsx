@@ -1,3 +1,4 @@
+import { ResourceRetry } from "./ResourceRetry";
 import { useLayoutEffect, useRef } from "react";
 import { useResource } from "./useResource";
 import { label } from "./workspace";
@@ -28,12 +29,13 @@ export function RunActivity({
   projectId: string;
   runId: string;
 }) {
-  const { data: page, error } = useResource<Page>(
+  const resource = useResource<Page>(
     `projects/${projectId}/runs/${runId}/activity`,
     runId,
     10000,
     { projectId, attemptId: runId, isActive },
   );
+  const { data: page, error } = resource;
   const pane = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
   useLayoutEffect(() => {
@@ -42,12 +44,7 @@ export function RunActivity({
   }, [page]);
   return (
     <div className="run-activity content-stack" data-space="tight">
-      {error && (
-        <p role="alert">
-          Activity disconnected. Saved output is kept; reconnect to refresh.{" "}
-          {error}
-        </p>
-      )}
+      <ResourceRetry resources={[resource]}>Retry activity</ResourceRetry>
       {!page && !error && <p className="muted">Loading activity…</p>}
       {page && !page.supported && (
         <p className="muted">

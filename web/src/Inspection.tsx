@@ -1,3 +1,5 @@
+import { ResourceRetry } from "./ResourceRetry";
+import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -49,7 +51,7 @@ export function Inspection({
       resource.invalidate();
     } catch (e) {
       setError((e as Error).message);
-      toast.error((e as Error).message);
+      reportError(e, "Could not prepare inspection");
     } finally {
       preparing.current = false;
       setBusy(false);
@@ -69,11 +71,7 @@ export function Inspection({
       }}
     >
       {busy && <p role="status">Preparing inspection…</p>}
-      {open && resource.error && (
-        <Alert variant="destructive">
-          <AlertDescription>{resource.error}</AlertDescription>
-        </Alert>
-      )}
+      <ResourceRetry resources={[resource]} />
       {error && !value && (
         <Button
           size="sm"

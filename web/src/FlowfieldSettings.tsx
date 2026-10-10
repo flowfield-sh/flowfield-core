@@ -1,3 +1,4 @@
+import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
@@ -85,6 +86,7 @@ function HarnessEntry({
     Registration,
     { executable: string; config_directory: string }
   >({
+    recordName: "harness paths",
     incoming: resource.data?.registration,
     fields: (value) => ({
       executable: value?.executable ?? "",
@@ -96,7 +98,7 @@ function HarnessEntry({
       await read().catch((error: Error) => {
         resource.invalidate();
         resource.setData(null);
-        toast.error(error.message);
+        reportError(error, "Could not reload harness status");
       });
     },
     read,
@@ -134,7 +136,7 @@ function HarnessEntry({
         );
       }
     } catch (error) {
-      toast.error((error as Error).message);
+      reportError(error, "Could not check harness setup");
     } finally {
       setAction("");
     }
@@ -197,7 +199,7 @@ function HarnessEntry({
                   disabled={busy}
                   onClick={() =>
                     void read().catch((error: Error) =>
-                      toast.error(error.message),
+                      reportError(error, "Could not refresh detection"),
                     )
                   }
                 >
@@ -224,7 +226,7 @@ function HarnessEntry({
                   disabled={!!action || editor.busy}
                   onClick={() =>
                     void read().catch((error: Error) =>
-                      toast.error(error.message),
+                      reportError(error, "Could not reload harness status"),
                     )
                   }
                 >
@@ -380,17 +382,14 @@ function HarnessEntry({
             </Disclosure>
           </>
         )}
-        {resource.error && (
-          <Alert variant="destructive">
-            <AlertDescription>{resource.error}</AlertDescription>
-          </Alert>
-        )}
         {!status && !resource.loading && (
           <Button
             size="sm"
             variant="outline"
             onClick={() =>
-              void read().catch((error: Error) => toast.error(error.message))
+              void read().catch((error: Error) =>
+                reportError(error, "Could not reload harness setup"),
+              )
             }
           >
             Reload setup

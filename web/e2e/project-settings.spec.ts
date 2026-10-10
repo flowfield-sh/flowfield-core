@@ -220,7 +220,10 @@ test("worker models load automatically and retry without replacing setting draft
   await page.getByRole("tab", { name: "Workers", exact: true }).click();
   const settings = page.getByRole("region", { name: "Worker settings" });
   await expect.poll(() => calls).toBe(1);
-  await expect(settings).toContainText("Catalog temporarily unavailable");
+  await expect(
+    page.locator("[data-sonner-toast][data-type=error]"),
+  ).toContainText("Catalog temporarily unavailable");
+  await expect(settings).not.toContainText("Catalog temporarily unavailable");
   await expect(
     settings.getByRole("button", { name: "Refresh models" }),
   ).toBeEnabled();
@@ -355,6 +358,9 @@ test("integration settings create an explicit local target without changing the 
   await expect(
     page.locator("[data-sonner-toast][data-type=error]"),
   ).toContainText("Run command save interrupted");
+  await expect(
+    page.locator("[data-sonner-toast][data-type=error]"),
+  ).toContainText("Integration saved; run command save was not confirmed");
   await expect(settings.getByLabel("Run command", { exact: true })).toHaveValue(
     "python app.py",
   );

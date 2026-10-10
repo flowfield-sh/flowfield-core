@@ -1,3 +1,4 @@
+import { reportError } from "./requestFeedback";
 import { DetailSection } from "./DetailLayout";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -55,12 +56,10 @@ export default function CodeDiff({
   const setMode = (mode: DiffViewState["mode"]) =>
     changeView({ ...view, mode });
   const [loadingMore, setLoadingMore] = useState(false);
-  const [moreError, setMoreError] = useState("");
   const [key, setKey] = useState({ path, result, retry });
   if (key.path !== path || key.result !== result || key.retry !== retry) {
     setKey({ path, result, retry });
     setLoadingMore(false);
-    setMoreError("");
   }
   const patch = useResource<Patch>(
     files.data?.files.length ? `${path}/diff/${selected}` : null,
@@ -91,7 +90,6 @@ export default function CodeDiff({
     const pending = new AbortController();
     moreRequest.current = pending;
     setLoadingMore(true);
-    setMoreError("");
     try {
       const next = await request<Files>(
         `${path}/diff?offset=${files.data.next_offset}`,
@@ -105,7 +103,8 @@ export default function CodeDiff({
         files: [...(previous?.files ?? []), ...next.files],
       }));
     } catch (e) {
-      if (!pending.signal.aborted) setMoreError((e as Error).message);
+      if (!pending.signal.aborted)
+        reportError(e, "Could not load more changed files");
     } finally {
       if (!pending.signal.aborted) {
         moreRequest.current = null;
@@ -156,14 +155,9 @@ export default function CodeDiff({
       }
     >
       {files.error && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            {files.error}{" "}
-            <Button size="sm" onClick={() => setRetry(retry + 1)}>
-              Retry
-            </Button>
-          </AlertDescription>
-        </Alert>
+        <Button size="sm" onClick={() => setRetry(retry + 1)}>
+          Retry
+        </Button>
       )}
       {files.loading && <p className="muted">Loading changed files…</p>}
       {files.data?.total_files === 0 && (
@@ -201,23 +195,13 @@ export default function CodeDiff({
                 More files
               </Button>
             )}
-            {moreError && (
-              <Alert variant="destructive">
-                <AlertDescription>{moreError}</AlertDescription>
-              </Alert>
-            )}
           </nav>
           <div key={selected} className="file-preview" aria-live="polite">
             {patch.loading && <p className="muted">Loading file…</p>}
             {patch.error && (
-              <Alert variant="destructive">
-                <AlertDescription>
-                  {patch.error}{" "}
-                  <Button size="sm" onClick={() => setRetry((v) => v + 1)}>
-                    Retry file
-                  </Button>
-                </AlertDescription>
-              </Alert>
+              <Button size="sm" onClick={() => setRetry((v) => v + 1)}>
+                Retry file
+              </Button>
             )}
             {patch.data && (
               <>

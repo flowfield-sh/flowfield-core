@@ -20,6 +20,7 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
     dirty: draft !== null,
     loaded: !!resource.data,
     error: resource.error,
+    retry: resource.retry,
     stale:
       !!draft && !!resource.data && draft.revision !== resource.data.revision,
     change(command: string) {

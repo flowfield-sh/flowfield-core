@@ -1,4 +1,4 @@
-import { toast } from "sonner";
+import { reportError } from "./requestFeedback";
 import { useEffect, useState, useRef, type ReactNode } from "react";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { DetailHeader, DraftBadge, TaskTypeBadge } from "./Presentation";
@@ -64,7 +64,7 @@ export function TaskDetail({
       );
       if (alive.current) saved(result);
     } catch (e) {
-      if (alive.current) toast.error((e as Error).message);
+      if (alive.current) reportError(e, "Could not update task");
     } finally {
       if (alive.current) setBusy(false);
     }

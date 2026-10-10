@@ -137,6 +137,11 @@ test("home, welcome and editable settings form a complete project journey", asyn
     .locator("[data-sonner-toast][data-type=success]")
     .filter({ hasText: "Changes saved." });
   await expect(savedToast).toBeVisible();
+  await expect.poll(async () => (await savedToast.boundingBox())?.y).toBe(24);
+  const savedBounds = (await savedToast.boundingBox())!;
+  expect(savedBounds.x + savedBounds.width).toBe(
+    page.viewportSize()!.width - 24,
+  );
   await page.screenshot({
     animations: "disabled",
     path: testInfo.outputPath("save-toast-desktop.png"),
@@ -250,6 +255,7 @@ test("settings toasts preserve drafts, support keyboard dismissal and expire acr
     path: testInfo.outputPath("error-toast-mobile-dark.png"),
   });
   const bounds = await failure.boundingBox();
+  expect(bounds!.y).toBe(16);
   expect(bounds!.x).toBeGreaterThanOrEqual(0);
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
   await page.keyboard.press("Enter");

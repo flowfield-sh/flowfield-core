@@ -1723,11 +1723,21 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   await runs.locator(".file-preview").scrollIntoViewIfNeeded();
 
   await runs.getByRole("button", { name: "More files", exact: true }).click();
-  await expect(runs).toContainText("More files temporarily unavailable");
+  await expect(
+    page
+      .locator("[data-sonner-toast][data-type=error]")
+      .filter({ hasText: "More files temporarily unavailable" }),
+  ).toContainText("Could not load more changed files");
+  await expect(runs).not.toContainText("More files temporarily unavailable");
   await runs
     .getByRole("button", { name: "Added tests/test_loader.py", exact: true })
     .click();
-  await expect(runs).toContainText("File preview temporarily unavailable");
+  await expect(
+    page
+      .locator("[data-sonner-toast][data-type=error]")
+      .filter({ hasText: "File preview temporarily unavailable" }),
+  ).toBeVisible();
+  await expect(runs).not.toContainText("File preview temporarily unavailable");
   await runs.getByRole("button", { name: "Retry file", exact: true }).click();
   await expect(runs.locator(".diff-code-insert")).toContainText(
     "assert validate",
@@ -1838,5 +1848,6 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     page.getByRole("region", { name: "Needs your action", exact: true }),
   ).toBeVisible();
   expect(await page.evaluate(() => performance.timeOrigin)).not.toBe(boot); // Only the explicit refresh navigated the document.
+  await page.unrouteAll({ behavior: "wait" });
   expect(errors).toEqual([]);
 });

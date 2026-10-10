@@ -1,3 +1,4 @@
+import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
@@ -5,6 +6,7 @@ import { request, RequestError } from "./workspace";
 
 export function useRecordEditor<R extends { revision: number }, V>({
   incoming,
+  recordName = "changes",
   fields,
   path,
   saved,
@@ -13,6 +15,7 @@ export function useRecordEditor<R extends { revision: number }, V>({
   read,
 }: {
   incoming?: R;
+  recordName?: string;
   fields: (record?: R) => V;
   path: (record?: R) => string;
   saved: (record: R, method: string) => void | Promise<void>;
@@ -68,9 +71,10 @@ export function useRecordEditor<R extends { revision: number }, V>({
       }
     } catch (error) {
       if (mounted.current) {
-        toast.error((error as Error).message, {
-          description: "Your edits are preserved.",
-        });
+        reportError(
+          error,
+          `Could not ${method === "GET" ? "load" : method === "POST" ? "create" : "save"} ${recordName}`,
+        );
         if (error instanceof RequestError && error.code === "revision_conflict")
           setConflict(true);
       }

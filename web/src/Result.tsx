@@ -1,4 +1,5 @@
-import { toast } from "sonner";
+import { ResourceRetry } from "./ResourceRetry";
+import { reportError } from "./requestFeedback";
 import {
   ContentStack,
   DetailGroup,
@@ -104,7 +105,7 @@ export function Result({
       availability.invalidate();
       setSaved(value);
     } catch (e) {
-      toast.error((e as Error).message);
+      reportError(e, "Could not update result");
     } finally {
       setBusy(false);
     }
@@ -116,13 +117,9 @@ export function Result({
       aria-label="Proposed result"
       className="task-result"
     >
-      {(page.error || detail.error || evidence.error) && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            {page.error || detail.error || evidence.error}
-          </AlertDescription>
-        </Alert>
-      )}
+      <ResourceRetry
+        resources={[page, detail, evidence, availability, worker, successor]}
+      />
       {page.loading && !page.data && <p>Loading result…</p>}
       {page.data && !page.data.items.length && (
         <p className="muted">
@@ -338,7 +335,6 @@ export function Result({
             <ReviewChecks
               preparation={evidence.data}
               availability={availability.data}
-              availabilityError={availability.error}
               report={version.report.checks}
               completion={version.completion}
               branch={version.target_branch}

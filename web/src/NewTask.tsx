@@ -28,6 +28,7 @@ export function NewTask({
   close: () => void;
 }) {
   const state = useRecordEditor<Task, Values>({
+    recordName: "task",
     fields,
     path: () => path + "/view/tasks",
     onDirty: setUnsaved,

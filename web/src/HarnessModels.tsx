@@ -1,3 +1,4 @@
+import { ResourceRetry } from "./ResourceRetry";
 import { useEffect, useState } from "react";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
@@ -129,7 +130,7 @@ export function HarnessModelSource({
   harnessLocked?: boolean;
 }) {
   const { kind, hosts, host, loaded, catalog } = source;
-  const unavailable = !!hosts.error || !host?.selectable;
+  const unavailable = !!host && !host.selectable;
   return (
     <ContentStack>
       <Label className="field block">
@@ -152,11 +153,7 @@ export function HarnessModelSource({
           })}
         />
       </Label>
-      {hosts.error && (
-        <Alert>
-          <AlertDescription>{hosts.error}</AlertDescription>
-        </Alert>
-      )}
+      <ResourceRetry resources={[hosts]} />
       {!hosts.loading && unavailable && (
         <p className="detail-metadata">
           Set up an available harness or resolve its discovery hold.{" "}
@@ -167,13 +164,13 @@ export function HarnessModelSource({
       )}
       {loaded &&
         !catalog.loading &&
-        (catalog.error || !source.models.length) && (
-          <Alert variant={catalog.error ? "destructive" : "default"}>
+        !catalog.error &&
+        !source.models.length && (
+          <Alert>
             <AlertDescription>
-              {catalog.error ||
-                (kind === "pi"
-                  ? "Pi has no available models. Configure a provider in Pi on the service host, then refresh models."
-                  : `No models are available from ${kind ? harnessNames[kind] : "this harness"} for this project. Check its native account and model settings, then refresh models.`)}{" "}
+              {kind === "pi"
+                ? "Pi has no available models. Configure a provider in Pi on the service host, then refresh models."
+                : `No models are available from ${kind ? harnessNames[kind] : "this harness"} for this project. Check its native account and model settings, then refresh models.`}{" "}
               <WorkspaceLink to="/settings/harnesses">
                 Harness settings
               </WorkspaceLink>

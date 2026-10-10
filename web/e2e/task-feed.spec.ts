@@ -15,7 +15,7 @@ import {
   stubModelCatalog,
 } from "./support";
 
-test("board failures retain readable context and recover through their alert", async ({
+test("board failures use toasts and keep recovery beside retained work", async ({
   page,
   request,
 }) => {
@@ -49,15 +49,19 @@ test("board failures retain readable context and recover through their alert", a
   );
   await page.goto("/projects/board-recovery");
   const alert = page
-    .getByRole("alert")
-    .filter({ hasText: /Board unavailable|Could not refresh the board/ });
-  await expect(alert).toContainText("Board unavailable");
+    .locator("[data-sonner-toast][data-type=error]")
+    .filter({ hasText: "Temporary board failure" });
+  await expect(
+    page.getByRole("heading", { name: "Could not open project" }),
+  ).toBeVisible();
   await expect(alert).toContainText("Temporary board failure");
   fail = false;
-  await alert.getByRole("button", { name: "Retry board" }).click();
+  await page.getByRole("button", { name: "Retry board" }).click();
   const card = page.getByRole("link", { name: /Preserved board work/ });
   await expect(card).toBeVisible();
-  await expect(alert).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Retry board" })).toHaveCount(
+    0,
+  );
   await expect(
     page.getByRole("status", { name: "Connected", exact: true }),
   ).toBeVisible();
@@ -69,7 +73,10 @@ test("board failures retain readable context and recover through their alert", a
       })
     ).ok(),
   ).toBe(true);
-  await expect(alert).toContainText("Could not refresh the board");
+  await expect(alert).toContainText("Temporary board failure");
+  await expect(
+    page.getByRole("button", { name: "Refresh board" }),
+  ).toBeVisible();
   await expect(card).toBeVisible();
   fail = false;
   const recovered = page.getByRole("link", { name: /New work after recovery/ });
@@ -77,12 +84,14 @@ test("board failures retain readable context and recover through their alert", a
   // Both paths must restore the new work, without losing the existing card.
   await expect(async () => {
     if (!(await recovered.isVisible()))
-      await alert
+      await page
         .getByRole("button", { name: "Refresh board" })
         .click({ timeout: 1000 });
     await expect(recovered).toBeVisible();
   }).toPass({ timeout: 5000 });
-  await expect(alert).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Refresh board" })).toHaveCount(
+    0,
+  );
 });
 
 test("three-task board across CLI, browser and MCP, with archive and mobile reading", async ({

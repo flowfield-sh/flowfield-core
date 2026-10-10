@@ -1,4 +1,6 @@
+import { ResourceRetry } from "./ResourceRetry";
 import { toast } from "sonner";
+import { reportError } from "./requestFeedback";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
@@ -143,6 +145,7 @@ export function CoordinatorChat({
         setCommandsError(
           "Save a harness and its supported model settings first.",
         );
+        toast.info("Save a harness and its supported model settings first.");
         return;
       }
       commandsPending.current = true;
@@ -168,8 +171,10 @@ export function CoordinatorChat({
           setCommands(discovered);
         }
       } catch (e) {
-        if (generation === commandsGeneration.current.value)
+        if (generation === commandsGeneration.current.value) {
           setCommandsError((e as Error).message);
+          reportError(e, "Could not load coordinator commands");
+        }
       } finally {
         if (generation === commandsGeneration.current.value) {
           commandsPending.current = false;
@@ -250,7 +255,7 @@ export function CoordinatorChat({
       // the original receipt and context, even if live task revisions advance.
       if (e instanceof RequestError && e.code === "task_context_changed")
         update(draft.text);
-      toast.error((e as Error).message);
+      reportError(e, "Could not send message");
       setTick((n) => n + 1);
     } finally {
       setBusy(false);
@@ -278,7 +283,7 @@ export function CoordinatorChat({
     try {
       await request(`${base}/turns/${turn.id}/${operation}`, "POST");
     } catch (e) {
-      toast.error((e as Error).message);
+      reportError(e, "Could not update coordinator session");
     } finally {
       setBusy(false);
       setTick((n) => n + 1);
@@ -296,7 +301,7 @@ export function CoordinatorChat({
       }));
       setBefore(result.next_before);
     } catch (e) {
-      toast.error((e as Error).message);
+      reportError(e, "Could not load earlier messages");
     } finally {
       setLoadingEarlier(false);
     }
@@ -429,14 +434,9 @@ export function CoordinatorChat({
       </div>
       <div className="coordinator-composer content-stack">
         {resource.error && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              {resource.error}{" "}
-              <Button variant="link" onClick={() => setTick((n) => n + 1)}>
-                Retry loading messages
-              </Button>
-            </AlertDescription>
-          </Alert>
+          <Button variant="link" onClick={() => setTick((n) => n + 1)}>
+            Retry loading messages
+          </Button>
         )}
         {active?.status === "uncertain" && (
           <Alert>
@@ -500,6 +500,9 @@ export function CoordinatorChat({
                   : "Loading task context…"}
               </span>
             )}
+            <ResourceRetry resources={[selected]}>
+              Retry task context
+            </ResourceRetry>
             <Button
               size="icon-sm"
               variant="ghost"

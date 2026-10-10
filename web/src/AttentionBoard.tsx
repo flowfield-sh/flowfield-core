@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import type { components } from "./api-schema";
 import { usePage } from "./useResource";
@@ -107,18 +106,13 @@ function Column({
       >
         <ContentStack>
           {page.error && (
-            <Alert variant="destructive">
-              <AlertDescription>
-                {page.error}{" "}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setRetry((value) => value + 1)}
-                >
-                  Retry
-                </Button>
-              </AlertDescription>
-            </Alert>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setRetry((value) => value + 1)}
+            >
+              Retry
+            </Button>
           )}
           {page.loading && !page.data && <p>Loading…</p>}
           {page.data && !page.data.items.length && (

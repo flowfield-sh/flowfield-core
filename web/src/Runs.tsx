@@ -1,3 +1,4 @@
+import { ResourceRetry } from "./ResourceRetry";
 import { authorLabel } from "./workspace";
 import { UsageSummary } from "./UsageSummary";
 import {
@@ -138,13 +139,7 @@ function ExecutionDetail({
           </Link>
         )}
       </DetailHeading>
-      {(run.error || integration.error || result.error) && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            {run.error || integration.error || result.error}
-          </AlertDescription>
-        </Alert>
-      )}
+      <ResourceRetry resources={[run, integration, result]} />
       {item.kind === "worker" && run.data && (
         <WorkerEvidence
           key={run.data.id}
@@ -286,7 +281,7 @@ function WorkerEvidence({
               </pre>
             </Disclosure>
           )}
-          {location.error && <p>{location.error}</p>}
+          <ResourceRetry resources={[location]} />
           {location.data?.workspace && (
             <>
               <DetailSection title="Workspace">

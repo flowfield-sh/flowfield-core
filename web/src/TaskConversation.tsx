@@ -1,4 +1,5 @@
-import { toast } from "sonner";
+import { ResourceRetry } from "./ResourceRetry";
+import { reportError } from "./requestFeedback";
 import {
   useCallback,
   useEffect,
@@ -16,7 +17,6 @@ import { Composer } from "./Composer";
 import { AgentSettingsControl } from "./AgentSettings";
 import { choiceLabel } from "./HarnessModels";
 import { ArrowUp } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ContentStack, DetailHeading } from "./DetailLayout";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
@@ -78,7 +78,7 @@ export function StageHeader({
   );
   return (
     <>
-      {plan.error && <p role="alert">{plan.error}</p>}
+      <ResourceRetry resources={[plan]} />
       {!!plan.data?.stages.length && (
         <div>
           <StageSequence stages={plan.data.stages} label="Task stages" />
@@ -402,7 +402,7 @@ export function TaskConversation({
       setChosen(null);
       setRevision((n) => n + 1);
     } catch (e) {
-      if (alive.current) toast.error((e as Error).message);
+      if (alive.current) reportError(e, "Could not submit reply");
     } finally {
       if (alive.current) setBusy(false);
     }
@@ -419,7 +419,7 @@ export function TaskConversation({
       setItems((values) => merge(values, next.items));
       setCursor(next.next_cursor);
     } catch (e) {
-      if (alive.current) toast.error((e as Error).message);
+      if (alive.current) reportError(e, "Could not load earlier activity");
     } finally {
       if (alive.current) setOlderBusy(false);
     }
@@ -432,7 +432,7 @@ export function TaskConversation({
       );
       setRevision((n) => n + 1);
     } catch (e) {
-      toast.error((e as Error).message);
+      reportError(e, "Could not cancel reply");
     }
   }
   return (
@@ -442,13 +442,7 @@ export function TaskConversation({
       <ContentStack ref={root} space="section" className="task-conversation">
         <ContentStack>
           <strong>Activity</strong>
-          {(page.error || selected.error || gate.error || execution.error) && (
-            <Alert variant="destructive">
-              <AlertDescription>
-                {page.error || selected.error || gate.error || execution.error}
-              </AlertDescription>
-            </Alert>
-          )}
+          <ResourceRetry resources={[page, selected, gate, execution]} />
           {page.loading && !page.data && <p>Loading activity…</p>}
           <ol className="conversation-messages" aria-label="Task feed">
             {messages.map((message, index) => (
@@ -680,9 +674,7 @@ export function TaskConversation({
                 )}
               </div>
             )}
-            {currentQuestion.error && (
-              <p role="alert">{currentQuestion.error}</p>
-            )}
+            <ResourceRetry resources={[currentQuestion]} />
             <Composer
               draftKey={key}
               collapsed={!showComposer}
@@ -907,7 +899,7 @@ function MessageBody({ message, path }: { message: Message; path: string }) {
         <StageSequence stages={message.stages} label="Stages at this update" />
       )}
       {message.body && <Markdown>{source.data?.body ?? message.body}</Markdown>}
-      {source.error && <p role="alert">{source.error}</p>}
+      <ResourceRetry resources={[source]} />
       {message.truncated && !source.data && (
         <Button
           variant="outline"

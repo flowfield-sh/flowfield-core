@@ -1,4 +1,5 @@
-import { toast } from "sonner";
+import { ResourceRetry } from "./ResourceRetry";
+import { reportError } from "./requestFeedback";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
@@ -88,7 +89,7 @@ export function WorkerActions({
       resource.invalidate();
       changed();
     } catch (e) {
-      toast.error((e as Error).message);
+      reportError(e, "Could not update worker");
     } finally {
       setBusy(false);
     }
@@ -97,7 +98,7 @@ export function WorkerActions({
   return (
     <>
       <TaskActionContext>
-        {resource.error && <p role="alert">{resource.error}</p>}
+        <ResourceRetry resources={[resource]} />
       </TaskActionContext>
       {run && (active || run.status === "uncertain") && (
         <ConfirmButton
