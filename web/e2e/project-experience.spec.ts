@@ -267,10 +267,10 @@ test("settings toasts preserve drafts, support keyboard dismissal and expire acr
     .click();
   const success = page.locator("[data-sonner-toast][data-type=success]");
   await expect(success).toContainText("Changes saved.");
-  await page
-    .getByRole("dialog", { name: "Project details", exact: true })
-    .getByRole("button", { name: "Close editor", exact: true })
-    .click();
+  await expect(success).toHaveAttribute("data-mounted", "true");
+  // The viewport toast covers the close button on mobile; Escape closes the
+  // dialog while the toast is still present, without racing its entry animation.
+  await page.keyboard.press("Escape");
   await expect(editor).toHaveCount(0);
   await expect(success).toBeVisible();
   await page.mouse.move(1, 1);

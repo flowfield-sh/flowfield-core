@@ -55,10 +55,17 @@ test("board failures use toasts and keep recovery beside retained work", async (
     page.getByRole("heading", { name: "Could not open project" }),
   ).toBeVisible();
   await expect(alert).toContainText("Temporary board failure");
+  await expect(page.getByRole("button", { name: "Retry board" })).toBeVisible();
   fail = false;
-  await page.getByRole("button", { name: "Retry board" }).click();
   const card = page.getByRole("link", { name: /Preserved board work/ });
-  await expect(card).toBeVisible();
+  // A live project event can restore the board before the retry click lands.
+  await expect(async () => {
+    if (!(await card.isVisible()))
+      await page
+        .getByRole("button", { name: "Retry board" })
+        .click({ timeout: 1000 });
+    await expect(card).toBeVisible();
+  }).toPass({ timeout: 5000 });
   await expect(page.getByRole("button", { name: "Retry board" })).toHaveCount(
     0,
   );
