@@ -1,4 +1,4 @@
-"""Preview or publish an explicit Flowfield release; see CONTRIBUTING.md."""
+"""Preview or publish an explicit Flowfield release."""
 
 import argparse
 import fcntl
@@ -220,7 +220,7 @@ def main() -> int:
     except (ValueError, KeyError, OSError, subprocess.SubprocessError) as error:
         print(f"Release stopped: {error}", file=sys.stderr)
         print(
-            "State is preserved. See CONTRIBUTING.md for recovery; do not move release tags.",
+            "State is preserved. Inspect completed steps before retrying; do not move tags.",
             file=sys.stderr,
         )
         return 1
