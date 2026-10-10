@@ -141,10 +141,11 @@ Live model calls are separate from CI.
 
 ### Prepare and rehearse
 
-Review all commits and the aggregate diff since the last published release, then write a
-nonempty `## X.Y.Z` section in `CHANGELOG.md`, newest first. Include features, fixes and
-upgrade requirements by user impact. Preserve previous entries and verify each claim against
-implementation, documentation and checks. Commit reviewed notes before releasing.
+Review all commits and the aggregate diff since the last published release, then write a nonempty `## X.Y.Z` section in `CHANGELOG.md`, newest first. Verify each claim against implementation, documentation and checks. Preserve previous entries and commit reviewed notes before releasing.
+
+Group release notes under `### Features` and `### Bug fixes`, omitting empty sections. Use `### Improvements` for meaningful refinements to existing behavior. Add `### Breaking changes`, `### Security` or `### Upgrade` only when compatibility, security or required user action warrants it. Put a change in one section rather than repeating it.
+
+Curate the changes users need to know: what they can do now, what works better and what they must do when upgrading. Combine related changes, keep bullets short and omit minor polish, internal refactors, test results, implementation details and exhaustive commit inventories. Documentation changes belong only when they materially change how users use Flowfield. Link to detailed guides for recovery or setup. Do not impose an item count or line-length limit. Write each paragraph and bullet on one source line; use blank lines for Markdown structure, without manual wrapping or forced line breaks.
 
 ```sh
 make setup
