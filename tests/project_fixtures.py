@@ -56,3 +56,21 @@ def reconcile_fixture_stages(workspace, project_id, task_id):
         task_id,
         StageUpdate(**change.model_dump(), agreement_revision=task.agreement_revision),
     )
+
+
+def prepare_legacy_chat(workspace):
+    """Let current test writers seed old chat records; finish_legacy_chat freezes old shape."""
+    with workspace.connection(write=True) as db:
+        db.execute(
+            "ALTER TABLE coordinator_conversations ADD COLUMN welcome TEXT NOT NULL DEFAULT ''"
+        )
+
+
+def finish_legacy_chat(workspace):
+    """Remove fixture-only welcome fields before exercising a pre-53 migration."""
+    with workspace.connection(write=True) as db:
+        db.execute("ALTER TABLE coordinator_conversations DROP COLUMN welcome")
+        if db.execute(
+            "SELECT name FROM sqlite_master WHERE name='coordinator_handoffs'"
+        ).fetchone():
+            db.execute("UPDATE coordinator_handoffs SET data=json_remove(data,'$.welcome')")

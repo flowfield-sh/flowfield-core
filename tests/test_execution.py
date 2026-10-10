@@ -257,7 +257,10 @@ def test_failure_retry_and_restart_never_automatically_relaunch(tmp_path: Path) 
     run = execution.claim("harbor", BASE, {BASE: set()})
     assert run
     execution.restart()
-    assert not execution.settings("harbor").enabled
+    assert execution.settings("harbor").enabled
+    assert execution.claim("harbor", BASE, {BASE: set()}) is None
+    settings = execution.settings("harbor")
+    execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=False))
     unknown = execution.get("harbor", run.id)
     assert unknown.status == "uncertain" and len(execution.active()) == 1
     with pytest.raises(ApplicationError):
@@ -347,3 +350,15 @@ def test_followup_checks_prerequisites_in_its_own_base(tmp_path: Path) -> None:
     # A positive fact must concern the exact starting commit, not just project HEAD.
     followup = execution.claim("harbor", RESULT, {RESULT: {RESULT}, earlier_code: {RESULT}})
     assert followup and followup.base_commit == earlier_code
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_queue_choice_persists_after_restart_and_allows_only_enabled_claims(tmp_path, enabled):
+    execution = fixture(tmp_path)
+    settings = execution.settings("harbor")
+    execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=enabled))
+    saved = execution.settings("harbor")
+    restarted = Execution(Workspace(execution.workspace.directory))
+    restarted.restart()
+    assert restarted.settings("harbor") == saved
+    assert bool(restarted.claim("harbor", BASE, {BASE: set()})) is enabled

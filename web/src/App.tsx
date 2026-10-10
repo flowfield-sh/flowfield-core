@@ -1,6 +1,7 @@
 import { MilestoneBadge } from "./MilestoneBadge";
 import { useBrowserNotifications } from "./BrowserNotices";
 import { TaskNeeds, TaskState, hasTaskNeeds } from "./TaskNeeds";
+import { ProjectList } from "./ProjectList";
 import { SetupInstructions } from "./SetupInstructions";
 import { taskTab } from "./navigation";
 import { NotificationButton, useNotifications } from "./Notifications";
@@ -325,6 +326,8 @@ export function App() {
                 setOverlayDirty={setOverlayDirty}
                 closeQuestion={closeQuestion}
               />
+            ) : pathname !== "/new-project" && projects.length > 0 ? (
+              <ProjectList projects={projects} />
             ) : (
               <SetupInstructions
                 added={(project) => {

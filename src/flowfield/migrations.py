@@ -194,6 +194,10 @@ def pi_harness(db: sqlite3.Connection) -> None:
     db.execute("DROP TABLE previous_harness_catalogs")
 
 
+def coordinator_welcome(db: sqlite3.Connection) -> None:
+    db.execute("ALTER TABLE coordinator_conversations ADD COLUMN welcome TEXT NOT NULL DEFAULT ''")
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(45, host_harnesses),
     Migration(46, harness_catalogs),
@@ -203,6 +207,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(50, native_adapter_provenance),
     Migration(51, coordinator_prose),
     Migration(52, pi_harness),
+    Migration(53, coordinator_welcome),
 )
 
 

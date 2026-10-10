@@ -2461,6 +2461,11 @@ export interface components {
     };
     /** CoordinatorConversation */
     CoordinatorConversation: {
+      /**
+       * Welcome
+       * @default
+       */
+      welcome: string;
       /** Id */
       id: string;
       /** Number */
@@ -2470,6 +2475,11 @@ export interface components {
     };
     /** CoordinatorPage */
     CoordinatorPage: {
+      /**
+       * Welcome
+       * @default
+       */
+      welcome: string;
       context: components["schemas"]["ContextUsage"] | null;
       conversation: components["schemas"]["CoordinatorConversation"] | null;
       /** Items */

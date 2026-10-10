@@ -49,6 +49,7 @@ def test_answer_survives_restart_and_claims_once_with_frozen_evidence(tmp_path):
     assert saved.delivery.state == "Saving work"
     assert execution.claim("harbor", BASE, {BASE: set()}) is None
     execution.finish("harbor", run.id, "waiting_for_input", input_checkpoint=RESULT)
+    queue(execution, False)
     execution.restart()
     assert questions.get("harbor", q.id).delivery.state == "Paused"
     assert execution.claim("harbor", BASE, {BASE: set()}) is None

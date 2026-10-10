@@ -55,7 +55,9 @@ def test_pi_connection_preserves_other_native_configuration(tmp_path, monkeypatc
 def test_schema_51_upgrade_preserves_native_settings_and_catalog_ownership(tmp_path, monkeypatch):
     directory = tmp_path / "state"
     with monkeypatch.context() as patch:
-        patch.setattr(migrations, "MIGRATIONS", migrations.MIGRATIONS[:-1])
+        patch.setattr(
+            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version <= 51)
+        )
         old = Workspace(directory)
         saved = HarnessSettings(old).edit(
             "claude-code", HarnessEdit(expected_revision=1, executable="/native/claude")
@@ -67,7 +69,7 @@ def test_schema_51_upgrade_preserves_native_settings_and_catalog_ownership(tmp_p
             )
         assert offline_registration(directory, "pi").revision == 1
     upgraded = Workspace(directory)
-    assert upgraded.schema_version == 52
+    assert upgraded.schema_version == migrations.current_version()
     assert HarnessSettings(upgraded).get("claude-code") == saved
     assert HarnessSettings(upgraded).get("pi").revision == 1
     with upgraded.connection() as db:

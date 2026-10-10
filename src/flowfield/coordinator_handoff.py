@@ -26,7 +26,12 @@ def freeze(db: sqlite3.Connection, turn: CoordinatorTurn) -> dict[str, Any]:
         "SELECT count(*),max(number) FROM coordinator_turns WHERE project_id=? AND number<?",
         (turn.project_id, turn.number),
     ).fetchone()
+    welcome = db.execute(
+        "SELECT welcome FROM coordinator_conversations WHERE project_id=? AND id=?",
+        (turn.project_id, turn.conversation_id),
+    ).fetchone()
     return {
+        "welcome": welcome[0] if welcome else "",
         "version": 2,
         "source_before": turn.number,
         "source_latest": latest,

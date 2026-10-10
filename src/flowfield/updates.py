@@ -209,7 +209,7 @@ class Updates:
                     title=f"Flowfield {newer} is available",
                     message="Stop Flowfield, upgrade with your installation method, then restart. "
                     "Supported database migrations run automatically; "
-                    "the worker queue starts paused.",
+                    "each project keeps its saved queue setting.",
                     actions=[NoticeAction(label="Release notes", href=RELEASE_NOTES)],
                     commands=instructions(newer),
                 ),

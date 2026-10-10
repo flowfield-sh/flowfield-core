@@ -95,7 +95,7 @@ For the pip environment:
 
 On restart, supported database upgrades run automatically after a verified database
 snapshot. A failed upgrade rolls back and stops startup with recovery instructions.
-The worker queue remains paused after restart; review work before enabling it.
+Each project retains its queue setting after restart. Pause queues before stopping Flowfield if you want to review work before it resumes. Interrupted workers still require recovery.
 
 Read the [release notes](https://github.com/flowfield-sh/flowfield-core/releases) and
 [storage guidance](/storage) before changing builds. Restart your coding conversation

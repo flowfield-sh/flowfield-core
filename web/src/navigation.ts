@@ -56,7 +56,7 @@ function editorIdentity(path: string) {
   return withoutQuestionOverlay(path)
     .replace(/^\/settings\/(harnesses|appearance)\/?$/, "/settings")
     .replace(
-      /^(\/projects\/[^/]+\/edit)\/(info|coordinator|workers|integration)\/?$/,
+      /^(\/projects\/[^/]+\/edit)\/(general|info|coordinator|workers|integration)\/?$/,
       "$1",
     )
     .replace(

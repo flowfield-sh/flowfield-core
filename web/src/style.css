@@ -633,6 +633,10 @@
     background: var(--background);
     overflow-wrap: anywhere;
   }
+  .project-list-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+  }
   .collection-row:hover,
   .collection-row.selected {
     border-color: var(--foreground);

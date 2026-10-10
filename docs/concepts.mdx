@@ -68,7 +68,7 @@ horizontally to reach the other columns.
 Up next expresses your execution priorities. Run queue enables eligible starts; an enabled
 empty queue stays enabled. New ready tasks can start when added to it.
 
-The queue starts paused, including after restart. Pause leaves active work running.
+New projects start with the queue paused. Run/Pause on the board and **Project settings → General → Run worker queue** control the same saved setting, including after restart. Enabled queues can start eligible work when the service returns. Pause leaves active work running.
 Each project starts with one worker slot; two independent tasks can run in separate
 checkouts after you increase the maximum to two. Waiting for review frees the worker slot.
 The queue shows active workers against that maximum, such as **1/2 active**.

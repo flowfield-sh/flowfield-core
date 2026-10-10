@@ -5,7 +5,7 @@ import json
 from uuid import uuid4
 
 import pytest
-from project_fixtures import adopt
+from project_fixtures import adopt, finish_legacy_chat, prepare_legacy_chat
 from test_execution import fixture
 from test_storage_migrations import logical_data, raw
 
@@ -331,6 +331,7 @@ def test_schema_48_binding_upgrade_rolls_back_and_restores_exact_sources(tmp_pat
         AgentSettings(workspace).edit(
             "harbor", "coordinator", AgentSettingsEdit(expected_revision=1, selection=CODEX)
         )
+        prepare_legacy_chat(workspace)
         store = CoordinatorStore(workspace)
         turn, _ = store.reserve(
             "harbor",
@@ -352,6 +353,8 @@ def test_schema_48_binding_upgrade_rolls_back_and_restores_exact_sources(tmp_pat
                 ),
             )
         snapshot = store.handoff("harbor", turn.id)
+        snapshot.pop("welcome", None)
+        finish_legacy_chat(workspace)
     before = logical_data(workspace.directory)
     original = next(m for m in migrations.MIGRATIONS if m.version == 49)
 

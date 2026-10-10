@@ -826,11 +826,6 @@ class Execution:
 
     def restart(self) -> None:
         with self.workspace.connection(write=True) as db:
-            for row in db.execute("SELECT data FROM worker_settings").fetchall():
-                settings = WorkerSettings.model_validate_json(row[0])
-                if settings.enabled:
-                    settings.enabled = False
-                    self._save_settings(db, settings)
             for row in db.execute(
                 "SELECT data FROM runs WHERE status IN ('preparing','running','stopping')"
             ).fetchall():

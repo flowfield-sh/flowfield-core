@@ -146,7 +146,8 @@ def test_answer_and_interrupted_run_survive_upgrade_and_continue_once(tmp_path, 
     later(monkeypatch, Migration(CURRENT + 1, add_column))
     recovered = Execution(Workspace(execution.workspace.directory))
     recovered.restart()
-    assert not recovered.settings("harbor").enabled
+    assert recovered.settings("harbor").enabled
+    queue(recovered, False)
     assert recovered.get("harbor", independent.id).status == "uncertain"
     assert Questions(recovered.workspace).get("harbor", q.id).answer == saved_answer.answer
     assert recovered.claim("harbor", BASE, {RESULT: set(), BASE: set()}) is None
@@ -521,3 +522,43 @@ def test_native_provenance_failure_rolls_back_all_records(tmp_path, monkeypatch)
     with pytest.raises(ApplicationError):
         Workspace(workspace.directory)
     assert logical_data(workspace.directory) == before
+
+
+def test_welcome_upgrade_preserves_existing_conversations_and_queue_choice(tmp_path, monkeypatch):
+    from flowfield.coordinator_store import CoordinatorStore
+
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version <= 52)
+        )
+        execution = execution_fixture(tmp_path)
+        saved = execution.settings("harbor")
+        with execution.workspace.connection(write=True) as db:
+            db.execute(
+                "INSERT INTO coordinator_conversations(id,project_id,created_at) VALUES (?,?,?)",
+                ("existing", "harbor", "2026-10-10T00:00:00Z"),
+            )
+    original = logical_data(execution.workspace.directory)
+    migration = next(m for m in migrations.MIGRATIONS if m.version == 53)
+
+    def fail(db):
+        migration.apply(db)
+        raise ValueError("Injected welcome migration failure")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            migrations,
+            "MIGRATIONS",
+            tuple(Migration(53, fail) if m.version == 53 else m for m in migrations.MIGRATIONS),
+        )
+        with pytest.raises(ApplicationError, match="rolled back"):
+            Workspace(execution.workspace.directory)
+    assert logical_data(execution.workspace.directory) == original
+    upgraded = Workspace(execution.workspace.directory)
+    store = CoordinatorStore(upgraded)
+    assert store.new("harbor").id == "existing"
+    assert store.page("harbor").welcome == ""
+    restarted = Execution(upgraded)
+    restarted.restart()
+    assert restarted.settings("harbor") == saved
+    assert storage.backups(upgraded.directory)[0]["schema_version"] == 52

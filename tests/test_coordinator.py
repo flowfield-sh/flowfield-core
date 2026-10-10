@@ -637,3 +637,22 @@ def test_selected_result_is_exact_and_must_belong_to_the_task(tmp_path, monkeypa
                 update={"task_context": request.task_context.model_copy(update={"result_id": None})}
             ),
         )
+
+
+def test_welcome_is_durable_model_free_and_in_first_turn_context(tmp_path, monkeypatch):
+    from flowfield.coordinator_welcome import WELCOME
+
+    service, conversation = setup(tmp_path, monkeypatch)
+    store = service.coordinator.store
+    assert store.page("harbor").welcome == WELCOME
+    assert store.page("harbor").items == []
+    assert not service.coordinator.jobs
+    # Once saved, later application wording changes cannot rewrite the introduction.
+    monkeypatch.setattr("flowfield.coordinator_store.WELCOME", "Replacement introduction")
+    restored = CoordinatorStore(Workspace(service.workspace.directory))
+    assert restored.new("harbor").welcome == WELCOME
+    assert restored.page("harbor").welcome == WELCOME
+    turn, _ = restored.reserve("harbor", conversation.id, message("It is a garden planner"))
+    prompt = json.loads(service.coordinator._prompt(turn, "test_server"))
+    assert prompt["welcome"] == WELCOME
+    assert prompt["human_message"] == "It is a garden planner"

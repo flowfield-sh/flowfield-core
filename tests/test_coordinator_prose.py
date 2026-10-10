@@ -5,6 +5,7 @@ import json
 from uuid import uuid4
 
 import pytest
+from project_fixtures import finish_legacy_chat, prepare_legacy_chat
 from test_coordinator_history import saved_exchange
 from test_execution import fixture
 from test_storage_migrations import logical_data
@@ -74,7 +75,9 @@ def test_prose_migration_preserves_retained_text_and_omissions_and_rolls_back(
         # The old writer persisted only the activity projection.
         old.setattr("flowfield.coordinator_store.write_prose", lambda *args: None)
         workspace = fixture(tmp_path).workspace
+        prepare_legacy_chat(workspace)
         turn = saved_exchange(workspace, "Retained " + "x" * 10000)
+        finish_legacy_chat(workspace)
     before = logical_data(workspace.directory)
     migration = next(item for item in migrations.MIGRATIONS if item.version == 51)
 

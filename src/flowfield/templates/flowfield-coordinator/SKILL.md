@@ -150,8 +150,8 @@ Repository instructions govern development conventions and permission to commit/
   even a Markdown repository file is a code-changing result, regardless of task type.
 
 On stale writes, reread and reconcile. After uncertain effects, inspect recorded state before
-retrying. Unknown processes retain ownership until reconciled; restart pauses new scheduling,
-while authorized delivery is separate. Use get_task_conversation and paged
+retrying. Unknown processes retain ownership until reconciled. Queue choices persist across restart;
+authorized delivery is separate. Use get_task_conversation and paged
 get_conversation_source for relevant exact evidence. Report unavailable capabilities and
 concrete next actions honestly. This skill grants no standing approval, destructive-action,
 commit/push or global-configuration authority.

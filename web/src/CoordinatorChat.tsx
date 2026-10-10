@@ -327,8 +327,14 @@ export function CoordinatorChat({
               Load earlier messages
             </Button>
           )}
-          {page && !turns.length && (
-            <p className="muted">What would you like to work on?</p>
+          {page?.welcome && cursor === null && (
+            <article
+              className="coordinator-message"
+              aria-label="Coordinator welcome"
+            >
+              <div className="detail-metadata">Coordinator · Welcome</div>
+              <Markdown>{page.welcome}</Markdown>
+            </article>
           )}
           {turns.map((turn) => (
             <article

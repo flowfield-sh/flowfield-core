@@ -460,7 +460,7 @@ test("Integration uses Local automatically and preserves drafts across project t
   await expect(page.getByLabel("Executable paths")).toHaveCount(0);
   await page.getByLabel("Validation commands").fill("pnpm check");
   await expect(page.getByLabel("Executable paths")).toHaveCount(0);
-  await page.getByRole("tab", { name: "Info", exact: true }).click();
+  await page.getByRole("tab", { name: "General", exact: true }).click();
   await page.getByRole("tab", { name: "Integration", exact: true }).click();
   await expect(page.getByLabel("Validation commands")).toHaveValue(
     "pnpm check",

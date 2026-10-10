@@ -1,5 +1,5 @@
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +43,7 @@ export function IntegrationSettings({
   onDirty: (dirty: boolean) => void;
   refresh: unknown;
 }) {
+  const id = useId();
   const path = `projects/${projectId}/integration`;
   const resource = useResource<Settings>(path, projectId);
   const [draft, setDraft] = useState<{
@@ -130,61 +131,72 @@ export function IntegrationSettings({
           data-space="section"
         >
           <DetailSection title="Destination">
-            <p>
-              Approval updates this branch and the project files. Keep the
-              project checkout on this branch; nothing is pushed or deployed.
-            </p>
-            <Label className="field block">
-              Destination branch
-              <Input
-                aria-label="Destination branch"
-                required
-                value={target}
-                onChange={(e) =>
-                  setDraft({ ...fields, target: e.target.value })
-                }
-              />
-            </Label>
-            <p>
-              A missing branch is created from the project’s current commit.
-            </p>
+            <ContentStack space="tight">
+              <Label className="field block">
+                Destination branch
+                <Input
+                  aria-label="Destination branch"
+                  aria-describedby={`${id}-destination-help`}
+                  required
+                  value={target}
+                  onChange={(e) =>
+                    setDraft({ ...fields, target: e.target.value })
+                  }
+                />
+              </Label>
+              <p id={`${id}-destination-help`} className="detail-metadata">
+                Approval updates this branch and the project files. A missing
+                branch starts at the current commit. No push or deploy.
+              </p>
+            </ContentStack>
           </DetailSection>
           <DetailSection title="Validation">
-            <p>Required checks before approval. One shell command per line.</p>
-            <Label className="field block">
-              Validation commands
-              <Textarea
-                aria-label="Validation commands"
-                required
-                rows={3}
-                value={checks}
-                placeholder="Your project’s repeatable check command"
-                onChange={(e) =>
-                  setDraft({ ...fields, checks: e.target.value })
-                }
-              />
-            </Label>
+            <ContentStack space="tight">
+              <Label className="field block">
+                Validation commands
+                <Textarea
+                  aria-label="Validation commands"
+                  aria-describedby={`${id}-validation-help`}
+                  required
+                  rows={3}
+                  value={checks}
+                  placeholder="Your project’s repeatable check command"
+                  onChange={(e) =>
+                    setDraft({ ...fields, checks: e.target.value })
+                  }
+                />
+              </Label>
+              <p id={`${id}-validation-help`} className="detail-metadata">
+                Required before approval. One shell command per line.
+              </p>
+            </ContentStack>
           </DetailSection>
           <DetailSection title="Runtime setup">
-            <p>
-              Install dependencies in each worker and validation copy. Keep
-              source files unchanged.
-            </p>
-            <Label className="field block">
-              Setup commands
-              <Textarea
-                aria-label="Setup commands"
-                rows={3}
-                value={setup}
-                onChange={(e) => setDraft({ ...fields, setup: e.target.value })}
-              />
-            </Label>
+            <ContentStack space="tight">
+              <Label className="field block">
+                Setup commands
+                <Textarea
+                  aria-label="Setup commands"
+                  aria-describedby={`${id}-setup-help`}
+                  rows={3}
+                  value={setup}
+                  onChange={(e) =>
+                    setDraft({ ...fields, setup: e.target.value })
+                  }
+                />
+              </Label>
+              <p id={`${id}-setup-help`} className="detail-metadata">
+                Install dependencies in each work copy. One command per line;
+                keep source files unchanged.
+              </p>
+            </ContentStack>
           </DetailSection>
-          <ContentStack>
+          <ContentStack space="tight">
             <Label className="field block">
               Run command
               <Textarea
                 aria-label="Run command"
+                aria-describedby={`${id}-run-help`}
                 rows={2}
                 value={inspection.command}
                 disabled={!inspection.loaded}
@@ -192,7 +204,7 @@ export function IntegrationSettings({
                 onChange={(event) => inspection.change(event.target.value)}
               />
             </Label>
-            <p>
+            <p id={`${id}-run-help`} className="detail-metadata">
               Used by Try result after setup; you run it in the prepared copy.
             </p>
             {inspection.stale && (

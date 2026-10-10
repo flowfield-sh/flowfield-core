@@ -17,9 +17,6 @@ test("CLI adoption updates the browser, task creation and initial connection rec
   await page.unroute("**/api/projects");
   await page.getByRole("button", { name: "Retry connection" }).click();
   await expect(
-    page.getByRole("region", { name: "Project setup instructions" }),
-  ).toBeVisible();
-  await expect(
     page.getByRole("button", { name: "Add project", exact: true }),
   ).toHaveCount(1);
   const adopted = cli([
@@ -27,7 +24,10 @@ test("CLI adoption updates the browser, task creation and initial connection rec
     "init",
     existingDirectory(join(state, "browser")),
   ]);
-  await page.getByRole("link", { name: adopted.name, exact: true }).click();
+  await page
+    .locator("[data-slot=sidebar]")
+    .getByRole("link", { name: adopted.name, exact: true })
+    .click();
   await expect(page).toHaveURL("/projects/" + adopted.id);
   await page.getByRole("button", { name: "New task", exact: true }).click();
   await page
@@ -177,7 +177,9 @@ test("milestones group tasks with linked details and long project intent stays o
     name: "Edit project",
     exact: true,
   });
-  await expect(project.getByText(description, { exact: true })).toBeVisible();
+  await expect(project.getByLabel("Description", { exact: true })).toHaveValue(
+    description,
+  );
   await page
     .getByRole("button", {
       name: /^(Close editor|Back to board)$/,

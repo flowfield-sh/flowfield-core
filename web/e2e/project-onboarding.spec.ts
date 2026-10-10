@@ -15,7 +15,7 @@ test("directory adoption keeps cancellation harmless and opens project chat", as
     expect(route.request().method()).toBe("POST");
     return route.fulfill({ json: { path } });
   });
-  await page.goto("/");
+  await page.goto("/new-project");
   await expect(page.getByRole("heading", { name: "Coordinator" })).toHaveCount(
     0,
   );
@@ -300,7 +300,7 @@ test("project creation keeps compact agent choices until Add project", async ({
     });
     await route.fulfill({ response });
   });
-  await page.goto("/");
+  await page.goto("/new-project");
   await page
     .getByRole("button", { name: "Choose directory", exact: true })
     .click();

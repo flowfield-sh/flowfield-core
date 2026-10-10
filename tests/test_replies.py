@@ -201,6 +201,7 @@ def test_registered_mcp_reply_and_browser_thread_share_durable_receipts(tmp_path
 
     execution = fixture(tmp_path)
     result(execution, partial=True)
+    queue(execution, False)
     request = message(execution.workspace, action="observation")
 
     async def exercise(base):

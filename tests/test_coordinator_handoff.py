@@ -5,7 +5,7 @@ import json
 from uuid import uuid4
 
 import pytest
-from project_fixtures import adopt
+from project_fixtures import adopt, finish_legacy_chat, prepare_legacy_chat
 from test_coordinator_history import saved_exchange
 from test_execution import fixture
 from test_storage_migrations import logical_data, raw
@@ -157,6 +157,7 @@ def test_schema_47_upgrade_preserves_existing_chat_binding_and_failed_upgrade(
             )
             .effective
         )
+        prepare_legacy_chat(workspace)
         conversation = CoordinatorStore(workspace).new("harbor")
         old = CoordinatorTurn(
             id=uuid4().hex,
@@ -180,6 +181,7 @@ def test_schema_47_upgrade_preserves_existing_chat_binding_and_failed_upgrade(
                 "INSERT INTO coordinator_sessions VALUES (?,?,?,?,?)",
                 ("harbor", "codex", "PRIVATE NATIVE ID", str(tmp_path), None),
             )
+        finish_legacy_chat(workspace)
     before = logical_data(workspace.directory)
     original = next(m for m in migrations.MIGRATIONS if m.version == 48)
 

@@ -7,7 +7,7 @@ import pytest
 from project_fixtures import task_request
 from test_conversation import plan
 from test_execution import BASE, RESULT, fixture, validate_report
-from test_input_continuation import answer, queue
+from test_input_continuation import answer
 
 from flowfield.application import TaskEdit, TaskPublish
 from flowfield.browser import BrowserReads
@@ -82,8 +82,7 @@ def test_answer_continues_once_beside_independent_work(tmp_path, restart):
     if restart:
         execution.restart()
         assert execution.get("harbor", independent.id).status == "uncertain"
-        assert execution.claim("harbor", BASE, {RESULT: set(), BASE: set()}) is None
-        queue(execution, True)
+        assert execution.settings("harbor").enabled
     with ThreadPoolExecutor(4) as pool:
         attempts = list(
             pool.map(

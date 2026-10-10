@@ -141,9 +141,7 @@ def test_managed_claim_result_review_and_restart(tmp_path, monkeypatch):
 
     async def exercise():
         await service.start()
-        assert not execution.settings("harbor").enabled
-        settings = execution.settings("harbor")
-        execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=True))
+        assert execution.settings("harbor").enabled
         for _ in range(100):
             page = execution.page("harbor")
             if page.items and page.items[0].status == "in_review":
@@ -182,7 +180,7 @@ def test_managed_claim_result_review_and_restart(tmp_path, monkeypatch):
         await service.close()
         resumed = Supervisor(execution.workspace)
         await resumed.start()
-        assert not resumed.execution.settings("harbor").enabled
+        assert resumed.execution.settings("harbor").enabled
         assert resumed.execution.get("harbor", run.id).status == "accepted"
         await resumed.close()
 

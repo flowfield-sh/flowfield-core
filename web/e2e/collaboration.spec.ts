@@ -143,8 +143,8 @@ test("three-letter prefix setup, coordinator dependencies and immediate accessib
   await page.getByLabel("Prefix", { exact: true }).fill("UIT");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Edit", exact: true }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Save changes", exact: true }),
+  ).toBeDisabled();
   await ensureEditing(page);
   await expect(page.getByLabel("Prefix", { exact: true })).toHaveValue("UIT");
   const identity = { project_id: "detail-settings" };

@@ -19,6 +19,7 @@ from flowfield.coordinator_models import (
     CoordinatorTurn,
 )
 from flowfield.coordinator_prose import write as write_prose
+from flowfield.coordinator_welcome import WELCOME
 from flowfield.errors import ApplicationError
 from flowfield.harness_models import HarnessLaunch
 from flowfield.results import Results
@@ -63,13 +64,13 @@ class CoordinatorStore:
         db: sqlite3.Connection, project: str, identity: str
     ) -> CoordinatorConversation:
         row = db.execute(
-            "SELECT id,number,created_at FROM coordinator_conversations "
+            "SELECT id,number,created_at,welcome FROM coordinator_conversations "
             "WHERE project_id=? AND id=?",
             (project, identity),
         ).fetchone()
         if row is None:
             raise ApplicationError("conversation_missing", "Conversation not found.", 404)
-        return CoordinatorConversation(id=row[0], number=row[1], created_at=row[2])
+        return CoordinatorConversation(id=row[0], number=row[1], created_at=row[2], welcome=row[3])
 
     @staticmethod
     def _get(db: sqlite3.Connection, project: str, identity: str) -> CoordinatorTurn:
@@ -108,8 +109,9 @@ class CoordinatorStore:
                 return self._conversation(db, project, existing[0])
             identity = uuid4().hex
             db.execute(
-                "INSERT INTO coordinator_conversations(id,project_id,created_at) VALUES (?,?,?)",
-                (identity, project, now()),
+                "INSERT INTO coordinator_conversations(id,project_id,created_at,welcome) "
+                "VALUES (?,?,?,?)",
+                (identity, project, now(), WELCOME),
             )
             return self._conversation(db, project, identity)
 
@@ -153,7 +155,13 @@ class CoordinatorStore:
                 "ORDER BY number DESC LIMIT 1",
                 (project,),
             ).fetchone()
+            welcome = db.execute(
+                "SELECT welcome FROM coordinator_conversations "
+                "WHERE project_id=? ORDER BY number LIMIT 1",
+                (project,),
+            ).fetchone()
             return CoordinatorPage(
+                welcome=welcome[0] if welcome else WELCOME,
                 context=ContextUsage.model_validate_json(context[0])
                 if context and context[0]
                 else None,

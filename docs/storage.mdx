@@ -28,8 +28,8 @@ rolls back the upgrade; an error stops startup and includes recovery instruction
 
 Upgrades require exclusive access: stop the service before updating, then start the new
 build. Flowfield refuses an incompatible database and preserves its contents. Reinstalling
-an older application does not downgrade a newer database. The queue is paused after restart;
-review interrupted work before enabling workers again.
+an older application does not downgrade a newer database. Each project retains its saved queue setting after restart.
+Pause the queue before shutdown to hold new starts; interrupted workers still require recovery.
 
 Database upgrades preserve project identity, installed guidance and execution artifacts.
 They do not rewrite project files or install new guidance. Update guidance separately

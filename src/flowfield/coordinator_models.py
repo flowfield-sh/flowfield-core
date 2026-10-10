@@ -10,6 +10,7 @@ from flowfield.run_activity import ContextUsage, RunActivityPage
 
 
 class CoordinatorConversation(AgentRecord):
+    welcome: str = ""
     id: str
     number: int
     created_at: str
@@ -60,6 +61,7 @@ class CoordinatorTurn(AgentRecord):
 
 
 class CoordinatorPage(AgentRecord):
+    welcome: str = ""
     context: ContextUsage | None = None
     conversation: CoordinatorConversation | None = None
     items: list[CoordinatorTurn]

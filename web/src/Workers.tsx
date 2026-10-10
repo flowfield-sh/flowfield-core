@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { AgentModelFields } from "./AgentSettings";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { WorkspaceLink as Link } from "./WorkspaceLink";
 import type { components } from "./api-schema";
 import { request } from "./workspace";
@@ -362,6 +362,70 @@ export function WorkerSettings({
             Load latest settings
           </Button>
         </>
+      )}
+    </section>
+  );
+}
+
+export function QueueSettings({
+  projectId,
+  refresh,
+}: {
+  projectId: string;
+  refresh: unknown;
+}) {
+  const id = useId();
+  const path = `projects/${projectId}`;
+  const resource = useResource<Settings>(`${path}/workers`, refresh);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const data = resource.data;
+  return (
+    <section
+      className="content-stack"
+      data-space="tight"
+      aria-label="Queue settings"
+    >
+      <Label>
+        <input
+          type="checkbox"
+          checked={data?.enabled ?? false}
+          disabled={busy || !data}
+          aria-describedby={id}
+          onChange={async (event) => {
+            if (!data) return;
+            const enabled = event.target.checked;
+            setBusy(true);
+            setError("");
+            try {
+              const updated = await request<Settings>(`${path}/queue`, "POST", {
+                expected_revision: data.revision,
+                enabled,
+              });
+              resource.invalidate();
+              resource.setData(updated);
+            } catch (failure) {
+              setError((failure as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />{" "}
+        Run worker queue
+      </Label>
+      <p id={id} className="detail-metadata">
+        Starts eligible Up next tasks. Saves immediately and persists after
+        restart; pausing leaves active workers running.
+      </p>
+      {!data?.selection && data && (
+        <Link to={projectHref(projectId) + "/edit/workers"}>
+          Choose a worker model first
+        </Link>
+      )}
+      {(error || resource.error) && (
+        <Alert variant="destructive">
+          <AlertDescription>{error || resource.error}</AlertDescription>
+        </Alert>
       )}
     </section>
   );
