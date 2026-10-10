@@ -128,6 +128,7 @@ async def main():
             )
 
     async def prompt(request):
+        global active
         if expected := os.environ.get("FLOWFIELD_TEST_FAST"):
             assert next(c for c in CONFIG if c.get("id") == "fast-mode")["currentValue"] == expected
         text = request["params"]["prompt"][0]["text"]
@@ -216,6 +217,26 @@ async def main():
                     }
                 ]
         mode = control.get("mode", "normal")
+        if mode == "native-error":
+            active = False
+            send(
+                {
+                    "method": "turn/completed",
+                    "params": {
+                        "threadId": "test-session",
+                        "turn": {
+                            "id": "turn-1",
+                            "status": "failed",
+                            "error": {
+                                "codexErrorInfo": control.get("error"),
+                                "message": "PRIVATE_PROVIDER_CREDENTIALS",
+                                "additionalDetails": "PRIVATE_PROVIDER_HEADERS",
+                            },
+                        },
+                    },
+                }
+            )
+            return
         if mode == "disconnect":
             os._exit(2)
         if mode == "oversized":

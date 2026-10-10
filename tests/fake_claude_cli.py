@@ -230,12 +230,23 @@ def main() -> None:
                     "isReplay": True,
                 }
             )
-            if scenario in {"authentication-error", "result-error", "assistant-error"}:
+            if scenario in {
+                "authentication-error",
+                "result-error",
+                "assistant-error",
+                "rate-limit",
+                "billing-error",
+                "recovered-error",
+            }:
                 if scenario != "result-error":
                     emit(
                         {
                             "type": "assistant",
-                            "error": "authentication_failed",
+                            "error": "rate_limit"
+                            if scenario in {"rate-limit", "recovered-error"}
+                            else "billing_error"
+                            if scenario == "billing-error"
+                            else "authentication_failed",
                             "message": {
                                 "id": "fixture-auth-error",
                                 "role": "assistant",
@@ -248,8 +259,9 @@ def main() -> None:
                             "session_id": session_id,
                         }
                     )
-                finish(is_error=scenario != "assistant-error")
-                continue
+                if scenario != "recovered-error":
+                    finish(is_error=scenario != "assistant-error")
+                    continue
             emit(
                 {
                     "type": "assistant",

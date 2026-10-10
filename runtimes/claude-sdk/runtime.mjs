@@ -12,6 +12,7 @@ let currentMessage = "text";
 const streamed = new Set();
 let initialized = false, started = false, stopping = false;
 let turnError = null;
+const publicErrors = new Set(["authentication_failed", "oauth_org_not_allowed", "account_on_hold", "verification_required", "billing_error", "rate_limit", "overloaded", "invalid_request", "model_not_found", "server_error", "max_output_tokens", "cloud_credential_error"]);
 const bounded = async (operation, ms = 15000) => {
   let timer;
   try { return await Promise.race([operation(), new Promise((_, reject) => {
@@ -81,7 +82,8 @@ async function consume() {
           await emit({kind: "tool", key: event.content_block.id, title: event.content_block.name, status: "running"});
         }
       } else if (message.type === "assistant") {
-        if (message.error) turnError = message.error === "authentication_failed" ? "authentication_failed" : "native_turn_failed";
+        // A later successful assistant message can follow native retry/recovery.
+        turnError = message.error ? (publicErrors.has(message.error) ? message.error : "native_turn_failed") : null;
         for (const [index, block] of (message.message.content ?? []).entries()) {
           if (block.type === "text" && !streamed.has(message.message.id + "-" + index)) {
             streamed.add(message.message.id + "-" + index);

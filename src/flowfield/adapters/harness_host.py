@@ -72,7 +72,11 @@ def resolve(registration: HarnessRegistration, environment: Mapping[str, str]) -
         else "environment"
         if configured
         else "path",
-        config_directory=str(location.resolve()) if location.is_absolute() else str(location),
+        config_directory=config
+        if registration.harness == "claude-code" and config
+        else str(location.resolve())
+        if location.is_absolute()
+        else str(location),
         adapter_version=paths.adapter_version,
         config_source="registration"
         if registration.config_directory

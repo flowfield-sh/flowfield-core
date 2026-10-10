@@ -1,5 +1,6 @@
 """Host configuration and nonsecret launch provenance for concrete harnesses."""
 
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -27,7 +28,9 @@ class HarnessConfiguration(HarnessRecord):
             raise ValueError("Use an absolute service-host path (or ~/path).") from None
         if "\x00" in value or not path.is_absolute():
             raise ValueError("Use an absolute service-host path (or ~/path).")
-        return str(path)
+        # Preserve an absolute spelling: Claude uses the literal config directory
+        # to select its credential store, including symlinks and trailing slashes.
+        return os.path.expanduser(value)
 
 
 class HarnessRegistration(HarnessConfiguration):

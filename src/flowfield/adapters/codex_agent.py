@@ -35,6 +35,38 @@ MODES = [
 ]
 
 
+def turn_failure(error: Any) -> ApplicationError:
+    info = error.get("codexErrorInfo") if isinstance(error, dict) else None
+    if isinstance(info, dict):
+        # Retain only structured categories; raw provider messages can contain secrets.
+        statuses = [
+            value.get("httpStatusCode") for value in info.values() if isinstance(value, dict)
+        ]
+        info = (
+            "unauthorized" if 401 in statuses else "rateLimitExceeded" if 429 in statuses else None
+        )
+    reasons = {
+        "unauthorized": "Codex could not authenticate. Check its sign-in or provider credentials "
+        "on the service host, using the paths in Settings → Harnesses, then retry.",
+        "usageLimitExceeded": "Codex reached an account usage limit. Check the account's available "
+        "usage or choose another available model before retrying.",
+        "rateLimitExceeded": "Codex was rate limited. Wait before retrying "
+        "or choose another model.",
+        "contextWindowExceeded": "Codex ran out of context. Compact the conversation or start "
+        "a fresh session before retrying.",
+        "serverOverloaded": "Codex's provider is overloaded. Wait before retrying.",
+        "badRequest": "Codex's provider rejected the request. Check native provider settings "
+        "and the selected model before retrying.",
+    }
+    fallback = (
+        "Codex could not complete this turn. Check its account, provider and model settings "
+        "on the service host, then retry."
+    )
+    return ApplicationError(
+        "codex_turn_failed", reasons.get(info, fallback) if isinstance(info, str) else fallback, 409
+    )
+
+
 def command(directory: Path, environment: Mapping[str, str]) -> tuple[list[str], dict[str, str]]:
     executable = environment.get("CODEX_PATH")
     if not executable:
@@ -371,7 +403,7 @@ class CodexAgent(Agent):
             if not self._completion.done():
                 status = data.get("turn", {}).get("status")
                 if status == "failed":
-                    self._completion.set_exception(NativeError("Native turn failed"))
+                    self._completion.set_exception(turn_failure(data.get("turn", {}).get("error")))
                 else:
                     self._completion.set_result(
                         "completed" if status == "completed" and not self.stopping else "stopped"

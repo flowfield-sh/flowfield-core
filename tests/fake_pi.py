@@ -64,7 +64,9 @@ for line in sys.stdin:
         data = {"models": models}
     elif method == "set_model":
         data = next(model for model in models if model["provider"] == request["provider"])
-        state["model"] = data
+        success = scenario != "model-unavailable"
+        if success:
+            state["model"] = data
     elif method == "get_available_thinking_levels":
         data = {"levels": ["off", "low", "high"]}
     elif method == "set_thinking_level":
@@ -86,7 +88,13 @@ for line in sys.stdin:
             data = {"disposition": "handled"}
             state["isStreaming"] = False
         else:
-            data = {"disposition": "queued" if scenario == "queued" else "started"}
+            data = {
+                "disposition": "queued"
+                if scenario == "queued"
+                else "handled"
+                if scenario == "handled-error"
+                else "started"
+            }
     elif method == "abort":
         if scenario == "refused":
             success = False
@@ -131,7 +139,7 @@ for line in sys.stdin:
             message={
                 "role": "assistant",
                 "content": [{"type": "text", "text": "Final answer"}],
-                "stopReason": "error" if scenario == "error" else "stop",
+                "stopReason": "error" if scenario in {"error", "handled-error"} else "stop",
             },
         )
         event("agent_end", messages=[], willRetry=False)
@@ -144,7 +152,7 @@ for line in sys.stdin:
             message={
                 "role": "assistant",
                 "content": [{"type": "text", "text": "Settled answer"}],
-                "stopReason": "error" if scenario == "error" else "stop",
+                "stopReason": "error" if scenario in {"error", "handled-error"} else "stop",
             },
         )
         state["isStreaming"] = False

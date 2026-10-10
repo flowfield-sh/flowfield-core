@@ -11,6 +11,8 @@ In **Settings → Harnesses**, keep detected paths or override the executable an
 
 If a turn fails because Claude cannot authenticate, sign in through Claude Code on the machine running Flowfield. Use the executable and configuration directory shown in **Settings → Harnesses**, choose **Check saved setup**, then resend your message. A terminal using a different configuration directory can be signed in while Flowfield's Claude session is signed out.
 
+Keep the configuration override blank when using Claude's default setup. For an explicit `CLAUDE_CONFIG_DIR`, use the same path spelling as your terminal; on macOS it can affect which Keychain credentials Claude uses.
+
 ## Models and access
 
 Models and effort levels come from Claude, with resolved model versions shown in the picker. Access modes are **Default**, **Accept edits**, **Auto (review actions)** when supported, and **Bypass permissions**. Claude organization policy still applies. Plan and Fast are not exposed.

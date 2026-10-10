@@ -162,9 +162,17 @@ class PiAgent(Agent):
             raise ApplicationError(
                 "agent_choice_unavailable", "Choose an available Pi model and access mode.", 409
             )
-        self.model = await self.rpc.call(
-            "set_model", {"provider": unquote(provider), "modelId": unquote(name)}
-        )
+        try:
+            self.model = await self.rpc.call(
+                "set_model", {"provider": unquote(provider), "modelId": unquote(name)}
+            )
+        except NativeError as error:
+            raise ApplicationError(
+                "pi_model_unavailable",
+                "Pi could not select this model. Check its provider credentials on the service "
+                "host, then refresh models and try again.",
+                409,
+            ) from error
         levels = (await self.rpc.call("get_available_thinking_levels", {})).get("levels", [])
         if model_id(self.model) != choice.model or choice.effort not in levels:
             raise ApplicationError(
@@ -279,7 +287,8 @@ class PiAgent(Agent):
             if response.get("disposition") == "handled":
                 state = await self.rpc.call("get_state", {})
                 if (
-                    state.get("isStreaming")
+                    completion.done()
+                    or state.get("isStreaming")
                     or state.get("isCompacting")
                     or state.get("pendingMessageCount")
                 ):
@@ -293,7 +302,12 @@ class PiAgent(Agent):
             else:
                 raise NativeError("Pi did not start the requested turn; nothing was replayed")
             if result == "failed":
-                raise NativeError("Pi could not complete the turn. Check its provider settings.")
+                raise ApplicationError(
+                    "pi_turn_failed",
+                    "Pi's provider could not complete this turn. Check provider sign-in, "
+                    "available usage and model access in Pi on the service host, then retry.",
+                    409,
+                )
             if not self.stopping:
                 state = await self.rpc.call("get_state", {})
                 if state.get("sessionId") != self.session_id:

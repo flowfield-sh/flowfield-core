@@ -68,7 +68,7 @@ def test_model_provider_identity_and_native_levels(tmp_path, monkeypatch):
     ]
 
 
-@pytest.mark.parametrize("scenario", ["complete", "error", "disconnect", "queued"])
+@pytest.mark.parametrize("scenario", ["complete", "error", "handled-error", "disconnect", "queued"])
 def test_turn_waits_for_settled_and_never_replays(tmp_path, scenario):
     async def exercise():
         agent, _ = fixture(tmp_path, scenario)
@@ -87,6 +87,9 @@ def test_turn_waits_for_settled_and_never_replays(tmp_path, scenario):
                 assert any("Flowfield · Get task" in update.text for update in updates)
                 assert any("Task missing" in update.text for update in updates)
                 assert not any("private reasoning" in update.text for update in updates)
+            elif scenario in {"error", "handled-error"}:
+                with pytest.raises(ApplicationError, match="provider sign-in"):
+                    await agent.prompt("hello", None)
             else:
                 with pytest.raises(NativeError):
                     await agent.prompt("hello", None)
@@ -173,6 +176,25 @@ def test_settings_and_resume_require_exact_native_confirmation(tmp_path):
             }
         finally:
             assert await agent.stop()
+
+    asyncio.run(exercise())
+
+
+def test_provider_unavailable_before_prompt_has_recovery_and_clean_shutdown(tmp_path):
+    async def exercise():
+        agent, _ = fixture(tmp_path, "model-unavailable")
+        try:
+            await agent.start([])
+            with pytest.raises(ApplicationError, match="provider credentials"):
+                await agent.configure(choice())
+            with pytest.raises(NativeError, match="settings"):
+                await agent.prompt("must not dispatch", None)
+        finally:
+            assert await agent.stop()
+        calls = [
+            json.loads(line)["type"] for line in (tmp_path / "calls.jsonl").read_text().splitlines()
+        ]
+        assert "prompt" not in calls
 
     asyncio.run(exercise())
 

@@ -1,7 +1,12 @@
 import { test } from "./support";
-import { expect, type Page, type TestInfo } from "@playwright/test";
+import {
+  expect,
+  type Locator,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 
-function host(kind: "codex" | "claude-code") {
+function host(kind: "codex" | "claude-code" | "pi") {
   return {
     registration: {
       harness: kind,
@@ -39,16 +44,84 @@ function host(kind: "codex" | "claude-code") {
   };
 }
 
-async function screenshot(page: Page, testInfo: TestInfo, name: string) {
+async function screenshot(
+  page: Page,
+  testInfo: TestInfo,
+  name: string,
+  target?: Locator,
+) {
   if (process.env.FLOWFIELD_VISUAL_EVIDENCE) {
-    await page.locator(".harness-settings-page").evaluate((element) => {
-      element.scrollTop = 0;
-    });
+    if (target) await target.scrollIntoViewIfNeeded();
+    else
+      await page.locator(".harness-settings-page").evaluate((element) => {
+        element.scrollTop = 0;
+      });
     await page.screenshot({
       path: testInfo.outputPath(`harness-settings-${name}.png`),
       fullPage: true,
     });
   }
+}
+
+for (const [kind, name] of [
+  ["codex", "Codex"],
+  ["claude-code", "Claude Code"],
+  ["pi", "Pi"],
+] as const) {
+  test(`${name} first setup can detect a new install and reports failed checks honestly`, async ({
+    page,
+  }, testInfo) => {
+    const value = host(kind);
+    value.native_installed = false;
+    value.selectable = false;
+    let checked = false;
+    await page.route(`**/api/harnesses/${kind}`, (route) =>
+      route.fulfill({ json: value }),
+    );
+    await page.route(`**/api/harnesses/${kind}/check`, (route) => {
+      checked = true;
+      return route.fulfill({ json: { ...value, checked: true } });
+    });
+    await page.goto("/settings/harnesses");
+    const entry = page.getByRole("region", {
+      name: `${name} settings`,
+      exact: true,
+    });
+    await expect(entry).toContainText("Native harness missing");
+    await expect(
+      entry.getByRole("button", { name: "Check saved setup" }),
+    ).toBeDisabled();
+    value.native_installed = true;
+    value.selectable = true;
+    await entry.getByRole("button", { name: "Refresh detection" }).click();
+    await expect(
+      entry.getByRole("button", { name: "Check saved setup" }),
+    ).toBeEnabled();
+    expect(checked).toBe(false);
+    value.problems = ["native_check_failed"];
+    await entry.getByRole("button", { name: "Check saved setup" }).click();
+    await expect(entry).toContainText("Setup check failed");
+    await expect(entry).toContainText("The native setup check failed");
+    await expect(entry).not.toContainText("Setup checked.");
+    await expect(
+      entry.getByRole("button", { name: "Check saved setup" }),
+    ).toBeEnabled();
+    await screenshot(page, testInfo, `${kind}-failed-check`, entry);
+    value.problems = kind === "pi" ? [] : ["native_login_required"];
+    value.authentication = kind === "pi" ? "unknown" : "signed-out";
+    value.native_version = "fixture.native";
+    await entry.getByRole("button", { name: "Check saved setup" }).click();
+    await expect(entry).toContainText(
+      kind === "pi" ? "Pi installation checked" : "Sign-in required",
+    );
+    await expect(entry).not.toContainText("Setup checked.");
+    if (kind !== "pi") {
+      value.problems = [];
+      value.authentication = "authenticated";
+      await entry.getByRole("button", { name: "Check saved setup" }).click();
+      await expect(entry).toContainText("Setup checked.");
+    }
+  });
 }
 
 test("central harness settings preserve host drafts and configure kinds independently without native discovery", async ({

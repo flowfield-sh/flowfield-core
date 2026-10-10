@@ -251,7 +251,7 @@ class Catalogs:
             models = await model_options(
                 self.workspace.directory, registration=registration, cwd=cwd, on_cleanup=report
             )
-            if len(models) > 64:
+            if len(models) > 2048:
                 raise ApplicationError(
                     "agent_catalog_limit", "Native discovery returned too many models.", 409
                 )

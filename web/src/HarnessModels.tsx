@@ -171,7 +171,12 @@ export function HarnessModelSource({
           <Alert variant={catalog.error ? "destructive" : "default"}>
             <AlertDescription>
               {catalog.error ||
-                `No models are available from ${kind ? harnessNames[kind] : "this harness"} for this project.`}
+                (kind === "pi"
+                  ? "Pi has no available models. Configure a provider in Pi on the service host, then refresh models."
+                  : `No models are available from ${kind ? harnessNames[kind] : "this harness"} for this project. Check its native account and model settings, then refresh models.`)}{" "}
+              <WorkspaceLink to="/settings/harnesses">
+                Harness settings
+              </WorkspaceLink>
             </AlertDescription>
           </Alert>
         )}

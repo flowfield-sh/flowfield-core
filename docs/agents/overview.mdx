@@ -16,11 +16,16 @@ and model for your Coordinator and workers. Support ships with Flowfield.
 **Settings → Harnesses** detects native installations. Override executable/configuration
 paths only when needed. Accounts and native settings stay with the harness.
 **Check saved setup** reads native installation and available sign-in diagnostics.
-Pi manages authentication per provider.
+After installing a missing harness, choose **Refresh detection**, then **Check saved setup**.
+Pi's check verifies its installation; it manages authentication per provider. A successful
+setup check or a listed model does not prove model access. That requires a successful turn.
 
 Models load automatically when you open a selector. Saved project choices preload on open
 and reconnect. Discovery sends no model prompt, though native startup hooks can run.
 Capabilities and access modes are described on each agent's page.
+
+If a turn fails, follow the recovery message, check the native account or provider on the
+service host, then resend. Flowfield does not automatically replay failed prompts.
 
 ## Flowfield tools
 

@@ -32,6 +32,38 @@ from flowfield.run_activity import ActivityUpdate, ContextUsage
 MODES = {"default", "acceptEdits", "auto", "bypassPermissions"}
 
 
+def turn_failure(error: Any) -> ApplicationError:
+    reasons = {
+        "authentication_failed": "Claude Code could not authenticate. Check its sign-in or "
+        "provider credentials on the machine running Flowfield, using the executable and "
+        "configuration directory shown in Settings → Harnesses. Check saved setup, then "
+        "resend your message.",
+        "cloud_credential_error": "Claude Code could not authenticate with its cloud provider. "
+        "Check provider credentials on the service host, then retry.",
+        "oauth_org_not_allowed": "Claude Code's organization policy rejected this account. "
+        "Check the required account in Claude Code on the service host before retrying.",
+        "billing_error": "Claude Code reported a billing problem. Check the native account's "
+        "billing and available usage before retrying.",
+        "rate_limit": "Claude Code was rate limited. Wait before retrying or choose another model.",
+        "overloaded": "Claude Code's provider is overloaded. Wait before retrying.",
+        "model_not_found": "Claude Code could not access the selected model. Refresh models "
+        "and check native account access before retrying.",
+        "max_output_tokens": "Claude Code reached its output limit. Send a message to continue "
+        "from the saved response.",
+    }
+    fallback = (
+        "Claude Code could not complete this turn. Check its account, provider and model "
+        "settings on the service host, then retry."
+    )
+    return ApplicationError(
+        "claude_authentication_failed"
+        if error == "authentication_failed"
+        else "claude_turn_failed",
+        reasons.get(error, fallback) if isinstance(error, str) else fallback,
+        409,
+    )
+
+
 def tool_title(name: str) -> str:
     """Present Claude's scoped MCP identifier without the per-session server suffix."""
     match = re.fullmatch(r"mcp__flowfield(?:_[a-f0-9]{16}|_[a-f0-9]{32})?__(\w+)", name)
@@ -262,16 +294,7 @@ class ClaudeAgent(Agent):
                 timeout=3600,
             )
             if response.get("status") not in {"completed", "stopped"}:
-                if response.get("error") == "authentication_failed":
-                    raise ApplicationError(
-                        "claude_authentication_failed",
-                        "Claude Code could not authenticate. Sign in with Claude Code on the "
-                        "machine running Flowfield, using the executable and configuration "
-                        "directory shown in Settings → Harnesses. Check saved setup, then "
-                        "resend your message.",
-                        409,
-                    )
-                raise NativeError("Native turn failed")
+                raise turn_failure(response.get("error"))
             return {"status": response["status"]}
         finally:
             self._running = False

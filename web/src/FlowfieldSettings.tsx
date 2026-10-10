@@ -48,6 +48,12 @@ function setupLabel(value: Status) {
   if (!value.native_installed) return "Native harness missing";
   if (!value.config_available) return "Configuration directory missing";
   if (value.authentication === "signed-out") return "Sign-in required";
+  if (value.problems.includes("native_check_failed"))
+    return "Setup check failed";
+  if (value.problems.includes("authentication_unverified"))
+    return "Sign-in could not be checked";
+  if (value.checked && value.registration.harness === "pi")
+    return "Installation checked";
   return value.checked && value.authentication === "authenticated"
     ? "Setup checked"
     : "Setup detected";
@@ -119,7 +125,11 @@ function HarnessEntry({
       resource.setError("");
       setNotice(
         operation === "check"
-          ? "Setup checked."
+          ? result.problems.length
+            ? ""
+            : kind === "pi"
+              ? "Pi installation checked. Choose a model to use its provider account."
+              : "Setup checked."
           : "Discovery hold cleared. Native choices can be loaded again.",
       );
     } catch (error) {
@@ -155,8 +165,8 @@ function HarnessEntry({
           <>
             {!status.native_installed && (
               <p>
-                Install {names[kind]} on the service host, then check the setup
-                or supply its executable below.
+                Install {names[kind]} on the service host, then refresh
+                detection or supply its executable below.
               </p>
             )}
             {status.authentication === "signed-out" && (
@@ -165,7 +175,32 @@ function HarnessEntry({
                 again.
               </p>
             )}
+            {status.problems.includes("native_check_failed") && (
+              <p>
+                The native setup check failed. Check the saved paths and open{" "}
+                {names[kind]} in a terminal on the service host, then check
+                again.
+              </p>
+            )}
+            {status.problems.includes("authentication_unverified") && (
+              <p>
+                Sign-in could not be verified. Open {names[kind]} in a terminal
+                on the service host to check its account or provider settings.
+              </p>
+            )}
             <div className="actions">
+              {(!status.native_installed || !status.config_available) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() =>
+                    void read().catch((error: Error) => setError(error.message))
+                  }
+                >
+                  Refresh detection
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="outline"

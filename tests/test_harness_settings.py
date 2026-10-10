@@ -159,6 +159,34 @@ def test_claude_default_and_explicit_config_do_not_share_native_binding(tmp_path
     assert harness_host.same_session_location(explicit, from_environment)
 
 
+@pytest.mark.parametrize("source", ["environment", "registration"])
+def test_claude_preserves_literal_config_directory_for_native_credentials(tmp_path, source):
+    executable, _ = native(tmp_path)
+    real = tmp_path / "config"
+    real.mkdir()
+    linked = tmp_path / "linked-config"
+    linked.symlink_to(real, target_is_directory=True)
+    configured = str(linked) + "/"
+    environment = {"HOME": str(tmp_path), "PATH": ""}
+    registration = HarnessRegistration(harness="claude-code", executable=str(executable))
+    if source == "environment":
+        environment["CLAUDE_CONFIG_DIR"] = configured
+    else:
+        registration = HarnessRegistration(
+            harness="claude-code", executable=str(executable), config_directory=configured
+        )
+    launch = harness_host.resolve(registration, environment)
+    assert launch.config_directory == configured
+    assert harness_host.launch_environment(launch, environment)["CLAUDE_CONFIG_DIR"] == configured
+    canonical = harness_host.resolve(
+        HarnessRegistration(
+            harness="claude-code", executable=str(executable), config_directory=str(real)
+        ),
+        environment,
+    )
+    assert not harness_host.same_session_location(launch, canonical)
+
+
 @pytest.mark.parametrize("harness", ["codex", "claude-code"])
 @pytest.mark.parametrize("logged_in", [True, False])
 def test_explicit_readiness_uses_only_bounded_native_status_and_no_sensitive_output(

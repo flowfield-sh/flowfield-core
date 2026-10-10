@@ -131,15 +131,13 @@ def test_plan_is_rejected_before_native_launch(tmp_path):
 
 @pytest.mark.parametrize("scenario", ["authentication-error", "result-error", "assistant-error"])
 def test_native_api_errors_never_complete_a_turn(tmp_path, scenario):
-    from flowfield.adapters.json_rpc import NativeError
-
     async def exercise():
         agent = installed_candidate(tmp_path, scenario)
         try:
             await agent.start([])
             await agent.configure(CHOICE)
             if scenario == "result-error":
-                with pytest.raises(NativeError, match="Native turn failed"):
+                with pytest.raises(ApplicationError, match="Claude Code could not complete"):
                     await agent.prompt("Synthetic API error", None)
             else:
                 with pytest.raises(ApplicationError, match="Settings → Harnesses") as failure:
@@ -153,6 +151,36 @@ def test_native_api_errors_never_complete_a_turn(tmp_path, scenario):
             json.loads(line) for line in (tmp_path / "native.jsonl").read_text().splitlines()
         ]
         assert sum("input" in record for record in records) == 1
+
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize(
+    "scenario,expected", [("rate-limit", "rate limited"), ("billing-error", "billing")]
+)
+def test_claude_provider_failures_keep_actionable_category(tmp_path, scenario, expected):
+    async def exercise():
+        agent = installed_candidate(tmp_path, scenario)
+        try:
+            await agent.start([])
+            await agent.configure(CHOICE)
+            with pytest.raises(ApplicationError, match=expected):
+                await agent.prompt("Synthetic provider error", None)
+        finally:
+            assert await agent.stop()
+
+    asyncio.run(exercise())
+
+
+def test_claude_native_recovery_can_complete_after_an_assistant_error(tmp_path):
+    async def exercise():
+        agent = installed_candidate(tmp_path, "recovered-error")
+        try:
+            await agent.start([])
+            await agent.configure(CHOICE)
+            assert await agent.prompt("Synthetic recovered turn", None) == {"status": "completed"}
+        finally:
+            assert await agent.stop()
 
     asyncio.run(exercise())
 

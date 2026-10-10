@@ -13,6 +13,37 @@ from flowfield.harness_models import HarnessEdit
 from flowfield.harness_settings import HarnessSettings
 
 
+@pytest.mark.parametrize("count", [65, 2048, 2049])
+def test_multi_provider_catalogs_reach_selector_with_bounded_cache(tmp_path, monkeypatch, count):
+    workspace = fixture(tmp_path).workspace
+    catalogs = Catalogs(workspace)
+    registration = HarnessSettings(workspace).get("pi")
+
+    async def discover(directory, *, on_cleanup, **kwargs):
+        on_cleanup(True)
+        return [
+            ModelOption(id=f"provider/model-{i}", name=f"Model {i}", efforts=[])
+            for i in range(count)
+        ]
+
+    monkeypatch.setattr("flowfield.catalogs.model_options", discover)
+
+    async def exercise():
+        try:
+            if count <= 2048:
+                assert len(await catalogs.run(registration)) == count
+                assert len(await catalogs.run(registration)) == count
+            else:
+                with pytest.raises(ApplicationError, match="too many models"):
+                    await catalogs.run(registration)
+                assert not catalogs.cache
+            assert catalogs.ownership("pi") is None
+        finally:
+            await catalogs.close()
+
+    asyncio.run(exercise())
+
+
 def test_caller_cancellation_keeps_native_owner_and_coalesces_requests(tmp_path, monkeypatch):
     workspace = fixture(tmp_path).workspace
     catalogs = Catalogs(workspace)

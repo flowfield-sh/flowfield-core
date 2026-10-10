@@ -42,6 +42,31 @@ def test_public_activity_excludes_private_reasoning_inputs_and_wrong_sessions(tm
     asyncio.run(exercise())
 
 
+@pytest.mark.parametrize(
+    "error,expected",
+    [
+        ("unauthorized", "could not authenticate"),
+        ("usageLimitExceeded", "usage limit"),
+        ({"httpConnectionFailed": {"httpStatusCode": 401}}, "could not authenticate"),
+        ({"responseTooManyFailedAttempts": {"httpStatusCode": 429}}, "rate limited"),
+        ("PRIVATE_UNKNOWN_ERROR", "could not complete"),
+    ],
+)
+def test_provider_failures_are_actionable_without_leaking_native_payload(tmp_path, error, expected):
+    async def exercise():
+        events = []
+        agent = await start(tmp_path, events)
+        try:
+            with pytest.raises(ApplicationError, match=expected) as failure:
+                await agent.prompt(json.dumps({"mode": "native-error", "error": error}), None)
+            assert "PRIVATE" not in str(failure.value)
+            assert "PRIVATE" not in json.dumps([event.model_dump() for event in events])
+        finally:
+            assert await agent.stop()
+
+    asyncio.run(exercise())
+
+
 @pytest.mark.parametrize("mode", ["disconnect", "malformed", "oversized"])
 def test_transport_failure_never_confirms_native_cleanup_or_replays(tmp_path, mode):
     async def exercise():
