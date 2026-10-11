@@ -5,9 +5,7 @@ import { LabelCatalog } from "./labelContext";
 import { MilestoneBadge } from "./MilestoneBadge";
 import { AnnouncementProvider } from "./Announcements";
 import { TaskNeeds, TaskState, hasTaskNeeds } from "./TaskNeeds";
-import { ResourceRetry } from "./ResourceRetry";
 import { WorkspaceList, NewWorkspace } from "./WorkspaceEntry";
-import { WorkspaceLink } from "./WorkspaceLink";
 import { ProjectList } from "./ProjectList";
 import { SetupInstructions } from "./SetupInstructions";
 import { taskTab } from "./navigation";
@@ -23,7 +21,7 @@ import { FlowfieldSettings, SettingsLink } from "./FlowfieldSettings";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ContentStack } from "./DetailLayout";
 import { Card } from "@/components/ui/card";
-import { Settings, Columns3, Inbox, Flag, Archive } from "lucide-react";
+import { Settings, Columns3, Inbox, Flag, Archive, Folder } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
@@ -34,6 +32,7 @@ import { NewTask } from "./NewTask";
 import { TaskDetail } from "./TaskDetail";
 import { TaskPriority } from "./TaskPriority";
 import { ProjectEditor } from "./ProjectEditor";
+import { WorkspaceEditor } from "./WorkspaceEditor";
 import { QueueControls } from "./Workers";
 import { AttentionBoard } from "./AttentionBoard";
 import { MilestoneEditor } from "./MilestoneEditor";
@@ -45,9 +44,10 @@ import {
   TaskIdentity,
   DraftBadge,
 } from "./Presentation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Board,
+  WorkspaceBoard as SharedBoard,
   compareTasks,
   isUpcoming,
   columns,
@@ -104,17 +104,34 @@ export function App() {
     setOverlayDirty,
     chatSettingsDirty,
   );
+  const [knownOwners, setKnownOwners] = useState<Record<string, string>>({});
+  const registerProjects = useCallback(
+    (workspaceId: string, projects: Project[]) => {
+      setKnownOwners((previous) =>
+        projects.every((project) => previous[project.id] === workspaceId)
+          ? previous
+          : {
+              ...previous,
+              ...Object.fromEntries(
+                projects.map((project) => [project.id, workspaceId]),
+              ),
+            },
+      );
+    },
+    [],
+  );
   const projectId = params.projectId;
-  const { data: projectWorkspace } = useResource<{ id: string }>(
+  const {
+    data: projectWorkspace,
+    error: projectWorkspaceError,
+    retry: retryProjectWorkspace,
+  } = useResource<{ id: string }>(
     projectId ? `projects/${projectId}/workspace` : null,
     refresh,
   );
-  const workspaceId = params.workspaceId ?? projectWorkspace?.id;
+  const workspaceId =
+    params.workspaceId ?? knownOwners[projectId ?? ""] ?? projectWorkspace?.id;
   const workspace = workspaces.find((item) => item.id === workspaceId);
-  const members = useResource<Project[]>(
-    workspaceId ? `workspaces/${workspaceId}/projects` : null,
-    refresh,
-  );
   const { data: attentionCounts } = useResource<Record<string, number>>(
     "workspaces/attention-counts",
     `${refresh}:${JSON.stringify(projectRefresh)}`,
@@ -313,64 +330,42 @@ export function App() {
                         : "harnesses"
                 }
               />
-            ) : projectId ? (
-              <>
-                {workspace && (
-                  <div className="px-5 pt-3">
-                    <WorkspaceLink
-                      className="text-link text-sm"
-                      to={`${workspaceHref(workspace.id)}/projects`}
-                    >
-                      {workspace.name} · Projects
-                    </WorkspaceLink>
-                  </div>
+            ) : workspaceId && workspace ? (
+              <WorkspaceBoard
+                registerProjects={registerProjects}
+                key={workspaceId}
+                workspaceId={workspaceId}
+                projectId={projectId}
+                refresh={refresh + ":" + JSON.stringify(projectRefresh)}
+                params={params}
+                pathname={pathname}
+                backgroundPath={backgroundPath}
+                closeEntity={closeEntity}
+                changeLocation={changeLocation}
+                navigate={navigate}
+                setUnsaved={setUnsaved}
+                setOverlayDirty={setOverlayDirty}
+                closeQuestion={closeQuestion}
+              />
+            ) : projectId || workspaceId ? (
+              <section className="welcome">
+                <h1>
+                  {params.workspaceId || projectWorkspace
+                    ? "Workspace not found"
+                    : projectWorkspaceError
+                      ? "Could not open project"
+                      : "Opening workspace…"}
+                </h1>
+                {projectWorkspaceError && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={retryProjectWorkspace}
+                  >
+                    Retry project
+                  </Button>
                 )}
-                <ProjectBoard
-                  key={projectId}
-                  projectId={projectId}
-                  refresh={`${refresh}:${projectRefresh[projectId] ?? 0}`}
-                  params={params}
-                  pathname={pathname}
-                  backgroundPath={backgroundPath}
-                  closeEntity={closeEntity}
-                  changeLocation={changeLocation}
-                  navigate={navigate}
-                  setUnsaved={setUnsaved}
-                  setOverlayDirty={setOverlayDirty}
-                  closeQuestion={closeQuestion}
-                />
-              </>
-            ) : workspaceId ? (
-              !workspace ? (
-                <section className="welcome">
-                  <h1>Workspace not found</h1>
-                </section>
-              ) : pathname.endsWith("/projects/new") ? (
-                <SetupInstructions
-                  key={workspaceId}
-                  workspaceId={workspaceId}
-                  onDirty={setUnsaved}
-                  added={(project) => {
-                    setRefresh((value) => value + 1);
-                    changeLocation(projectHref(project.id), true);
-                  }}
-                />
-              ) : members.data ? (
-                <ProjectList
-                  projects={members.data}
-                  workspaceId={workspaceId}
-                  workspaceName={workspace.name}
-                />
-              ) : (
-                <section className="welcome">
-                  <p>
-                    {members.error
-                      ? "Could not load projects"
-                      : "Loading projects…"}
-                  </p>
-                  <ResourceRetry resources={[members]} />
-                </section>
-              )
+              </section>
             ) : pathname === "/new-workspace" ? (
               <NewWorkspace
                 onDirty={setUnsaved}
@@ -394,7 +389,9 @@ export function App() {
   );
 }
 
-function ProjectBoard({
+function WorkspaceBoard({
+  workspaceId,
+  registerProjects,
   projectId,
   refresh,
   params,
@@ -407,7 +404,9 @@ function ProjectBoard({
   closeEntity,
   backgroundPath,
 }: {
-  projectId: string;
+  workspaceId: string;
+  registerProjects: (workspaceId: string, projects: Project[]) => void;
+  projectId?: string;
   refresh: string;
   params: Record<string, string | undefined>;
   pathname: string;
@@ -420,13 +419,20 @@ function ProjectBoard({
   backgroundPath?: string;
 }) {
   const [retry, setRetry] = useState(0);
-  const path = `projects/${encodeURIComponent(projectId)}`;
+  const path = `workspaces/${workspaceId}`;
+  const projectPath = projectId
+    ? `projects/${encodeURIComponent(projectId)}`
+    : "";
+  const base = workspaceHref(workspaceId);
   const {
     data: board,
     setData: setBoard,
     error,
     invalidate,
-  } = useResource<Board>(`${path}/view/board`, `${refresh}:${retry}`);
+  } = useResource<SharedBoard>(`${path}/view/board`, `${refresh}:${retry}`);
+  useEffect(() => {
+    if (board) registerProjects(workspaceId, board.projects);
+  }, [board, workspaceId, registerProjects]);
   const questionSelected = params.questionId !== undefined;
   const taskRef = params.taskKey;
   const {
@@ -437,33 +443,64 @@ function ProjectBoard({
     loading: detailLoading,
     invalidate: invalidateDetail,
   } = useResource<Task>(
-    taskRef ? `${path}/view/tasks/${encodeURIComponent(taskRef)}` : null,
+    taskRef && projectId
+      ? `${projectPath}/view/tasks/${encodeURIComponent(taskRef)}`
+      : null,
     `${refresh}:${retry}`,
   );
   const selectedTask = board?.tasks.find(
-    (t) => t.key === taskRef || t.id === taskRef,
+    (t) =>
+      t.project_id === projectId && (t.key === taskRef || t.id === taskRef),
   );
   const newKind = pathname.includes("/tasks/new")
     ? "task"
     : pathname.endsWith("/milestones/new")
       ? "milestone"
       : null;
-  const selection: Selection | null = questionSelected
+  const workspaceSettings =
+    pathname === `${base}/edit` ||
+    pathname.startsWith(`${base}/edit/`) ||
+    ["workers", "coordinator"].includes(params.projectTab ?? "");
+  const selection: Selection | null = workspaceSettings
     ? null
-    : taskRef
-      ? { kind: "task", id: selectedTask?.id ?? taskRef }
-      : params.milestoneId
-        ? { kind: "milestone", id: params.milestoneId! }
-        : pathname === `${projectHref(projectId)}/edit` ||
-            pathname.startsWith(`${projectHref(projectId)}/edit/`)
-          ? { kind: "project", id: projectId }
-          : newKind === "task" || newKind === "milestone"
-            ? { kind: newKind }
-            : null;
+    : questionSelected
+      ? null
+      : taskRef
+        ? { kind: "task", id: selectedTask?.key ?? taskRef }
+        : params.milestoneId
+          ? { kind: "milestone", id: params.milestoneId! }
+          : projectId &&
+              (pathname === `${projectHref(projectId)}/edit` ||
+                pathname.startsWith(`${projectHref(projectId)}/edit/`))
+            ? { kind: "project", id: projectId }
+            : newKind === "task" || newKind === "milestone"
+              ? { kind: newKind }
+              : null;
   const background = backgroundPath ?? pathname;
   const inView = (view: string) =>
-    background === `${projectHref(projectId)}/${view}` ||
-    background.startsWith(`${projectHref(projectId)}/${view}/`);
+    background === `${base}/${view}` ||
+    background.startsWith(`${base}/${view}/`) ||
+    (!!projectId &&
+      (background === `${projectHref(projectId)}/${view}` ||
+        background.startsWith(`${projectHref(projectId)}/${view}/`)));
+  const projectsView = inView("projects");
+  const addingProject = pathname.endsWith("/projects/new");
+  const selectedProject = board?.projects.find(
+    (project) => project.id === projectId,
+  );
+  const [projectFilter, setProjectFilter] = useState(projectId ?? "");
+  const [labelFilter, setLabelFilter] = useState("");
+  const [filterRoute, setFilterRoute] = useState(pathname);
+  if (filterRoute !== pathname) {
+    setFilterRoute(pathname);
+    if (
+      projectId &&
+      !params.taskKey &&
+      !params.questionId &&
+      !pathname.includes("/edit")
+    )
+      setProjectFilter(projectId);
+  }
   const milestonesView = inView("milestones");
   const showInbox = inView("inbox");
   const [filter, setFilter] = useState("");
@@ -486,7 +523,7 @@ function ProjectBoard({
     setPrioritizing(true);
     try {
       await request<Task>(
-        `${path}/view/tasks/${encodeURIComponent(task.id)}/prioritize`,
+        `projects/${task.project_id}/view/tasks/${encodeURIComponent(task.id)}/prioritize`,
         "POST",
         {
           expected_revision: task.revision,
@@ -504,18 +541,20 @@ function ProjectBoard({
     }
   }
   function selectionUrl(next: Selection | null, archived = archive) {
-    const base = projectHref(projectId);
     if (!next)
       return (
         base + (milestonesView ? "/milestones" : archived ? "/archive" : "")
       );
-    if (next.kind === "project") return base + "/edit";
+    if (next.kind === "project") return projectHref(next.id!) + "/edit";
     if (!next.id) return base + "/" + next.kind + "s/new";
     if (next.kind === "task") {
       const task = board?.tasks.find(
-        (t) => t.id === next.id || t.key === next.id,
+        (t) =>
+          t.key === next.id || (t.project_id === projectId && t.id === next.id),
       );
-      return taskHref(projectId, { key: task?.key ?? next.id });
+      return taskHref(task?.project_id ?? projectId!, {
+        key: task?.key ?? next.id,
+      });
     }
     const milestone = board?.milestones.find(
       (m) => m.id === next.id || m.key === next.id,
@@ -540,25 +579,44 @@ function ProjectBoard({
     if (kind === "task") setTaskDetail(item as Task);
     setBoard((current) => {
       if (!current) return current;
-      if (kind === "project") return { ...current, project: item as Project };
+      if (kind === "project")
+        return {
+          ...current,
+          projects: current.projects.map((project) =>
+            project.id === item.id ? (item as Project) : project,
+          ),
+        };
       const key = kind === "task" ? "tasks" : "milestones";
       return {
         ...current,
-        [key]: [...current[key].filter((v) => v.id !== item.id), item],
-      } as Board;
+        [key]: [
+          ...current[key].filter((v) =>
+            kind === "task"
+              ? (v as TaskCard).key !== (item as Task).key
+              : v.id !== item.id,
+          ),
+          item,
+        ],
+      } as SharedBoard;
     });
     setUnsaved(false);
     const previous =
-      kind === "task" ? board?.tasks.find((t) => t.id === item.id) : null;
+      kind === "task"
+        ? board?.tasks.find((t) => t.key === (item as Task).key)
+        : null;
     const archiveChanged =
       previous && previous.archived !== (item as Task).archived;
     changeLocation(
       archiveChanged
         ? selectionUrl(null)
         : kind === "task"
-          ? taskHref(projectId, item as Task, taskTab(params.tab))
+          ? taskHref(
+              (item as Task).project_id,
+              item as Task,
+              taskTab(params.tab),
+            )
           : kind === "milestone"
-            ? `${projectHref(projectId)}/milestones/${(item as Milestone).key}`
+            ? `${base}/milestones/${(item as Milestone).key}`
             : selectionUrl({ kind, id: item.id }),
       true,
     );
@@ -567,7 +625,7 @@ function ProjectBoard({
   if (!board)
     return (
       <section className="welcome content-stack" data-space="section">
-        <h1>{error ? "Could not open project" : "Loading board…"}</h1>
+        <h1>{error ? "Could not open workspace" : "Loading board…"}</h1>
         {error && (
           <Button
             size="sm"
@@ -582,30 +640,32 @@ function ProjectBoard({
   const visible = board.tasks.filter(
     (t) =>
       t.archived === archive &&
+      (!projectFilter || t.project_id === projectFilter) &&
+      (!labelFilter || t.labels.includes(labelFilter)) &&
       (!filter ||
         (filter === "none" ? !t.milestone_id : t.milestone_id === filter)),
   );
   const activeTasks = board.tasks.filter((t) => !t.archived);
   const incoming =
     selection?.kind === "project"
-      ? board.project
+      ? selectedProject
       : selection?.kind === "task"
         ? (taskDetail ?? undefined)
         : board.milestones.find(
             (e) => e.id === selection?.id || e.key === selection?.id,
           );
-  const view = showInbox
-    ? "inbox"
-    : milestonesView
-      ? "milestones"
-      : archive
-        ? "archive"
-        : "board";
+  const view = projectsView
+    ? "projects"
+    : showInbox
+      ? "inbox"
+      : milestonesView
+        ? "milestones"
+        : archive
+          ? "archive"
+          : "board";
   function openView(value: string) {
     navigate(() =>
-      changeLocation(
-        projectHref(projectId) + (value === "board" ? "" : "/" + value),
-      ),
+      changeLocation(base + (value === "board" ? "" : "/" + value)),
     );
   }
   function viewTrigger(value: string) {
@@ -655,8 +715,8 @@ function ProjectBoard({
           <ProjectEditor
             key={selection.id}
             incoming={incoming as Project}
-            path={path}
-            hasTasks={board.tasks.length > 0}
+            path={projectPath}
+            hasTasks={board.tasks.some((task) => task.project_id === projectId)}
             onDirty={setUnsaved}
             saved={(item) => saved("project", item)}
             close={() => choose(null)}
@@ -677,7 +737,7 @@ function ProjectBoard({
                   type="button"
                   onClick={() => {
                     setFilter(incoming.id);
-                    changeLocation(projectHref(projectId));
+                    changeLocation(base);
                   }}
                 >
                   View tasks
@@ -685,12 +745,28 @@ function ProjectBoard({
               )
             }
           />
-        ) : incoming ? (
+        ) : incoming && selectedProject ? (
           <TaskDetail
             key={selection.id}
             task={incoming as Task}
-            path={path}
-            board={board}
+            path={projectPath}
+            board={
+              {
+                ...board,
+                project: selectedProject,
+                tasks: board.tasks.filter(
+                  (task) => task.project_id === projectId,
+                ),
+                pending_code: Object.fromEntries(
+                  board.tasks
+                    .filter((task) => task.project_id === projectId)
+                    .map((task) => [
+                      task.id,
+                      board.pending_code[task.key] ?? [],
+                    ]),
+                ),
+              } as Board
+            }
             setUnsaved={setUnsaved}
             saved={(item) => saved("task", item)}
             close={() => choose(null)}
@@ -706,7 +782,7 @@ function ProjectBoard({
         ) : (
           <NewTask
             key={selection.id ?? "new"}
-            path={path}
+            defaultProjectId={projectFilter}
             board={board}
             setUnsaved={setUnsaved}
             saved={(item) => saved("task", item)}
@@ -718,12 +794,12 @@ function ProjectBoard({
   return (
     <LabelCatalog value={board.labels}>
       <header className="workspace-pane-header">
-        <h1>{board.project.name}</h1>
+        <h1>{board.workspace.name}</h1>
         <Button
           size="icon-sm"
           variant="ghost"
-          aria-label="Project details"
-          onClick={() => choose({ kind: "project", id: projectId })}
+          aria-label="Workspace settings"
+          onClick={() => changeLocation(`${base}/edit`)}
         >
           <Settings />
         </Button>
@@ -735,7 +811,7 @@ function ProjectBoard({
         onValueChange={openView}
       >
         <div className="workspace-project-tabs">
-          <TabsList variant="line" aria-label="Project views">
+          <TabsList variant="line" aria-label="Workspace views">
             <TabsTrigger {...viewTrigger("board")}>
               <Columns3 /> Board
               {activeTasks.length > 0 && (
@@ -756,6 +832,10 @@ function ProjectBoard({
                 <span className="nav-count">{board.milestones.length}</span>
               )}
             </TabsTrigger>
+            <TabsTrigger {...viewTrigger("projects")}>
+              <Folder /> Projects
+              <span className="nav-count">{board.projects.length}</span>
+            </TabsTrigger>
             <TabsTrigger {...viewTrigger("archive")}>
               <Archive /> Archive
               {board.tasks.length > activeTasks.length && (
@@ -768,65 +848,133 @@ function ProjectBoard({
         </div>
         <TabsContent
           value={view}
-          className={`workspace-work-content ${!milestonesView && !archive ? "workspace-task-board" : ""}`}
+          className={`workspace-work-content ${!milestonesView && !projectsView && !archive ? "workspace-task-board" : ""}`}
           hidden={!!taskRef}
         >
-          <div className="board-toolbar">
-            {milestonesView && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => choose({ kind: "milestone" })}
-              >
-                New milestone
-              </Button>
-            )}
-            {!showInbox && !milestonesView && (
-              <div className="actions">
-                <Label className="field filter-label">
-                  <span className="sr-only">Filter by milestone</span>
+          {!projectsView && (
+            <div className="board-toolbar">
+              {!milestonesView && (
+                <div className="actions">
                   <NativeSelect
                     size="sm"
-                    aria-label="Filter by milestone"
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
+                    aria-label="Filter by project"
+                    value={projectFilter}
+                    onChange={(event) => setProjectFilter(event.target.value)}
                   >
-                    <option value="">All work</option>
-                    <option value="none">Without a milestone</option>
-                    {board.milestones.map((milestone) => (
-                      <option key={milestone.id} value={milestone.id}>
-                        {milestone.key} · {milestone.title}
+                    <option value="">All projects</option>
+                    {board.projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
                       </option>
                     ))}
                   </NativeSelect>
-                </Label>
+                  {!showInbox && (
+                    <NativeSelect
+                      size="sm"
+                      aria-label="Filter by label"
+                      value={labelFilter}
+                      onChange={(event) => setLabelFilter(event.target.value)}
+                    >
+                      <option value="">All labels</option>
+                      {board.labels
+                        .filter((item) => !item.deleted_at)
+                        .map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                    </NativeSelect>
+                  )}
+                  {projectFilter && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        choose({ kind: "project", id: projectFilter })
+                      }
+                    >
+                      Project settings
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {milestonesView && (
                 <Button
                   size="sm"
                   variant="outline"
-                  className="quiet"
-                  onClick={() =>
-                    choose(
-                      filter && filter !== "none"
-                        ? { kind: "milestone", id: filter }
-                        : { kind: "milestone" },
-                    )
-                  }
+                  onClick={() => choose({ kind: "milestone" })}
                 >
-                  {filter && filter !== "none"
-                    ? "Edit milestone"
-                    : "New milestone"}
+                  New milestone
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => choose({ kind: "task" })}
-                >
-                  New task
-                </Button>
-              </div>
-            )}
-          </div>
-          {milestonesView ? (
+              )}
+              {!showInbox && !milestonesView && !projectsView && (
+                <div className="actions">
+                  <Label className="field filter-label">
+                    <span className="sr-only">Filter by milestone</span>
+                    <NativeSelect
+                      size="sm"
+                      aria-label="Filter by milestone"
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value)}
+                    >
+                      <option value="">All work</option>
+                      <option value="none">Without a milestone</option>
+                      {board.milestones.map((milestone) => (
+                        <option key={milestone.id} value={milestone.id}>
+                          {milestone.key} · {milestone.title}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </Label>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="quiet"
+                    onClick={() =>
+                      choose(
+                        filter && filter !== "none"
+                          ? { kind: "milestone", id: filter }
+                          : { kind: "milestone" },
+                      )
+                    }
+                  >
+                    {filter && filter !== "none"
+                      ? "Edit milestone"
+                      : "New milestone"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!board.projects.length}
+                    onClick={() => choose({ kind: "task" })}
+                  >
+                    New task
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+          {projectsView ? (
+            addingProject ? (
+              <SetupInstructions
+                workspaceId={workspaceId}
+                onDirty={setUnsaved}
+                added={(project) => {
+                  setUnsaved(false);
+                  setRetry((v) => v + 1);
+                  setProjectFilter(project.id);
+                  changeLocation(base, true);
+                }}
+              />
+            ) : (
+              <ProjectList
+                projects={board.projects}
+                problems={board.project_problems}
+                workspaceId={workspaceId}
+              />
+            )
+          ) : milestonesView ? (
             <section className="collection-view" aria-label="Milestones">
               <CollectionLayout>
                 <MilestoneList
@@ -838,7 +986,8 @@ function ProjectBoard({
             </section>
           ) : showInbox ? (
             <AttentionBoard
-              projectId={projectId}
+              workspaceId={workspaceId}
+              projectId={projectFilter || undefined}
               identity={params.questionId}
               refresh={refresh}
             />
@@ -856,10 +1005,20 @@ function ProjectBoard({
                   Refresh board
                 </Button>
               )}
+              {!board.projects.length && (
+                <div className="actions px-4">
+                  <p>Add a project to start creating tasks.</p>
+                  <Button
+                    size="sm"
+                    onClick={() => changeLocation(`${base}/projects/new`)}
+                  >
+                    Add project
+                  </Button>
+                </div>
+              )}
               <div className={archive ? "collection-layout" : "board-layout"}>
                 {archive ? (
                   <ArchiveList
-                    projectId={projectId}
                     tasks={visible}
                     milestones={board.milestones}
                     selection={selection}
@@ -893,7 +1052,7 @@ function ProjectBoard({
                             if (!dragged || archive || !isUpcoming(column))
                               return;
                             e.preventDefault();
-                            if (dropTarget?.before === dragged.id) {
+                            if (dropTarget?.before === dragged.key) {
                               setDragged(null);
                               setDropTarget(null);
                               return;
@@ -915,7 +1074,19 @@ function ProjectBoard({
                           </h2>
                           {column === "up_next" && (
                             <QueueControls
-                              projectId={projectId}
+                              workspaceId={workspaceId}
+                              problems={board.projects
+                                .filter(
+                                  (project) =>
+                                    (!projectFilter ||
+                                      project.id === projectFilter) &&
+                                    board.project_problems[project.id],
+                                )
+                                .map((project) => ({
+                                  projectId: project.id,
+                                  name: project.name,
+                                  message: board.project_problems[project.id],
+                                }))}
                               refresh={refresh}
                             />
                           )}
@@ -927,8 +1098,8 @@ function ProjectBoard({
                           >
                             {tasks.map((task) => (
                               <div
-                                className={`card-shell ${dragged?.id === task.id ? "dragging" : ""} ${dropTarget?.before === task.id ? "drop-before" : ""}`}
-                                key={task.id}
+                                className={`card-shell ${dragged?.key === task.key ? "dragging" : ""} ${dropTarget?.before === task.key ? "drop-before" : ""}`}
+                                key={task.key}
                                 draggable={
                                   !archive &&
                                   isUpcoming(column) &&
@@ -937,7 +1108,10 @@ function ProjectBoard({
                                 onDragStart={(e) => {
                                   setDragged(task);
                                   e.dataTransfer.effectAllowed = "move";
-                                  e.dataTransfer.setData("text/plain", task.id);
+                                  e.dataTransfer.setData(
+                                    "text/plain",
+                                    task.key,
+                                  );
                                 }}
                                 onDragEnd={() => {
                                   setDragged(null);
@@ -960,18 +1134,18 @@ function ProjectBoard({
                                     .filter((t) => t.status === column)
                                     .sort(compareTasks);
                                   const index = upcoming.findIndex(
-                                    (t) => t.id === task.id,
+                                    (t) => t.key === task.key,
                                   );
                                   const before =
                                     e.clientY < bounds.top + bounds.height / 2
-                                      ? task.id
-                                      : (upcoming[index + 1]?.id ?? null);
+                                      ? task.key
+                                      : (upcoming[index + 1]?.key ?? null);
                                   setDropTarget({ status: column, before });
                                 }}
                               >
                                 <Card
                                   className={
-                                    selection?.id === task.id &&
+                                    selection?.id === task.key &&
                                     selection.kind === "task"
                                       ? "task-card picked gap-1 p-3"
                                       : "task-card gap-1 p-3"
@@ -983,13 +1157,13 @@ function ProjectBoard({
                                       <a
                                         className="task-card-link"
                                         aria-label={`${task.key} ${task.title}`}
-                                        href={taskHref(projectId, task)}
+                                        href={taskHref(task.project_id, task)}
                                         draggable={false}
                                         onClick={(event) =>
                                           followLink(event, () =>
                                             choose({
                                               kind: "task",
-                                              id: task.id,
+                                              id: task.key,
                                             }),
                                           )
                                         }
@@ -1006,7 +1180,7 @@ function ProjectBoard({
                                           }
                                         />
                                         <MilestoneBadge
-                                          projectId={projectId}
+                                          projectId={task.project_id}
                                           milestone={board.milestones.find(
                                             (m) => m.id === task.milestone_id,
                                           )}
@@ -1017,25 +1191,45 @@ function ProjectBoard({
                                   {task.state?.tone !== "idle" && (
                                     <TaskState
                                       task={task}
-                                      projectId={projectId}
+                                      projectId={task.project_id}
                                       open={(id) =>
-                                        choose({ kind: "task", id })
+                                        choose({
+                                          kind: "task",
+                                          id:
+                                            board.tasks.find(
+                                              (item) =>
+                                                item.project_id ===
+                                                  task.project_id &&
+                                                (item.id === id ||
+                                                  item.key === id),
+                                            )?.key ?? id,
+                                        })
                                       }
                                       linked
                                     />
                                   )}
                                   {hasTaskNeeds(
                                     task,
-                                    board.pending_code[task.id],
+                                    board.pending_code[task.key],
                                     !task.state,
                                   ) && (
                                     <TaskNeeds
                                       task={task}
-                                      projectId={projectId}
-                                      pendingCode={board.pending_code[task.id]}
+                                      projectId={task.project_id}
+                                      pendingCode={board.pending_code[task.key]}
                                       showQuestions={!task.state}
                                       open={(id) =>
-                                        choose({ kind: "task", id })
+                                        choose({
+                                          kind: "task",
+                                          id:
+                                            board.tasks.find(
+                                              (item) =>
+                                                item.project_id ===
+                                                  task.project_id &&
+                                                (item.id === id ||
+                                                  item.key === id),
+                                            )?.key ?? id,
+                                        })
                                       }
                                     />
                                   )}
@@ -1107,22 +1301,43 @@ function ProjectBoard({
           )
         )}
       </Tabs>
-      {params.questionId && (
+      {workspaceSettings && (
+        <EntityOverlay
+          title="Workspace settings"
+          identity={workspaceId}
+          close={() => closeEntity(base)}
+        >
+          <WorkspaceEditor
+            incoming={board.workspace}
+            onDirty={setUnsaved}
+            saved={(workspace) => {
+              invalidate();
+              setBoard((current) =>
+                current ? { ...current, workspace } : current,
+              );
+              setUnsaved(false);
+              setRetry((value) => value + 1);
+            }}
+            close={() => closeEntity(base)}
+          />
+        </EntityOverlay>
+      )}
+      {params.questionId && projectId && (
         <QuestionOverlay
           projectId={projectId}
           identity={params.questionId}
-          tasks={board.tasks}
+          tasks={board.tasks.filter((task) => task.project_id === projectId)}
           refresh={refresh}
           onDirty={setUnsaved}
           open={changeLocation}
           close={() => closeEntity(projectHref(projectId) + "/inbox")}
         />
       )}
-      {params.overlayQuestionId && (
+      {params.overlayQuestionId && projectId && (
         <QuestionOverlay
           projectId={projectId}
           identity={params.overlayQuestionId}
-          tasks={board.tasks}
+          tasks={board.tasks.filter((task) => task.project_id === projectId)}
           refresh={refresh}
           onDirty={setOverlayDirty}
           open={changeLocation}
@@ -1134,14 +1349,12 @@ function ProjectBoard({
 }
 
 function ArchiveList({
-  projectId,
   tasks,
   milestones,
   selection,
   filtered,
   choose,
 }: {
-  projectId: string;
   tasks: TaskCard[];
   milestones: Milestone[];
   selection: Selection | null;
@@ -1158,7 +1371,7 @@ function ArchiveList({
     }))
     .sort((a, b) =>
       a.archived.updated_at === b.archived.updated_at
-        ? a.task.id.localeCompare(b.task.id)
+        ? a.task.key.localeCompare(b.task.key)
         : a.archived.updated_at > b.archived.updated_at
           ? -1
           : 1,
@@ -1168,15 +1381,15 @@ function ArchiveList({
       {entries.length ? (
         <ul>
           {entries.map(({ task, archived }) => (
-            <li key={task.id}>
+            <li key={task.key}>
               <CollectionRow
                 className="archive-row"
                 timestamp={archived.updated_at}
                 selected={
-                  selection?.kind === "task" && selection.id === task.id
+                  selection?.kind === "task" && selection.id === task.key
                 }
-                href={taskHref(projectId, task)}
-                open={() => choose({ kind: "task", id: task.id })}
+                href={taskHref(task.project_id, task)}
+                open={() => choose({ kind: "task", id: task.key })}
               >
                 <span className="archive-task">
                   <TaskIdentity task={task} />
@@ -1186,7 +1399,7 @@ function ArchiveList({
                   {task.milestone_id && (
                     <span className="archive-labels">
                       <MilestoneBadge
-                        projectId={projectId}
+                        projectId={task.project_id}
                         linked={false}
                         milestone={milestones.find(
                           (m) => m.id === task.milestone_id,

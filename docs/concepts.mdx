@@ -27,7 +27,7 @@ A **task** expresses an agreed outcome and success criteria. Its stable key, suc
 `APP-1`, links to the same task across the browser, CLI and MCP. Tasks can depend on
 other tasks in the same workspace, including tasks in other projects; an incomplete prerequisite blocks execution. Each task still runs and delivers in its own repository.
 
-A **milestone** groups related tasks. Dependencies connect tasks, not milestones.
+A **milestone** groups related tasks across projects in its workspace. Dependencies connect tasks, not milestones.
 
 **Labels** describe tasks and are shared across a workspace. A task can have several labels
 or none. Ask the coordinator to maintain their names, colors and short usage guidance.
@@ -62,6 +62,8 @@ and review evidence. Press Escape in a task reply composer to cancel it without 
 
 ## The board and queue
 
+The workspace owns Board, Inbox, Milestones and Archive. Use **Projects** to find its repositories or add another. Filter Board and Archive by project, milestone or label. Creating a task requires a project; a project filter or a workspace with one project fills that choice for you.
+
 Every task has one to eight outcome stages, including drafts. Your coordinator includes
 the initial stages when creating a task and keeps them aligned when its definition changes.
 Manual creation starts with one stage describing the entered outcome. Workers report
@@ -71,12 +73,12 @@ Tasks move through **Backlog**, **Up next**, **In progress**, **In review** and 
 Each column scrolls independently below its heading. On narrow screens, scroll the board
 horizontally to reach the other columns.
 
-Up next expresses your execution priorities. Run queue enables eligible starts; an enabled
+Up next expresses your execution priorities across the workspace’s projects. Drag tasks within Backlog or Up next to reorder them, or between those columns to change priority. The scheduler follows the shared order and skips work whose project or prerequisites are not ready. Run queue enables eligible starts; an enabled
 empty queue stays enabled. New ready tasks can start when added to it.
 
-New projects start with the queue paused. Run/Pause on the board and **Project settings → General → Run worker queue** control the same saved setting, including after restart. Enabled queues can start eligible work when the service returns. Pause leaves active work running.
-Each project starts with one worker slot; two independent tasks can run in separate
-checkouts after you increase the maximum to two. Waiting for review frees the worker slot.
+New workspaces start with the queue paused. Run/Pause on the board and **Workspace settings → General → Run worker queue** control the same saved setting, including after restart. Enabled queues can start eligible work when the service returns. Pause leaves active work running.
+Each workspace starts with one shared worker slot; two independent tasks can run in separate
+checkouts after you increase the maximum to two in **Workspace settings → Workers**. Waiting for review frees the worker slot.
 The queue shows active workers against that maximum, such as **1/2 active**.
 **Retry worker** queues a fresh attempt with the preserved work; it respects queue pause,
 dependencies and available slots.

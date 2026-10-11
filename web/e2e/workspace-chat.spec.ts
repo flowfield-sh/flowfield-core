@@ -8,9 +8,7 @@ test("member projects share coordinator history and a draft", async ({
   request,
 }) => {
   async function openProject(name: string) {
-    await page
-      .getByRole("link", { name: "Shared chat · Projects", exact: true })
-      .click();
+    await page.getByRole("tab", { name: /^Projects/ }).click();
     await page
       .locator(".project-list-row")
       .filter({ has: page.getByText(name, { exact: true }) })

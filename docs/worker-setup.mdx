@@ -3,7 +3,7 @@ title: Worker setup and checks
 description: Configure reproducible setup, validation and local result previews.
 ---
 
-Open the project’s settings icon, then **Integration**, or ask the coordinator to configure
+Filter the board by the project, open **Project settings → Integration**, or ask the coordinator to configure
 these settings. Use the commands your repository already documents.
 
 | Setting | Purpose | Example |
@@ -20,7 +20,7 @@ commands instead. Flowfield does not choose a language environment for you.
 ## Validate before running workers
 
 1. Commit setup scripts, dependency manifests and any installed
-   [project guidance](/getting-started#add-your-project) to the destination branch. Commit or ignore
+   [project guidance](/getting-started#create-a-workspace-and-add-your-project) to the destination branch. Commit or ignore
    adoption metadata under your repository’s rules; untracked files can block delivery.
 2. Save the Integration settings, then run **Validate setup**. It checks the saved branch
    in a fresh worktree, runs setup and validation, and reports checkout readiness. It starts

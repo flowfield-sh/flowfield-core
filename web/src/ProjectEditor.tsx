@@ -1,4 +1,3 @@
-import { Separator } from "@/components/ui/separator";
 import { ContentStack } from "./DetailLayout";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -10,8 +9,6 @@ import { MarkdownField } from "./Markdown";
 import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
 import type { Project } from "./workspace";
 import { useId, useState } from "react";
-import { QueueSettings, WorkerSettings } from "./Workers";
-import { ProjectGuidance } from "./ProjectGuidance";
 import { IntegrationSettings } from "./Integration";
 
 const fields = (record?: Project) => ({
@@ -36,15 +33,9 @@ export function ProjectEditor({
 }) {
   const id = useId();
   const { projectTab } = useParams();
-  const tab =
-    projectTab === "workers" ||
-    projectTab === "integration" ||
-    projectTab === "coordinator"
-      ? projectTab
-      : "general";
+  const tab = projectTab === "integration" ? "integration" : "general";
   const navigate = useNavigate();
   const location = useLocation();
-  const [workerDirty, setWorkerDirty] = useState(false);
   const [integrationDirty, setIntegrationDirty] = useState(false);
   const state = useRecordEditor({
     recordName: "project settings",
@@ -53,7 +44,7 @@ export function ProjectEditor({
     path: () => path,
     onDirty,
     saved,
-    otherDirty: workerDirty || integrationDirty,
+    otherDirty: integrationDirty,
   });
   const {
     values,
@@ -70,7 +61,7 @@ export function ProjectEditor({
       <DetailTabs
         id={id}
         title="Project settings"
-        tabs={["general", "coordinator", "workers", "integration"]}
+        tabs={["general", "integration"]}
         active={tab}
         change={(value) =>
           void navigate(
@@ -158,33 +149,6 @@ export function ProjectEditor({
             </div>
           </fieldset>
         </form>
-        <Separator />
-        <QueueSettings projectId={incoming.id} refresh={incoming} />
-      </div>
-      <div
-        role="tabpanel"
-        id={`${id}-coordinator`}
-        aria-labelledby={`${id}-coordinator-tab`}
-        hidden={tab !== "coordinator"}
-        className="content-stack"
-        data-space="section"
-      >
-        <ProjectGuidance
-          projectId={incoming.id}
-          active={tab === "coordinator"}
-        />
-      </div>
-      <div
-        role="tabpanel"
-        id={`${id}-workers`}
-        aria-labelledby={`${id}-workers-tab`}
-        hidden={tab !== "workers"}
-      >
-        <WorkerSettings
-          projectId={incoming.id}
-          onDirty={setWorkerDirty}
-          refresh={incoming}
-        />
       </div>
       <div
         role="tabpanel"

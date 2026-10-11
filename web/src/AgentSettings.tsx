@@ -440,6 +440,16 @@ function useAgentSettingsContent({
   return { fields, fastControl };
 }
 
+export function AgentSettingsForm(props: AgentSettingsProps) {
+  const { fields, fastControl } = useAgentSettingsContent(props);
+  return (
+    <ContentStack space="section">
+      {fields}
+      {fastControl}
+    </ContentStack>
+  );
+}
+
 export function AgentSettingsControl({
   open,
   onOpenChange,

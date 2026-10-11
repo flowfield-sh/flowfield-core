@@ -134,7 +134,7 @@ export function TaskDetail({
           </DetailSection>
         )}
         {(task.prerequisites.some(
-          (p) => !task.blocked_by.some((b) => b.id === p.id),
+          (p) => !task.blocked_by.some((b) => b.key === p.key),
         ) ||
           task.dependents.length > 0) && (
           <Disclosure summary={<>Related work</>}>

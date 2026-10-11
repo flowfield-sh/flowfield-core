@@ -1252,6 +1252,14 @@ class Workspace:
         )
 
     def _append_position(self, db: sqlite3.Connection, project_id: str) -> int:
+        if self.schema_version >= 63:
+            return int(
+                db.execute(
+                    "SELECT coalesce(max(t.position),-1)+1 FROM tasks t "
+                    "JOIN workspace_projects p USING(project_id) WHERE workspace_id=?",
+                    (self._project_workspace(db, project_id),),
+                ).fetchone()[0]
+            )
         return int(
             db.execute(
                 "SELECT COALESCE(MAX(position), -1) + 1 FROM tasks WHERE project_id=?",
@@ -1523,7 +1531,11 @@ class Workspace:
             task_id = current.id
             if request.before_id is not None:
                 request = request.model_copy(
-                    update={"before_id": self._activity_scope(db, project_id, request.before_id)}
+                    update={
+                        "before_id": self._dependency_ids(db, project_id, [request.before_id])[0]
+                        if self.schema_version >= 63
+                        else self._activity_scope(db, project_id, request.before_id)
+                    }
                 )
             self._current(current.revision, request.expected_revision)
             if current.archived:
@@ -1535,19 +1547,32 @@ class Workspace:
                     "Reconcile progress with the coordinator.",
                     409,
                 )
+            rows = self._record_rows(db, project_id, metadata=True)
+            ordered = [
+                TaskRevision.model_validate_json(row["data"])
+                for row in sorted(rows, key=lambda row: (row["position"], row["key"]))
+            ]
+            scope = {
+                (item.key if self.schema_version >= 63 else item.id): item
+                for item in ordered
+                if self.schema_version >= 63 or item.project_id == project_id
+            }
+            identity = current.key if self.schema_version >= 63 else current.id
             destination = [
-                t.id
-                for t in self._tasks(db, project_id, False)
-                if t.status == request.status and t.id != task_id
+                key
+                for key, item in scope.items()
+                if not item.archived and item.status == request.status and key != identity
             ]
             if request.before_id is not None and request.before_id not in destination:
                 raise ApplicationError(
                     "invalid_order", "Choose another active task in the destination column."
                 )
             index = destination.index(request.before_id) if request.before_id else len(destination)
-            destination.insert(index, task_id)
+            destination.insert(index, identity)
             previous = [
-                t.id for t in self._tasks(db, project_id, False) if t.status == request.status
+                key
+                for key, item in scope.items()
+                if not item.archived and item.status == request.status
             ]
             if current.status == request.status and previous == destination:
                 return current
@@ -1566,8 +1591,9 @@ class Workspace:
             # Renumbering neighbors changes order metadata, not their assignments.
             db.executemany(
                 "UPDATE tasks SET position=? WHERE project_id=? AND id=?",
-                [(i, project_id, identity) for i, identity in enumerate(destination)],
+                [(i, scope[key].project_id, scope[key].id) for i, key in enumerate(destination)],
             )
+            self._mark_task_projects(db, {scope[key].project_id for key in destination})
             return self._task(db, project_id, task_id)
 
     def record_progress(self, project_id: str, task_id: str, request: TaskProgress) -> Task:

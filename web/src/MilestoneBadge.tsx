@@ -5,16 +5,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { projectHref } from "./navigation";
+import { workspaceHref } from "./navigation";
 import type { Milestone } from "./workspace";
 
 export function MilestoneBadge({
   milestone,
-  projectId,
   linked = true,
 }: {
   milestone?: Milestone;
-  projectId: string;
+  projectId?: string;
   linked?: boolean;
 }) {
   if (!milestone) return null;
@@ -24,7 +23,7 @@ export function MilestoneBadge({
         <Badge variant="outline" className="milestone-tag" asChild>
           {linked ? (
             <WorkspaceLink
-              to={`${projectHref(projectId)}/milestones/${milestone.key}`}
+              to={`${workspaceHref(milestone.workspace_id)}/milestones/${milestone.key}`}
             >
               {milestone.key}
             </WorkspaceLink>

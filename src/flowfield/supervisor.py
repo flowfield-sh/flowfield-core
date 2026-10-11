@@ -202,40 +202,60 @@ class Supervisor:
 
     async def _schedule(self) -> None:
         while not self.closing:
-            for project in self.workspace.projects():
-                try:
-                    if project.id not in self.delivery_jobs:
-                        delivery = asyncio.create_task(
-                            asyncio.to_thread(self.results.process, project.id)
-                        )
-                        self.delivery_jobs[project.id] = delivery
-                        delivery.add_done_callback(partial(self._delivery_finished, project.id))
-                    await asyncio.to_thread(self.integrations.refresh_availability, project.id)
-                    if not self.execution.settings(project.id).enabled:
-                        continue
-                    repository = Path(project.path)
-                    head = await asyncio.to_thread(self.integrations.head, project.id)
-                    available = await asyncio.to_thread(
-                        self._available, project.id, repository, head
-                    )
-                    run = self.execution.claim(project.id, head, available)
-                    self.execution.queue_problem(project.id, None)
-                    if run:
-                        task = asyncio.create_task(self._execute(run, repository))
-                        self.jobs[run.id] = task
-
-                        task.add_done_callback(partial(self._job_finished, run.id))
-                except ApplicationError as error:
-                    self.execution.queue_problem(project.id, error.message)
-                except Exception:
-                    self.execution.queue_problem(
-                        project.id,
-                        (
-                            "Scheduling failed. Pause the queue and inspect the local service "
-                            "before retrying."
-                        ),
-                    )
+            await self._schedule_once()
             await asyncio.sleep(0.5)
+
+    async def _schedule_once(self) -> None:
+        # Repository preparation remains project-local. A failed repository cannot
+        # consume the shared queue; fresh claims follow workspace board order.
+        ready: dict[str, tuple[Path, str, dict[str, set[str]]]] = {}
+        problems: dict[str, str | None] = {}
+        for project in self.workspace.projects():
+            try:
+                if project.id not in self.delivery_jobs:
+                    delivery = asyncio.create_task(
+                        asyncio.to_thread(self.results.process, project.id)
+                    )
+                    self.delivery_jobs[project.id] = delivery
+                    delivery.add_done_callback(partial(self._delivery_finished, project.id))
+                await asyncio.to_thread(self.integrations.refresh_availability, project.id)
+                if not self.execution.settings(project.id).enabled:
+                    continue
+                repository = Path(project.path)
+                head = await asyncio.to_thread(self.integrations.head, project.id)
+                available = await asyncio.to_thread(self._available, project.id, repository, head)
+                ready[project.id] = (repository, head, available)
+                problems[project.id] = None
+            except ApplicationError as error:
+                problems[project.id] = error.message
+            except Exception:
+                problems[project.id] = (
+                    "Scheduling failed. Pause the queue and inspect the local service "
+                    "before retrying."
+                )
+        started: set[str] = set()
+        for project_id, task_id in self.execution.scheduling_candidates():
+            if self.closing:
+                break
+            if project_id not in ready:
+                continue
+            repository, head, available = ready[project_id]
+            try:
+                run = self.execution.claim(project_id, head, available, task_id=task_id)
+                if run:
+                    task = asyncio.create_task(self._execute(run, repository))
+                    self.jobs[run.id] = task
+                    task.add_done_callback(partial(self._job_finished, run.id))
+                    started.add(project_id)
+            except ApplicationError as error:
+                problems[project_id] = error.message
+            except Exception:
+                problems[project_id] = (
+                    "Scheduling failed. Pause the queue and inspect the local service "
+                    "before retrying."
+                )
+        for project_id, problem in problems.items():
+            self.execution.queue_problem(project_id, None if project_id in started else problem)
 
     def _job_finished(self, identity: str, task: asyncio.Task[None]) -> None:
         self.jobs.pop(identity, None)

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { CollectionRow, DetailHeader } from "./Presentation";
-import { projectHref } from "./navigation";
+import { workspaceHref } from "./navigation";
 import type { Board, Milestone } from "./workspace";
 
 export function MilestoneList({
@@ -8,7 +8,7 @@ export function MilestoneList({
   selected,
   open,
 }: {
-  board: Board;
+  board: Pick<Board, "tasks" | "milestones">;
   selected?: string;
   open: (id: string) => void;
 }) {
@@ -26,7 +26,7 @@ export function MilestoneList({
                 selected={
                   selected === milestone.id || selected === milestone.key
                 }
-                href={`${projectHref(board.project.id)}/milestones/${encodeURIComponent(milestone.key)}`}
+                href={`${workspaceHref(milestone.workspace_id)}/milestones/${encodeURIComponent(milestone.key)}`}
                 open={() => open(milestone.id)}
               >
                 <strong>

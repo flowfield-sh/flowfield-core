@@ -21,6 +21,7 @@ export type TaskRevision = components["schemas"]["TaskRevision"];
 export type TaskReference = components["schemas"]["TaskReference"];
 export type Task = components["schemas"]["TaskDetail"];
 export type TaskCard = components["schemas"]["TaskCard"];
+export type WorkspaceBoard = components["schemas"]["BrowserWorkspaceBoard"];
 export type Board = components["schemas"]["BrowserBoard"];
 export type RecordMeta = Pick<
   Project,
@@ -111,7 +112,7 @@ export function compareTasks(a: TaskCard, b: TaskCard) {
         : a.status_changed_at < b.status_changed_at
           ? -1
           : 1) * (a.status === "done" ? -1 : 1);
-  return order || (a.id === b.id ? 0 : a.id < b.id ? -1 : 1);
+  return order || (a.key === b.key ? 0 : a.key < b.key ? -1 : 1);
 }
 
 export type ActivityEntry = components["schemas"]["ActivityEntry"];

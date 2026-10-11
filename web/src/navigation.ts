@@ -10,6 +10,13 @@ const pagePaths = [
   "workspaces/:workspaceId",
   "workspaces/:workspaceId/projects",
   "workspaces/:workspaceId/projects/new",
+  "workspaces/:workspaceId/archive",
+  "workspaces/:workspaceId/inbox",
+  "workspaces/:workspaceId/milestones",
+  "workspaces/:workspaceId/milestones/new",
+  "workspaces/:workspaceId/milestones/:milestoneId/:milestoneTab?",
+  "workspaces/:workspaceId/tasks/new",
+  "workspaces/:workspaceId/edit/:workspaceTab?",
   "projects/:projectId",
   "projects/:projectId/archive",
   "projects/:projectId/inbox",
@@ -28,7 +35,7 @@ export const workspacePaths = pagePaths.flatMap((path) => [
 ]);
 export function withoutQuestionOverlay(path: string) {
   return path.replace(
-    /^(\/projects\/[^/]+(?:\/.*)?)\/related\/questions\/[^/]+\/?$/,
+    /^(\/(?:projects|workspaces)\/[^/]+(?:\/.*)?)\/related\/questions\/[^/]+\/?$/,
     "$1",
   );
 }
@@ -67,7 +74,7 @@ function editorIdentity(path: string) {
       "/settings",
     )
     .replace(
-      /^(\/projects\/[^/]+\/edit)\/(general|info|coordinator|workers|integration)\/?$/,
+      /^(\/(?:projects|workspaces)\/[^/]+\/edit)\/(general|info|coordinator|workers|integration|labels)\/?$/,
       "$1",
     )
     .replace(
@@ -76,15 +83,21 @@ function editorIdentity(path: string) {
     );
 }
 export function entityPage(path: string) {
-  return /^\/projects\/[^/]+\/(?:tasks\/[^/]+|milestones\/[^/]+|inbox\/[^/]+|edit)(?:\/.*)?$/.test(
+  return /^\/(?:projects|workspaces)\/[^/]+\/(?:tasks\/[^/]+|milestones\/[^/]+|inbox\/[^/]+|edit)(?:\/.*)?$/.test(
     withoutQuestionOverlay(path),
   );
 }
 export function collectionPath(path: string) {
   const base = withoutQuestionOverlay(path);
   return base
-    .replace(/^(\/projects\/[^/]+)\/(tasks\/.*|edit(?:\/.*)?)$/, "$1")
-    .replace(/^(\/projects\/[^/]+)\/(milestones|inbox)\/.*$/, "$1/$2");
+    .replace(
+      /^(\/(?:projects|workspaces)\/[^/]+)\/(tasks\/.*|edit(?:\/.*)?)$/,
+      "$1",
+    )
+    .replace(
+      /^(\/(?:projects|workspaces)\/[^/]+)\/(milestones|inbox)\/.*$/,
+      "$1/$2",
+    );
 }
 type EntityNavigationState = {
   backgroundPath?: string;
@@ -101,16 +114,21 @@ export function entityNavigationState(
   const sameEditor =
     entityPage(current) && editorIdentity(current) === editorIdentity(target);
   const sameProject = current.split("/")[2] === target.split("/")[2];
+  const workspaceOrigin =
+    current.startsWith("/workspaces/") ||
+    state?.backgroundPath?.startsWith("/workspaces/");
+  const retainOrigin =
+    sameProject || (workspaceOrigin && target.startsWith("/projects/"));
   const betweenTasks =
-    sameProject &&
+    retainOrigin &&
     /^\/projects\/[^/]+\/tasks\/[^/]+/.test(current) &&
     /^\/projects\/[^/]+\/tasks\/[^/]+/.test(target);
   const index = window.history.state?.idx;
   return {
-    backgroundPath: sameProject
+    backgroundPath: retainOrigin
       ? (state?.backgroundPath ?? collectionPath(current))
       : collectionPath(target),
-    returnTo: !sameProject
+    returnTo: !retainOrigin
       ? undefined
       : replace || sameEditor || betweenTasks || current.endsWith("/new")
         ? state?.returnTo
@@ -186,7 +204,7 @@ export function useWorkspaceNavigation(
         return;
       }
       const target = location.state?.backgroundPath ?? fallback;
-      void navigate(target === "/new-project" ? "/" : target, {
+      void navigate(target === "/new-workspace" ? "/" : target, {
         replace: true,
         state: null,
       });

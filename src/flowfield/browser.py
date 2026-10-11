@@ -17,9 +17,15 @@ from flowfield.application import (
     TaskRevision,
     Workspace,
 )
-from flowfield.attention import AttentionColumn, AttentionPage, attention_page
+from flowfield.attention import (
+    AttentionColumn,
+    AttentionPage,
+    attention_page,
+    workspace_attention_counts,
+)
 from flowfield.errors import ApplicationError
 from flowfield.labels import Labels, WorkspaceLabel
+from flowfield.milestones import Milestones
 from flowfield.publication import (
     Publication,
     PublicationStatus,
@@ -32,6 +38,7 @@ from flowfield.publication import (
 from flowfield.questions import QuestionReference, Questions, blocking_questions
 from flowfield.reads import task_metadata
 from flowfield.work_state import WorkState, task_state
+from flowfield.workspaces import WorkspaceRecord, Workspaces
 
 
 class TaskCard(TaskReference):
@@ -66,6 +73,18 @@ class TaskDetail(TaskRevision, TaskCard):
 class BrowserBoard(BaseModel):
     labels: list[WorkspaceLabel]
     project: Project
+    milestones: list[Milestone]
+    tasks: list[TaskCard]
+    needs_you_count: int
+    awaiting_application_count: int
+    pending_code: dict[str, list[TaskReference]]
+
+
+class BrowserWorkspaceBoard(BaseModel):
+    workspace: WorkspaceRecord
+    projects: list[Project]
+    project_problems: dict[str, str]
+    labels: list[WorkspaceLabel]
     milestones: list[Milestone]
     tasks: list[TaskCard]
     needs_you_count: int
@@ -138,52 +157,107 @@ class BrowserReads:
             state=state,
         )
 
+    def _project_cards(
+        self,
+        db: sqlite3.Connection,
+        project_id: str,
+        records: dict[str, TaskRevision],
+        positions: dict[str, int],
+        completed: set[str],
+    ) -> tuple[list[TaskCard], dict[str, list[TaskReference]]]:
+        timeline = task_timeline(db, project_id)
+        available = {
+            row[0]
+            for row in db.execute(
+                "SELECT task_id FROM work_runs r WHERE project_id=? AND status='accepted' "
+                "AND (json_extract(data,'$.code_available')=1 "
+                "OR json_extract(data,'$.completion')='report') AND NOT EXISTS "
+                "(SELECT 1 FROM work_runs newer WHERE newer.project_id=r.project_id "
+                "AND newer.task_id=r.task_id AND newer.status='accepted' "
+                "AND newer.number>r.number)",
+                (project_id,),
+            )
+        }
+        return (
+            [
+                self._card(
+                    db,
+                    item,
+                    records,
+                    completed,
+                    positions[self.workspace._record_key(item)],
+                    timeline[item.id],
+                )
+                for item in records.values()
+                if item.project_id == project_id
+            ],
+            {
+                task.id: [
+                    TaskReference(**records[key].model_dump())
+                    for key in task.dependencies
+                    if key in completed
+                    and records[key].project_id == project_id
+                    and records[key].id not in available
+                ]
+                for task in records.values()
+                if task.project_id == project_id and task.status in ("backlog", "up_next")
+            },
+        )
+
     def board(self, project_id: str) -> BrowserBoard:
         with self.workspace.connection() as db:
             project = self.workspace._project(db, project_id)
             records, positions = task_metadata(self.workspace, db, project_id)
-            completed = self.workspace._completed(records, db)
-            timeline = task_timeline(db, project_id)
-            available = {
-                row[0]
-                for row in db.execute(
-                    "SELECT task_id FROM work_runs r WHERE project_id=? AND status='accepted' "
-                    "AND (json_extract(data,'$.code_available')=1 "
-                    "OR json_extract(data,'$.completion')='report') AND NOT EXISTS "
-                    "(SELECT 1 FROM work_runs newer WHERE newer.project_id=r.project_id "
-                    "AND newer.task_id=r.task_id AND newer.status='accepted' "
-                    "AND newer.number>r.number)",
-                    (project_id,),
-                )
-            }
+            cards, pending = self._project_cards(
+                db, project_id, records, positions, self.workspace._completed(records, db)
+            )
             return BrowserBoard(
                 labels=Labels.read_all(db, self.workspace._project_workspace(db, project_id)),
                 project=project,
                 milestones=self.workspace._milestones(db, project_id),
-                tasks=[
-                    self._card(
-                        db,
-                        item,
-                        records,
-                        completed,
-                        positions[self.workspace._record_key(item)],
-                        timeline[item.id],
-                    )
-                    for item in records.values()
-                    if item.project_id == project_id
-                ],
+                tasks=cards,
                 **Questions(self.workspace).counts(db, project_id),
-                pending_code={
-                    task.id: [
-                        TaskReference(**records[key].model_dump())
-                        for key in task.dependencies
-                        if key in completed
-                        and records[key].project_id == project_id
-                        and records[key].id not in available
-                    ]
-                    for task in records.values()
-                    if task.project_id == project_id and task.status in ("backlog", "up_next")
-                },
+                pending_code=pending,
+            )
+
+    def workspace_board(self, workspace_id: str) -> BrowserWorkspaceBoard:
+        with self.workspace.connection() as db:
+            owner = Workspaces.read(db, workspace_id)
+            projects = [
+                self.workspace._project(db, row[0])
+                for row in db.execute(
+                    "SELECT project_id FROM workspace_projects "
+                    "WHERE workspace_id=? ORDER BY project_id",
+                    (workspace_id,),
+                )
+            ]
+            records, positions = (
+                task_metadata(self.workspace, db, projects[0].id) if projects else ({}, {})
+            )
+            completed = self.workspace._completed(records, db)
+            cards: list[TaskCard] = []
+            pending: dict[str, list[TaskReference]] = {}
+            for project in projects:
+                items, blocked = self._project_cards(db, project.id, records, positions, completed)
+                cards.extend(items)
+                pending.update({item.key: blocked.get(item.id, []) for item in items})
+            counts = workspace_attention_counts(db, workspace_id)
+            return BrowserWorkspaceBoard(
+                workspace=owner,
+                projects=projects,
+                project_problems=dict(
+                    db.execute(
+                        "SELECT p.project_id,p.problem FROM project_worker_problems p "
+                        "JOIN workspace_projects w USING(project_id) WHERE w.workspace_id=?",
+                        (workspace_id,),
+                    ).fetchall()
+                ),
+                labels=Labels.read_all(db, workspace_id),
+                milestones=Milestones.read_all(db, workspace_id),
+                tasks=cards,
+                pending_code=pending,
+                needs_you_count=counts.get("action", 0),
+                awaiting_application_count=counts.get("waiting", 0),
             )
 
     def task(self, project_id: str, task_id: str) -> TaskDetail:

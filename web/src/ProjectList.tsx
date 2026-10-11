@@ -9,17 +9,17 @@ import type { Project } from "./workspace";
 export function ProjectList({
   projects,
   workspaceId,
-  workspaceName,
+  problems = {},
 }: {
   projects: Project[];
   workspaceId: string;
-  workspaceName: string;
+  problems?: Record<string, string>;
 }) {
   return (
     <section className="setup-page" aria-label="Projects">
-      <ContentStack space="section" className="welcome">
+      <ContentStack space="section" className="collection-layout">
         <div className="detail-heading-row">
-          <h1>{workspaceName}</h1>
+          <h2 className="sr-only">Projects</h2>
           <Button size="sm" asChild>
             <WorkspaceLink to={`${workspaceHref(workspaceId)}/projects/new`}>
               <Plus />
@@ -43,6 +43,11 @@ export function ProjectList({
                 <span className="detail-metadata break-all">
                   {project.path}
                 </span>
+                {problems[project.id] && (
+                  <span className="text-destructive text-sm">
+                    {problems[project.id]}
+                  </span>
+                )}
               </ContentStack>
             </WorkspaceLink>
           ))}

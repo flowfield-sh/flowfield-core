@@ -185,8 +185,25 @@ class Execution:
                 409,
             )
 
+    def scheduling_candidates(self) -> list[tuple[str, str]]:
+        """Metadata ordering only; claim rechecks eligibility and shared capacity atomically."""
+        with self.workspace.connection() as db:
+            return [
+                (row[0], row[1])
+                for row in db.execute(
+                    "SELECT project_id,id FROM tasks WHERE json_extract(data,'$.archived')=0 "
+                    "AND json_extract(data,'$.status') IN ('up_next','in_progress') "
+                    "ORDER BY position,key"
+                )
+            ]
+
     def claim(
-        self, project_id: str, baseline: str, available_results: dict[str, set[str]]
+        self,
+        project_id: str,
+        baseline: str,
+        available_results: dict[str, set[str]],
+        *,
+        task_id: str | None = None,
     ) -> Run | None:
         """Reserve once against fresh state; caller supplies verified immutable Git facts."""
         with self.workspace.connection(write=True, project_id=project_id) as db:
@@ -198,7 +215,14 @@ class Execution:
             project = self.workspace._project(db, project_id)
             waiting_for_code = []
             exhausted_corrections = []
-            for task in self.workspace._tasks(db, project_id, False):
+            candidates = (
+                [self.workspace._task(db, project_id, task_id)]
+                if task_id
+                else self.workspace._tasks(db, project_id, False)
+            )
+            for task in candidates:
+                if task.archived:
+                    continue
                 previous = db.execute(
                     "SELECT data FROM work_runs WHERE project_id=? AND task_id=? "
                     "ORDER BY number DESC LIMIT 1",

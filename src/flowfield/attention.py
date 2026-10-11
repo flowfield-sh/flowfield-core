@@ -15,6 +15,7 @@ AttentionColumn = Literal["action", "waiting", "history"]
 
 
 class AttentionItem(BaseModel):
+    project_id: str | None
     id: str
     kind: Literal["question", "review", "intervention", "integration", "result", "permission"]
     task_key: str | None
@@ -36,7 +37,7 @@ class AttentionPage(BaseModel):
 
 # Projection only: select short titles, never worker reports or question bodies.
 _PROJECTION = """
-WITH run_items AS (
+WITH scope_projects AS (SELECT id FROM projects WHERE id=:project), run_items AS (
     SELECT r.*, NOT EXISTS (
         SELECT 1 FROM runs n WHERE n.project_id=r.project_id
         AND n.task_id=r.task_id AND n.number>r.number
@@ -47,25 +48,25 @@ WITH run_items AS (
         AND json_extract(p.data,'$.purpose')=json_extract(r.data,'$.purpose')
         AND p.status IN ('changes_requested','failed','stopped','waiting_for_input')
     ) AS continuation
-    FROM runs r WHERE r.project_id=:project
+    FROM runs r WHERE r.project_id IN (SELECT id FROM scope_projects)
 ), items AS (
-    SELECT p.id, 'permission' AS kind, t.key AS task_key,
+    SELECT p.project_id, p.id, 'permission' AS kind, t.key AS task_key,
         substr(json_extract(p.data,'$.title'),1,500) AS title, p.status,
         json_extract(p.data,'$.updated_at') AS updated_at, NULL AS code_available,
         CASE WHEN p.status='pending' THEN 'action' ELSE 'history' END AS bucket,
         json_extract(p.data,'$.run_id') AS run_id, NULL AS result_version
     FROM agent_permissions p LEFT JOIN tasks t ON t.project_id=p.project_id AND t.id=p.task_id
-    WHERE p.project_id=:project
+    WHERE p.project_id IN (SELECT id FROM scope_projects)
     UNION ALL
-    SELECT q.id, 'question' AS kind, t.key AS task_key,
+    SELECT q.project_id, q.id, 'question' AS kind, t.key AS task_key,
         substr(json_extract(q.data, '$.question'),1,500) AS title, q.status,
         json_extract(q.data, '$.updated_at') AS updated_at, NULL AS code_available,
         CASE q.status WHEN 'open' THEN 'action' WHEN 'answered' THEN 'waiting'
         ELSE 'history' END AS bucket, NULL AS run_id, NULL AS result_version
     FROM questions q LEFT JOIN tasks t ON t.project_id=q.project_id AND t.id=q.task_id
-    WHERE q.project_id=:project
+    WHERE q.project_id IN (SELECT id FROM scope_projects)
     UNION ALL
-    SELECT r.id,
+    SELECT r.project_id, r.id,
         CASE WHEN r.status IN ('in_review','accepted','changes_requested')
              OR json_extract(r.data, '$.predecessor_id') IS NOT NULL
              THEN 'review' ELSE 'intervention' END,
@@ -82,7 +83,8 @@ WITH run_items AS (
     FROM run_items r JOIN tasks t ON t.project_id=r.project_id AND t.id=r.task_id
     WHERE NOT EXISTS (SELECT 1 FROM result_versions v WHERE v.run_id=r.id)
     UNION ALL
-    SELECT v.id, 'result', t.key, substr(json_extract(t.data,'$.title'),1,500), v.status,
+    SELECT v.project_id, v.id, 'result', t.key,
+        substr(json_extract(t.data,'$.title'),1,500), v.status,
         coalesce(json_extract(v.data,'$.completed_at'), json_extract(v.data,'$.approved_at'),
                  json_extract(v.data,'$.created_at')),
         CASE WHEN json_extract(v.data,'$.completion')='code'
@@ -103,9 +105,9 @@ WITH run_items AS (
              WHEN v.status IN ('preparing','delivering','changes_requested') THEN 'waiting'
              ELSE 'history' END, v.run_id, v.version
     FROM result_versions v JOIN tasks t ON t.project_id=v.project_id AND t.id=v.task_id
-    WHERE v.project_id=:project
+    WHERE v.project_id IN (SELECT id FROM scope_projects)
     UNION ALL
-    SELECT i.id, 'integration', t.key, substr(json_extract(t.data, '$.title'),1,500),
+    SELECT i.project_id, i.id, 'integration', t.key, substr(json_extract(t.data, '$.title'),1,500),
         i.status, coalesce(json_extract(i.data,'$.completed_at'),
                            json_extract(i.data,'$.created_at')),
         NULL,
@@ -116,12 +118,32 @@ WITH run_items AS (
              ELSE 'history' END, i.run_id, NULL
     FROM integrations i JOIN runs r ON r.id=i.run_id
     JOIN tasks t ON t.project_id=r.project_id AND t.id=r.task_id
-    WHERE i.project_id=:project
+    WHERE i.project_id IN (SELECT id FROM scope_projects)
     AND json_extract(i.data,'$.result_id') IS NULL
     AND NOT EXISTS (SELECT 1 FROM result_versions v
         WHERE json_extract(v.data,'$.integration_id')=i.id)
 )
 """
+
+_WORKSPACE_PROJECTION = _PROJECTION.replace(
+    "SELECT id FROM projects WHERE id=:project",
+    "SELECT project_id AS id FROM workspace_projects WHERE workspace_id=:workspace "
+    "AND (:project IS NULL OR project_id=:project)",
+).replace(
+    "WHERE p.project_id IN (SELECT id FROM scope_projects)",
+    "WHERE p.project_id IN (SELECT id FROM scope_projects) "
+    "OR (p.workspace_id=:workspace AND :project IS NULL)",
+)
+
+
+def workspace_attention_counts(db: sqlite3.Connection, workspace_id: str) -> dict[str, int]:
+    return dict(
+        db.execute(
+            _WORKSPACE_PROJECTION
+            + "SELECT bucket,count(*) FROM items WHERE bucket IS NOT NULL GROUP BY bucket",
+            {"workspace": workspace_id, "project": None},
+        ).fetchall()
+    )
 
 
 def actionable_attention(db: sqlite3.Connection, project_id: str) -> Iterator[sqlite3.Row]:
@@ -144,41 +166,64 @@ def attention_counts(db: sqlite3.Connection, project_id: str) -> dict[str, int]:
 
 def attention_page(
     workspace: "Workspace",
-    project_id: str,
+    project_id: str | None,
     column: AttentionColumn,
     offset: int = 0,
     limit: int = 20,
+    *,
+    workspace_id: str | None = None,
 ) -> AttentionPage:
     with workspace.connection() as db:
-        workspace._project(db, project_id)
-        args = {"project": project_id, "column": column, "offset": offset, "limit": limit}
+        if workspace_id is not None:
+            from flowfield.workspaces import Workspaces
+
+            Workspaces.read(db, workspace_id)
+            if project_id is not None:
+                Workspaces.check_project(db, workspace_id, project_id)
+        elif project_id is not None:
+            workspace._project(db, project_id)
+        else:
+            raise ValueError("An attention scope is required")
+        projection = _WORKSPACE_PROJECTION if workspace_id is not None else _PROJECTION
+        args = {
+            "project": project_id,
+            "workspace": workspace_id,
+            "column": column,
+            "offset": offset,
+            "limit": limit,
+        }
         total = db.execute(
-            _PROJECTION + "SELECT count(*) FROM items WHERE bucket=:column", args
+            projection + "SELECT count(*) FROM items WHERE bucket=:column", args
         ).fetchone()[0]
         rows = db.execute(
-            _PROJECTION + "SELECT id,kind,task_key,title,status,updated_at,code_available,run_id,"
+            projection
+            + "SELECT project_id,id,kind,task_key,title,status,updated_at,code_available,run_id,"
             "result_version FROM items "
-            "WHERE bucket=:column ORDER BY updated_at DESC,kind,id LIMIT :limit OFFSET :offset",
+            "WHERE bucket=:column ORDER BY updated_at DESC,kind,project_id,id "
+            "LIMIT :limit OFFSET :offset",
             args,
         ).fetchall()
         from flowfield.input_delivery import question_delivery
 
         items = [AttentionItem.model_validate(dict(row)) for row in rows]
         for item in items:
+            owner = item.project_id
             if item.kind == "permission":
                 item.state = WorkState(
                     label="Review tool permission"
                     if item.status == "pending"
                     else "Permission " + item.status,
                     tone="attention" if item.status == "pending" else "idle",
-                    href=f"/projects/{project_id}/tasks/{item.task_key}"
+                    href=f"/projects/{owner}/tasks/{item.task_key}"
                     if item.task_key
-                    else f"/projects/{project_id}/inbox",
+                    else f"/projects/{owner}/inbox"
+                    if owner
+                    else f"/workspaces/{workspace_id}/inbox",
                 )
-            elif column != "history" and item.kind == "question":
-                item.state = question_state(db, project_id, item.id)
-            elif column != "history" and item.task_key:
-                item.state = task_state(workspace, db, project_id, item.task_key)
+            elif column != "history" and item.kind == "question" and owner:
+                item.state = question_state(db, owner, item.id)
+            elif column != "history" and item.task_key and owner:
+                item.state = task_state(workspace, db, owner, item.task_key)
             elif column != "history":
                 item.state = WorkState(
                     label="Answer question" if item.status == "open" else "Resume coordinator",
@@ -194,8 +239,8 @@ def attention_page(
                 item.next_action = result_action(
                     workspace, db, ResultVersion.model_validate_json(saved[0])
                 ).label
-            if item.kind == "question":
-                delivery = question_delivery(db, project_id, item.id)
+            if item.kind == "question" and owner:
+                delivery = question_delivery(db, owner, item.id)
                 item.next_action = (
                     delivery.state
                     if delivery

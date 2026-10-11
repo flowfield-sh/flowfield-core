@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { MarkdownField } from "./Markdown";
 import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
 import { LabelPicker } from "./TaskLabels";
-import { type Board, type Task } from "./workspace";
+import { type WorkspaceBoard, type Task } from "./workspace";
 const fields = () => ({
+  project_id: "",
   title: "",
   body: "",
   labels: [] as string[],
@@ -17,21 +18,26 @@ const fields = () => ({
 type Values = ReturnType<typeof fields>;
 export function NewTask({
   board,
-  path,
+  defaultProjectId,
   setUnsaved,
   saved,
   close,
 }: {
-  board: Board;
-  path: string;
+  board: WorkspaceBoard;
+  defaultProjectId?: string;
   setUnsaved: (dirty: boolean) => void;
   saved: (task: Task) => void;
   close: () => void;
 }) {
   const state = useRecordEditor<Task, Values>({
     recordName: "task",
-    fields,
-    path: () => path + "/view/tasks",
+    fields: () => ({
+      ...fields(),
+      project_id:
+        defaultProjectId ||
+        (board.projects.length === 1 ? board.projects[0].id : ""),
+    }),
+    path: (): string => `projects/${state.values.project_id}/view/tasks`,
     onDirty: setUnsaved,
     saved,
   });
@@ -100,6 +106,22 @@ export function NewTask({
         >
           <div className="content-stack" data-space="section">
             <>
+              <Label className="field block">
+                Project
+                <NativeSelect
+                  aria-label="Project"
+                  required
+                  value={values.project_id}
+                  onChange={(event) => change("project_id", event.target.value)}
+                >
+                  <option value="">Choose a project</option>
+                  {board.projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Label>
               {field("title", "Title", false, true)}
               <div className="two-fields">
                 <LabelPicker
@@ -125,7 +147,10 @@ export function NewTask({
             </>
           </div>
           <div className="actions editor-actions">
-            <Button size="sm" disabled={!values.title.trim()}>
+            <Button
+              size="sm"
+              disabled={!values.title.trim() || !values.project_id}
+            >
               Create task
             </Button>
           </div>

@@ -14,7 +14,13 @@ from flowfield.application import (
     Project,
     ProjectSetup,
 )
-from flowfield.attention import attention_counts
+from flowfield.attention import (
+    AttentionColumn,
+    AttentionPage,
+    attention_page,
+    workspace_attention_counts,
+)
+from flowfield.browser import BrowserReads, BrowserWorkspaceBoard
 from flowfield.execution_models import (
     ModelOption,
     QueueEdit,
@@ -53,15 +59,26 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     @router.get("/attention-counts")
     def counts() -> dict[str, int]:
         with supervisor().workspace.connection() as db:
-            result = {row[0]: 0 for row in db.execute("SELECT id FROM workspaces")}
-            for row in db.execute("SELECT workspace_id,project_id FROM workspace_projects"):
-                result[row[0]] += attention_counts(db, row[1]).get("action", 0)
-            for row in db.execute(
-                "SELECT workspace_id,count(*) FROM agent_permissions "
-                "WHERE project_id IS NULL AND status='pending' GROUP BY workspace_id"
-            ):
-                result[row[0]] += row[1]
-            return result
+            return {
+                row[0]: workspace_attention_counts(db, row[0]).get("action", 0)
+                for row in db.execute("SELECT id FROM workspaces")
+            }
+
+    @router.get("/{workspace_id}/view/board")
+    def board(workspace_id: str) -> BrowserWorkspaceBoard:
+        return BrowserReads(supervisor().workspace).workspace_board(workspace_id)
+
+    @router.get("/{workspace_id}/view/attention")
+    def attention(
+        workspace_id: str,
+        column: AttentionColumn = "action",
+        project_id: str | None = None,
+        offset: int = Query(0, ge=0),
+        limit: int = Query(20, ge=1, le=100),
+    ) -> AttentionPage:
+        return attention_page(
+            supervisor().workspace, project_id, column, offset, limit, workspace_id=workspace_id
+        )
 
     @router.get("/{workspace_id}")
     def get(workspace_id: str) -> WorkspaceRecord:

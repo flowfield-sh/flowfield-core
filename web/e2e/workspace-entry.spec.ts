@@ -41,7 +41,7 @@ test("explicit workspace creation, project adoption and shared draft navigation"
   await page.screenshot({
     path: testInfo.outputPath("workspace-empty-desktop-light.png"),
   });
-  await page.getByRole("link", { name: "Add project", exact: true }).click();
+  await page.getByRole("button", { name: "Add project", exact: true }).click();
   let path: string | null = null;
   await page.route("**/api/projects/select-directory", (route) =>
     route.fulfill({ json: { path } }),
@@ -68,7 +68,7 @@ test("explicit workspace creation, project adoption and shared draft navigation"
     path: testInfo.outputPath("workspace-adoption-desktop-light.png"),
   });
   await page.getByRole("button", { name: "Add project", exact: true }).click();
-  await expect(page).toHaveURL(/\/projects\/entry-core$/);
+  await expect(page).toHaveURL(`/workspaces/${workspace.id}`);
   expect(readFileSync(join(path, "AGENTS.md"), "utf8")).toBe(
     "Keep these project conventions.\n",
   );
@@ -78,9 +78,7 @@ test("explicit workspace creation, project adoption and shared draft navigation"
     exact: true,
   });
   await composer.fill("Plan the shared release");
-  await page
-    .getByRole("link", { name: "Product development · Projects", exact: true })
-    .click();
+  await page.getByRole("tab", { name: /^Projects/ }).click();
   await expect(composer).toHaveValue("Plan the shared release");
   await expect(page.getByRole("link", { name: /entry-core/ })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });

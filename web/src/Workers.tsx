@@ -13,7 +13,7 @@ import { WorkspaceLink as Link } from "./WorkspaceLink";
 import type { components } from "./api-schema";
 import { request } from "./workspace";
 import { useResource } from "./useResource";
-import { projectHref } from "./navigation";
+import { projectHref, workspaceHref } from "./navigation";
 import {
   HarnessModelSource,
   RefreshModels,
@@ -22,23 +22,34 @@ import {
   type HarnessKind,
 } from "./HarnessModels";
 
-type Settings = components["schemas"]["WorkerSettings"];
+type Settings = components["schemas"]["WorkspaceWorkerSettings"] & {
+  problem?: string | null;
+};
 
 export function QueueControls({
+  workspaceId,
   projectId,
+  problems = [],
   refresh,
 }: {
-  projectId: string;
+  projectId?: string;
+  workspaceId?: string;
+  problems?: { name: string; message: string; projectId: string }[];
   refresh: unknown;
 }) {
-  const path = `projects/${projectId}`;
+  const path = workspaceId
+    ? `workspaces/${workspaceId}`
+    : `projects/${projectId}`;
+  const settingsHref = workspaceId
+    ? workspaceHref(workspaceId)
+    : projectHref(projectId!);
   const resource = useResource<Settings>(`${path}/workers`, refresh);
   const occupancy = useResource<components["schemas"]["WorkerOccupancy"]>(
     `${path}/workers/occupancy`,
     refresh,
   );
   useHarnessModels(
-    projectId,
+    workspaceId ? { workspaceId } : projectId,
     resource.data?.selection?.harness,
     refresh,
     !!resource.data?.selection,
@@ -100,9 +111,7 @@ export function QueueControls({
             </Button>
             {!data.selection && (
               <Button size="xs" variant="outline" asChild>
-                <Link to={projectHref(projectId) + "/edit/workers"}>
-                  Choose model
-                </Link>
+                <Link to={settingsHref + "/edit/workers"}>Choose model</Link>
               </Button>
             )}
           </div>
@@ -113,15 +122,37 @@ export function QueueControls({
           <AlertDescription>
             <ContentStack>
               <p>{problem}</p>
-              <Link
-                className="text-link"
-                to={projectHref(projectId) + "/edit/workers"}
-              >
+              <Link className="text-link" to={settingsHref + "/edit/workers"}>
                 Worker settings
               </Link>
             </ContentStack>
           </AlertDescription>
         </Alert>
+      )}
+      {problems.slice(0, 3).map((item) => (
+        <Alert key={item.projectId}>
+          <AlertDescription>
+            <ContentStack>
+              <p>
+                <strong>{item.name}</strong>: {item.message}
+              </p>
+              <Link
+                className="text-link"
+                to={projectHref(item.projectId) + "/edit/integration"}
+              >
+                Project setup
+              </Link>
+            </ContentStack>
+          </AlertDescription>
+        </Alert>
+      ))}
+      {problems.length > 3 && workspaceId && (
+        <Link
+          className="text-link"
+          to={workspaceHref(workspaceId) + "/projects"}
+        >
+          {problems.length - 3} more projects need attention
+        </Link>
       )}
     </div>
   );
@@ -129,14 +160,16 @@ export function QueueControls({
 
 export function WorkerSettings({
   projectId,
+  workspaceId,
   onDirty,
   refresh,
 }: {
   refresh: unknown;
-  projectId: string;
+  projectId?: string;
+  workspaceId?: string;
   onDirty: (value: boolean) => void;
 }) {
-  const path = `projects/${projectId}/workers`;
+  const path = `${workspaceId ? `workspaces/${workspaceId}` : `projects/${projectId}`}/workers`;
   const resource = useResource<Settings>(path, refresh);
   const [draft, setDraft] = useState<{
     harness: HarnessKind;
@@ -147,7 +180,7 @@ export function WorkerSettings({
     revision: number;
   } | null>(null);
   const source = useHarnessModels(
-    projectId,
+    workspaceId ? { workspaceId } : projectId,
     draft?.harness ?? resource.data?.selection?.harness,
     refresh,
     !!resource.data,
@@ -363,12 +396,19 @@ export function WorkerSettings({
 
 export function QueueSettings({
   projectId,
+  workspaceId,
   refresh,
 }: {
-  projectId: string;
+  projectId?: string;
+  workspaceId?: string;
   refresh: unknown;
 }) {
-  const path = `projects/${projectId}`;
+  const path = workspaceId
+    ? `workspaces/${workspaceId}`
+    : `projects/${projectId}`;
+  const settingsHref = workspaceId
+    ? workspaceHref(workspaceId)
+    : projectHref(projectId!);
   const resource = useResource<Settings>(`${path}/workers`, refresh);
   const [busy, setBusy] = useState(false);
   const data = resource.data;
@@ -408,7 +448,7 @@ export function QueueSettings({
         Run worker queue
       </SettingsCheckbox>
       {!data?.selection && data && (
-        <Link to={projectHref(projectId) + "/edit/workers"}>
+        <Link to={settingsHref + "/edit/workers"}>
           Choose a worker model first
         </Link>
       )}

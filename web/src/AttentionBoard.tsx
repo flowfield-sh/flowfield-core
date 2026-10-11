@@ -80,18 +80,20 @@ function action(item: Item) {
 
 function Column({
   projectId,
+  workspaceId,
   identity,
   refresh,
   column,
 }: {
-  projectId: string;
+  projectId?: string;
+  workspaceId?: string;
   identity?: string;
   refresh: unknown;
   column: keyof typeof columns;
 }) {
   const [retry, setRetry] = useState(0);
   const page = usePage<Page>(
-    `projects/${projectId}/view/attention?column=${column}&retry=${retry}`,
+    `${workspaceId ? `workspaces/${workspaceId}` : `projects/${projectId}`}/view/attention?column=${column}&retry=${retry}${workspaceId && projectId ? `&project_id=${encodeURIComponent(projectId)}` : ""}`,
     refresh,
   );
   return (
@@ -128,10 +130,11 @@ function Column({
           )}
           <ul>
             {page.data?.items.map((item) => (
-              <li key={`${item.kind}:${item.id}`}>
+              <li key={`${item.project_id}:${item.kind}:${item.id}`}>
                 {item.kind === "permission" ? (
                   <PermissionCard
-                    projectId={projectId}
+                    projectId={item.project_id ?? undefined}
+                    workspaceId={item.project_id ? undefined : workspaceId}
                     id={item.id}
                     taskKey={item.task_key}
                     refresh={refresh}
@@ -141,10 +144,10 @@ function Column({
                     href={
                       item.state?.href ??
                       (item.kind === "question"
-                        ? questionHref(projectId, item.id)
+                        ? questionHref(item.project_id!, item.id)
                         : item.kind === "result"
-                          ? `${taskHref(projectId, { key: item.task_key! }, "result")}/${item.id}`
-                          : `${taskHref(projectId, { key: item.task_key! }, "runs")}/${item.run_id ?? item.id}${item.kind === "integration" ? `/integrations/${item.id}` : ""}`)
+                          ? `${taskHref(item.project_id!, { key: item.task_key! }, "result")}/${item.id}`
+                          : `${taskHref(item.project_id!, { key: item.task_key! }, "runs")}/${item.run_id ?? item.id}${item.kind === "integration" ? `/integrations/${item.id}` : ""}`)
                     }
                     kind={item.kind === "result" ? "Changes" : label(item.kind)}
                     reference={item.task_key ?? "Project"}
@@ -181,7 +184,8 @@ function Column({
   );
 }
 export function AttentionBoard(props: {
-  projectId: string;
+  projectId?: string;
+  workspaceId?: string;
   identity?: string;
   refresh: unknown;
 }) {
@@ -202,6 +206,7 @@ export function AttentionBoard(props: {
         >
           <PermissionCard
             projectId={props.projectId}
+            workspaceId={props.projectId ? undefined : props.workspaceId}
             id={permission}
             taskKey={null}
             refresh={props.refresh}

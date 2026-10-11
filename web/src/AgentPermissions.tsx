@@ -129,24 +129,26 @@ export function AgentPermissions({
 
 export function PermissionCard({
   projectId,
+  workspaceId,
   id,
   taskKey,
   refresh,
 }: {
-  projectId: string;
+  projectId?: string;
+  workspaceId?: string;
   id: string;
   taskKey: string | null;
   refresh: unknown;
 }) {
   const [retry, setRetry] = useState(0);
   const resource = useResource<Permission>(
-    `projects/${projectId}/permissions/${id}?retry=${retry}`,
+    `${workspaceId ? `workspaces/${workspaceId}` : `projects/${projectId}`}/permissions/${id}?retry=${retry}`,
     refresh,
   );
   return (
     <Card className="p-3 gap-0 shadow-none">
       <ContentStack>
-        {taskKey && (
+        {taskKey && projectId && (
           <WorkspaceLink to={taskHref(projectId, { key: taskKey })}>
             {taskKey}
           </WorkspaceLink>
