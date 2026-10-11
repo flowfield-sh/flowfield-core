@@ -547,9 +547,10 @@ class Workspace:
             row = db.execute("SELECT * FROM projects WHERE path = ?", (str(path),)).fetchone()
             return setup_defaults(path, config, Project(**dict(row)) if row else None)
 
-    def setup_project(self, request: ProjectSetup) -> Project:
+    def setup_project(self, request: ProjectSetup, *, workspace_id: str | None = None) -> Project:
         from flowfield.agent_settings import AgentSettings
         from flowfield.execution import Execution
+        from flowfield.workspaces import Workspaces
 
         path = self._setup_path(request.path)
         try:
@@ -562,6 +563,22 @@ class Workspace:
                 config = read_config(path)
                 row = db.execute("SELECT * FROM projects WHERE path = ?", (str(path),)).fetchone()
                 existing = Project(**dict(row)) if row else None
+                if workspace_id is not None:
+                    Workspaces.read(db, workspace_id)
+                    membership = (
+                        db.execute(
+                            "SELECT workspace_id FROM workspace_projects WHERE project_id=?",
+                            (existing.id,),
+                        ).fetchone()
+                        if existing
+                        else None
+                    )
+                    if membership and membership[0] != workspace_id:
+                        raise ApplicationError(
+                            "project_workspace_conflict",
+                            "This project already belongs to another workspace.",
+                            409,
+                        )
                 defaults = setup_defaults(path, config, existing)
                 identity, name = defaults.id, defaults.name
                 if (config or existing) and (
@@ -641,6 +658,11 @@ class Workspace:
                 if existing:
                     if config is None:
                         write_config(path, chosen)
+                    if workspace_id is not None:
+                        db.execute(
+                            "INSERT OR IGNORE INTO workspace_projects VALUES (?,?)",
+                            (existing.id, workspace_id),
+                        )
                     return existing
                 project = Project(
                     id=chosen.project_id,
@@ -652,6 +674,10 @@ class Workspace:
                     updated_by=request.author,
                 )
                 self._insert_project(db, project)
+                if workspace_id is not None:
+                    db.execute(
+                        "INSERT INTO workspace_projects VALUES (?,?)", (project.id, workspace_id)
+                    )
                 # Reuse the settings owners inside registration's transaction.
                 if request.coordinator:
                     AgentSettings(self)._edit(
