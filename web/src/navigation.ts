@@ -4,6 +4,8 @@ import { useBlocker, useLocation, useMatches, useNavigate } from "react-router";
 const pagePaths = [
   "settings/harnesses",
   "settings/appearance",
+  "settings/notifications",
+  "settings/updates",
   "new-project",
   "projects/:projectId",
   "projects/:projectId/archive",
@@ -54,7 +56,10 @@ export function taskHref(
 }
 function editorIdentity(path: string) {
   return withoutQuestionOverlay(path)
-    .replace(/^\/settings\/(harnesses|appearance)\/?$/, "/settings")
+    .replace(
+      /^\/settings\/(harnesses|appearance|notifications|updates)\/?$/,
+      "/settings",
+    )
     .replace(
       /^(\/projects\/[^/]+\/edit)\/(general|info|coordinator|workers|integration)\/?$/,
       "$1",

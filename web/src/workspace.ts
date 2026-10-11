@@ -38,6 +38,7 @@ export async function request<T>(
   signal?: AbortSignal,
   timeoutMs = 10000,
 ): Promise<T> {
+  const startedAt = performance.now();
   const timeout = AbortSignal.timeout(timeoutMs);
   const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
   const payload = body === undefined ? undefined : JSON.stringify(body);
@@ -68,7 +69,7 @@ export async function request<T>(
     );
   }
   if (response.status === 204) {
-    requestRecovered(path);
+    requestRecovered(path, startedAt);
     return undefined as T;
   }
   let data;
@@ -101,7 +102,7 @@ export async function request<T>(
       path,
       method,
     );
-  requestRecovered(path);
+  requestRecovered(path, startedAt);
   return data as T;
 }
 

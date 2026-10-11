@@ -22,18 +22,11 @@ from packaging.utils import (
     parse_wheel_filename,
 )
 from packaging.version import InvalidVersion, Version
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from flowfield import __version__
+from flowfield.announcements import announce_update
 from flowfield.application import Workspace
-from flowfield.notifications import (
-    NoticeAction,
-    NoticeCommand,
-    NoticeContent,
-    publish,
-    save_state,
-    state,
-)
 from flowfield.storage import DATABASE, acquire_lock, connect, require_supported, version
 
 INDEX_URL = "https://pypi.org/simple/flowfield-core/"
@@ -55,15 +48,32 @@ def available(latest: str | None, installed: str) -> str | None:
     return None
 
 
-def instructions(latest: str) -> list[NoticeCommand]:
+class UpdateCommand(BaseModel):
+    label: str
+    command: str
+
+
+def state(db: sqlite3.Connection) -> dict[str, Any]:
+    row = db.execute("SELECT data FROM update_state WHERE id=1").fetchone()
+    return json.loads(row[0]) if row else {}
+
+
+def save_state(db: sqlite3.Connection, value: dict[str, Any]) -> None:
+    db.execute(
+        "INSERT INTO update_state VALUES (1,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
+        (json.dumps(value),),
+    )
+
+
+def instructions(latest: str) -> list[UpdateCommand]:
     prerelease = Version(latest).is_prerelease
     return [
-        NoticeCommand(
+        UpdateCommand(
             label="uv",
             command="uv tool upgrade flowfield-core"
             + (" --prerelease allow" if prerelease else ""),
         ),
-        NoticeCommand(
+        UpdateCommand(
             label="pip (in your Flowfield environment)",
             command="python -m pip install --upgrade flowfield-core"
             + (" --pre" if prerelease else ""),
@@ -72,6 +82,7 @@ def instructions(latest: str) -> list[NoticeCommand]:
 
 
 class UpdateStatus(BaseModel):
+    treatment: str = "package"
     installed_version: str
     available_version: str | None = None
     latest_version: str | None = None
@@ -83,7 +94,7 @@ class UpdateStatus(BaseModel):
     error: str | None = None
     cached: bool = False
     release_notes: str = RELEASE_NOTES
-    commands: list[NoticeCommand] = []
+    commands: list[UpdateCommand] = Field(default_factory=list)
 
 
 def status_from(data: dict[str, Any], installed: str, *, checking: bool = False) -> UpdateStatus:
@@ -115,8 +126,8 @@ def cached_status(directory: Path) -> UpdateStatus:
             closing(connect(directory / DATABASE, readonly=True)) as db,
         ):
             require_supported(version(db))
-            if version(db) >= 31:
-                data = state(db, "updates")
+            if version(db) >= 54:
+                data = state(db)
     return status_from(data, __version__).model_copy(update={"cached": True})
 
 
@@ -171,55 +182,31 @@ class Updates:
         self.transport = transport
         self.clock = clock
         self.task: asyncio.Task[None] | None = None
+        self.manual_clients: set[str] = set()
         self.first_due = clock().timestamp() + INTERVAL
 
     def status(self) -> UpdateStatus:
         with self.workspace.connection() as db:
             return status_from(
-                state(db, "updates"),
+                state(db),
                 self.installed,
                 checking=self.task is not None and not self.task.done(),
             )
 
     def configure(self, automatic: bool) -> UpdateStatus:
         with self.workspace.connection(write=True, notify=False) as db:
-            data = state(db, "updates")
+            data = state(db)
             data["automatic"] = automatic
-            save_state(db, "updates", data)
+            save_state(db, data)
         return self.status()
 
-    def reconcile(self) -> None:
-        with self.workspace.connection(write=True, notify=False) as db:
-            self._reconcile(db, state(db, "updates"))
-
-    def _reconcile(self, db: sqlite3.Connection, data: dict[str, Any]) -> None:
-        newer = available(data.get("latest_version"), self.installed)
-        key = f"update:{newer}" if newer else ""
-        db.execute(
-            "UPDATE notifications SET resolved_at=? WHERE source='update' "
-            "AND key<>? AND resolved_at IS NULL",
-            (self.clock().isoformat(), key),
-        )
-        if newer and newer != data.get("announced_version"):
-            publish(
-                db,
-                "update",
-                key,
-                NoticeContent(
-                    title=f"Flowfield {newer} is available",
-                    message="Stop Flowfield, upgrade with your installation method, then restart. "
-                    "Supported database migrations run automatically; "
-                    "each project keeps its saved queue setting.",
-                    actions=[NoticeAction(label="Release notes", href=RELEASE_NOTES)],
-                    commands=instructions(newer),
-                ),
-            )
-            data["announced_version"] = newer
-            save_state(db, "updates", data)
-
-    def trigger(self, reason: str = "manual") -> UpdateStatus:
+    def trigger(self, reason: str = "manual", client_id: str | None = None) -> UpdateStatus:
         current = self.status()
-        if current.checking or (reason != "manual" and not current.automatic):
+        if current.checking:
+            if reason == "manual" and client_id and len(self.manual_clients) < 32:
+                self.manual_clients.add(client_id)
+            return current
+        if reason != "manual" and not current.automatic:
             return current
         last = (
             datetime.fromisoformat(current.last_attempt).timestamp() if current.last_attempt else 0
@@ -229,15 +216,17 @@ class Updates:
             last + interval if last else self.first_due if reason == "hourly" else 0
         ):
             return current
+        if reason == "manual" and client_id:
+            self.manual_clients.add(client_id)
         self.task = asyncio.create_task(self._check())
         return self.status()
 
     async def _check(self) -> None:
         attempted = self.clock().isoformat()
         with self.workspace.connection(write=True, notify=False) as db:
-            data = state(db, "updates")
+            data = state(db)
             data.update(last_attempt=attempted, error=None)
-            save_state(db, "updates", data)
+            save_state(db, data)
         try:
             async with (
                 asyncio.timeout(6),
@@ -269,17 +258,26 @@ class Updates:
             elif isinstance(error, ValueError):
                 problem = "PyPI returned an invalid or oversized release response."
             with self.workspace.connection(write=True, notify=False) as db:
-                data = state(db, "updates")
+                data = state(db)
                 data["error"] = problem
-                save_state(db, "updates", data)
+                save_state(db, data)
         else:
             with self.workspace.connection(write=True, notify=False) as db:
-                data = state(db, "updates")
+                data = state(db)
                 data.update(
                     latest_version=latest, last_success=self.clock().isoformat(), error=None
                 )
-                save_state(db, "updates", data)
-                self._reconcile(db, data)
+                save_state(db, data)
+                newer = available(latest, self.installed)
+                if newer and newer != data.get("announced_version"):
+                    announce_update(
+                        db, newer, self.clock().timestamp(), sorted(self.manual_clients)
+                    )
+                    data["announced_version"] = newer
+                    save_state(db, data)
+
+        finally:
+            self.manual_clients.clear()
 
     async def close(self) -> None:
         if self.task:

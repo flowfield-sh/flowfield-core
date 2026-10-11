@@ -269,6 +269,9 @@ function QuestionDetail({
     : projectHref(projectId);
   return (
     <section
+      data-announcement-source={
+        loaded ? `${projectId}:question:${loaded.id}` : undefined
+      }
       className="question-detail content-stack"
       data-space="section"
       aria-label="Question"

@@ -1,3 +1,5 @@
+import { useLocation, useNavigate } from "react-router";
+import { EntityOverlay } from "./EntityOverlay";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { components } from "./api-schema";
@@ -183,11 +185,34 @@ export function AttentionBoard(props: {
   identity?: string;
   refresh: unknown;
 }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const permission = new URLSearchParams(location.search).get("permission");
   return (
-    <div className="board attention-board">
-      <Column {...props} column="action" />
-      <Column {...props} column="waiting" />
-      <Column {...props} column="history" />
-    </div>
+    <>
+      {permission && (
+        <EntityOverlay
+          title="Tool permission"
+          close={() =>
+            void navigate(location.pathname, {
+              replace: true,
+              state: location.state,
+            })
+          }
+        >
+          <PermissionCard
+            projectId={props.projectId}
+            id={permission}
+            taskKey={null}
+            refresh={props.refresh}
+          />
+        </EntityOverlay>
+      )}
+      <div className="board attention-board">
+        <Column {...props} column="action" />
+        <Column {...props} column="waiting" />
+        <Column {...props} column="history" />
+      </div>
+    </>
   );
 }

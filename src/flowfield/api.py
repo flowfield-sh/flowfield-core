@@ -302,6 +302,8 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
         @app.get("/new-project", include_in_schema=False)
         @app.get("/settings/harnesses", include_in_schema=False)
         @app.get("/settings/appearance", include_in_schema=False)
+        @app.get("/settings/notifications", include_in_schema=False)
+        @app.get("/settings/updates", include_in_schema=False)
         @app.get("/projects/{path:path}", include_in_schema=False)
         def workspace_page() -> FileResponse:
             return FileResponse(assets / "index.html")

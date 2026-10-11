@@ -134,7 +134,8 @@ test("an outage is reported once across settings reads and polling, recovers, an
     editor.getByRole("button", { name: "Refresh models" }),
   ).toBeVisible();
   // Observe two real notification polls: dismissed background failures stay dismissed.
-  for (let i = 0; i < 2; i++) await page.waitForRequest("**/api/notifications");
+  for (let i = 0; i < 2; i++)
+    await page.waitForRequest("**/api/announcements/poll");
   await expect(errors(page)).toHaveCount(0);
   await editor.getByRole("tab", { name: "General", exact: true }).click();
   await editor

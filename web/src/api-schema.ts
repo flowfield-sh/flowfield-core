@@ -1911,58 +1911,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/notifications": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** List Notifications */
-    get: operations["list_notifications_api_notifications_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/notifications/operations": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Operation */
-    post: operations["operation_api_notifications_operations_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/notifications/dismiss": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Dismiss */
-    post: operations["dismiss_api_notifications_dismiss_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/notifications/settings": {
+  "/api/announcements/settings": {
     parameters: {
       query?: never;
       header?: never;
@@ -1970,17 +1919,17 @@ export interface paths {
       cookie?: never;
     };
     /** Settings */
-    get: operations["settings_api_notifications_settings_get"];
-    /** Configure */
-    put: operations["configure_api_notifications_settings_put"];
+    get: operations["settings_api_announcements_settings_get"];
+    put?: never;
     post?: never;
     delete?: never;
     options?: never;
     head?: never;
-    patch?: never;
+    /** Configure */
+    patch: operations["configure_api_announcements_settings_patch"];
     trace?: never;
   };
-  "/api/notifications/browser/claim": {
+  "/api/announcements/poll": {
     parameters: {
       query?: never;
       header?: never;
@@ -1989,8 +1938,8 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Claim */
-    post: operations["claim_api_notifications_browser_claim_post"];
+    /** Poll */
+    post: operations["poll_api_announcements_poll_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2201,6 +2150,44 @@ export interface components {
       selection: components["schemas"]["AgentChoice-Output"] | null;
       effective: components["schemas"]["EffectiveAgent"] | null;
     };
+    /** Announcement */
+    Announcement: {
+      /** Id */
+      id: number;
+      /** Source Key */
+      source_key: string;
+      /** Title */
+      title: string;
+      /** Message */
+      message: string;
+      /** Href */
+      href: string;
+      /** Project Id */
+      project_id?: string | null;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "work" | "update";
+    };
+    /** AnnouncementSettings */
+    AnnouncementSettings: {
+      /**
+       * System Enabled
+       * @default false
+       */
+      system_enabled: boolean;
+      /**
+       * Work Enabled
+       * @default true
+       */
+      work_enabled: boolean;
+      /**
+       * Updates Enabled
+       * @default true
+       */
+      updates_enabled: boolean;
+    };
     /** AnswerRetract */
     AnswerRetract: {
       /** Expected Revision */
@@ -2299,14 +2286,6 @@ export interface components {
       pending_code: {
         [key: string]: components["schemas"]["TaskReference"][];
       };
-    };
-    /** BrowserClaim */
-    BrowserClaim: {
-      /**
-       * Deliver
-       * @default true
-       */
-      deliver: boolean;
     };
     /** CatalogConfirmation */
     CatalogConfirmation: {
@@ -2584,17 +2563,22 @@ export interface components {
       /** Number */
       number: number;
     };
+    /** Delivery */
+    Delivery: {
+      /** Channel */
+      channel?: ("toast" | "system") | null;
+      /**
+       * System Allowed
+       * @default false
+       */
+      system_allowed: boolean;
+      /** Items */
+      items?: components["schemas"]["Announcement"][];
+    };
     /** DirectorySelection */
     DirectorySelection: {
       /** Path */
       path?: string | null;
-    };
-    /** DismissNotices */
-    DismissNotices: {
-      /** Ids */
-      ids?: number[];
-      /** Through */
-      through?: number | null;
     };
     /** EffectiveAgent */
     EffectiveAgent: {
@@ -3245,73 +3229,6 @@ export interface components {
        */
       description: string;
     };
-    /** NoticeAction */
-    NoticeAction: {
-      /** Label */
-      label: string;
-      /** Href */
-      href: string;
-    };
-    /** NoticeCommand */
-    NoticeCommand: {
-      /** Label */
-      label: string;
-      /** Command */
-      command: string;
-    };
-    /** Notification */
-    Notification: {
-      /** Title */
-      title: string;
-      /** Message */
-      message: string;
-      /** Scope */
-      scope: string | null;
-      /** Actions */
-      actions: components["schemas"]["NoticeAction"][];
-      /** Commands */
-      commands: components["schemas"]["NoticeCommand"][];
-      /** Id */
-      id: number;
-      /** Key */
-      key: string;
-      /** Source */
-      source: string;
-      /** Created At */
-      created_at: string;
-    };
-    /** NotificationPage */
-    NotificationPage: {
-      /** Items */
-      items: components["schemas"]["Notification"][];
-      /** Through */
-      through: number;
-    };
-    /** NotificationSettings */
-    NotificationSettings: {
-      /**
-       * Browser Enabled
-       * @default false
-       */
-      browser_enabled: boolean;
-    };
-    /** OperationNotice */
-    OperationNotice: {
-      /** Key */
-      key: string;
-      /** Occurrence */
-      occurrence?: string | null;
-      /** Project Id */
-      project_id?: string | null;
-      /** Title */
-      title: string;
-      /** Message */
-      message: string;
-      /** Href */
-      href?: string | null;
-      /** Action */
-      action?: string | null;
-    };
     /** PermissionAnswer */
     PermissionAnswer: {
       /** Expected Revision */
@@ -3393,6 +3310,31 @@ export interface components {
       expires_at: string;
       /** Released At */
       released_at: string | null;
+    };
+    /** Presence */
+    Presence: {
+      /** Client Id */
+      client_id: string;
+      /** Active */
+      active: boolean;
+      /**
+       * System
+       * @default browser
+       * @enum {string}
+       */
+      system: "browser" | "native";
+      /**
+       * Permitted
+       * @default false
+       */
+      permitted: boolean;
+      /** Visible Sources */
+      visible_sources?: string[];
+      /**
+       * Manual Update
+       * @default false
+       */
+      manual_update: boolean;
     };
     /** Project */
     Project: {
@@ -4777,12 +4719,21 @@ export interface components {
     };
     /** UpdateCheck */
     UpdateCheck: {
+      /** Client Id */
+      client_id?: string | null;
       /**
        * Reason
        * @default manual
        * @enum {string}
        */
       reason: "startup" | "manual";
+    };
+    /** UpdateCommand */
+    UpdateCommand: {
+      /** Label */
+      label: string;
+      /** Command */
+      command: string;
     };
     /** UpdateSettings */
     UpdateSettings: {
@@ -4791,6 +4742,11 @@ export interface components {
     };
     /** UpdateStatus */
     UpdateStatus: {
+      /**
+       * Treatment
+       * @default package
+       */
+      treatment: string;
       /** Installed Version */
       installed_version: string;
       /** Available Version */
@@ -4828,11 +4784,8 @@ export interface components {
        * @default https://github.com/flowfield-sh/flowfield-core/releases
        */
       release_notes: string;
-      /**
-       * Commands
-       * @default []
-       */
-      commands: components["schemas"]["NoticeCommand"][];
+      /** Commands */
+      commands?: components["schemas"]["UpdateCommand"][];
     };
     /** Usage */
     Usage: {
@@ -9396,7 +9349,7 @@ export interface operations {
       };
     };
   };
-  list_notifications_api_notifications_get: {
+  settings_api_announcements_settings_get: {
     parameters: {
       query?: never;
       header?: never;
@@ -9411,12 +9364,12 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["NotificationPage"];
+          "application/json": components["schemas"]["AnnouncementSettings"];
         };
       };
     };
   };
-  operation_api_notifications_operations_post: {
+  configure_api_announcements_settings_patch: {
     parameters: {
       query?: never;
       header?: never;
@@ -9425,7 +9378,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["OperationNotice"];
+        "application/json": components["schemas"]["AnnouncementSettings"];
       };
     };
     responses: {
@@ -9435,7 +9388,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["NotificationPage"];
+          "application/json": components["schemas"]["AnnouncementSettings"];
         };
       };
       /** @description Validation Error */
@@ -9449,7 +9402,7 @@ export interface operations {
       };
     };
   };
-  dismiss_api_notifications_dismiss_post: {
+  poll_api_announcements_poll_post: {
     parameters: {
       query?: never;
       header?: never;
@@ -9458,7 +9411,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["DismissNotices"];
+        "application/json": components["schemas"]["Presence"];
       };
     };
     responses: {
@@ -9468,93 +9421,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["NotificationPage"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  settings_api_notifications_settings_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["NotificationSettings"];
-        };
-      };
-    };
-  };
-  configure_api_notifications_settings_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["NotificationSettings"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["NotificationSettings"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  claim_api_notifications_browser_claim_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["BrowserClaim"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Notification"][];
+          "application/json": components["schemas"]["Delivery"];
         };
       };
       /** @description Validation Error */

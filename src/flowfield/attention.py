@@ -1,6 +1,7 @@
 """Bounded, derived human attention; no second workflow or mutable inbox records."""
 
 import sqlite3
+from collections.abc import Iterator
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel
@@ -31,32 +32,6 @@ class AttentionPage(BaseModel):
     items: list[AttentionItem]
     next_offset: int | None
     total: int
-
-
-class AttentionNotice(BaseModel):
-    key: str
-    title: str
-    label: str
-    href: str
-
-
-def attention_notices(workspace: "Workspace") -> list[AttentionNotice]:
-    notices = []
-    for project in workspace.projects():
-        page = attention_page(workspace, project.id, "action", limit=100)
-        for item in page.items:
-            state = item.state
-            notices.append(
-                AttentionNotice(
-                    key=f"{project.id}:{item.kind}:{item.id}:{item.status}:{item.updated_at}",
-                    title=f"{project.name} · {item.task_key or 'Project'}: {item.title}",
-                    label=state.label if state else item.next_action or "Needs your action",
-                    href=state.href
-                    if state and state.href
-                    else f"/projects/{project.id}/inbox/{item.id}",
-                )
-            )
-    return notices[-100:]
 
 
 # Projection only: select short titles, never worker reports or question bodies.
@@ -147,6 +122,13 @@ WITH run_items AS (
         WHERE json_extract(v.data,'$.integration_id')=i.id)
 )
 """
+
+
+def actionable_attention(db: sqlite3.Connection, project_id: str) -> Iterator[sqlite3.Row]:
+    """Stream the complete actionable projection for transactional event observation."""
+    yield from db.execute(
+        _PROJECTION + "SELECT * FROM items WHERE bucket='action'", {"project": project_id}
+    )
 
 
 def attention_counts(db: sqlite3.Connection, project_id: str) -> dict[str, int]:

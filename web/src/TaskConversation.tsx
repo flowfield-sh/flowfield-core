@@ -460,6 +460,13 @@ export function TaskConversation({
                   </li>
                 )}
                 <li
+                  data-announcement-source={
+                    message.source_id
+                      ? message.kind === "attempt"
+                        ? `${projectId}:intervention:${message.source_id} ${projectId}:review:${message.source_id}`
+                        : `${projectId}:${message.kind}:${message.source_id}`
+                      : undefined
+                  }
                   data-message-id={message.id}
                   data-kind={message.kind}
                   className="conversation-message"

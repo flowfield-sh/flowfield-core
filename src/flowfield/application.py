@@ -472,6 +472,10 @@ class Workspace:
                 require_current(db, self.schema_version)
                 yield db
                 changed = db.total_changes > 0
+                if write and changed and notify and self.schema_version >= 54:
+                    from flowfield.announcements import reconcile_attention
+
+                    reconcile_attention(db, project_id)
                 if changed:
                     db.execute("UPDATE storage_metadata SET revision=revision+1 WHERE id=1")
                 db.commit()

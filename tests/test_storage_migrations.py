@@ -562,3 +562,62 @@ def test_welcome_upgrade_preserves_existing_conversations_and_queue_choice(tmp_p
     restarted.restart()
     assert restarted.settings("harbor") == saved
     assert storage.backups(upgraded.directory)[0]["schema_version"] == 52
+
+
+def test_notification_cleanup_discards_only_retired_state_and_rolls_back(tmp_path, monkeypatch):
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 54)
+        )
+        execution = execution_fixture(tmp_path)
+        saved = execution.settings("harbor")
+        with execution.workspace.connection(write=True) as db:
+            db.execute(
+                "INSERT INTO notification_state VALUES ('updates', ?)",
+                ('{"automatic":false,"latest_version":"9.0"}',),
+            )
+            db.execute(
+                "INSERT INTO notifications(key,source,data,created_at) VALUES "
+                "('old','operation','{}','old')"
+            )
+            db.execute("INSERT INTO notification_deliveries VALUES (1,'browser','old')")
+        original = logical_data(execution.workspace.directory)
+    migration = next(m for m in migrations.MIGRATIONS if m.version == 54)
+
+    def fail(db):
+        migration.apply(db)
+        raise ValueError("Injected cleanup failure")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            migrations,
+            "MIGRATIONS",
+            tuple(Migration(54, fail) if m.version == 54 else m for m in migrations.MIGRATIONS),
+        )
+        with pytest.raises(ApplicationError, match="rolled back"):
+            Workspace(execution.workspace.directory)
+    assert logical_data(execution.workspace.directory) == original
+    upgraded = Workspace(execution.workspace.directory)
+    assert Execution(upgraded).settings("harbor") == saved
+    with upgraded.connection() as db:
+        assert not db.execute(
+            "SELECT name FROM sqlite_master WHERE name IN "
+            "('notifications','notification_state','notification_deliveries')"
+        ).fetchall()
+        assert (
+            json.loads(db.execute("SELECT data FROM update_state").fetchone()[0])["automatic"]
+            is False
+        )
+        assert db.execute("SELECT count(*) FROM announcement_events").fetchone()[0] == 0
+    after = logical_data(upgraded.directory)
+    discarded = {
+        "notifications",
+        "notification_state",
+        "notification_deliveries",
+        "schema_migrations",
+        "storage_metadata",
+        "sqlite_sequence",
+    }
+    for line in original:
+        if line.startswith('INSERT INTO "') and line.split('"')[1] not in discarded:
+            assert line in after

@@ -13,10 +13,11 @@ export class RequestError extends Error {
 
 // Deduplicate failed background reads until that resource recovers. An outage is
 // shared across views; deliberate user actions always get their own feedback.
-const failures = new Map<string, string>();
-export function requestRecovered(path: string) {
-  failures.delete(path);
-  failures.delete("connection");
+const failures = new Map<string, { message: string; at: number }>();
+export function requestRecovered(path: string, startedAt: number) {
+  // A delayed successful response from before an outage does not prove recovery.
+  for (const key of [path, "connection"])
+    if ((failures.get(key)?.at ?? Infinity) <= startedAt) failures.delete(key);
 }
 export function reportError(error: unknown, title: string, background = false) {
   if (error instanceof DOMException && error.name === "AbortError") return;
@@ -27,11 +28,11 @@ export function reportError(error: unknown, title: string, background = false) {
   if (
     background &&
     failures.has(key) &&
-    (connection || failures.get(key) === message)
+    (connection || failures.get(key)?.message === message)
   )
     return;
   failures.delete(key);
-  failures.set(key, message);
+  failures.set(key, { message, at: performance.now() });
   if (failures.size > 128) failures.delete(failures.keys().next().value!);
   toast.error(connection && background ? "Flowfield is unavailable" : title, {
     id: `request:${key}`,

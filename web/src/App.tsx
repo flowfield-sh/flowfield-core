@@ -1,12 +1,11 @@
 import { reportError } from "./requestFeedback";
 import { Toaster } from "@/components/ui/sonner";
 import { MilestoneBadge } from "./MilestoneBadge";
-import { useBrowserNotifications } from "./BrowserNotices";
+import { AnnouncementProvider } from "./Announcements";
 import { TaskNeeds, TaskState, hasTaskNeeds } from "./TaskNeeds";
 import { ProjectList } from "./ProjectList";
 import { SetupInstructions } from "./SetupInstructions";
 import { taskTab } from "./navigation";
-import { NotificationButton, useNotifications } from "./Notifications";
 import { CoordinatorChat, type ChatDrafts } from "./CoordinatorChat";
 import {
   Tooltip,
@@ -99,7 +98,6 @@ export function App() {
     setOverlayDirty,
     chatSettingsDirty,
   );
-  useBrowserNotifications(changeLocation);
   const projectId = params.projectId;
   const { data: attentionCounts } = useResource<Record<string, number>>(
     "projects/attention-counts",
@@ -197,7 +195,7 @@ export function App() {
     action();
   }
   return (
-    <>
+    <AnnouncementProvider navigate={changeLocation}>
       <Toaster theme={appearance.theme} />
       <WorkspaceFrame
         workLocation={pathname}
@@ -214,7 +212,6 @@ export function App() {
         footer={
           <>
             <SettingsLink active={pathname.startsWith("/settings/")} />
-            <NotificationButton />
             <Tooltip>
               <TooltipTrigger asChild>
                 <p
@@ -292,7 +289,11 @@ export function App() {
                 tab={
                   pathname === "/settings/appearance"
                     ? "appearance"
-                    : "harnesses"
+                    : pathname === "/settings/notifications"
+                      ? "notifications"
+                      : pathname === "/settings/updates"
+                        ? "updates"
+                        : "harnesses"
                 }
               />
             ) : projectId ? (
@@ -328,7 +329,7 @@ export function App() {
         }
       />
       <DiscardChangesDialog {...discardChanges} />
-    </>
+    </AnnouncementProvider>
   );
 }
 
@@ -357,7 +358,6 @@ function ProjectBoard({
   closeEntity: (fallback: string) => void;
   backgroundPath?: string;
 }) {
-  const { notify } = useNotifications();
   const [retry, setRetry] = useState(0);
   const path = `projects/${encodeURIComponent(projectId)}`;
   const {
@@ -435,12 +435,7 @@ function ProjectBoard({
         },
       );
     } catch (e) {
-      notify({
-        key: `priority:${projectId}`,
-        project_id: projectId,
-        title: "Priority could not change",
-        message: (e as Error).message,
-      });
+      reportError(e, "Priority could not change");
     } finally {
       priorityPending.current = false;
       setPrioritizing(false);

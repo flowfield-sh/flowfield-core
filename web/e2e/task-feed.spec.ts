@@ -440,15 +440,6 @@ test("priority races preserve agent progress and message drafts; touch can prior
       }),
     );
   await started;
-  // Notifications are service-wide; another project may need attention at the
-  // same time. The stale-priority assertion must identify its own notice.
-  await request.post("/api/notifications/operations", {
-    data: {
-      key: "unrelated-priority-notice",
-      title: "Unrelated work needs attention",
-      message: "Keep this notification alongside the priority failure.",
-    },
-  });
   await fixtureProgress(request, {
     project_id: "race",
     task_id: "one",

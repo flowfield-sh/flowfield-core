@@ -46,6 +46,14 @@ def test_answer_is_offered_exactly_once_and_persisted(tmp_path, option):
             record = await pending(owner)
             attention = attention_page(execution.workspace, "harbor", "action")
             assert attention.items[0].kind == "permission"
+            with execution.workspace.connection() as db:
+                announcement = db.execute(
+                    "SELECT data FROM announcement_events WHERE source_key=?",
+                    (f"harbor:permission:{record.id}",),
+                ).fetchone()
+            assert json.loads(announcement[0])["href"] == (
+                f"/projects/harbor/inbox?permission={record.id}"
+            )
             with pytest.raises(ApplicationError, match="offered"):
                 owner.answer(
                     "harbor", record.id, PermissionAnswer(expected_revision=1, option_id="invented")
@@ -59,6 +67,14 @@ def test_answer_is_offered_exactly_once_and_persisted(tmp_path, option):
             request = PermissionAnswer(expected_revision=1, option_id=option)
             saved = owner.answer("harbor", record.id, request)
             assert saved.answer == option
+            with execution.workspace.connection() as db:
+                assert (
+                    db.execute(
+                        "SELECT state FROM announcement_events WHERE source_key=?",
+                        (f"harbor:permission:{record.id}",),
+                    ).fetchone()[0]
+                    == "resolved"
+                )
             assert owner.answer("harbor", record.id, request) == saved
             with pytest.raises(ApplicationError):
                 owner.answer(

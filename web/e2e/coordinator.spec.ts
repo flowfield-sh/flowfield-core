@@ -531,7 +531,6 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   for (const control of [
     page.getByRole("link", { name: "Flowfield", exact: true }),
     page.getByRole("link", { name: "Settings", exact: true }),
-    page.getByRole("button", { name: /^Notifications/ }),
     page.getByRole("button", { name: "Add project", exact: true }),
     page.getByRole("link", { name: "Chat Browser", exact: true }),
     page.locator(".connection"),

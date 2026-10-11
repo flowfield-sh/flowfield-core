@@ -21,7 +21,10 @@ export function PermissionControl({
 }) {
   const [busy, setBusy] = useState(false);
   return (
-    <DetailSection title={record.title}>
+    <DetailSection
+      title={record.title}
+      data-announcement-source={`${record.project_id}:permission:${record.id}`}
+    >
       <p className="detail-metadata">
         {record.role === "worker" ? "Worker" : "Coordinator"} tool permission ·{" "}
         <Timestamp date={record.created_at} />

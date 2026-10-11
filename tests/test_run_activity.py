@@ -9,7 +9,7 @@ from test_execution import BASE, fixture
 from test_input_continuation import question
 
 from flowfield.application import Workspace
-from flowfield.attention import attention_notices, attention_page
+from flowfield.attention import attention_page
 from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import QueueEdit
@@ -174,8 +174,13 @@ def test_shared_state_matches_question_attention_and_static_pause(tmp_path):
     attention = attention_page(execution.workspace, "harbor", "action")
     assert attention.items[0].state == state
     assert state.tone == "waiting" and item.id in state.href
-    notices = attention_notices(execution.workspace)
-    assert notices[0].href == state.href
+    with execution.workspace.connection() as db:
+        notice = db.execute(
+            "SELECT json_extract(data,'$.href') FROM announcement_events "
+            "WHERE source_key=? ORDER BY id DESC",
+            (f"harbor:question:{item.id}",),
+        ).fetchone()
+    assert notice[0] == state.href
     second = Questions(execution.workspace).ask(
         "harbor",
         QuestionCreate(

@@ -1,7 +1,7 @@
+import { ContentStack } from "./DetailLayout";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
-import { useNotifications } from "./Notifications";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { AgentModelFields } from "./AgentSettings";
@@ -30,7 +30,6 @@ export function QueueControls({
   projectId: string;
   refresh: unknown;
 }) {
-  const { notify } = useNotifications();
   const path = `projects/${projectId}`;
   const resource = useResource<Settings>(`${path}/workers`, refresh);
   const occupancy = useResource<components["schemas"]["WorkerOccupancy"]>(
@@ -46,20 +45,6 @@ export function QueueControls({
   const [busy, setBusy] = useState(false);
   const data = resource.data;
   const problem = data?.problem;
-  useEffect(() => {
-    if (problem)
-      notify(
-        {
-          key: `queue-status:${projectId}`,
-          project_id: projectId,
-          title: "Worker queue needs attention",
-          message: problem,
-          href: projectHref(projectId) + "/edit/workers",
-          action: "Worker settings",
-        },
-        false,
-      );
-  }, [problem, projectId, notify]);
   return (
     <div className="queue-controls" aria-label="Worker queue">
       <ResourceRetry resources={[resource, occupancy]}>
@@ -99,16 +84,12 @@ export function QueueControls({
                       : "Worker queue paused.",
                   );
                 } catch (e) {
-                  notify({
-                    key: `queue-action:${projectId}`,
-                    project_id: projectId,
-                    title: data.enabled
+                  reportError(
+                    e,
+                    data.enabled
                       ? "Queue could not pause"
                       : "Queue could not start",
-                    message: (e as Error).message,
-                    href: projectHref(projectId) + "/edit/workers",
-                    action: "Worker settings",
-                  });
+                  );
                 } finally {
                   setBusy(false);
                 }
@@ -127,22 +108,19 @@ export function QueueControls({
         </>
       )}
       {problem && (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            notify({
-              key: `queue-status:${projectId}`,
-              project_id: projectId,
-              title: "Worker queue needs attention",
-              message: problem,
-              href: projectHref(projectId) + "/edit/workers",
-              action: "Worker settings",
-            })
-          }
-        >
-          Queue needs attention
-        </Button>
+        <Alert>
+          <AlertDescription>
+            <ContentStack>
+              <p>{problem}</p>
+              <Link
+                className="text-link"
+                to={projectHref(projectId) + "/edit/workers"}
+              >
+                Worker settings
+              </Link>
+            </ContentStack>
+          </AlertDescription>
+        </Alert>
       )}
     </div>
   );

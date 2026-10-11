@@ -1118,20 +1118,6 @@
     line-height: 16px;
     padding: 2px 8px;
   }
-  .notification-items {
-    padding: 0 16px 16px;
-    display: grid;
-    gap: 12px;
-    overflow-y: auto;
-  }
-  .notification-items [role="alert"] {
-    display: grid;
-    gap: 8px;
-    overflow-wrap: anywhere;
-  }
-  .notification-items a {
-    width: fit-content;
-  }
 }
 
 @layer components {

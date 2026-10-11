@@ -8,7 +8,6 @@ from typer.testing import CliRunner
 
 from flowfield.application import Workspace
 from flowfield.cli import app
-from flowfield.notifications import Notifications
 from flowfield.updates import INDEX_URL, INTERVAL, Updates, cached_status, latest_release
 
 
@@ -37,7 +36,7 @@ def test_version_ordering_yanks_prereleases_and_python_compatibility():
         latest_release({"name": "another", "files": []}, "1.0", "3.12")
 
 
-def test_startup_hourly_manual_coalescing_dismissal_and_restart(tmp_path, monkeypatch):
+def test_startup_hourly_manual_coalescing_announcement_and_restart(tmp_path, monkeypatch):
     monkeypatch.delenv("FLOWFIELD_UPDATE_CHECKS")
     clock = [datetime(2026, 10, 2, tzinfo=UTC)]
     calls = []
@@ -54,25 +53,29 @@ def test_startup_hourly_manual_coalescing_dismissal_and_restart(tmp_path, monkey
     updates = Updates(
         workspace, installed="0.1", transport=httpx.MockTransport(fetch), clock=lambda: clock[0]
     )
-    notices = Notifications(workspace)
 
     async def scenario():
         assert not updates.trigger("hourly").checking
         assert updates.trigger("startup").checking
         first = updates.task
         updates.trigger("startup")
-        updates.trigger("manual")
+        updates.trigger("manual", "manual-client")
+        updates.trigger("manual", "second-client")
         updates.trigger("hourly")
         assert updates.task is first
         await updates.task
         assert len(calls) == 1
-        item = notices.page().items[0]
-        assert item.source == "update" and len(item.commands) == 2
-        notices.dismiss(ids=[item.id])
+        assert len(updates.status().commands) == 2
+        with workspace.connection() as db:
+            assert db.execute("SELECT count(*) FROM announcement_events").fetchone()[0] == 1
+            event = json.loads(db.execute("SELECT data FROM announcement_events").fetchone()[0])
+            assert event["exclude_clients"] == ["manual-client", "second-client"]
         clock[0] += timedelta(seconds=30)
         updates.trigger("manual")
         await updates.task
-        assert not notices.page().items and len(calls) == 2
+        assert len(calls) == 2
+        with workspace.connection() as db:
+            assert db.execute("SELECT count(*) FROM announcement_events").fetchone()[0] == 1
         clock[0] += timedelta(seconds=INTERVAL - 1)
         updates.trigger("hourly")
         assert len(calls) == 2
@@ -80,12 +83,21 @@ def test_startup_hourly_manual_coalescing_dismissal_and_restart(tmp_path, monkey
         clock[0] += timedelta(seconds=1)
         updates.trigger("hourly")
         await updates.task
-        assert len(calls) == 3 and len(notices.page().items) == 1
-        assert notices.page().items[0].key == "update:0.3"
+        assert len(calls) == 3
+        with workspace.connection() as db:
+            event = json.loads(
+                db.execute("SELECT data FROM announcement_events ORDER BY id DESC").fetchone()[0]
+            )
+            assert event["exclude_clients"] == []
+            assert (
+                db.execute(
+                    "SELECT source_key FROM announcement_events ORDER BY id DESC"
+                ).fetchone()[0]
+                == "update:0.3"
+            )
         assert Updates(Workspace(tmp_path), installed="0.1").status().available_version == "0.3"
         upgraded = Updates(workspace, installed="0.3")
-        upgraded.reconcile()
-        assert not notices.page().items
+        assert upgraded.status().available_version is None
         await updates.close()
 
     asyncio.run(scenario())
@@ -125,7 +137,7 @@ def test_failures_preserve_last_success_and_notice(tmp_path, failure):
         bad = updates.status()
         assert bad.error and bad.last_success == good.last_success
         assert bad.available_version == "0.2" and bad.last_attempt != good.last_attempt
-        assert len(Notifications(updates.workspace).page().items) == 1
+        assert len(bad.commands) == 2
 
     asyncio.run(scenario())
 
@@ -217,22 +229,12 @@ def test_service_check_api_and_cli_share_status_without_polluting_json(tmp_path,
         assert "uv tool upgrade" in human.stderr and "python -m pip" in human.stderr
 
 
-def test_restart_reports_interrupted_check_and_retention_does_not_revive_dismissal(tmp_path):
-    from flowfield.notifications import NoticeContent, publish, save_state
-    from flowfield.updates import status_from
+def test_restart_reports_interrupted_check(tmp_path):
+    from flowfield.updates import save_state, status_from
 
     workspace = Workspace(tmp_path)
     with workspace.connection(write=True) as db:
-        data = {"last_attempt": "2026-10-02T12:00:00+00:00", "latest_version": "0.2"}
-        save_state(db, "updates", data)
+        save_state(db, {"last_attempt": "2026-10-02T12:00:00+00:00", "latest_version": "0.2"})
     updates = Updates(workspace, installed="0.1")
     assert "did not complete" in updates.status().error
-    updates.reconcile()
-    notices = Notifications(workspace)
-    notices.dismiss(ids=[notices.page().items[0].id])
-    with workspace.connection(write=True) as db:
-        for n in range(210):
-            publish(db, "operation", str(n), NoticeContent(title="Status", message="Saved"))
-    updates.reconcile()
-    assert all(item.source != "update" for item in notices.page().items)
     assert status_from({}, "0.1").error is None

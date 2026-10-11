@@ -1,3 +1,6 @@
+import { NotificationSettings } from "./NotificationSettings";
+import { UpdateSettings } from "./UpdateSettings";
+import { useAnnouncements } from "./Announcements";
 import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
 import { useCallback, useEffect, useState } from "react";
@@ -27,6 +30,7 @@ type Registration = components["schemas"]["HarnessRegistration"];
 type Kind = Registration["harness"];
 
 export function SettingsLink({ active }: { active: boolean }) {
+  const { updates } = useAnnouncements();
   const { setOpenMobile } = useSidebar();
   return (
     <SidebarMenuButton asChild tooltip="Settings" isActive={active}>
@@ -37,6 +41,13 @@ export function SettingsLink({ active }: { active: boolean }) {
         onClick={() => setOpenMobile(false)}
       >
         <Settings />
+        {updates?.available_version && (
+          <span
+            className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary"
+            role="status"
+            aria-label="Update available"
+          />
+        )}
         <span data-sidebar="label">Settings</span>
       </WorkspaceLink>
     </SidebarMenuButton>
@@ -407,7 +418,7 @@ export function FlowfieldSettings({
 }: {
   onDirty: (value: boolean) => void;
   appearance: ReturnType<typeof useTheme>;
-  tab: "harnesses" | "appearance";
+  tab: "harnesses" | "appearance" | "notifications" | "updates";
 }) {
   const navigate = useNavigate();
   const [dirty, setDirty] = useState<Record<string, boolean>>({});
@@ -429,10 +440,30 @@ export function FlowfieldSettings({
         <DetailTabs
           id="flowfield-settings"
           title="Flowfield settings"
-          tabs={["harnesses", "appearance"] as const}
+          tabs={
+            ["harnesses", "appearance", "notifications", "updates"] as const
+          }
           active={tab}
           change={(value) => navigate(`/settings/${value}`)}
         />
+        {tab === "notifications" && (
+          <div
+            role="tabpanel"
+            id="flowfield-settings-notifications"
+            aria-labelledby="flowfield-settings-notifications-tab"
+          >
+            <NotificationSettings />
+          </div>
+        )}
+        {tab === "updates" && (
+          <div
+            role="tabpanel"
+            id="flowfield-settings-updates"
+            aria-labelledby="flowfield-settings-updates-tab"
+          >
+            <UpdateSettings />
+          </div>
+        )}
         <div
           role="tabpanel"
           id="flowfield-settings-appearance"

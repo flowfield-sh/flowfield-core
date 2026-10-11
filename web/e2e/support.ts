@@ -54,7 +54,17 @@ export function hostStatus(
 
 // Ordinary browser checks never discover or start an installed agent.
 export const test = base.extend({
-  context: async ({ context }, provide) => {
+  context: async ({ context }, provide, testInfo) => {
+    // Contextual delivery is exercised with real competing clients in its dedicated suite.
+    // Other journeys choose quiet preferences so unrelated shared-state events do not cover controls.
+    if (testInfo.project.name === "journeys")
+      await context.request.patch("/api/announcements/settings", {
+        data: {
+          work_enabled: false,
+          updates_enabled: false,
+          system_enabled: false,
+        },
+      });
     // Register before any page opens: native tabs can load before their page event.
     await stubModelCatalog(context);
     await context.route("**/api/harnesses", (route) =>

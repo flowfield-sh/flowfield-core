@@ -2,7 +2,7 @@ import { ToastProvider } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { NotificationProvider } from "./Notifications";
+import { HostProvider, browserHost } from "./HostCapabilities";
 import { App } from "./App";
 import "./style.css";
 import { createBrowserRouter, RouterProvider } from "react-router";
@@ -10,9 +10,9 @@ import { workspacePaths } from "./navigation";
 const router = createBrowserRouter([
   {
     element: (
-      <NotificationProvider>
+      <HostProvider host={browserHost}>
         <App />
-      </NotificationProvider>
+      </HostProvider>
     ),
     children: [
       { path: "/" },

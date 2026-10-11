@@ -16,7 +16,7 @@ export default defineConfig({
     {
       name: "notifications",
       testMatch: "notifications.spec.ts",
-      // These journeys change service-wide preferences and clear shared notices.
+      // These journeys change service-wide preferences and exercise shared delivery claims.
       dependencies: ["journeys"],
     },
   ],
