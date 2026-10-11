@@ -86,8 +86,10 @@ def test_activity_pagination_is_stable_across_new_entries(tmp_path: Path) -> Non
 
 def test_http_activity_validates_and_preserves_scope(tmp_path: Path) -> None:
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
+        space = client.post("/api/workspaces", json={"name": "Fixture"}).json()["id"]
         client.post(
-            "/api/projects/initialize", json={"path": existing_directory(str(tmp_path / "harbor"))}
+            f"/api/workspaces/{space}/projects",
+            json={"path": existing_directory(str(tmp_path / "harbor"))},
         )
         client.post(
             "/api/projects/harbor/tasks",
@@ -132,9 +134,9 @@ def test_edit_events_record_changes_but_not_noops(tmp_path: Path) -> None:
     service.edit_task(
         "harbor",
         task.id,
-        TaskEdit(expected_revision=2, title="Clear next step", task_type="investigation"),
+        TaskEdit(expected_revision=2, title="Clear next step", labels=["investigation"]),
     )
     assert (
         service.activity("harbor", task_id=task.id).items[0].body
-        == "Title updated.\n\nType updated."
+        == "Title updated.\n\nLabels updated."
     )

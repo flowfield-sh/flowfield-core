@@ -360,7 +360,6 @@ class Supervisor:
                 "task": sections["title"],
                 "task_id": run.task_id,
                 "task_key": run.task_key,
-                "task_type": sections.get("task_type", "feature"),
                 "base_commit": run.base_commit,
                 "agreement_revision": run.agreement_revision,
                 "completion": run.completion,

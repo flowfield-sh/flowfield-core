@@ -1,3 +1,4 @@
+import { useLabels } from "./labelContext";
 import { Disclosure, DetailSection } from "./DetailLayout";
 import { Button } from "@/components/ui/button";
 import { useResource } from "./useResource";
@@ -6,17 +7,16 @@ import { Markdown } from "./Markdown";
 import { TextChanges } from "./TextChanges";
 import { ArrowRight } from "lucide-react";
 import {
-  label,
   type Milestone,
   type TaskReference,
   type TaskRevision,
 } from "./workspace";
 
-type Field = "body" | "title" | "task_type" | "milestone_id" | "dependencies";
+type Field = "body" | "title" | "labels" | "milestone_id" | "dependencies";
 const fields: [Field, string][] = [
   ["body", "Description"],
   ["title", "Title"],
-  ["task_type", "Type"],
+  ["labels", "Labels"],
   ["milestone_id", "Milestone"],
   ["dependencies", "Prerequisites"],
 ];
@@ -31,6 +31,7 @@ export function TaskChanges({
   milestones: Milestone[];
   tasks: TaskReference[];
 }) {
+  const labels = useLabels();
   const [open, setOpen] = useState(false);
   const [retry, setRetry] = useState(0);
   const beforeRead = useResource<TaskRevision>(
@@ -50,7 +51,12 @@ export function TaskChanges({
         )
       : [];
   function value(record: TaskRevision, field: Field): string {
-    if (field === "task_type") return label(record.task_type);
+    if (field === "labels")
+      return (
+        record.labels
+          .map((id) => labels.find((item) => item.id === id)?.name ?? id)
+          .join(", ") || "None"
+      );
     if (field === "milestone_id")
       return (
         milestones.find((e) => e.id === record.milestone_id)?.title ??

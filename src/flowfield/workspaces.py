@@ -118,6 +118,10 @@ class Workspaces:
                     record.updated_by,
                 ),
             )
+            if self.store.schema_version >= 61:
+                from flowfield.labels import Labels
+
+                Labels.seed(db, record.id, request.author, timestamp)
         return record
 
     def edit(self, identity: str, request: WorkspaceEdit) -> WorkspaceRecord:

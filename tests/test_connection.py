@@ -317,6 +317,9 @@ def test_sse_mutations_and_reconnection(tmp_path: Path) -> None:
     async def exercise(base: str) -> None:
         with anyio.fail_after(15):
             async with httpx.AsyncClient(base_url=base, trust_env=False) as client:
+                space = (await client.post("/api/workspaces", json={"name": "Fixture"})).json()[
+                    "id"
+                ]
                 async with client.stream("GET", "/api/events") as response:
                     assert response.headers["content-type"].startswith("text/event-stream")
                     lines = response.aiter_lines()
@@ -329,13 +332,13 @@ def test_sse_mutations_and_reconnection(tmp_path: Path) -> None:
 
                     await change()  # Initial resync.
                     created = await client.post(
-                        "/api/projects/initialize",
+                        f"/api/workspaces/{space}/projects",
                         json={
                             "id": "harbor",
                             "path": existing_directory(str(tmp_path / "harbor")),
                         },
                     )
-                    assert created.status_code == 200
+                    assert created.status_code == 201
                     await change()
                     async with (
                         streamable_http_client(base + "/mcp/") as (read, write, _),

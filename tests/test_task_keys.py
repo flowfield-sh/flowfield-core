@@ -39,7 +39,7 @@ def test_keys_are_unique_stable_and_never_reused(tmp_path: Path) -> None:
     service.edit_task(
         "harbor",
         task.key,
-        TaskEdit(expected_revision=1, title="Renamed", task_type="bug", archived=True),
+        TaskEdit(expected_revision=1, title="Renamed", labels=["bug"], archived=True),
     )
     service.edit_project("harbor", ProjectEdit(expected_revision=1, name="New project name"))
     assert service.create_task("harbor", task_request(title="Next")).key == "HAR-13"
@@ -104,20 +104,21 @@ def test_configurable_prefix_validation_and_atomic_lock(tmp_path: Path) -> None:
     from flowfield.api import create_app
 
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
+        space = client.post("/api/workspaces", json={"name": "Fixture"}).json()["id"]
         for prefix in ["A", "AB", "ABCD", "A12", "ÅBC"]:
             response = client.post(
-                "/api/projects/initialize",
+                f"/api/workspaces/{space}/projects",
                 json={"path": existing_directory(str(tmp_path / "invalid")), "task_prefix": prefix},
             )
             assert response.status_code == 422
             assert not (tmp_path / "invalid" / ".flowfield").exists()
         project = client.post(
-            "/api/projects/initialize",
+            f"/api/workspaces/{space}/projects",
             json={"path": existing_directory(str(tmp_path / "harbor")), "task_prefix": "csv"},
         ).json()
         assert project["task_prefix"] == "CSV"
         collision = client.post(
-            "/api/projects/initialize",
+            f"/api/workspaces/{space}/projects",
             json={"path": existing_directory(str(tmp_path / "other")), "task_prefix": "CSV"},
         )
         assert collision.status_code == 409 and not (tmp_path / "other" / ".flowfield").exists()
@@ -127,13 +128,13 @@ def test_configurable_prefix_validation_and_atomic_lock(tmp_path: Path) -> None:
         assert renamed["task_prefix"] == "HAR" and renamed["revision"] == 2
         assert (
             client.post(
-                "/api/projects/initialize",
+                f"/api/workspaces/{space}/projects",
                 json={"path": str(tmp_path / "harbor"), "task_prefix": "HAR"},
             ).json()
             == renamed
         )
         other = client.post(
-            "/api/projects/initialize",
+            f"/api/workspaces/{space}/projects",
             json={"path": existing_directory(str(tmp_path / "hardware")), "task_prefix": "HWD"},
         ).json()
         rejected = client.put(
@@ -162,7 +163,8 @@ def test_configurable_prefix_validation_and_atomic_lock(tmp_path: Path) -> None:
         assert client.get(f"/api/projects/harbor/tasks/{task['key']}").json()["key"] == "HAR-1"
         # Short automatic prefixes still contain exactly three letters.
         short = client.post(
-            "/api/projects/initialize", json={"path": existing_directory(str(tmp_path / "ab"))}
+            f"/api/workspaces/{space}/projects",
+            json={"path": existing_directory(str(tmp_path / "ab"))},
         ).json()
         assert short["task_prefix"] == "ABX"
         assert other["task_prefix"] == "HWD"

@@ -49,7 +49,7 @@ test("CLI adoption updates the browser, task creation and initial connection rec
       }),
   ).toBeVisible();
   const tasks = await (await request.get("/api/projects/browser/tasks")).json();
-  expect(tasks[0].task_type).toBe("investigation");
+  expect(tasks[0].labels).toEqual(["investigation"]);
   expect(tasks[0].id).toMatch(/^investigate-large-exports-/);
   await page.reload();
   await expect(
@@ -119,7 +119,7 @@ test("milestones group tasks with linked details and long project intent stays o
       stages: fixtureStages(),
       id: "unrelated",
       title: "Independent bug",
-      task_type: "bug",
+      labels: ["bug"],
     },
   });
   await page.goto(`/projects/${project_id}`);

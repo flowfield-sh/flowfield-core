@@ -15,11 +15,11 @@ from flowfield.application import (
     TaskPriority,
     TaskReference,
     TaskRevision,
-    TaskType,
     Workspace,
 )
 from flowfield.attention import AttentionColumn, AttentionPage, attention_page
 from flowfield.errors import ApplicationError
+from flowfield.labels import Labels, WorkspaceLabel
 from flowfield.publication import (
     Publication,
     PublicationStatus,
@@ -38,7 +38,7 @@ class TaskCard(TaskReference):
     preparation_issue: str | None
     state: WorkState | None = None
     project_id: str
-    task_type: TaskType
+    labels: list[str]
     milestone_id: str | None
     revision: int
     created_at: str
@@ -64,6 +64,7 @@ class TaskDetail(TaskRevision, TaskCard):
 
 
 class BrowserBoard(BaseModel):
+    labels: list[WorkspaceLabel]
     project: Project
     milestones: list[Milestone]
     tasks: list[TaskCard]
@@ -156,6 +157,7 @@ class BrowserReads:
                 )
             }
             return BrowserBoard(
+                labels=Labels.read_all(db, self.workspace._project_workspace(db, project_id)),
                 project=project,
                 milestones=self.workspace._milestones(db, project_id),
                 tasks=[

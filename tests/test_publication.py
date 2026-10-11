@@ -64,7 +64,7 @@ def test_publication_is_separate_from_dependencies_priority_and_notes(tmp_path: 
     labeled = workspace.edit_task(
         "harbor",
         "export",
-        TaskEdit(expected_revision=checked.revision, task_type="bug", title="CSV export"),
+        TaskEdit(expected_revision=checked.revision, labels=["bug"], title="CSV export"),
     )
     moved = workspace.prioritize_task(
         "harbor", "export", TaskPriority(expected_revision=labeled.revision, status="backlog")

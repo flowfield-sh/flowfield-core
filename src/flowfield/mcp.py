@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from flowfield.activity import ActivityCreate, EntryKind
 from flowfield.application import (
+    Edit,
     MilestoneCreate,
     MilestoneEdit,
     MilestoneIdentifier,
@@ -30,6 +31,7 @@ from flowfield.guidance import Guidance, GuidanceChange, template
 from flowfield.harness_models import HarnessKind
 from flowfield.inspection import Inspections
 from flowfield.inspection_models import Inspection, InspectionConfig, InspectionPrepare
+from flowfield.labels import LabelCreate, LabelEdit, Labels
 from flowfield.milestones import Milestones
 from flowfield.project_config import Identifier
 from flowfield.questions import (
@@ -357,7 +359,7 @@ def create_mcp(
         """Search words in project evidence with bounded snippets and exact source references.
         Defaults to current sources; history/all includes old task/question revisions and
         superseded handoffs/results, clearly labeled. kind filters note/handoff/
-        event or task type. Dates use YYYY-MM-DD. Follow sources before treating a hit as intent.
+        event kind. Dates use YYYY-MM-DD. Follow sources before treating a hit as intent.
         """
         return await invoke(
             lambda: Search(workspace(), reads().browser_origin).page(
@@ -430,11 +432,49 @@ def create_mcp(
         )
 
     @mcp.tool(annotations=read)
+    async def list_labels(
+        workspace_id: Identifier, after: str | None = None, limit: PageLimit = 20
+    ) -> CallToolResult:
+        """List optional workspace labels and their usage guidance."""
+        return await invoke(
+            lambda: Labels(workspace()).page(workspace_id, after=after, limit=limit)
+        )
+
+    @mcp.tool(annotations=write)
+    async def create_label(workspace_id: Identifier, label: LabelCreate) -> CallToolResult:
+        """Create a descriptive label; labels never change task execution or approval."""
+        return await mutate(
+            lambda: Labels(workspace()).create(workspace_id, attributed(label)).model_dump()
+        )
+
+    @mcp.tool(annotations=write)
+    async def edit_label(
+        workspace_id: Identifier, label_id: Identifier, changes: LabelEdit
+    ) -> CallToolResult:
+        """Edit a label's name, palette color or usage guidance with a revision check."""
+        return await mutate(
+            lambda: (
+                Labels(workspace()).edit(workspace_id, label_id, attributed(changes)).model_dump()
+            )
+        )
+
+    @mcp.tool(annotations=write)
+    async def delete_label(
+        workspace_id: Identifier, label_id: Identifier, changes: Edit
+    ) -> CallToolResult:
+        """Remove a label from current tasks and pickers, preserving historical references."""
+        return await mutate(
+            lambda: (
+                Labels(workspace()).delete(workspace_id, label_id, attributed(changes)).model_dump()
+            )
+        )
+
+    @mcp.tool(annotations=read)
     async def list_tasks(
         project_id: Identifier,
         include_archived: bool = False,
         status: str | None = None,
-        task_type: str | None = None,
+        label_id: str | None = None,
         milestone_id: str | None = None,
         readiness: str | None = None,
         query: str | None = None,
@@ -452,7 +492,7 @@ def create_mcp(
                 project_id,
                 include_archived=include_archived,
                 status=status,
-                task_type=task_type,
+                label_id=label_id,
                 milestone_id=milestone_id,
                 readiness=readiness,
                 query=query,

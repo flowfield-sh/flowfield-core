@@ -1001,7 +1001,7 @@ test("conversation capture prepares atomically while task defaults show only use
       ],
       title: "Investigate import formats",
       body: "Compare existing formats, evidence and a recommendation; deliver a report without changing repository files.",
-      task_type: "investigation",
+      labels: ["investigation"],
       preparation: {
         completion: "report",
       },

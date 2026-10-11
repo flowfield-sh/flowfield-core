@@ -156,7 +156,7 @@ test("task keys link to persistent selections with history and draft protection"
     changes: {
       expected_revision: 1,
       title: "Prepare the corrected export",
-      task_type: "bug",
+      labels: ["bug"],
     },
   });
   expect(renamed.key).toBe("NAV-1");

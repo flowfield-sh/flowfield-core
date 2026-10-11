@@ -339,6 +339,24 @@ def workspace_show(ctx: typer.Context, workspace: str, json_output: Json = False
     )
 
 
+@workspace_app.command("labels")
+def workspace_labels(ctx: typer.Context, workspace: str, json_output: Json = False) -> None:
+    """List workspace label IDs for optional task classification."""
+
+    def human(values: list[dict[str, Any]]) -> None:
+        table = Table("Label", "ID", "Guidance")
+        for value in values:
+            if not value["deleted_at"]:
+                table.add_row(Text(value["name"]), Text(value["id"]), Text(value["guidance"]))
+        Console().print(table)
+
+    output(
+        lambda: ctx.obj.request("GET", f"workspaces/{quote(workspace, safe='')}/labels"),
+        json_output,
+        human,
+    )
+
+
 @project_app.command("guidance")
 def project_guidance(
     ctx: typer.Context,
@@ -519,13 +537,13 @@ def display(result: Any) -> None:
         table = Table(
             "Key" if "key" in result[0] else "ID",
             "Title" if "title" in result[0] else "Project",
-            *(["Type", "Column", "Milestone", "Readiness"] if is_tasks else []),
+            *(["Labels", "Column", "Milestone", "Readiness"] if is_tasks else []),
         )
         for item in result:
             fields = [item.get("key", item["id"]), item.get("title", item.get("name", ""))]
             if is_tasks:
                 fields += [
-                    label(item["task_type"]),
+                    ", ".join(item.get("labels", [])) or "—",
                     "Archived" if item["archived"] else label(item["status"]),
                     item["milestone_id"] or "—",
                     readiness_text(item),
@@ -544,7 +562,7 @@ def display(result: Any) -> None:
             tasks = column["tasks"]
             typer.echo(f"\n{label(column['status'])} ({column['count']})")
             for task in tasks:
-                typer.echo(f"  {task['key']}  {task['title']} ({task['task_type']})")
+                typer.echo(f"  {task['key']}  {task['title']}")
                 typer.echo(f"    {readiness_text(task)}")
             if column["has_more"]:
                 typer.echo(
@@ -574,10 +592,7 @@ def display(result: Any) -> None:
     elif "title" in result:
         typer.echo(f"{result['title']}  [{result.get('key', result['id'])}]")
         if "status" in result:
-            typer.echo(
-                f"{label(result['task_type'])} · {label(result['status'])}"
-                + (" · Archived" if result["archived"] else "")
-            )
+            typer.echo(f"{label(result['status'])}" + (" · Archived" if result["archived"] else ""))
             typer.echo(f"Milestone: {result['milestone_id'] or 'None'}")
             if result.get("publication_status"):
                 publication_labels = {
@@ -766,7 +781,7 @@ def task_list(
     project: ProjectOption = None,
     include_archived: bool = False,
     status: str | None = None,
-    task_type: Annotated[str | None, typer.Option("--type")] = None,
+    label_id: Annotated[str | None, typer.Option("--label")] = None,
     milestone: str | None = None,
     readiness: str | None = None,
     query: str | None = None,
@@ -780,7 +795,7 @@ def task_list(
         for k, v in {
             "include_archived": str(include_archived).lower(),
             "status": status.replace("-", "_") if status else None,
-            "task_type": task_type,
+            "label_id": label_id,
             "milestone_id": milestone,
             "readiness": readiness,
             "query": query,
@@ -814,9 +829,10 @@ def task_create(
     id: str | None = None,
     body: str | None = None,
     body_file: Path | None = None,
-    task_type: Annotated[
-        str, typer.Option("--type", help="feature, bug, maintenance or investigation")
-    ] = "feature",
+    labels: Annotated[
+        list[str] | None,
+        typer.Option("--label", help="Workspace label ID; repeat for multiple labels."),
+    ] = None,
     status: str = "backlog",
     milestone: str | None = None,
     depends_on: Annotated[
@@ -840,7 +856,7 @@ def task_create(
                 if stages_file
                 else [{"id": "work", "title": title[:80], "outcome": title}],
                 "body": text_value(body, body_file) or "",
-                "task_type": task_type,
+                "labels": labels or [],
                 "status": status.replace("-", "_"),
                 "milestone_id": milestone,
                 "dependencies": depends_on or [],
@@ -870,7 +886,8 @@ def task_edit(
     title: str | None = None,
     body: str | None = None,
     body_file: Path | None = None,
-    task_type: Annotated[str | None, typer.Option("--type")] = None,
+    labels: Annotated[list[str] | None, typer.Option("--label")] = None,
+    no_labels: bool = False,
     milestone: str | None = None,
     no_milestone: bool = False,
     depends_on: Annotated[
@@ -901,11 +918,15 @@ def task_edit(
             for k, v in {
                 "title": title,
                 "body": text_value(body, body_file),
-                "task_type": task_type,
+                "labels": labels,
                 "milestone_id": milestone,
             }.items()
             if v is not None
         }
+        if no_labels:
+            if labels:
+                raise ApplicationError("invalid_request", "Use --label or --no-labels, not both.")
+            changes["labels"] = []
         if stages_file is not None:
             changes["stages"] = stages_value(stages_file)
         if no_milestone:

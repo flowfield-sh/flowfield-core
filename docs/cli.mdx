@@ -93,6 +93,10 @@ Use stable task keys or IDs. Short task and milestone keys accept either case
 CLI task operations expose the same workspace rules. Task dependencies and readiness
 are checked by the service.
 
+Use `workspace labels WORKSPACE_ID` to find available labels. `task create` and `task edit`
+accept repeated `--label LABEL_ID` options; editing replaces the selected set. Use
+`task edit APP-1 --no-labels` to clear it, or `task list --label LABEL_ID` to filter.
+
 Every task starts with at least one outcome stage. `task create --title "…"` seeds a
 single planned stage from the title. Use `--stages-file stages.json` to supply an array
 of one to eight stages, each with an `id`, `title` and `outcome`.

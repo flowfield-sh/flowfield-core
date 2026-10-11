@@ -596,6 +596,42 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/labels": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Labels */
+    get: operations["labels_api_workspaces__workspace_id__labels_get"];
+    put?: never;
+    /** Create Label */
+    post: operations["create_label_api_workspaces__workspace_id__labels_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/labels/{identity}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Edit Label */
+    put: operations["edit_label_api_workspaces__workspace_id__labels__identity__put"];
+    post?: never;
+    /** Delete Label */
+    delete: operations["delete_label_api_workspaces__workspace_id__labels__identity__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/projects/{project_id}/view/board": {
     parameters: {
       query?: never;
@@ -2603,6 +2639,8 @@ export interface components {
     };
     /** BrowserBoard */
     BrowserBoard: {
+      /** Labels */
+      labels: components["schemas"]["WorkspaceLabel"][];
       project: components["schemas"]["Project"];
       /** Milestones */
       milestones: components["schemas"]["Milestone"][];
@@ -2915,6 +2953,16 @@ export interface components {
     DirectorySelection: {
       /** Path */
       path?: string | null;
+    };
+    /** Edit */
+    Edit: {
+      /** Expected Revision */
+      expected_revision: number;
+      /**
+       * Author
+       * @default human
+       */
+      author: string;
     };
     /** EffectiveAgent */
     EffectiveAgent: {
@@ -3481,6 +3529,62 @@ export interface components {
       purpose: "preparation" | "availability";
       /** Problem Code */
       problem_code: string | null;
+    };
+    /** LabelCreate */
+    LabelCreate: {
+      /** Name */
+      name: string;
+      /**
+       * Color
+       * @default slate
+       * @enum {string}
+       */
+      color:
+        | "blue"
+        | "orange"
+        | "slate"
+        | "violet"
+        | "green"
+        | "red"
+        | "pink"
+        | "yellow";
+      /**
+       * Guidance
+       * @default
+       */
+      guidance: string;
+      /**
+       * Author
+       * @default human
+       */
+      author: string;
+    };
+    /** LabelEdit */
+    LabelEdit: {
+      /** Expected Revision */
+      expected_revision: number;
+      /**
+       * Author
+       * @default human
+       */
+      author: string;
+      /** Name */
+      name?: string | null;
+      /** Color */
+      color?:
+        | (
+            | "blue"
+            | "orange"
+            | "slate"
+            | "violet"
+            | "green"
+            | "red"
+            | "pink"
+            | "yellow"
+          )
+        | null;
+      /** Guidance */
+      guidance?: string | null;
     };
     /** Milestone */
     Milestone: {
@@ -4583,11 +4687,8 @@ export interface components {
       publication: components["schemas"]["Publication"] | null;
       /** Key */
       key: string;
-      /**
-       * Task Type
-       * @enum {string}
-       */
-      task_type: "feature" | "bug" | "maintenance" | "investigation";
+      /** Labels */
+      labels: string[];
       /**
        * Status
        * @enum {string}
@@ -4665,11 +4766,8 @@ export interface components {
       state?: components["schemas"]["WorkState"] | null;
       /** Project Id */
       project_id: string;
-      /**
-       * Task Type
-       * @enum {string}
-       */
-      task_type: "feature" | "bug" | "maintenance" | "investigation";
+      /** Labels */
+      labels: string[];
       /** Milestone Id */
       milestone_id: string | null;
       /** Revision */
@@ -4727,12 +4825,8 @@ export interface components {
       /** Stages */
       stages: components["schemas"]["Stage-Input"][];
       preparation?: components["schemas"]["TaskPreparation"] | null;
-      /**
-       * Task Type
-       * @default feature
-       * @enum {string}
-       */
-      task_type: "feature" | "bug" | "maintenance" | "investigation";
+      /** Labels */
+      labels?: string[];
       /**
        * Status
        * @default backlog
@@ -4769,11 +4863,8 @@ export interface components {
       state: components["schemas"]["WorkState"] | null;
       /** Project Id */
       project_id: string;
-      /**
-       * Task Type
-       * @enum {string}
-       */
-      task_type: "feature" | "bug" | "maintenance" | "investigation";
+      /** Labels */
+      labels: string[];
       /** Milestone Id */
       milestone_id: string | null;
       /** Revision */
@@ -4845,8 +4936,8 @@ export interface components {
       title?: string | null;
       /** Body */
       body?: string | null;
-      /** Task Type */
-      task_type?: ("feature" | "bug" | "maintenance" | "investigation") | null;
+      /** Labels */
+      labels?: string[] | null;
       /** Milestone Id */
       milestone_id?: string | null;
       /** Archived */
@@ -4980,11 +5071,8 @@ export interface components {
       publication: components["schemas"]["Publication"] | null;
       /** Key */
       key: string;
-      /**
-       * Task Type
-       * @enum {string}
-       */
-      task_type: "feature" | "bug" | "maintenance" | "investigation";
+      /** Labels */
+      labels: string[];
       /**
        * Status
        * @enum {string}
@@ -5267,6 +5355,44 @@ export interface components {
       name?: string | null;
       /** Description */
       description?: string | null;
+    };
+    /** WorkspaceLabel */
+    WorkspaceLabel: {
+      /** Name */
+      name: string;
+      /**
+       * Color
+       * @default slate
+       * @enum {string}
+       */
+      color:
+        | "blue"
+        | "orange"
+        | "slate"
+        | "violet"
+        | "green"
+        | "red"
+        | "pink"
+        | "yellow";
+      /**
+       * Guidance
+       * @default
+       */
+      guidance: string;
+      /** Workspace Id */
+      workspace_id: string;
+      /** Id */
+      id: string;
+      /** Revision */
+      revision: number;
+      /** Created At */
+      created_at: string;
+      /** Updated At */
+      updated_at: string;
+      /** Updated By */
+      updated_by: string;
+      /** Deleted At */
+      deleted_at?: string | null;
     };
     /** WorkspaceRecord */
     WorkspaceRecord: {
@@ -6861,6 +6987,144 @@ export interface operations {
       };
     };
   };
+  labels_api_workspaces__workspace_id__labels_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkspaceLabel"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_label_api_workspaces__workspace_id__labels_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LabelCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkspaceLabel"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  edit_label_api_workspaces__workspace_id__labels__identity__put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LabelEdit"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkspaceLabel"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_label_api_workspaces__workspace_id__labels__identity__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Edit"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkspaceLabel"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   board_api_projects__project_id__view_board_get: {
     parameters: {
       query?: never;
@@ -7256,7 +7520,7 @@ export interface operations {
       query?: {
         include_archived?: boolean;
         status?: string | null;
-        task_type?: string | null;
+        label_id?: string | null;
         milestone_id?: string | null;
         readiness?: string | null;
         query?: string | null;

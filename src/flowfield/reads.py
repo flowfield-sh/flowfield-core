@@ -82,6 +82,7 @@ def receipt(item: dict[str, Any]) -> dict[str, Any]:
         "publication_status",
         "agreement_revision",
         "archived",
+        "deleted_at",
         "updated_at",
         "updated_by",
         "author",
@@ -193,7 +194,7 @@ class ContextReads:
                 "key": item.key,
                 "url": self.url(item.project_id, "tasks", item.key),
                 "title": item.title,
-                "task_type": item.task_type,
+                "labels": item.labels,
                 "status": item.status,
                 "milestone_id": item.milestone_id,
                 "archived": item.archived,
@@ -305,7 +306,7 @@ class ContextReads:
         *,
         include_archived: bool = False,
         status: str | None = None,
-        task_type: str | None = None,
+        label_id: str | None = None,
         milestone_id: str | None = None,
         readiness: str | None = None,
         query: str | None = None,
@@ -322,16 +323,13 @@ class ContextReads:
             "needs_reconciliation",
         ):
             raise ApplicationError("invalid_request", "Unknown readiness.")
-        if task_type is not None and task_type not in (
-            "bug",
-            "feature",
-            "maintenance",
-            "investigation",
-        ):
-            raise ApplicationError("invalid_request", "Unknown task type.")
         with self.workspace.connection() as db:
             self.workspace._project(db, project_id)
             records, positions = task_metadata(db, project_id)
+            if label_id:
+                from flowfield.labels import Labels
+
+                Labels.read(db, self.workspace._project_workspace(db, project_id), label_id)
             if milestone_id:
                 milestone_id = self.workspace._milestone(db, project_id, milestone_id).id
             completed = self.workspace._completed(records, db)
@@ -345,7 +343,7 @@ class ContextReads:
                 if (
                     (item.archived and not include_archived)
                     or (status is not None and item.status != status)
-                    or (task_type is not None and item.task_type != task_type)
+                    or (label_id is not None and label_id not in item.labels)
                     or (milestone_id is not None and (item.milestone_id or "") != milestone_id)
                     or (readiness is not None and summary["readiness"] != readiness)
                     or (query and query.casefold() not in (item.key + " " + item.title).casefold())

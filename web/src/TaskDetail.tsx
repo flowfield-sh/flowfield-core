@@ -1,7 +1,8 @@
 import { reportError } from "./requestFeedback";
 import { useEffect, useState, useRef, type ReactNode } from "react";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
-import { DetailHeader, DraftBadge, TaskTypeBadge } from "./Presentation";
+import { TaskLabels } from "./TaskLabels";
+import { DetailHeader, DraftBadge } from "./Presentation";
 import { MilestoneBadge } from "./MilestoneBadge";
 import { ExpandableMarkdown } from "./ExpandableMarkdown";
 import { BlockedBy } from "./TaskLinks";
@@ -78,7 +79,7 @@ export function TaskDetail({
       >
         <div className="task-conversation-header content-stack">
           <div className="entity-labels">
-            <TaskTypeBadge type={task.task_type} />
+            <TaskLabels ids={task.labels} />
             <DraftBadge publicationStatus={task.publication_status} />
             <MilestoneBadge
               projectId={board.project.id}

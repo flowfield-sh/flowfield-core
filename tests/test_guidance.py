@@ -206,7 +206,8 @@ def test_http_preview_stale_writes_and_export(tmp_path: Path) -> None:
     root = tmp_path / "project"
     root.mkdir()
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
-        client.post("/api/projects/initialize", json={"path": str(root)})
+        space = client.post("/api/workspaces", json={"name": "Fixture"}).json()["id"]
+        client.post(f"/api/workspaces/{space}/projects", json={"path": str(root)})
         endpoint = "/api/projects/project/guidance"
         preview = client.get(endpoint).json()
         payload = {"action": "install", "expected_revision": preview["revision"]}

@@ -33,7 +33,7 @@ def test_context_growth_pagination_and_full_text(
                 id=f"t{i}",
                 title=f"Task {i}",
                 body=text,
-                task_type="bug" if i % 2 else "feature",
+                labels=["bug" if i % 2 else "feature"],
             ),
         )
     service.edit_task(
@@ -92,11 +92,11 @@ def test_context_growth_pagination_and_full_text(
         if offset is None:
             break
     assert collected == text
-    page = reads.tasks("harbor", task_type="bug", limit=2)
+    page = reads.tasks("harbor", label_id="bug", limit=2)
     assert [t["key"] for t in page["items"]] == ["HAR-2", "HAR-4"]
     assert [
         t["key"]
-        for t in reads.tasks("harbor", task_type="bug", after=page["next_cursor"], limit=2)["items"]
+        for t in reads.tasks("harbor", label_id="bug", after=page["next_cursor"], limit=2)["items"]
     ] == ["HAR-6", "HAR-8"]
     assert reads.tasks("harbor", query="HAR-16")["items"][0]["readiness"] == "blocked"
     revisions = reads.revisions("harbor", "t15", limit=1)
@@ -132,7 +132,7 @@ def test_context_readiness_matches_domain_and_invalid_input(tmp_path: Path) -> N
             detail = reads.task("harbor", task.key)
             assert detail["readiness"] == task.readiness
             assert {p["id"] for p in detail["blocked_by"]} == {p.id for p in task.blocked_by}
-    for kwargs in [{"limit": 51}, {"after": -1}, {"status": "invalid"}, {"task_type": "invalid"}]:
+    for kwargs in [{"limit": 51}, {"after": -1}, {"status": "invalid"}]:
         with pytest.raises(ApplicationError):
             reads.tasks("harbor", **kwargs)
     first = reads.text("harbor", "project", field="description")
@@ -145,8 +145,10 @@ def test_context_readiness_matches_domain_and_invalid_input(tmp_path: Path) -> N
 
 def test_http_context_is_scoped_and_bounded(tmp_path: Path) -> None:
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
+        space = client.post("/api/workspaces", json={"name": "Fixture"}).json()["id"]
         client.post(
-            "/api/projects/initialize", json={"path": existing_directory(str(tmp_path / "harbor"))}
+            f"/api/workspaces/{space}/projects",
+            json={"path": existing_directory(str(tmp_path / "harbor"))},
         )
         client.post(
             "/api/projects/harbor/tasks",

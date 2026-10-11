@@ -183,6 +183,7 @@ def test_setup_defaults_are_read_only_and_preserve_existing_identity(tmp_path: P
     root = tmp_path / "Project with spaces 🚢"
     root.mkdir()
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
+        space = client.post("/api/workspaces", json={"name": "Fixture"}).json()["id"]
         preview = client.post("/api/projects/setup-defaults", json={"path": str(root)})
         assert preview.status_code == 200
         assert preview.json() == {
@@ -194,8 +195,10 @@ def test_setup_defaults_are_read_only_and_preserve_existing_identity(tmp_path: P
         assert client.get("/api/projects").json() == []
         chosen = {"id": "custom", "name": "My project", "task_prefix": "CUS"}
         assert (
-            client.post("/api/projects/initialize", json={"path": str(root), **chosen}).status_code
-            == 200
+            client.post(
+                f"/api/workspaces/{space}/projects", json={"path": str(root), **chosen}
+            ).status_code
+            == 201
         )
         assert (
             client.post("/api/projects/setup-defaults", json={"path": str(root)}).json() == chosen

@@ -8,12 +8,6 @@ export const columns = [
   "in_review",
   "done",
 ] as const;
-export const taskTypes = [
-  "feature",
-  "bug",
-  "maintenance",
-  "investigation",
-] as const;
 export type WorkStatus = (typeof columns)[number];
 export const label = (value: string) =>
   value.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());

@@ -1,5 +1,7 @@
 import { reportError } from "./requestFeedback";
 import { Toaster } from "@/components/ui/sonner";
+import { TaskLabels } from "./TaskLabels";
+import { LabelCatalog } from "./labelContext";
 import { MilestoneBadge } from "./MilestoneBadge";
 import { AnnouncementProvider } from "./Announcements";
 import { TaskNeeds, TaskState, hasTaskNeeds } from "./TaskNeeds";
@@ -38,7 +40,6 @@ import {
   CollectionLayout,
   CollectionRow,
   TaskIdentity,
-  TaskTypeBadge,
   DraftBadge,
 } from "./Presentation";
 import { useEffect, useRef, useState } from "react";
@@ -660,7 +661,7 @@ function ProjectBoard({
     </>
   );
   return (
-    <>
+    <LabelCatalog value={board.labels}>
       <header className="workspace-pane-header">
         <h1>{board.project.name}</h1>
         <Button
@@ -943,7 +944,7 @@ function ProjectBoard({
                                     }
                                     labels={
                                       <>
-                                        <TaskTypeBadge type={task.task_type} />
+                                        <TaskLabels ids={task.labels} />
                                         <DraftBadge
                                           publicationStatus={
                                             task.publication_status
@@ -1073,7 +1074,7 @@ function ProjectBoard({
           close={closeQuestion}
         />
       )}
-    </>
+    </LabelCatalog>
   );
 }
 

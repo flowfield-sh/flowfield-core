@@ -34,7 +34,13 @@ def adopt(workspace: Workspace, request: ProjectSetup) -> Project:
         space = spaces.create(WorkspaceCreate(name=defaults.name + " Workspace"))
         identity = project_id
         with workspace.connection(write=True) as db:
+            db.execute("PRAGMA defer_foreign_keys=ON")
             db.execute("UPDATE workspaces SET id=? WHERE id=?", (identity, space.id))
+            if workspace.schema_version >= 61:
+                db.execute(
+                    "UPDATE workspace_labels SET workspace_id=? WHERE workspace_id=?",
+                    (identity, space.id),
+                )
     project = spaces.adopt(
         identity, request.model_copy(update={"coordinator": None, "worker": None})
     )

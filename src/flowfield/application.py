@@ -70,7 +70,7 @@ MilestoneIdentifier = Annotated[
 WorkStatus = Literal["backlog", "up_next", "in_progress", "in_review", "done"]
 PlanningStatus = Literal["backlog", "up_next"]
 PLANNING = ("backlog", "up_next")
-TaskType = Literal["feature", "bug", "maintenance", "investigation"]
+LabelIds = Annotated[list[Identifier], Field(max_length=20)]
 STATUSES = ("backlog", "up_next", "in_progress", "in_review", "done")
 
 
@@ -210,12 +210,12 @@ class TaskCreate(WorkCreate):
 
     preparation: TaskPreparation | None = None
     body: TaskDescription = ""
-    task_type: TaskType = "feature"
+    labels: LabelIds = Field(default_factory=list)
     status: WorkStatus = "backlog"
     milestone_id: MilestoneIdentifier | None = None
     dependencies: list[TaskIdentifier] = Field(default_factory=list)
 
-    @field_validator("dependencies")
+    @field_validator("dependencies", "labels")
     @classmethod
     def normalize_dependencies(cls, value: list[str]) -> list[str]:
         return sorted(set(value))
@@ -226,12 +226,12 @@ class TaskEdit(Edit):
     preparation: TaskPreparation | None = None
     title: Title | None = None
     body: TaskDescription | None = None
-    task_type: TaskType | None = None
+    labels: LabelIds | None = None
     milestone_id: MilestoneIdentifier | None = None
     archived: bool | None = None
     dependencies: list[TaskIdentifier] | None = None
 
-    @field_validator("dependencies")
+    @field_validator("dependencies", "labels")
     @classmethod
     def normalize_dependencies(cls, value: list[str] | None) -> list[str] | None:
         return sorted(set(value)) if value is not None else None
@@ -265,10 +265,17 @@ class TaskPublish(Edit):
 
 
 class TaskRevision(WorkRecord):
+    @model_validator(mode="before")
+    @classmethod
+    def historical_classification(cls, value: Any) -> Any:
+        if isinstance(value, dict) and "labels" not in value and "task_type" in value:
+            return {**value, "labels": [value["task_type"]]}
+        return value
+
     agreement_revision: int = 1
     publication: Publication | None = None
     key: str
-    task_type: TaskType
+    labels: list[str] = Field(default_factory=list)
     status: WorkStatus
     milestone_id: str | None
     archived: bool = False
@@ -1122,7 +1129,7 @@ class Workspace:
             for field, label in (
                 ("body", "Description"),
                 ("title", "Title"),
-                ("task_type", "Type"),
+                ("labels", "Labels"),
                 ("milestone_id", "Milestone"),
                 ("dependencies", "Prerequisites"),
             ):
@@ -1183,6 +1190,10 @@ class Workspace:
             )
         with self.connection(write=True, project_id=project_id) as db:
             project = self._project(db, project_id)
+            if self.schema_version >= 61:
+                from flowfield.labels import Labels
+
+                Labels.validate(db, self._project_workspace(db, project_id), request.labels)
             if request.milestone_id is not None:
                 request = request.model_copy(
                     update={
@@ -1264,6 +1275,10 @@ class Workspace:
         with self.connection(write=True, project_id=project_id) as db:
             current = self._task(db, project_id, task_id)
             task_id = current.id
+            if request.labels is not None and self.schema_version >= 61:
+                from flowfield.labels import Labels
+
+                Labels.validate(db, self._project_workspace(db, project_id), request.labels)
             if request.dependencies is not None:
                 request = request.model_copy(
                     update={

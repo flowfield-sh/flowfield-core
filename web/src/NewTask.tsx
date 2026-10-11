@@ -5,11 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { MarkdownField } from "./Markdown";
 import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
-import { label, taskTypes, type Board, type Task } from "./workspace";
+import { LabelPicker } from "./TaskLabels";
+import { type Board, type Task } from "./workspace";
 const fields = () => ({
   title: "",
   body: "",
-  task_type: "feature" as Task["task_type"],
+  labels: [] as string[],
   milestone_id: "",
   dependencies: [] as string[],
 });
@@ -36,7 +37,7 @@ export function NewTask({
   });
   const { values, change, run, busy } = state;
   function field(
-    key: Exclude<keyof Values, "dependencies">,
+    key: Exclude<keyof Values, "dependencies" | "labels">,
     title: string,
     multiline = false,
     required = false,
@@ -82,7 +83,7 @@ export function NewTask({
               },
             ],
             body: values.body,
-            task_type: values.task_type,
+            labels: values.labels,
             milestone_id: values.milestone_id || null,
             dependencies: values.dependencies,
           };
@@ -101,21 +102,10 @@ export function NewTask({
             <>
               {field("title", "Title", false, true)}
               <div className="two-fields">
-                <Label className="field block">
-                  Type
-                  <NativeSelect
-                    value={values.task_type}
-                    onChange={(e) =>
-                      change("task_type", e.target.value as Task["task_type"])
-                    }
-                  >
-                    {taskTypes.map((type) => (
-                      <option value={type} key={type}>
-                        {label(type)}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                </Label>
+                <LabelPicker
+                  value={values.labels}
+                  change={(ids) => change("labels", ids)}
+                />
                 <Label className="field block">
                   Milestone
                   <NativeSelect

@@ -19,8 +19,10 @@ from flowfield.errors import ApplicationError
 def test_board_grouping_order_archive_and_restart(tmp_path: Path) -> None:
     state = tmp_path / "state"
     with TestClient(create_app(data_dir=state), base_url="http://127.0.0.1") as client:
+        space = client.post("/api/workspaces", json={"name": "Fixture"}).json()["id"]
         project = client.post(
-            "/api/projects/initialize", json={"path": existing_directory(str(tmp_path / "harbor"))}
+            f"/api/workspaces/{space}/projects",
+            json={"path": existing_directory(str(tmp_path / "harbor"))},
         ).json()
         base = "/api/projects/harbor"
         project = client.put(
@@ -34,7 +36,9 @@ def test_board_grouping_order_archive_and_restart(tmp_path: Path) -> None:
         config = (tmp_path / "harbor/.flowfield/config.toml").read_bytes()
         # Rename is workspace metadata, not a conflicting change to portable identity.
         assert (
-            client.post("/api/projects/initialize", json={"path": str(tmp_path / "harbor")}).json()
+            client.post(
+                f"/api/workspaces/{space}/projects", json={"path": str(tmp_path / "harbor")}
+            ).json()
             == project
         )
         assert (tmp_path / "harbor/.flowfield/config.toml").read_bytes() == config
@@ -45,7 +49,7 @@ def test_board_grouping_order_archive_and_restart(tmp_path: Path) -> None:
                 "id": task_id,
                 "title": task_id,
                 "status": "up_next",
-                "task_type": "bug" if task_id == "rounding" else "feature",
+                "labels": ["bug" if task_id == "rounding" else "feature"],
             }
             if task_id != "rounding":
                 payload["milestone_id"] = milestone["id"]
@@ -113,8 +117,9 @@ def test_board_grouping_order_archive_and_restart(tmp_path: Path) -> None:
 def test_validation_and_scoped_atomic_edits(tmp_path: Path) -> None:
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
         for identity in ["one", "two"]:
+            space = client.post("/api/workspaces", json={"name": identity}).json()["id"]
             client.post(
-                "/api/projects/initialize",
+                f"/api/workspaces/{space}/projects",
                 json={"id": identity, "path": existing_directory(str(tmp_path / identity))},
             )
         client.post("/api/projects/two/milestones", json={"id": "foreign", "title": "Other"})
@@ -332,8 +337,10 @@ def test_cli_board_and_readable_output(tmp_path: Path, monkeypatch: pytest.Monke
 
 def test_priority_cannot_change_progress_and_times_survive_edits(tmp_path: Path) -> None:
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
+        space = client.post("/api/workspaces", json={"name": "Fixture"}).json()["id"]
         client.post(
-            "/api/projects/initialize", json={"path": existing_directory(str(tmp_path / "harbor"))}
+            f"/api/workspaces/{space}/projects",
+            json={"path": existing_directory(str(tmp_path / "harbor"))},
         )
         base = "/api/projects/harbor/tasks"
         for identity in ["a", "b"]:

@@ -181,7 +181,7 @@ test("definition revisions show focused word diffs and compact field values", as
     data: {
       expected_revision: task.revision,
       body: "Keep selected rows. Preserve café labels.",
-      task_type: "bug",
+      labels: ["bug"],
     },
   });
   await page.goto(`/projects/${project}/tasks/${task.key}`);

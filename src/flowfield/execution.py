@@ -409,7 +409,6 @@ class Execution:
                     else None
                 )
                 assignment = {
-                    "task_type": task.task_type,
                     "agreement": json.dumps(
                         {
                             "task": task.key,

@@ -6,7 +6,14 @@ from typing import Any
 from fastapi import APIRouter, Query
 
 from flowfield.agent_models import AgentSettingsEdit, AgentSettingsView
-from flowfield.application import Milestone, MilestoneCreate, MilestoneEdit, Project, ProjectSetup
+from flowfield.application import (
+    Edit,
+    Milestone,
+    MilestoneCreate,
+    MilestoneEdit,
+    Project,
+    ProjectSetup,
+)
 from flowfield.execution_models import (
     ModelOption,
     QueueEdit,
@@ -15,6 +22,7 @@ from flowfield.execution_models import (
     WorkspaceWorkerSettings,
 )
 from flowfield.harness_models import HarnessKind
+from flowfield.labels import LabelCreate, LabelEdit, Labels, WorkspaceLabel
 from flowfield.milestones import Milestones
 from flowfield.permission_models import PermissionAnswer, PermissionPage, PermissionRecord
 from flowfield.supervisor import Supervisor
@@ -142,5 +150,21 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
         return Milestones(supervisor().workspace).text(
             workspace_id, identity, revision=revision, offset=offset, limit=limit
         )
+
+    @router.get("/{workspace_id}/labels")
+    def labels(workspace_id: str) -> list[WorkspaceLabel]:
+        return Labels(supervisor().workspace).all(workspace_id)
+
+    @router.post("/{workspace_id}/labels", status_code=201)
+    def create_label(workspace_id: str, request: LabelCreate) -> WorkspaceLabel:
+        return Labels(supervisor().workspace).create(workspace_id, request)
+
+    @router.put("/{workspace_id}/labels/{identity}")
+    def edit_label(workspace_id: str, identity: str, request: LabelEdit) -> WorkspaceLabel:
+        return Labels(supervisor().workspace).edit(workspace_id, identity, request)
+
+    @router.delete("/{workspace_id}/labels/{identity}")
+    def delete_label(workspace_id: str, identity: str, request: Edit) -> WorkspaceLabel:
+        return Labels(supervisor().workspace).delete(workspace_id, identity, request)
 
     return router

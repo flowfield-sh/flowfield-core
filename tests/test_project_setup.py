@@ -41,22 +41,23 @@ def test_init_preserves_files_and_registered_identity(tmp_path: Path) -> None:
 def test_adopt_and_conflicts_do_not_overwrite(tmp_path: Path) -> None:
     root = tmp_path / "harbor"
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://127.0.0.1") as client:
+        space = client.post("/api/workspaces", json={"name": "Fixture"}).json()["id"]
         assert client.post("/api/projects/create", json={"path": str(root)}).status_code == 404
         assert not root.exists()
         root.mkdir()
-        created = client.post("/api/projects/initialize", json={"path": str(root)})
-        assert created.status_code == 200
+        created = client.post(f"/api/workspaces/{space}/projects", json={"path": str(root)})
+        assert created.status_code == 201
         assert created.json()["id"] == created.json()["name"] == "harbor"
         assert read_config(root).project_id == "harbor"
         assert (
-            client.post("/api/projects/initialize", json={"path": str(root)}).json()
+            client.post(f"/api/workspaces/{space}/projects", json={"path": str(root)}).json()
             == created.json()
         )
         config = root / ".flowfield/config.toml"
         before = config.read_bytes()
         assert (
             client.post(
-                "/api/projects/initialize", json={"path": str(root), "id": "different"}
+                f"/api/workspaces/{space}/projects", json={"path": str(root), "id": "different"}
             ).status_code
             == 409
         )
@@ -65,22 +66,25 @@ def test_adopt_and_conflicts_do_not_overwrite(tmp_path: Path) -> None:
         other.mkdir()
         assert (
             client.post(
-                "/api/projects/initialize", json={"path": str(other), "id": "harbor"}
+                f"/api/workspaces/{space}/projects", json={"path": str(other), "id": "harbor"}
             ).status_code
             == 409
         )
         assert not (other / ".flowfield").exists()
         assert (
             client.post(
-                "/api/projects/initialize", json={"path": str(other / "missing")}
+                f"/api/workspaces/{space}/projects", json={"path": str(other / "missing")}
             ).status_code
             == 400
         )
         assert not (other / ".flowfield").exists()
-        assert client.post("/api/projects/initialize", json={"path": "relative"}).status_code == 400
+        assert (
+            client.post(f"/api/workspaces/{space}/projects", json={"path": "relative"}).status_code
+            == 400
+        )
         assert (
             client.post(
-                "/api/projects/initialize",
+                f"/api/workspaces/{space}/projects",
                 json={"path": str(other)},
                 headers={"origin": "https://evil.example"},
             ).status_code
