@@ -1,3 +1,4 @@
+import { StatusNotice } from "./StatusNotice";
 import { NotificationSettings } from "./NotificationSettings";
 import { UpdateSettings } from "./UpdateSettings";
 import { useAnnouncements } from "./Announcements";
@@ -167,84 +168,96 @@ function HarnessEntry({
               {names[kind]}
             </span>
           }
-          status={
-            status
-              ? setupLabel(status)
-              : resource.loading
-                ? "Loading setup…"
-                : "Setup unavailable"
-          }
         />
+        {!status && (
+          <StatusNotice
+            title={resource.loading ? "Loading setup…" : "Setup unavailable"}
+            tone={resource.loading ? "progress" : "attention"}
+          />
+        )}
         {status && (
           <>
-            {!status.native_installed && (
-              <p>
-                Install {names[kind]} on the service host, then refresh
-                detection or supply its executable below.
-              </p>
-            )}
-            {status.authentication === "signed-out" && (
-              <p>
-                Sign in with {names[kind]} on the service host, then check
-                again.
-              </p>
-            )}
-            {status.problems.includes("native_check_failed") && (
-              <p>
-                The native setup check failed. Check the saved paths and open{" "}
-                {names[kind]} in a terminal on the service host, then check
-                again.
-              </p>
-            )}
-            {status.problems.includes("authentication_unverified") && (
-              <p>
-                Sign-in could not be verified. Open {names[kind]} in a terminal
-                on the service host to check its account or provider settings.
-              </p>
-            )}
-            <div className="actions">
-              {(!status.native_installed || !status.config_available) && (
+            <StatusNotice
+              title={setupLabel(status)}
+              tone={
+                status.problems.length ||
+                !status.native_installed ||
+                !status.config_available ||
+                status.authentication === "signed-out"
+                  ? "attention"
+                  : "neutral"
+              }
+            >
+              {!status.native_installed && (
+                <p>
+                  Install {names[kind]} on the service host, then refresh
+                  detection or supply its executable below.
+                </p>
+              )}
+              {status.authentication === "signed-out" && (
+                <p>
+                  Sign in with {names[kind]} on the service host, then check
+                  again.
+                </p>
+              )}
+              {status.problems.includes("native_check_failed") && (
+                <p>
+                  The native setup check failed. Check the saved paths and open{" "}
+                  {names[kind]} in a terminal on the service host, then check
+                  again.
+                </p>
+              )}
+              {status.problems.includes("authentication_unverified") && (
+                <p>
+                  Sign-in could not be verified. Open {names[kind]} in a
+                  terminal on the service host to check its account or provider
+                  settings.
+                </p>
+              )}
+              <div className="actions">
+                {(!status.native_installed || !status.config_available) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() =>
+                      void read().catch((error: Error) =>
+                        reportError(error, "Could not refresh detection"),
+                      )
+                    }
+                  >
+                    Refresh detection
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={busy}
-                  onClick={() =>
-                    void read().catch((error: Error) =>
-                      reportError(error, "Could not refresh detection"),
-                    )
+                  disabled={
+                    busy ||
+                    editor.dirty ||
+                    !status.native_installed ||
+                    !status.config_available
                   }
+                  onClick={() => void operate("check")}
                 >
-                  Refresh detection
+                  {action === "check" ? "Checking setup…" : "Check saved setup"}
                 </Button>
-              )}
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={
-                  busy ||
-                  editor.dirty ||
-                  !status.native_installed ||
-                  !status.config_available
-                }
-                onClick={() => void operate("check")}
-              >
-                {action === "check" ? "Checking setup…" : "Check saved setup"}
-              </Button>
-              {status.catalog_ownership && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={!!action || editor.busy}
-                  onClick={() =>
-                    void read().catch((error: Error) =>
-                      reportError(error, "Could not reload harness status"),
-                    )
-                  }
-                >
-                  Reload status
-                </Button>
-              )}
-            </div>
+                {status.catalog_ownership && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!!action || editor.busy}
+                    onClick={() =>
+                      void read().catch((error: Error) =>
+                        reportError(error, "Could not reload harness status"),
+                      )
+                    }
+                  >
+                    Reload status
+                  </Button>
+                )}
+              </div>
+            </StatusNotice>
             {status.catalog_ownership && (
               <Alert>
                 <AlertTitle>
@@ -479,7 +492,7 @@ export function FlowfieldSettings({
           aria-labelledby="flowfield-settings-harnesses-tab"
           hidden={tab !== "harnesses"}
         >
-          <p className="detail-metadata">
+          <p>
             Use harnesses installed on the service host. Choose models in
             project settings; override detected paths only when needed.
           </p>

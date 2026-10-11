@@ -1,4 +1,44 @@
+.status-notice {
+  background: var(--muted);
+  row-gap: 8px;
+}
+.status-notice [data-slot="alert-title"] {
+  font-weight: 600;
+  line-height: 1.6;
+}
+.status-notice[data-tone="success"] > svg {
+  color: var(--success-foreground);
+}
+.status-notice[data-tone="attention"] {
+  border-color: var(--warning-border);
+  background: var(--warning-background);
+}
+.status-notice[data-tone="attention"] > svg {
+  color: var(--warning-foreground);
+}
+.status-notice[data-tone="progress"] > svg {
+  color: var(--primary);
+  animation: spin 1s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-notice[data-tone="progress"] > svg {
+    animation: none;
+  }
+}
+
 @layer components {
+  .settings-checkbox > label {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-weight: 500;
+  }
+  .settings-checkbox input {
+    flex: none;
+  }
+  .settings-checkbox > .detail-metadata {
+    padding-left: 21px;
+  }
   .definition-preview[data-collapsed="true"] {
     overflow: clip;
     mask-image: linear-gradient(to bottom, black 65%, transparent);

@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { ContentStack, DetailHeading } from "./DetailLayout";
+import { ContentStack, DetailSection } from "./DetailLayout";
+import { Separator } from "@/components/ui/separator";
+import { SettingsCheckbox } from "./SettingsCheckbox";
+import { StatusNotice } from "./StatusNotice";
 import { useHost } from "./HostCapabilities";
 import { useResource } from "./useResource";
 import { request } from "./workspace";
@@ -104,45 +107,46 @@ export function NotificationSettings() {
   }
   return (
     <ContentStack space="section">
-      <DetailHeading title="Notifications" />
-      <p>
-        New Inbox items appear as a toast while Flowfield is active. When you
-        are elsewhere, Flowfield can send a system notification.
-      </p>
-      <p className="detail-metadata">
-        Preferences apply across this workspace. Permission applies to this{" "}
-        {environment}.
-      </p>
       {settings.error && (
         <Button variant="outline" onClick={settings.retry}>
           Retry notification settings
         </Button>
+      )}
+      {!value && !settings.error && (
+        <StatusNotice
+          title="Loading notification preferences…"
+          tone="progress"
+        />
       )}
       {value && (
         <fieldset
           disabled={!!busy}
           aria-busy={!!busy}
           className="content-stack"
+          data-space="section"
         >
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
+          <DetailSection title="Announcements">
+            <p>
+              Choose which events to announce across this workspace. While
+              Flowfield is active, announcements appear as toasts.
+            </p>
+            <SettingsCheckbox
               checked={value.work_enabled}
               onChange={(e) => toggle({ work_enabled: e.target.checked })}
-            />
-            Announce new Inbox items
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
+            >
+              Announce new Inbox items
+            </SettingsCheckbox>
+            <SettingsCheckbox
               checked={value.updates_enabled}
               onChange={(e) => toggle({ updates_enabled: e.target.checked })}
-            />
-            Announce available updates
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
+            >
+              Announce available updates
+            </SettingsCheckbox>
+          </DetailSection>
+          <Separator />
+          <DetailSection title="When inactive">
+            <SettingsCheckbox
+              hint={`Delivery requires permission on each ${environment}. Flowfield must remain running.`}
               checked={value.system_enabled}
               disabled={
                 !value.system_enabled &&
@@ -150,77 +154,113 @@ export function NotificationSettings() {
               }
               onChange={(e) => {
                 const enabled = e.target.checked;
+                const requestedFrom = window.location.href;
                 void act(
                   enabled && permission === "default"
                     ? "Waiting for notification permission…"
                     : "Saving notification preferences…",
                   async () => {
                     if (enabled && !(await allow())) return;
+                    // The router changes the URL before its transition unmounts us.
+                    if (window.location.href !== requestedFrom) return;
                     await save({ system_enabled: enabled });
                   },
                   { system_enabled: enabled },
                 );
               }}
-            />
-            Send system notifications when inactive
-          </label>
-          <p role="status">
-            {busy ??
-              (permission === "granted"
-                ? value.system_enabled
-                  ? `System notifications are enabled for this ${environment}.`
-                  : "Permission granted. System notifications are turned off."
-                : permission === "denied"
-                  ? "Notifications are blocked. Allow them in your browser or system settings."
-                  : permission === "unavailable"
-                    ? "System notifications are unavailable in this environment."
-                    : "Notification permission has not been granted.")}
-          </p>
-          {!busy && value.system_enabled && permission !== "granted" && (
-            <p className="detail-metadata">
-              System notifications are enabled for the workspace, but this{" "}
-              {environment}{" "}
-              {permission === "unavailable"
-                ? "does not support delivery."
-                : "cannot deliver them until permission is granted."}
-            </p>
-          )}
-          <div className="actions">
-            {permission === "default" && (
-              <Button
-                variant="outline"
-                onClick={() =>
-                  void act("Waiting for notification permission…", async () => {
-                    if (await allow())
-                      toast.success("Notification permission granted.");
-                  })
-                }
-              >
-                Allow on this {environment}
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              disabled={permission !== "granted"}
-              onClick={() =>
-                void act("Sending test notification…", async () => {
-                  await host.notifications.present(
-                    {
-                      title: "Flowfield notifications work",
-                      message:
-                        "New alerts can appear here when Flowfield is inactive.",
-                      href: "/settings/notifications",
-                      source_key: `test:${crypto.randomUUID()}`,
-                    },
-                    () => window.focus(),
-                  );
-                  toast.success("Test notification sent.");
-                })
+            >
+              Send system notifications when inactive
+            </SettingsCheckbox>
+            <StatusNotice
+              tone={
+                busy
+                  ? "progress"
+                  : permission === "denied" ||
+                      permission === "unavailable" ||
+                      (value.system_enabled && permission !== "granted")
+                    ? "attention"
+                    : permission === "granted" && value.system_enabled
+                      ? "success"
+                      : "neutral"
+              }
+              title={
+                busy ??
+                (permission === "granted"
+                  ? value.system_enabled
+                    ? "System notifications enabled"
+                    : "System notifications off"
+                  : permission === "denied"
+                    ? "Notifications blocked"
+                    : permission === "unavailable"
+                      ? "System notifications unavailable"
+                      : "Permission needed")
+              }
+              actions={
+                <>
+                  {permission === "default" && (
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        void act(
+                          "Waiting for notification permission…",
+                          async () => {
+                            if (await allow())
+                              toast.success("Notification permission granted.");
+                          },
+                        )
+                      }
+                    >
+                      Allow on this {environment}
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    disabled={permission !== "granted"}
+                    onClick={() =>
+                      void act("Sending test notification…", async () => {
+                        await host.notifications.present(
+                          {
+                            title: "Flowfield notifications work",
+                            message:
+                              "New alerts can appear here when Flowfield is inactive.",
+                            href: "/settings/notifications",
+                            source_key: `test:${crypto.randomUUID()}`,
+                          },
+                          () => window.focus(),
+                        );
+                        toast.success("Test notification sent.");
+                      })
+                    }
+                  >
+                    Send test notification
+                  </Button>
+                </>
               }
             >
-              Send test notification
-            </Button>
-          </div>
+              {!busy && (
+                <p>
+                  {permission === "granted"
+                    ? value.system_enabled
+                      ? `This ${environment} can notify you while Flowfield is inactive.`
+                      : `This ${environment} has permission. Turn on inactive delivery to receive alerts.`
+                    : permission === "denied"
+                      ? "Allow notifications in your browser or system settings, then return here."
+                      : permission === "unavailable"
+                        ? "In-app announcements remain available."
+                        : `Allow notifications on this ${environment} to use system delivery.`}
+                </p>
+              )}
+              {!busy && value.system_enabled && permission !== "granted" && (
+                <p>
+                  System notifications are enabled for the workspace, but this{" "}
+                  {environment}{" "}
+                  {permission === "unavailable"
+                    ? "does not support delivery."
+                    : "cannot deliver them until permission is granted."}
+                </p>
+              )}
+            </StatusNotice>
+          </DetailSection>
         </fieldset>
       )}
     </ContentStack>

@@ -324,7 +324,7 @@ test("denied permission is honest and test delivery is local and explicit", asyn
   await systemStub(context, true, "denied");
   await ready(page, "/settings/notifications");
   await expect(
-    page.getByText("Notifications are blocked.", { exact: false }),
+    page.getByRole("heading", { name: "Notifications blocked", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Send test notification" }),
@@ -483,7 +483,10 @@ test("unsupported system delivery keeps in-app preferences usable", async ({
   });
   await ready(page, "/settings/notifications");
   await expect(
-    page.getByText("System notifications are unavailable in this environment."),
+    page.getByRole("heading", {
+      name: "System notifications unavailable",
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Send test notification" }),
@@ -630,7 +633,10 @@ for (const permission of ["granted", "denied", "default"] as const) {
     await expect(checkbox).toBeChecked({ checked: permission === "granted" });
     if (permission === "granted") {
       await expect(
-        page.getByText("System notifications are enabled for this browser."),
+        page.getByRole("heading", {
+          name: "System notifications enabled",
+          exact: true,
+        }),
       ).toBeVisible();
       await page.screenshot({
         animations: "disabled",
@@ -661,7 +667,10 @@ test("permission-first then repeated checkbox toggles requests permission only o
   await page.getByRole("button", { name: "Allow on this browser" }).click();
   await answerPermission(page, "granted");
   await expect(
-    page.getByText("Permission granted. System notifications are turned off."),
+    page.getByRole("heading", {
+      name: "System notifications off",
+      exact: true,
+    }),
   ).toBeVisible();
   expect(await systemEnabled(request)).toBe(false);
   const checkbox = page.getByLabel("Send system notifications when inactive");
@@ -702,7 +711,10 @@ test("workspace preference and revoked local permission remain distinct across t
   await page.getByRole("button", { name: "Allow on this browser" }).click();
   await answerPermission(page, "granted");
   await expect(
-    page.getByText("System notifications are enabled for this browser."),
+    page.getByRole("heading", {
+      name: "System notifications enabled",
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(
     second.getByText(/enabled for the workspace, but this browser cannot/),
@@ -713,7 +725,7 @@ test("workspace preference and revoked local permission remain distinct across t
   });
   const checkbox = page.getByLabel("Send system notifications when inactive");
   await expect(
-    page.getByText("Notifications are blocked.", { exact: false }),
+    page.getByRole("heading", { name: "Notifications blocked", exact: true }),
   ).toBeVisible();
   await expect(checkbox).toBeChecked();
   await expect(checkbox).toBeEnabled();
@@ -746,7 +758,10 @@ test("a failed save after granting permission rolls back and can be retried with
   await expect(checkbox).not.toBeChecked();
   expect(await systemEnabled(request)).toBe(false);
   await expect(
-    page.getByText("Permission granted. System notifications are turned off."),
+    page.getByRole("heading", {
+      name: "System notifications off",
+      exact: true,
+    }),
   ).toBeVisible();
   await page.unroute("**/api/announcements/settings");
   await checkbox.click();
@@ -778,6 +793,8 @@ test("slow settings reads finish and permission decisions after navigation do no
   await pendingPermission(page);
   await checkbox.click();
   await page.getByRole("tab", { name: "Updates", exact: true }).click();
+  // Resolve immediately after the URL changes, before a deferred React render.
+  await expect(page).toHaveURL(/\/settings\/updates$/);
   await answerPermission(page, "granted");
   expect(await systemEnabled(request)).toBe(false);
   await page.unroute("**/api/announcements/settings");
@@ -840,4 +857,140 @@ test("a manual update result suppresses an automatic announcement already in fli
   await page.unroute("**/api/announcements/poll");
   await page.waitForResponse("**/api/announcements/poll");
   await expect(alertFor(page, "Automatic update announcement")).toHaveCount(0);
+});
+
+for (const scenario of [
+  {
+    name: "unchecked",
+    title: "Ready to check for updates",
+    last_success: null,
+    checking: false,
+    error: null,
+  },
+  {
+    name: "current",
+    title: "Flowfield is up to date",
+    last_success: "2026-10-11T12:00:00Z",
+    checking: false,
+    error: null,
+  },
+  {
+    name: "checking",
+    title: "Checking for updates…",
+    last_success: null,
+    checking: true,
+    error: null,
+  },
+  {
+    name: "failed",
+    title: "Update check needs attention",
+    last_success: null,
+    checking: false,
+    error: "The release service is unavailable. Try again later.",
+  },
+]) {
+  test(`update settings identify ${scenario.name} status and its action`, async ({
+    page,
+    request,
+  }, testInfo) => {
+    const original = await (await request.get("/api/updates")).json();
+    await page.route("**/api/updates", (route) =>
+      route.fulfill({
+        json: {
+          ...original,
+          ...scenario,
+          available_version: null,
+        },
+      }),
+    );
+    await page.goto("/settings/updates");
+    const panel = page.getByRole("tabpanel", { name: "Updates", exact: true });
+    await expect(
+      panel.getByRole("heading", { name: "Updates", exact: true }),
+    ).toHaveCount(0);
+    const status = panel.getByRole("status");
+    await expect(
+      status.getByRole("heading", { name: scenario.title, exact: true }),
+    ).toBeVisible();
+    const check = status.getByRole("button", {
+      name: scenario.checking ? "Checking…" : "Check for updates",
+      exact: true,
+    });
+    if (scenario.checking) await expect(check).toBeDisabled();
+    else await expect(check).toBeEnabled();
+    await expect(
+      panel.getByRole("checkbox", { name: "Check for updates automatically" }),
+    ).toHaveAccessibleDescription(
+      "Automatic checks are disabled by the service configuration.",
+    );
+    if (process.env.FLOWFIELD_VISUAL_EVIDENCE) {
+      await page.screenshot({
+        animations: "disabled",
+        path: testInfo.outputPath(`updates-${scenario.name}-desktop.png`),
+      });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+      await page.reload();
+      await expect(
+        status.getByRole("heading", { name: scenario.title, exact: true }),
+      ).toBeVisible();
+      await page.screenshot({
+        animations: "disabled",
+        path: testInfo.outputPath(`updates-${scenario.name}-mobile-dark.png`),
+      });
+    }
+  });
+}
+
+test("notification settings group delivery permission and controls without repeating the tab title", async ({
+  page,
+  context,
+}, testInfo) => {
+  await systemStub(context, true, "default");
+  await page.goto("/settings/notifications");
+  const panel = page.getByRole("tabpanel", {
+    name: "Notifications",
+    exact: true,
+  });
+  await expect(
+    panel.getByRole("heading", { name: "Notifications", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    panel.getByRole("heading", { name: "Announcements", exact: true }),
+  ).toBeVisible();
+  await expect(
+    panel.getByRole("heading", { name: "When inactive", exact: true }),
+  ).toBeVisible();
+  const delivery = panel.getByRole("checkbox", {
+    name: "Send system notifications when inactive",
+  });
+  await expect(delivery).toHaveAccessibleDescription(
+    "Delivery requires permission on each browser. Flowfield must remain running.",
+  );
+  const status = panel.getByRole("status");
+  await expect(
+    status.getByRole("heading", { name: "Permission needed" }),
+  ).toBeVisible();
+  await expect(
+    status.getByRole("button", { name: "Allow on this browser" }),
+  ).toBeEnabled();
+  await expect(
+    status.getByRole("button", { name: "Send test notification" }),
+  ).toBeDisabled();
+  if (process.env.FLOWFIELD_VISUAL_EVIDENCE) {
+    await page.screenshot({
+      animations: "disabled",
+      path: testInfo.outputPath("notifications-default-desktop.png"),
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.reload();
+    await expect(
+      status.getByRole("heading", { name: "Permission needed" }),
+    ).toBeVisible();
+    await page.screenshot({
+      animations: "disabled",
+      path: testInfo.outputPath("notifications-default-mobile-dark.png"),
+    });
+  }
 });

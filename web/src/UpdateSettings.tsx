@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ContentStack, DetailHeading } from "./DetailLayout";
+import { Separator } from "@/components/ui/separator";
+import { ContentStack, DetailSection } from "./DetailLayout";
+import { SettingsCheckbox } from "./SettingsCheckbox";
+import { StatusNotice } from "./StatusNotice";
 import { Timestamp } from "./Timestamp";
 import { useAnnouncements } from "./Announcements";
 import { useHost } from "./HostCapabilities";
@@ -11,6 +13,7 @@ import { reportError } from "./requestFeedback";
 export function UpdateSettings() {
   const { updates, checkUpdates, configureUpdates } = useAnnouncements();
   const host = useHost();
+  const updateActions = updates ? host.updates.actions(updates) : [];
   const [busy, setBusy] = useState(false);
   async function act(action: () => Promise<unknown>) {
     setBusy(true);
@@ -31,37 +34,82 @@ export function UpdateSettings() {
           : undefined
       }
     >
-      <DetailHeading title="Updates" />
       {!updates ? (
-        <p>Loading update status…</p>
+        <StatusNotice title="Loading update status…" tone="progress" />
       ) : (
         <>
-          <p>Installed version: {updates.installed_version}</p>
-          {updates.last_success && (
-            <p className="detail-metadata">
-              Last checked <Timestamp date={updates.last_success} />
+          <StatusNotice
+            title={
+              updates.checking
+                ? "Checking for updates…"
+                : updates.error
+                  ? "Update check needs attention"
+                  : updates.available_version
+                    ? `Flowfield ${updates.available_version} is available`
+                    : updates.last_success
+                      ? "Flowfield is up to date"
+                      : "Ready to check for updates"
+            }
+            tone={
+              updates.checking
+                ? "progress"
+                : updates.error
+                  ? "attention"
+                  : updates.available_version
+                    ? "neutral"
+                    : updates.last_success
+                      ? "success"
+                      : "neutral"
+            }
+            actions={
+              <>
+                <Button
+                  variant="outline"
+                  disabled={busy || updates.checking}
+                  onClick={() => void act(checkUpdates)}
+                >
+                  {updates.checking ? "Checking…" : "Check for updates"}
+                </Button>
+                {updates.available_version && (
+                  <a
+                    className="text-link"
+                    href={updates.release_notes}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Release notes
+                  </a>
+                )}
+              </>
+            }
+          >
+            <p>
+              Installed version: {updates.installed_version}
+              {updates.last_success && (
+                <>
+                  {" "}
+                  · Last checked <Timestamp date={updates.last_success} />
+                </>
+              )}
             </p>
-          )}
-          {updates.error && (
-            <Alert>
-              <AlertTitle>Update check needs attention</AlertTitle>
-              <AlertDescription>{updates.error}</AlertDescription>
-            </Alert>
-          )}
-          {updates.available_version ? (
-            <ContentStack>
-              <DetailHeading
-                titleAs="h3"
-                title={`Flowfield ${updates.available_version} is available`}
-              />
-              <a
-                className="text-link"
-                href={updates.release_notes}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Release notes
-              </a>
+            {updates.error ? (
+              <p>{updates.error}</p>
+            ) : (
+              !updates.checking &&
+              !updates.available_version && (
+                <p>
+                  {updates.last_success
+                    ? "No newer compatible release found."
+                    : "Check for a compatible Flowfield release."}
+                </p>
+              )
+            )}
+          </StatusNotice>
+          {updates.available_version && (
+            <DetailSection title="Install update">
+              {updates.error && (
+                <p>Previously found: Flowfield {updates.available_version}</p>
+              )}
               {updates.treatment === "package" && (
                 <>
                   <p>
@@ -70,65 +118,51 @@ export function UpdateSettings() {
                     retained.
                   </p>
                   {(updates.commands ?? []).map((command) => (
-                    <div className="content-stack min-w-0" key={command.label}>
-                      <p>{command.label}</p>
+                    <ContentStack space="tight" key={command.label}>
+                      <strong>{command.label}</strong>
                       <pre className="overflow-x-auto">
                         <code>{command.command}</code>
                       </pre>
-                    </div>
+                    </ContentStack>
                   ))}
                 </>
               )}
-              {host.updates.actions(updates).map((action) => (
-                <Button
-                  key={action.id}
-                  disabled={busy}
-                  onClick={() => void act(action.run)}
-                >
-                  {action.label}
-                </Button>
-              ))}
-            </ContentStack>
-          ) : (
-            <p>
-              {updates.checking
-                ? "Checking for updates…"
-                : updates.last_success && !updates.error
-                  ? "No newer compatible release found."
-                  : "Check for a compatible Flowfield release."}
-            </p>
+              {updateActions.length > 0 && (
+                <div className="actions">
+                  {updateActions.map((action) => (
+                    <Button
+                      key={action.id}
+                      disabled={busy}
+                      onClick={() => void act(action.run)}
+                    >
+                      {action.label}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </DetailSection>
           )}
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              disabled={busy || updates.disabled_by_environment}
-              checked={updates.automatic}
-              onChange={(e) => {
-                const value = e.target.checked;
-                void act(async () => {
-                  await configureUpdates(value);
-                  toast.success("Update preferences saved.");
-                });
-              }}
-            />
+          <Separator />
+          <SettingsCheckbox
+            disabled={busy || updates.disabled_by_environment}
+            checked={updates.automatic}
+            hint={
+              updates.disabled_by_environment
+                ? "Automatic checks are disabled by the service configuration."
+                : "Check in the background. Installing an update remains a separate action."
+            }
+            onChange={(e) => {
+              const value = e.target.checked;
+              void act(async () => {
+                await configureUpdates(value);
+                toast.success("Update preferences saved.");
+              });
+            }}
+          >
             Check for updates automatically
-          </label>
-          {updates.disabled_by_environment && (
-            <p className="detail-metadata">
-              Automatic checks are disabled by the service configuration.
-            </p>
-          )}
+          </SettingsCheckbox>
         </>
       )}
-      <div className="actions">
-        <Button
-          variant="outline"
-          disabled={busy || updates?.checking}
-          onClick={() => void act(checkUpdates)}
-        >
-          {updates?.checking ? "Checking…" : "Check for updates"}
-        </Button>
-      </div>
     </ContentStack>
   );
 }
