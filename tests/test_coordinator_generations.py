@@ -382,13 +382,12 @@ def test_schema_48_binding_upgrade_rolls_back_and_restores_exact_sources(tmp_pat
     upgraded = Workspace(workspace.directory)
     store = CoordinatorStore(upgraded)
     assert store.get("harbor", turn.id) == turn and store.handoff("harbor", turn.id) == snapshot
-    assert (
-        store.session("harbor", "codex", upgraded.project("harbor").path)
-        == "private-retained-native"
-    )
+    # The managed home requires a fresh native generation; its source stays intact.
+    assert store.session("harbor", "codex", upgraded.project("harbor").path) is None
     with upgraded.connection() as db:
         generation, fresh = store.sessions.current(db, "harbor")
-        assert not fresh and generation.choice == CODEX and generation.created_by is None
+        assert fresh and generation.choice == CODEX and generation.created_by is None
+        assert generation.session_id == "private-retained-native"
         assert generation.dispatched is None
         assert (
             db.execute(

@@ -8,6 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from flowfield.adapters.agent_selection import command_options, model_options
+from flowfield.adapters.coordinator_directory import for_project as coordinator_directory
 from flowfield.adapters.harness_host import status
 from flowfield.agent_models import AgentChoice, AgentCommand
 from flowfield.application import Workspace, now
@@ -177,7 +178,7 @@ class Catalogs:
         if self.closing:
             raise ApplicationError("service_stopping", "The service is stopping.", 409)
         self._current(registration)
-        cwd = Path(self.workspace.project(project_id).path).resolve()
+        cwd = coordinator_directory(self.workspace, project_id)
         launch = status(self.workspace.directory, registration, os.environ).launch
         record = CatalogOwnership(
             id=uuid4().hex,

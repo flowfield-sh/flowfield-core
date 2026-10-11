@@ -209,7 +209,10 @@ def test_schema_47_upgrade_preserves_existing_chat_binding_and_failed_upgrade(
     upgraded = Workspace(workspace.directory)
     store = CoordinatorStore(upgraded)
     assert store.get("harbor", old.id) == old
-    assert store.session("harbor", "codex", str(tmp_path)) == "PRIVATE NATIVE ID"
+    assert store.session("harbor", "codex", str(tmp_path)) is None
+    with upgraded.connection() as db:
+        source, fresh = store.sessions.current(db, "harbor")
+        assert fresh and source.session_id == "PRIVATE NATIVE ID"
     with pytest.raises(ApplicationError, match="no frozen handoff"):
         store.handoff("harbor", old.id)
     backup = storage.backups(upgraded.directory)[0]

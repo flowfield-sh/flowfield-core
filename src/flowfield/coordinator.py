@@ -12,6 +12,7 @@ from flowfield.adapters.agent_contract import Agent
 from flowfield.adapters.agent_mcp import serve_scope
 from flowfield.adapters.agent_permissions import permission_handler
 from flowfield.adapters.agent_selection import create
+from flowfield.adapters.coordinator_directory import for_project as coordinator_directory
 from flowfield.adapters.harness_host import resolve
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_models import AgentCommand
@@ -52,6 +53,9 @@ Use only the named scoped MCP connection for Flowfield operations. Do not use am
 Flowfield connections, CLI or database files. Project identity is already bound to these tools.
 Use the host's tools under the selected native access mode. You may perform explicitly
 requested initial project or environment setup directly, including configuration and dependencies.
+Use the supplied project_path for repository operations. The native working directory may be
+Flowfield-managed; it is not the repository or a source of workspace identity. Do not inspect
+or modify Flowfield's private service state. Read relevant repository guidance explicitly.
 When asked to set up this project for workers, read integration and inspection settings,
 save the agreed destination and trusted setup/check/run commands, then use validate_project_setup.
 This checks a separate checkout without a model call or enabling the queue. Report actual
@@ -95,12 +99,12 @@ class Coordinator:
         if self.closing:
             raise ApplicationError("service_stopping", "The service is stopping.", 409)
         workspace = self.supervisor.workspace
-        cwd = workspace.project(project).path
         settings = AgentSettings(workspace).get(project, "coordinator")
         if not settings.effective:
             raise ApplicationError(
                 "coordinator_settings", "Choose coordinator settings first.", 409
             )
+        cwd = str(coordinator_directory(workspace, project))
         choice = settings.effective.choice
         registration = HarnessSettings(workspace).get(choice.harness)
         signature = (
@@ -155,6 +159,7 @@ class Coordinator:
         instructions = {
             "instructions": f"Use the {server} MCP connection.\n" + GUIDANCE,
             "project_id": turn.project_id,
+            "project_path": self.supervisor.workspace.project(turn.project_id).path,
             "flowfield_connection": server,
             "human_message": turn.text,
             "selected_task": turn.task_context.model_dump() if turn.task_context else None,
@@ -204,7 +209,6 @@ class Coordinator:
                 )
 
         try:
-            project = workspace.project(turn.project_id)
             grant = await coordinator_scope(
                 self.supervisor,
                 turn.project_id,
@@ -215,15 +219,15 @@ class Coordinator:
             # and grants remain fresh and are revoked at the end of every turn.
             async with serve_scope(grant, name="flowfield_" + turn.conversation_id) as server:
                 try:
-                    project = workspace.project(turn.project_id)
+                    cwd = coordinator_directory(workspace, turn.project_id)
                     temporary = tempfile.TemporaryDirectory(prefix="flowfield-coordinator-")
                     environment = LocalHost(os.environ).launch_environment(
-                        Path(project.path), Path(temporary.name)
+                        cwd, Path(temporary.name)
                     )
                     client = create(
                         turn.settings.choice,
                         workspace.directory,
-                        Path(project.path),
+                        cwd,
                         environment,
                         registration=turn.settings.registration,
                     )
@@ -237,7 +241,7 @@ class Coordinator:
                             turn.project_id,
                             turn.id,
                             turn.settings.choice,
-                            project.path,
+                            str(cwd),
                             client.launch,
                         )
                         generation_id = generation.id

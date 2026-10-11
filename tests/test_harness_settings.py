@@ -457,7 +457,10 @@ def test_schema_44_upgrade_preserves_choices_and_recovery_and_is_database_only(
     assert upgraded.schema_version == migrations.current_version()
     assert AgentSettings(upgraded).get("harbor", "coordinator") == before
     assert len(HarnessSettings(upgraded).all()) == 3
-    assert CoordinatorStore(upgraded).session("harbor", "codex", str(tmp_path)) == "old-session"
+    assert CoordinatorStore(upgraded).session("harbor", "codex", str(tmp_path)) is None
+    with upgraded.connection() as db:
+        source, fresh = CoordinatorStore(upgraded).sessions.current(db, "harbor")
+        assert fresh and source.session_id == "old-session"
     backup = storage.backups(upgraded.directory)[0]
     assert backup["schema_version"] == 44
     storage.restore(upgraded.directory, backup["id"])
