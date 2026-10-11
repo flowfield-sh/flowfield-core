@@ -15,9 +15,9 @@ and model for your Coordinator and workers. Support ships with Flowfield.
 
 **Settings → Harnesses** detects native installations. Override executable/configuration
 paths only when needed. Accounts and native settings stay with the harness.
-**Check version and sign-in** reads the installed version and native sign-in status for Codex and Claude Code. Pi offers **Check version**, since sign-in belongs to its providers. These diagnostics do not send a model request; model access is established by a successful turn.
-The latest result and its check time survive page reloads while the service is running. Restarting the service or changing the saved paths or detected installation clears the result. Run diagnostics again after changing your native account or upgrading a harness.
-After installing a missing harness, choose **Refresh detection**, then run its version or sign-in diagnostics.
+**Verify installation** reads the installed version and native sign-in status for Codex and Claude Code. For Pi, verification checks the version; sign-in belongs to its providers. These diagnostics do not send a model request; model access is established by a successful turn.
+The latest result and its check time survive page reloads while the service is running. Restarting the service or changing the saved paths or detected installation clears the result. Choose **Verify installation** again after changing your native account or upgrading a harness.
+After installing a missing harness, choose **Verify installation** again. The same action detects the new installation and verifies it.
 
 Models load automatically when you open a selector. Saved project choices preload on open
 and reconnect. Discovery sends no model prompt, though native startup hooks can run.

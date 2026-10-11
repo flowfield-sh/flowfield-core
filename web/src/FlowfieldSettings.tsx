@@ -17,7 +17,6 @@ import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
 import { ContentStack, DetailHeading, Disclosure } from "./DetailLayout";
 import { Timestamp } from "./Timestamp";
 import { ConfirmButton } from "./ConfirmButton";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,22 +54,32 @@ export function SettingsLink({ active }: { active: boolean }) {
   );
 }
 
+function installationVerified(value: Status) {
+  return (
+    value.checked &&
+    value.native_installed &&
+    value.config_available &&
+    !!value.native_version &&
+    !value.problems.some((problem) => !problem.startsWith("catalog_")) &&
+    (value.registration.harness === "pi" ||
+      value.authentication === "authenticated")
+  );
+}
+
 function setupLabel(value: Status) {
-  if (value.catalog_ownership?.status === "uncertain")
-    return "Discovery needs attention";
-  if (value.catalog_ownership) return "Discovering native choices";
   if (!value.native_installed) return "Native harness missing";
   if (!value.config_available) return "Configuration directory missing";
   if (value.authentication === "signed-out") return "Sign-in required";
   if (value.problems.includes("native_check_failed"))
-    return "Diagnostics failed";
-  if (value.problems.includes("authentication_unverified"))
-    return "Sign-in could not be checked";
-  if (value.checked && value.registration.harness === "pi")
-    return "Version verified";
-  return value.checked && value.authentication === "authenticated"
-    ? "Version and sign-in verified"
-    : "Installation detected";
+    return "Installation verification failed";
+  if (
+    value.checked &&
+    value.registration.harness !== "pi" &&
+    value.authentication === "unknown"
+  )
+    return "Sign-in could not be verified";
+  if (installationVerified(value)) return "Installation verified";
+  return value.checked ? "Installation not verified" : "Installation detected";
 }
 
 function HarnessEntry({
@@ -134,21 +143,24 @@ function HarnessEntry({
       resource.invalidate();
       resource.setData(result);
       resource.setError("");
-      if (operation === "check" && result.problems.length) {
-        toast.warning("Harness diagnostics need attention.", {
+      if (operation === "check" && !installationVerified(result)) {
+        toast.warning(`${names[kind]} installation needs attention.`, {
           description: setupLabel(result),
         });
       } else if (operation === "check") {
-        toast.success(
-          kind === "pi" ? "Version verified." : "Version and sign-in verified.",
-        );
+        toast.success(`${names[kind]} installation verified.`);
       } else {
         toast.info(
           "Discovery hold cleared. Native choices can be loaded again.",
         );
       }
     } catch (error) {
-      reportError(error, "Could not check harness setup");
+      reportError(
+        error,
+        operation === "check"
+          ? "Could not verify installation"
+          : "Could not clear discovery hold",
+      );
     } finally {
       setAction("");
     }
@@ -243,25 +255,26 @@ function HarnessEntry({
             </Disclosure>
             <StatusNotice
               title={
-                action === "check" ? "Running diagnostics…" : setupLabel(status)
+                action === "check"
+                  ? "Verifying installation…"
+                  : setupLabel(status)
               }
               tone={
                 action === "check"
                   ? "progress"
-                  : status.problems.length ||
-                      !status.native_installed ||
-                      !status.config_available ||
-                      status.authentication === "signed-out"
-                    ? "attention"
-                    : status.checked
-                      ? "success"
+                  : installationVerified(status)
+                    ? "success"
+                    : status.checked ||
+                        !status.native_installed ||
+                        !status.config_available ||
+                        status.authentication === "signed-out"
+                      ? "attention"
                       : "neutral"
               }
             >
               {status.checked_at && (
                 <p className="detail-metadata">
-                  Last checked <Timestamp date={status.checked_at} />. Run again
-                  to refresh this result.
+                  Last checked <Timestamp date={status.checked_at} />
                 </p>
               )}
               <p>
@@ -270,134 +283,130 @@ function HarnessEntry({
                   : "Reads the installed version and native sign-in status. Model access requires a successful model request."}
               </p>
               {editor.dirty && (
-                <p>Save or cancel path changes before running diagnostics.</p>
-              )}
-              {!status.native_installed && (
                 <p>
-                  Install {names[kind]} on the service host, then refresh
-                  detection or correct its path override.
+                  Save or cancel path changes before verifying installation.
                 </p>
               )}
-              {status.authentication === "signed-out" && (
-                <p>
-                  Sign in with {names[kind]} on the service host, then check
-                  again.
-                </p>
-              )}
-              {status.problems.includes("native_check_failed") && (
-                <p>
-                  The native diagnostic command failed. Check the saved paths
-                  and open {names[kind]} in a terminal on the service host, then
-                  check again.
-                </p>
-              )}
-              {status.problems.includes("authentication_unverified") && (
-                <p>
-                  Sign-in could not be verified. Open {names[kind]} in a
-                  terminal on the service host to check its account or provider
-                  settings.
-                </p>
+              {action !== "check" && (
+                <>
+                  {!status.native_installed && (
+                    <p>
+                      Install {names[kind]} on the machine running Flowfield,
+                      then verify installation again. Use Path overrides if it
+                      is installed in a different location.
+                    </p>
+                  )}
+                  {!status.config_available && (
+                    <p>
+                      Correct the configuration directory in Path overrides,
+                      then verify installation again.
+                    </p>
+                  )}
+                  {status.authentication === "signed-out" && (
+                    <p>
+                      Sign in with {names[kind]} on the machine running
+                      Flowfield, then verify again.
+                    </p>
+                  )}
+                  {status.problems.includes("native_check_failed") && (
+                    <p>
+                      The installation check failed. Check the saved paths and
+                      open {names[kind]} in a terminal on the service host, then
+                      verify again.
+                    </p>
+                  )}
+                  {status.problems.includes("authentication_unverified") && (
+                    <p>
+                      Open {names[kind]} in a terminal on the machine running
+                      Flowfield to check your sign-in, then verify installation
+                      again.
+                    </p>
+                  )}
+                </>
               )}
               <div className="actions">
-                {(!status.native_installed || !status.config_available) && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() =>
-                      void read().catch((error: Error) =>
-                        reportError(error, "Could not refresh detection"),
-                      )
-                    }
-                  >
-                    Refresh detection
-                  </Button>
-                )}
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={
-                    busy ||
-                    editor.dirty ||
-                    !status.native_installed ||
-                    !status.config_available
-                  }
+                  disabled={busy || editor.dirty}
                   onClick={() => void operate("check")}
                 >
                   {action === "check"
-                    ? "Running diagnostics…"
-                    : kind === "pi"
-                      ? "Check version"
-                      : "Check version and sign-in"}
+                    ? "Verifying installation…"
+                    : "Verify installation"}
                 </Button>
-                {status.catalog_ownership && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!!action || editor.busy}
-                    onClick={() =>
-                      void read().catch((error: Error) =>
-                        reportError(error, "Could not reload harness status"),
-                      )
-                    }
-                  >
-                    Reload status
-                  </Button>
-                )}
               </div>
             </StatusNotice>
             {status.catalog_ownership && (
-              <Alert>
-                <AlertTitle>
-                  {status.catalog_ownership.status === "uncertain"
+              <StatusNotice
+                title={
+                  status.catalog_ownership.status === "uncertain"
                     ? "Discovery cleanup is unconfirmed"
-                    : "Native discovery is running"}
-                </AlertTitle>
-                <AlertDescription>
-                  <ContentStack>
-                    <p>
-                      {status.catalog_ownership.operation === "models"
-                        ? "Model"
-                        : "Command"}{" "}
-                      discovery started{" "}
-                      <Timestamp date={status.catalog_ownership.started_at} />
-                      {status.catalog_ownership.project_id
-                        ? ` for project ${status.catalog_ownership.project_id}`
-                        : ""}
-                      .
-                    </p>
-                    {status.catalog_ownership.status === "uncertain" ? (
-                      <>
-                        <p>
-                          Inspect the service host and stop remaining work from
-                          this discovery, including startup hooks and background
-                          tools. Process absence alone does not confirm cleanup.
-                        </p>
-                        <ConfirmButton
-                          size="sm"
-                          variant="outline"
-                          disabled={busy}
-                          title={`Confirm ${names[kind]} discovery stopped?`}
-                          description="Confirm only after stopping remaining work from this interrupted discovery on the service host. This clears its hold and permits a new discovery."
-                          action={() =>
-                            void operate(
-                              "catalog/confirm-stopped",
-                              status.catalog_ownership!.id,
-                            )
-                          }
-                        >
-                          Confirm discovery stopped
-                        </ConfirmButton>
-                      </>
-                    ) : (
-                      <p>
-                        Wait for discovery to finish, then reload status.
-                        Retrying does not start another owner.
-                      </p>
+                    : "Native discovery is running"
+                }
+                tone={
+                  status.catalog_ownership.status === "uncertain"
+                    ? "attention"
+                    : "progress"
+                }
+                actions={
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!!action || editor.busy}
+                      onClick={() =>
+                        void read().catch((error: Error) =>
+                          reportError(error, "Could not reload harness status"),
+                        )
+                      }
+                    >
+                      Reload status
+                    </Button>
+                    {status.catalog_ownership.status === "uncertain" && (
+                      <ConfirmButton
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        title={`Confirm ${names[kind]} discovery stopped?`}
+                        description="Confirm only after stopping remaining work from this interrupted discovery on the service host. This clears its hold and permits a new discovery."
+                        action={() =>
+                          void operate(
+                            "catalog/confirm-stopped",
+                            status.catalog_ownership!.id,
+                          )
+                        }
+                      >
+                        Confirm discovery stopped
+                      </ConfirmButton>
                     )}
-                  </ContentStack>
-                </AlertDescription>
-              </Alert>
+                  </>
+                }
+              >
+                <p>
+                  {status.catalog_ownership.operation === "models"
+                    ? "Model"
+                    : "Command"}{" "}
+                  discovery started{" "}
+                  <Timestamp date={status.catalog_ownership.started_at} />
+                  {status.catalog_ownership.project_id
+                    ? ` for project ${status.catalog_ownership.project_id}`
+                    : ""}
+                  .
+                </p>
+                {status.catalog_ownership.status === "uncertain" ? (
+                  <p>
+                    Inspect the service host and stop remaining work from this
+                    discovery, including startup hooks and background tools.
+                    Process absence alone does not confirm cleanup.
+                  </p>
+                ) : (
+                  <p>
+                    Wait for discovery to finish, then reload status. Retrying
+                    does not start another owner.
+                  </p>
+                )}
+              </StatusNotice>
             )}
             <Disclosure summary="Detected setup">
               <dl className="harness-facts">
@@ -409,7 +418,7 @@ function HarnessEntry({
                   {status.launch.config_source})
                 </dd>
                 <dt>Native version</dt>
-                <dd>{status.native_version ?? "Run version diagnostics"}</dd>
+                <dd>{status.native_version ?? "Not verified"}</dd>
                 <dt>Sign-in</dt>
                 <dd>
                   {kind === "pi"
@@ -417,7 +426,7 @@ function HarnessEntry({
                     : status.authentication === "unknown"
                       ? status.checked
                         ? "Could not determine sign-in status"
-                        : "Not checked — run sign-in diagnostics"
+                        : "Not verified"
                       : status.authentication === "authenticated"
                         ? "Signed in"
                         : "Signed out"}

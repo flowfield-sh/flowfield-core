@@ -92,52 +92,52 @@ for (const [kind, name] of [
     });
     await expect(entry).toContainText("Native harness missing");
     await expect(
-      entry.getByRole("button", { name: /^Check version/ }),
-    ).toBeDisabled();
-    value.native_installed = true;
-    value.selectable = true;
-    await entry.getByRole("button", { name: "Refresh detection" }).click();
-    await expect(
-      entry.getByRole("button", { name: /^Check version/ }),
+      entry.getByRole("button", { name: "Verify installation" }),
     ).toBeEnabled();
     expect(checked).toBe(false);
-    value.problems = ["native_check_failed"];
-    await entry.getByRole("button", { name: /^Check version/ }).click();
-    await expect(entry).toContainText("Diagnostics failed");
+    await entry.getByRole("button", { name: "Verify installation" }).click();
     await expect(
-      page.locator("[data-sonner-toast][data-type=warning]"),
-    ).toContainText("Harness diagnostics need attention.");
+      page.locator("[data-sonner-toast][data-type=warning]").last(),
+    ).toContainText(`${name} installation needs attention.`);
+    await expect(
+      entry.getByRole("heading", { name: "Native harness missing" }),
+    ).toBeVisible();
+    value.native_installed = true;
+    value.selectable = true;
+    value.problems = ["native_check_failed"];
+    await entry.getByRole("button", { name: "Verify installation" }).click();
+    await expect(entry).toContainText("Installation verification failed");
+    await expect(
+      page.locator("[data-sonner-toast][data-type=warning]").last(),
+    ).toContainText(`${name} installation needs attention.`);
     await expect(
       page.locator("[data-sonner-toast][data-type=success]"),
     ).toHaveCount(0);
-    await expect(entry).toContainText("The native diagnostic command failed");
-    await expect(entry).not.toContainText("Version and sign-in verified.");
+    await expect(entry).toContainText("The installation check failed");
     await expect(
-      entry.getByRole("button", { name: /^Check version/ }),
+      entry.getByRole("button", { name: "Verify installation" }),
     ).toBeEnabled();
     await screenshot(page, testInfo, `${kind}-failed-check`, entry);
     value.problems = kind === "pi" ? [] : ["native_login_required"];
     value.authentication = kind === "pi" ? "unknown" : "signed-out";
     value.native_version = "fixture.native";
-    await entry.getByRole("button", { name: /^Check version/ }).click();
+    await entry.getByRole("button", { name: "Verify installation" }).click();
     if (kind === "pi")
       await expect(
         page.locator("[data-sonner-toast][data-type=success]"),
-      ).toContainText("Version verified.");
+      ).toContainText(`${name} installation verified.`);
     else await expect(entry).toContainText("Sign-in required");
-    await expect(entry).not.toContainText("Version and sign-in verified.");
     if (kind !== "pi") {
       value.problems = [];
       value.authentication = "authenticated";
-      await entry.getByRole("button", { name: /^Check version/ }).click();
+      await entry.getByRole("button", { name: "Verify installation" }).click();
       await expect(
         page.locator("[data-sonner-toast][data-type=success]"),
-      ).toContainText("Version and sign-in verified.");
+      ).toContainText(`${name} installation verified.`);
     }
     await expect(
       entry.getByRole("heading", {
-        name:
-          kind === "pi" ? "Version verified" : "Version and sign-in verified",
+        name: "Installation verified",
         exact: true,
       }),
     ).toBeVisible();
@@ -146,13 +146,11 @@ for (const [kind, name] of [
         ? "Provider sign-in is checked when you use a model."
         : "Model access requires a successful model request.",
     );
-    await screenshot(page, testInfo, `${kind}-verified`, entry);
     const checkedAt = value.checked_at!;
     await page.reload();
     await expect(
       entry.getByRole("heading", {
-        name:
-          kind === "pi" ? "Version verified" : "Version and sign-in verified",
+        name: "Installation verified",
         exact: true,
       }),
     ).toBeVisible();
@@ -160,6 +158,7 @@ for (const [kind, name] of [
       "datetime",
       checkedAt,
     );
+    await screenshot(page, testInfo, `${kind}-verified`, entry);
     await entry.getByText("Detected setup", { exact: true }).click();
     await expect(entry).toContainText("fixture.native");
     if (kind !== "pi")
@@ -235,7 +234,7 @@ test("central harness settings preserve host drafts and configure kinds independ
   ).toHaveValue("/service/custom/codex");
   await expect(second).toContainText("Installation detected");
   await second.getByText("Detected setup", { exact: true }).click();
-  await expect(second).toContainText("Not checked — run sign-in diagnostics");
+  await expect(second).toContainText("Not verified");
   await second
     .getByLabel("Executable path", { exact: true })
     .fill("/service/alternative/claude");
@@ -249,7 +248,7 @@ test("central harness settings preserve host drafts and configure kinds independ
     second.getByLabel("Configuration directory", { exact: true }),
   ).toHaveValue("/service/claude-config");
   await expect(
-    second.getByRole("button", { name: /^Check version/ }),
+    second.getByRole("button", { name: "Verify installation" }),
   ).toBeDisabled();
   await second.getByRole("button", { name: "Save paths" }).click();
   await expect
@@ -323,7 +322,7 @@ test("host configuration conflicts preserve drafts until explicit reload", async
 
 test("native readiness and exact interrupted-discovery confirmation", async ({
   page,
-}) => {
+}, testInfo) => {
   const codex = host("codex"),
     claude = host("claude-code");
   codex.catalog_ownership = {
@@ -335,6 +334,7 @@ test("native readiness and exact interrupted-discovery confirmation", async ({
     launch: codex.launch,
     operation: "models",
   };
+  codex.problems = ["catalog_uncertain"];
   const operations: string[] = [];
   await page.route("**/api/harnesses/**", async (route) => {
     const url = new URL(route.request().url());
@@ -353,6 +353,7 @@ test("native readiness and exact interrupted-discovery confirmation", async ({
           id: "interrupted-exact-id",
         });
         value.catalog_ownership = null;
+        value.problems = [];
       }
     }
     await route.fulfill({ json: value });
@@ -363,10 +364,24 @@ test("native readiness and exact interrupted-discovery confirmation", async ({
     exact: true,
   });
   await expect(entry.getByRole("button", { name: /Install/ })).toHaveCount(0);
-  await entry.getByRole("button", { name: /^Check version/ }).click();
+  await entry.getByRole("button", { name: "Verify installation" }).click();
   await expect(
     page.locator("[data-sonner-toast][data-type=success]"),
-  ).toContainText("Version and sign-in verified.");
+  ).toContainText("Codex installation verified.");
+  const installation = entry
+    .getByRole("status")
+    .filter({ hasText: "Installation verified" });
+  const discovery = entry
+    .getByRole("status")
+    .filter({ hasText: "Discovery cleanup is unconfirmed" });
+  await expect(installation).toBeVisible();
+  await expect(
+    installation.getByRole("button", { name: "Reload status" }),
+  ).toHaveCount(0);
+  await expect(
+    discovery.getByRole("button", { name: "Reload status" }),
+  ).toBeVisible();
+  await screenshot(page, testInfo, "verified-with-discovery-warning", entry);
   await entry.getByText("Detected setup", { exact: true }).click();
   await expect(entry).toContainText("fixture.native");
   await entry
@@ -450,4 +465,71 @@ test("appearance lives in routed settings tabs and follows system changes outsid
   await page.getByRole("link", { name: "Flowfield", exact: true }).click();
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html")).toHaveClass("dark");
+});
+
+test("installation verification explains missing configuration, pending work and unverified sign-in", async ({
+  page,
+}, testInfo) => {
+  const value = host("codex");
+  value.config_available = false;
+  value.problems = ["config_directory_missing"];
+  let finish: () => void = () => {};
+  await page.route("**/api/harnesses/codex", (route) =>
+    route.fulfill({ json: value }),
+  );
+  await page.route("**/api/harnesses/codex/check", async (route) => {
+    await new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    await route.fulfill({ json: value });
+  });
+  await page.goto("/settings/harnesses");
+  const entry = page.getByRole("region", {
+    name: "Codex settings",
+    exact: true,
+  });
+  await expect(entry).toContainText(
+    "Correct the configuration directory in Path overrides",
+  );
+  await entry
+    .getByRole("button", { name: "Verify installation", exact: true })
+    .click();
+  await expect(
+    entry.getByRole("heading", { name: "Verifying installation…" }),
+  ).toBeVisible();
+  await expect(
+    entry.getByRole("button", { name: "Verifying installation…" }),
+  ).toBeDisabled();
+  await expect(entry).not.toContainText(
+    "Correct the configuration directory in Path overrides",
+  );
+  await screenshot(page, testInfo, "verification-pending", entry);
+  value.config_available = true;
+  value.checked = true;
+  value.checked_at = new Date().toISOString();
+  value.native_version = "fixture.native";
+  value.problems = ["authentication_unverified"];
+  finish();
+  await expect(
+    entry.getByRole("heading", { name: "Sign-in could not be verified" }),
+  ).toBeVisible();
+  await expect(
+    page.locator("[data-sonner-toast][data-type=success]"),
+  ).toHaveCount(0);
+  await expect(
+    entry.getByRole("button", { name: "Verify installation" }),
+  ).toBeEnabled();
+  await screenshot(page, testInfo, "verification-sign-in-unknown", entry);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.reload();
+  await expect(
+    entry.getByRole("heading", { name: "Sign-in could not be verified" }),
+  ).toBeVisible();
+  await screenshot(
+    page,
+    testInfo,
+    "verification-sign-in-unknown-mobile-dark",
+    entry,
+  );
 });
