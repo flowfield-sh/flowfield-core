@@ -219,12 +219,12 @@ def main() -> None:
                 assert response.status == 200
                 return response.read()
 
-        def write(path: str, body: dict) -> dict:
+        def write(path: str, body: dict, *, method: str = "POST") -> dict:
             request = Request(
                 base + path,
                 data=json.dumps(body).encode(),
                 headers={"Content-Type": "application/json"},
-                method="POST",
+                method=method,
             )
             with opener.open(request, timeout=2) as response:
                 return json.load(response)
@@ -253,18 +253,27 @@ def main() -> None:
                     assert health == {"status": "ok", "version": version}
                     assert not (state / "access-token").exists()
                     if attempt == 0:
-                        write(
-                            "/api/notifications/operations",
-                            {
-                                "key": "installed-check",
-                                "title": "Package verification",
-                                "message": "This notice survives the service restart.",
-                            },
+                        assert json.loads(read("/api/announcements/settings")) == {
+                            "system_enabled": False,
+                            "work_enabled": True,
+                            "updates_enabled": True,
+                        }
+                        preferences = write(
+                            "/api/announcements/settings",
+                            {"work_enabled": False},
+                            method="PATCH",
                         )
+                        assert preferences == {
+                            "system_enabled": False,
+                            "work_enabled": False,
+                            "updates_enabled": True,
+                        }
                         assert json.loads(read("/api/projects")) == []
                         page = read("/").decode()
                         assert "Flowfield" in page
                         assert read("/settings/harnesses").decode() == page
+                        assert read("/settings/notifications").decode() == page
+                        assert read("/settings/updates").decode() == page
                         assets = re.findall(r'(?:src|href)="(/assets/[^\"]+)"', page)
                         assert any(asset.endswith(".js") for asset in assets)
                         assert any(asset.endswith(".css") for asset in assets)
@@ -404,15 +413,8 @@ def main() -> None:
                     assert (state / "artifacts").is_dir()
                     updates = json.loads(command("update", "status", "--json"))
                     assert updates["automatic"] is False and updates["last_attempt"] is None
-                    notices = json.loads(read("/api/notifications"))
-                    saved_notice = next(
-                        n for n in notices["items"] if n["title"] == "Package verification"
-                    )
-                    if attempt == 1:
-                        remaining = write(
-                            "/api/notifications/dismiss", {"ids": [saved_notice["id"]]}
-                        )
-                        assert all(n["id"] != saved_notice["id"] for n in remaining["items"])
+                    assert json.loads(read("/api/updates")) == updates
+                    assert json.loads(read("/api/announcements/settings")) == preferences
                 except BaseException:
                     log.seek(0)
                     sys.stderr.write(log.read().decode())
@@ -427,7 +429,7 @@ def main() -> None:
     print(
         "Installed package: project setup, CLI/API/MCP/UI, "
         "task board, briefing/handoff, activity, revisions, restart "
-        "offline storage recovery, persistent notifications and update status passed."
+        "offline storage recovery, announcement preferences and update status passed."
     )
 
 

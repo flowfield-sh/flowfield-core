@@ -265,7 +265,7 @@ function useAgentSettingsContent({
       resource.setData(updated);
       setDraft(null);
       toast.success(reset ? "Using project defaults." : "Settings saved.");
-      onSaved?.();
+      if (!reset) onSaved?.();
     } catch (error) {
       setError((error as Error).message);
       reportError(error, "Could not save model settings");
@@ -326,6 +326,17 @@ function useAgentSettingsContent({
             >
               {busy ? "Saving…" : "Save"}
             </Button>
+            {!coordinator && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={stale || (!data?.selection && !draft)}
+                onClick={() => void save(true)}
+              >
+                Reset
+              </Button>
+            )}
             <RefreshModels source={source} />
             {(draft || error || resource.error) &&
               (!compact || stale || error || resource.error) && (
@@ -377,18 +388,6 @@ function useAgentSettingsContent({
               </Button>
             )}
           </div>
-          {!coordinator && (
-            <Button
-              type="button"
-              size="sm"
-              variant="link"
-              className="w-fit"
-              disabled={stale || (!data?.selection && !draft)}
-              onClick={() => void save(true)}
-            >
-              Use defaults
-            </Button>
-          )}
         </fieldset>
       </form>
       {stale && (

@@ -187,7 +187,10 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     await expect
       .poll(async () => {
         const tops = await Promise.all(
-          ["Save", "Refresh models", "Cancel"].map(
+          (width === 1280
+            ? ["Save", "Reset", "Refresh models", "Cancel"]
+            : ["Save", "Reset"]
+          ).map(
             async (name) =>
               (await picker
                 .getByRole("button", { name, exact: true })
@@ -197,16 +200,23 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
         return Math.max(...tops) - Math.min(...tops);
       })
       .toBeLessThan(1);
-    const lefts = await Promise.all(
-      ["Save", "Refresh models", "Cancel"].map(
+    const bounds = await Promise.all(
+      ["Save", "Reset", "Refresh models", "Cancel"].map(
         async (name) =>
           (await picker
             .getByRole("button", { name, exact: true })
-            .boundingBox())!.x,
+            .boundingBox())!,
       ),
     );
-    expect(lefts[0]).toBeLessThan(lefts[1]);
-    expect(lefts[1]).toBeLessThan(lefts[2]);
+    for (let index = 0; index < bounds.length; index++) {
+      const box = bounds[index];
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+      if (index) {
+        const previous = bounds[index - 1];
+        expect(box.y > previous.y || box.x > previous.x).toBe(true);
+      }
+    }
   }
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.keyboard.press("Escape");
@@ -257,17 +267,53 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     "high",
   );
   await expect(picker.getByRole("button", { name: "Save" })).toBeDisabled();
+  await expect(
+    picker.getByRole("button", { name: "Reset", exact: true }),
+  ).toBeDisabled();
   page.once("dialog", (dialog) => dialog.accept());
   await picker.getByRole("button", { name: "Reload", exact: true }).click();
   await expect(picker.getByLabel("Model", { exact: true })).toHaveAttribute(
     "data-value",
     "second",
   );
-  await picker.getByRole("button", { name: "Use defaults" }).click();
+  await picker.getByRole("button", { name: "Reset", exact: true }).click();
+  await expect(picker).toBeVisible();
+  await expect(picker.getByLabel("Model", { exact: true })).toHaveAttribute(
+    "data-value",
+    "first",
+  );
+  await expect(picker.getByLabel("Reasoning effort")).toHaveAttribute(
+    "data-value",
+    "low",
+  );
+  await expect(picker.getByLabel("Access mode")).toHaveAttribute(
+    "data-value",
+    "workspace-write",
+  );
+  await expect(
+    picker.getByRole("button", { name: "Reset", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    picker.getByRole("button", { name: "Save", exact: true }),
+  ).toBeDisabled();
+  expect(settings.selection).toBeNull();
   expect(settings.effective.choice.fast).toBe(false);
-  await page
-    .getByRole("button", { name: "Codex · first · low", exact: true })
-    .click();
+  await expect(
+    picker.getByRole("button", { name: "Cancel", exact: true }),
+  ).toBeEnabled();
+  for (const [width, colorScheme] of [
+    [1280, "light"],
+    [390, "dark"],
+  ] as const) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ colorScheme });
+    await page.screenshot({
+      path: `/tmp/flowfield-worker-reset-${width}.png`,
+      animations: "disabled",
+    });
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ colorScheme: "light" });
   await expect(
     picker.getByText("Overrides project defaults for the next worker run.", {
       exact: true,

@@ -97,12 +97,15 @@
   border-radius: 10px;
   box-shadow: 0 8px 24px #0002;
   padding: 6px;
-  width: min(340px, calc(100vw - 24px));
   max-height: min(60dvh, var(--radix-popover-content-available-height));
   overflow: auto;
 }
+.composer-command-menu {
+  width: min(340px, calc(100vw - 24px));
+}
 .composer-settings {
   padding: 12px;
+  width: min(380px, calc(100vw - 24px));
 }
 .composer-command-menu [cmdk-item] {
   display: flex;

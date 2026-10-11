@@ -900,9 +900,9 @@ test("single coordinator requires a saved model, labels loading and cancels dism
     .getByRole("button", { name: "Codex · second · high", exact: true })
     .click();
   await expect(model).toHaveAttribute("data-value", "second");
-  await expect(page.getByRole("button", { name: "Use defaults" })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByRole("button", { name: "Reset", exact: true }),
+  ).toHaveCount(0);
   await choose(model, "first");
   await page.keyboard.press("Escape");
   await expect(send).toBeEnabled();
