@@ -10,6 +10,7 @@ from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from pydantic import BaseModel, Field, ValidationError
 
 from flowfield.activity import ActivityCreate, EntryKind
+from flowfield.adapters.coordinator_directory import prepare as coordinator_directory
 from flowfield.application import (
     MilestoneCreate,
     MilestoneEdit,
@@ -26,7 +27,9 @@ from flowfield.application import (
 )
 from flowfield.conversation_api import add_conversation_tools
 from flowfield.errors import ApplicationError
+from flowfield.execution_models import QueueEdit, SettingsEdit
 from flowfield.guidance import Guidance, GuidanceChange, template
+from flowfield.harness_models import HarnessKind
 from flowfield.inspection import Inspections
 from flowfield.inspection_models import Inspection, InspectionConfig, InspectionPrepare
 from flowfield.project_config import Identifier
@@ -39,9 +42,10 @@ from flowfield.questions import (
     Questions,
     QuestionWithdraw,
 )
-from flowfield.reads import MAX_LIMIT, ContextReads, receipt
+from flowfield.reads import MAX_LIMIT, ContextReads, excerpt, receipt
 from flowfield.search import Entity, History, Search
 from flowfield.supervisor import Supervisor
+from flowfield.workspaces import ProjectAdoption, WorkspaceEdit, Workspaces
 
 PageLimit = Annotated[int, Field(ge=1, le=MAX_LIMIT)]
 
@@ -51,7 +55,7 @@ def create_mcp(
     supervisor: Callable[[], Supervisor] | None = None,
     *,
     origin: str | None = None,
-    include_workspace_tools: bool = True,
+    include_service_tools: bool = True,
 ) -> FastMCP:
     mcp = FastMCP(
         "Flowfield",
@@ -97,6 +101,116 @@ def create_mcp(
         if "author" not in request.model_fields_set:
             return request.model_copy(update={"author": "agent"})
         return request
+
+    @mcp.tool(annotations=read)
+    async def get_workspace(workspace_id: Identifier) -> CallToolResult:
+        """Read the workspace's shared purpose and current revision."""
+        return await invoke(lambda: excerpt(Workspaces(workspace()).get(workspace_id).model_dump()))
+
+    @mcp.tool(annotations=read)
+    async def get_workspace_text(
+        workspace_id: Identifier,
+        revision: Annotated[int, Field(ge=1)],
+        offset: Annotated[int, Field(ge=0)] = 0,
+        limit: Annotated[int, Field(ge=1, le=4000)] = 4000,
+    ) -> CallToolResult:
+        """Read a workspace description in chunks, bound to the revision from get_workspace."""
+
+        def load() -> dict[str, Any]:
+            current = Workspaces(workspace()).get(workspace_id)
+            workspace()._current(current.revision, revision)
+            if offset > len(current.description):
+                raise ApplicationError("invalid_offset", "Choose an offset within the description.")
+            end = offset + limit
+            return {
+                "text": current.description[offset:end],
+                "revision": current.revision,
+                "next_offset": end if end < len(current.description) else None,
+            }
+
+        return await invoke(load)
+
+    @mcp.tool(annotations=write)
+    async def edit_workspace(workspace_id: Identifier, changes: WorkspaceEdit) -> CallToolResult:
+        """Update agreed workspace name or description with a revision check."""
+        return await mutate(
+            lambda: Workspaces(workspace()).edit(workspace_id, attributed(changes)).model_dump()
+        )
+
+    @mcp.tool(annotations=read)
+    async def list_workspace_projects(
+        workspace_id: Identifier, after: str | None = None, limit: PageLimit = 20
+    ) -> CallToolResult:
+        """Discover this workspace's project IDs, prefixes and repository paths in bounded pages."""
+        return await invoke(
+            lambda: Workspaces(workspace()).project_page(workspace_id, after=after, limit=limit)
+        )
+
+    @mcp.tool(annotations=write)
+    async def adopt_workspace_project(
+        workspace_id: Identifier,
+        project: ProjectAdoption,
+    ) -> CallToolResult:
+        """Add an existing repository to this workspace when requested by the human.
+        Preserve files and repository guidance. Discuss how existing guidance should relate
+        to workspace guidance; do not automatically import or rewrite it. Creates no directory,
+        Git repository or default resources. Does not enable workers or change their defaults.
+        """
+        return await mutate(
+            lambda: (
+                Workspaces(workspace())
+                .adopt(
+                    workspace_id,
+                    ProjectSetup(**attributed(project).model_dump()),
+                )
+                .model_dump()
+            )
+        )
+
+    @mcp.tool(annotations=read)
+    async def get_workspace_workers(workspace_id: Identifier) -> CallToolResult:
+        """Read shared worker choice, queue controls and capacity across this workspace."""
+        return await invoke(lambda: Workspaces(workspace()).workers(workspace_id).model_dump())
+
+    @mcp.tool(annotations=write)
+    async def list_workspace_models(
+        workspace_id: Identifier, harness: HarnessKind = "codex"
+    ) -> list[dict[str, Any]]:
+        """Discover native choices from the managed workspace directory, including before adoption.
+        Starts a disposable native session when no current catalog is cached; startup hooks
+        can run. Does not send a model prompt or change settings. Report interrupted discovery
+        recovery honestly before retrying.
+        """
+        if supervisor is None:
+            raise ApplicationError("service_required", "Model discovery needs the service.", 409)
+        path = str(coordinator_directory(workspace(), workspace_id))
+        return [
+            item.model_dump()
+            for item in await supervisor().model_options(harness=harness, project_path=path)
+        ]
+
+    @mcp.tool(annotations=write)
+    async def configure_workspace_workers(
+        workspace_id: Identifier, settings: SettingsEdit
+    ) -> CallToolResult:
+        """Set the shared worker default and concurrency; task overrides remain independent."""
+        if supervisor is None:
+            raise ApplicationError(
+                "service_required", "Worker configuration needs the service.", 409
+            )
+        path = str(coordinator_directory(workspace(), workspace_id))
+        if settings.selection:
+            await supervisor().validate_agent_choice(settings.selection, project_path=path)
+        return await invoke(
+            lambda: Workspaces(workspace()).configure_workers(workspace_id, settings).model_dump()
+        )
+
+    @mcp.tool(annotations=write)
+    async def set_workspace_queue(workspace_id: Identifier, change: QueueEdit) -> CallToolResult:
+        """Enable or pause workspace workers only with human scheduling authorization."""
+        return await invoke(
+            lambda: Workspaces(workspace()).queue(workspace_id, change).model_dump()
+        )
 
     def inspection_view(value: Inspection | None, offset: int = 0) -> dict[str, Any]:
         if value is None:
@@ -165,7 +279,7 @@ def create_mcp(
             lambda: inspection_view(Inspections(workspace()).prepare(project_id, request))
         )
 
-    if include_workspace_tools:
+    if include_service_tools:
 
         @mcp.tool(annotations=read)
         async def list_projects(after: str | None = None, limit: PageLimit = 20) -> CallToolResult:
@@ -184,7 +298,7 @@ def create_mcp(
             lambda: workspace().edit_project(project_id, attributed(changes)).model_dump()
         )
 
-    if include_workspace_tools:
+    if include_service_tools:
 
         @mcp.tool(annotations=write)
         async def initialize_project(

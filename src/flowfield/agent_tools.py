@@ -18,6 +18,7 @@ from pydantic import ValidationError
 from flowfield.errors import ApplicationError
 from flowfield.mcp import create_mcp
 from flowfield.worker_tools import WorkerBridge, worker_tools
+from flowfield.workspaces import Workspaces
 
 if TYPE_CHECKING:
     from flowfield.supervisor import Supervisor
@@ -123,37 +124,89 @@ async def coordinator_scope(
     author: str = "agent",
     check: Callable[[], None] | None = None,
 ) -> ScopedTools:
+    """Transitional project chat binding, removed when workspace chat replaces its callers."""
+    supervisor.workspace.project(project_id)
+    return await _coordinator_scope(supervisor, project_id=project_id, author=author, check=check)
+
+
+async def workspace_scope(
+    supervisor: "Supervisor",
+    workspace_id: str,
+    *,
+    author: str = "agent",
+    check: Callable[[], None] | None = None,
+) -> ScopedTools:
+    """Bind workspace authority while keeping every repository destination explicit."""
+    Workspaces(supervisor.workspace).get(workspace_id)
+    return await _coordinator_scope(
+        supervisor, workspace_id=workspace_id, author=author, check=check
+    )
+
+
+async def _coordinator_scope(
+    supervisor: "Supervisor",
+    *,
+    project_id: str | None = None,
+    workspace_id: str | None = None,
+    author: str,
+    check: Callable[[], None] | None,
+) -> ScopedTools:
     workspace = supervisor.workspace
-    workspace.project(project_id)
     canonical = create_mcp(
-        lambda: workspace, lambda: supervisor, origin="", include_workspace_tools=False
+        lambda: workspace, lambda: supervisor, origin="", include_service_tools=False
     )
     scoped = []
     project_tools = set()
+    workspace_tools = set()
     authored_arguments: dict[str, list[str]] = {}
     for tool in await canonical.list_tools():
         schema = copy.deepcopy(tool.inputSchema)
         properties = schema.get("properties", {})
+        if "workspace_id" in properties:
+            if workspace_id is None:
+                continue
+            workspace_tools.add(tool.name)
+            del properties["workspace_id"]
         if "project_id" in properties:
             project_tools.add(tool.name)
-            del properties["project_id"]
-        elif not tool.annotations or not tool.annotations.readOnlyHint:
-            raise RuntimeError("Project mutation lacks a project binding")
+            if project_id is not None:
+                del properties["project_id"]
+        elif tool.name not in workspace_tools and (
+            not tool.annotations or not tool.annotations.readOnlyHint
+        ):
+            raise RuntimeError("Coordinator mutation lacks a workspace or project binding")
         authored_arguments[tool.name] = []
         for key, value in properties.items():
             definition = schema.get("$defs", {}).get(value.get("$ref", "").split("/")[-1], value)
             if "author" in definition.get("properties", {}):
                 authored_arguments[tool.name].append(key)
-        schema["required"] = [key for key in schema.get("required", []) if key != "project_id"]
+        schema["required"] = [
+            key
+            for key in schema.get("required", [])
+            if key != "workspace_id" and (key != "project_id" or project_id is None)
+        ]
         schema["additionalProperties"] = False
         scoped.append(tool.model_copy(update={"inputSchema": schema}))
 
     async def call(name: str, arguments: dict[str, Any]) -> CallToolResult:
-        if "project_id" in arguments:
+        if "workspace_id" in arguments:
+            raise ApplicationError("scope_mismatch", "Workspace is fixed by the service.", 403)
+        if project_id is not None and "project_id" in arguments:
             raise ApplicationError("scope_mismatch", "Project is fixed by the service.", 403)
         bound = copy.deepcopy(arguments)
+        if name in workspace_tools:
+            bound["workspace_id"] = workspace_id
         if name in project_tools:
-            bound["project_id"] = project_id
+            if project_id is not None:
+                bound["project_id"] = project_id
+            else:
+                destination = bound.get("project_id")
+                if not isinstance(destination, str) or not destination:
+                    raise ApplicationError(
+                        "project_required", "Choose an explicit project for this operation.", 409
+                    )
+                assert workspace_id is not None
+                Workspaces(workspace).require_project(workspace_id, destination)
         # Attribute every authored request, including omitted model defaults, to
         # its service-owned coordinator turn rather than impersonating the human.
         for key in authored_arguments[name]:

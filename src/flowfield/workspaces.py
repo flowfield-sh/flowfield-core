@@ -1,13 +1,22 @@
 """User-created coordination spaces within the service's existing application store."""
 
 import sqlite3
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import uuid4
 
 from pydantic import StringConstraints
 
 from flowfield import worker_settings
-from flowfield.application import Edit, Input, Markdown, Project, ProjectSetup, Workspace, now
+from flowfield.application import (
+    Edit,
+    Input,
+    Markdown,
+    Project,
+    ProjectPrefix,
+    ProjectSetup,
+    Workspace,
+    now,
+)
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import (
     QueueEdit,
@@ -25,6 +34,14 @@ WorkspaceName = Annotated[
 
 class WorkspaceCreate(Input):
     name: WorkspaceName
+    author: Title = "human"
+
+
+class ProjectAdoption(Input):
+    id: Identifier | None = None
+    path: str
+    name: Title | None = None
+    task_prefix: ProjectPrefix | None = None
     author: Title = "human"
 
 
@@ -131,6 +148,32 @@ class Workspaces:
                     "workspace_required", "Add this project to an explicit workspace first.", 409
                 )
             return self.read(db, row[0])
+
+    def require_project(self, identity: str, project_id: str) -> None:
+        """A coordinator's current view cannot grant access to another workspace."""
+        with self.store.connection() as db:
+            self.read(db, identity)
+            if not db.execute(
+                "SELECT 1 FROM workspace_projects WHERE workspace_id=? AND project_id=?",
+                (identity, project_id),
+            ).fetchone():
+                raise ApplicationError("scope_mismatch", "Choose a project in this workspace.", 403)
+
+    def project_page(
+        self, identity: str, *, after: str | None = None, limit: int = 20
+    ) -> dict[str, Any]:
+        from flowfield.reads import page, validate_page
+
+        validate_page(limit, after)
+        with self.store.connection() as db:
+            self.read(db, identity)
+            rows = db.execute(
+                "SELECT p.id,p.name,p.path,p.task_prefix,p.revision FROM projects p "
+                "JOIN workspace_projects m ON m.project_id=p.id WHERE m.workspace_id=? "
+                "AND (? IS NULL OR p.id>?) ORDER BY p.id LIMIT ?",
+                (identity, after, after, limit + 1),
+            ).fetchall()
+            return page([dict(row) for row in rows], limit, "id")
 
     def adopt(self, identity: str, request: ProjectSetup) -> Project:
         return self.store.setup_project(request, workspace_id=identity)

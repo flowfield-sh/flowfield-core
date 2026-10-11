@@ -102,7 +102,11 @@ def test_coordinator_captures_work_in_fixed_project(tmp_path):
     async def exercise():
         grant = await coordinator_scope(Supervisor(execution.workspace), "harbor")
         canonical = create_mcp(lambda: execution.workspace, lambda: Supervisor(execution.workspace))
-        names = {tool.name for tool in await canonical.list_tools()}
+        names = {
+            tool.name
+            for tool in await canonical.list_tools()
+            if "workspace_id" not in tool.inputSchema.get("properties", {})
+        }
         assert set(grant.tools) == names - {"list_projects", "initialize_project"}
         for tool in grant.tools.values():
             assert "project_id" not in tool.inputSchema["properties"]
