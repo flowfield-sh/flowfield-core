@@ -2918,6 +2918,7 @@ export interface components {
     };
     /** CoordinatorSend */
     CoordinatorSend: {
+      view_context?: components["schemas"]["CoordinatorViewSelection"] | null;
       /** Id */
       id: string;
       /** Text */
@@ -2952,6 +2953,7 @@ export interface components {
     };
     /** CoordinatorTurn */
     CoordinatorTurn: {
+      view_context: components["schemas"]["CoordinatorViewContext"] | null;
       task_context: components["schemas"]["CoordinatorTaskContext"] | null;
       /** Id */
       id: string;
@@ -2998,6 +3000,62 @@ export interface components {
       native_started: boolean;
       /** Session */
       session: ("new" | "resumed" | "unavailable") | null;
+    };
+    /** CoordinatorViewContext */
+    CoordinatorViewContext: {
+      /**
+       * Surface
+       * @enum {string}
+       */
+      surface:
+        "board" | "inbox" | "archive" | "projects" | "milestones" | "task";
+      /** Project Id */
+      project_id: string | null;
+      /** Milestone Id */
+      milestone_id: string | null;
+      /** Label Id */
+      label_id: string | null;
+      /**
+       * Without Milestone
+       * @default false
+       */
+      without_milestone: boolean;
+      /** Workspace Name */
+      workspace_name: string;
+      /** Workspace Revision */
+      workspace_revision: number;
+      /** Project Name */
+      project_name: string | null;
+      /** Project Revision */
+      project_revision: number | null;
+      /** Milestone Title */
+      milestone_title: string | null;
+      /** Milestone Revision */
+      milestone_revision: number | null;
+      /** Label Name */
+      label_name: string | null;
+      /** Label Revision */
+      label_revision: number | null;
+    };
+    /** CoordinatorViewSelection */
+    CoordinatorViewSelection: {
+      /**
+       * Surface
+       * @enum {string}
+       */
+      surface:
+        "board" | "inbox" | "archive" | "projects" | "milestones" | "task";
+      /** Project Id */
+      project_id?: string | null;
+      /** Milestone Id */
+      milestone_id?: string | null;
+      /** Label Id */
+      label_id?: string | null;
+      /**
+       * Without Milestone
+       * @default false
+       */
+      without_milestone: boolean;
     };
     /** Correction */
     Correction: {

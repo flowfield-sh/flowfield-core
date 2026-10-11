@@ -30,7 +30,7 @@ from flowfield.run_activity import ActivityRecorder, ActivityUpdate
 if TYPE_CHECKING:
     from flowfield.supervisor import Supervisor
 
-GUIDANCE = """You are this project's Flowfield coordinator. Help the human shape intent,
+GUIDANCE = """You are this workspace's Flowfield coordinator. Help the human shape intent,
 prepare tasks and resolve saved input. Native session history carries this conversation;
 any recent_conversation field is a one-time handoff from earlier Flowfield chat.
 Use get_coordinator_history and get_coordinator_text for relevant older saved exchanges, following
@@ -44,13 +44,17 @@ before continuing. Follow its pages and full-text links as needed; do not assume
 merely because recent_conversation is empty.
 Follow its text_sources/older_history when relevant; earlier attachment identities do not
 include file contents. Ask the human to reattach relevant files before relying on them.
-Read get_project and get_board first; canonical Flowfield state takes precedence over old
-messages. Follow full-text and pagination links before editing, and read current revisions
+Read get_workspace and list_workspace_projects first, then get_project/get_board for relevant
+projects; canonical Flowfield state takes precedence over old messages.
+Follow full-text and pagination links before editing, and read current revisions
 before every consequential write.
-A selected_task is the human's explicit focus for this message, captured at send time.
-Read that task through MCP before acting; it is context, not a replacement assignment or
-permission to change active work. If a result_id is present, discuss that exact result.
-Without selected_task, do not assume an earlier selection is still the human's focus.
+The adjacent_view captures the browser surface and its filters when this message was sent.
+For a task view, selected_task identifies its exact project, task revision and optional result.
+Read relevant current records through MCP before acting. This context guides relevance and
+default destinations; it does not grant authority, change assignments or imply approval.
+A workspace view without a project filter has no implied project destination. Clarify when
+the message and view leave that destination ambiguous. Never carry an earlier view forward
+when the current message has no such context. If result_id is present, discuss that exact result.
 Use only the named scoped MCP connection for Flowfield operations. Do not use ambient
 Flowfield connections, CLI or database files. Workspace identity is bound to these tools.
 Repository operations require an explicit project_id from list_workspace_projects; clarify
@@ -169,6 +173,7 @@ class Coordinator:
             "workspace_id": turn.workspace_id,
             "flowfield_connection": server,
             "human_message": turn.text,
+            "adjacent_view": turn.view_context.model_dump() if turn.view_context else None,
             "selected_task": turn.task_context.model_dump() if turn.task_context else None,
         }
         if resumed:

@@ -1,10 +1,10 @@
-import { ResourceRetry } from "./ResourceRetry";
+import type { AdjacentContext } from "./AdjacentView";
 import { toast } from "sonner";
 import { reportError } from "./requestFeedback";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
-import { request, RequestError, type Task } from "./workspace";
+import { request, RequestError } from "./workspace";
 import { Markdown } from "./Markdown";
 import { Timestamp } from "./Timestamp";
 import { AgentSettingsControl } from "./AgentSettings";
@@ -18,7 +18,7 @@ import { ActivityEntries } from "./RunActivity";
 import { useFeedScroll } from "./useFeedScroll";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowUp, LoaderCircle, Square, X } from "lucide-react";
+import { ArrowUp, LoaderCircle, Square } from "lucide-react";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { taskHref } from "./navigation";
 type Page = components["schemas"]["CoordinatorPage"];
@@ -30,7 +30,7 @@ type ChatDraft = {
   id: string;
   text: string;
   contextKey?: string;
-  taskContext?: components["schemas"]["CoordinatorTaskSelection"] | null;
+  context?: AdjacentContext;
 };
 export type ChatDrafts = Map<string, ChatDraft>;
 
@@ -44,48 +44,21 @@ function mergeTurns(previous: Turn[], updates: Turn[]) {
 
 export function CoordinatorChat({
   workspaceId,
-  projectId,
+  adjacent,
   refresh,
   drafts,
   onSettingsDirty,
   controlsActive = true,
-  taskKey,
-  selectedResultId,
 }: {
   workspaceId: string;
-  projectId?: string;
+  adjacent: AdjacentContext | null;
   refresh: unknown;
   drafts: ChatDrafts;
   onSettingsDirty: (dirty: boolean) => void;
   controlsActive?: boolean;
-  taskKey?: string;
-  selectedResultId?: string;
 }) {
-  const selected = useResource<Task>(
-    taskKey && projectId
-      ? `projects/${projectId}/view/tasks/${encodeURIComponent(taskKey)}`
-      : null,
-    refresh,
-  );
-  const selectionKey = JSON.stringify([projectId, taskKey, selectedResultId]);
-  const [taskFocus, setTaskFocus] = useState({
-    key: selectionKey,
-    dismissed: false,
-  });
-  if (taskFocus.key !== selectionKey)
-    setTaskFocus({ key: selectionKey, dismissed: false });
-  const attachTask =
-    !!taskKey && (taskFocus.key !== selectionKey || !taskFocus.dismissed);
-  const contextPending = attachTask && (!selected.data || !!selected.error);
-  const taskContext =
-    attachTask && selected.data && projectId
-      ? {
-          project_id: projectId,
-          task_id: selected.data.id,
-          task_revision: selected.data.revision,
-          result_id: selectedResultId ?? null,
-        }
-      : null;
+  const contextPending = !adjacent;
+  const taskContext = adjacent?.task;
   const base = `workspaces/${workspaceId}/coordinator`;
   const [history, setHistory] = useState<{ page: Page | null; items: Turn[] }>({
     page: null,
@@ -234,6 +207,7 @@ export function CoordinatorChat({
     setBusy(true);
     try {
       const contextKey = JSON.stringify([
+        adjacent?.view,
         taskContext?.project_id,
         taskContext?.task_id,
         taskContext?.result_id,
@@ -242,22 +216,25 @@ export function CoordinatorChat({
         ...draft,
         id: draft.contextKey === contextKey ? draft.id : crypto.randomUUID(),
         contextKey,
-        taskContext:
-          draft.contextKey === contextKey ? draft.taskContext : taskContext,
+        context: draft.contextKey === contextKey ? draft.context : adjacent!,
       };
       drafts.set(key, receipt);
       setDraft(receipt);
       await request(`${base}/messages`, "POST", {
         id: receipt.id,
         text: receipt.text,
-        task_context: receipt.taskContext,
+        view_context: receipt.context?.view,
+        task_context: receipt.context?.task,
       });
       update("");
       setTick((n) => n + 1);
     } catch (e) {
       // A rejected stale selection has no effects. Other uncertain failures retain
       // the original receipt and context, even if live task revisions advance.
-      if (e instanceof RequestError && e.code === "task_context_changed")
+      if (
+        e instanceof RequestError &&
+        (e.code === "task_context_changed" || e.code === "view_context_changed")
+      )
         update(draft.text);
       reportError(e, "Could not send message");
       setTick((n) => n + 1);
@@ -481,47 +458,7 @@ export function CoordinatorChat({
             </AlertDescription>
           </Alert>
         )}
-        {attachTask && (
-          <div
-            className="coordinator-task-context"
-            role="group"
-            aria-label="Message task context"
-          >
-            {selected.data ? (
-              <WorkspaceLink
-                to={
-                  taskHref(selected.data.project_id, selected.data) +
-                  (selectedResultId
-                    ? `/conversation/result:${encodeURIComponent(selectedResultId)}`
-                    : "")
-                }
-                title={selected.data.title}
-              >
-                {selected.data.key} · {selected.data.title}
-                {selectedResultId ? " · selected result" : ""}
-              </WorkspaceLink>
-            ) : (
-              <span>
-                {selected.error
-                  ? "Task context unavailable"
-                  : "Loading task context…"}
-              </span>
-            )}
-            <ResourceRetry resources={[selected]}>
-              Retry task context
-            </ResourceRetry>
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label="Remove task context"
-              onClick={() =>
-                setTaskFocus({ key: selectionKey, dismissed: true })
-              }
-            >
-              <X size={12} />
-            </Button>
-          </div>
-        )}
+
         <Composer
           workspaceId={workspaceId}
           nativeCommands={{
@@ -549,8 +486,12 @@ export function CoordinatorChat({
                 refresh={refresh}
                 coordinator
                 coordinatorActive={!!active}
-                open={controlsActive && (settingsOpen ?? (!choice && !taskKey))}
-                autoOpened={settingsOpen === undefined && !choice && !taskKey}
+                open={
+                  controlsActive && (settingsOpen ?? (!choice && !taskContext))
+                }
+                autoOpened={
+                  settingsOpen === undefined && !choice && !taskContext
+                }
                 onOpenChange={setSettingsOpen}
                 onDirty={dirty}
                 onReady={setChoice}

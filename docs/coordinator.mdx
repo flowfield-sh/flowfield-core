@@ -11,14 +11,15 @@ Open a card to discuss that task without losing the conversation.
 
 Set up a supported [agent](/agents/overview),
 then check detected paths in **Settings → Harnesses** if needed.
-Add an existing project using **Add project → Choose directory** or `flowfield project init --workspace WORKSPACE_ID`.
+Create a workspace, then add an existing project using **Projects → Add project → Choose directory** or `flowfield project init --workspace WORKSPACE_ID`.
 Choose the Coordinator's harness, model and access controls beside the input. Models load
 automatically; save your choice to start. Worker settings are independent. The Coordinator
 uses the service host's tools and credentials and receives Flowfield tools automatically.
 
 Write your message and select **Send** (or press Enter). Use Command/Ctrl+Enter or
 Shift+Enter for a new line. Send is available once you have saved your model settings.
-The coordinator manages work through project-scoped Flowfield tools, including destination,
+The coordinator manages the workspace through scoped Flowfield tools. Repository actions name
+a member project, including its destination,
 setup/check commands, result-preview settings and setup validation. Validation runs in a
 separate checkout without starting a model or enabling the worker queue. You can also ask it
 to configure the project or local environment directly, within its selected access mode.
@@ -51,7 +52,7 @@ its native session history, subject to the harness's context management. Reattac
 start a new session or need details that compaction has omitted. Previously sent files
 remain available to download. Task-feed answers and feedback accompany separate worker
 attempts; attach files again when later input needs their contents.
-Each project has 128 MiB of attachment storage. Unsent uploads expire after 24 hours.
+Each workspace conversation and each project’s task feeds have separate 128 MiB attachment storage limits. Unsent uploads expire after 24 hours.
 
 Type `/` and select **Load commands** to see the Coordinator commands. Use arrow keys
 and Enter to select, then send. Escape returns to ordinary writing.
@@ -70,7 +71,7 @@ send no model prompt; compaction may use the model. Commands take no arguments o
 supports it. Select it to save Fast on or off for subsequent messages. It provides faster
 responses with increased usage; hover or focus the button for its description and current state.
 Changing models starts at normal speed. Running turns keep their captured settings.
-Saved choices are checked in the background when the project opens or the browser reconnects.
+Saved choices are checked in the background when the workspace opens or the browser reconnects.
 Task workers have the same lightning control for subsequent attempts. Fast defaults to off
 for each task, with no project-wide speed setting.
 
@@ -80,17 +81,19 @@ This saved report survives reloads and restarts, even if later commands do not r
 Starting a replacement session clears the previous session's report. The ring stays empty
 until the agent reports usage. Context occupancy is separate from billable token usage.
 
-## Focus on a task
+## Discuss the current view
 
 Open a board card to show its definition and feed beside the same coordinator conversation.
-Project tabs stay available: **Board** closes the task, while the back arrow before its
+Workspace tabs stay available: **Board** closes the task, while the back arrow before its
 title returns to the previous view. On narrow screens, switch between
 **Work** and **Coordinator**.
 
-The task reference above the composer shows what your next message refers to. Remove it
-to discuss the project without a selected task. Sending records that task and its revision;
-changing cards later does not change earlier messages or start a new chat. A result permalink
-also attaches that exact result. The coordinator reads current task state before making changes.
+Each message automatically includes the view open beside the conversation. A task view records
+its project and task revision; a result permalink includes that exact result. Board and Archive
+views include their project, milestone and label filters. Inbox includes its project filter.
+Return to the Board or Projects to discuss broader work. Changing views later does not change
+earlier messages or start a new chat. The coordinator reads current state before making changes
+and asks when the intended project is ambiguous.
 Session commands still operate on the coordinator conversation as a whole.
 
 Discuss planning, card changes and result questions here. Task feeds retain worker activity,
@@ -102,7 +105,7 @@ interactions. Selecting a task never launches a worker.
 ## Follow and stop
 
 Replies and tool activity stream in order. Tool activity appears in grey, and each reply
-shows its current status. One coordinator turn can run per project, independently of worker
+shows its current status. One coordinator turn can run per workspace, independently of worker
 slots. You can write your next draft while it runs, then send when it finishes.
 
 **Stop** ends the selected coordinator turn. Saved task changes remain, and task workers
@@ -113,7 +116,7 @@ be confirmed, stop the remaining coordinator process on the host before choosing
 
 ## Continue later
 
-Each project has one ongoing coordinator conversation. Messages, public output and turn settings
+Each workspace has one ongoing coordinator conversation shared across its projects. Messages, public output and turn settings
 are saved by the service. Older messages load on demand and stay visible as new replies arrive.
 Use **Read full reply** for shortened previews and **Retained output** for tool details.
 **Working…** appears during an active turn; **Waiting for permission** indicates that your

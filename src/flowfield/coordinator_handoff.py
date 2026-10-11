@@ -69,6 +69,7 @@ def select(
             )
         }
         entry.update(
+            adjacent_view=source["view_context"],
             selected_task=json.dumps(source["task_context"]) if source["task_context"] else "",
             attachments=attachment_identities(project, source["human"]),
             text_sources={

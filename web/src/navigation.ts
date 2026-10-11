@@ -143,18 +143,27 @@ export function useWorkspaceNavigation(
   overlayDirty: boolean,
   setOverlayDirty: (value: boolean) => void,
   chatSettingsDirty = false,
+  projectOwners: Record<string, string> = {},
 ) {
   const location = useLocation();
   const navigate = useNavigate();
   const matches = useMatches();
   const params = matches.at(-1)?.params ?? {};
   const bypass = useRef(false);
+  function workspaceOwner(path: string) {
+    const [, kind, identity] = path.split("/");
+    return kind === "workspaces"
+      ? identity
+      : kind === "projects"
+        ? (projectOwners[identity] ?? `project:${identity}`)
+        : null;
+  }
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       !bypass.current &&
       ((chatSettingsDirty &&
-        currentLocation.pathname.split("/")[2] !==
-          nextLocation.pathname.split("/")[2]) ||
+        workspaceOwner(currentLocation.pathname) !==
+          workspaceOwner(nextLocation.pathname)) ||
         (overlayDirty && currentLocation.pathname !== nextLocation.pathname) ||
         (unsaved &&
           editorIdentity(currentLocation.pathname) !==

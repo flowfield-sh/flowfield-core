@@ -10,6 +10,7 @@ from flowfield.adapters.coordinator_sessions import CoordinatorSessions
 from flowfield.agent_settings import AgentSettings
 from flowfield.application import Workspace, now
 from flowfield.attachments import Attachments
+from flowfield.coordinator_context import freeze_view, same_view
 from flowfield.coordinator_handoff import freeze, select
 from flowfield.coordinator_models import (
     CoordinatorConversation,
@@ -213,6 +214,7 @@ class CoordinatorStore:
                     old.text != request.text
                     or old.conversation_id != conversation
                     or not same_context
+                    or not same_view(old.view_context, request.view_context)
                 ):
                     raise ApplicationError(
                         "message_conflict", "This message identity has different content.", 409
@@ -238,6 +240,9 @@ class CoordinatorStore:
                         "Result does not belong to the selected task.",
                         404,
                     )
+            view_context = freeze_view(
+                self.workspace, db, project, request.view_context, request.task_context
+            )
             if not available:
                 raise ApplicationError(
                     "coordinator_capacity",
@@ -276,6 +281,7 @@ class CoordinatorStore:
                 )
             settings = AgentSettings(self.workspace).freeze(db, settings)
             turn = CoordinatorTurn(
+                view_context=view_context,
                 task_context=CoordinatorTaskContext(
                     project_id=task.project_id,
                     task_id=task.id,

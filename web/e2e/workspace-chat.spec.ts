@@ -108,7 +108,17 @@ test("member projects share coordinator history and a draft", async ({
   ).toContainText("Plan both repositories here.");
   const messages: {
     id: string;
-    task_context: { project_id: string; task_id: string };
+    task_context: {
+      project_id: string;
+      task_id: string;
+      task_revision: number;
+    } | null;
+    view_context: {
+      surface: string;
+      project_id: string | null;
+      label_id: string | null;
+      milestone_id: string | null;
+    };
   }[] = [];
   await page.route(`**${base}/messages`, (route) => {
     messages.push(route.request().postDataJSON());
@@ -136,4 +146,48 @@ test("member projects share coordinator history and a draft", async ({
     task_id: "same",
   });
   expect(messages[0].id).not.toBe(messages[1].id);
+  expect(messages[1].view_context).toMatchObject({
+    surface: "task",
+    project_id: "shared-site",
+  });
+  await expect(
+    page.getByRole("group", { name: "Message task context" }),
+  ).toHaveCount(0);
+  const current = await (
+    await request.get("/api/projects/shared-site/view/tasks/same")
+  ).json();
+  await request.put("/api/projects/shared-site/tasks/same", {
+    data: { expected_revision: current.revision, title: "Revised site task" },
+  });
+  await expect(
+    page.getByRole("heading", {
+      name: "SIT-1 · Revised site task",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect.poll(() => messages.length).toBe(3);
+  expect(messages[2]).toEqual(messages[1]);
+  await page
+    .getByRole("button", { name: "Back to board", exact: true })
+    .click();
+  await page.getByLabel("Filter by project").selectOption("");
+  await page.getByLabel("Filter by label").selectOption("bug");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect.poll(() => messages.length).toBe(4);
+  expect(messages[3].view_context).toMatchObject({
+    surface: "board",
+    project_id: null,
+    label_id: "bug",
+  });
+  expect(messages[3].task_context).toBeNull();
+  expect(messages[3].id).not.toBe(messages[2].id);
+  await page.getByRole("tab", { name: /^Projects/ }).click();
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect.poll(() => messages.length).toBe(5);
+  expect(messages[4].view_context).toMatchObject({
+    surface: "projects",
+    project_id: null,
+    label_id: null,
+  });
 });

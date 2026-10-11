@@ -949,6 +949,7 @@ test("long project chat preserves loaded history while live pages advance", asyn
   const historyPath = "/api/projects/long-chat-project/coordinator";
   let count = 40;
   const turn = (number: number): Turn => ({
+    view_context: null,
     task_context: null,
     id: `history-message-${number}`,
     number,
@@ -1048,13 +1049,16 @@ test("long project chat preserves loaded history while live pages advance", asyn
   ).toBeAttached();
 });
 
-test("task focus preserves one coordinator, records context at send and restores the board", async ({
+test("automatic task context preserves one coordinator and immutable retry receipts", async ({
   page,
   request,
 }, testInfo) => {
   const project = "focused-chat";
   mkdirSync(join(state, project), { recursive: true });
-  await request.post("/api/projects/initialize", {
+  const workspace = await (
+    await request.post("/api/workspaces", { data: { name: "Focused chat" } })
+  ).json();
+  await request.post(`/api/workspaces/${workspace.id}/projects`, {
     data: { path: join(state, project), task_prefix: "FOC" },
   });
   const tasks: { id: string; key: string; revision: number }[] = [];
@@ -1078,7 +1082,7 @@ test("task focus preserves one coordinator, records context at send and restores
     mode: "read-only",
     fast: false,
   };
-  await page.route("**/api/worker-models*", (route) =>
+  await page.route(`**/api/workspaces/${workspace.id}/models*`, (route) =>
     route.fulfill({
       json: [
         {
@@ -1090,32 +1094,36 @@ test("task focus preserves one coordinator, records context at send and restores
       ],
     }),
   );
-  await page.route(`**/api/projects/${project}/coordinator-settings`, (route) =>
-    route.fulfill({
-      json: {
-        revision: 1,
-        selection: choice,
-        effective: {
-          choice,
-          source: "project",
-          default_revision: 1,
-          override_revision: null,
+  await page.route(
+    `**/api/workspaces/${workspace.id}/coordinator-settings`,
+    (route) =>
+      route.fulfill({
+        json: {
+          revision: 1,
+          selection: choice,
+          effective: {
+            choice,
+            source: "project",
+            default_revision: 1,
+            override_revision: null,
+          },
         },
-      },
-    }),
+      }),
   );
   const turns: unknown[] = [];
   const attempts: unknown[] = [];
   const messages: {
     task_context: { task_id: string; task_revision: number } | null;
   }[] = [];
-  await page.route(`**/api/projects/${project}/coordinator{,?*}`, (route) =>
-    route.fulfill({
-      json: { items: turns, active: null, next_before: null, context: null },
-    }),
+  await page.route(
+    `**/api/workspaces/${workspace.id}/coordinator{,?*}`,
+    (route) =>
+      route.fulfill({
+        json: { items: turns, active: null, next_before: null, context: null },
+      }),
   );
   await page.route(
-    `**/api/projects/${project}/coordinator/messages`,
+    `**/api/workspaces/${workspace.id}/coordinator/messages`,
     (route) => {
       const message = route.request().postDataJSON();
       attempts.push(message);
@@ -1155,7 +1163,7 @@ test("task focus preserves one coordinator, records context at send and restores
   await expect(input).toHaveValue("Explain this scope");
   await expect(
     page.getByRole("group", { name: "Message task context" }),
-  ).toContainText("FOC-1");
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect(
     page.locator("[data-sonner-toast][data-type=error]"),
@@ -1179,22 +1187,29 @@ test("task focus preserves one coordinator, records context at send and restores
   await expect(
     page.getByRole("region", { name: "Coordinator conversation" }),
   ).toContainText("FOC-1");
+  await page
+    .locator(".entity-pane .entity-overlay-body")
+    .evaluate((element) => {
+      element.scrollTop = 0;
+    });
   await page.screenshot({
+    animations: "disabled",
     path: testInfo.outputPath("task-beside-coordinator.png"),
   });
   await detail.getByRole("button", { name: "Back to board" }).click();
   await page.getByRole("link", { name: /FOC-2.*Review the index/ }).click();
   await expect(
     page.getByRole("group", { name: "Message task context" }),
-  ).toContainText("FOC-2");
+  ).toHaveCount(0);
   await expect(
     page.getByRole("region", { name: "Coordinator conversation" }),
   ).toContainText("FOC-1");
-  await page.getByRole("button", { name: "Remove task context" }).click();
+  await detail.getByRole("button", { name: "Back to board" }).click();
   await input.fill("Discuss the whole project");
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(() => messages.length).toBe(2);
   expect(messages[1].task_context).toBeNull();
+  await page.getByRole("link", { name: /FOC-2.*Review the index/ }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(detail).toBeVisible();
   await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
@@ -1208,7 +1223,7 @@ test("task focus preserves one coordinator, records context at send and restores
   await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
   await expect(
     page.getByRole("group", { name: "Message task context" }),
-  ).toContainText("FOC-1");
+  ).toHaveCount(0);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -1217,6 +1232,13 @@ test("task focus preserves one coordinator, records context at send and restores
   await expect(
     page.getByRole("tab", { name: "Coordinator", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
+  await page.evaluate(() => {
+    localStorage.setItem("flowfield.theme", "dark");
+    window.dispatchEvent(
+      new StorageEvent("storage", { key: "flowfield.theme" }),
+    );
+  });
+  await expect(page.locator("html")).toHaveClass(/dark/);
   await page.screenshot({
     path: testInfo.outputPath("task-context-mobile.png"),
     animations: "disabled",

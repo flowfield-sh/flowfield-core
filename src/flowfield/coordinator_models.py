@@ -6,6 +6,7 @@ from pydantic import AliasChoices, Field
 
 from flowfield.agent_models import AgentRecord, EffectiveAgent
 from flowfield.harness_models import HarnessLaunch
+from flowfield.project_config import Identifier
 from flowfield.run_activity import ContextUsage, RunActivityPage
 
 
@@ -28,13 +29,34 @@ class CoordinatorTaskContext(CoordinatorTaskSelection):
     title: str
 
 
+class CoordinatorViewSelection(AgentRecord):
+    surface: Literal["board", "inbox", "archive", "projects", "milestones", "task"]
+    project_id: Identifier | None = None
+    milestone_id: Identifier | None = None
+    label_id: Identifier | None = None
+    without_milestone: bool = False
+
+
+class CoordinatorViewContext(CoordinatorViewSelection):
+    workspace_name: str
+    workspace_revision: int
+    project_name: str | None = None
+    project_revision: int | None = None
+    milestone_title: str | None = None
+    milestone_revision: int | None = None
+    label_name: str | None = None
+    label_revision: int | None = None
+
+
 class CoordinatorSend(AgentRecord):
+    view_context: CoordinatorViewSelection | None = None
     id: str = Field(pattern=r"^[a-zA-Z0-9_-]{16,100}$")
     text: str = Field(min_length=1, max_length=16000)
     task_context: CoordinatorTaskSelection | None = None
 
 
 class CoordinatorTurn(AgentRecord):
+    view_context: CoordinatorViewContext | None = None
     task_context: CoordinatorTaskContext | None = None
     id: str
     number: int = 0

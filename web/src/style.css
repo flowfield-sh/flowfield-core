@@ -1189,22 +1189,6 @@
 }
 
 @layer components {
-  .coordinator-task-context {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    min-width: 0;
-  }
-  .coordinator-task-context > a {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .coordinator-task-context > button {
-    flex-shrink: 0;
-    margin-left: auto;
-  }
   .coordinator-task-reference {
     display: inline-block;
     font-size: 12px;

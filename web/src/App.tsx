@@ -9,6 +9,7 @@ import { WorkspaceList, NewWorkspace } from "./WorkspaceEntry";
 import { ProjectList } from "./ProjectList";
 import { SetupInstructions } from "./SetupInstructions";
 import { taskTab } from "./navigation";
+import type { AdjacentContext, AdjacentSnapshot } from "./AdjacentView";
 import { CoordinatorChat, type ChatDrafts } from "./CoordinatorChat";
 import {
   Tooltip,
@@ -77,6 +78,7 @@ type WorkRecord = Project | Milestone | Task;
 export function App() {
   const appearance = useTheme();
   const [chatDrafts] = useState<ChatDrafts>(() => new Map());
+  const [adjacent, setAdjacent] = useState<AdjacentSnapshot | null>(null);
   const [chatSettingsDirty, setChatSettingsDirty] = useState(false);
   const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
   const [connected, setConnected] = useState(false);
@@ -88,6 +90,7 @@ export function App() {
   );
   const [unsaved, setUnsaved] = useState(false);
   const [overlayDirty, setOverlayDirty] = useState(false);
+  const [knownOwners, setKnownOwners] = useState<Record<string, string>>({});
   const {
     params,
     pathname,
@@ -103,8 +106,8 @@ export function App() {
     overlayDirty,
     setOverlayDirty,
     chatSettingsDirty,
+    knownOwners,
   );
-  const [knownOwners, setKnownOwners] = useState<Record<string, string>>({});
   const registerProjects = useCallback(
     (workspaceId: string, projects: Project[]) => {
       setKnownOwners((previous) =>
@@ -267,19 +270,15 @@ export function App() {
                 <CoordinatorChat
                   key={workspaceId}
                   workspaceId={workspaceId}
-                  projectId={projectId}
+                  adjacent={
+                    adjacent?.workspaceId === workspaceId &&
+                    adjacent.pathname === pathname
+                      ? adjacent.context
+                      : null
+                  }
                   refresh={`${refresh}:${JSON.stringify(projectRefresh)}`}
                   drafts={chatDrafts}
                   onSettingsDirty={setChatSettingsDirty}
-                  taskKey={params.taskKey}
-                  selectedResultId={
-                    params.tab === "result" || params.tab === "changes"
-                      ? params.runId
-                      : params.tab === "conversation" &&
-                          params.runId?.startsWith("result:")
-                        ? params.runId.slice(7)
-                        : undefined
-                  }
                   controlsActive={
                     visible &&
                     (!entityPage(pathname) || !!params.taskKey) &&
@@ -332,6 +331,7 @@ export function App() {
               />
             ) : workspaceId && workspace ? (
               <WorkspaceBoard
+                publishView={setAdjacent}
                 registerProjects={registerProjects}
                 key={workspaceId}
                 workspaceId={workspaceId}
@@ -390,6 +390,7 @@ export function App() {
 }
 
 function WorkspaceBoard({
+  publishView,
   workspaceId,
   registerProjects,
   projectId,
@@ -405,6 +406,7 @@ function WorkspaceBoard({
   backgroundPath,
 }: {
   workspaceId: string;
+  publishView: (snapshot: AdjacentSnapshot) => void;
   registerProjects: (workspaceId: string, projects: Project[]) => void;
   projectId?: string;
   refresh: string;
@@ -512,6 +514,59 @@ function WorkspaceBoard({
   const [filter, setFilter] = useState("");
   const archive =
     inView("archive") || (!backgroundPath && !!selectedTask?.archived);
+  const surface = taskRef
+    ? "task"
+    : projectsView
+      ? "projects"
+      : milestonesView
+        ? "milestones"
+        : showInbox
+          ? "inbox"
+          : archive
+            ? "archive"
+            : "board";
+  const filtered = surface === "board" || surface === "archive";
+  const adjacentContext: AdjacentContext | null =
+    board && (!taskRef || (taskDetail && !detailError))
+      ? {
+          view: {
+            surface,
+            project_id:
+              surface === "task"
+                ? projectId
+                : filtered || surface === "inbox"
+                  ? projectFilter || null
+                  : null,
+            milestone_id:
+              filtered && filter && filter !== "none" ? filter : null,
+            without_milestone: filtered && filter === "none",
+            label_id: filtered ? labelFilter || null : null,
+          },
+          task:
+            taskRef && taskDetail
+              ? {
+                  project_id: taskDetail.project_id,
+                  task_id: taskDetail.id,
+                  task_revision: taskDetail.revision,
+                  result_id:
+                    params.tab === "result" || params.tab === "changes"
+                      ? (params.runId ?? null)
+                      : params.tab === "conversation" &&
+                          params.runId?.startsWith("result:")
+                        ? params.runId.slice(7)
+                        : null,
+                }
+              : null,
+        }
+      : null;
+  const viewSnapshot = JSON.stringify(adjacentContext);
+  useEffect(() => {
+    publishView({
+      workspaceId,
+      pathname,
+      context: JSON.parse(viewSnapshot) as AdjacentContext | null,
+    });
+  }, [workspaceId, pathname, viewSnapshot, publishView]);
   const [dragged, setDragged] = useState<TaskCard | null>(null);
   const [dropTarget, setDropTarget] = useState<{
     status: WorkStatus;
