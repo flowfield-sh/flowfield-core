@@ -13,6 +13,7 @@ from flowfield.agent_models import (
     EffectiveAgent,
 )
 from flowfield.application import Workspace
+from flowfield.coordinator_settings import CoordinatorSettings
 from flowfield.errors import ApplicationError
 from flowfield.harness_settings import HarnessSettings
 
@@ -25,6 +26,10 @@ class AgentSettings:
         self, db: sqlite3.Connection, project: str, role: AgentRole, scope: str = ""
     ) -> AgentSettingsView:
         self.workspace._project(db, project)
+        if role == "coordinator" and self.workspace.schema_version >= 58:
+            owner = worker_settings.workspace_id(db, project)
+            if owner:
+                return CoordinatorSettings.read(db, owner)
         if scope and role == "worker":
             scope = self.workspace._task(db, project, scope).id
         if role == "worker" and not scope:
@@ -65,7 +70,8 @@ class AgentSettings:
                     "override"
                     if override and override.selection
                     else "workspace"
-                    if role == "worker" and worker_settings.workspace_id(db, project)
+                    if worker_settings.workspace_id(db, project)
+                    and (role == "worker" or self.workspace.schema_version >= 58)
                     else "project"
                 ),
                 default_revision=defaults.revision,
@@ -87,7 +93,9 @@ class AgentSettings:
     def edit(
         self, project: str, role: AgentRole, request: AgentSettingsEdit, scope: str = ""
     ) -> AgentSettingsView:
-        with self.workspace.connection(write=True, project_id=project) as db:
+        with self.workspace.connection(
+            write=True, project_id=project if role == "worker" else None
+        ) as db:
             return self._edit(db, project, role, request, scope)
 
     def _edit(
@@ -99,6 +107,10 @@ class AgentSettings:
         scope: str = "",
     ) -> AgentSettingsView:
         request = request.model_copy(update={"selection": self.normalize(request.selection, role)})
+        if role == "coordinator" and self.workspace.schema_version >= 58:
+            owner = worker_settings.workspace_id(db, project)
+            if owner:
+                return CoordinatorSettings(self.workspace).write(db, owner, request)
         if role == "worker" and not scope:
             raise ApplicationError("worker_defaults", "Use worker settings to edit defaults.")
         if role == "coordinator":

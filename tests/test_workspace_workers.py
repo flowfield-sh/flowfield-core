@@ -188,7 +188,7 @@ def test_failed_adoption_rolls_back_membership_and_agent_settings(tmp_path, monk
 
     monkeypatch.setattr("flowfield.application.write_config", fail)
     with pytest.raises(ApplicationError, match="fixture configuration failure"):
-        spaces.adopt(identity, ProjectSetup(path=path, coordinator=AgentChoice(model="fixture")))
+        spaces.adopt(identity, ProjectSetup(path=path))
     assert spaces.workers(identity) == before
     assert len(spaces.projects(identity)) == 2
     with store.connection() as db:

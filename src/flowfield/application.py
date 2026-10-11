@@ -565,6 +565,12 @@ class Workspace:
                 existing = Project(**dict(row)) if row else None
                 if workspace_id is not None:
                     Workspaces.read(db, workspace_id)
+                    if request.coordinator is not None:
+                        raise ApplicationError(
+                            "workspace_coordinator_settings",
+                            "Configure the workspace coordinator separately from project adoption.",
+                            409,
+                        )
                     if request.worker is not None:
                         raise ApplicationError(
                             "workspace_worker_defaults",

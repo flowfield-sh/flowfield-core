@@ -455,7 +455,10 @@ def test_schema_44_upgrade_preserves_choices_and_recovery_and_is_database_only(
     )
     upgraded = Workspace(workspace.directory)
     assert upgraded.schema_version == migrations.current_version()
-    assert AgentSettings(upgraded).get("harbor", "coordinator") == before
+    current = AgentSettings(upgraded).get("harbor", "coordinator")
+    assert current == before.model_copy(
+        update={"effective": before.effective.model_copy(update={"source": "workspace"})}
+    )
     assert len(HarnessSettings(upgraded).all()) == 3
     assert CoordinatorStore(upgraded).session("harbor", "codex", str(tmp_path)) is None
     with upgraded.connection() as db:

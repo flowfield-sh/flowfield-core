@@ -7,6 +7,7 @@ from uuid import uuid4
 from pydantic import StringConstraints
 
 from flowfield import worker_settings
+from flowfield.agent_models import AgentSettingsEdit, AgentSettingsView
 from flowfield.application import (
     Edit,
     Input,
@@ -17,6 +18,7 @@ from flowfield.application import (
     Workspace,
     now,
 )
+from flowfield.coordinator_settings import CoordinatorSettings
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import (
     QueueEdit,
@@ -181,6 +183,12 @@ class Workspaces:
     def workers(self, identity: str) -> WorkspaceWorkerSettings:
         with self.store.connection() as db:
             return worker_settings.read_workspace(db, identity)
+
+    def coordinator(self, identity: str) -> AgentSettingsView:
+        return CoordinatorSettings(self.store).get(identity)
+
+    def configure_coordinator(self, identity: str, request: AgentSettingsEdit) -> AgentSettingsView:
+        return CoordinatorSettings(self.store).edit(identity, request)
 
     def configure_workers(self, identity: str, request: SettingsEdit) -> WorkspaceWorkerSettings:
         with self.store.connection(write=True) as db:

@@ -123,7 +123,9 @@ def test_mcp_board_parity_and_restart(tmp_path: Path) -> None:
                 assert {"get_project_guidance", "update_project_guidance"} <= tools.keys()
                 for name, tool in tools.items():
                     if name not in {"list_projects", "list_worker_models"}:
-                        assert "project_id" in tool.inputSchema["required"]
+                        assert {"project_id", "workspace_id"}.intersection(
+                            tool.inputSchema["required"]
+                        )
                 assert tools["get_board"].annotations.readOnlyHint
                 assert not tools["prioritize_task"].annotations.readOnlyHint
 
