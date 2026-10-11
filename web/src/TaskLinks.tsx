@@ -1,3 +1,5 @@
+import { useLocation, useNavigate } from "react-router";
+import { entityNavigationState } from "./navigation";
 import { TooltipLink } from "./TooltipLink";
 import { followLink, taskHref } from "./navigation";
 import type { TaskReference } from "./workspace";
@@ -10,12 +12,27 @@ export function TaskLink({
   task: TaskReference;
   open: (id: string) => void;
 }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const href = taskHref(task.project_id, task);
   return (
     <TooltipLink
       className="task-key"
-      href={taskHref(projectId, task)}
+      href={href}
       tooltip={task.title}
-      onClick={(event) => followLink(event, () => open(task.id))}
+      onClick={(event) =>
+        followLink(event, () => {
+          if (task.project_id === projectId) open(task.id);
+          else
+            void navigate(href, {
+              state: entityNavigationState(
+                location.pathname,
+                location.state,
+                href,
+              ),
+            });
+        })
+      }
     >
       {task.key}
     </TooltipLink>
@@ -37,7 +54,7 @@ export function BlockedBy({
     <span>
       {prefix}{" "}
       {tasks.map((task, index) => (
-        <span key={task.id}>
+        <span key={task.key}>
           {index > 0 && ", "}
           <TaskLink projectId={projectId} task={task} open={open} />
         </span>

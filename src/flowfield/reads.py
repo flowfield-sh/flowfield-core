@@ -154,17 +154,18 @@ def iter_coordinator_exchanges(
 
 
 def task_metadata(
-    db: sqlite3.Connection, project_id: str
+    workspace: Workspace, db: sqlite3.Connection, project_id: str
 ) -> tuple[dict[str, TaskRevision], dict[str, int]]:
     # Read graph/current metadata only; never hydrate descriptions or revision histories.
-    rows = db.execute(
-        "SELECT id, position, json_set(data, '$.body', '', "
-        "'$.change_note', '') AS data FROM tasks WHERE project_id=?",
-        (project_id,),
-    ).fetchall()
+    rows = workspace._record_rows(db, project_id, metadata=True)
     return (
-        {r["id"]: TaskRevision.model_validate_json(r["data"]) for r in rows},
-        {r["id"]: r["position"] for r in rows},
+        {
+            r["key"]
+            if workspace.schema_version >= 62
+            else r["id"]: TaskRevision.model_validate_json(r["data"])
+            for r in rows
+        },
+        {r["key"] if workspace.schema_version >= 62 else r["id"]: r["position"] for r in rows},
     )
 
 
@@ -191,6 +192,7 @@ class ContextReads:
         return excerpt(
             {
                 "id": item.id,
+                "project_id": item.project_id,
                 "key": item.key,
                 "url": self.url(item.project_id, "tasks", item.key),
                 "title": item.title,
@@ -325,7 +327,7 @@ class ContextReads:
             raise ApplicationError("invalid_request", "Unknown readiness.")
         with self.workspace.connection() as db:
             self.workspace._project(db, project_id)
-            records, positions = task_metadata(db, project_id)
+            records, positions = task_metadata(self.workspace, db, project_id)
             if label_id:
                 from flowfield.labels import Labels
 
@@ -336,10 +338,14 @@ class ContextReads:
             items = []
             # Immutable task number gives stable pages even while priorities/status change.
             for item in sorted(records.values(), key=lambda t: int(t.key.split("-")[1])):
+                if item.project_id != project_id:
+                    continue
                 number = int(item.key.split("-")[1])
                 if after is not None and number <= after:
                     continue
-                summary = self._summary(item, completed, positions[item.id], db, records)
+                summary = self._summary(
+                    item, completed, positions[self.workspace._record_key(item)], db, records
+                )
                 if (
                     (item.archived and not include_archived)
                     or (status is not None and item.status != status)
@@ -360,12 +366,12 @@ class ContextReads:
                 **excerpt(self.workspace._project(db, project_id).model_dump()),
                 "url": self.url(project_id),
             }
-            records, positions = task_metadata(db, project_id)
+            records, positions = task_metadata(self.workspace, db, project_id)
             completed = self.workspace._completed(records, db)
             summaries = [
-                self._summary(t, completed, positions[t.id], db, records)
+                self._summary(t, completed, positions[self.workspace._record_key(t)], db, records)
                 for t in records.values()
-                if not t.archived
+                if t.project_id == project_id and not t.archived
             ]
             entered = dict(
                 db.execute(
@@ -401,12 +407,23 @@ class ContextReads:
                 "project": project,
                 "columns": columns,
                 **Questions(self.workspace).counts(db, project_id),
-                "archived_count": sum(t.archived for t in records.values()),
+                "archived_count": sum(
+                    t.archived for t in records.values() if t.project_id == project_id
+                ),
                 "blocked_count": sum(t["readiness"] == "blocked" for t in summaries),
                 "reconciliation_count": sum(
                     t["readiness"] == "needs_reconciliation" for t in summaries
                 ),
-                **self._briefing(db, project_id, summaries, positions),
+                **self._briefing(
+                    db,
+                    project_id,
+                    summaries,
+                    {
+                        t.id: positions[self.workspace._record_key(t)]
+                        for t in records.values()
+                        if t.project_id == project_id
+                    },
+                ),
             }
             while size(result) > PAGE_BYTES - 200:
                 largest = max(columns, key=lambda c: size(c["tasks"]))
@@ -629,12 +646,16 @@ class ContextReads:
             row = db.execute(
                 "SELECT data FROM tasks WHERE project_id=? AND id=?", (project_id, identity)
             ).fetchone()
-            current = json.loads(row[0])
+            current = TaskRevision.model_validate_json(row[0]).model_dump()
             assert identity is not None
-            records, positions = task_metadata(db, project_id)
+            records, positions = task_metadata(self.workspace, db, project_id)
             completed = self.workspace._completed(records, db)
-            item = records[identity]
-            summary = self._summary(item, completed, positions[item.id], db, records)
+            item = next(
+                t for t in records.values() if t.project_id == project_id and t.id == identity
+            )
+            summary = self._summary(
+                item, completed, positions[self.workspace._record_key(item)], db, records
+            )
             summary.pop("truncated_fields", None)
             result = {
                 **summary,
@@ -643,7 +664,11 @@ class ContextReads:
             for name, ids in {
                 "prerequisites": item.dependencies,
                 "blocked_by": [p for p in item.dependencies if p not in completed],
-                "dependents": [t.id for t in records.values() if item.id in t.dependencies],
+                "dependents": [
+                    self.workspace._record_key(t)
+                    for t in records.values()
+                    if self.workspace._record_key(item) in t.dependencies
+                ],
             }.items():
                 result[name] = [
                     self._summary(records[p], completed, positions[p], db, records) for p in ids[:5]
@@ -697,7 +722,10 @@ class ContextReads:
                     ("prerequisites", "blocked_by", "dependents"), key=lambda k: size(result[k])
                 )
                 result[largest].pop()
-            result["dependencies"] = [p["id"] for p in result["prerequisites"]]
+            result["dependencies"] = [
+                p["key"] if self.workspace.schema_version >= 62 else p["id"]
+                for p in result["prerequisites"]
+            ]
             result["dependencies_truncated"] = len(result["dependencies"]) < len(item.dependencies)
             return result
 
@@ -707,36 +735,44 @@ class ContextReads:
         task_id: str,
         *,
         relation: Literal["prerequisites", "blocked_by", "dependents"] = "prerequisites",
-        after: int | None = None,
+        after: str | None = None,
         limit: int = DEFAULT_LIMIT,
     ) -> dict[str, Any]:
         validate_page(limit, after)
+        if after is not None and (not isinstance(after, str) or not after):
+            raise ApplicationError("invalid_request", "Use the returned task-key cursor.")
         with self.workspace.connection() as db:
             identity = self.workspace._activity_scope(db, project_id, task_id)
             assert identity is not None
-            records, positions = task_metadata(db, project_id)
+            records, positions = task_metadata(self.workspace, db, project_id)
             completed = self.workspace._completed(records, db)
-            item = records[identity]
+            item = next(
+                t for t in records.values() if t.project_id == project_id and t.id == identity
+            )
             ids = (
                 item.dependencies
                 if relation == "prerequisites"
                 else [p for p in item.dependencies if p not in completed]
                 if relation == "blocked_by"
-                else [t.id for t in records.values() if item.id in t.dependencies]
+                else [
+                    self.workspace._record_key(t)
+                    for t in records.values()
+                    if self.workspace._record_key(item) in t.dependencies
+                ]
             )
             items = []
-            for key in sorted(ids, key=lambda p: int(records[p].key.split("-")[1])):
-                number = int(records[key].key.split("-")[1])
-                if after is None or number > after:
+            for key in sorted(ids, key=lambda p: records[p].key):
+                cursor = records[key].key
+                if after is None or cursor > after:
                     items.append(
                         {
                             **self._summary(records[key], completed, positions[key], db, records),
-                            "number": number,
+                            "cursor": cursor,
                         }
                     )
                 if len(items) > limit:
                     break
-            return page(items, limit, "number")
+            return page(items, limit, "cursor")
 
     def revisions(
         self,

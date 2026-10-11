@@ -48,7 +48,7 @@ def test_graph_validation_is_atomic_and_scoped(tmp_path: Path) -> None:
     service.create_task("other", task_request(id="foreign", title="Foreign"))
     service.create_task("harbor", task_request(id="a", title="A"))
     service.create_task("harbor", task_request(id="b", title="B", dependencies=["a", "a"]))
-    assert service.task("harbor", "b").dependencies == ["a"]
+    assert service.task("harbor", "b").dependencies == ["HAR-1"]
     before = service.board("harbor")
     for dependencies, code in [
         (["missing"], "invalid_dependency"),
@@ -233,7 +233,7 @@ def test_http_reconciliation_and_cli_dependencies(tmp_path: Path) -> None:
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://127.0.0.1") as client:
         task = client.get("/api/projects/harbor/tasks/b").json()
         assert task["readiness"] == "ready" and task["change_note"] == "Reviewed the integration."
-        assert task["dependencies"] == ["a"]
+        assert task["dependencies"] == ["HAR-1"]
         assert (
             client.post(
                 "/api/projects/harbor/tasks/b/reconcile",

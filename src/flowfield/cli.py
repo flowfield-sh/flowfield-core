@@ -1331,7 +1331,7 @@ def task_relationships(
     task: str,
     project: ProjectOption = None,
     relation: str = "prerequisites",
-    after: int | None = None,
+    after: str | None = None,
     limit: int = 20,
     json_output: Json = False,
 ) -> None:

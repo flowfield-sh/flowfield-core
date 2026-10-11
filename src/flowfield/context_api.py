@@ -94,7 +94,7 @@ def context_router(workspace: Callable[[], Workspace]) -> APIRouter:
         project_id: str,
         task_id: str,
         relation: Literal["prerequisites", "blocked_by", "dependents"] = "prerequisites",
-        after: int | None = None,
+        after: str | None = None,
         limit: int = 20,
     ) -> dict[str, Any]:
         return context.relationships(

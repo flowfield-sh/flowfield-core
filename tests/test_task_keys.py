@@ -62,7 +62,7 @@ def test_key_aliases_share_graph_progress_and_revision_checks(tmp_path: Path) ->
     b = service.create_task(
         "harbor", task_request(id="download", title="Download", dependencies=[a.key.lower(), a.id])
     )
-    assert b.dependencies == [a.id] and b.blocked_by[0].key == a.key
+    assert b.dependencies == [a.key] and b.blocked_by[0].key == a.key
     assert service.task("harbor", a.key).dependents[0].key == b.key
     assert (
         service.edit_task(
@@ -184,4 +184,4 @@ def test_case_insensitive_keys_keep_exact_ids_and_project_scope(tmp_path):
     task = service.create_task(
         "harbor", task_request(id="dependent", title="Dependent", dependencies=["har-1"])
     )
-    assert task.dependencies == [exact.id]
+    assert task.dependencies == [exact.key]

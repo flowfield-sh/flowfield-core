@@ -141,7 +141,7 @@ class BrowserReads:
     def board(self, project_id: str) -> BrowserBoard:
         with self.workspace.connection() as db:
             project = self.workspace._project(db, project_id)
-            records, positions = task_metadata(db, project_id)
+            records, positions = task_metadata(self.workspace, db, project_id)
             completed = self.workspace._completed(records, db)
             timeline = task_timeline(db, project_id)
             available = {
@@ -161,25 +161,35 @@ class BrowserReads:
                 project=project,
                 milestones=self.workspace._milestones(db, project_id),
                 tasks=[
-                    self._card(db, item, records, completed, positions[item.id], timeline[item.id])
+                    self._card(
+                        db,
+                        item,
+                        records,
+                        completed,
+                        positions[self.workspace._record_key(item)],
+                        timeline[item.id],
+                    )
                     for item in records.values()
+                    if item.project_id == project_id
                 ],
                 **Questions(self.workspace).counts(db, project_id),
                 pending_code={
                     task.id: [
                         TaskReference(**records[key].model_dump())
                         for key in task.dependencies
-                        if key in completed and key not in available
+                        if key in completed
+                        and records[key].project_id == project_id
+                        and records[key].id not in available
                     ]
                     for task in records.values()
-                    if task.status in ("backlog", "up_next")
+                    if task.project_id == project_id and task.status in ("backlog", "up_next")
                 },
             )
 
     def task(self, project_id: str, task_id: str) -> TaskDetail:
         with self.workspace.connection() as db:
             identity = self.workspace._activity_scope(db, project_id, task_id)
-            records, positions = task_metadata(db, project_id)
+            records, positions = task_metadata(self.workspace, db, project_id)
             current = TaskRevision.model_validate_json(
                 db.execute(
                     "SELECT data FROM tasks WHERE project_id=? AND id=?", (project_id, identity)
@@ -190,7 +200,7 @@ class BrowserReads:
                 current,
                 records,
                 self.workspace._completed(records, db),
-                positions[current.id],
+                positions[self.workspace._record_key(current)],
                 task_timeline(db, project_id)[current.id],
             )
             archive_issue = self.workspace.archive_issue(db, current)
@@ -205,7 +215,7 @@ class BrowserReads:
                 dependents=[
                     TaskReference(**item.model_dump())
                     for item in records.values()
-                    if current.id in item.dependencies
+                    if self.workspace._record_key(current) in item.dependencies
                 ],
             )
 

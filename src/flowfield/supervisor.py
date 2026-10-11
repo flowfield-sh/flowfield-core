@@ -370,6 +370,8 @@ class Supervisor:
                     "Read input, correction and validation when present. "
                     "task_id is the stored identity; task_key is its human-facing key. "
                     "Both identify this same assigned task. "
+                    "Prerequisites marked other_repository provide completion evidence; "
+                    "their commits and files are not part of your assigned checkout. "
                     "Read stages and nonempty earlier_answers when listed in sections; "
                     "attempt_history for orientation. "
                     "Use update_stages at broad phase transitions and explain what changed. "

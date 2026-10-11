@@ -4746,6 +4746,8 @@ export interface components {
     };
     /** TaskCard */
     TaskCard: {
+      /** Project Id */
+      project_id: string;
       /** Id */
       id: string;
       /** Key */
@@ -4764,8 +4766,6 @@ export interface components {
       /** Preparation Issue */
       preparation_issue: string | null;
       state?: components["schemas"]["WorkState"] | null;
-      /** Project Id */
-      project_id: string;
       /** Labels */
       labels: string[];
       /** Milestone Id */
@@ -4840,6 +4840,8 @@ export interface components {
     };
     /** TaskDetail */
     TaskDetail: {
+      /** Project Id */
+      project_id: string;
       /** Id */
       id: string;
       /** Key */
@@ -4861,8 +4863,6 @@ export interface components {
       /** Preparation Issue */
       preparation_issue: string | null;
       state: components["schemas"]["WorkState"] | null;
-      /** Project Id */
-      project_id: string;
       /** Labels */
       labels: string[];
       /** Milestone Id */
@@ -5029,6 +5029,8 @@ export interface components {
     };
     /** TaskReference */
     TaskReference: {
+      /** Project Id */
+      project_id: string;
       /** Id */
       id: string;
       /** Key */
@@ -7595,7 +7597,7 @@ export interface operations {
     parameters: {
       query?: {
         relation?: "prerequisites" | "blocked_by" | "dependents";
-        after?: number | null;
+        after?: string | null;
         limit?: number;
       };
       header?: never;

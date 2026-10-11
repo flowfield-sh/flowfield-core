@@ -286,6 +286,7 @@ class TaskRevision(WorkRecord):
 
 
 class TaskReference(BaseModel):
+    project_id: str
     id: str
     key: str
     title: str
@@ -486,10 +487,21 @@ class Workspace:
                 require_current(db, self.schema_version)
                 yield db
                 changed = db.total_changes > 0
+                changed_projects = {project_id}
+                if (
+                    project_id is not None
+                    and db.execute(
+                        "SELECT 1 FROM sqlite_temp_master WHERE name='changed_task_projects'"
+                    ).fetchone()
+                ):
+                    changed_projects.update(
+                        row[0] for row in db.execute("SELECT project_id FROM changed_task_projects")
+                    )
                 if write and changed and notify and self.schema_version >= 54:
                     from flowfield.announcements import reconcile_attention
 
-                    reconcile_attention(db, project_id)
+                    for changed_project in changed_projects:
+                        reconcile_attention(db, changed_project)
                 if changed:
                     db.execute("UPDATE storage_metadata SET revision=revision+1 WHERE id=1")
                 db.commit()
@@ -499,7 +511,8 @@ class Workspace:
             finally:
                 db.close()
         if write and changed and notify and self.on_change is not None:
-            self.on_change(project_id)
+            for changed_project in changed_projects:
+                self.on_change(changed_project)
 
     def _insert_project(self, db: sqlite3.Connection, project: Project) -> None:
         db.execute(
@@ -911,16 +924,51 @@ class Workspace:
             )
             return milestone
 
+    def _record_key(self, task: TaskRevision) -> str:
+        return task.key if self.schema_version >= 62 else task.id
+
+    def _record_rows(
+        self, db: sqlite3.Connection, project_id: str, *, metadata: bool = False
+    ) -> list[sqlite3.Row]:
+        data = "json_set(t.data,'$.body','','$.change_note','')" if metadata else "t.data"
+        if self.schema_version >= 62:
+            owner = self._project_workspace(db, project_id)
+            return db.execute(
+                f"SELECT t.id,t.key,t.position,{data} AS data FROM tasks t "
+                "JOIN workspace_projects p ON p.project_id=t.project_id WHERE p.workspace_id=?",
+                (owner,),
+            ).fetchall()
+        return db.execute(
+            f"SELECT t.id,t.key,t.position,{data} AS data FROM tasks t WHERE t.project_id=?",
+            (project_id,),
+        ).fetchall()
+
     def _records(self, db: sqlite3.Connection, project_id: str) -> dict[str, TaskRevision]:
         return {
-            row["id"]: TaskRevision.model_validate_json(row["data"])
-            for row in db.execute("SELECT id, data FROM tasks WHERE project_id=?", (project_id,))
+            self._record_key(task): task
+            for row in self._record_rows(db, project_id, metadata=True)
+            for task in [TaskRevision.model_validate_json(row["data"])]
         }
 
     def _dependency_ids(
         self, db: sqlite3.Connection, project_id: str, references: list[str]
     ) -> list[str]:
-        # Keep relationships canonical; short keys and internal IDs address the same task.
+        if self.schema_version >= 62:
+            owner = self._project_workspace(db, project_id)
+            rows = db.execute(
+                "SELECT t.id,t.key,t.project_id FROM tasks t "
+                "JOIN workspace_projects p ON p.project_id=t.project_id WHERE p.workspace_id=?",
+                (owner,),
+            ).fetchall()
+            local = {r["id"]: r["key"] for r in rows if r["project_id"] == project_id}
+            workspace_keys = {r["key"] for r in rows}
+            return sorted(
+                {
+                    local.get(ref, ref.upper() if ref.upper() in workspace_keys else ref)
+                    for ref in references
+                }
+            )
+        # Historical fixtures keep the prior local-ID representation.
         keys = {
             row["key"]: row["id"]
             for row in db.execute("SELECT id, key FROM tasks WHERE project_id=?", (project_id,))
@@ -941,7 +989,7 @@ class Workspace:
                 if prerequisite == key or prerequisite not in records:
                     raise ApplicationError(
                         "invalid_dependency",
-                        "Choose another task in this project as a prerequisite.",
+                        "Choose another task in this workspace as a prerequisite.",
                     )
                 children[prerequisite].append(key)
         order = [key for key, count in remaining.items() if count == 0]
@@ -979,9 +1027,15 @@ class Workspace:
             return
         first = tasks[0]
         records = self._records(db, first.project_id)
-        changed = {task.id for task in tasks}
+        changed = {self._record_key(task) for task in tasks}
         for task in tasks:
-            previous = records.get(task.id)
+            if self._record_key(task) not in records:
+                raise ApplicationError("invalid_dependency", "Task is outside this workspace.")
+            previous_row = db.execute(
+                "SELECT data FROM tasks WHERE project_id=? AND id=?",
+                (task.project_id, task.id),
+            ).fetchone()
+            previous = TaskRevision.model_validate_json(previous_row[0]) if previous_row else None
             if previous and (
                 previous.body != task.body or previous.dependencies != task.dependencies
             ):
@@ -991,13 +1045,23 @@ class Workspace:
                         "Requirements changed. Review recorded work with the coordinator."
                     )
                     task.change_note = task.reconciliation_reason
-            records[task.id] = task
+            records[self._record_key(task)] = task
         completed: set[str] = set()
+        affected = set(changed)
         for key in self._dependency_order(records):
             item = records[key]
+            if any(prerequisite in affected for prerequisite in item.dependencies):
+                affected.add(key)
             blocked = [p for p in item.dependencies if p not in completed]
             if blocked and item.status not in PLANNING and not item.reconciliation_reason:
                 reason = "Prerequisites changed. Review recorded work with the coordinator."
+                if key not in changed:
+                    item = TaskRevision.model_validate_json(
+                        db.execute(
+                            "SELECT data FROM tasks WHERE project_id=? AND id=?",
+                            (item.project_id, item.id),
+                        ).fetchone()[0]
+                    )
                 item = item.model_copy(
                     update={
                         "reconciliation_reason": reason,
@@ -1016,6 +1080,7 @@ class Workspace:
                 and publication_status(item) != "needs_reconciliation"
             ):
                 completed.add(key)
+        self._mark_task_projects(db, {records[key].project_id for key in affected})
         for key in changed:
             self._save_task(db, records[key])
 
@@ -1070,7 +1135,7 @@ class Workspace:
             dependents=[
                 TaskReference(**item.model_dump())
                 for item in records.values()
-                if task_id in item.dependencies
+                if self._record_key(current) in item.dependencies
             ],
         )
 
@@ -1115,7 +1180,20 @@ class Workspace:
                 **Questions(self).counts(db, project_id),
             )
 
+    @staticmethod
+    def _mark_task_projects(db: sqlite3.Connection, projects: set[str]) -> None:
+        # Include inferred readiness changes as well as saved revisions. Temporary
+        # tracking lets the transaction owner notify affected views only after commit.
+        db.execute(
+            "CREATE TEMP TABLE IF NOT EXISTS changed_task_projects (project_id TEXT PRIMARY KEY)"
+        )
+        db.executemany(
+            "INSERT OR IGNORE INTO changed_task_projects VALUES (?)",
+            [(project,) for project in projects],
+        )
+
     def _save_task(self, db: sqlite3.Connection, task: TaskRevision) -> None:
+        self._mark_task_projects(db, {task.project_id})
         previous_row = db.execute(
             "SELECT data FROM task_revisions WHERE project_id=? AND task_id=? "
             "ORDER BY revision DESC LIMIT 1",
@@ -1445,9 +1523,7 @@ class Workspace:
             task_id = current.id
             if request.before_id is not None:
                 request = request.model_copy(
-                    update={
-                        "before_id": self._dependency_ids(db, project_id, [request.before_id])[0]
-                    }
+                    update={"before_id": self._activity_scope(db, project_id, request.before_id)}
                 )
             self._current(current.revision, request.expected_revision)
             if current.archived:

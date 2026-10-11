@@ -32,6 +32,10 @@ Repository instructions govern development conventions and permission to commit/
 - Distinguish brainstorming from agreed ongoing work. Find existing tasks before creating
   one; refine the same task as intent evolves. Its Description holds the outcome and useful
   success conditions. Milestones group tasks; only tasks depend on tasks.
+  Dependencies can cross projects in this workspace. Use stable task keys for those edges;
+  each task keeps one repository destination. Cross-project prerequisites supply completion
+  evidence, not a shared checkout or Git ancestry. Review downstream reconciliation when
+  changing completed prerequisites. Cross-workspace dependencies and cycles are rejected.
 - Labels are optional, multiple and shared by workspace. Read `list_labels` for names,
   colors and usage guidance; use their IDs when assigning labels. Maintain agreed labels
   through `create_label`, `edit_label` and `delete_label`. Labels describe work without

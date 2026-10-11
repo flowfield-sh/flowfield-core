@@ -515,7 +515,7 @@ def create_mcp(
         project_id: Identifier,
         task_id: TaskIdentifier,
         relation: Literal["prerequisites", "blocked_by", "dependents"] = "prerequisites",
-        after: int | None = None,
+        after: str | None = None,
         limit: PageLimit = 20,
     ) -> CallToolResult:
         """Page related task summaries by task number; use counts on get_task to see omissions."""

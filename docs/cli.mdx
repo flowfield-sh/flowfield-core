@@ -93,6 +93,10 @@ Use stable task keys or IDs. Short task and milestone keys accept either case
 CLI task operations expose the same workspace rules. Task dependencies and readiness
 are checked by the service.
 
+Use a task key such as `API-1` for a prerequisite in another project in the same workspace.
+`task create` and `task edit` accept repeated `--depends-on` options. Cross-project
+prerequisites supply completion evidence; they do not combine repository checkouts or Git histories.
+
 Use `workspace labels WORKSPACE_ID` to find available labels. `task create` and `task edit`
 accept repeated `--label LABEL_ID` options; editing replaces the selected set. Use
 `task edit APP-1 --no-labels` to clear it, or `task list --label LABEL_ID` to filter.

@@ -66,7 +66,9 @@ export function TaskChanges({
     if (field === "dependencies")
       return (
         record.dependencies
-          .map((id) => tasks.find((t) => t.id === id)?.key ?? id)
+          .map(
+            (id) => tasks.find((t) => t.key === id || t.id === id)?.key ?? id,
+          )
           .join(", ") || "None"
       );
     return record[field];

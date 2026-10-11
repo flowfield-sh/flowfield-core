@@ -280,18 +280,21 @@ class Execution:
                 )
                 prerequisites: list[dict[str, Any]] = []
                 usable = True
-                for dependency in task.dependencies:
+                for reference in task.prerequisites:
+                    dependency = reference.id
+                    dependency_project = reference.project_id
                     row = db.execute(
                         (
                             "SELECT data FROM work_runs WHERE project_id=? AND task_id=? AND "
                             "status='accepted' ORDER BY number DESC LIMIT 1"
                         ),
-                        (project_id, dependency),
+                        (dependency_project, dependency),
                     ).fetchone()
                     if row:
                         prerequisite = Run.model_validate_json(row[0])
                         if (
-                            prerequisite.completion == "code"
+                            dependency_project == project_id
+                            and prerequisite.completion == "code"
                             and prerequisite.result_commit
                             not in available_results.get(input_base or chosen_base, set())
                         ):
@@ -299,6 +302,10 @@ class Execution:
                         prerequisites.append(
                             {
                                 "task": prerequisite.task_key,
+                                "project_id": dependency_project,
+                                "repository_scope": "same_repository"
+                                if dependency_project == project_id
+                                else "other_repository",
                                 "run_id": prerequisite.id,
                                 "completion": prerequisite.completion,
                                 "agreement_revision": prerequisite.agreement_revision,
@@ -311,13 +318,13 @@ class Execution:
                             }
                         )
                     else:
-                        prerequisite_task = self.workspace._task(db, project_id, dependency)
+                        prerequisite_task = self.workspace._task(db, dependency_project, dependency)
                         if prerequisite_task.report_completion_revision:
                             accepted = db.execute(
                                 "SELECT data FROM task_revisions WHERE project_id=? "
                                 "AND task_id=? AND revision=?",
                                 (
-                                    project_id,
+                                    dependency_project,
                                     dependency,
                                     prerequisite_task.report_completion_revision,
                                 ),
@@ -328,11 +335,12 @@ class Execution:
                                 "SELECT id,body FROM activity WHERE project_id=? AND task_id=? "
                                 "AND kind='handoff' AND created_at<=? "
                                 "ORDER BY sequence DESC LIMIT 1",
-                                (project_id, dependency, recorded["updated_at"]),
+                                (dependency_project, dependency, recorded["updated_at"]),
                             ).fetchone()
                             prerequisites.append(
                                 {
                                     "task": prerequisite_task.key,
+                                    "project_id": dependency_project,
                                     "commit": None,
                                     "completion": "report",
                                     "accepted_by": recorded["updated_by"],

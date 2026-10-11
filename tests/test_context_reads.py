@@ -57,7 +57,7 @@ def test_context_growth_pagination_and_full_text(
     assert len(detail["prerequisites"]) <= 5 and detail["blocked_by_count"] == 12
     assert detail["truncated_fields"]["body"]["total_characters"] == len(text)
     assert detail["latest_update"]["truncated_fields"]["body"]
-    assert detail["blocked_by_keys"] == ["HAR-1", "HAR-2", "HAR-11"]
+    assert detail["blocked_by_keys"] == ["HAR-1", "HAR-10", "HAR-11"]
     assert detail["blocked_count"] == 12
     for result in [
         overview,
