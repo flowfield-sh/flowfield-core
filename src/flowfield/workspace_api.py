@@ -21,6 +21,14 @@ from flowfield.attention import (
     workspace_attention_counts,
 )
 from flowfield.browser import BrowserReads, BrowserWorkspaceBoard
+from flowfield.documents import (
+    Document,
+    DocumentCreate,
+    DocumentEdit,
+    DocumentPage,
+    DocumentRestore,
+    Documents,
+)
 from flowfield.execution_models import (
     ModelOption,
     QueueEdit,
@@ -197,5 +205,40 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     @router.delete("/{workspace_id}/labels/{identity}")
     def delete_label(workspace_id: str, identity: str, request: Edit) -> WorkspaceLabel:
         return Labels(supervisor().workspace).delete(workspace_id, identity, request)
+
+    @router.get("/{workspace_id}/documents")
+    def documents(
+        workspace_id: str, after: str | None = None, limit: int = Query(20, ge=1, le=50)
+    ) -> DocumentPage:
+        return Documents(supervisor().workspace).page(workspace_id, after=after, limit=limit)
+
+    @router.post("/{workspace_id}/documents", status_code=201)
+    def create_document(workspace_id: str, request: DocumentCreate) -> Document:
+        return Documents(supervisor().workspace).create(workspace_id, request)
+
+    @router.get("/{workspace_id}/documents/{identity}")
+    def document(
+        workspace_id: str, identity: str, revision: int | None = Query(None, ge=1)
+    ) -> Document:
+        return Documents(supervisor().workspace).get(workspace_id, identity, revision)
+
+    @router.put("/{workspace_id}/documents/{identity}")
+    def edit_document(workspace_id: str, identity: str, request: DocumentEdit) -> Document:
+        return Documents(supervisor().workspace).edit(workspace_id, identity, request)
+
+    @router.get("/{workspace_id}/documents/{identity}/history")
+    def document_history(
+        workspace_id: str,
+        identity: str,
+        before: int | None = Query(None, ge=1),
+        limit: int = Query(20, ge=1, le=50),
+    ) -> DocumentPage:
+        return Documents(supervisor().workspace).history(
+            workspace_id, identity, before=before, limit=limit
+        )
+
+    @router.post("/{workspace_id}/documents/{identity}/restore")
+    def restore_document(workspace_id: str, identity: str, request: DocumentRestore) -> Document:
+        return Documents(supervisor().workspace).restore(workspace_id, identity, request)
 
     return router

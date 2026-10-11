@@ -30,11 +30,15 @@ class CoordinatorTaskContext(CoordinatorTaskSelection):
 
 
 class CoordinatorViewSelection(AgentRecord):
-    surface: Literal["board", "inbox", "archive", "projects", "milestones", "task"]
+    surface: Literal[
+        "board", "inbox", "archive", "projects", "milestones", "task", "documents", "document"
+    ]
     project_id: Identifier | None = None
     milestone_id: Identifier | None = None
     label_id: Identifier | None = None
     without_milestone: bool = False
+    document_id: Identifier | None = None
+    document_revision: int | None = Field(default=None, ge=1)
 
 
 class CoordinatorViewContext(CoordinatorViewSelection):
@@ -46,6 +50,7 @@ class CoordinatorViewContext(CoordinatorViewSelection):
     milestone_revision: int | None = None
     label_name: str | None = None
     label_revision: int | None = None
+    document_title: str | None = None
 
 
 class CoordinatorSend(AgentRecord):
@@ -56,6 +61,7 @@ class CoordinatorSend(AgentRecord):
 
 
 class CoordinatorTurn(AgentRecord):
+    guidance_revision: int | None = None
     view_context: CoordinatorViewContext | None = None
     task_context: CoordinatorTaskContext | None = None
     id: str

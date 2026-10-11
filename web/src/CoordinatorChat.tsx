@@ -44,6 +44,7 @@ function mergeTurns(previous: Turn[], updates: Turn[]) {
 
 export function CoordinatorChat({
   workspaceId,
+  viewPath,
   adjacent,
   refresh,
   drafts,
@@ -51,6 +52,7 @@ export function CoordinatorChat({
   controlsActive = true,
 }: {
   workspaceId: string;
+  viewPath: string;
   adjacent: AdjacentContext | null;
   refresh: unknown;
   drafts: ChatDrafts;
@@ -207,7 +209,8 @@ export function CoordinatorChat({
     setBusy(true);
     try {
       const contextKey = JSON.stringify([
-        adjacent?.view,
+        viewPath,
+        { ...adjacent?.view, document_revision: undefined },
         taskContext?.project_id,
         taskContext?.task_id,
         taskContext?.result_id,

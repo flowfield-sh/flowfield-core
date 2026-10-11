@@ -19,6 +19,7 @@
         "pages": [
           "installation",
           "coordinator",
+          "documents",
           "worker-setup",
           "cli",
           "storage"

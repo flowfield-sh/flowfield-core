@@ -25,6 +25,7 @@ from flowfield.application import (
     Workspace,
 )
 from flowfield.conversation_api import add_conversation_tools
+from flowfield.documents import DocumentCreate, DocumentEdit, DocumentRestore, Documents
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import QueueEdit, SettingsEdit
 from flowfield.guidance import Guidance, GuidanceChange, template
@@ -428,6 +429,92 @@ def create_mcp(
         return await invoke(
             lambda: Milestones(workspace()).text(
                 workspace_id, identity, revision=revision, offset=offset, limit=limit
+            )
+        )
+
+    @mcp.tool(annotations=read)
+    async def list_documents(
+        workspace_id: Identifier, after: str | None = None, limit: PageLimit = 20
+    ) -> CallToolResult:
+        """List document identities and latest revision headers; guidance is the main document."""
+        return await invoke(
+            lambda: Documents(workspace()).page(workspace_id, after=after, limit=limit).model_dump()
+        )
+
+    @mcp.tool(annotations=read)
+    async def get_document(
+        workspace_id: Identifier,
+        document_id: Identifier,
+        revision: Annotated[int | None, Field(ge=1)] = None,
+    ) -> CallToolResult:
+        """Read an excerpt; page the exact revision with get_document_text before editing."""
+        return await invoke(
+            lambda: excerpt(
+                Documents(workspace()).get(workspace_id, document_id, revision).model_dump()
+            )
+        )
+
+    @mcp.tool(annotations=read)
+    async def get_document_text(
+        workspace_id: Identifier,
+        document_id: Identifier,
+        revision: Annotated[int, Field(ge=1)],
+        offset: Annotated[int, Field(ge=0)] = 0,
+        limit: Annotated[int, Field(ge=1, le=4000)] = 4000,
+    ) -> CallToolResult:
+        """Read immutable document content by exact revision; follow next_offset until complete."""
+        return await invoke(
+            lambda: Documents(workspace()).text(
+                workspace_id, document_id, revision, offset=offset, limit=limit
+            )
+        )
+
+    @mcp.tool(annotations=read)
+    async def get_document_history(
+        workspace_id: Identifier,
+        document_id: Identifier,
+        before: Annotated[int | None, Field(ge=1)] = None,
+        limit: PageLimit = 20,
+    ) -> CallToolResult:
+        """Page revision headers newest first; pass next_cursor as before for older revisions."""
+        return await invoke(
+            lambda: (
+                Documents(workspace())
+                .history(workspace_id, document_id, before=before, limit=limit)
+                .model_dump()
+            )
+        )
+
+    @mcp.tool(annotations=write)
+    async def create_document(workspace_id: Identifier, document: DocumentCreate) -> CallToolResult:
+        """Save agreed durable Markdown in a custom workspace document."""
+        return await mutate(
+            lambda: Documents(workspace()).create(workspace_id, attributed(document)).model_dump()
+        )
+
+    @mcp.tool(annotations=write)
+    async def edit_document(
+        workspace_id: Identifier, document_id: Identifier, changes: DocumentEdit
+    ) -> CallToolResult:
+        """Save agreed guidance with a revision guard, preserving earlier content."""
+        return await mutate(
+            lambda: (
+                Documents(workspace())
+                .edit(workspace_id, document_id, attributed(changes))
+                .model_dump()
+            )
+        )
+
+    @mcp.tool(annotations=write)
+    async def restore_document(
+        workspace_id: Identifier, document_id: Identifier, changes: DocumentRestore
+    ) -> CallToolResult:
+        """Restore an earlier title/body as a new revision, preserving all intervening edits."""
+        return await mutate(
+            lambda: (
+                Documents(workspace())
+                .restore(workspace_id, document_id, attributed(changes))
+                .model_dump()
             )
         )
 

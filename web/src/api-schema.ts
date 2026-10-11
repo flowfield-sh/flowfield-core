@@ -683,6 +683,76 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/documents": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Documents */
+    get: operations["documents_api_workspaces__workspace_id__documents_get"];
+    put?: never;
+    /** Create Document */
+    post: operations["create_document_api_workspaces__workspace_id__documents_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/documents/{identity}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Document */
+    get: operations["document_api_workspaces__workspace_id__documents__identity__get"];
+    /** Edit Document */
+    put: operations["edit_document_api_workspaces__workspace_id__documents__identity__put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/documents/{identity}/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Document History */
+    get: operations["document_history_api_workspaces__workspace_id__documents__identity__history_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/documents/{identity}/restore": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Restore Document */
+    post: operations["restore_document_api_workspaces__workspace_id__documents__identity__restore_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/projects/{project_id}/view/board": {
     parameters: {
       query?: never;
@@ -2953,6 +3023,8 @@ export interface components {
     };
     /** CoordinatorTurn */
     CoordinatorTurn: {
+      /** Guidance Revision */
+      guidance_revision: number | null;
       view_context: components["schemas"]["CoordinatorViewContext"] | null;
       task_context: components["schemas"]["CoordinatorTaskContext"] | null;
       /** Id */
@@ -3008,7 +3080,14 @@ export interface components {
        * @enum {string}
        */
       surface:
-        "board" | "inbox" | "archive" | "projects" | "milestones" | "task";
+        | "board"
+        | "inbox"
+        | "archive"
+        | "projects"
+        | "milestones"
+        | "task"
+        | "documents"
+        | "document";
       /** Project Id */
       project_id: string | null;
       /** Milestone Id */
@@ -3020,6 +3099,10 @@ export interface components {
        * @default false
        */
       without_milestone: boolean;
+      /** Document Id */
+      document_id: string | null;
+      /** Document Revision */
+      document_revision: number | null;
       /** Workspace Name */
       workspace_name: string;
       /** Workspace Revision */
@@ -3036,6 +3119,8 @@ export interface components {
       label_name: string | null;
       /** Label Revision */
       label_revision: number | null;
+      /** Document Title */
+      document_title: string | null;
     };
     /** CoordinatorViewSelection */
     CoordinatorViewSelection: {
@@ -3044,7 +3129,14 @@ export interface components {
        * @enum {string}
        */
       surface:
-        "board" | "inbox" | "archive" | "projects" | "milestones" | "task";
+        | "board"
+        | "inbox"
+        | "archive"
+        | "projects"
+        | "milestones"
+        | "task"
+        | "documents"
+        | "document";
       /** Project Id */
       project_id?: string | null;
       /** Milestone Id */
@@ -3056,6 +3148,10 @@ export interface components {
        * @default false
        */
       without_milestone: boolean;
+      /** Document Id */
+      document_id?: string | null;
+      /** Document Revision */
+      document_revision?: number | null;
     };
     /** Correction */
     Correction: {
@@ -3088,6 +3184,94 @@ export interface components {
     DirectorySelection: {
       /** Path */
       path?: string | null;
+    };
+    /** Document */
+    Document: {
+      /** Workspace Id */
+      workspace_id: string;
+      /** Id */
+      id: string;
+      /** Revision */
+      revision: number;
+      /** Title */
+      title: string;
+      /** Created At */
+      created_at: string;
+      /** Author */
+      author: string;
+      /** Restored From */
+      restored_from?: number | null;
+      /** Characters */
+      characters: number;
+      /** Body */
+      body: string;
+    };
+    /** DocumentCreate */
+    DocumentCreate: {
+      /** Title */
+      title: string;
+      /**
+       * Body
+       * @default
+       */
+      body: string;
+      /**
+       * Author
+       * @default human
+       */
+      author: string;
+    };
+    /** DocumentEdit */
+    DocumentEdit: {
+      /** Expected Revision */
+      expected_revision: number;
+      /**
+       * Author
+       * @default human
+       */
+      author: string;
+      /** Title */
+      title?: string | null;
+      /** Body */
+      body?: string | null;
+    };
+    /** DocumentHeader */
+    DocumentHeader: {
+      /** Workspace Id */
+      workspace_id: string;
+      /** Id */
+      id: string;
+      /** Revision */
+      revision: number;
+      /** Title */
+      title: string;
+      /** Created At */
+      created_at: string;
+      /** Author */
+      author: string;
+      /** Restored From */
+      restored_from?: number | null;
+      /** Characters */
+      characters: number;
+    };
+    /** DocumentPage */
+    DocumentPage: {
+      /** Items */
+      items: components["schemas"]["DocumentHeader"][];
+      /** Next Cursor */
+      next_cursor: string | number | null;
+    };
+    /** DocumentRestore */
+    DocumentRestore: {
+      /** Expected Revision */
+      expected_revision: number;
+      /**
+       * Author
+       * @default human
+       */
+      author: string;
+      /** Revision */
+      revision: number;
     };
     /** Edit */
     Edit: {
@@ -7338,6 +7522,216 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["WorkspaceLabel"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  documents_api_workspaces__workspace_id__documents_get: {
+    parameters: {
+      query?: {
+        after?: string | null;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocumentPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_document_api_workspaces__workspace_id__documents_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DocumentCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Document"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  document_api_workspaces__workspace_id__documents__identity__get: {
+    parameters: {
+      query?: {
+        revision?: number | null;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Document"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  edit_document_api_workspaces__workspace_id__documents__identity__put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DocumentEdit"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Document"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  document_history_api_workspaces__workspace_id__documents__identity__history_get: {
+    parameters: {
+      query?: {
+        before?: number | null;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocumentPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  restore_document_api_workspaces__workspace_id__documents__identity__restore_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DocumentRestore"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Document"];
         };
       };
       /** @description Validation Error */

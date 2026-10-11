@@ -24,6 +24,7 @@ from flowfield.coordinator_ownership import serialized, validate
 from flowfield.coordinator_prose import write as write_prose
 from flowfield.coordinator_settings import CoordinatorSettings
 from flowfield.coordinator_welcome import WELCOME
+from flowfield.documents import Documents
 from flowfield.errors import ApplicationError
 from flowfield.harness_models import HarnessLaunch
 from flowfield.results import Results
@@ -281,6 +282,9 @@ class CoordinatorStore:
                 )
             settings = AgentSettings(self.workspace).freeze(db, settings)
             turn = CoordinatorTurn(
+                guidance_revision=Documents.read(db, project, "guidance").revision
+                if self.workspace.schema_version >= 64
+                else None,
                 view_context=view_context,
                 task_context=CoordinatorTaskContext(
                     project_id=task.project_id,

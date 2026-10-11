@@ -24,8 +24,10 @@ from flowfield.coordinator_models import CoordinatorSend, CoordinatorTurn
 from flowfield.coordinator_ownership import column as owner_column
 from flowfield.coordinator_settings import CoordinatorSettings
 from flowfield.coordinator_store import CoordinatorStore
+from flowfield.documents import Documents
 from flowfield.errors import ApplicationError
 from flowfield.harness_settings import HarnessSettings
+from flowfield.reads import excerpt
 from flowfield.run_activity import ActivityRecorder, ActivityUpdate
 
 if TYPE_CHECKING:
@@ -47,6 +49,18 @@ Follow its text_sources/older_history when relevant; earlier attachment identiti
 include file contents. Ask the human to reattach relevant files before relying on them.
 Read get_workspace and list_workspace_projects first, then get_project/get_board for relevant
 projects; canonical Flowfield state takes precedence over old messages.
+The workspace_guidance is user-authored Markdown frozen at this message's acceptance. Read
+any omitted body with get_document_text at that exact revision before acting. Use list_documents
+and get_document/get_document_text for relevant custom documents; do not load the whole library.
+These documents supply workspace intent and conventions, separate from these product role rules.
+Maintain agreed durable guidance with revision-checked document tools; references use stable IDs
+and optional exact revisions. A save never rewrites an earlier revision; restore makes a new one.
+Suggested main sections are purpose, member projects, working agreements and reference documents;
+use only sections that help this workspace. Keep current task status and evidence in task records.
+When adopting existing guidance, discuss it with the human. Preserve repository files: reference
+or incorporate agreed material, or clarify conflicts. Do not guess file names, auto-import files,
+or impose an instruction precedence system. Native agents may still load their own repository
+instructions; do not claim those files are disabled. Workspace prose does not change settings.
 Follow full-text and pagination links before editing, and read current revisions
 before every consequential write.
 The adjacent_view captures the browser surface and its filters when this message was sent.
@@ -177,6 +191,13 @@ class Coordinator:
             "adjacent_view": turn.view_context.model_dump() if turn.view_context else None,
             "selected_task": turn.task_context.model_dump() if turn.task_context else None,
         }
+        if turn.guidance_revision is not None:
+            instructions["workspace_guidance"] = excerpt(
+                Documents(self.supervisor.workspace)
+                .get(turn.workspace_id, "guidance", turn.guidance_revision)
+                .model_dump(),
+                6000,
+            )
         if resumed:
             return json.dumps(instructions, ensure_ascii=False)
         return json.dumps(

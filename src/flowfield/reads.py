@@ -134,7 +134,8 @@ def iter_coordinator_exchanges(
         "SELECT id,number,status,json_extract(data,'$.created_at') created_at, "
         "json_extract(data,'$.text') human,json_extract(data,'$.activity') activity, "
         "json_extract(data,'$.task_context') task_context, "
-        "json_extract(data,'$.view_context') view_context FROM coordinator_turns "
+        "json_extract(data,'$.view_context') view_context, "
+        "json_extract(data,'$.guidance_revision') guidance_revision FROM coordinator_turns "
         f"WHERE {owner_column(db)}=? AND number<? ORDER BY number DESC LIMIT ?",
         (project, before, limit),
     )
@@ -152,6 +153,7 @@ def iter_coordinator_exchanges(
             "output_omitted": prose["omitted"],
             "task_context": json.loads(row["task_context"]) if row["task_context"] else None,
             "view_context": json.loads(row["view_context"]) if row["view_context"] else None,
+            "guidance_revision": row["guidance_revision"],
         }
 
 

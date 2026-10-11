@@ -12,11 +12,21 @@ Repository instructions govern development conventions and permission to commit/
 
 ## Orient and capture
 
-- In the built-in Coordinator, the connection is already bound to the current project;
-  use its supplied project identity without discovery or project_id arguments. In a standalone
-  session, match the project root and `.flowfield/config.toml` against `list_projects` and
-  pass its explicit project_id. From a nested directory, locate the root first. Read `get_board`
-  on entry/resume and before cross-task planning. Use returned URLs, not guessed ports.
+- In the built-in Coordinator, the connection binds the workspace. Repository operations need
+  explicit member project IDs from `list_workspace_projects`. In standalone conversations,
+  discover the intended workspace with `list_workspaces` and its member paths; clarify ambiguous
+  destinations. Read `get_workspace` and relevant `get_project`/`get_board` records on entry,
+  resume and before planning across projects. Use returned URLs, not guessed ports.
+- The adjacent browser view is captured when the human sends a message. It guides relevance,
+  not authority. A task includes its project and exact optional result; a document includes its
+  saved revision. Never carry an earlier view forward when the current message has none.
+- Read main workspace guidance (document ID `guidance`) and relevant custom documents through
+  `get_document`/`get_document_text`, following exact revisions and pagination. The built-in
+  prompt supplies a bounded main-guidance excerpt frozen at send. Do not load the whole library.
+  Maintain agreed Markdown with `create_document`/`edit_document`; saves check revisions and
+  `restore_document` creates a new revision. Suggested main sections are purpose, member
+  projects, working agreements and references; no required content schema. Keep work status in
+  tasks. Documents do not silently change execution settings or exact approval requirements.
 - Start with the bounded briefing, then read relevant tasks, repository guidance and selected handoffs.
   Follow pagination/full-text links; never replace complete descriptions or dependencies
   from excerpts. Resume from saved project state, not an old chat transcript.
@@ -60,7 +70,7 @@ Repository instructions govern development conventions and permission to commit/
   the agreed maximum for parallel work. Lowering it limits new starts without stopping active work.
 - Read integration settings before configuring them. Flowfield uses Local automatically, with
   the service host’s installed tools, credentials and native harness configuration.
-  Discover choices for this project and harness. Select supported controls with human
+  Discover choices for this workspace and harness. Select supported controls with human
   authority; omit effort when no effort control is offered. Discovery can run native startup
   hooks but sends no model prompt. Never invent a universal
   permission policy or silently broaden native harness access.
@@ -75,17 +85,16 @@ Repository instructions govern development conventions and permission to commit/
   a model call, queue change or preview process. Inspect observed output, fix failures, and
   validate again when settings or the destination change. Include required tool probes in
   those commands; success in your own terminal is insufficient.
-- Guidance adoption is deliberate. Install the project-local skill and root reference using
-  supported operations; preserve local edits/overrides. Review and commit adopted guidance
-  under repository rules before workers need it. Installation neither commits nor reloads an
-  open session. Do not copy Flowfield development rules into the project.
-  Also review `.flowfield/config.toml` and `.flowfield/guidance.json`: commit these portable
-  identity/ownership files or deliberately ignore them under repository rules. Leaving
-  generated adoption files untracked blocks later delivery even when the guidance is committed.
-  Do not ignore unrelated files or discard human edits to make the checkout clean.
-  For routine guidance status use `get_project_guidance(preview=false)`; it retains
-  readiness, conflicts and next steps without repeating the instruction text. Read the
-  full `preview=true` response before installing/updating guidance.
+- Discuss existing project guidance during adoption. Preserve its files and agree whether to
+  reference them from workspace documents, incorporate useful material, or clarify conflicts.
+  Do not guess instruction filenames, auto-import content or impose a precedence system.
+  Native harnesses may still discover their own repository instructions. Keep installed generic
+  coordinator/worker role guidance distinct from user-authored workspace conventions.
+  The project-local coordinator skill is optional for standalone conversations; preview it with
+  `get_project_guidance` before deliberately installing or updating it. Preserve local edits.
+  Flowfield does not commit or reload sessions on installation. Review generated adoption files
+  under repository rules; do not discard human work to clear a delivery blocker. Private Flowfield
+  maintainer commit/push or release authority never transfers into generic guidance or workers.
 - Delivery updates the agreed branch and actual project checkout, not a staging branch for
   a later manual merge. Saving settings can create an agreed missing branch; it does not
   switch a dirty checkout. Keep the checkout on the destination, preserve local edits and

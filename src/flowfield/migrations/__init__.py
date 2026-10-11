@@ -24,6 +24,7 @@ from flowfield.migrations import (
     v061_workspace_labels,
     v062_workspace_dependencies,
     v063_workspace_priority,
+    v064_workspace_documents,
 )
 
 BASELINE_VERSION = 44
@@ -55,6 +56,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(61, v061_workspace_labels.apply),
     Migration(62, v062_workspace_dependencies.apply),
     Migration(63, v063_workspace_priority.apply),
+    Migration(64, v064_workspace_documents.apply),
 )
 
 

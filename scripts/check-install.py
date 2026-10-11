@@ -59,7 +59,7 @@ def check_storage(executable: str, cwd: str, env: dict[str, str]) -> None:
     assert command("status")["schema_version"] == current_version()
 
 
-async def check_mcp(base: str, task: dict) -> None:
+async def check_mcp(base: str, task: dict, workspace_id: str) -> None:
     async with (
         streamable_http_client(base + "/mcp/") as (read, write, _),
         ClientSession(read, write) as session,
@@ -82,6 +82,20 @@ async def check_mcp(base: str, task: dict) -> None:
         } <= tools
         assert {"prepare_inspection", "get_inspection", "configure_inspection"} <= tools
         assert "retry_result_delivery" in tools
+        assert {
+            "list_documents",
+            "get_document",
+            "get_document_text",
+            "edit_document",
+            "restore_document",
+        } <= tools
+        document = await session.call_tool(
+            "get_document", {"workspace_id": workspace_id, "document_id": "guidance"}
+        )
+        assert (
+            not document.isError
+            and document.structuredContent["body"] == "Installed shared guidance"
+        )
         assert "create_project" not in tools
         result = await session.call_tool("get_task", {"project_id": "harbor", "task_id": "HAR-1"})
         assert not result.isError and result.structuredContent == task
@@ -170,9 +184,15 @@ async def check_native_runtime(directory: Path) -> None:
         ),
         choice=choice,
     )
+    member = directory / "member-repository"
+    member.mkdir()
+    agent.project_directories = (member,)
     try:
         await agent.start([], persistent=True)
         await agent.configure(choice)
+        calls = [json.loads(line) for line in (directory / "native.jsonl").read_text().splitlines()]
+        args = next(item["args"] for item in calls if "args" in item)
+        assert args[args.index("--add-dir") + 1] == str(member)
         assert await agent.prompt("Scripted install fixture only", None) == {"status": "completed"}
     finally:
         assert await agent.stop()
@@ -295,10 +315,41 @@ def main() -> None:
                                 assert error.code == status
                             else:
                                 raise AssertionError(f"Expected {status} for {path}")
-                        initialized = command(
-                            "project", "init", "--id", "harbor", "--name", "Harbor", "--json"
+                        assert json.loads(read("/api/workspaces")) == []
+                        space = json.loads(
+                            command("workspace", "create", "Installed workspace", "--json")
                         )
-                        assert command("project", "init", "--json") == initialized
+                        initialized = command(
+                            "project",
+                            "init",
+                            "--workspace",
+                            space["id"],
+                            "--id",
+                            "harbor",
+                            "--name",
+                            "Harbor",
+                            "--json",
+                        )
+                        assert (
+                            command("project", "init", "--workspace", space["id"], "--json")
+                            == initialized
+                        )
+                        document_path = f"/api/workspaces/{space['id']}/documents/guidance"
+                        assert json.loads(read(document_path))["body"] == ""
+                        write(
+                            document_path,
+                            {"expected_revision": 1, "body": "Installed shared guidance"},
+                            method="PUT",
+                        )
+                        write(
+                            document_path,
+                            {"expected_revision": 2, "body": "Later guidance"},
+                            method="PUT",
+                        )
+                        restored = write(
+                            document_path + "/restore", {"expected_revision": 3, "revision": 2}
+                        )
+                        assert restored["revision"] == 4 and restored["restored_from"] == 2
                         assert (Path(cwd) / ".flowfield/config.toml").is_file()
                         section = command("project", "guidance", "export", "--part", "agents")
                         assert ".agents/skills/flowfield-coordinator/SKILL.md" in section
@@ -407,7 +458,7 @@ def main() -> None:
                     assert json.loads(command("task", "runs", "list", "--json"))["items"] == []
                     assert board["observed_at"]
                     assert b"<html" in read("/projects/harbor/tasks/HAR-1/activity").lower()
-                    asyncio.run(check_mcp(base, task))
+                    asyncio.run(check_mcp(base, task, json.loads(read("/api/workspaces"))[0]["id"]))
                     assert original.read_text() == "Preserve existing instructions.\n"
                     assert (state / "workspace.sqlite3").is_file()
                     assert (state / "artifacts").is_dir()

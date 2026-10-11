@@ -41,6 +41,12 @@ def adopt(workspace: Workspace, request: ProjectSetup) -> Project:
                     "UPDATE workspace_labels SET workspace_id=? WHERE workspace_id=?",
                     (identity, space.id),
                 )
+            if workspace.schema_version >= 64:
+                for table in ("workspace_documents", "workspace_document_revisions"):
+                    db.execute(
+                        f"UPDATE {table} SET workspace_id=? WHERE workspace_id=?",
+                        (identity, space.id),
+                    )
     project = spaces.adopt(
         identity, request.model_copy(update={"coordinator": None, "worker": None})
     )

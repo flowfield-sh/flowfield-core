@@ -949,6 +949,7 @@ test("long project chat preserves loaded history while live pages advance", asyn
   const historyPath = "/api/projects/long-chat-project/coordinator";
   let count = 40;
   const turn = (number: number): Turn => ({
+    guidance_revision: null,
     view_context: null,
     task_context: null,
     id: `history-message-${number}`,

@@ -8,6 +8,7 @@ from flowfield.coordinator_models import (
     CoordinatorViewContext,
     CoordinatorViewSelection,
 )
+from flowfield.documents import Documents
 from flowfield.errors import ApplicationError
 from flowfield.labels import Labels
 from flowfield.milestones import Milestones
@@ -32,7 +33,18 @@ def freeze_view(
             not filtered
             and (selection.milestone_id or selection.label_id or selection.without_milestone)
         )
-        or (selection.surface in {"projects", "milestones"} and selection.project_id)
+        or (
+            selection.surface in {"projects", "milestones", "documents", "document"}
+            and selection.project_id
+        )
+        or (
+            selection.surface == "document"
+            and (not selection.document_id or not selection.document_revision)
+        )
+        or (
+            selection.surface != "document"
+            and (selection.document_id is not None or selection.document_revision is not None)
+        )
     ):
         raise ApplicationError(
             "invalid_view_context", "The message view does not match its context."
@@ -43,6 +55,11 @@ def freeze_view(
         workspace_name=workspace.name,
         workspace_revision=workspace.revision,
     )
+    if selection.document_id:
+        document = Documents.read(
+            db, workspace_id, selection.document_id, selection.document_revision
+        )
+        value.document_title = document.title
     if selection.project_id:
         Workspaces.check_project(db, workspace_id, selection.project_id)
         project = store._project(db, selection.project_id)

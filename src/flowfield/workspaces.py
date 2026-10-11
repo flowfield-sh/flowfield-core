@@ -122,6 +122,10 @@ class Workspaces:
                 from flowfield.labels import Labels
 
                 Labels.seed(db, record.id, request.author, timestamp)
+            if self.store.schema_version >= 64:
+                from flowfield.documents import Documents
+
+                Documents.seed(db, record.id, request.author, timestamp)
         return record
 
     def edit(self, identity: str, request: WorkspaceEdit) -> WorkspaceRecord:

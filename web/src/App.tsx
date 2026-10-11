@@ -6,6 +6,7 @@ import { MilestoneBadge } from "./MilestoneBadge";
 import { AnnouncementProvider } from "./Announcements";
 import { TaskNeeds, TaskState, hasTaskNeeds } from "./TaskNeeds";
 import { WorkspaceList, NewWorkspace } from "./WorkspaceEntry";
+import { Documents } from "./Documents";
 import { ProjectList } from "./ProjectList";
 import { SetupInstructions } from "./SetupInstructions";
 import { taskTab } from "./navigation";
@@ -22,7 +23,15 @@ import { FlowfieldSettings, SettingsLink } from "./FlowfieldSettings";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ContentStack } from "./DetailLayout";
 import { Card } from "@/components/ui/card";
-import { Settings, Columns3, Inbox, Flag, Archive, Folder } from "lucide-react";
+import {
+  Settings,
+  Columns3,
+  Inbox,
+  Flag,
+  Archive,
+  Folder,
+  FileText,
+} from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
@@ -270,6 +279,7 @@ export function App() {
                 <CoordinatorChat
                   key={workspaceId}
                   workspaceId={workspaceId}
+                  viewPath={pathname}
                   adjacent={
                     adjacent?.workspaceId === workspaceId &&
                     adjacent.pathname === pathname
@@ -435,6 +445,19 @@ function WorkspaceBoard({
   useEffect(() => {
     if (board) registerProjects(workspaceId, board.projects);
   }, [board, workspaceId, registerProjects]);
+  const viewTabs = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const strip = viewTabs.current;
+    if (!strip) return;
+    const reveal = () =>
+      strip
+        .querySelector<HTMLElement>('[data-state="active"]')
+        ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    reveal();
+    const observer = new ResizeObserver(reveal);
+    observer.observe(strip);
+    return () => observer.disconnect();
+  }, [pathname, board?.workspace.id]);
   const questionSelected = params.questionId !== undefined;
   const taskRef = params.taskKey;
   const {
@@ -486,6 +509,7 @@ function WorkspaceBoard({
       (background === `${projectHref(projectId)}/${view}` ||
         background.startsWith(`${projectHref(projectId)}/${view}/`)));
   const projectsView = inView("projects");
+  const documentsView = pathname.startsWith(`${base}/documents`);
   const addingProject = pathname.endsWith("/projects/new");
   const selectedProject = board?.projects.find(
     (project) => project.id === projectId,
@@ -561,12 +585,13 @@ function WorkspaceBoard({
       : null;
   const viewSnapshot = JSON.stringify(adjacentContext);
   useEffect(() => {
+    if (documentsView) return;
     publishView({
       workspaceId,
       pathname,
       context: JSON.parse(viewSnapshot) as AdjacentContext | null,
     });
-  }, [workspaceId, pathname, viewSnapshot, publishView]);
+  }, [workspaceId, pathname, viewSnapshot, publishView, documentsView]);
   const [dragged, setDragged] = useState<TaskCard | null>(null);
   const [dropTarget, setDropTarget] = useState<{
     status: WorkStatus;
@@ -715,15 +740,17 @@ function WorkspaceBoard({
         : board.milestones.find(
             (e) => e.id === selection?.id || e.key === selection?.id,
           );
-  const view = projectsView
-    ? "projects"
-    : showInbox
-      ? "inbox"
-      : milestonesView
-        ? "milestones"
-        : archive
-          ? "archive"
-          : "board";
+  const view = documentsView
+    ? "documents"
+    : projectsView
+      ? "projects"
+      : showInbox
+        ? "inbox"
+        : milestonesView
+          ? "milestones"
+          : archive
+            ? "archive"
+            : "board";
   function openView(value: string) {
     navigate(() =>
       changeLocation(base + (value === "board" ? "" : "/" + value)),
@@ -871,7 +898,7 @@ function WorkspaceBoard({
         value={view}
         onValueChange={openView}
       >
-        <div className="workspace-project-tabs">
+        <div className="workspace-project-tabs" ref={viewTabs}>
           <TabsList variant="line" aria-label="Workspace views">
             <TabsTrigger {...viewTrigger("board")}>
               <Columns3 /> Board
@@ -897,6 +924,9 @@ function WorkspaceBoard({
               <Folder /> Projects
               <span className="nav-count">{board.projects.length}</span>
             </TabsTrigger>
+            <TabsTrigger {...viewTrigger("documents")}>
+              <FileText /> Documents
+            </TabsTrigger>
             <TabsTrigger {...viewTrigger("archive")}>
               <Archive /> Archive
               {board.tasks.length > activeTasks.length && (
@@ -909,10 +939,10 @@ function WorkspaceBoard({
         </div>
         <TabsContent
           value={view}
-          className={`workspace-work-content ${!milestonesView && !projectsView && !archive ? "workspace-task-board" : ""}`}
+          className={`workspace-work-content ${!milestonesView && !projectsView && !documentsView && !archive ? "workspace-task-board" : ""}`}
           hidden={!!taskRef}
         >
-          {!projectsView && (
+          {!projectsView && !documentsView && (
             <div className="board-toolbar">
               {!milestonesView && (
                 <div className="actions">
@@ -1035,6 +1065,18 @@ function WorkspaceBoard({
                 workspaceId={workspaceId}
               />
             )
+          ) : documentsView ? (
+            <Documents
+              key={workspaceId}
+              workspaceId={workspaceId}
+              identity={params.documentId}
+              revision={params.documentRevision}
+              pathname={pathname}
+              refresh={refresh}
+              onDirty={setUnsaved}
+              navigate={changeLocation}
+              publishView={publishView}
+            />
           ) : milestonesView ? (
             <section className="collection-view" aria-label="Milestones">
               <CollectionLayout>

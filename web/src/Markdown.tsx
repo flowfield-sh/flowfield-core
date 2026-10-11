@@ -24,7 +24,9 @@ function MarkdownLink({
   const internal = target.origin === window.location.origin;
   if (
     internal &&
-    (target.pathname === "/" || target.pathname.startsWith("/projects/"))
+    (target.pathname === "/" ||
+      target.pathname.startsWith("/projects/") ||
+      target.pathname.startsWith("/workspaces/"))
   ) {
     return (
       <Link to={target.pathname + target.search + target.hash}>{children}</Link>
