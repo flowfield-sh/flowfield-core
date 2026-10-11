@@ -1,3 +1,4 @@
+import { SettingsCheckbox } from "./SettingsCheckbox";
 import { ContentStack } from "./DetailLayout";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
@@ -7,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { AgentModelFields } from "./AgentSettings";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import { WorkspaceLink as Link } from "./WorkspaceLink";
 import type { components } from "./api-schema";
 import { request } from "./workspace";
@@ -367,7 +368,6 @@ export function QueueSettings({
   projectId: string;
   refresh: unknown;
 }) {
-  const id = useId();
   const path = `projects/${projectId}`;
   const resource = useResource<Settings>(`${path}/workers`, refresh);
   const [busy, setBusy] = useState(false);
@@ -378,41 +378,35 @@ export function QueueSettings({
       data-space="tight"
       aria-label="Queue settings"
     >
-      <Label>
-        <input
-          type="checkbox"
-          checked={data?.enabled ?? false}
-          disabled={busy || !data}
-          aria-describedby={id}
-          onChange={async (event) => {
-            if (!data) return;
-            const enabled = event.target.checked;
-            setBusy(true);
-            try {
-              const updated = await request<Settings>(`${path}/queue`, "POST", {
-                expected_revision: data.revision,
-                enabled,
-              });
-              resource.invalidate();
-              resource.setData(updated);
-              toast.success(
-                updated.enabled
-                  ? "Worker queue enabled."
-                  : "Worker queue paused.",
-              );
-            } catch (failure) {
-              reportError(failure, "Could not update worker queue");
-            } finally {
-              setBusy(false);
-            }
-          }}
-        />{" "}
+      <SettingsCheckbox
+        hint="Starts eligible Up next tasks. Saves immediately and persists after restart; pausing leaves active workers running."
+        checked={data?.enabled ?? false}
+        disabled={busy || !data}
+        onChange={async (event) => {
+          if (!data) return;
+          const enabled = event.target.checked;
+          setBusy(true);
+          try {
+            const updated = await request<Settings>(`${path}/queue`, "POST", {
+              expected_revision: data.revision,
+              enabled,
+            });
+            resource.invalidate();
+            resource.setData(updated);
+            toast.success(
+              updated.enabled
+                ? "Worker queue enabled."
+                : "Worker queue paused.",
+            );
+          } catch (failure) {
+            reportError(failure, "Could not update worker queue");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
         Run worker queue
-      </Label>
-      <p id={id} className="detail-metadata">
-        Starts eligible Up next tasks. Saves immediately and persists after
-        restart; pausing leaves active workers running.
-      </p>
+      </SettingsCheckbox>
       {!data?.selection && data && (
         <Link to={projectHref(projectId) + "/edit/workers"}>
           Choose a worker model first

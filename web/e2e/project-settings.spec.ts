@@ -290,7 +290,7 @@ test("worker models load automatically and retry without replacing setting draft
 test("integration settings create an explicit local target without changing the human checkout", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const project = "integration-settings";
   const repo = join(state, project);
   await request.post("/api/projects/initialize", {
@@ -436,9 +436,28 @@ test("integration settings create an explicit local target without changing the 
   ).toBeVisible();
   await expect(
     settings
-      .getByRole("alert")
+      .getByRole("status")
       .filter({ hasText: "Checkout is not ready for delivery" }),
   ).toContainText("Switch the project checkout");
+  const validationStatus = settings
+    .getByRole("status")
+    .filter({ hasText: "Project setup validation failed" });
+  await expect(
+    validationStatus.getByRole("button", { name: "Validate saved setup" }),
+  ).toBeEnabled();
+  if (process.env.FLOWFIELD_VISUAL_EVIDENCE) {
+    await validationStatus.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath("integration-validation-desktop.png"),
+      animations: "disabled",
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await validationStatus.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath("integration-validation-mobile.png"),
+      animations: "disabled",
+    });
+  }
   await settings.getByLabel("Setup commands").fill("install-dependencies");
   await expect(
     settings.getByRole("button", { name: "Validate saved setup" }),

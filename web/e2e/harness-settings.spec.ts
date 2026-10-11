@@ -89,48 +89,61 @@ for (const [kind, name] of [
     });
     await expect(entry).toContainText("Native harness missing");
     await expect(
-      entry.getByRole("button", { name: "Check saved setup" }),
+      entry.getByRole("button", { name: /^Check version/ }),
     ).toBeDisabled();
     value.native_installed = true;
     value.selectable = true;
     await entry.getByRole("button", { name: "Refresh detection" }).click();
     await expect(
-      entry.getByRole("button", { name: "Check saved setup" }),
+      entry.getByRole("button", { name: /^Check version/ }),
     ).toBeEnabled();
     expect(checked).toBe(false);
     value.problems = ["native_check_failed"];
-    await entry.getByRole("button", { name: "Check saved setup" }).click();
-    await expect(entry).toContainText("Setup check failed");
+    await entry.getByRole("button", { name: /^Check version/ }).click();
+    await expect(entry).toContainText("Diagnostics failed");
     await expect(
       page.locator("[data-sonner-toast][data-type=warning]"),
-    ).toContainText("Setup needs attention.");
+    ).toContainText("Harness diagnostics need attention.");
     await expect(
       page.locator("[data-sonner-toast][data-type=success]"),
     ).toHaveCount(0);
-    await expect(entry).toContainText("The native setup check failed");
-    await expect(entry).not.toContainText("Setup checked.");
+    await expect(entry).toContainText("The native diagnostic command failed");
+    await expect(entry).not.toContainText("Version and sign-in verified.");
     await expect(
-      entry.getByRole("button", { name: "Check saved setup" }),
+      entry.getByRole("button", { name: /^Check version/ }),
     ).toBeEnabled();
     await screenshot(page, testInfo, `${kind}-failed-check`, entry);
     value.problems = kind === "pi" ? [] : ["native_login_required"];
     value.authentication = kind === "pi" ? "unknown" : "signed-out";
     value.native_version = "fixture.native";
-    await entry.getByRole("button", { name: "Check saved setup" }).click();
+    await entry.getByRole("button", { name: /^Check version/ }).click();
     if (kind === "pi")
       await expect(
-        page.locator("[data-sonner-toast][data-type=info]"),
-      ).toContainText("Pi installation checked");
+        page.locator("[data-sonner-toast][data-type=success]"),
+      ).toContainText("Version verified.");
     else await expect(entry).toContainText("Sign-in required");
-    await expect(entry).not.toContainText("Setup checked.");
+    await expect(entry).not.toContainText("Version and sign-in verified.");
     if (kind !== "pi") {
       value.problems = [];
       value.authentication = "authenticated";
-      await entry.getByRole("button", { name: "Check saved setup" }).click();
+      await entry.getByRole("button", { name: /^Check version/ }).click();
       await expect(
-        page.locator("[data-sonner-toast][data-type=info]"),
-      ).toContainText("Setup checked.");
+        page.locator("[data-sonner-toast][data-type=success]"),
+      ).toContainText("Version and sign-in verified.");
     }
+    await expect(
+      entry.getByRole("heading", {
+        name:
+          kind === "pi" ? "Version verified" : "Version and sign-in verified",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(entry).toContainText(
+      kind === "pi"
+        ? "Provider sign-in is checked when you use a model."
+        : "Model access requires a successful model request.",
+    );
+    await screenshot(page, testInfo, `${kind}-verified`, entry);
   });
 }
 
@@ -184,9 +197,9 @@ test("central harness settings preserve host drafts and configure kinds independ
   await expect(
     first.getByLabel("Executable path", { exact: true }),
   ).toHaveValue("/service/custom/codex");
-  await expect(second).toContainText("Setup detected");
+  await expect(second).toContainText("Installation detected");
   await second.getByText("Detected setup", { exact: true }).click();
-  await expect(second).toContainText("Not checked — run Check saved setup");
+  await expect(second).toContainText("Not checked — run sign-in diagnostics");
   await second
     .getByLabel("Executable path", { exact: true })
     .fill("/service/alternative/claude");
@@ -200,7 +213,7 @@ test("central harness settings preserve host drafts and configure kinds independ
     second.getByLabel("Configuration directory", { exact: true }),
   ).toHaveValue("/service/claude-config");
   await expect(
-    second.getByRole("button", { name: "Check saved setup" }),
+    second.getByRole("button", { name: /^Check version/ }),
   ).toBeDisabled();
   await second.getByRole("button", { name: "Save paths" }).click();
   await expect
@@ -313,10 +326,10 @@ test("native readiness and exact interrupted-discovery confirmation", async ({
     exact: true,
   });
   await expect(entry.getByRole("button", { name: /Install/ })).toHaveCount(0);
-  await entry.getByRole("button", { name: "Check saved setup" }).click();
+  await entry.getByRole("button", { name: /^Check version/ }).click();
   await expect(
-    page.locator("[data-sonner-toast][data-type=info]"),
-  ).toContainText("Setup checked.");
+    page.locator("[data-sonner-toast][data-type=success]"),
+  ).toContainText("Version and sign-in verified.");
   await entry.getByText("Detected setup", { exact: true }).click();
   await expect(entry).toContainText("fixture.native");
   await entry

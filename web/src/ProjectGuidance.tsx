@@ -1,3 +1,4 @@
+import { StatusNotice } from "./StatusNotice";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
@@ -69,44 +70,6 @@ export function ProjectGuidance({
         </p>
       ) : (
         <ContentStack space="section">
-          <ContentStack>
-            <p>
-              {value.status === "installed" || value.status === "manual"
-                ? "Project guidance is in place."
-                : "Install the coordinator skill and its AGENTS.md reference. Existing instructions are preserved."}
-            </p>
-            {value.notices.map((notice) => (
-              <p key={notice}>{notice}</p>
-            ))}
-            {!!nextSteps.length && (
-              <ul>
-                {nextSteps.map((step) => (
-                  <li key={step}>{step}</li>
-                ))}
-              </ul>
-            )}
-          </ContentStack>
-          <div className="actions">
-            <Button
-              size="sm"
-              disabled={busy || resource.loading || !value.can_install}
-              onClick={() => void install()}
-            >
-              {value.status === "update_available"
-                ? "Update project guidance"
-                : "Install project guidance"}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy || resource.loading}
-              onClick={() => {
-                setRefresh((v) => v + 1);
-              }}
-            >
-              {resource.loading ? "Refreshing guidance…" : "Refresh guidance"}
-            </Button>
-          </div>
           <Disclosure summary={<>Preview or copy guidance</>}>
             <ContentStack space="section">
               <DetailSection
@@ -139,6 +102,72 @@ export function ProjectGuidance({
               </DetailSection>
             </ContentStack>
           </Disclosure>
+          <StatusNotice
+            title={
+              busy
+                ? "Installing project guidance…"
+                : {
+                    installed: "Project guidance installed",
+                    manual: "Project guidance supplied manually",
+                    available: "Project guidance not installed",
+                    update_available: "Project guidance update available",
+                    partial: "Project guidance needs repair",
+                    conflict: "Project guidance conflicts with existing files",
+                  }[value.status]
+            }
+            tone={
+              busy
+                ? "progress"
+                : value.status === "conflict" || value.status === "partial"
+                  ? "attention"
+                  : value.status === "installed" || value.status === "manual"
+                    ? "success"
+                    : "neutral"
+            }
+          >
+            <p>
+              {value.status === "installed" || value.status === "manual"
+                ? "New coding conversations can use these project instructions."
+                : "Install the coordinator skill and its AGENTS.md reference. Existing instructions are preserved."}
+            </p>
+            <div className="actions">
+              <Button
+                size="sm"
+                disabled={busy || resource.loading || !value.can_install}
+                onClick={() => void install()}
+              >
+                {value.status === "update_available"
+                  ? "Update project guidance"
+                  : "Install project guidance"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy || resource.loading}
+                onClick={() => {
+                  setRefresh((v) => v + 1);
+                }}
+              >
+                {resource.loading ? "Refreshing guidance…" : "Refresh guidance"}
+              </Button>
+            </div>
+          </StatusNotice>
+          {!!value.notices.length && (
+            <StatusNotice title="Project files need review" tone="attention">
+              {value.notices.map((notice) => (
+                <p key={notice}>{notice}</p>
+              ))}
+            </StatusNotice>
+          )}
+          {!!nextSteps.length && (
+            <DetailSection title="Next steps">
+              <ol className="list-decimal pl-5 space-y-2">
+                {nextSteps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            </DetailSection>
+          )}
         </ContentStack>
       )}
     </DetailSection>

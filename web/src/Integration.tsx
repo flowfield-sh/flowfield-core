@@ -1,3 +1,4 @@
+import { StatusNotice } from "./StatusNotice";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
@@ -311,67 +312,104 @@ function SetupValidation({
   const resource = useResource<Check>(path, `${revision}:${String(refresh)}`);
   const [busy, setBusy] = useState(false);
   const value = resource.data;
+  const validateAction = (
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={
+        disabled ||
+        busy ||
+        value?.status === "checking" ||
+        value?.status === "uncertain"
+      }
+      onClick={async () => {
+        setBusy(true);
+        try {
+          const checked = await request<Check>(path, "POST", {
+            expected_revision: revision,
+          });
+          resource.invalidate();
+          resource.setData(checked);
+          if (checked.status === "passed" && !checked.checkout_problem)
+            toast.success("Setup checks passed.");
+          else if (checked.status === "checking")
+            toast.info("Setup validation started.");
+          else if (checked.status === "failed")
+            toast.error(checked.problem || "Setup checks failed.");
+          else
+            toast.warning("Setup validation needs attention.", {
+              description:
+                checked.problem || checked.checkout_problem || undefined,
+            });
+        } catch (e) {
+          reportError(e, "Could not validate setup");
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      {busy ? "Checking setup…" : "Validate saved setup"}
+    </Button>
+  );
   return (
     <DetailSection title="Validate setup">
       <p>
         Test saved setup and checks in a managed copy. No model call; the queue
         stays unchanged.
       </p>
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={
-          disabled ||
-          busy ||
-          value?.status === "checking" ||
-          value?.status === "uncertain"
-        }
-        onClick={async () => {
-          setBusy(true);
-          try {
-            const checked = await request<Check>(path, "POST", {
-              expected_revision: revision,
-            });
-            resource.invalidate();
-            resource.setData(checked);
-            if (checked.status === "passed" && !checked.checkout_problem)
-              toast.success("Setup checks passed.");
-            else if (checked.status === "checking")
-              toast.info("Setup validation started.");
-            else if (checked.status === "failed")
-              toast.error(checked.problem || "Setup checks failed.");
-            else
-              toast.warning("Setup validation needs attention.", {
-                description:
-                  checked.problem || checked.checkout_problem || undefined,
-              });
-          } catch (e) {
-            reportError(e, "Could not validate setup");
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        {busy ? "Checking setup…" : "Validate saved setup"}
-      </Button>
+      {!value && validateAction}
+
       <ResourceRetry resources={[resource]} />
       {value && (
         <ContentStack>
-          <p>
-            {value.stale
-              ? "Settings or destination changed; validate again."
-              : value.status === "passed"
-                ? "Setup and checks passed in the managed environment."
-                : label(value.status)}
-          </p>
-          {value.problem && <FailureEvidence problem={value.problem} />}
-          {value.checkout_problem && (
-            <Alert variant="destructive">
-              <AlertDescription>
+          <StatusNotice
+            title={
+              busy || value.status === "checking"
+                ? "Validating project setup…"
+                : value.stale
+                  ? "Validation is out of date"
+                  : value.status === "passed"
+                    ? "Setup and validation commands passed"
+                    : value.status === "failed"
+                      ? "Project setup validation failed"
+                      : "Project setup validation needs attention"
+            }
+            tone={
+              busy || value.status === "checking"
+                ? "progress"
+                : value.stale ||
+                    value.status !== "passed" ||
+                    value.checkout_problem
+                  ? "attention"
+                  : "success"
+            }
+            actions={validateAction}
+          >
+            <p>
+              {value.stale
+                ? "Settings or destination changed; validate again."
+                : value.status === "passed"
+                  ? "Setup and checks passed in the managed environment."
+                  : value.status === "checking"
+                    ? "Running the saved commands in a managed copy."
+                    : value.status === "uncertain"
+                      ? "Validation stopped without a confirmed outcome. Inspect the retained evidence before continuing."
+                      : "Review the failure below, update the settings, then validate again."}
+            </p>
+            {value.problem && <p>{value.problem.split("\n")[0]}</p>}
+            {value.checkout_problem && (
+              <p>
                 <strong>Checkout is not ready for delivery.</strong>{" "}
                 {value.checkout_problem}
-              </AlertDescription>
-            </Alert>
+              </p>
+            )}
+          </StatusNotice>
+          {value.problem?.includes("\n") && (
+            <Disclosure summary="Failure details">
+              <pre className="evidence-output">
+                {value.problem.split("\n").slice(1).join("\n")}
+              </pre>
+            </Disclosure>
           )}
           <CheckEvidence checks={value.setup} title="Setup output" />
           <CheckEvidence checks={value.checks} title="Validation output" />

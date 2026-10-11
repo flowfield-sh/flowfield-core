@@ -910,6 +910,9 @@ for (const scenario of [
     ).toHaveCount(0);
     const status = panel.getByRole("status");
     await expect(
+      panel.locator('input[type="checkbox"], [role="status"]').first(),
+    ).toHaveAccessibleName("Check for updates automatically");
+    await expect(
       status.getByRole("heading", { name: scenario.title, exact: true }),
     ).toBeVisible();
     const check = status.getByRole("button", {

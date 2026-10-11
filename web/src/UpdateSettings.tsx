@@ -38,6 +38,25 @@ export function UpdateSettings() {
         <StatusNotice title="Loading update status…" tone="progress" />
       ) : (
         <>
+          <SettingsCheckbox
+            disabled={busy || updates.disabled_by_environment}
+            checked={updates.automatic}
+            hint={
+              updates.disabled_by_environment
+                ? "Automatic checks are disabled by the service configuration."
+                : "Check in the background. Installing an update remains a separate action."
+            }
+            onChange={(e) => {
+              const value = e.target.checked;
+              void act(async () => {
+                await configureUpdates(value);
+                toast.success("Update preferences saved.");
+              });
+            }}
+          >
+            Check for updates automatically
+          </SettingsCheckbox>
+          <Separator />
           <StatusNotice
             title={
               updates.checking
@@ -142,25 +161,6 @@ export function UpdateSettings() {
               )}
             </DetailSection>
           )}
-          <Separator />
-          <SettingsCheckbox
-            disabled={busy || updates.disabled_by_environment}
-            checked={updates.automatic}
-            hint={
-              updates.disabled_by_environment
-                ? "Automatic checks are disabled by the service configuration."
-                : "Check in the background. Installing an update remains a separate action."
-            }
-            onChange={(e) => {
-              const value = e.target.checked;
-              void act(async () => {
-                await configureUpdates(value);
-                toast.success("Update preferences saved.");
-              });
-            }}
-          >
-            Check for updates automatically
-          </SettingsCheckbox>
         </>
       )}
     </ContentStack>

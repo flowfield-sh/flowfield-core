@@ -63,14 +63,14 @@ function setupLabel(value: Status) {
   if (!value.config_available) return "Configuration directory missing";
   if (value.authentication === "signed-out") return "Sign-in required";
   if (value.problems.includes("native_check_failed"))
-    return "Setup check failed";
+    return "Diagnostics failed";
   if (value.problems.includes("authentication_unverified"))
     return "Sign-in could not be checked";
   if (value.checked && value.registration.harness === "pi")
-    return "Installation checked";
+    return "Version verified";
   return value.checked && value.authentication === "authenticated"
-    ? "Setup checked"
-    : "Setup detected";
+    ? "Version and sign-in verified"
+    : "Installation detected";
 }
 
 function HarnessEntry({
@@ -135,16 +135,16 @@ function HarnessEntry({
       resource.setData(result);
       resource.setError("");
       if (operation === "check" && result.problems.length) {
-        toast.warning("Setup needs attention.", {
+        toast.warning("Harness diagnostics need attention.", {
           description: setupLabel(result),
         });
+      } else if (operation === "check") {
+        toast.success(
+          kind === "pi" ? "Version verified." : "Version and sign-in verified.",
+        );
       } else {
         toast.info(
-          operation === "check"
-            ? kind === "pi"
-              ? "Pi installation checked. Choose a model to use its provider account."
-              : "Setup checked."
-            : "Discovery hold cleared. Native choices can be loaded again.",
+          "Discovery hold cleared. Native choices can be loaded again.",
         );
       }
     } catch (error) {
@@ -177,21 +177,99 @@ function HarnessEntry({
         )}
         {status && (
           <>
+            <Disclosure summary="Path overrides">
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void editor.run("PUT", {
+                    expected_revision: editor.loaded?.revision,
+                    executable: editor.values.executable || null,
+                    config_directory: editor.values.config_directory || null,
+                  });
+                }}
+              >
+                <fieldset
+                  disabled={busy}
+                  className="content-stack"
+                  data-space="content"
+                >
+                  <Label className="field block">
+                    Executable path
+                    <Input
+                      value={editor.values.executable}
+                      placeholder={
+                        status.launch.native_executable ??
+                        "Absolute service-host path"
+                      }
+                      onChange={(event) =>
+                        editor.change("executable", event.target.value)
+                      }
+                    />
+                  </Label>
+                  <Label className="field block">
+                    Configuration directory
+                    <Input
+                      aria-label="Configuration directory"
+                      value={editor.values.config_directory}
+                      placeholder={status.launch.config_directory}
+                      onChange={(event) =>
+                        editor.change("config_directory", event.target.value)
+                      }
+                    />
+                  </Label>
+                  <div className="actions">
+                    <Button
+                      size="sm"
+                      disabled={
+                        !editor.dirty || editor.newer || editor.conflict
+                      }
+                    >
+                      {editor.busy ? "Saving…" : "Save paths"}
+                    </Button>
+                    {editor.dirty && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        type="button"
+                        onClick={editor.cancel}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                </fieldset>
+              </form>
+              <EditorFeedback state={editor} />
+            </Disclosure>
             <StatusNotice
-              title={setupLabel(status)}
+              title={
+                action === "check" ? "Running diagnostics…" : setupLabel(status)
+              }
               tone={
-                status.problems.length ||
-                !status.native_installed ||
-                !status.config_available ||
-                status.authentication === "signed-out"
-                  ? "attention"
-                  : "neutral"
+                action === "check"
+                  ? "progress"
+                  : status.problems.length ||
+                      !status.native_installed ||
+                      !status.config_available ||
+                      status.authentication === "signed-out"
+                    ? "attention"
+                    : status.checked
+                      ? "success"
+                      : "neutral"
               }
             >
+              <p>
+                {kind === "pi"
+                  ? "Reads the installed Pi version. Provider sign-in is checked when you use a model."
+                  : "Reads the installed version and native sign-in status. Model access requires a successful model request."}
+              </p>
+              {editor.dirty && (
+                <p>Save or cancel path changes before running diagnostics.</p>
+              )}
               {!status.native_installed && (
                 <p>
                   Install {names[kind]} on the service host, then refresh
-                  detection or supply its executable below.
+                  detection or correct its path override.
                 </p>
               )}
               {status.authentication === "signed-out" && (
@@ -202,9 +280,9 @@ function HarnessEntry({
               )}
               {status.problems.includes("native_check_failed") && (
                 <p>
-                  The native setup check failed. Check the saved paths and open{" "}
-                  {names[kind]} in a terminal on the service host, then check
-                  again.
+                  The native diagnostic command failed. Check the saved paths
+                  and open {names[kind]} in a terminal on the service host, then
+                  check again.
                 </p>
               )}
               {status.problems.includes("authentication_unverified") && (
@@ -240,7 +318,11 @@ function HarnessEntry({
                   }
                   onClick={() => void operate("check")}
                 >
-                  {action === "check" ? "Checking setup…" : "Check saved setup"}
+                  {action === "check"
+                    ? "Running diagnostics…"
+                    : kind === "pi"
+                      ? "Check version"
+                      : "Check version and sign-in"}
                 </Button>
                 {status.catalog_ownership && (
                   <Button
@@ -311,70 +393,6 @@ function HarnessEntry({
                 </AlertDescription>
               </Alert>
             )}
-            <Disclosure summary="Path overrides">
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void editor.run("PUT", {
-                    expected_revision: editor.loaded?.revision,
-                    executable: editor.values.executable || null,
-                    config_directory: editor.values.config_directory || null,
-                  });
-                }}
-              >
-                <fieldset
-                  disabled={busy}
-                  className="content-stack"
-                  data-space="content"
-                >
-                  <Label className="field block">
-                    Executable path
-                    <Input
-                      value={editor.values.executable}
-                      placeholder={
-                        status.launch.native_executable ??
-                        "Absolute service-host path"
-                      }
-                      onChange={(event) =>
-                        editor.change("executable", event.target.value)
-                      }
-                    />
-                  </Label>
-                  <Label className="field block">
-                    Configuration directory
-                    <Input
-                      aria-label="Configuration directory"
-                      value={editor.values.config_directory}
-                      placeholder={status.launch.config_directory}
-                      onChange={(event) =>
-                        editor.change("config_directory", event.target.value)
-                      }
-                    />
-                  </Label>
-                  <div className="actions">
-                    <Button
-                      size="sm"
-                      disabled={
-                        !editor.dirty || editor.newer || editor.conflict
-                      }
-                    >
-                      {editor.busy ? "Saving…" : "Save paths"}
-                    </Button>
-                    {editor.dirty && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        type="button"
-                        onClick={editor.cancel}
-                      >
-                        Cancel
-                      </Button>
-                    )}
-                  </div>
-                </fieldset>
-              </form>
-              <EditorFeedback state={editor} />
-            </Disclosure>
             <Disclosure summary="Detected setup">
               <dl className="harness-facts">
                 <dt>Native executable</dt>
@@ -385,7 +403,7 @@ function HarnessEntry({
                   {status.launch.config_source})
                 </dd>
                 <dt>Native version</dt>
-                <dd>{status.native_version ?? "Run Check saved setup"}</dd>
+                <dd>{status.native_version ?? "Run version diagnostics"}</dd>
                 <dt>Sign-in</dt>
                 <dd>
                   {kind === "pi"
@@ -393,7 +411,7 @@ function HarnessEntry({
                     : status.authentication === "unknown"
                       ? status.checked
                         ? "Could not determine sign-in status"
-                        : "Not checked — run Check saved setup"
+                        : "Not checked — run sign-in diagnostics"
                       : status.authentication === "authenticated"
                         ? "Signed in"
                         : "Signed out"}

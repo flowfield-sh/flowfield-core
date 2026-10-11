@@ -544,7 +544,7 @@ test("validated result approval delivers real Git code with the worker queue pau
 
 test("existing-project adoption previews and preserves coordinator guidance", async ({
   page,
-}) => {
+}, testInfo) => {
   const root = existingDirectory(join(state, "adoption-guidance"));
   execFileSync("git", ["init", "-b", "main", root], { stdio: "ignore" });
   const agents = join(root, "AGENTS.md");
@@ -606,6 +606,36 @@ test("existing-project adoption previews and preserves coordinator guidance", as
     page.getByRole("button", { name: "Install project guidance" }),
   ).toBeDisabled();
   writeFileSync(agents, readFileSync(agents, "utf8") + "\nNew local rule\n");
+  await expect(
+    page.getByRole("status").filter({ hasText: "Project guidance installed" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Project guidance installed" }),
+  ).not.toContainText("Untracked adoption files");
+  await expect(
+    page.getByRole("status").filter({ hasText: "Project files need review" }),
+  ).toContainText("Leaving them untracked blocks code delivery");
+  await expect(page.getByRole("heading", { name: "Next steps" })).toBeVisible();
+  if (process.env.FLOWFIELD_VISUAL_EVIDENCE) {
+    await page.screenshot({
+      path: testInfo.outputPath("guidance-installed-desktop.png"),
+      animations: "disabled",
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({
+      path: testInfo.outputPath("guidance-installed-mobile.png"),
+      animations: "disabled",
+    });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.reload();
+    await expect(
+      page.getByRole("heading", { name: "Project guidance installed" }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath("guidance-installed-mobile-dark.png"),
+      animations: "disabled",
+    });
+  }
   cli(["project", "guidance", "remove"], root);
   expect(readFileSync(agents, "utf8")).toBe(original + "\nNew local rule\n");
   expect(
