@@ -2587,7 +2587,7 @@ export interface components {
        * Source
        * @enum {string}
        */
-      source: "project" | "override";
+      source: "project" | "workspace" | "override";
       /** Default Revision */
       default_revision: number;
       /** Override Revision */

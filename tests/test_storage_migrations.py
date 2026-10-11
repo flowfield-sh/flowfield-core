@@ -611,6 +611,7 @@ def test_notification_cleanup_discards_only_retired_state_and_rolls_back(tmp_pat
         assert db.execute("SELECT count(*) FROM announcement_events").fetchone()[0] == 0
     after = logical_data(upgraded.directory)
     discarded = {
+        "worker_settings",  # Moved to workspace ownership; exact settings checked above.
         "notifications",
         "notification_state",
         "notification_deliveries",

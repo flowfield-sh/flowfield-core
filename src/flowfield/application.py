@@ -565,6 +565,13 @@ class Workspace:
                 existing = Project(**dict(row)) if row else None
                 if workspace_id is not None:
                     Workspaces.read(db, workspace_id)
+                    if request.worker is not None:
+                        raise ApplicationError(
+                            "workspace_worker_defaults",
+                            "Configure workspace workers separately; "
+                            "use individual task overrides for exceptions.",
+                            409,
+                        )
                     membership = (
                         db.execute(
                             "SELECT workspace_id FROM workspace_projects WHERE project_id=?",
@@ -577,6 +584,13 @@ class Workspace:
                         raise ApplicationError(
                             "project_workspace_conflict",
                             "This project already belongs to another workspace.",
+                            409,
+                        )
+                    if existing and membership is None:
+                        raise ApplicationError(
+                            "project_workspace_conflict",
+                            "This project was registered without a workspace. "
+                            "Moving registered projects between scopes is not supported.",
                             409,
                         )
                 defaults = setup_defaults(path, config, existing)

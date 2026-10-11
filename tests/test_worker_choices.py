@@ -14,6 +14,7 @@ from flowfield.agent_models import AgentChoice, AgentSettingsEdit
 from flowfield.agent_settings import AgentSettings
 from flowfield.application import Workspace
 from flowfield.errors import ApplicationError
+from flowfield.execution import Execution
 from flowfield.execution_models import ModelOption, SettingsEdit
 from flowfield.supervisor import Supervisor
 
@@ -231,8 +232,7 @@ def test_real_worker_choice_migration_preserves_and_restores_legacy_defaults(
                 json.loads(db.execute("SELECT data FROM worker_settings").fetchone()[0]) == legacy
             )
     upgraded = Workspace(workspace.directory)
-    with upgraded.connection() as db:
-        data = json.loads(db.execute("SELECT data FROM worker_settings").fetchone()[0])
+    data = Execution(upgraded).settings("harbor").model_dump()
     assert data == {
         **{key: value for key, value in legacy.items() if key not in {"model", "effort", "mode"}},
         "selection": dict(

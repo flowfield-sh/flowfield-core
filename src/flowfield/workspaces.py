@@ -6,8 +6,15 @@ from uuid import uuid4
 
 from pydantic import StringConstraints
 
+from flowfield import worker_settings
 from flowfield.application import Edit, Input, Markdown, Project, ProjectSetup, Workspace, now
 from flowfield.errors import ApplicationError
+from flowfield.execution_models import (
+    QueueEdit,
+    SettingsEdit,
+    WorkerOccupancy,
+    WorkspaceWorkerSettings,
+)
 from flowfield.project_config import Identifier, Title
 
 # A migrated 200-character project name also retains the complete " Workspace" suffix.
@@ -127,3 +134,28 @@ class Workspaces:
 
     def adopt(self, identity: str, request: ProjectSetup) -> Project:
         return self.store.setup_project(request, workspace_id=identity)
+
+    def workers(self, identity: str) -> WorkspaceWorkerSettings:
+        with self.store.connection() as db:
+            return worker_settings.read_workspace(db, identity)
+
+    def configure_workers(self, identity: str, request: SettingsEdit) -> WorkspaceWorkerSettings:
+        with self.store.connection(write=True) as db:
+            settings = worker_settings.read_workspace(db, identity)
+            self.store._current(settings.revision, request.expected_revision)
+            worker_settings.configure(settings, request)
+            worker_settings.save_workspace(db, settings)
+            return settings
+
+    def queue(self, identity: str, request: QueueEdit) -> WorkspaceWorkerSettings:
+        with self.store.connection(write=True) as db:
+            settings = worker_settings.read_workspace(db, identity)
+            self.store._current(settings.revision, request.expected_revision)
+            worker_settings.queue(settings, request)
+            worker_settings.save_workspace(db, settings)
+            return settings
+
+    def occupancy(self, identity: str) -> WorkerOccupancy:
+        with self.store.connection() as db:
+            self.read(db, identity)
+            return worker_settings.occupancy(db, workspace=identity)

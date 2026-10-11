@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import quote, urlencode
 
+from flowfield import worker_settings
 from flowfield.activity import EntryKind
 from flowfield.application import STATUSES, TaskRevision, Workspace, now
 from flowfield.coordinator_prose import read as read_prose
@@ -409,12 +410,7 @@ class ContextReads:
             return result
 
     def _worker_briefing(self, db: sqlite3.Connection, project_id: str) -> dict[str, Any]:
-        from flowfield.execution_models import WorkerSettings
-
-        row = db.execute(
-            "SELECT data FROM worker_settings WHERE project_id=?", (project_id,)
-        ).fetchone()
-        settings = json.loads(row[0]) if row else WorkerSettings(project_id=project_id).model_dump()
+        settings = worker_settings.read_project(db, project_id).model_dump()
         rows = db.execute(
             "SELECT data FROM runs r WHERE project_id=? AND "
             "status IN ('preparing','running','stopping','uncertain','failed','in_review') "
@@ -431,19 +427,13 @@ class ContextReads:
                     "url": self.url(project_id, "tasks", run["task_key"], "runs", run["id"]),
                 }
             )
-        occupancy = dict(
-            db.execute(
-                "SELECT status,count(*) FROM runs WHERE project_id=? "
-                "AND status IN ('preparing','running','stopping','uncertain') GROUP BY status",
-                (project_id,),
-            ).fetchall()
-        )
+        occupancy = worker_settings.occupancy(db, project=project_id)
         return {
             **excerpt(settings, 600),
             "attempts": runs,
             "has_more": len(rows) > 3,
-            "occupied_slots": sum(occupancy.values()),
-            "uncertain_slots": occupancy.get("uncertain", 0),
+            "occupied_slots": occupancy.active + occupancy.uncertain,
+            "uncertain_slots": occupancy.uncertain,
         }
 
     def _briefing(

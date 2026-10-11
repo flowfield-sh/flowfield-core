@@ -125,7 +125,7 @@ function ExecutionDetail({
                 {run.data.applied_agent?.fast != null &&
                   ` · ${run.data.applied_agent.fast ? "Fast" : "Normal speed"}`}
                 {run.data.agent_settings &&
-                  ` · ${run.data.agent_settings.source === "override" ? "Task override" : "Project defaults"}`}
+                  ` · ${{ override: "Task override", workspace: "Workspace defaults", project: "Project defaults" }[run.data.agent_settings.source]}`}
               </>
             )}
           </>

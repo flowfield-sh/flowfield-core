@@ -5,6 +5,7 @@ import sqlite3
 from typing import Any
 from uuid import uuid4
 
+from flowfield import worker_settings
 from flowfield.agent_models import AgentChoice
 from flowfield.agent_settings import AgentSettings
 from flowfield.application import Task, TaskRevision, Workspace, now
@@ -34,14 +35,7 @@ class Execution:
 
     def _settings(self, db: sqlite3.Connection, project_id: str) -> WorkerSettings:
         self.workspace._project(db, project_id)
-        row = db.execute(
-            "SELECT data FROM worker_settings WHERE project_id=?", (project_id,)
-        ).fetchone()
-        return (
-            WorkerSettings.model_validate_json(row[0])
-            if row
-            else WorkerSettings(project_id=project_id)
-        )
+        return worker_settings.read_project(db, project_id)
 
     def settings(self, project_id: str) -> WorkerSettings:
         with self.workspace.connection() as db:
@@ -50,73 +44,42 @@ class Execution:
     def occupancy(self, project_id: str) -> WorkerOccupancy:
         with self.workspace.connection() as db:
             self.workspace._project(db, project_id)
-            counts = dict(
-                db.execute(
-                    "SELECT status, count(*) FROM runs WHERE project_id=? GROUP BY status",
-                    (project_id,),
-                ).fetchall()
-            )
-            return WorkerOccupancy(
-                active=sum(
-                    counts.get(status, 0) for status in ("preparing", "running", "stopping")
-                ),
-                uncertain=counts.get("uncertain", 0),
-            )
+            return worker_settings.occupancy(db, project=project_id)
 
     def _save_settings(self, db: sqlite3.Connection, settings: WorkerSettings) -> None:
-        settings.revision += 1
-        db.execute(
-            (
-                "INSERT INTO worker_settings VALUES (?, ?) ON CONFLICT(project_id)"
-                " DO UPDATE SET data=excluded.data"
-            ),
-            (settings.project_id, settings.model_dump_json()),
-        )
+        worker_settings.save_project(db, settings)
 
     def configure(self, project_id: str, request: SettingsEdit) -> WorkerSettings:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
+        with self.workspace.connection(write=True) as db:
             return self._configure(db, project_id, request)
 
     def _configure(
         self, db: sqlite3.Connection, project_id: str, request: SettingsEdit
     ) -> WorkerSettings:
-        if request.selection.fast:
-            raise ApplicationError(
-                "worker_speed_override",
-                "Set worker Fast mode on the individual task; project workers use normal speed.",
-                409,
-            )
         settings = self._settings(db, project_id)
         self.workspace._current(settings.revision, request.expected_revision)
-        settings.selection = request.selection.model_copy(deep=True)
-        if settings.selection.fast is None:
-            settings.selection.fast = False
-        settings.max_parallel, settings.problem = request.max_parallel, None
+        worker_settings.configure(settings, request)
+        settings.problem = None
         self._save_settings(db, settings)
         return settings
 
     def queue(self, project_id: str, request: QueueEdit) -> WorkerSettings:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
+        with self.workspace.connection(write=True) as db:
             settings = self._settings(db, project_id)
             self.workspace._current(settings.revision, request.expected_revision)
-            if request.enabled and not settings.selection:
-                raise ApplicationError(
-                    "worker_model_required",
-                    (
-                        "Choose a worker harness and model in Project details, or"
-                        " ask the coordinator to configure them."
-                    ),
-                    409,
-                )
-            settings.enabled, settings.problem = request.enabled, None
+            worker_settings.queue(settings, request)
+            settings.problem = None
             self._save_settings(db, settings)
             return settings
 
     def queue_problem(self, project_id: str, problem: str | None) -> None:
-        if self.settings(project_id).problem == problem:
-            return
         with self.workspace.connection(write=True, project_id=project_id) as db:
             settings = self._settings(db, project_id)
+            if settings.problem == problem:
+                return
+            if worker_settings.workspace_id(db, project_id) is not None:
+                worker_settings.save_problem(db, project_id, problem)
+                return
             settings.problem = problem
             self._save_settings(db, settings)
 
@@ -228,13 +191,8 @@ class Execution:
         """Reserve once against fresh state; caller supplies verified immutable Git facts."""
         with self.workspace.connection(write=True, project_id=project_id) as db:
             settings = self._settings(db, project_id)
-            count = db.execute(
-                (
-                    "SELECT count(*) FROM runs WHERE project_id=? AND status IN "
-                    "('preparing','running','stopping','uncertain')"
-                ),
-                (project_id,),
-            ).fetchone()[0]
+            occupied = worker_settings.occupancy(db, project=project_id)
+            count = occupied.active + occupied.uncertain
             if not settings.enabled or not settings.selection or count >= settings.max_parallel:
                 return None
             project = self.workspace._project(db, project_id)

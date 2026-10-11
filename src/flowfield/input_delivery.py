@@ -1,8 +1,11 @@
 """Shared, bounded delivery projection for managed task questions."""
 
+import json
 import sqlite3
 
 from pydantic import BaseModel
+
+from flowfield import worker_settings
 
 
 class InputDelivery(BaseModel):
@@ -17,8 +20,6 @@ def question_delivery(
     db: sqlite3.Connection, project_id: str, identity: str
 ) -> InputDelivery | None:
     """One bounded, current projection for question, task and attention views."""
-    import json
-
     from flowfield.execution_models import Run
 
     row = db.execute(
@@ -155,24 +156,17 @@ def question_delivery(
             "Your answer is saved. Complete the task's prerequisites first.",
             stop=True,
         )
-    worker_row = db.execute(
-        "SELECT data FROM worker_settings WHERE project_id=?", (project_id,)
-    ).fetchone()
-    worker = json.loads(worker_row[0]) if worker_row else {}
-    if not worker.get("enabled"):
+    worker = worker_settings.read_project(db, project_id)
+    if not worker.enabled:
         return state(
             "Paused",
-            "Your answer is saved. Enable the project queue when ready to continue.",
+            "Your answer is saved. Enable the queue when ready to continue.",
             stop=True,
         )
-    if worker.get("problem"):
-        return state("Continuation blocked", worker["problem"], stop=True)
-    count = db.execute(
-        "SELECT count(*) FROM runs WHERE project_id=? "
-        "AND status IN ('preparing','running','stopping','uncertain')",
-        (project_id,),
-    ).fetchone()[0]
-    if count >= worker.get("max_parallel", 1):
+    if worker.problem:
+        return state("Continuation blocked", worker.problem, stop=True)
+    occupied = worker_settings.occupancy(db, project=project_id)
+    if occupied.active + occupied.uncertain >= worker.max_parallel:
         return state(
             "Waiting for capacity",
             "Your answer is saved; another attempt owns the available worker slot.",

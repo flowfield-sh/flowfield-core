@@ -35,6 +35,14 @@ class WorkerSettings(Record):
     problem: str | None = None
 
 
+class WorkspaceWorkerSettings(Record):
+    workspace_id: str
+    revision: int = 1
+    selection: AgentChoice | None = None
+    max_parallel: int = 1
+    enabled: bool = False
+
+
 class WorkerOccupancy(Record):
     active: int
     uncertain: int

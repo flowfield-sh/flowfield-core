@@ -1,7 +1,8 @@
-"""One resolution path; existing worker defaults and queue revisions retain their owner."""
+"""Resolve coordinator choices and workspace worker defaults with per-task overrides."""
 
 import sqlite3
 
+from flowfield import worker_settings
 from flowfield.adapters.coordinator_sessions import CoordinatorSessions
 from flowfield.adapters.session_continuity import retains_session
 from flowfield.agent_models import (
@@ -13,7 +14,6 @@ from flowfield.agent_models import (
 )
 from flowfield.application import Workspace
 from flowfield.errors import ApplicationError
-from flowfield.execution_models import WorkerSettings
 from flowfield.harness_settings import HarnessSettings
 
 
@@ -28,14 +28,7 @@ class AgentSettings:
         if scope and role == "worker":
             scope = self.workspace._task(db, project, scope).id
         if role == "worker" and not scope:
-            row = db.execute(
-                "SELECT data FROM worker_settings WHERE project_id=?", (project,)
-            ).fetchone()
-            current = (
-                WorkerSettings.model_validate_json(row[0])
-                if row
-                else WorkerSettings(project_id=project)
-            )
+            current = worker_settings.read_project(db, project)
             return AgentSettingsView(
                 revision=current.revision,
                 selection=current.selection,
@@ -68,7 +61,13 @@ class AgentSettings:
         if selected:
             result.effective = EffectiveAgent(
                 choice=selected,
-                source="override" if override and override.selection else "project",
+                source=(
+                    "override"
+                    if override and override.selection
+                    else "workspace"
+                    if role == "worker" and worker_settings.workspace_id(db, project)
+                    else "project"
+                ),
                 default_revision=defaults.revision,
                 override_revision=override.revision if override else None,
             )
@@ -101,9 +100,7 @@ class AgentSettings:
     ) -> AgentSettingsView:
         request = request.model_copy(update={"selection": self.normalize(request.selection, role)})
         if role == "worker" and not scope:
-            raise ApplicationError(
-                "worker_defaults", "Use worker settings to edit project defaults."
-            )
+            raise ApplicationError("worker_defaults", "Use worker settings to edit defaults.")
         if role == "coordinator":
             scope = ""
         if role == "worker" and scope:
