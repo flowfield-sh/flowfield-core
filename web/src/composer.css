@@ -105,7 +105,7 @@
 }
 .composer-settings {
   padding: 12px;
-  width: min(380px, calc(100vw - 24px));
+  width: min(420px, calc(100vw - 24px));
 }
 .composer-command-menu [cmdk-item] {
   display: flex;
