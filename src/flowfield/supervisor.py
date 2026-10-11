@@ -14,10 +14,11 @@ from flowfield.adapters import local_checks
 from flowfield.adapters.agent_contract import Agent
 from flowfield.adapters.agent_permissions import permission_handler
 from flowfield.adapters.agent_selection import create
+from flowfield.adapters.coordinator_directory import prepare as coordinator_directory
 from flowfield.adapters.git_workspace import GitWorkspace, contains
 from flowfield.adapters.harness_host import HarnessChecks
 from flowfield.adapters.local_execution import LocalAttempt, LocalHost
-from flowfield.agent_models import AgentChoice
+from flowfield.agent_models import AgentChoice, AgentSettingsEdit, AgentSettingsView
 from flowfield.application import Workspace
 from flowfield.attachments import Attachments
 from flowfield.catalogs import Catalogs
@@ -33,6 +34,7 @@ from flowfield.execution_models import (
     SettingsEdit,
     WorkerResult,
     WorkerSettings,
+    WorkspaceWorkerSettings,
 )
 from flowfield.harness_models import HarnessKind
 from flowfield.harness_settings import HarnessSettings
@@ -44,6 +46,7 @@ from flowfield.setup_validation import SetupValidation
 from flowfield.storage import acquire_lock
 from flowfield.worker_context import brief_context
 from flowfield.worker_tools import WorkerBridge
+from flowfield.workspaces import Workspaces
 
 
 def process_stamp(pid: int) -> str:
@@ -122,6 +125,33 @@ class Supervisor:
     async def configure(self, project_id: str, request: SettingsEdit) -> WorkerSettings:
         await self.validate_agent_choice(request.selection, project_id)
         return self.execution.configure(project_id, request)
+
+    async def workspace_models(
+        self, identity: str, *, harness: HarnessKind = "codex", refresh: bool = False
+    ) -> list[ModelOption]:
+        path = str(coordinator_directory(self.workspace, identity))
+        return await self.model_options(harness=harness, project_path=path, refresh=refresh)
+
+    async def configure_workspace_workers(
+        self, identity: str, request: SettingsEdit
+    ) -> WorkspaceWorkerSettings:
+        spaces = Workspaces(self.workspace)
+        self.workspace._current(spaces.workers(identity).revision, request.expected_revision)
+        await self.validate_agent_choice(
+            request.selection, project_path=str(coordinator_directory(self.workspace, identity))
+        )
+        return spaces.configure_workers(identity, request)
+
+    async def configure_workspace_coordinator(
+        self, identity: str, request: AgentSettingsEdit
+    ) -> AgentSettingsView:
+        spaces = Workspaces(self.workspace)
+        self.workspace._current(spaces.coordinator(identity).revision, request.expected_revision)
+        if request.selection:
+            await self.validate_agent_choice(
+                request.selection, project_path=str(coordinator_directory(self.workspace, identity))
+            )
+        return spaces.configure_coordinator(identity, request)
 
     async def validate_agent_choice(
         self, choice: AgentChoice, project_id: str | None = None, *, project_path: str | None = None

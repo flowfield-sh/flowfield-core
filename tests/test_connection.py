@@ -122,7 +122,12 @@ def test_mcp_board_parity_and_restart(tmp_path: Path) -> None:
                 )
                 assert {"get_project_guidance", "update_project_guidance"} <= tools.keys()
                 for name, tool in tools.items():
-                    if name not in {"list_projects", "list_worker_models"}:
+                    if name not in {
+                        "list_projects",
+                        "list_worker_models",
+                        "list_workspaces",
+                        "create_workspace",
+                    }:
                         assert {"project_id", "workspace_id"}.intersection(
                             tool.inputSchema["required"]
                         )
@@ -138,17 +143,25 @@ def test_mcp_board_parity_and_restart(tmp_path: Path) -> None:
                 identity = {"project_id": "harbor", "task_id": "export"}
                 if first:
                     assert await call("list_projects") == {"items": [], "next_cursor": None}
+                    assert await call("list_workspaces") == {"items": [], "next_cursor": None}
+                    space = await call("create_workspace", {"request": {"name": "Product"}})
                     created = await call(
-                        "initialize_project",
+                        "adopt_workspace_project",
                         {
-                            "project_id": "harbor",
-                            "path": existing_directory(str(tmp_path / "harbor")),
+                            "workspace_id": space["id"],
+                            "project": {
+                                "id": "harbor",
+                                "path": existing_directory(str(tmp_path / "harbor")),
+                            },
                         },
                     )
                     assert (
                         await call(
-                            "initialize_project",
-                            {"project_id": "harbor", "path": str(tmp_path / "harbor")},
+                            "adopt_workspace_project",
+                            {
+                                "workspace_id": space["id"],
+                                "project": {"id": "harbor", "path": str(tmp_path / "harbor")},
+                            },
                         )
                         == created
                     )

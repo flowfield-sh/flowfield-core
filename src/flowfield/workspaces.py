@@ -84,6 +84,18 @@ class Workspaces:
                 for row in db.execute("SELECT * FROM workspaces ORDER BY created_at, id")
             ]
 
+    def page(self, *, after: str | None = None, limit: int = 20) -> dict[str, Any]:
+        from flowfield.reads import page, validate_page
+
+        validate_page(limit, after)
+        with self.store.connection() as db:
+            rows = db.execute(
+                "SELECT id,name,revision FROM workspaces WHERE (? IS NULL OR id>?) "
+                "ORDER BY id LIMIT ?",
+                (after, after, limit + 1),
+            ).fetchall()
+            return page([dict(row) for row in rows], limit, "id")
+
     def create(self, request: WorkspaceCreate) -> WorkspaceRecord:
         timestamp = now()
         record = WorkspaceRecord(

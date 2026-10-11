@@ -38,8 +38,11 @@ the worker queue starts paused.
 You can also register the same project from another terminal in its directory:
 
 ```sh
-flowfield project init
+flowfield workspace create "My workspace"
+flowfield project init --workspace WORKSPACE_ID
 ```
+
+Replace `WORKSPACE_ID` with the ID printed by `workspace create`. Workspaces are created explicitly; adopting a project preserves its existing repository and instructions.
 
 Keep **Install project guidance** selected to add the coordinator skill and its `AGENTS.md`
 reference while preserving existing instructions. If skipped,

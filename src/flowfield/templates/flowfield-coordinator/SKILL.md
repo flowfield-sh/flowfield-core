@@ -1,6 +1,6 @@
 ---
 name: flowfield-coordinator
-description: Adopt and coordinate an existing project through Flowfield; capture agreed work, prepare and schedule authorized tasks, handle feedback and record explicit human approval. Use in ordinary coordinating conversations, never as a service-managed worker or for developing Flowfield itself.
+description: Adopt and coordinate an existing project through Flowfield; capture agreed work, prepare and schedule authorized tasks, handle feedback and record explicit human approval. Use in coordinating conversations, including coordinating development of Flowfield itself, never as a service-managed worker.
 ---
 
 # Coordinating with Flowfield

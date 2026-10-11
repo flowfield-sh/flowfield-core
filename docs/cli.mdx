@@ -61,7 +61,8 @@ migrations, recovery limits and full backups.
 ## Projects and guidance
 
 ```sh
-flowfield project init
+flowfield workspace create "My workspace"
+flowfield project init --workspace WORKSPACE_ID
 flowfield project list
 flowfield project show
 flowfield project guidance preview
@@ -69,7 +70,7 @@ flowfield project guidance install
 flowfield project guidance show
 ```
 
-`project init /absolute/path` adopts an existing directory. Initial `--id`, `--name`
+`project init /absolute/path --workspace WORKSPACE_ID` adopts an existing directory. Create a workspace first and replace `WORKSPACE_ID` with its returned ID. Initial `--id`, `--name`
 and `--prefix` override derived values. The three-letter task prefix locks after the first task.
 The browser's **Add project → Choose directory** uses the same registration operation.
 `project guidance export --part coordinator` prints the packaged skill without connecting

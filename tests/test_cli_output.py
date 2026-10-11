@@ -24,7 +24,16 @@ def test_human_reads_cover_real_service_shapes_and_json(tmp_path):
             assert result.exit_code == 0, (args, result.output, result.exception)
             return result
 
-        invoke("project", "init", existing_directory(str(tmp_path / "harbor")))
+        space = json.loads(invoke("workspace", "create", "Product", "--json").stdout)
+        invoke("workspace", "show", space["id"])
+        assert "Product" in invoke("workspace", "list").stdout
+        invoke(
+            "project",
+            "init",
+            existing_directory(str(tmp_path / "harbor")),
+            "--workspace",
+            space["id"],
+        )
         guidance = invoke("project", "guidance", "install", "--project", "harbor")
         assert "Project guidance installed." in guidance.stdout
         assert "Changed files:" in guidance.stdout and "AGENTS.md" in guidance.stdout

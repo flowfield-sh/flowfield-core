@@ -41,8 +41,11 @@ The browser opens at [localhost:8765](http://127.0.0.1:8765). See [Installation]
 Choose **Add project** in the sidebar and select an existing directory, or register it from a terminal:
 
 ```sh
-flowfield project init
+flowfield workspace create "My workspace"
+flowfield project init --workspace WORKSPACE_ID
 ```
+
+Replace `WORKSPACE_ID` with the ID printed by `workspace create`. Workspaces are created explicitly; adopting a project preserves its existing repository and instructions.
 
 Start planning in the [Coordinator](https://docs.flowfield.sh/coordinator), or connect a [standalone coding agent](https://docs.flowfield.sh/agents/overview#standalone-conversations). Connect the harness you already use: Codex, Claude Code or Pi 1.1+. Choose independently for the Coordinator and workers. Native support ships with Flowfield.
 

@@ -22,12 +22,14 @@ from flowfield.state import data_path
 
 app = typer.Typer(no_args_is_help=True, help="A local workspace behind your coding conversation.")
 project_app = typer.Typer(no_args_is_help=True)
+workspace_app = typer.Typer(no_args_is_help=True)
 task_app = typer.Typer(no_args_is_help=True)
 milestone_app = typer.Typer(no_args_is_help=True)
 inbox_app = typer.Typer(no_args_is_help=True)
 integration_app = typer.Typer(no_args_is_help=True)
 harness_app = typer.Typer(no_args_is_help=True)
 app.add_typer(project_app, name="project", help="Adopt existing projects and update their details.")
+app.add_typer(workspace_app, name="workspace", help="Create workspaces and organize projects.")
 app.add_typer(task_app, name="task", help="Capture, prioritize and track tasks.")
 app.add_typer(inbox_app, name="inbox", help="Read questions, answer them, and apply decisions.")
 app.add_typer(
@@ -272,17 +274,18 @@ def serve(
 @project_app.command("init")
 def init(
     ctx: typer.Context,
+    workspace: Annotated[str, typer.Option("--workspace", help="Workspace ID; create one first.")],
     path: Annotated[Path, typer.Argument(help="Existing project directory.")] = Path("."),
     id: Annotated[str | None, typer.Option()] = None,
     name: Annotated[str | None, typer.Option()] = None,
     prefix: Annotated[str | None, typer.Option(help="Unique three-letter task prefix.")] = None,
     json_output: Json = False,
 ) -> None:
-    """Register a project and create its portable .flowfield/config.toml."""
+    """Adopt an existing repository into an explicitly chosen workspace."""
     output(
         lambda: ctx.obj.request(
             "POST",
-            "projects/initialize",
+            f"workspaces/{quote(workspace, safe='')}/projects",
             {
                 "path": str(path.expanduser().resolve()),
                 "id": id,
@@ -291,6 +294,48 @@ def init(
             },
         ),
         json_output,
+    )
+
+
+@workspace_app.command("create")
+def workspace_create(ctx: typer.Context, name: str, json_output: Json = False) -> None:
+    """Create an empty workspace, then add existing projects with project init --workspace."""
+    output(
+        lambda: ctx.obj.request("POST", "workspaces", {"name": name}),
+        json_output,
+        lambda value: typer.echo(
+            f"Created {value['name']} · {value['id']}\n"
+            f"Add an existing repository: flowfield project init PATH --workspace {value['id']}"
+        ),
+    )
+
+
+@workspace_app.command("list")
+def workspace_list(ctx: typer.Context, json_output: Json = False) -> None:
+    """List explicitly created and migrated workspaces."""
+
+    def human(values: list[dict[str, Any]]) -> None:
+        if not values:
+            typer.echo("No workspaces yet. Create one with flowfield workspace create NAME.")
+            return
+        table = Table("Workspace", "ID")
+        for value in values:
+            table.add_row(Text(value["name"]), Text(value["id"]))
+        Console().print(table)
+
+    output(lambda: ctx.obj.request("GET", "workspaces"), json_output, human)
+
+
+@workspace_app.command("show")
+def workspace_show(ctx: typer.Context, workspace: str, json_output: Json = False) -> None:
+    """Show workspace purpose and identity without starting a coordinator."""
+    output(
+        lambda: ctx.obj.request("GET", f"workspaces/{quote(workspace, safe='')}"),
+        json_output,
+        lambda value: typer.echo(
+            f"{value['name']} · {value['id']} · revision {value['revision']}\n"
+            f"Description: {value['description'] or 'Not set'}"
+        ),
     )
 
 

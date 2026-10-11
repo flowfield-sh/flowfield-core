@@ -10,13 +10,11 @@ from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from pydantic import BaseModel, Field, ValidationError
 
 from flowfield.activity import ActivityCreate, EntryKind
-from flowfield.adapters.coordinator_directory import prepare as coordinator_directory
 from flowfield.application import (
     MilestoneCreate,
     MilestoneEdit,
     MilestoneIdentifier,
     ProjectEdit,
-    ProjectPrefix,
     ProjectSetup,
     TaskCreate,
     TaskEdit,
@@ -45,7 +43,7 @@ from flowfield.questions import (
 from flowfield.reads import MAX_LIMIT, ContextReads, excerpt, receipt
 from flowfield.search import Entity, History, Search
 from flowfield.supervisor import Supervisor
-from flowfield.workspaces import ProjectAdoption, WorkspaceEdit, Workspaces
+from flowfield.workspaces import ProjectAdoption, WorkspaceCreate, WorkspaceEdit, Workspaces
 
 PageLimit = Annotated[int, Field(ge=1, le=MAX_LIMIT)]
 
@@ -183,27 +181,21 @@ def create_mcp(
         """
         if supervisor is None:
             raise ApplicationError("service_required", "Model discovery needs the service.", 409)
-        path = str(coordinator_directory(workspace(), workspace_id))
         return [
             item.model_dump()
-            for item in await supervisor().model_options(harness=harness, project_path=path)
+            for item in await supervisor().workspace_models(workspace_id, harness=harness)
         ]
 
     @mcp.tool(annotations=write)
     async def configure_workspace_workers(
         workspace_id: Identifier, settings: SettingsEdit
-    ) -> CallToolResult:
+    ) -> dict[str, Any]:
         """Set the shared worker default and concurrency; task overrides remain independent."""
         if supervisor is None:
             raise ApplicationError(
                 "service_required", "Worker configuration needs the service.", 409
             )
-        path = str(coordinator_directory(workspace(), workspace_id))
-        if settings.selection:
-            await supervisor().validate_agent_choice(settings.selection, project_path=path)
-        return await invoke(
-            lambda: Workspaces(workspace()).configure_workers(workspace_id, settings).model_dump()
-        )
+        return (await supervisor().configure_workspace_workers(workspace_id, settings)).model_dump()
 
     @mcp.tool(annotations=write)
     async def set_workspace_queue(workspace_id: Identifier, change: QueueEdit) -> CallToolResult:
@@ -282,6 +274,23 @@ def create_mcp(
     if include_service_tools:
 
         @mcp.tool(annotations=read)
+        async def list_workspaces(
+            after: str | None = None, limit: PageLimit = 20
+        ) -> CallToolResult:
+            """Discover workspace identities in bounded pages. New installations are empty."""
+            return await invoke(lambda: Workspaces(workspace()).page(after=after, limit=limit))
+
+        @mcp.tool(annotations=write)
+        async def create_workspace(request: WorkspaceCreate) -> CallToolResult:
+            """Create a workspace explicitly requested by the human, then adopt existing projects.
+            Do not manufacture defaults. Creates no project, repository, native conversation
+            or worker authorization.
+            """
+            return await mutate(
+                lambda: Workspaces(workspace()).create(attributed(request)).model_dump()
+            )
+
+        @mcp.tool(annotations=read)
         async def list_projects(after: str | None = None, limit: PageLimit = 20) -> CallToolResult:
             """Discover project IDs and paths in bounded pages."""
             return await invoke(lambda: reads().projects(after=after, limit=limit))
@@ -297,32 +306,6 @@ def create_mcp(
         return await mutate(
             lambda: workspace().edit_project(project_id, attributed(changes)).model_dump()
         )
-
-    if include_service_tools:
-
-        @mcp.tool(annotations=write)
-        async def initialize_project(
-            project_id: Identifier,
-            path: str,
-            name: str | None = None,
-            task_prefix: ProjectPrefix | None = None,
-        ) -> CallToolResult:
-            """Adopt an existing absolute directory, preserving files, Git and portable config."""
-            return await mutate(
-                lambda: (
-                    workspace()
-                    .setup_project(
-                        ProjectSetup(
-                            id=project_id,
-                            path=path,
-                            name=name,
-                            task_prefix=task_prefix,
-                            author="agent",
-                        )
-                    )
-                    .model_dump()
-                )
-            )
 
     @mcp.tool(annotations=read)
     async def get_project_guidance(project_id: Identifier, preview: bool = True) -> CallToolResult:

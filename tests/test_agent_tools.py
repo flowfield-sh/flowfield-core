@@ -107,7 +107,7 @@ def test_coordinator_captures_work_in_fixed_project(tmp_path):
             for tool in await canonical.list_tools()
             if "workspace_id" not in tool.inputSchema.get("properties", {})
         }
-        assert set(grant.tools) == names - {"list_projects", "initialize_project"}
+        assert set(grant.tools) == names - {"list_projects", "list_workspaces", "create_workspace"}
         for tool in grant.tools.values():
             assert "project_id" not in tool.inputSchema["properties"]
         events = await journey(
