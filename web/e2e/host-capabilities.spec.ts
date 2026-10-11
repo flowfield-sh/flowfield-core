@@ -8,9 +8,24 @@ import {
   type HostCapabilities,
   type UpdateStatus,
 } from "../src/HostCapabilities";
-import { groupAnnouncements } from "../src/Announcements";
+import { groupAnnouncements, visibleSources } from "../src/Announcements";
 
 // These contract fakes establish the host seam; they do not prove native OS behavior.
+test("visible-source detection handles clipped items and occluding overlays", async ({
+  page,
+}) => {
+  await page.setContent(`<div data-announcement-source="visible" style="position:fixed;top:-950px;height:1000px;width:100px;left:-50px;background:red"></div>
+    <div data-announcement-source="outside" style="position:fixed;top:-1050px;height:1000px;width:100px"></div>`);
+  await page.bringToFront();
+  expect(await page.evaluate(visibleSources)).toEqual(["visible"]);
+  await page.evaluate(() => {
+    const cover = document.createElement("div");
+    cover.style.cssText = "position:fixed;inset:0;background:white";
+    document.body.append(cover);
+  });
+  expect(await page.evaluate(visibleSources)).toEqual([]);
+});
+
 test("host composition supports native updates without enabling package installation", async () => {
   let installed = false;
   const status: UpdateStatus = {

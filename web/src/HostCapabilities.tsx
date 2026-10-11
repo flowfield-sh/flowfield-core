@@ -38,13 +38,21 @@ export const browserHost: HostCapabilities = {
   notifications: {
     kind: "browser",
     permission: () =>
-      "Notification" in window ? Notification.permission : "unavailable",
+      window.isSecureContext && "Notification" in window
+        ? Notification.permission
+        : "unavailable",
     requestPermission: async () =>
-      "Notification" in window
-        ? Notification.requestPermission()
+      window.isSecureContext && "Notification" in window
+        ? Notification.permission === "default"
+          ? Notification.requestPermission()
+          : Notification.permission
         : "unavailable",
     async present(item, activate) {
-      if (!("Notification" in window) || Notification.permission !== "granted")
+      if (
+        !window.isSecureContext ||
+        !("Notification" in window) ||
+        Notification.permission !== "granted"
+      )
         throw new Error("Allow notifications in this browser's site settings.");
       const notification = new Notification(item.title, {
         body: item.message,

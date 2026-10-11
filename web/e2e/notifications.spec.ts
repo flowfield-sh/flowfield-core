@@ -329,8 +329,12 @@ test("denied permission is honest and test delivery is local and explicit", asyn
   await expect(
     page.getByRole("button", { name: "Send test notification" }),
   ).toBeDisabled();
-  await page.getByLabel("Send system notifications when inactive").click();
-  await expect(alertFor(page, "Could not update notifications")).toBeVisible();
+  await expect(
+    page.getByLabel("Send system notifications when inactive"),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Allow on this browser" }),
+  ).toHaveCount(0);
   expect(
     (await (await request.get("/api/announcements/settings")).json())
       .system_enabled,
@@ -472,6 +476,7 @@ test("manual checks wait for completion, survive navigation and report failure",
 test("unsupported system delivery keeps in-app preferences usable", async ({
   page,
   context,
+  request,
 }, testInfo) => {
   await context.addInitScript(() => {
     Reflect.deleteProperty(window, "Notification");
@@ -504,6 +509,20 @@ test("unsupported system delivery keeps in-app preferences usable", async ({
     animations: "disabled",
     path: testInfo.outputPath("notifications-mobile.png"),
   });
+  await request.patch("/api/announcements/settings", {
+    data: { system_enabled: true },
+  });
+  const checkbox = page.getByLabel("Send system notifications when inactive");
+  await expect(checkbox).toBeChecked();
+  await expect(checkbox).toBeEnabled();
+  await expect(
+    page.getByText(
+      /enabled for the workspace, but this browser does not support delivery/,
+    ),
+  ).toBeVisible();
+  await checkbox.click();
+  await expect.poll(() => systemEnabled(request)).toBe(false);
+  await expect(checkbox).toBeDisabled();
 });
 
 test("resolved permission links open the exact request without permitting anything", async ({
@@ -545,4 +564,280 @@ test("resolved permission links open the exact request without permitting anythi
   );
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/notify-prm\/inbox$/);
+});
+
+async function pendingPermission(page: Page) {
+  await page.evaluate(() => {
+    const target = window as unknown as {
+      permissionRequests: number;
+      resolvePermission(value: NotificationPermission): void;
+    };
+    target.permissionRequests = 0;
+    Notification.requestPermission = () => {
+      target.permissionRequests++;
+      return new Promise((resolve) => {
+        target.resolvePermission = (value) => {
+          Object.defineProperty(Notification, "permission", {
+            value,
+            configurable: true,
+          });
+          resolve(value);
+        };
+      });
+    };
+  });
+}
+async function answerPermission(page: Page, value: NotificationPermission) {
+  await page.evaluate((value) => {
+    (
+      window as unknown as {
+        resolvePermission(value: NotificationPermission): void;
+      }
+    ).resolvePermission(value);
+  }, value);
+}
+async function systemEnabled(request: APIRequestContext) {
+  return (await (await request.get("/api/announcements/settings")).json())
+    .system_enabled;
+}
+for (const permission of ["granted", "denied", "default"] as const) {
+  test(`checkbox-first permission ${permission} has a visible pending state and accurate saved value`, async ({
+    page,
+    context,
+    request,
+  }, testInfo) => {
+    await systemStub(context, true, "default");
+    await ready(page, "/settings/notifications");
+    await pendingPermission(page);
+    const checkbox = page.getByLabel("Send system notifications when inactive");
+    await checkbox.click();
+    await expect(checkbox).toBeChecked();
+    await expect(checkbox).toBeDisabled();
+    await expect(
+      page.getByText("Waiting for notification permission…"),
+    ).toBeVisible();
+    await expect(page.getByLabel("Announce new Inbox items")).toBeDisabled();
+    expect(await systemEnabled(request)).toBe(false);
+    if (permission === "granted")
+      await page.screenshot({
+        animations: "disabled",
+        path: testInfo.outputPath("permission-pending.png"),
+      });
+    await answerPermission(page, permission);
+    await expect
+      .poll(() => systemEnabled(request))
+      .toBe(permission === "granted");
+    await expect(checkbox).toBeChecked({ checked: permission === "granted" });
+    if (permission === "granted") {
+      await expect(
+        page.getByText("System notifications are enabled for this browser."),
+      ).toBeVisible();
+      await page.screenshot({
+        animations: "disabled",
+        path: testInfo.outputPath("permission-enabled.png"),
+      });
+    } else if (permission === "denied") {
+      await expect(checkbox).toBeDisabled();
+      await expect(
+        page.getByRole("button", { name: "Allow on this browser" }),
+      ).toHaveCount(0);
+    } else {
+      await expect(alertFor(page, "Permission was not granted.")).toBeVisible();
+      await checkbox.click();
+      await answerPermission(page, "granted");
+      await expect.poll(() => systemEnabled(request)).toBe(true);
+    }
+  });
+}
+
+test("permission-first then repeated checkbox toggles requests permission only once", async ({
+  page,
+  context,
+  request,
+}) => {
+  await systemStub(context, true, "default");
+  await ready(page, "/settings/notifications");
+  await pendingPermission(page);
+  await page.getByRole("button", { name: "Allow on this browser" }).click();
+  await answerPermission(page, "granted");
+  await expect(
+    page.getByText("Permission granted. System notifications are turned off."),
+  ).toBeVisible();
+  expect(await systemEnabled(request)).toBe(false);
+  const checkbox = page.getByLabel("Send system notifications when inactive");
+  for (const enabled of [true, false, true, false]) {
+    await expect(checkbox).toBeEnabled();
+    await checkbox.click();
+    await expect.poll(() => systemEnabled(request)).toBe(enabled);
+    await expect(checkbox).toBeChecked({ checked: enabled });
+  }
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { permissionRequests: number })
+          .permissionRequests,
+    ),
+  ).toBe(1);
+});
+
+test("workspace preference and revoked local permission remain distinct across tabs", async ({
+  page,
+  context,
+  request,
+}) => {
+  await systemStub(context, true, "default");
+  await request.patch("/api/announcements/settings", {
+    data: { system_enabled: true },
+  });
+  await ready(page, "/settings/notifications");
+  const second = await context.newPage();
+  await ready(second, "/settings/notifications");
+  await expect(
+    page.getByLabel("Send system notifications when inactive"),
+  ).toBeChecked();
+  await expect(
+    page.getByText(/enabled for the workspace, but this browser cannot/),
+  ).toBeVisible();
+  await pendingPermission(page);
+  await page.getByRole("button", { name: "Allow on this browser" }).click();
+  await answerPermission(page, "granted");
+  await expect(
+    page.getByText("System notifications are enabled for this browser."),
+  ).toBeVisible();
+  await expect(
+    second.getByText(/enabled for the workspace, but this browser cannot/),
+  ).toBeVisible();
+  await page.evaluate(() => {
+    Object.defineProperty(Notification, "permission", { value: "denied" });
+    window.dispatchEvent(new Event("focus"));
+  });
+  const checkbox = page.getByLabel("Send system notifications when inactive");
+  await expect(
+    page.getByText("Notifications are blocked.", { exact: false }),
+  ).toBeVisible();
+  await expect(checkbox).toBeChecked();
+  await expect(checkbox).toBeEnabled();
+  await checkbox.click();
+  await expect.poll(() => systemEnabled(request)).toBe(false);
+  await expect(
+    second.getByLabel("Send system notifications when inactive"),
+  ).not.toBeChecked();
+  await expect(checkbox).toBeDisabled();
+  await second.close();
+});
+
+test("a failed save after granting permission rolls back and can be retried without another prompt", async ({
+  page,
+  context,
+  request,
+}) => {
+  await systemStub(context, true, "default");
+  await ready(page, "/settings/notifications");
+  await pendingPermission(page);
+  await page.route("**/api/announcements/settings", (route) =>
+    route.request().method() === "PATCH"
+      ? route.fulfill({ status: 503, json: {} })
+      : route.continue(),
+  );
+  const checkbox = page.getByLabel("Send system notifications when inactive");
+  await checkbox.click();
+  await answerPermission(page, "granted");
+  await expect(alertFor(page, "Could not update notifications")).toBeVisible();
+  await expect(checkbox).not.toBeChecked();
+  expect(await systemEnabled(request)).toBe(false);
+  await expect(
+    page.getByText("Permission granted. System notifications are turned off."),
+  ).toBeVisible();
+  await page.unroute("**/api/announcements/settings");
+  await checkbox.click();
+  await expect.poll(() => systemEnabled(request)).toBe(true);
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { permissionRequests: number })
+          .permissionRequests,
+    ),
+  ).toBe(1);
+});
+
+test("slow settings reads finish and permission decisions after navigation do not enable delivery", async ({
+  page,
+  context,
+  request,
+}) => {
+  await systemStub(context, true, "default");
+  await page.route("**/api/announcements/settings", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    await new Promise((resolve) => setTimeout(resolve, 3500));
+    await route.fulfill({ response });
+  });
+  await ready(page, "/settings/notifications");
+  const checkbox = page.getByLabel("Send system notifications when inactive");
+  await expect(checkbox).toBeVisible({ timeout: 6000 });
+  await pendingPermission(page);
+  await checkbox.click();
+  await page.getByRole("tab", { name: "Updates", exact: true }).click();
+  await answerPermission(page, "granted");
+  expect(await systemEnabled(request)).toBe(false);
+  await page.unroute("**/api/announcements/settings");
+});
+
+test("a manual update result suppresses an automatic announcement already in flight", async ({
+  page,
+  context,
+  request,
+}) => {
+  await systemStub(context, true);
+  const original = await (await request.get("/api/updates")).json();
+  const status = {
+    ...original,
+    available_version: "9.9.2",
+    checking: false,
+    error: null,
+  };
+  await page.route("**/api/updates", (route) =>
+    route.fulfill({ json: status }),
+  );
+  await page.route("**/api/updates/check", (route) =>
+    route.fulfill({ json: status }),
+  );
+  await ready(page, "/settings/notifications");
+  let release: (() => void) | undefined;
+  await page.route("**/api/announcements/poll", async (route) => {
+    if (release) return route.continue();
+    await new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await route.fulfill({
+      json: {
+        channel: "toast",
+        system_allowed: false,
+        items: [
+          {
+            id: 9999,
+            source_key: "update:9.9.2",
+            title: "Automatic update announcement",
+            message: "View update",
+            href: "/settings/updates",
+            project_id: null,
+            kind: "update",
+          },
+        ],
+      },
+    });
+  });
+  await expect.poll(() => !!release).toBe(true);
+  await page.getByRole("tab", { name: "Updates", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Check for updates", exact: true })
+    .click();
+  await expect(alertFor(page, "Flowfield 9.9.2 is available.")).toBeVisible();
+  await page.getByRole("tab", { name: "Notifications", exact: true }).click();
+  const response = page.waitForResponse("**/api/announcements/poll");
+  release!();
+  await response;
+  await page.unroute("**/api/announcements/poll");
+  await page.waitForResponse("**/api/announcements/poll");
+  await expect(alertFor(page, "Automatic update announcement")).toHaveCount(0);
 });

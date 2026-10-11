@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ContentStack, DetailHeading } from "./DetailLayout";
@@ -14,38 +14,93 @@ export function NotificationSettings() {
     "announcements/settings",
     0,
   );
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [pending, setPending] = useState<Partial<AnnouncementSettings>>({});
+  const acting = useRef(false);
+  const mounted = useRef(true);
   const [, refreshPermission] = useState(0);
   const retry = settings.retry;
   useEffect(() => {
-    const timer = setInterval(() => {
-      retry();
-      refreshPermission((n) => n + 1);
-    }, 3000);
-    return () => clearInterval(timer);
-  }, [retry]);
+    if (settings.loading || busy) return;
+    const timer = setTimeout(retry, 3000);
+    return () => clearTimeout(timer);
+  }, [retry, settings.loading, busy]);
+  useEffect(() => {
+    mounted.current = true;
+    const refresh = () => refreshPermission((n) => n + 1);
+    const timer = setInterval(refresh, 3000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      mounted.current = false;
+      clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, []);
   const permission = host.notifications.permission();
-  async function act(action: () => Promise<unknown>) {
-    setBusy(true);
+  const environment = host.notifications.kind === "browser" ? "browser" : "app";
+  const value = settings.data ? { ...settings.data, ...pending } : null;
+  async function act(
+    label: string,
+    action: () => Promise<unknown>,
+    change: Partial<AnnouncementSettings> = {},
+  ) {
+    if (acting.current) return;
+    acting.current = true;
+    settings.invalidate();
+    setPending(change);
+    setBusy(label);
     try {
       await action();
     } catch (error) {
       reportError(error, "Could not update notifications");
     } finally {
-      setBusy(false);
-      refreshPermission((n) => n + 1);
+      acting.current = false;
+      if (mounted.current) {
+        setBusy(null);
+        setPending({});
+        refreshPermission((n) => n + 1);
+        retry(); // Reconcile even an uncertain save; never retry the mutation itself.
+      }
     }
   }
   async function save(change: Partial<AnnouncementSettings>) {
-    if (!settings.data) return;
+    if (!mounted.current) return;
+    setBusy("Saving notification preferences…");
     const value = await request<AnnouncementSettings>(
       "announcements/settings",
       "PATCH",
       change,
     );
-    settings.invalidate();
-    settings.setData(value);
+    if (mounted.current) {
+      settings.invalidate();
+      settings.setData(value);
+    }
     toast.success("Notification preferences saved.");
+  }
+  async function allow() {
+    const current = host.notifications.permission();
+    const result =
+      current === "default"
+        ? await host.notifications.requestPermission()
+        : current;
+    if (result === "default") {
+      toast.info(
+        "Permission was not granted. Notification preferences are unchanged.",
+      );
+      return false;
+    }
+    if (result !== "granted")
+      throw new Error(
+        result === "denied"
+          ? `Notifications are blocked. Allow them in your ${environment} or system settings.`
+          : "System notifications are unavailable in this environment.",
+      );
+    return true;
+  }
+  function toggle(change: Partial<AnnouncementSettings>) {
+    void act("Saving notification preferences…", () => save(change), change);
   }
   return (
     <ContentStack space="section">
@@ -56,87 +111,99 @@ export function NotificationSettings() {
       </p>
       <p className="detail-metadata">
         Preferences apply across this workspace. Permission applies to this{" "}
-        {host.notifications.kind === "browser" ? "browser" : "app"}.
+        {environment}.
       </p>
       {settings.error && (
         <Button variant="outline" onClick={settings.retry}>
           Retry notification settings
         </Button>
       )}
-      {settings.data && (
-        <fieldset disabled={busy} className="content-stack">
+      {value && (
+        <fieldset
+          disabled={!!busy}
+          aria-busy={!!busy}
+          className="content-stack"
+        >
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
-              checked={settings.data.work_enabled}
-              onChange={(e) =>
-                void act(() => save({ work_enabled: e.target.checked }))
-              }
+              checked={value.work_enabled}
+              onChange={(e) => toggle({ work_enabled: e.target.checked })}
             />
             Announce new Inbox items
           </label>
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
-              checked={settings.data.updates_enabled}
-              onChange={(e) =>
-                void act(() => save({ updates_enabled: e.target.checked }))
-              }
+              checked={value.updates_enabled}
+              onChange={(e) => toggle({ updates_enabled: e.target.checked })}
             />
             Announce available updates
           </label>
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
-              checked={settings.data.system_enabled}
+              checked={value.system_enabled}
+              disabled={
+                !value.system_enabled &&
+                (permission === "denied" || permission === "unavailable")
+              }
               onChange={(e) => {
                 const enabled = e.target.checked;
-                void act(async () => {
-                  if (
-                    enabled &&
-                    (await host.notifications.requestPermission()) !== "granted"
-                  )
-                    throw new Error(
-                      "Notifications are not allowed. Change this browser or app's notification permission to enable delivery here.",
-                    );
-                  await save({ system_enabled: enabled });
-                });
+                void act(
+                  enabled && permission === "default"
+                    ? "Waiting for notification permission…"
+                    : "Saving notification preferences…",
+                  async () => {
+                    if (enabled && !(await allow())) return;
+                    await save({ system_enabled: enabled });
+                  },
+                  { system_enabled: enabled },
+                );
               }}
             />
             Send system notifications when inactive
           </label>
           <p role="status">
-            {permission === "granted"
-              ? "Permission granted."
-              : permission === "denied"
-                ? "Notifications are blocked. Allow them in your browser or system settings."
-                : permission === "unavailable"
-                  ? "System notifications are unavailable in this environment."
-                  : "Notification permission has not been granted."}
+            {busy ??
+              (permission === "granted"
+                ? value.system_enabled
+                  ? `System notifications are enabled for this ${environment}.`
+                  : "Permission granted. System notifications are turned off."
+                : permission === "denied"
+                  ? "Notifications are blocked. Allow them in your browser or system settings."
+                  : permission === "unavailable"
+                    ? "System notifications are unavailable in this environment."
+                    : "Notification permission has not been granted.")}
           </p>
+          {!busy && value.system_enabled && permission !== "granted" && (
+            <p className="detail-metadata">
+              System notifications are enabled for the workspace, but this{" "}
+              {environment}{" "}
+              {permission === "unavailable"
+                ? "does not support delivery."
+                : "cannot deliver them until permission is granted."}
+            </p>
+          )}
           <div className="actions">
-            {permission !== "granted" && permission !== "unavailable" && (
+            {permission === "default" && (
               <Button
                 variant="outline"
                 onClick={() =>
-                  void act(async () => {
-                    const result = await host.notifications.requestPermission();
-                    if (result !== "granted")
-                      throw new Error(
-                        "Allow notifications in your browser or system settings.",
-                      );
+                  void act("Waiting for notification permission…", async () => {
+                    if (await allow())
+                      toast.success("Notification permission granted.");
                   })
                 }
               >
-                Allow on this{" "}
-                {host.notifications.kind === "browser" ? "browser" : "app"}
+                Allow on this {environment}
               </Button>
             )}
             <Button
               variant="outline"
               disabled={permission !== "granted"}
               onClick={() =>
-                void act(async () => {
+                void act("Sending test notification…", async () => {
                   await host.notifications.present(
                     {
                       title: "Flowfield notifications work",

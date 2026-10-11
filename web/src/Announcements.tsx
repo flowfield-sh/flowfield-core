@@ -38,13 +38,15 @@ export function visibleSources(): string[] {
     .filter((element) => {
       const rect = element.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return false;
-      const x =
-        Math.max(0, rect.left) +
-        Math.min(rect.width, innerWidth - Math.max(0, rect.left)) / 2;
-      const y =
-        Math.max(0, rect.top) +
-        Math.min(rect.height, innerHeight - Math.max(0, rect.top)) / 2;
-      const top = document.elementFromPoint(x, y);
+      const left = Math.max(0, rect.left),
+        right = Math.min(innerWidth, rect.right);
+      const topEdge = Math.max(0, rect.top),
+        bottom = Math.min(innerHeight, rect.bottom);
+      if (right <= left || bottom <= topEdge) return false;
+      const top = document.elementFromPoint(
+        (left + right) / 2,
+        (topEdge + bottom) / 2,
+      );
       return top !== null && element.contains(top);
     })
     .flatMap((element) => element.dataset.announcementSource!.split(" "))
@@ -87,6 +89,7 @@ export function AnnouncementProvider({
   const [clientId] = useState(() => crypto.randomUUID());
   const navigation = useRef(navigate);
   const manual = useRef<"requesting" | "waiting" | null>(null);
+  const manualVersion = useRef<string | null>(null);
   const updateGeneration = useRef(0);
   const mounted = useRef(true);
   useEffect(() => {
@@ -130,7 +133,13 @@ export function AnnouncementProvider({
         if (!stopped)
           for (const item of groupAnnouncements(
             (delivery.items ?? []).filter(
-              (item) => !visible.has(item.source_key),
+              (item) =>
+                !visible.has(item.source_key) &&
+                !(
+                  item.kind === "update" &&
+                  (manual.current ||
+                    item.source_key === `update:${manualVersion.current}`)
+                ),
             ),
           )) {
             if (channel === "toast") {
@@ -208,6 +217,7 @@ export function AnnouncementProvider({
   useEffect(() => {
     if (manual.current !== "waiting" || !updates || updates.checking) return;
     manual.current = null;
+    manualVersion.current = updates.available_version ?? null;
     if (updates.error) toast.error(updates.error, { id: "update-check" });
     else
       toast.info(
