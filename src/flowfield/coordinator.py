@@ -13,6 +13,7 @@ from flowfield.adapters.agent_mcp import serve_scope
 from flowfield.adapters.agent_permissions import permission_handler
 from flowfield.adapters.agent_selection import create
 from flowfield.adapters.coordinator_directory import for_scope as coordinator_directory
+from flowfield.adapters.coordinator_directory import repositories_for_scope
 from flowfield.adapters.harness_host import resolve
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_models import AgentCommand
@@ -238,12 +239,14 @@ class Coordinator:
                     environment = LocalHost(os.environ).launch_environment(
                         cwd, Path(temporary.name)
                     )
+                    repositories = repositories_for_scope(workspace, turn.workspace_id)
                     client = create(
                         turn.settings.choice,
                         workspace.directory,
                         cwd,
                         environment,
                         registration=turn.settings.registration,
+                        project_directories=repositories,
                     )
                     with workspace.connection(write=True) as db:
                         current = self.store._get(db, turn.workspace_id, turn.id)
@@ -257,6 +260,7 @@ class Coordinator:
                             turn.settings.choice,
                             str(cwd),
                             client.launch,
+                            project_directories=tuple(str(path) for path in repositories),
                         )
                         generation_id = generation.id
                         session_id = generation.session_id if resumed else None

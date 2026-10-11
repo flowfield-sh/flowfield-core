@@ -25,6 +25,7 @@ class NativeGeneration(BaseModel):
     harness: HarnessKind
     session_id: str | None = Field(default=None, max_length=2000)
     cwd: str
+    project_directories: tuple[str, ...] = ()
     launch: HarnessLaunch | None = None
     choice: AgentChoice | None = None
     status: Literal["creating", "created", "prompting", "retained", "failed", "uncertain"]
@@ -137,6 +138,8 @@ class CoordinatorSessions:
         choice: AgentChoice,
         cwd: str,
         launch: HarnessLaunch | None,
+        *,
+        project_directories: tuple[str, ...] = (),
     ) -> tuple[NativeGeneration, bool]:
         actor = db.execute(
             "SELECT status,generation_id,json_extract(data,'$.native_started') "
@@ -155,6 +158,7 @@ class CoordinatorSessions:
             current
             and not fresh
             and current.harness == choice.harness
+            and current.project_directories == project_directories
             and (
                 retains_session(current.choice, choice)
                 or (current.choice is None and choice.harness == "codex")
@@ -173,6 +177,7 @@ class CoordinatorSessions:
                 created_by=turn,
                 harness=choice.harness,
                 cwd=cwd,
+                project_directories=project_directories,
                 launch=launch,
                 choice=choice,
                 status="creating",

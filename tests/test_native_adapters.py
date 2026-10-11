@@ -475,3 +475,54 @@ def test_mcp_user_input_approval_requires_observed_scoped_call(tmp_path):
             assert await agent.stop()
 
     asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("mode", ["read-only", "agent", "agent-full-access"])
+def test_member_directories_respect_codex_native_access_mode(tmp_path, mode):
+    async def exercise():
+        managed, core, site = (tmp_path / name for name in ("managed", "core", "site"))
+        for directory in (managed, core, site):
+            directory.mkdir()
+        client = CodexAgent(
+            tmp_path, managed, {"CODEX_PATH": sys.executable, "HOME": str(tmp_path)}
+        )
+        client.command = [sys.executable, str(FAKE)]
+        client.project_directories = (core, site)
+        calls = []
+        original = client.rpc.call
+
+        async def capture(method, params, **kwargs):
+            calls.append((method, params))
+            return await original(method, params, **kwargs)
+
+        client.rpc.call = capture
+        try:
+            await client.start([], persistent=True)
+            chosen = CHOICE.model_copy(update={"mode": mode})
+            assert await client.configure(chosen) == chosen
+            params = next(params for method, params in calls if method == "thread/start")
+            assert params["cwd"] == str(managed)
+            roots = params["config"].get("sandbox_workspace_write.writable_roots")
+            assert roots == ([str(core), str(site)] if mode == "agent" else None)
+            assert all(method != "turn/start" for method, _ in calls)
+        finally:
+            assert await client.stop()
+
+    asyncio.run(exercise())
+
+
+def test_unconfirmed_member_access_stops_before_codex_prompt(tmp_path):
+    async def exercise():
+        client = CodexAgent(tmp_path, tmp_path, {"CODEX_PATH": sys.executable})
+        client.command = [sys.executable, str(FAKE), "omit-member-roots"]
+        client.project_directories = (tmp_path / "member",)
+        client.project_directories[0].mkdir()
+        try:
+            await client.start([], persistent=True)
+            with pytest.raises(ApplicationError, match="could not apply"):
+                await client.configure(CHOICE.model_copy(update={"mode": "agent"}))
+            assert client.choice is None
+        finally:
+            assert await client.stop()
+
+    asyncio.run(exercise())

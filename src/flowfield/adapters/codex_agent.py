@@ -207,6 +207,10 @@ class CodexAgent(Agent):
                 "serviceTier": "fast" if choice.fast else "default",
                 "config": {"mcp_servers": mcp, "model_reasoning_effort": choice.effort},
             }
+            if self.project_directories and access["sandbox"] == "workspace-write":
+                params["config"]["sandbox_workspace_write.writable_roots"] = [
+                    str(path) for path in self.project_directories
+                ]
             if self.session_id:
                 # Coordinator clients are created afresh per turn, so reconfiguration
                 # would hide native binding changes and is deliberately rejected.
@@ -242,6 +246,17 @@ class CodexAgent(Agent):
                 or (not choice.fast and response.get("serviceTier") in {"fast", "priority"})
             ):
                 raise NativeError("Native choices were not confirmed")
+            if self.project_directories and access["sandbox"] == "workspace-write":
+                roots = response.get("sandbox", {}).get("writableRoots")
+                if not isinstance(roots, list) or not all(
+                    isinstance(value, str) for value in roots
+                ):
+                    raise NativeError("Member repository access was not confirmed")
+                applied_roots = {Path(value).resolve() for value in roots}
+                if not {path.resolve() for path in self.project_directories}.issubset(
+                    applied_roots
+                ):
+                    raise NativeError("Member repository access was not confirmed")
             if self.stopping:
                 raise NativeError("Agent stopped while configuring")
             self.choice = choice.model_copy(deep=True)

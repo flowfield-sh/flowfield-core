@@ -19,6 +19,9 @@ Models and effort levels come from Claude, with resolved model versions shown in
 
 Choose Coordinator and worker defaults independently; task **Agent settings** can override the next worker attempt. Models load automatically. See [worker setup](/worker-setup).
 
+The Coordinator supplies workspace member repositories as additional directories to Claude Code.
+The selected native permission mode still applies. Workers continue in their isolated task checkouts.
+
 ## Commands
 
 The Coordinator supports `/compact`, `/status`, `/mcp` and `/skills`. Compaction uses Claude’s native `/compact`. Status reports model/context usage, MCP lists native connection status, and skills lists the SDK’s available skills.

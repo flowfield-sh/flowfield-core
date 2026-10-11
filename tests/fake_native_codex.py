@@ -470,7 +470,10 @@ async def main():
                         "read-only": "readOnly",
                         "workspace-write": "workspaceWrite",
                         "danger-full-access": "dangerFullAccess",
-                    }[params["sandbox"]]
+                    }[params["sandbox"]],
+                    "writableRoots": []
+                    if "omit-member-roots" in sys.argv
+                    else params["config"].get("sandbox_workspace_write.writable_roots", []),
                 },
                 "reasoningEffort": params["config"].get("model_reasoning_effort"),
                 "serviceTier": "priority" if params.get("serviceTier") == "fast" else "default",

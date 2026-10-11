@@ -15,6 +15,10 @@ Models, reasoning effort, access modes and Fast availability come from Codex. To
 
 Choose Coordinator and worker defaults independently; task **Agent settings** can override the next worker attempt. Models load automatically. See [worker setup](/worker-setup).
 
+Workspace member repositories are added to the Coordinator’s writable roots in **Agent** mode.
+The managed working directory stays separate. **Read only** and **Full access** retain their native
+permissions; task workers keep their isolated checkout scope.
+
 ## Commands
 
 The Coordinator supports `/compact`, `/status`, `/mcp` and `/skills`. Compaction uses the native thread control. Status shows the current choice; MCP and skills use native inventories.

@@ -15,6 +15,8 @@ Create a workspace, then add an existing project using **Projects → Add projec
 Choose the Coordinator's harness, model and access controls beside the input. Models load
 automatically; save your choice to start. Worker settings are independent. The Coordinator
 uses the service host's tools and credentials and receives Flowfield tools automatically.
+Its working directory is managed by Flowfield; repository operations use the member projects’
+paths. Native access modes and permission controls still apply.
 
 Write your message and select **Send** (or press Enter). Use Command/Ctrl+Enter or
 Shift+Enter for a new line. Send is available once you have saved your model settings.
@@ -122,9 +124,13 @@ Use **Read full reply** for shortened previews and **Retained output** for tool 
 **Working…** appears during an active turn; **Waiting for permission** indicates that your
 input is needed.
 
-With compatible unchanged settings, messages resume the same native session, including
+With compatible unchanged settings and repository paths, messages resume the same native session, including
 its tool history and native context management, across turns and service restarts. Each turn gets a fresh scoped
 Flowfield connection. Stopping a turn ends its processes without deleting the saved session.
+
+Adding a project or changing a member repository path starts a fresh native session on the next
+message, with the saved conversation available through history. The current turn keeps its
+original directory access.
 
 If the harness cannot resume, check it on the service host and retry, or choose
 **Start new session**. Your saved Flowfield conversation remains available. Fresh sessions

@@ -24,28 +24,32 @@ def create(
     environment: Mapping[str, str],
     *,
     registration: HarnessRegistration | None = None,
+    project_directories: tuple[Path, ...] = (),
 ) -> Agent:
     if registration is not None and registration.harness != choice.harness:
         raise ApplicationError(
             "harness_registration_mismatch", "Frozen host settings belong to another harness.", 409
         )
     if choice.harness == "claude-code":
-        return ClaudeAgent(
+        client: Agent = ClaudeAgent(
             cwd,
             environment,
             registration=registration or HarnessRegistration(harness="claude-code", revision=1),
             choice=choice,
         )
-    if choice.harness == "codex":
-        return CodexAgent(directory, cwd, environment, registration=registration)
-    if choice.harness == "pi":
-        return PiAgent(
+    elif choice.harness == "codex":
+        client = CodexAgent(directory, cwd, environment, registration=registration)
+    elif choice.harness == "pi":
+        client = PiAgent(
             directory,
             cwd,
             environment,
             registration=registration or HarnessRegistration(harness="pi"),
         )
-    assert_never(choice.harness)
+    else:
+        assert_never(choice.harness)
+    client.project_directories = project_directories
+    return client
 
 
 async def model_options(

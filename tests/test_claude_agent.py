@@ -472,3 +472,34 @@ def test_compiled_sdk_commands_use_native_inventory_and_compaction(tmp_path, com
         assert bool(users) is (command == "compact")
 
     asyncio.run(exercise())
+
+
+def test_compiled_sdk_forwards_member_directories_without_changing_cwd_or_mode(tmp_path):
+    async def exercise():
+        agent = installed_candidate(tmp_path)
+        core, site = tmp_path / "core", tmp_path / "site"
+        core.mkdir()
+        site.mkdir()
+        agent.project_directories = (core, site)
+        try:
+            await agent.start([], persistent=True)
+            assert await agent.configure(CHOICE) == CHOICE
+            calls = [
+                json.loads(line) for line in (tmp_path / "native.jsonl").read_text().splitlines()
+            ]
+            args = next(item["args"] for item in calls if "args" in item)
+            assert args[args.index("--permission-mode") + 1] == "default"
+            assert [
+                value
+                for index, value in enumerate(args)
+                if index and args[index - 1] == "--add-dir"
+            ] == [
+                str(core),
+                str(site),
+            ]
+            assert not any(item.get("type") == "user" for item in calls)
+            assert agent.cwd == tmp_path
+        finally:
+            assert await agent.stop()
+
+    asyncio.run(exercise())

@@ -4,6 +4,7 @@ import asyncio
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
@@ -52,6 +53,8 @@ COMMANDS = [
 
 
 class Agent(ABC):
+    # Coordinator member repositories; workers keep their single isolated cwd.
+    project_directories: tuple[Path, ...] = ()
     supports_activity = True
     input_tokens_available: int | None = None
     max_prompt_bytes: int | None = None

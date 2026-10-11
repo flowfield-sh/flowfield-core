@@ -43,3 +43,9 @@ def for_project(store: Workspace, project_id: str) -> Path:
 
 def for_scope(store: Workspace, identity: str) -> Path:
     return prepare(store, identity) if store.schema_version >= 59 else for_project(store, identity)
+
+
+def repositories_for_scope(store: Workspace, identity: str) -> tuple[Path, ...]:
+    if store.schema_version < 59:
+        return ()  # Historical project coordinators already run in their repository.
+    return tuple(sorted({Path(project.path) for project in Workspaces(store).projects(identity)}))

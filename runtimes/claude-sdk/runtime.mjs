@@ -139,6 +139,7 @@ async function handle(method, params) {
     await cleanup.attach(async () => {
       const options = {
         pathToClaudeCodeExecutable: params.executable, cwd: params.cwd,
+        additionalDirectories: params.directories ?? [],
         env: process.env, settingSources: ["user", "project", "local"],
         tools: {type: "preset", preset: "claude_code"},
         // Flowfield owns durable questions; managed Plan transitions are unsupported.
