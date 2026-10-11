@@ -153,6 +153,10 @@ class Search:
                 task_id = self.workspace._task(db, project_id, task_id).id
             filters = ["search_docs MATCH ?", "d.project_id=?"]
             args: list[Any] = [terms(query), project_id]
+            if self.workspace.schema_version >= 60:
+                owner = self.workspace._project_workspace(db, project_id)
+                filters[1] = "(d.project_id=? OR (d.project_id IS NULL AND d.workspace_id=?))"
+                args.append(owner)
             for column, value in (("entity", entity), ("kind", kind), ("task_id", task_id)):
                 if value is not None:
                     filters.append(f"d.{column}=?")

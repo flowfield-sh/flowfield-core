@@ -620,5 +620,10 @@ def test_notification_cleanup_discards_only_retired_state_and_rolls_back(tmp_pat
         "sqlite_sequence",
     }
     for line in original:
-        if line.startswith('INSERT INTO "') and line.split('"')[1] not in discarded:
+        # Search is a derived index; later workspace migration adds its owner column.
+        if (
+            line.startswith('INSERT INTO "')
+            and line.split('"')[1] not in discarded
+            and not line.split('"')[1].startswith("search_docs")
+        ):
             assert line in after

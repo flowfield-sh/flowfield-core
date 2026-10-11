@@ -30,6 +30,7 @@ from flowfield.guidance import Guidance, GuidanceChange, template
 from flowfield.harness_models import HarnessKind
 from flowfield.inspection import Inspections
 from flowfield.inspection_models import Inspection, InspectionConfig, InspectionPrepare
+from flowfield.milestones import Milestones
 from flowfield.project_config import Identifier
 from flowfield.questions import (
     AnswerRetract,
@@ -375,37 +376,56 @@ def create_mcp(
 
     @mcp.tool(annotations=read)
     async def list_milestones(
-        project_id: Identifier, after: str | None = None, limit: PageLimit = 20
+        workspace_id: Identifier, after: str | None = None, limit: PageLimit = 20
     ) -> CallToolResult:
         """Read milestone groupings without a dependency or work-status lifecycle."""
-        return await invoke(lambda: reads().milestones(project_id, after=after, limit=limit))
+        return await invoke(
+            lambda: Milestones(workspace()).page(workspace_id, after=after, limit=limit)
+        )
 
     @mcp.tool(annotations=read)
     async def get_milestone(
-        project_id: Identifier, milestone_id: MilestoneIdentifier
+        workspace_id: Identifier, milestone_id: MilestoneIdentifier
     ) -> CallToolResult:
-        """Read a milestone by project-local key (M-1) or internal ID."""
-        return await invoke(lambda: reads().milestone(project_id, milestone_id))
+        """Read a milestone by workspace-local key (M-1) or internal ID."""
+        return await invoke(
+            lambda: excerpt(Milestones(workspace()).get(workspace_id, milestone_id).model_dump())
+        )
 
     @mcp.tool(annotations=write)
     async def create_milestone(
-        project_id: Identifier, milestone: MilestoneCreate
+        workspace_id: Identifier, milestone: MilestoneCreate
     ) -> CallToolResult:
         """Create an optional grouping; omit id to generate one."""
         return await mutate(
-            lambda: workspace().create_milestone(project_id, attributed(milestone)).model_dump()
+            lambda: Milestones(workspace()).create(workspace_id, attributed(milestone)).model_dump()
         )
 
     @mcp.tool(annotations=write)
     async def edit_milestone(
-        project_id: Identifier, milestone_id: MilestoneIdentifier, changes: MilestoneEdit
+        workspace_id: Identifier, milestone_id: MilestoneIdentifier, changes: MilestoneEdit
     ) -> CallToolResult:
         """Edit supplied milestone fields with a revision check."""
         return await mutate(
             lambda: (
-                workspace()
-                .edit_milestone(project_id, milestone_id, attributed(changes))
+                Milestones(workspace())
+                .edit(workspace_id, milestone_id, attributed(changes))
                 .model_dump()
+            )
+        )
+
+    @mcp.tool(annotations=read)
+    async def get_milestone_text(
+        workspace_id: Identifier,
+        identity: MilestoneIdentifier,
+        revision: int | None = None,
+        offset: Annotated[int, Field(ge=0)] = 0,
+        limit: Annotated[int, Field(ge=1, le=4000)] = 4000,
+    ) -> CallToolResult:
+        """Read full milestone body in bounded chunks; echo revision and follow next_offset."""
+        return await invoke(
+            lambda: Milestones(workspace()).text(
+                workspace_id, identity, revision=revision, offset=offset, limit=limit
             )
         )
 

@@ -81,6 +81,7 @@ export function TaskDetail({
             <TaskTypeBadge type={task.task_type} />
             <DraftBadge publicationStatus={task.publication_status} />
             <MilestoneBadge
+              projectId={board.project.id}
               milestone={board.milestones.find(
                 (m) => m.id === task.milestone_id,
               )}

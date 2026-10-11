@@ -950,6 +950,7 @@ function ProjectBoard({
                                           }
                                         />
                                         <MilestoneBadge
+                                          projectId={projectId}
                                           milestone={board.milestones.find(
                                             (m) => m.id === task.milestone_id,
                                           )}
@@ -1129,6 +1130,7 @@ function ArchiveList({
                   {task.milestone_id && (
                     <span className="archive-labels">
                       <MilestoneBadge
+                        projectId={projectId}
                         linked={false}
                         milestone={milestones.find(
                           (m) => m.id === task.milestone_id,

@@ -10,9 +10,11 @@ import type { Milestone } from "./workspace";
 
 export function MilestoneBadge({
   milestone,
+  projectId,
   linked = true,
 }: {
   milestone?: Milestone;
+  projectId: string;
   linked?: boolean;
 }) {
   if (!milestone) return null;
@@ -22,7 +24,7 @@ export function MilestoneBadge({
         <Badge variant="outline" className="milestone-tag" asChild>
           {linked ? (
             <WorkspaceLink
-              to={`${projectHref(milestone.project_id)}/milestones/${milestone.key}`}
+              to={`${projectHref(projectId)}/milestones/${milestone.key}`}
             >
               {milestone.key}
             </WorkspaceLink>

@@ -197,7 +197,10 @@ def test_mcp_board_parity_and_restart(tmp_path: Path) -> None:
                     )
                     await call(
                         "create_milestone",
-                        {"project_id": "harbor", "milestone": {"id": "csv", "title": "CSV export"}},
+                        {
+                            "workspace_id": space["id"],
+                            "milestone": {"id": "csv", "title": "CSV export"},
+                        },
                     )
                     await call(
                         "create_task",

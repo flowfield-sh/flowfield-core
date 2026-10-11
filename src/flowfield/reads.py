@@ -66,6 +66,7 @@ def receipt(item: dict[str, Any]) -> dict[str, Any]:
         "id",
         "key",
         "project_id",
+        "workspace_id",
         "task_id",
         "task_revision",
         "task_key",
@@ -278,6 +279,13 @@ class ContextReads:
     def milestones(
         self, project_id: str, *, after: str | None = None, limit: int = DEFAULT_LIMIT
     ) -> dict[str, Any]:
+        if self.workspace.schema_version >= 60:
+            from flowfield.milestones import Milestones
+            from flowfield.workspaces import Workspaces
+
+            return Milestones(self.workspace).page(
+                Workspaces(self.workspace).for_project(project_id).id, after=after, limit=limit
+            )
         validate_page(limit)
         with self.workspace.connection() as db:
             self.workspace._project(db, project_id)

@@ -11,6 +11,7 @@ from typing import Annotated, Any, Literal, Self
 from uuid import uuid4
 
 from pydantic import (
+    AliasChoices,
     BaseModel,
     ConfigDict,
     Field,
@@ -175,9 +176,8 @@ class MilestoneEdit(Edit):
     body: Markdown | None = None
 
 
-class WorkRecord(BaseModel):
+class ContentRecord(BaseModel):
     model_config = ConfigDict(json_schema_serialization_defaults_required=True)
-    project_id: str
     id: str
     title: str
     body: str
@@ -187,7 +187,12 @@ class WorkRecord(BaseModel):
     updated_by: str
 
 
-class Milestone(WorkRecord):
+class WorkRecord(ContentRecord):
+    project_id: str
+
+
+class Milestone(ContentRecord):
+    workspace_id: str = Field(validation_alias=AliasChoices("workspace_id", "project_id"))
     key: str
 
 
@@ -787,7 +792,28 @@ class Workspace:
         )
         return project
 
+    @staticmethod
+    def _legacy_milestone(value: Milestone) -> str:
+        data = value.model_dump(mode="json")
+        data["project_id"] = data.pop("workspace_id")
+        return json.dumps(data, ensure_ascii=False)
+
+    @staticmethod
+    def _project_workspace(db: sqlite3.Connection, project_id: str) -> str:
+        row = db.execute(
+            "SELECT workspace_id FROM workspace_projects WHERE project_id=?", (project_id,)
+        ).fetchone()
+        if not row:
+            raise ApplicationError(
+                "workspace_required", "Add this project to an explicit workspace first.", 409
+            )
+        return str(row[0])
+
     def _milestone(self, db: sqlite3.Connection, project_id: str, milestone_id: str) -> Milestone:
+        if self.schema_version >= 60:
+            from flowfield.milestones import Milestones
+
+            return Milestones.read(db, self._project_workspace(db, project_id), milestone_id)
         row = db.execute(
             "SELECT data FROM milestones WHERE project_id=? "
             "AND (id=? OR key=? COLLATE NOCASE) ORDER BY id=? DESC",
@@ -802,6 +828,10 @@ class Workspace:
             return self._milestone(db, project_id, milestone_id)
 
     def _milestones(self, db: sqlite3.Connection, project_id: str) -> list[Milestone]:
+        if self.schema_version >= 60:
+            from flowfield.milestones import Milestones
+
+            return Milestones.read_all(db, self._project_workspace(db, project_id))
         return [
             Milestone.model_validate_json(row[0])
             for row in db.execute(
@@ -815,6 +845,11 @@ class Workspace:
             return self._milestones(db, project_id)
 
     def create_milestone(self, project_id: str, request: MilestoneCreate) -> Milestone:
+        if self.schema_version >= 60:
+            from flowfield.milestones import Milestones
+            from flowfield.workspaces import Workspaces
+
+            return Milestones(self).create(Workspaces(self).for_project(project_id).id, request)
         with self.connection(write=True, project_id=project_id) as db:
             self._project(db, project_id)
             number = db.execute(
@@ -822,7 +857,7 @@ class Workspace:
                 (project_id,),
             ).fetchone()[0]
             milestone = Milestone(
-                project_id=project_id,
+                workspace_id=project_id,
                 id=request.id or generated_id(request.title),
                 key=f"M-{number}",
                 title=request.title,
@@ -835,7 +870,13 @@ class Workspace:
             try:
                 db.execute(
                     "INSERT INTO milestones VALUES (?, ?, ?, ?, ?)",
-                    (project_id, milestone.id, milestone.model_dump_json(), number, milestone.key),
+                    (
+                        project_id,
+                        milestone.id,
+                        self._legacy_milestone(milestone),
+                        number,
+                        milestone.key,
+                    ),
                 )
             except sqlite3.IntegrityError as error:
                 raise ApplicationError(
@@ -846,13 +887,20 @@ class Workspace:
     def edit_milestone(
         self, project_id: str, milestone_id: str, request: MilestoneEdit
     ) -> Milestone:
+        if self.schema_version >= 60:
+            from flowfield.milestones import Milestones
+            from flowfield.workspaces import Workspaces
+
+            return Milestones(self).edit(
+                Workspaces(self).for_project(project_id).id, milestone_id, request
+            )
         with self.connection(write=True, project_id=project_id) as db:
             milestone = Milestone(
                 **self._patch(self._milestone(db, project_id, milestone_id), request)
             )
             db.execute(
                 "UPDATE milestones SET data=? WHERE project_id=? AND id=?",
-                (milestone.model_dump_json(), project_id, milestone.id),
+                (self._legacy_milestone(milestone), project_id, milestone.id),
             )
             return milestone
 

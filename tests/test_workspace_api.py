@@ -30,6 +30,18 @@ def test_explicit_creation_adoption_scope_and_no_implicit_resources(tmp_path, mo
         space = created.json()["id"]
         base = f"/api/workspaces/{space}"
         assert client.get(base + "/projects").json() == []
+        milestone = client.post(
+            base + "/milestones", json={"title": "Launch", "body": "Shared intent"}
+        )
+        assert milestone.status_code == 201
+        assert milestone.json()["workspace_id"] == space
+        assert client.get(base + "/milestones/M-1/text").json()["text"] == "Shared intent"
+        changed = client.put(
+            base + "/milestones/M-1", json={"expected_revision": 1, "title": "Launch together"}
+        )
+        assert changed.status_code == 200
+        assert client.get(base + "/milestones").json() == [changed.json()]
+        assert client.get(base + "/milestones/M-1/text?revision=1").status_code == 409
         assert client.get(base + "/coordinator-settings").json()["selection"] is None
         assert client.get(base + "/workers").json()["enabled"] is False
         assert client.get(base + "/workers/occupancy").json()["active"] == 0

@@ -1,11 +1,12 @@
 """Explicit workspace entry and shared settings; repository adoption creates no defaults."""
 
 from collections.abc import Callable
+from typing import Any
 
 from fastapi import APIRouter, Query
 
 from flowfield.agent_models import AgentSettingsEdit, AgentSettingsView
-from flowfield.application import Project, ProjectSetup
+from flowfield.application import Milestone, MilestoneCreate, MilestoneEdit, Project, ProjectSetup
 from flowfield.execution_models import (
     ModelOption,
     QueueEdit,
@@ -14,6 +15,7 @@ from flowfield.execution_models import (
     WorkspaceWorkerSettings,
 )
 from flowfield.harness_models import HarnessKind
+from flowfield.milestones import Milestones
 from flowfield.permission_models import PermissionAnswer, PermissionPage, PermissionRecord
 from flowfield.supervisor import Supervisor
 from flowfield.workspaces import (
@@ -111,6 +113,34 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     ) -> PermissionRecord:
         return supervisor().permissions.answer(
             workspace_id, permission_id, request, workspace_scope=True
+        )
+
+    @router.get("/{workspace_id}/milestones")
+    def milestones(workspace_id: str) -> list[Milestone]:
+        return Milestones(supervisor().workspace).all(workspace_id)
+
+    @router.post("/{workspace_id}/milestones", status_code=201)
+    def create_milestone(workspace_id: str, request: MilestoneCreate) -> Milestone:
+        return Milestones(supervisor().workspace).create(workspace_id, request)
+
+    @router.get("/{workspace_id}/milestones/{identity}")
+    def milestone(workspace_id: str, identity: str) -> Milestone:
+        return Milestones(supervisor().workspace).get(workspace_id, identity)
+
+    @router.put("/{workspace_id}/milestones/{identity}")
+    def edit_milestone(workspace_id: str, identity: str, request: MilestoneEdit) -> Milestone:
+        return Milestones(supervisor().workspace).edit(workspace_id, identity, request)
+
+    @router.get("/{workspace_id}/milestones/{identity}/text")
+    def milestone_text(
+        workspace_id: str,
+        identity: str,
+        revision: int | None = None,
+        offset: int = 0,
+        limit: int = 4000,
+    ) -> dict[str, Any]:
+        return Milestones(supervisor().workspace).text(
+            workspace_id, identity, revision=revision, offset=offset, limit=limit
         )
 
     return router
