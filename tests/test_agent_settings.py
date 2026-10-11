@@ -42,7 +42,7 @@ def test_inheritance_override_reset_and_frozen_claim(tmp_path):
     reset = settings.edit(
         "harbor", "worker", AgentSettingsEdit(expected_revision=changed.revision), "task-0"
     )
-    assert reset.effective.choice.model == "new" and reset.effective.source == "project"
+    assert reset.effective.choice.model == "new" and reset.effective.source == "workspace"
     assert execution.get("harbor", run.id).agent_settings == run.agent_settings
     assert execution.get("harbor", run.id).model == "other"
     with pytest.raises(ApplicationError):

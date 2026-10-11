@@ -406,7 +406,12 @@ def test_coordinator_config_path_change_requires_fresh_recovery_and_preserves_ch
             assert failed.status == "failed" and failed.session == "unavailable"
             assert not failed.native_started and failed.applied is None
             assert store.page("harbor").session_recovery_turn_id == failed.id
-            assert store.session("harbor", "codex", str(tmp_path / "harbor")) == "test-session"
+            from flowfield.adapters.coordinator_directory import for_project
+
+            assert (
+                store.session("harbor", "codex", str(for_project(service.workspace, "harbor")))
+                == "test-session"
+            )
             store.reset_session("harbor", failed.id)
             recovered = await settled(
                 service,

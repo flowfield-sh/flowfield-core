@@ -115,7 +115,11 @@ def test_real_native_capture_continuity_and_duplicate_send(tmp_path, monkeypatch
         assert next(item for item in completed.activity.items if item.key == "session").text == (
             "New agent session started."
         )
-        native = service.coordinator.store.session("harbor", "codex", str(tmp_path / "harbor"))
+        from flowfield.adapters.coordinator_directory import for_project
+
+        native = service.coordinator.store.session(
+            "harbor", "codex", str(for_project(service.workspace, "harbor"))
+        )
         assert native == "test-session"
         with pytest.raises(ApplicationError, match="different harness or project directory"):
             service.coordinator.store.session("harbor", "codex", str(tmp_path / "elsewhere"))

@@ -3,11 +3,12 @@ import json
 from pathlib import Path
 
 import pytest
-from project_fixtures import adopt, task_request
+from project_fixtures import existing_directory, task_request
 
 from flowfield.application import ProjectSetup, TaskEdit, Workspace
 from flowfield.changes import Changes
 from flowfield.errors import ApplicationError
+from flowfield.workspaces import WorkspaceCreate, Workspaces
 
 
 def test_change_scopes_coalesce_and_reconnect() -> None:
@@ -37,7 +38,10 @@ def test_change_scopes_coalesce_and_reconnect() -> None:
 def test_only_committed_writes_publish_project(tmp_path: Path) -> None:
     published: list[str | None] = []
     workspace = Workspace(tmp_path / "state", on_change=published.append)
-    project = adopt(workspace, ProjectSetup(path=str(tmp_path / "repo")))
+    spaces = Workspaces(workspace)
+    space = spaces.create(WorkspaceCreate(name="Product"))
+    published.clear()
+    project = spaces.adopt(space.id, ProjectSetup(path=existing_directory(tmp_path / "repo")))
     assert published == [None]
     published.clear()
     task = workspace.create_task(project.id, task_request(title="Task"))

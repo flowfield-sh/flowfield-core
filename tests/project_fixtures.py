@@ -12,7 +12,50 @@ def existing_directory(path: str | Path) -> str:
 
 def adopt(workspace: Workspace, request: ProjectSetup) -> Project:
     existing_directory(request.path)
-    return workspace.setup_project(request)
+    if workspace.schema_version < 58:
+        return workspace.setup_project(request)
+    from flowfield.agent_models import AgentSettingsEdit
+    from flowfield.execution_models import SettingsEdit
+    from flowfield.workspaces import WorkspaceCreate, Workspaces
+
+    # Latest-schema fixtures explicitly create their workspace. Keep readable IDs,
+    # matching the supported one-project-to-one-workspace migration, while shared
+    # workspace tests use independently generated IDs and multiple member projects.
+    defaults = workspace.project_setup_defaults(request)
+    project_id = request.id or defaults.id
+    spaces = Workspaces(workspace)
+    with workspace.connection() as db:
+        membership = db.execute(
+            "SELECT workspace_id FROM workspace_projects WHERE project_id=?", (project_id,)
+        ).fetchone()
+    if membership:
+        identity = membership[0]
+    else:
+        space = spaces.create(WorkspaceCreate(name=defaults.name + " Workspace"))
+        identity = project_id
+        with workspace.connection(write=True) as db:
+            db.execute("UPDATE workspaces SET id=? WHERE id=?", (identity, space.id))
+    project = spaces.adopt(
+        identity, request.model_copy(update={"coordinator": None, "worker": None})
+    )
+    if request.coordinator:
+        spaces.configure_coordinator(
+            identity,
+            AgentSettingsEdit(
+                expected_revision=spaces.coordinator(identity).revision,
+                selection=request.coordinator,
+            ),
+        )
+    if request.worker:
+        spaces.configure_workers(
+            identity,
+            SettingsEdit(
+                expected_revision=spaces.workers(identity).revision,
+                selection=request.worker,
+                max_parallel=request.max_parallel,
+            ),
+        )
+    return project
 
 
 def task_request(**values):

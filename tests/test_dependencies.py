@@ -1,5 +1,6 @@
 """Task graph validity, readiness and reconciliation across coordinated edits."""
 
+import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -198,7 +199,14 @@ def test_http_reconciliation_and_cli_dependencies(tmp_path: Path) -> None:
             assert result.exit_code == 0, result.output
             return result.output
 
-        cli("project", "init", existing_directory(str(tmp_path / "harbor")))
+        space = json.loads(cli("workspace", "create", "Product", "--json"))
+        cli(
+            "project",
+            "init",
+            existing_directory(str(tmp_path / "harbor")),
+            "--workspace",
+            space["id"],
+        )
         cli("task", "create", "--project", "harbor", "--id", "a", "--title", "Serializer")
         cli(
             "task",

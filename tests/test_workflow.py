@@ -257,9 +257,18 @@ def test_cli_board_and_readable_output(tmp_path: Path, monkeypatch: pytest.Monke
             assert (result.stderr if success else result.stdout) == ""
             return json.loads(result.stdout if success else result.stderr)
 
-        project = command(["project", "init", existing_directory(str(tmp_path / "harbor"))])
+        space = command(["workspace", "create", "Product"])
+        project = command(
+            [
+                "project",
+                "init",
+                existing_directory(str(tmp_path / "harbor")),
+                "--workspace",
+                space["id"],
+            ]
+        )
         monkeypatch.chdir(tmp_path / "harbor")
-        assert command(["project", "init"]) == project
+        assert command(["project", "init", "--workspace", space["id"]]) == project
         command(["project", "edit", "--description", "CSV"])
         assert command(["project", "show"])["description"] == "CSV"
         milestone = command(["milestone", "create", "--title", "CSV export"])
