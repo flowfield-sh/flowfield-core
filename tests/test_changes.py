@@ -71,3 +71,25 @@ def test_activity_updates_are_scoped_coalesced_and_bounded():
         assert not changes.subscribers
 
     asyncio.run(check())
+
+
+def test_coordinator_updates_do_not_impersonate_project_activity():
+    async def check():
+        changes = Changes()
+        events = changes.events()
+        await anext(events)
+        changes.publish_activity("same-id", "worker")
+        changes.publish_coordinator_activity("same-id", "coordinator")
+        await asyncio.sleep(0)
+        event = await anext(events)
+        assert json.loads(event["data"]) == {
+            "activity": [["same-id", "worker"]],
+            "coordinator_activity": [["same-id", "coordinator"]],
+        }
+        for index in range(101):
+            changes.publish_coordinator_activity("workspace", str(index))
+        await asyncio.sleep(0)
+        assert json.loads((await anext(events))["data"]) == {"projects": None}
+        await events.aclose()
+
+    asyncio.run(check())

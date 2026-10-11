@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 
 from flowfield.agent_models import AgentRecord, EffectiveAgent
 from flowfield.harness_models import HarnessLaunch
@@ -17,6 +17,7 @@ class CoordinatorConversation(AgentRecord):
 
 
 class CoordinatorTaskSelection(AgentRecord):
+    project_id: str = Field(min_length=1, max_length=64)
     task_id: str = Field(min_length=1, max_length=200)
     task_revision: int = Field(ge=1)
     result_id: str | None = Field(default=None, min_length=1, max_length=200)
@@ -37,7 +38,7 @@ class CoordinatorTurn(AgentRecord):
     task_context: CoordinatorTaskContext | None = None
     id: str
     number: int = 0
-    project_id: str
+    workspace_id: str = Field(validation_alias=AliasChoices("workspace_id", "project_id"))
     conversation_id: str
     text: str
     created_at: str

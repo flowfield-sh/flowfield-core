@@ -28,9 +28,9 @@ def setup(tmp_path):
     return execution, run, Permissions(execution.workspace)
 
 
-async def pending(owner):
+async def pending(owner, *, workspace_scope=False):
     async with asyncio.timeout(4):
-        while not (items := owner.page("harbor").pending):
+        while not (items := owner.page("harbor", workspace_scope=workspace_scope).pending):
             await asyncio.sleep(0.01)
         return items[0]
 
@@ -162,9 +162,14 @@ def test_stop_rejects_answer_and_new_turn_does_not_replay(tmp_path):
             generation_id=generation.id,
         ) as turn:
             task = asyncio.create_task(turn.request("tool", "Same tool, new turn", OPTIONS))
-            new = await pending(owner)
+            new = await pending(owner, workspace_scope=True)
             assert new.id != record.id and new.binding != record.binding
-            owner.answer("harbor", new.id, PermissionAnswer(expected_revision=1, option_id="no"))
+            owner.answer(
+                "harbor",
+                new.id,
+                PermissionAnswer(expected_revision=1, option_id="no"),
+                workspace_scope=True,
+            )
             assert await task == "no"
 
     asyncio.run(exercise())

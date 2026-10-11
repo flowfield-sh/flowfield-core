@@ -111,6 +111,10 @@ class AgentSettings:
             owner = worker_settings.workspace_id(db, project)
             if owner:
                 return CoordinatorSettings(self.workspace).write(db, owner, request)
+            if self.workspace.schema_version >= 59:
+                raise ApplicationError(
+                    "workspace_required", "Add this project to an explicit workspace first.", 409
+                )
         if role == "worker" and not scope:
             raise ApplicationError("worker_defaults", "Use worker settings to edit defaults.")
         if role == "coordinator":

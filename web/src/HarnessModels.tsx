@@ -44,12 +44,14 @@ export function modelSupports(choice: Choice, models: Model[]) {
 // Discovery is model-free: configured views preload; other selectors load on open.
 // The service owns coalescing, cleanup and bounded caches; this hook retains one view.
 export function useHarnessModels(
-  projectId: string | undefined,
+  scope: string | { workspaceId: string } | undefined,
   requested: HarnessKind | undefined,
   refresh: unknown,
   open = true,
   projectPath?: string,
 ) {
+  const projectId = typeof scope === "string" ? scope : undefined;
+  const workspaceId = typeof scope === "object" ? scope.workspaceId : undefined;
   const [connection, setConnection] = useState(0);
   useEffect(() => {
     const reconnect = () => setConnection((value) => value + 1);
@@ -61,7 +63,13 @@ export function useHarnessModels(
     requested ??
     hosts.data?.find((item) => item.selectable)?.registration.harness;
   const host = hosts.data?.find((item) => item.registration.harness === kind);
-  const key = JSON.stringify([projectId, projectPath, kind, host?.launch]);
+  const key = JSON.stringify([
+    workspaceId,
+    projectId,
+    projectPath,
+    kind,
+    host?.launch,
+  ]);
   const [load, setLoad] = useState<{ key: string; revision: number } | null>(
     null,
   );
@@ -77,7 +85,11 @@ export function useHarnessModels(
     refresh: load?.key === key ? "true" : "false",
   });
   const catalog = useResource<Model[]>(
-    loaded && kind ? `worker-models?${query}` : null,
+    loaded && kind
+      ? workspaceId
+        ? `workspaces/${workspaceId}/models?${query}`
+        : `worker-models?${query}`
+      : null,
     JSON.stringify([key, load?.revision, connection]),
     180000,
   );

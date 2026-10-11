@@ -450,7 +450,9 @@ class Workspace:
         *,
         on_change: Callable[[str | None], None] | None = None,
         on_activity: Callable[[str, str], None] | None = None,
+        on_coordinator_activity: Callable[[str, str], None] | None = None,
     ):
+        self.on_coordinator_activity = on_coordinator_activity
         self.on_activity = on_activity
         self.on_change = on_change
         self.directory = directory.expanduser().resolve()

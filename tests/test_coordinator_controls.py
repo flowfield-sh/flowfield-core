@@ -85,10 +85,15 @@ def test_coordinator_native_mode_and_permission_lifetime(tmp_path, monkeypatch, 
         turn = service.coordinator.send(
             "harbor", conversation.id, message("Set up this environment")
         )
-        record = await pending(service.permissions)
+        record = await pending(service.permissions, workspace_scope=True)
         assert record.role == "coordinator" and record.conversation_id == conversation.id
         assert not service.permissions.page("harbor", role="worker").pending
-        assert service.permissions.page("harbor", role="coordinator").pending[0].id == record.id
+        assert (
+            service.permissions.page("harbor", role="coordinator", workspace_scope=True)
+            .pending[0]
+            .id
+            == record.id
+        )
         settings.edit(
             "harbor",
             "coordinator",
@@ -101,17 +106,25 @@ def test_coordinator_native_mode_and_permission_lifetime(tmp_path, monkeypatch, 
             await service.coordinator.stop("harbor", turn.id)
             with pytest.raises(ApplicationError):
                 service.permissions.answer(
-                    "harbor", record.id, PermissionAnswer(expected_revision=1, option_id="allow")
+                    "harbor",
+                    record.id,
+                    PermissionAnswer(expected_revision=1, option_id="allow"),
+                    workspace_scope=True,
                 )
         else:
             service.permissions.answer(
-                "harbor", record.id, PermissionAnswer(expected_revision=1, option_id=answer)
+                "harbor",
+                record.id,
+                PermissionAnswer(expected_revision=1, option_id=answer),
+                workspace_scope=True,
             )
         done = await settled(service, turn)
         assert done.applied.choice.mode == mode
         assert done.settings.choice.mode == mode
         assert done.status == ("stopped" if answer == "stop" else "completed")
-        assert not service.permissions.page("harbor", role="coordinator").pending
+        assert not service.permissions.page(
+            "harbor", role="coordinator", workspace_scope=True
+        ).pending
         await service.close()
 
     asyncio.run(exercise())

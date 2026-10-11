@@ -39,3 +39,7 @@ def for_project(store: Workspace, project_id: str) -> Path:
             else None
         )
     return prepare(store, membership[0]) if membership else Path(project.path)
+
+
+def for_scope(store: Workspace, identity: str) -> Path:
+    return prepare(store, identity) if store.schema_version >= 59 else for_project(store, identity)

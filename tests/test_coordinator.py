@@ -260,9 +260,9 @@ def test_native_permission_reaches_coordinator_and_preserves_offered_choices(
         turn = service.coordinator.send("harbor", conversation.id, message())
         try:
             async with asyncio.timeout(10):
-                while not service.permissions.page("harbor").pending:
+                while not service.permissions.page("harbor", workspace_scope=True).pending:
                     await asyncio.sleep(0.02)
-            pending = service.permissions.page("harbor").pending[0]
+            pending = service.permissions.page("harbor", workspace_scope=True).pending[0]
             assert pending.role == "coordinator" and pending.turn_id == turn.id
             assert [o.id for o in pending.options] == ["allow", "deny"]
             assert "command: inspect project" in pending.details
@@ -270,13 +270,14 @@ def test_native_permission_reaches_coordinator_and_preserves_offered_choices(
                 "harbor",
                 pending.id,
                 PermissionAnswer(expected_revision=pending.revision, option_id=choice),
+                workspace_scope=True,
             )
             completed = await settled(service, turn)
             assert completed.status == "completed", completed.notice
             assert any(
                 '"optionId": "' + choice + '"' in item.text for item in completed.activity.items
             )
-            saved = service.permissions.page("harbor").items[0]
+            saved = service.permissions.page("harbor", workspace_scope=True).items[0]
             assert saved.answer == choice and saved.released_at
             assert saved.options == pending.options and saved.details == pending.details
         finally:
@@ -409,14 +410,14 @@ def test_browser_reads_are_model_free_and_cross_project_scoped(tmp_path, monkeyp
     )
     app = create_app(data_dir=execution.workspace.directory)
     with TestClient(app, base_url="http://localhost") as client:
-        history = client.get("/api/projects/harbor/coordinator")
+        history = client.get("/api/workspaces/harbor/coordinator")
         assert history.status_code == 200 and history.json()["items"] == []
-        assert client.get("/api/projects/harbor/coordinator?after=1").json()["items"] == []
-        assert client.get("/api/projects/harbor/coordinator?after=0").status_code == 422
-        assert client.get("/api/projects/harbor/coordinator?before=2&after=1").status_code == 400
+        assert client.get("/api/workspaces/harbor/coordinator?after=1").json()["items"] == []
+        assert client.get("/api/workspaces/harbor/coordinator?after=0").status_code == 422
+        assert client.get("/api/workspaces/harbor/coordinator?before=2&after=1").status_code == 400
         assert client.get("/api/projects/elsewhere/coordinator?after=1").status_code == 404
-        conversation = client.post("/api/projects/harbor/coordinator").json()
-        path = f"/api/projects/harbor/coordinator/{conversation['id']}"
+        conversation = client.post("/api/workspaces/harbor/coordinator").json()
+        path = f"/api/workspaces/harbor/coordinator/{conversation['id']}"
         assert client.get(path).json()["items"] == []
         assert client.get(path.replace("harbor", "elsewhere")).status_code == 404
         assert client.post(path + "/messages", json=message().model_dump()).status_code == 409
@@ -546,7 +547,9 @@ def test_task_focus_is_scoped_revision_bound_and_idempotent(tmp_path, monkeypatc
     request = CoordinatorSend(
         id=uuid4().hex,
         text="Explain this task",
-        task_context=CoordinatorTaskSelection(task_id=task.key, task_revision=task.revision),
+        task_context=CoordinatorTaskSelection(
+            project_id="harbor", task_id=task.key, task_revision=task.revision
+        ),
     )
     turn, fresh = store.reserve("harbor", conversation.id, request)
     assert fresh and turn.task_context.task_id == task.id
@@ -569,7 +572,9 @@ def test_task_focus_is_scoped_revision_bound_and_idempotent(tmp_path, monkeypatc
             CoordinatorSend(
                 id=uuid4().hex,
                 text="Wrong reference",
-                task_context=CoordinatorTaskSelection(task_id="missing-task", task_revision=1),
+                task_context=CoordinatorTaskSelection(
+                    project_id="harbor", task_id="missing-task", task_revision=1
+                ),
             ),
         )
     with ws.connection(write=True) as db:
@@ -583,7 +588,10 @@ def test_task_focus_is_scoped_revision_bound_and_idempotent(tmp_path, monkeypatc
                 id=uuid4().hex,
                 text="Wrong result",
                 task_context=CoordinatorTaskSelection(
-                    task_id=task.id, task_revision=changed.revision, result_id="missing"
+                    project_id="harbor",
+                    task_id=task.id,
+                    task_revision=changed.revision,
+                    result_id="missing",
                 ),
             ),
         )
@@ -613,7 +621,10 @@ def test_selected_result_is_exact_and_must_belong_to_the_task(tmp_path, monkeypa
                 id=uuid4().hex,
                 text="Explain",
                 task_context=CoordinatorTaskSelection(
-                    task_id=other.id, task_revision=other.revision, result_id=selected.id
+                    project_id="harbor",
+                    task_id=other.id,
+                    task_revision=other.revision,
+                    result_id=selected.id,
                 ),
             ),
         )
@@ -621,7 +632,7 @@ def test_selected_result_is_exact_and_must_belong_to_the_task(tmp_path, monkeypa
         id=uuid4().hex,
         text="Explain this result",
         task_context=CoordinatorTaskSelection(
-            task_id=task.id, task_revision=task.revision, result_id=selected.id
+            project_id="harbor", task_id=task.id, task_revision=task.revision, result_id=selected.id
         ),
     )
     turn, _ = store.reserve("harbor", conversation.id, request)

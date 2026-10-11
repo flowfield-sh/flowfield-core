@@ -99,6 +99,10 @@ export function App() {
     chatSettingsDirty,
   );
   const projectId = params.projectId;
+  const { data: projectWorkspace } = useResource<{ id: string }>(
+    projectId ? `projects/${projectId}/workspace` : null,
+    refresh,
+  );
   const { data: attentionCounts } = useResource<Record<string, number>>(
     "projects/attention-counts",
     `${refresh}:${JSON.stringify(projectRefresh)}`,
@@ -229,10 +233,11 @@ export function App() {
           </>
         }
         coordinator={
-          connected && projectId && !notFound
+          connected && projectId && projectWorkspace && !notFound
             ? (visible) => (
                 <CoordinatorChat
-                  key={projectId}
+                  key={projectWorkspace.id}
+                  workspaceId={projectWorkspace.id}
                   projectId={projectId}
                   refresh={`${refresh}:${projectRefresh[projectId] ?? 0}`}
                   drafts={chatDrafts}

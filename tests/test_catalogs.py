@@ -218,7 +218,7 @@ def test_commands_and_models_share_one_native_discovery_owner(tmp_path, monkeypa
 
     async def discover(directory, cwd, choice, *, on_cleanup, **kwargs):
         record = catalogs.ownership("codex")
-        assert record.operation == "commands" and record.project_id == "harbor"
+        assert record.operation == "commands" and record.workspace_id == "harbor"
         on_cleanup(False)
         started.set()
         await release.wait()
@@ -231,7 +231,7 @@ def test_commands_and_models_share_one_native_discovery_owner(tmp_path, monkeypa
         task = asyncio.create_task(
             catalogs.commands(registration, "harbor", AgentChoice(model="exact", effort="low"))
         )
-        await started.wait()
+        await asyncio.wait_for(started.wait(), 3)
         with pytest.raises(ApplicationError, match="still running"):
             await catalogs.run(registration)
         release.set()

@@ -200,18 +200,19 @@ def test_saved_permission_answer_is_not_released_after_turn_ends(tmp_path):
         ) as live:
             reply = asyncio.create_task(live.request("check", "Run a check", options))
             async with asyncio.timeout(2):
-                while not owner.page("harbor").pending:
+                while not owner.page("harbor", workspace_scope=True).pending:
                     await asyncio.sleep(0.01)
-            record = owner.page("harbor").pending[0]
+            record = owner.page("harbor", workspace_scope=True).pending[0]
             owner.answer(
                 "harbor",
                 record.id,
                 PermissionAnswer(expected_revision=record.revision, option_id="yes"),
+                workspace_scope=True,
             )
             finish_coordinator(store, turn)
             with pytest.raises(ApplicationError, match="generation changed"):
                 await reply
-        saved = owner.page("harbor").items[0]
+        saved = owner.page("harbor", workspace_scope=True).items[0]
         assert saved.answer == "yes" and not saved.released_at and saved.status == "cancelled"
 
     asyncio.run(exercise())
@@ -254,7 +255,7 @@ def test_late_runtime_finalizer_cannot_clear_restart_uncertainty(tmp_path, monke
         turn = service.coordinator.send("harbor", conversation.id, message())
         try:
             async with asyncio.timeout(10):
-                while not service.permissions.page("harbor").pending:
+                while not service.permissions.page("harbor", workspace_scope=True).pending:
                     await asyncio.sleep(0.01)
             service.coordinator.store.restart()
             uncertain = service.coordinator.store.get("harbor", turn.id)
@@ -291,7 +292,7 @@ def test_uncertain_turns_reserve_the_global_coordinator_capacity(tmp_path):
         if index == 16:
             with pytest.raises(ApplicationError, match="capacity is reserved"):
                 store.reserve(project.id, conversation.id, request)
-            store.confirm_stopped(held[0].project_id, held[0].id)
+            store.confirm_stopped(held[0].workspace_id, held[0].id)
             assert store.reserve(project.id, conversation.id, request)[1]
             break
         turn, _ = store.reserve(project.id, conversation.id, request)

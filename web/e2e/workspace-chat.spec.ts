@@ -1,0 +1,141 @@
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { expect } from "@playwright/test";
+import { test, state, fixtureStages } from "./support";
+
+test("member projects share coordinator history and a draft", async ({
+  page,
+  request,
+}) => {
+  const workspace = await (
+    await request.post("/api/workspaces", { data: { name: "Shared chat" } })
+  ).json();
+  for (const id of ["shared-core", "shared-site"]) {
+    const path = join(state, id);
+    mkdirSync(path, { recursive: true });
+    const adopted = await request.post(
+      `/api/workspaces/${workspace.id}/projects`,
+      {
+        data: {
+          id,
+          name: id,
+          path,
+          task_prefix: id === "shared-core" ? "COR" : "SIT",
+        },
+      },
+    );
+    expect(adopted.ok(), await adopted.text()).toBeTruthy();
+    expect(
+      (
+        await request.post(`/api/projects/${id}/tasks`, {
+          data: { id: "same", title: `${id} task`, stages: fixtureStages() },
+        })
+      ).ok(),
+    ).toBeTruthy();
+  }
+  const base = `/api/workspaces/${workspace.id}/coordinator`;
+  const conversation = await (await request.post(base)).json();
+  await page.route(`**${base}{,?*}`, (route) =>
+    route.fulfill({
+      json: {
+        welcome: "Plan both repositories here.",
+        conversation,
+        items: [],
+        active: null,
+        context: null,
+        next_before: null,
+        session_recovery_turn_id: null,
+      },
+    }),
+  );
+  const choice = {
+    harness: "codex",
+    model: "fixture",
+    effort: "low",
+    mode: "read-only",
+    fast: false,
+  };
+  await page.route(
+    `**/api/workspaces/${workspace.id}/coordinator-settings`,
+    (route) =>
+      route.fulfill({
+        json: {
+          revision: 1,
+          selection: choice,
+          effective: {
+            choice,
+            source: "workspace",
+            default_revision: 1,
+            override_revision: null,
+          },
+        },
+      }),
+  );
+  await page.route(`**/api/workspaces/${workspace.id}/models*`, (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "fixture",
+          name: "Fixture",
+          efforts: ["low"],
+          modes: [{ id: "read-only", name: "Read only", description: "" }],
+        },
+      ],
+    }),
+  );
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/projects/shared-core");
+  await expect(
+    page.getByRole("region", { name: "Coordinator conversation" }),
+  ).toContainText("Plan both repositories here.");
+  await page
+    .getByRole("textbox", { name: "Message coordinator" })
+    .fill("Keep this workspace draft");
+  await page
+    .getByRole("link", { name: "shared-site", exact: true })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/projects\/shared-site$/);
+  await expect(
+    page.getByRole("textbox", { name: "Message coordinator" }),
+  ).toHaveValue("Keep this workspace draft");
+  await expect(
+    page.getByRole("region", { name: "Coordinator conversation" }),
+  ).toContainText("Plan both repositories here.");
+  const messages: {
+    id: string;
+    task_context: { project_id: string; task_id: string };
+  }[] = [];
+  await page.route(`**${base}/messages`, (route) => {
+    messages.push(route.request().postDataJSON());
+    return route.fulfill({
+      status: 503,
+      json: { error: { code: "fixture_unavailable", message: "Retry later" } },
+    });
+  });
+  // Keep an uncertain send receipt, then select the same local task ID in another repo.
+  // The second send must capture the new project instead of reusing the first receipt.
+  await page
+    .getByRole("link", { name: "shared-core", exact: true })
+    .first()
+    .click();
+  await page.getByText("shared-core task", { exact: true }).first().click();
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect.poll(() => messages.length).toBe(1);
+  await page
+    .getByRole("link", { name: "shared-site", exact: true })
+    .first()
+    .click();
+  await page.getByText("shared-site task", { exact: true }).first().click();
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect.poll(() => messages.length).toBe(2);
+  expect(messages[0].task_context).toMatchObject({
+    project_id: "shared-core",
+    task_id: "same",
+  });
+  expect(messages[1].task_context).toMatchObject({
+    project_id: "shared-site",
+    task_id: "same",
+  });
+  expect(messages[0].id).not.toBe(messages[1].id);
+});

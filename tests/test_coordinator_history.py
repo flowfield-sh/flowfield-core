@@ -11,7 +11,7 @@ from test_execution import BASE, fixture
 
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit
 from flowfield.agent_settings import AgentSettings
-from flowfield.agent_tools import coordinator_scope, worker_scope
+from flowfield.agent_tools import worker_scope, workspace_scope
 from flowfield.api import create_app
 from flowfield.application import ProjectSetup
 from flowfield.coordinator_models import CoordinatorSend
@@ -75,7 +75,7 @@ def test_older_exchanges_and_exact_text_survive_paging_and_restart(tmp_path):
     )
     source = collected[-1]["text_sources"]["human"]
     assert source["identity"] == first.id
-    assert source["url"].startswith("http://localhost:8765/api/context/projects/harbor/text?")
+    assert source["url"].startswith("http://localhost:8765/api/context/workspaces/harbor/text?")
     assert collected[-1]["truncated_fields"]["human"]
     recovered, offset = "", 0
     while True:
@@ -171,7 +171,7 @@ def test_history_http_and_role_scopes(tmp_path):
         )
 
     async def exercise():
-        grant = await coordinator_scope(Supervisor(execution.workspace), "harbor")
+        grant = await workspace_scope(Supervisor(execution.workspace), "harbor")
         tool = grant.tools["get_coordinator_history"]
         assert "project_id" not in tool.inputSchema["properties"]
         assert tool.annotations.readOnlyHint
@@ -180,9 +180,8 @@ def test_history_http_and_role_scopes(tmp_path):
         denied = await grant.call("get_coordinator_history", {"project_id": "other"})
         assert denied.isError
         full = await grant.call(
-            "get_text",
+            "get_coordinator_text",
             {
-                "resource": "coordinator",
                 "identity": turn.id,
                 "field": "human",
             },

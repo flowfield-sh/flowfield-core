@@ -492,6 +492,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/permissions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Permissions */
+    get: operations["permissions_api_workspaces__workspace_id__permissions_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/permissions/{permission_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Permission */
+    get: operations["permission_api_workspaces__workspace_id__permissions__permission_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/permissions/{permission_id}/answer": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Answer */
+    post: operations["answer_api_workspaces__workspace_id__permissions__permission_id__answer_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/projects/{project_id}/view/board": {
     parameters: {
       query?: never;
@@ -859,6 +910,40 @@ export interface paths {
     };
     /** Question */
     get: operations["question_api_context_projects__project_id__questions__identity__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/context/workspaces/{workspace_id}/coordinator-history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** History */
+    get: operations["history_api_context_workspaces__workspace_id__coordinator_history_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/context/workspaces/{workspace_id}/text": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Text */
+    get: operations["text_api_context_workspaces__workspace_id__text_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1363,6 +1448,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/projects/{project_id}/workspace": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Workspace */
+    get: operations["workspace_api_projects__project_id__workspace_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/projects/{project_id}/coordinator-settings": {
     parameters: {
       query?: never;
@@ -1450,7 +1552,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/coordinator": {
+  "/api/workspaces/{workspace_id}/coordinator": {
     parameters: {
       query?: never;
       header?: never;
@@ -1458,17 +1560,17 @@ export interface paths {
       cookie?: never;
     };
     /** History */
-    get: operations["history_api_projects__project_id__coordinator_get"];
+    get: operations["history_api_workspaces__workspace_id__coordinator_get"];
     put?: never;
     /** New */
-    post: operations["new_api_projects__project_id__coordinator_post"];
+    post: operations["new_api_workspaces__workspace_id__coordinator_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/coordinator/commands/discover": {
+  "/api/workspaces/{workspace_id}/coordinator/commands/discover": {
     parameters: {
       query?: never;
       header?: never;
@@ -1478,14 +1580,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Commands */
-    post: operations["commands_api_projects__project_id__coordinator_commands_discover_post"];
+    post: operations["commands_api_workspaces__workspace_id__coordinator_commands_discover_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/coordinator/messages": {
+  "/api/workspaces/{workspace_id}/coordinator/messages": {
     parameters: {
       query?: never;
       header?: never;
@@ -1495,14 +1597,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Message */
-    post: operations["message_api_projects__project_id__coordinator_messages_post"];
+    post: operations["message_api_workspaces__workspace_id__coordinator_messages_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/coordinator/{conversation_id}": {
+  "/api/workspaces/{workspace_id}/coordinator/{conversation_id}": {
     parameters: {
       query?: never;
       header?: never;
@@ -1510,7 +1612,7 @@ export interface paths {
       cookie?: never;
     };
     /** Page */
-    get: operations["page_api_projects__project_id__coordinator__conversation_id__get"];
+    get: operations["page_api_workspaces__workspace_id__coordinator__conversation_id__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1519,7 +1621,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/coordinator/{conversation_id}/messages": {
+  "/api/workspaces/{workspace_id}/coordinator/{conversation_id}/messages": {
     parameters: {
       query?: never;
       header?: never;
@@ -1529,14 +1631,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Send */
-    post: operations["send_api_projects__project_id__coordinator__conversation_id__messages_post"];
+    post: operations["send_api_workspaces__workspace_id__coordinator__conversation_id__messages_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/coordinator/turns/{turn_id}/stop": {
+  "/api/workspaces/{workspace_id}/coordinator/turns/{turn_id}/stop": {
     parameters: {
       query?: never;
       header?: never;
@@ -1546,14 +1648,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Stop */
-    post: operations["stop_api_projects__project_id__coordinator_turns__turn_id__stop_post"];
+    post: operations["stop_api_workspaces__workspace_id__coordinator_turns__turn_id__stop_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/coordinator/turns/{turn_id}/confirm-stopped": {
+  "/api/workspaces/{workspace_id}/coordinator/turns/{turn_id}/confirm-stopped": {
     parameters: {
       query?: never;
       header?: never;
@@ -1563,14 +1665,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Recover */
-    post: operations["recover_api_projects__project_id__coordinator_turns__turn_id__confirm_stopped_post"];
+    post: operations["recover_api_workspaces__workspace_id__coordinator_turns__turn_id__confirm_stopped_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/coordinator/turns/{turn_id}/reset-session": {
+  "/api/workspaces/{workspace_id}/coordinator/turns/{turn_id}/reset-session": {
     parameters: {
       query?: never;
       header?: never;
@@ -1580,14 +1682,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Reset Session */
-    post: operations["reset_session_api_projects__project_id__coordinator_turns__turn_id__reset_session_post"];
+    post: operations["reset_session_api_workspaces__workspace_id__coordinator_turns__turn_id__reset_session_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/coordinator/{conversation_id}/settings": {
+  "/api/workspaces/{workspace_id}/coordinator/{conversation_id}/settings": {
     parameters: {
       query?: never;
       header?: never;
@@ -1595,9 +1697,9 @@ export interface paths {
       cookie?: never;
     };
     /** Settings */
-    get: operations["settings_api_projects__project_id__coordinator__conversation_id__settings_get"];
+    get: operations["settings_api_workspaces__workspace_id__coordinator__conversation_id__settings_get"];
     /** Edit */
-    put: operations["edit_api_projects__project_id__coordinator__conversation_id__settings_put"];
+    put: operations["edit_api_workspaces__workspace_id__coordinator__conversation_id__settings_put"];
     post?: never;
     delete?: never;
     options?: never;
@@ -1700,6 +1802,40 @@ export interface paths {
     };
     /** Download */
     get: operations["download_api_projects__project_id__attachments__identity__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{project_id}/attachments": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Upload */
+    post: operations["upload_api_workspaces__project_id__attachments_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{project_id}/attachments/{identity}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Download */
+    get: operations["download_api_workspaces__project_id__attachments__identity__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2435,6 +2571,8 @@ export interface components {
     };
     /** CatalogOwnership */
     CatalogOwnership: {
+      /** Workspace Id */
+      workspace_id: string | null;
       /** Id */
       id: string;
       /**
@@ -2620,6 +2758,8 @@ export interface components {
     };
     /** CoordinatorTaskContext */
     CoordinatorTaskContext: {
+      /** Project Id */
+      project_id: string;
       /** Task Id */
       task_id: string;
       /** Task Revision */
@@ -2633,6 +2773,8 @@ export interface components {
     };
     /** CoordinatorTaskSelection */
     CoordinatorTaskSelection: {
+      /** Project Id */
+      project_id: string;
       /** Task Id */
       task_id: string;
       /** Task Revision */
@@ -2650,8 +2792,8 @@ export interface components {
        * @default 0
        */
       number: number;
-      /** Project Id */
-      project_id: string;
+      /** Workspace Id */
+      workspace_id: string;
       /** Conversation Id */
       conversation_id: string;
       /** Text */
@@ -3405,7 +3547,9 @@ export interface components {
       /** Id */
       id: string;
       /** Project Id */
-      project_id: string;
+      project_id: string | null;
+      /** Workspace Id */
+      workspace_id: string | null;
       /**
        * Role
        * @enum {string}
@@ -6390,6 +6534,108 @@ export interface operations {
       };
     };
   };
+  permissions_api_workspaces__workspace_id__permissions_get: {
+    parameters: {
+      query?: {
+        before?: number | null;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PermissionPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  permission_api_workspaces__workspace_id__permissions__permission_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        permission_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PermissionRecord"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  answer_api_workspaces__workspace_id__permissions__permission_id__answer_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        permission_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PermissionAnswer"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PermissionRecord"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   board_api_projects__project_id__view_board_get: {
     parameters: {
       query?: never;
@@ -7204,6 +7450,81 @@ export interface operations {
       path: {
         project_id: string;
         identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  history_api_context_workspaces__workspace_id__coordinator_history_get: {
+    parameters: {
+      query?: {
+        before?: number | null;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  text_api_context_workspaces__workspace_id__text_get: {
+    parameters: {
+      query: {
+        identity: string;
+        field: "human" | "coordinator";
+        revision?: number | null;
+        offset?: number;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -8340,6 +8661,37 @@ export interface operations {
       };
     };
   };
+  workspace_api_projects__project_id__workspace_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkspaceRecord"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   coordinator_settings_api_projects__project_id__coordinator_settings_get: {
     parameters: {
       query?: never;
@@ -8578,7 +8930,7 @@ export interface operations {
       };
     };
   };
-  history_api_projects__project_id__coordinator_get: {
+  history_api_workspaces__workspace_id__coordinator_get: {
     parameters: {
       query?: {
         before?: number | null;
@@ -8587,7 +8939,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -8613,12 +8965,12 @@ export interface operations {
       };
     };
   };
-  new_api_projects__project_id__coordinator_post: {
+  new_api_workspaces__workspace_id__coordinator_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -8644,14 +8996,14 @@ export interface operations {
       };
     };
   };
-  commands_api_projects__project_id__coordinator_commands_discover_post: {
+  commands_api_workspaces__workspace_id__coordinator_commands_discover_post: {
     parameters: {
       query?: {
         refresh?: boolean;
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -8677,12 +9029,12 @@ export interface operations {
       };
     };
   };
-  message_api_projects__project_id__coordinator_messages_post: {
+  message_api_workspaces__workspace_id__coordinator_messages_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -8712,14 +9064,14 @@ export interface operations {
       };
     };
   };
-  page_api_projects__project_id__coordinator__conversation_id__get: {
+  page_api_workspaces__workspace_id__coordinator__conversation_id__get: {
     parameters: {
       query?: {
         before?: number | null;
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         conversation_id: string;
       };
       cookie?: never;
@@ -8746,12 +9098,12 @@ export interface operations {
       };
     };
   };
-  send_api_projects__project_id__coordinator__conversation_id__messages_post: {
+  send_api_workspaces__workspace_id__coordinator__conversation_id__messages_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         conversation_id: string;
       };
       cookie?: never;
@@ -8782,12 +9134,12 @@ export interface operations {
       };
     };
   };
-  stop_api_projects__project_id__coordinator_turns__turn_id__stop_post: {
+  stop_api_workspaces__workspace_id__coordinator_turns__turn_id__stop_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         turn_id: string;
       };
       cookie?: never;
@@ -8814,12 +9166,12 @@ export interface operations {
       };
     };
   };
-  recover_api_projects__project_id__coordinator_turns__turn_id__confirm_stopped_post: {
+  recover_api_workspaces__workspace_id__coordinator_turns__turn_id__confirm_stopped_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         turn_id: string;
       };
       cookie?: never;
@@ -8846,12 +9198,12 @@ export interface operations {
       };
     };
   };
-  reset_session_api_projects__project_id__coordinator_turns__turn_id__reset_session_post: {
+  reset_session_api_workspaces__workspace_id__coordinator_turns__turn_id__reset_session_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         turn_id: string;
       };
       cookie?: never;
@@ -8876,12 +9228,12 @@ export interface operations {
       };
     };
   };
-  settings_api_projects__project_id__coordinator__conversation_id__settings_get: {
+  settings_api_workspaces__workspace_id__coordinator__conversation_id__settings_get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         conversation_id: string;
       };
       cookie?: never;
@@ -8908,12 +9260,12 @@ export interface operations {
       };
     };
   };
-  edit_api_projects__project_id__coordinator__conversation_id__settings_put: {
+  edit_api_workspaces__workspace_id__coordinator__conversation_id__settings_put: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         conversation_id: string;
       };
       cookie?: never;
@@ -9141,6 +9493,82 @@ export interface operations {
     };
   };
   download_api_projects__project_id__attachments__identity__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  upload_api_workspaces__project_id__attachments_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** Name */
+          name: string;
+          /** Mime */
+          mime: string;
+          /** Data */
+          data: string;
+          /** Task Id */
+          task_id?: string | null;
+        };
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Attachment"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  download_api_workspaces__project_id__attachments__identity__get: {
     parameters: {
       query?: never;
       header?: never;

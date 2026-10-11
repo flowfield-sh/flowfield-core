@@ -97,7 +97,8 @@ def test_upgrade_starts_fresh_once_in_managed_home_with_saved_chat(tmp_path, mon
         handoff = restored.coordinator.store.handoff("harbor", turn.id, budget=200_000)
         assert handoff["recent_conversation"][-1]["id"] == previous.id
         prompt = json.loads(restored.coordinator._prompt(turn, "fixture"))
-        assert prompt["project_path"] == str(tmp_path / "harbor")
+        assert prompt["workspace_id"] == "harbor"
+        assert "project_path" not in prompt
         done = await settled(restored, turn)
         assert done.status == "completed" and done.session == "new", done.notice
         with upgraded.connection() as db:
@@ -172,7 +173,7 @@ def test_command_discovery_uses_same_home_as_coordinator(tmp_path, monkeypatch):
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
     space = spaces.create(WorkspaceCreate(name="Product"))
-    project = spaces.adopt(space.id, ProjectSetup(path=existing_directory(tmp_path / "core")))
+    spaces.adopt(space.id, ProjectSetup(path=existing_directory(tmp_path / "core")))
     service = Supervisor(store)
     captured = []
 
@@ -185,7 +186,7 @@ def test_command_discovery_uses_same_home_as_coordinator(tmp_path, monkeypatch):
 
     async def exercise():
         registration = HarnessSettings(store).get("codex")
-        await service.catalogs.commands(registration, project.id, CODEX)
+        await service.catalogs.commands(registration, space.id, CODEX)
         await service.close()
 
     asyncio.run(exercise())

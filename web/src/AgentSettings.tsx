@@ -148,7 +148,8 @@ export function AgentModelFields({
 }
 
 type AgentSettingsProps = {
-  projectId: string;
+  projectId?: string;
+  workspaceId?: string;
   path: string;
   refresh: unknown;
   onDirty: (value: boolean) => void;
@@ -164,6 +165,7 @@ type AgentSettingsProps = {
 
 function useAgentSettingsContent({
   projectId,
+  workspaceId,
   path,
   refresh,
   onDirty,
@@ -195,7 +197,7 @@ function useAgentSettingsContent({
   const selection = draft ? draft.selection : data?.selection;
   const choice = selection ?? data?.effective?.choice;
   const source = useHarnessModels(
-    projectId,
+    workspaceId ? { workspaceId } : projectId,
     choice?.harness,
     refresh,
     !!data && (open || (coordinator && !!data.effective?.choice)),

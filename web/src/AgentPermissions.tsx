@@ -46,7 +46,7 @@ export function PermissionControl({
                   setBusy(true);
                   try {
                     await request(
-                      `projects/${record.project_id}/permissions/${record.id}/answer`,
+                      `${record.workspace_id ? `workspaces/${record.workspace_id}` : `projects/${record.project_id}`}/permissions/${record.id}/answer`,
                       "POST",
                       {
                         expected_revision: record.revision,
@@ -81,20 +81,22 @@ export function PermissionControl({
 }
 
 export function AgentPermissions({
+  workspaceId,
   projectId,
   taskId,
   role,
   refresh,
   onPendingTurns,
 }: {
-  projectId: string;
+  workspaceId?: string;
+  projectId?: string;
   taskId?: string;
   role?: "worker" | "coordinator";
   refresh: unknown;
   onPendingTurns?: (ids: string[]) => void;
 }) {
   const [retry, setRetry] = useState(0);
-  const path = `projects/${projectId}/permissions?retry=${retry}${taskId ? `&task_id=${encodeURIComponent(taskId)}` : ""}${role ? `&role=${role}` : ""}`;
+  const path = `${workspaceId ? `workspaces/${workspaceId}` : `projects/${projectId}`}/permissions?retry=${retry}${taskId ? `&task_id=${encodeURIComponent(taskId)}` : ""}${role ? `&role=${role}` : ""}`;
   const page = useResource<components["schemas"]["PermissionPage"]>(
     path,
     refresh,

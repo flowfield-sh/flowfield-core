@@ -4,19 +4,21 @@ import sqlite3
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 from flowfield.adapters.harness_host import same_session_location
 from flowfield.adapters.session_continuity import retains_session
 from flowfield.agent_models import AgentChoice
 from flowfield.application import Workspace, now
+from flowfield.coordinator_ownership import column as owner_column
+from flowfield.coordinator_ownership import serialized
 from flowfield.errors import ApplicationError
 from flowfield.harness_models import HarnessKind, HarnessLaunch
 
 
 class NativeGeneration(BaseModel):
     id: str
-    project_id: str
+    workspace_id: str = Field(validation_alias=AliasChoices("workspace_id", "project_id"))
     source_id: str | None = None
     created_at: str
     created_by: str | None = None
@@ -37,7 +39,7 @@ class CoordinatorSessions:
     @staticmethod
     def get(db: sqlite3.Connection, project: str, identity: str) -> NativeGeneration:
         row = db.execute(
-            "SELECT data FROM coordinator_session_generations WHERE project_id=? AND id=?",
+            f"SELECT data FROM coordinator_session_generations WHERE {owner_column(db)}=? AND id=?",
             (project, identity),
         ).fetchone()
         if row is None:
@@ -49,13 +51,14 @@ class CoordinatorSessions:
         db.execute(
             "INSERT INTO coordinator_session_generations VALUES (?,?,?) "
             "ON CONFLICT(id) DO UPDATE SET data=excluded.data",
-            (generation.id, generation.project_id, generation.model_dump_json()),
+            (generation.id, generation.workspace_id, serialized(db, generation)),
         )
 
     @staticmethod
     def current(db: sqlite3.Connection, project: str) -> tuple[NativeGeneration | None, bool]:
         row = db.execute(
-            "SELECT generation_id,fresh FROM coordinator_sessions WHERE project_id=?", (project,)
+            f"SELECT generation_id,fresh FROM coordinator_sessions WHERE {owner_column(db)}=?",
+            (project,),
         ).fetchone()
         return (
             CoordinatorSessions.get(db, project, row[0]) if row and row[0] else None,
@@ -68,7 +71,7 @@ class CoordinatorSessions:
         # switching preference must not destroy it or silently resume it on switch-back.
         db.execute(
             "INSERT INTO coordinator_sessions VALUES (?,NULL,1) "
-            "ON CONFLICT(project_id) DO UPDATE SET fresh=1",
+            f"ON CONFLICT({owner_column(db)}) DO UPDATE SET fresh=1",
             (project,),
         )
 
@@ -117,7 +120,8 @@ class CoordinatorSessions:
         statuses: tuple[str, ...] = ("starting",),
     ) -> None:
         row = db.execute(
-            "SELECT status,generation_id FROM coordinator_turns WHERE project_id=? AND id=?",
+            f"SELECT status,generation_id FROM coordinator_turns WHERE "
+            f"{owner_column(db)}=? AND id=?",
             (project, turn),
         ).fetchone()
         if row is None or row[0] not in statuses or row[1] != generation:
@@ -136,7 +140,7 @@ class CoordinatorSessions:
     ) -> tuple[NativeGeneration, bool]:
         actor = db.execute(
             "SELECT status,generation_id,json_extract(data,'$.native_started') "
-            "FROM coordinator_turns WHERE project_id=? AND id=?",
+            f"FROM coordinator_turns WHERE {owner_column(db)}=? AND id=?",
             (project, turn),
         ).fetchone()
         if actor is None or actor[0] != "starting" or actor[2]:
@@ -163,7 +167,7 @@ class CoordinatorSessions:
         else:
             generation = NativeGeneration(
                 id=uuid4().hex,
-                project_id=project,
+                workspace_id=project,
                 source_id=current.id if current else None,
                 created_at=now(),
                 created_by=turn,
@@ -175,7 +179,7 @@ class CoordinatorSessions:
             )
             self.save(db, generation)
         db.execute(
-            "UPDATE coordinator_turns SET generation_id=? WHERE project_id=? AND id=?",
+            f"UPDATE coordinator_turns SET generation_id=? WHERE {owner_column(db)}=? AND id=?",
             (generation.id, project, turn),
         )
         return generation, resumed
@@ -189,7 +193,7 @@ class CoordinatorSessions:
         *,
         launch: HarnessLaunch | None = None,
     ) -> None:
-        with self.workspace.connection(write=True, project_id=project) as db:
+        with self.workspace.connection(write=True) as db:
             self.actor(db, project, turn, generation)
             value = self.get(db, project, generation)
             if value.session_id and value.session_id != session:
@@ -229,7 +233,7 @@ class CoordinatorSessions:
         if not command:
             db.execute(
                 "INSERT INTO coordinator_sessions VALUES (?,?,0) "
-                "ON CONFLICT(project_id) DO UPDATE SET "
+                f"ON CONFLICT({owner_column(db)}) DO UPDATE SET "
                 "generation_id=excluded.generation_id,fresh=0",
                 (project, generation),
             )
@@ -244,7 +248,8 @@ class CoordinatorSessions:
         generation_id: str | None = None,
     ) -> None:
         row = db.execute(
-            "SELECT generation_id,status FROM coordinator_turns WHERE project_id=? AND id=?",
+            f"SELECT generation_id,status FROM coordinator_turns WHERE "
+            f"{owner_column(db)}=? AND id=?",
             (project, turn),
         ).fetchone()
         if (

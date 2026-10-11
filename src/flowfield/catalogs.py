@@ -8,7 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from flowfield.adapters.agent_selection import command_options, model_options
-from flowfield.adapters.coordinator_directory import for_project as coordinator_directory
+from flowfield.adapters.coordinator_directory import for_scope as coordinator_directory
 from flowfield.adapters.harness_host import status
 from flowfield.agent_models import AgentChoice, AgentCommand
 from flowfield.application import Workspace, now
@@ -183,11 +183,12 @@ class Catalogs:
         record = CatalogOwnership(
             id=uuid4().hex,
             harness=registration.harness,
-            project_id=project_id,
+            project_id=project_id if self.workspace.schema_version < 59 else None,
             status="running",
             started_at=now(),
             launch=launch,
             operation="commands",
+            workspace_id=project_id if self.workspace.schema_version >= 59 else None,
         )
         with self.workspace.connection(write=True) as db:
             row = db.execute(

@@ -43,7 +43,7 @@ from flowfield.attachments import attachment_router
 from flowfield.attention import attention_counts
 from flowfield.browser import browser_router
 from flowfield.changes import Changes
-from flowfield.context_api import context_router
+from flowfield.context_api import context_router, workspace_context_router
 from flowfield.conversation_api import conversation_router
 from flowfield.coordinator_api import coordinator_router
 from flowfield.errors import ApplicationError
@@ -69,6 +69,7 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
             data_dir if data_dir is not None else data_path(),
             on_change=app.state.changes.publish,
             on_activity=app.state.changes.publish_activity,
+            on_coordinator_activity=app.state.changes.publish_coordinator_activity,
         )
         app.state.supervisor = Supervisor(app.state.workspace)
         await app.state.supervisor.start()
@@ -268,6 +269,7 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
     app.include_router(workspace_router(supervisor))
     app.include_router(browser_router(workspace))
     app.include_router(context_router(workspace))
+    app.include_router(workspace_context_router(workspace))
     app.include_router(conversation_router(workspace))
     app.include_router(question_router(workspace))
     from flowfield.agent_api import agent_router
@@ -277,6 +279,7 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
     app.include_router(coordinator_router(supervisor))
     app.include_router(harness_router(workspace, supervisor))
     app.include_router(attachment_router(workspace))
+    app.include_router(attachment_router(workspace, workspace_scope=True))
     app.include_router(integration_router(supervisor))
     app.include_router(result_router(supervisor))
     app.include_router(inspection_router(lambda: supervisor().workspace))

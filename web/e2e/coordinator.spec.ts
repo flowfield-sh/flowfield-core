@@ -404,7 +404,8 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     'console.log("complete-prefix")\'`';
   permission = {
     id: "setup",
-    project_id: "chat-browser",
+    project_id: null,
+    workspace_id: "chat-browser",
     role: "coordinator",
     task_id: null,
     run_id: null,
@@ -951,7 +952,7 @@ test("long project chat preserves loaded history while live pages advance", asyn
     task_context: null,
     id: `history-message-${number}`,
     number,
-    project_id: "long-chat-project",
+    workspace_id: "long-chat-project",
     conversation_id: "saved",
     text: `Planning exchange ${number}`,
     created_at: new Date().toISOString(),

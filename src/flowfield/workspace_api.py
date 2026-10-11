@@ -2,7 +2,7 @@
 
 from collections.abc import Callable
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from flowfield.agent_models import AgentSettingsEdit, AgentSettingsView
 from flowfield.application import Project, ProjectSetup
@@ -14,6 +14,7 @@ from flowfield.execution_models import (
     WorkspaceWorkerSettings,
 )
 from flowfield.harness_models import HarnessKind
+from flowfield.permission_models import PermissionAnswer, PermissionPage, PermissionRecord
 from flowfield.supervisor import Supervisor
 from flowfield.workspaces import (
     ProjectAdoption,
@@ -87,5 +88,29 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     @router.post("/{workspace_id}/queue")
     def queue(workspace_id: str, request: QueueEdit) -> WorkspaceWorkerSettings:
         return spaces().queue(workspace_id, request)
+
+    @router.get("/{workspace_id}/permissions")
+    def permissions(
+        workspace_id: str,
+        before: int | None = Query(None, ge=1),
+        limit: int = Query(50, ge=1, le=100),
+    ) -> PermissionPage:
+        return supervisor().permissions.page(
+            workspace_id, before=before, limit=limit, workspace_scope=True
+        )
+
+    @router.get("/{workspace_id}/permissions/{permission_id}")
+    def permission(workspace_id: str, permission_id: str) -> PermissionRecord:
+        service = supervisor()
+        with service.workspace.connection() as db:
+            return service.permissions._get(db, workspace_id, permission_id, workspace_scope=True)
+
+    @router.post("/{workspace_id}/permissions/{permission_id}/answer")
+    async def answer(
+        workspace_id: str, permission_id: str, request: PermissionAnswer
+    ) -> PermissionRecord:
+        return supervisor().permissions.answer(
+            workspace_id, permission_id, request, workspace_scope=True
+        )
 
     return router

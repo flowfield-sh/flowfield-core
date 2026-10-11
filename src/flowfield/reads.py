@@ -11,6 +11,8 @@ from urllib.parse import quote, urlencode
 from flowfield import worker_settings
 from flowfield.activity import EntryKind
 from flowfield.application import STATUSES, TaskRevision, Workspace, now
+from flowfield.coordinator_ownership import column as owner_column
+from flowfield.coordinator_ownership import validate
 from flowfield.coordinator_prose import read as read_prose
 from flowfield.errors import ApplicationError
 from flowfield.input_delivery import question_delivery
@@ -130,7 +132,7 @@ def iter_coordinator_exchanges(
         "SELECT id,number,status,json_extract(data,'$.created_at') created_at, "
         "json_extract(data,'$.text') human,json_extract(data,'$.activity') activity, "
         "json_extract(data,'$.task_context') task_context FROM coordinator_turns "
-        "WHERE project_id=? AND number<? ORDER BY number DESC LIMIT ?",
+        f"WHERE {owner_column(db)}=? AND number<? ORDER BY number DESC LIMIT ?",
         (project, before, limit),
     )
     for row in rows:
@@ -242,7 +244,7 @@ class ContextReads:
         if before is not None and before > 2**63 - 1:
             raise ApplicationError("invalid_request", "Cursor exceeds the saved history range.")
         with self.workspace.connection() as db:
-            self.workspace._project(db, project_id)
+            validate(db, self.workspace, project_id)
             rows = iter_coordinator_exchanges(db, project_id, before or 2**63 - 1, limit + 1)
             items = []
             for row in rows:
@@ -253,12 +255,11 @@ class ContextReads:
                 )
                 item["text_sources"] = {
                     field: {
-                        "tool": "get_text",
-                        "resource": "coordinator",
+                        "tool": "get_coordinator_text",
                         "identity": row["id"],
                         "field": field,
                         "revision": revision,
-                        "url": f"{self.browser_origin}/api/context/projects/"
+                        "url": f"{self.browser_origin}/api/context/workspaces/"
                         f"{quote(project_id, safe='')}/text?"
                         + urlencode(
                             {

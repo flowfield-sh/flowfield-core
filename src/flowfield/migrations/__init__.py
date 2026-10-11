@@ -19,6 +19,7 @@ from flowfield.migrations import (
     v056_workspace_workers,
     v057_coordinator_homes,
     v058_workspace_coordinator_settings,
+    v059_workspace_conversations,
 )
 
 BASELINE_VERSION = 44
@@ -45,6 +46,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(56, v056_workspace_workers.apply),
     Migration(57, v057_coordinator_homes.apply),
     Migration(58, v058_workspace_coordinator_settings.apply),
+    Migration(59, v059_workspace_conversations.apply),
 )
 
 

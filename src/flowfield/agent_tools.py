@@ -193,6 +193,8 @@ async def _coordinator_scope(
             raise ApplicationError("scope_mismatch", "Workspace is fixed by the service.", 403)
         if project_id is not None and "project_id" in arguments:
             raise ApplicationError("scope_mismatch", "Project is fixed by the service.", 403)
+        if "project_id" in arguments and name not in project_tools:
+            raise ApplicationError("scope_mismatch", "This operation has workspace scope.", 403)
         bound = copy.deepcopy(arguments)
         if name in workspace_tools:
             bound["workspace_id"] = workspace_id

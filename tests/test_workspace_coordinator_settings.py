@@ -63,7 +63,7 @@ def test_shared_choice_change_observes_active_sibling_and_keeps_frozen_turn(tmp_
     spaces.configure_coordinator(space.id, AgentSettingsEdit(expected_revision=1, selection=CODEX))
     owner = CoordinatorStore(store)
     turn, _ = owner.reserve(
-        "core", owner.new("core").id, CoordinatorSend(id=uuid4().hex, text="Plan work")
+        space.id, owner.new(space.id).id, CoordinatorSend(id=uuid4().hex, text="Plan work")
     )
     with pytest.raises(ApplicationError, match="confirm cleanup"):
         AgentSettings(store).edit(
@@ -73,14 +73,14 @@ def test_shared_choice_change_observes_active_sibling_and_keeps_frozen_turn(tmp_
         turn.native_started = True
         owner._save(db, turn)
     owner.restart()
-    assert owner.get("core", turn.id).status == "uncertain"
+    assert owner.get(space.id, turn.id).status == "uncertain"
     with pytest.raises(ApplicationError, match="confirm cleanup"):
         spaces.configure_coordinator(
             space.id, AgentSettingsEdit(expected_revision=2, selection=CLAUDE)
         )
-    owner.confirm_stopped("core", turn.id)
+    owner.confirm_stopped(space.id, turn.id)
     spaces.configure_coordinator(space.id, AgentSettingsEdit(expected_revision=2, selection=CLAUDE))
-    assert owner.get("core", turn.id).settings == turn.settings
+    assert owner.get(space.id, turn.id).settings == turn.settings
 
 
 def test_adoption_cannot_change_workspace_coordinator(tmp_path):

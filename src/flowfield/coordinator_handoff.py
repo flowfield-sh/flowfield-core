@@ -7,14 +7,14 @@ from typing import Any
 from flowfield.activity_text import OMISSION, retain
 from flowfield.attachments import REFERENCE
 from flowfield.coordinator_models import CoordinatorTurn
+from flowfield.coordinator_ownership import column as owner_column
 from flowfield.reads import iter_coordinator_exchanges, size
 
 
 def attachment_identities(project: str, text: str) -> list[dict[str, str]]:
     return [
-        {"id": identity, "href": f"/api/projects/{project}/attachments/{identity}"}
-        for owner, identity in dict.fromkeys(REFERENCE.findall(text))
-        if owner == project
+        {"id": identity, "href": f"/api/{kind}/{owner}/attachments/{identity}"}
+        for kind, owner, identity in dict.fromkeys(REFERENCE.findall(text))
     ]
 
 
@@ -23,12 +23,13 @@ def freeze(db: sqlite3.Connection, turn: CoordinatorTurn) -> dict[str, Any]:
     # text cannot change: the store rejects late writes. Freeze a boundary into those
     # canonical sources instead of copying a growing transcript on every native resume.
     count, latest = db.execute(
-        "SELECT count(*),max(number) FROM coordinator_turns WHERE project_id=? AND number<?",
-        (turn.project_id, turn.number),
+        f"SELECT count(*),max(number) FROM coordinator_turns WHERE "
+        f"{owner_column(db)}=? AND number<?",
+        (turn.workspace_id, turn.number),
     ).fetchone()
     welcome = db.execute(
-        "SELECT welcome FROM coordinator_conversations WHERE project_id=? AND id=?",
-        (turn.project_id, turn.conversation_id),
+        f"SELECT welcome FROM coordinator_conversations WHERE {owner_column(db)}=? AND id=?",
+        (turn.workspace_id, turn.conversation_id),
     ).fetchone()
     return {
         "welcome": welcome[0] if welcome else "",
@@ -38,7 +39,7 @@ def freeze(db: sqlite3.Connection, turn: CoordinatorTurn) -> dict[str, Any]:
         "source_count": count,
         "history_is_partial": bool(count),
         "recent_conversation": [],
-        "current_attachments": attachment_identities(turn.project_id, turn.text),
+        "current_attachments": attachment_identities(turn.workspace_id, turn.text),
         "earlier_attachment_contents": "not_transferred; reattach relevant files",
         "older_history": {"tool": "get_coordinator_history", "before": turn.number},
     }
@@ -72,8 +73,7 @@ def select(
             attachments=attachment_identities(project, source["human"]),
             text_sources={
                 field: {
-                    "tool": "get_text",
-                    "resource": "coordinator",
+                    "tool": "get_coordinator_text",
                     "identity": source["id"],
                     "field": field,
                     "revision": source["revision"],

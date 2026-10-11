@@ -166,12 +166,16 @@ class Workspaces:
     def require_project(self, identity: str, project_id: str) -> None:
         """A coordinator's current view cannot grant access to another workspace."""
         with self.store.connection() as db:
-            self.read(db, identity)
-            if not db.execute(
-                "SELECT 1 FROM workspace_projects WHERE workspace_id=? AND project_id=?",
-                (identity, project_id),
-            ).fetchone():
-                raise ApplicationError("scope_mismatch", "Choose a project in this workspace.", 403)
+            self.check_project(db, identity, project_id)
+
+    @staticmethod
+    def check_project(db: sqlite3.Connection, identity: str, project_id: str) -> None:
+        Workspaces.read(db, identity)
+        if not db.execute(
+            "SELECT 1 FROM workspace_projects WHERE workspace_id=? AND project_id=?",
+            (identity, project_id),
+        ).fetchone():
+            raise ApplicationError("scope_mismatch", "Choose a project in this workspace.", 403)
 
     def project_page(
         self, identity: str, *, after: str | None = None, limit: int = 20

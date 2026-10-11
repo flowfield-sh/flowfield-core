@@ -17,7 +17,7 @@ from flowfield.execution_models import ModelOption
 from flowfield.integration import Integrations
 
 
-def test_creation_validates_and_saves_both_agent_defaults(tmp_path, monkeypatch):
+def test_creation_configures_workspace_roles_separately_from_adoption(tmp_path, monkeypatch):
     root = tmp_path / "agents-ready"
     root.mkdir()
     calls = []
@@ -30,55 +30,49 @@ def test_creation_validates_and_saves_both_agent_defaults(tmp_path, monkeypatch)
     monkeypatch.setattr("flowfield.catalogs.model_options", discover)
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
         choice = {"harness": "codex", "model": "fixture", "effort": "low"}
-        setup = {"path": str(root), "coordinator": choice, "worker": choice, "max_parallel": 3}
-        models = client.get("/api/worker-models", params={"project_path": str(root)})
-        assert models.status_code == 200
-        assert calls == [(root, "codex")]
+        workspace = client.post("/api/workspaces", json={"name": "Agents ready"}).json()["id"]
+        base = f"/api/workspaces/{workspace}"
+        assert client.get(base + "/models").status_code == 200
+        assert calls == [(tmp_path / "state" / "coordinators" / workspace, "codex")]
         assert not (root / ".flowfield").exists()
         assert client.get("/api/projects").json() == []
-        failed = client.post(
-            "/api/projects/initialize", json={**setup, "worker": {**choice, "model": "missing"}}
+        failed = client.put(
+            base + "/workers",
+            json={"expected_revision": 1, "selection": {**choice, "model": "missing"}},
         )
         assert failed.status_code == 409
-        assert client.get("/api/projects").json() == []
-        assert not (root / ".flowfield").exists()
-        created = client.post("/api/projects/initialize", json=setup)
-        assert created.status_code == 200, created.text
-        assert len(calls) == 1  # Same pre-adoption scope reuses owned discovery.
+        assert client.get(base + "/workers").json()["revision"] == 1
+        for endpoint in ("workers", "coordinator-settings"):
+            value = {"expected_revision": 1, "selection": choice}
+            if endpoint == "workers":
+                value["max_parallel"] = 3
+            saved = client.put(base + "/" + endpoint, json=value)
+            assert saved.status_code == 200, saved.text
+        created = client.post(base + "/projects", json={"path": str(root)})
+        assert created.status_code == 201, created.text
         project = created.json()["id"]
         worker = client.get(f"/api/projects/{project}/workers").json()
-        assert worker["selection"]["model"] == "fixture"
-        assert worker["max_parallel"] == 3
+        assert worker["selection"]["model"] == "fixture" and worker["max_parallel"] == 3
         assert worker["enabled"] is False
         coordinator = AgentSettings(client.app.state.workspace).get(project, "coordinator")
         assert coordinator.selection.model == "fixture"
         assert coordinator.selection.mode == "read-only"
-        # Re-adopting a registered project cannot overwrite its settings.
-        assert client.post("/api/projects/initialize", json={"path": str(root)}).status_code == 200
-        assert client.post("/api/projects/initialize", json=setup).status_code == 200
-        assert (
-            client.post("/api/projects/initialize", json={**setup, "max_parallel": 2}).status_code
-            == 409
-        )
+        assert client.post(base + "/projects", json={"path": str(root)}).status_code == 201
         assert client.get(f"/api/projects/{project}/workers").json() == worker
-        invalid_scope = client.get(
-            "/api/worker-models", params={"project_id": project, "project_path": str(root)}
-        )
-        assert invalid_scope.status_code == 400
         assert (
             client.get(
-                "/api/worker-models", params={"project_path": str(root / "missing")}
+                "/api/worker-models", params={"project_id": project, "project_path": str(root)}
             ).status_code
             == 400
         )
 
 
-def test_failed_agent_setup_rolls_back_project_and_both_settings(tmp_path):
+def test_unscoped_coordinator_setup_leaves_no_project_or_settings(tmp_path):
     root = tmp_path / "rollback"
     root.mkdir()
     workspace = Workspace(tmp_path / "state")
     choice = AgentChoice(model="fixture", effort="low")
-    with pytest.raises(ApplicationError, match="individual task"):
+    with pytest.raises(ApplicationError, match="explicit workspace"):
         workspace.setup_project(
             ProjectSetup(
                 path=str(root), coordinator=choice, worker=choice.model_copy(update={"fast": True})

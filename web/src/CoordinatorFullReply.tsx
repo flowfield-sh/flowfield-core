@@ -8,11 +8,11 @@ import { Button } from "@/components/ui/button";
 // Long public replies remain saved even when the activity preview is abridged.
 // Reuse the revision-checked full-text endpoint; page only on explicit demand.
 export function CoordinatorFullReply({
-  project,
+  workspaceId,
   turn,
   revision,
 }: {
-  project: string;
+  workspaceId: string;
   turn: string;
   revision: number;
 }) {
@@ -37,7 +37,7 @@ export function CoordinatorFullReply({
         text: string;
         next_offset: number | null;
         output_omitted: boolean;
-      }>(`context/projects/${encodeURIComponent(project)}/text?${query}`);
+      }>(`context/workspaces/${encodeURIComponent(workspaceId)}/text?${query}`);
       setText((current) => current + value.text);
       setOffset(value.next_offset);
       setOmitted(value.output_omitted);

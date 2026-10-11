@@ -24,7 +24,7 @@ type FileRef = { name: string; href: string };
 function split(value: string) {
   const files: FileRef[] = [];
   const text = value.replace(
-    /\n\n\[([^\n]*?)\]\((\/api\/projects\/[\w-]+\/attachments\/[a-f0-9]{32})\)/g,
+    /\n\n\[([^\n]*?)\]\((\/api\/(?:projects|workspaces)\/[\w-]+\/attachments\/[a-f0-9]{32})\)/g,
     (_, name: string, href: string) => {
       files.push({ name, href });
       return "";
@@ -39,6 +39,7 @@ function combine(text: string, files: FileRef[]) {
 }
 
 export function Composer({
+  workspaceId,
   projectId,
   taskId,
   value,
@@ -57,7 +58,8 @@ export function Composer({
   draftKey,
   active = true,
 }: {
-  projectId: string;
+  workspaceId?: string;
+  projectId?: string;
   taskId?: string;
   value: string;
   onChange: (value: string) => void;
@@ -145,7 +147,7 @@ export function Composer({
             ...bytes.subarray(offset, offset + 8192),
           );
         const saved = await request<components["schemas"]["Attachment"]>(
-          `projects/${projectId}/attachments`,
+          `${workspaceId ? `workspaces/${workspaceId}` : `projects/${projectId}`}/attachments`,
           "POST",
           {
             name: file.name,

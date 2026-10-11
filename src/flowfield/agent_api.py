@@ -8,10 +8,15 @@ from flowfield.agent_models import AgentRole, AgentSettingsEdit, AgentSettingsVi
 from flowfield.agent_settings import AgentSettings
 from flowfield.permission_models import PermissionAnswer, PermissionPage, PermissionRecord
 from flowfield.supervisor import Supervisor
+from flowfield.workspaces import WorkspaceRecord, Workspaces
 
 
 def agent_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     router = APIRouter(prefix="/api/projects/{project_id}")
+
+    @router.get("/workspace")
+    def workspace(project_id: str) -> WorkspaceRecord:
+        return Workspaces(supervisor().workspace).for_project(project_id)
 
     @router.get("/coordinator-settings")
     def coordinator_settings(project_id: str) -> AgentSettingsView:

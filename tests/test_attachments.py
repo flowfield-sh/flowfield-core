@@ -57,7 +57,10 @@ def test_coordinator_delivers_real_text_images_context_and_durable_download(tmp_
 
     asyncio.run(exercise())
     restored = Workspace(service.workspace.directory)
-    assert Attachments(restored).inputs("harbor", None, request.text)[0]["name"] == "notes.txt"
+    assert (
+        Attachments(restored).inputs("harbor", None, request.text, workspace_scope=True)[0]["name"]
+        == "notes.txt"
+    )
     with TestClient(create_app(data_dir=restored.directory), base_url="http://localhost") as client:
         href = request.text.split("](")[-1].removesuffix(")")
         result = client.get(href)
@@ -100,7 +103,7 @@ def test_attachment_scope_atomic_binding_and_draft_expiry(tmp_path, monkeypatch)
     draft = upload(files)
     task = upload(files, task="task-0")
     with pytest.raises(ApplicationError, match="not been sent"):
-        files.inputs("harbor", None, draft.href)
+        files.inputs("harbor", None, draft.href, workspace_scope=True)
     with pytest.raises(ApplicationError, match="unavailable"):
         service.coordinator.store.reserve("harbor", conversation.id, message(task.href))
     with pytest.raises(ApplicationError, match="unavailable"):

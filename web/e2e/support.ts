@@ -78,6 +78,9 @@ export const test = base.extend({
 });
 
 export async function stubModelCatalog(context: BrowserContext) {
+  await context.route("**/api/workspaces/*/models*", (route) =>
+    route.fulfill({ json: [] }),
+  );
   await context.route("**/api/worker-models*", (route) =>
     route.fulfill({ json: [] }),
   );

@@ -43,6 +43,7 @@ function mergeTurns(previous: Turn[], updates: Turn[]) {
 }
 
 export function CoordinatorChat({
+  workspaceId,
   projectId,
   refresh,
   drafts,
@@ -51,6 +52,7 @@ export function CoordinatorChat({
   taskKey,
   selectedResultId,
 }: {
+  workspaceId: string;
   projectId: string;
   refresh: unknown;
   drafts: ChatDrafts;
@@ -65,7 +67,7 @@ export function CoordinatorChat({
       : null,
     refresh,
   );
-  const selectionKey = JSON.stringify([taskKey, selectedResultId]);
+  const selectionKey = JSON.stringify([projectId, taskKey, selectedResultId]);
   const [taskFocus, setTaskFocus] = useState({
     key: selectionKey,
     dismissed: false,
@@ -78,12 +80,13 @@ export function CoordinatorChat({
   const taskContext =
     attachTask && selected.data
       ? {
+          project_id: projectId,
           task_id: selected.data.id,
           task_revision: selected.data.revision,
           result_id: selectedResultId ?? null,
         }
       : null;
-  const base = `projects/${projectId}/coordinator`;
+  const base = `workspaces/${workspaceId}/coordinator`;
   const [history, setHistory] = useState<{ page: Page | null; items: Turn[] }>({
     page: null,
     items: [],
@@ -92,7 +95,7 @@ export function CoordinatorChat({
   const path = latest ? `${base}?after=${latest}` : base;
   const [tick, setTick] = useState(0);
   const resource = useResource<Page>(path, `${refresh}:${tick}`, 10000, {
-    projectId,
+    workspaceId,
     attemptId: history.page?.active?.id,
     isActive,
   });
@@ -191,7 +194,7 @@ export function CoordinatorChat({
     },
     [onSettingsDirty],
   );
-  const key = projectId;
+  const key = workspaceId;
   const [draft, setDraft] = useState<ChatDraft>(
     () => drafts.get(key) ?? { id: crypto.randomUUID(), text: "" },
   );
@@ -231,6 +234,7 @@ export function CoordinatorChat({
     setBusy(true);
     try {
       const contextKey = JSON.stringify([
+        taskContext?.project_id,
         taskContext?.task_id,
         taskContext?.result_id,
       ]);
@@ -352,7 +356,10 @@ export function CoordinatorChat({
                     className="coordinator-task-reference"
                     title={`${turn.task_context.title} · task revision ${turn.task_context.task_revision}`}
                     to={
-                      taskHref(projectId, turn.task_context) +
+                      taskHref(
+                        turn.task_context.project_id,
+                        turn.task_context,
+                      ) +
                       (turn.task_context.result_id
                         ? `/conversation/result:${encodeURIComponent(turn.task_context.result_id)}`
                         : "")
@@ -389,7 +396,7 @@ export function CoordinatorChat({
                   ) && (
                     <CoordinatorFullReply
                       key={turn.activity.revision}
-                      project={projectId}
+                      workspaceId={workspaceId}
                       turn={turn.id}
                       revision={turn.activity.revision}
                     />
@@ -425,7 +432,7 @@ export function CoordinatorChat({
             </article>
           ))}
           <AgentPermissions
-            projectId={projectId}
+            workspaceId={workspaceId}
             role="coordinator"
             onPendingTurns={setPendingPermissions}
             refresh={`${refresh}:${tick}`}
@@ -516,7 +523,7 @@ export function CoordinatorChat({
           </div>
         )}
         <Composer
-          projectId={projectId}
+          workspaceId={workspaceId}
           nativeCommands={{
             items: commandsLoadedFor === base + commandChoice ? commands : [],
             loaded: commandsLoadedFor === base + commandChoice,
@@ -537,8 +544,8 @@ export function CoordinatorChat({
           controls={
             <>
               <AgentSettingsControl
-                projectId={projectId}
-                path={`projects/${projectId}/coordinator-settings`}
+                workspaceId={workspaceId}
+                path={`workspaces/${workspaceId}/coordinator-settings`}
                 refresh={refresh}
                 coordinator
                 coordinatorActive={!!active}

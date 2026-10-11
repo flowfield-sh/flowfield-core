@@ -9,6 +9,7 @@ from flowfield.activity import EntryKind
 from flowfield.application import Workspace
 from flowfield.reads import ContextReads
 from flowfield.search import Entity, History, Search
+from flowfield.workspaces import Workspaces
 
 
 def context_router(workspace: Callable[[], Workspace]) -> APIRouter:
@@ -152,13 +153,20 @@ def context_router(workspace: Callable[[], Workspace]) -> APIRouter:
         offset: int = 0,
         limit: int = 4000,
     ) -> dict[str, Any]:
-        return context.text(project_id, resource, identity, field, revision, offset, limit)
+        owner = (
+            Workspaces(context.workspace).for_project(project_id).id
+            if resource == "coordinator"
+            else project_id
+        )
+        return context.text(owner, resource, identity, field, revision, offset, limit)
 
     @router.get("/{project_id}/coordinator-history")
     def coordinator_history(
         context: Reads, project_id: str, before: int | None = None, limit: int = 20
     ) -> dict[str, Any]:
-        return context.coordinator_history(project_id, before=before, limit=limit)
+        return context.coordinator_history(
+            Workspaces(context.workspace).for_project(project_id).id, before=before, limit=limit
+        )
 
     @router.get("/{project_id}/questions")
     def questions(
@@ -178,5 +186,32 @@ def context_router(workspace: Callable[[], Workspace]) -> APIRouter:
         context: Reads, project_id: str, identity: str, revision: int | None = None
     ) -> dict[str, Any]:
         return context.question(project_id, identity, revision)
+
+    return router
+
+
+def workspace_context_router(workspace: Callable[[], Workspace]) -> APIRouter:
+    router = APIRouter(prefix="/api/context/workspaces/{workspace_id}")
+
+    @router.get("/coordinator-history")
+    def history(
+        workspace_id: str, request: Request, before: int | None = None, limit: int = 20
+    ) -> dict[str, Any]:
+        return ContextReads(workspace(), str(request.base_url).rstrip("/")).coordinator_history(
+            workspace_id, before=before, limit=limit
+        )
+
+    @router.get("/text")
+    def text(
+        workspace_id: str,
+        identity: str,
+        field: Literal["human", "coordinator"],
+        revision: int | None = None,
+        offset: int = 0,
+        limit: int = 4000,
+    ) -> dict[str, Any]:
+        return ContextReads(workspace()).text(
+            workspace_id, "coordinator", identity, field, revision, offset, limit
+        )
 
     return router

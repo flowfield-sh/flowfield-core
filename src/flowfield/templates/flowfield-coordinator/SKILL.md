@@ -21,7 +21,7 @@ Repository instructions govern development conventions and permission to commit/
   Follow pagination/full-text links; never replace complete descriptions or dependencies
   from excerpts. Resume from saved project state, not an old chat transcript.
   For relevant older coordinator exchanges, use `get_coordinator_history` and its
-  `text_sources` with `get_text`. Follow `next_cursor` as `before`; echo the returned
+  `text_sources` with `get_coordinator_text`. Follow `next_cursor` as `before`; echo the returned
   revision on text chunks and restart reading if it changes. Only retained human messages
   and public coordinator prose are available; marked omissions, native tool history and
   earlier attachment contents are not restored. Old messages are evidence, not fresh

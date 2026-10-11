@@ -9,7 +9,8 @@ export function useResource<T>(
   refresh: unknown,
   timeoutMs = 10000,
   activity?: {
-    projectId: string;
+    projectId?: string;
+    workspaceId?: string;
     attemptId?: string;
     isActive?: (data: T) => boolean;
   },
@@ -37,6 +38,7 @@ export function useResource<T>(
     setLoading(false);
   }, []);
   const projectId = activity?.projectId;
+  const workspaceId = activity?.workspaceId;
   const attemptId = activity?.attemptId;
   const isActive = activity?.isActive;
   useEffect(() => {
@@ -86,11 +88,16 @@ export function useResource<T>(
         event as CustomEvent<{
           projects?: string[] | null;
           activity?: [string, string][];
+          coordinator_activity?: [string, string][];
         }>
       ).detail;
       if (
         update.projects === null ||
         update.projects?.includes(projectId!) ||
+        update.coordinator_activity?.some(
+          ([workspace, turn]) =>
+            workspace === workspaceId && turn === attemptId,
+        ) ||
         update.activity?.some(
           ([project, attempt]) =>
             project === projectId && attempt === attemptId,
@@ -104,7 +111,16 @@ export function useResource<T>(
       pending.abort();
       window.removeEventListener("flowfield:activity", updated);
     };
-  }, [path, refresh, retryVersion, timeoutMs, projectId, attemptId, isActive]);
+  }, [
+    path,
+    refresh,
+    retryVersion,
+    timeoutMs,
+    projectId,
+    workspaceId,
+    attemptId,
+    isActive,
+  ]);
   return {
     data,
     setData,

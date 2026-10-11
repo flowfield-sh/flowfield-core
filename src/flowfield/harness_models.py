@@ -54,6 +54,7 @@ class HarnessLaunch(HarnessRecord):
 
 
 class CatalogOwnership(HarnessRecord):
+    workspace_id: str | None = None
     id: str
     harness: HarnessKind
     project_id: str | None
