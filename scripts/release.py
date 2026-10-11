@@ -51,7 +51,7 @@ def build_candidate(destination: Path) -> None:
     version = current_version()
     check_lock(version)
     run("git", "diff", "--exit-code", "HEAD", "--", ".")
-    files = sorted((ROOT / "dist").iterdir())
+    files = sorted(file for file in (ROOT / "dist").iterdir() if file.name != ".gitignore")
     if {file.name for file in files} != distributions(version):
         raise ValueError("Candidate needs exactly the three platform wheels and source archive.")
     destination.mkdir(parents=True, exist_ok=False)

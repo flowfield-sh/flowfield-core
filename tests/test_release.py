@@ -261,6 +261,7 @@ def candidate(repository, release, monkeypatch, tmp_path):
     git("push", "origin", "main")
     commit = git("rev-parse", "HEAD")
     (root / "dist").mkdir()
+    (root / "dist" / ".gitignore").write_text("*")  # uv build's directory marker
     for name in release.distributions("0.1.0"):
         (root / "dist" / name).write_bytes(name.encode())
     monkeypatch.setenv("GITHUB_REPOSITORY", release.REPOSITORY)
