@@ -1,6 +1,7 @@
 import { reportError } from "./requestFeedback";
 import { useEffect, useState, useRef, type ReactNode } from "react";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
+import { TaskLabelEditor } from "./TaskLabelEditor";
 import { TaskLabels } from "./TaskLabels";
 import { DetailHeader, DraftBadge } from "./Presentation";
 import { MilestoneBadge } from "./MilestoneBadge";
@@ -40,17 +41,20 @@ export function TaskDetail({
     };
   }, []);
   const [dirty, setDirty] = useState(false);
+  const [labelDirty, setLabelDirty] = useState(false);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    setUnsaved(dirty || settingsDirty);
+    setUnsaved(dirty || settingsDirty || labelDirty);
     return () => setUnsaved(false);
-  }, [dirty, settingsDirty, setUnsaved]);
+  }, [dirty, settingsDirty, labelDirty, setUnsaved]);
   const archiveReason = dirty
     ? "Send or discard your message before archiving."
     : settingsDirty
       ? "Save or discard worker settings before archiving."
-      : task.archive_blocker;
+      : labelDirty
+        ? "Save or discard label changes before archiving."
+        : task.archive_blocker;
   async function archive() {
     setBusy(true);
     try {
@@ -121,6 +125,12 @@ export function TaskDetail({
             {task.body}
           </ExpandableMarkdown>
         </div>
+        <TaskLabelEditor
+          task={task}
+          path={path}
+          onDirty={setLabelDirty}
+          saved={saved}
+        />
         {hasTaskNeeds(task, board.pending_code[task.id], false) && (
           <DetailSection title="Waiting on">
             <TaskNeeds

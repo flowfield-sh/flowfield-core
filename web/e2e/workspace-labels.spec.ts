@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
-import { test, state } from "./support";
+import { test, state, fixtureStages } from "./support";
 
 test("optional shared labels keep their names and deletion history", async ({
   page,
@@ -97,4 +97,123 @@ test("optional shared labels keep their names and deletion history", async ({
       (item: { title: string }) => item.title === "Unclassified task",
     ).labels,
   ).toEqual([]);
+});
+
+test("workspace label management and existing task edits preserve concurrent changes", async ({
+  page,
+  request,
+}, testInfo) => {
+  const workspace = await (
+    await request.post("/api/workspaces", { data: { name: "Label settings" } })
+  ).json();
+  const base = `/workspaces/${workspace.id}`;
+  const path = join(state, "label-settings");
+  mkdirSync(path, { recursive: true });
+  await request.post(`/api${base}/projects`, {
+    data: { id: "label-settings", path, task_prefix: "LST" },
+  });
+  const createdTask = await request.post("/api/projects/label-settings/tasks", {
+    data: {
+      title: "Classify existing work",
+      body: "Describe the release scope.",
+      stages: fixtureStages(),
+    },
+  });
+  expect(createdTask.ok(), await createdTask.text()).toBeTruthy();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`${base}/edit/labels`);
+  await page.getByRole("button", { name: "New label", exact: true }).click();
+  await page.getByLabel("Label name", { exact: true }).fill("Release");
+  await page.getByLabel("Color", { exact: true }).selectOption("green");
+  await page
+    .getByLabel("Guidance", { exact: true })
+    .fill("Required for the next release.");
+  await page.getByRole("button", { name: "Create label", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Edit Release label", exact: true })
+    .click();
+  await page
+    .getByLabel("Guidance", { exact: true })
+    .fill("My unsaved guidance.");
+  const catalog = await (await request.get(`/api${base}/labels`)).json();
+  const release = catalog.find(
+    (item: { name: string }) => item.name === "Release",
+  );
+  await request.put(`/api${base}/labels/${release.id}`, {
+    data: {
+      expected_revision: release.revision,
+      name: "Release work",
+      guidance: "Updated elsewhere.",
+    },
+  });
+  await expect(page.getByText(/A newer revision is available/)).toBeVisible();
+  await expect(page.getByLabel("Guidance", { exact: true })).toHaveValue(
+    "My unsaved guidance.",
+  );
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Load latest", exact: true }).click();
+  await expect(page.getByLabel("Label name", { exact: true })).toHaveValue(
+    "Release work",
+  );
+  await expect(page.getByLabel("Guidance", { exact: true })).toHaveValue(
+    "Updated elsewhere.",
+  );
+  await page.getByLabel("Color", { exact: true }).selectOption("violet");
+  await page.getByRole("button", { name: "Save label", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Edit Release work label", exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    animations: "disabled",
+    path: testInfo.outputPath("label-settings-desktop-light.png"),
+  });
+  await page.keyboard.press("Escape");
+  await page
+    .getByRole("link", { name: "LST-1 Classify existing work", exact: true })
+    .click();
+  await page
+    .locator("summary")
+    .filter({ hasText: /^Labels$/ })
+    .click();
+  await page
+    .getByRole("button", { name: "Choose labels", exact: true })
+    .click();
+  await page
+    .getByRole("checkbox", { name: "Release work", exact: true })
+    .check();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Save labels", exact: true }).click();
+  await expect(page.locator(".entity-labels")).toContainText("Release work");
+  const task = await (
+    await request.get("/api/projects/label-settings/view/tasks/LST-1")
+  ).json();
+  expect(task.labels).toEqual([release.id]);
+  await page
+    .getByRole("button", { name: "Back to board", exact: true })
+    .click();
+  await page.goto(`${base}/edit/labels`);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => localStorage.setItem("flowfield.theme", "dark"));
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Edit Release work label", exact: true })
+    .click();
+  await expect(page.getByLabel("Color", { exact: true })).toHaveValue("violet");
+  await page.screenshot({
+    animations: "disabled",
+    path: testInfo.outputPath("label-editor-narrow-dark.png"),
+  });
+  await page.getByRole("button", { name: "Delete label", exact: true }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Delete label", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Edit Release work label", exact: true }),
+  ).toHaveCount(0);
+  const current = await (
+    await request.get("/api/projects/label-settings/view/tasks/LST-1")
+  ).json();
+  expect(current.labels).toEqual([]);
+  expect(current.agreement_revision).toBe(task.agreement_revision);
 });

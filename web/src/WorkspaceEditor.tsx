@@ -9,6 +9,7 @@ import { DetailHeader, DetailTabs } from "./Presentation";
 import { MarkdownField } from "./Markdown";
 import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
 import { AgentSettingsForm } from "./AgentSettings";
+import { LabelSettings } from "./LabelSettings";
 import { QueueSettings, WorkerSettings } from "./Workers";
 import { workspaceHref } from "./navigation";
 import type { WorkspaceRecord } from "./workspace";
@@ -22,8 +23,10 @@ export function WorkspaceEditor({
   onDirty,
   saved,
   close,
+  refresh,
 }: {
   incoming: WorkspaceRecord;
+  refresh: () => void;
   onDirty: (dirty: boolean) => void;
   saved: (workspace: WorkspaceRecord) => void;
   close: () => void;
@@ -32,11 +35,14 @@ export function WorkspaceEditor({
   const { workspaceTab, projectTab } = useParams();
   const selectedTab = workspaceTab ?? projectTab;
   const tab =
-    selectedTab === "workers" || selectedTab === "coordinator"
+    selectedTab === "workers" ||
+    selectedTab === "coordinator" ||
+    selectedTab === "labels"
       ? selectedTab
       : "general";
   const navigate = useNavigate();
   const location = useLocation();
+  const [labelDirty, setLabelDirty] = useState(false);
   const [workerDirty, setWorkerDirty] = useState(false);
   const [coordinatorDirty, setCoordinatorDirty] = useState(false);
   const path = `workspaces/${incoming.id}`;
@@ -47,7 +53,7 @@ export function WorkspaceEditor({
     path: () => path,
     onDirty,
     saved,
-    otherDirty: workerDirty || coordinatorDirty,
+    otherDirty: workerDirty || coordinatorDirty || labelDirty,
   });
   const {
     element: editor,
@@ -65,7 +71,7 @@ export function WorkspaceEditor({
       <DetailTabs
         id={id}
         title="Workspace settings"
-        tabs={["general", "coordinator", "workers"]}
+        tabs={["general", "coordinator", "workers", "labels"]}
         active={tab}
         change={(value) =>
           void navigate(
@@ -156,6 +162,18 @@ export function WorkspaceEditor({
           workspaceId={incoming.id}
           refresh={incoming}
           onDirty={setWorkerDirty}
+        />
+      </div>
+      <div
+        role="tabpanel"
+        id={`${id}-labels`}
+        aria-labelledby={`${id}-labels-tab`}
+        hidden={tab !== "labels"}
+      >
+        <LabelSettings
+          workspaceId={incoming.id}
+          onDirty={setLabelDirty}
+          saved={refresh}
         />
       </div>
     </section>

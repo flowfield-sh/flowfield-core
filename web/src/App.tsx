@@ -490,6 +490,12 @@ function WorkspaceBoard({
   );
   const [projectFilter, setProjectFilter] = useState(projectId ?? "");
   const [labelFilter, setLabelFilter] = useState("");
+  if (
+    board &&
+    labelFilter &&
+    !board.labels.some((item) => item.id === labelFilter && !item.deleted_at)
+  )
+    setLabelFilter("");
   const [filterRoute, setFilterRoute] = useState(pathname);
   if (filterRoute !== pathname) {
     setFilterRoute(pathname);
@@ -1309,6 +1315,7 @@ function WorkspaceBoard({
         >
           <WorkspaceEditor
             incoming={board.workspace}
+            refresh={() => setRetry((value) => value + 1)}
             onDirty={setUnsaved}
             saved={(workspace) => {
               invalidate();
