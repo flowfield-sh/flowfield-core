@@ -3,22 +3,33 @@ import { Button } from "@/components/ui/button";
 import { ContentStack } from "./DetailLayout";
 import { ProjectBadge } from "./ProjectBadge";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { projectHref } from "./navigation";
+import { projectHref, workspaceHref } from "./navigation";
 import type { Project } from "./workspace";
 
-export function ProjectList({ projects }: { projects: Project[] }) {
+export function ProjectList({
+  projects,
+  workspaceId,
+  workspaceName,
+}: {
+  projects: Project[];
+  workspaceId: string;
+  workspaceName: string;
+}) {
   return (
     <section className="setup-page" aria-label="Projects">
       <ContentStack space="section" className="welcome">
         <div className="detail-heading-row">
-          <h1>Projects</h1>
+          <h1>{workspaceName}</h1>
           <Button size="sm" asChild>
-            <WorkspaceLink to="/new-project">
+            <WorkspaceLink to={`${workspaceHref(workspaceId)}/projects/new`}>
               <Plus />
-              New project
+              Add project
             </WorkspaceLink>
           </Button>
         </div>
+        {!projects.length && (
+          <p>Add your first project, or start planning with the Coordinator.</p>
+        )}
         <div className="project-list">
           {projects.map((project) => (
             <WorkspaceLink

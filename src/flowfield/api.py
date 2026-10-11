@@ -304,7 +304,8 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
     assets = web_dir if web_dir is not None else Path(__file__).parent / "_web"
     if (assets / "index.html").is_file():
         # Only UI route prefixes receive the SPA shell; missing assets/API routes stay 404.
-        @app.get("/new-project", include_in_schema=False)
+        @app.get("/new-workspace", include_in_schema=False)
+        @app.get("/workspaces/{path:path}", include_in_schema=False)
         @app.get("/settings/harnesses", include_in_schema=False)
         @app.get("/settings/appearance", include_in_schema=False)
         @app.get("/settings/notifications", include_in_schema=False)

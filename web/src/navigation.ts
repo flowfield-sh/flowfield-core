@@ -6,7 +6,10 @@ const pagePaths = [
   "settings/appearance",
   "settings/notifications",
   "settings/updates",
-  "new-project",
+  "new-workspace",
+  "workspaces/:workspaceId",
+  "workspaces/:workspaceId/projects",
+  "workspaces/:workspaceId/projects/new",
   "projects/:projectId",
   "projects/:projectId/archive",
   "projects/:projectId/inbox",
@@ -45,6 +48,9 @@ export function taskTab(tab?: string): TaskTab {
 }
 export function projectHref(id: string) {
   return `/projects/${encodeURIComponent(id)}`;
+}
+export function workspaceHref(id: string) {
+  return `/workspaces/${encodeURIComponent(id)}`;
 }
 export function taskHref(
   projectId: string,

@@ -14,6 +14,7 @@ from flowfield.application import (
     Project,
     ProjectSetup,
 )
+from flowfield.attention import attention_counts
 from flowfield.execution_models import (
     ModelOption,
     QueueEdit,
@@ -48,6 +49,19 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     @router.post("", status_code=201)
     def create(request: WorkspaceCreate) -> WorkspaceRecord:
         return spaces().create(request)
+
+    @router.get("/attention-counts")
+    def counts() -> dict[str, int]:
+        with supervisor().workspace.connection() as db:
+            result = {row[0]: 0 for row in db.execute("SELECT id FROM workspaces")}
+            for row in db.execute("SELECT workspace_id,project_id FROM workspace_projects"):
+                result[row[0]] += attention_counts(db, row[1]).get("action", 0)
+            for row in db.execute(
+                "SELECT workspace_id,count(*) FROM agent_permissions "
+                "WHERE project_id IS NULL AND status='pending' GROUP BY workspace_id"
+            ):
+                result[row[0]] += row[1]
+            return result
 
     @router.get("/{workspace_id}")
     def get(workspace_id: str) -> WorkspaceRecord:

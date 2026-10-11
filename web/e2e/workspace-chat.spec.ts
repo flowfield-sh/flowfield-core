@@ -7,6 +7,15 @@ test("member projects share coordinator history and a draft", async ({
   page,
   request,
 }) => {
+  async function openProject(name: string) {
+    await page
+      .getByRole("link", { name: "Shared chat · Projects", exact: true })
+      .click();
+    await page
+      .locator(".project-list-row")
+      .filter({ has: page.getByText(name, { exact: true }) })
+      .click();
+  }
   const workspace = await (
     await request.post("/api/workspaces", { data: { name: "Shared chat" } })
   ).json();
@@ -91,10 +100,7 @@ test("member projects share coordinator history and a draft", async ({
   await page
     .getByRole("textbox", { name: "Message coordinator" })
     .fill("Keep this workspace draft");
-  await page
-    .getByRole("link", { name: "shared-site", exact: true })
-    .first()
-    .click();
+  await openProject("shared-site");
   await expect(page).toHaveURL(/\/projects\/shared-site$/);
   await expect(
     page.getByRole("textbox", { name: "Message coordinator" }),
@@ -115,17 +121,11 @@ test("member projects share coordinator history and a draft", async ({
   });
   // Keep an uncertain send receipt, then select the same local task ID in another repo.
   // The second send must capture the new project instead of reusing the first receipt.
-  await page
-    .getByRole("link", { name: "shared-core", exact: true })
-    .first()
-    .click();
+  await openProject("shared-core");
   await page.getByText("shared-core task", { exact: true }).first().click();
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(() => messages.length).toBe(1);
-  await page
-    .getByRole("link", { name: "shared-site", exact: true })
-    .first()
-    .click();
+  await openProject("shared-site");
   await page.getByText("shared-site task", { exact: true }).first().click();
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(() => messages.length).toBe(2);

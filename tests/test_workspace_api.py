@@ -18,6 +18,7 @@ def test_explicit_creation_adoption_scope_and_no_implicit_resources(tmp_path, mo
     state = tmp_path / "state"
     with TestClient(create_app(data_dir=state), base_url="http://localhost") as client:
         assert client.get("/api/workspaces").json() == []
+        assert client.get("/api/workspaces/attention-counts").json() == {}
         assert client.get("/api/projects").json() == []
         denied = client.post(
             "/api/workspaces",
@@ -62,6 +63,13 @@ def test_explicit_creation_adoption_scope_and_no_implicit_resources(tmp_path, mo
             assert (root / "AGENTS.md").read_text() == "Existing project conventions"
         assert {p["id"] for p in client.get(base + "/projects").json()} == {"core", "site"}
         second = client.post("/api/workspaces", json={"name": "Other"}).json()["id"]
+        for name in ("core", "site"):
+            asked = client.post(
+                f"/api/projects/{name}/questions",
+                json={"question": "Which scope?", "context": "Scope", "recommendation": "Local"},
+            )
+            assert asked.status_code == 201, asked.text
+        assert client.get("/api/workspaces/attention-counts").json() == {space: 2, second: 0}
         stolen = client.post(
             f"/api/workspaces/{second}/projects", json={"path": str(tmp_path / "core")}
         )

@@ -182,7 +182,7 @@ export function HarnessModelSource({
             <AlertDescription>
               {kind === "pi"
                 ? "Pi has no available models. Configure a provider in Pi on the service host, then refresh models."
-                : `No models are available from ${kind ? harnessNames[kind] : "this harness"} for this project. Check its native account and model settings, then refresh models.`}{" "}
+                : `No models are available from ${kind ? harnessNames[kind] : "this harness"}. Check its native account and model settings, then refresh models.`}{" "}
               <WorkspaceLink to="/settings/harnesses">
                 Harness settings
               </WorkspaceLink>

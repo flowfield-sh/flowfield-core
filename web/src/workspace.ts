@@ -14,6 +14,7 @@ export const label = (value: string) =>
 
 export const authorLabel = (author: string | null) =>
   author?.startsWith("coordinator:") ? "Coordinator" : author;
+export type WorkspaceRecord = components["schemas"]["WorkspaceRecord"];
 export type Project = components["schemas"]["Project"];
 export type Milestone = components["schemas"]["Milestone"];
 export type TaskRevision = components["schemas"]["TaskRevision"];

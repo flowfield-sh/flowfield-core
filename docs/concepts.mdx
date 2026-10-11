@@ -17,11 +17,11 @@ priorities, answers, pause, stop and approval.
 Flowfield uses native harness interfaces to run coding conversations and **MCP** to
 give agents project/task tools. See [Agents](/agents/overview) for setup and connections.
 
-## Projects, tasks and milestones
+## Workspaces, projects, tasks and milestones
 
-A **project** is an existing directory registered through the browser's directory chooser
-or `flowfield project init --workspace WORKSPACE_ID`. The Coordinator belongs to a project. Its settings identify
-the worker environment, model, checks and code delivery branch.
+A **workspace** groups projects around one Coordinator, shared milestones, labels and worker defaults. Create it explicitly in the browser or with `flowfield workspace create`.
+
+A **project** is an existing directory registered in a workspace through the browser's directory chooser or `flowfield project init --workspace WORKSPACE_ID`. Its settings identify the repository, checks and code delivery branch. Each task belongs to one project.
 
 A **task** expresses an agreed outcome and success criteria. Its stable key, such as
 `APP-1`, links to the same task across the browser, CLI and MCP. Tasks can depend on

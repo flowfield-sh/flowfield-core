@@ -5,6 +5,9 @@ import { LabelCatalog } from "./labelContext";
 import { MilestoneBadge } from "./MilestoneBadge";
 import { AnnouncementProvider } from "./Announcements";
 import { TaskNeeds, TaskState, hasTaskNeeds } from "./TaskNeeds";
+import { ResourceRetry } from "./ResourceRetry";
+import { WorkspaceList, NewWorkspace } from "./WorkspaceEntry";
+import { WorkspaceLink } from "./WorkspaceLink";
 import { ProjectList } from "./ProjectList";
 import { SetupInstructions } from "./SetupInstructions";
 import { taskTab } from "./navigation";
@@ -51,6 +54,7 @@ import {
   Milestone,
   label,
   Project,
+  WorkspaceRecord,
   request,
   Task,
   TaskCard,
@@ -62,6 +66,7 @@ import {
   followLink,
   entityPage,
   projectHref,
+  workspaceHref,
   taskHref,
   useWorkspaceNavigation,
 } from "./navigation";
@@ -73,7 +78,7 @@ export function App() {
   const appearance = useTheme();
   const [chatDrafts] = useState<ChatDrafts>(() => new Map());
   const [chatSettingsDirty, setChatSettingsDirty] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState(false);
@@ -104,8 +109,14 @@ export function App() {
     projectId ? `projects/${projectId}/workspace` : null,
     refresh,
   );
+  const workspaceId = params.workspaceId ?? projectWorkspace?.id;
+  const workspace = workspaces.find((item) => item.id === workspaceId);
+  const members = useResource<Project[]>(
+    workspaceId ? `workspaces/${workspaceId}/projects` : null,
+    refresh,
+  );
   const { data: attentionCounts } = useResource<Record<string, number>>(
-    "projects/attention-counts",
+    "workspaces/attention-counts",
     `${refresh}:${JSON.stringify(projectRefresh)}`,
   );
   const connectionStatus = connected
@@ -119,15 +130,15 @@ export function App() {
       : "Disconnected";
   useEffect(() => {
     let active = true;
-    request<Project[]>("projects")
+    request<WorkspaceRecord[]>("workspaces")
       .then((items) => {
         if (active) {
-          setProjects(items);
+          setWorkspaces(items);
           setConnected(true);
         }
       })
       .catch((e: Error) => {
-        if (active) reportError(e, "Could not load projects", true);
+        if (active) reportError(e, "Could not load workspaces", true);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -204,16 +215,16 @@ export function App() {
       <Toaster theme={appearance.theme} />
       <WorkspaceFrame
         workLocation={pathname}
-        projects={projects.map((project) => ({
-          id: project.id,
-          name: project.name,
-          href: projectHref(project.id),
-          inboxCount: attentionCounts?.[project.id] ?? 0,
+        workspaces={workspaces.map((workspace) => ({
+          id: workspace.id,
+          name: workspace.name,
+          href: workspaceHref(workspace.id),
+          inboxCount: attentionCounts?.[workspace.id] ?? 0,
         }))}
-        activeProjectId={projectId ?? ""}
-        onProjectSelect={(project) => changeLocation(project.href)}
+        activeWorkspaceId={workspaceId ?? ""}
+        onWorkspaceSelect={(workspace) => changeLocation(workspace.href)}
         onHome={() => changeLocation("/")}
-        onAddProject={() => changeLocation("/new-project")}
+        onAddWorkspace={() => changeLocation("/new-workspace")}
         footer={
           <>
             <SettingsLink active={pathname.startsWith("/settings/")} />
@@ -234,13 +245,13 @@ export function App() {
           </>
         }
         coordinator={
-          connected && projectId && projectWorkspace && !notFound
+          connected && workspaceId && workspace && !notFound
             ? (visible) => (
                 <CoordinatorChat
-                  key={projectWorkspace.id}
-                  workspaceId={projectWorkspace.id}
+                  key={workspaceId}
+                  workspaceId={workspaceId}
                   projectId={projectId}
-                  refresh={`${refresh}:${projectRefresh[projectId] ?? 0}`}
+                  refresh={`${refresh}:${JSON.stringify(projectRefresh)}`}
                   drafts={chatDrafts}
                   onSettingsDirty={setChatSettingsDirty}
                   taskKey={params.taskKey}
@@ -286,7 +297,7 @@ export function App() {
             ) : notFound ? (
               <section className="welcome">
                 <h1>Page not found</h1>
-                <p>Choose a project to return to your workspace.</p>
+                <p>Choose a workspace to continue.</p>
               </section>
             ) : pathname.startsWith("/settings/") ? (
               <FlowfieldSettings
@@ -303,33 +314,77 @@ export function App() {
                 }
               />
             ) : projectId ? (
-              <ProjectBoard
-                key={projectId}
-                projectId={projectId}
-                refresh={`${refresh}:${projectRefresh[projectId] ?? 0}`}
-                params={params}
-                pathname={pathname}
-                backgroundPath={backgroundPath}
-                closeEntity={closeEntity}
-                changeLocation={changeLocation}
-                navigate={navigate}
-                setUnsaved={setUnsaved}
-                setOverlayDirty={setOverlayDirty}
-                closeQuestion={closeQuestion}
-              />
-            ) : pathname !== "/new-project" && projects.length > 0 ? (
-              <ProjectList projects={projects} />
-            ) : (
-              <SetupInstructions
-                added={(project) => {
-                  setProjects((items) => [
-                    ...items.filter((item) => item.id !== project.id),
-                    project,
+              <>
+                {workspace && (
+                  <div className="px-5 pt-3">
+                    <WorkspaceLink
+                      className="text-link text-sm"
+                      to={`${workspaceHref(workspace.id)}/projects`}
+                    >
+                      {workspace.name} · Projects
+                    </WorkspaceLink>
+                  </div>
+                )}
+                <ProjectBoard
+                  key={projectId}
+                  projectId={projectId}
+                  refresh={`${refresh}:${projectRefresh[projectId] ?? 0}`}
+                  params={params}
+                  pathname={pathname}
+                  backgroundPath={backgroundPath}
+                  closeEntity={closeEntity}
+                  changeLocation={changeLocation}
+                  navigate={navigate}
+                  setUnsaved={setUnsaved}
+                  setOverlayDirty={setOverlayDirty}
+                  closeQuestion={closeQuestion}
+                />
+              </>
+            ) : workspaceId ? (
+              !workspace ? (
+                <section className="welcome">
+                  <h1>Workspace not found</h1>
+                </section>
+              ) : pathname.endsWith("/projects/new") ? (
+                <SetupInstructions
+                  key={workspaceId}
+                  workspaceId={workspaceId}
+                  onDirty={setUnsaved}
+                  added={(project) => {
+                    setRefresh((value) => value + 1);
+                    changeLocation(projectHref(project.id), true);
+                  }}
+                />
+              ) : members.data ? (
+                <ProjectList
+                  projects={members.data}
+                  workspaceId={workspaceId}
+                  workspaceName={workspace.name}
+                />
+              ) : (
+                <section className="welcome">
+                  <p>
+                    {members.error
+                      ? "Could not load projects"
+                      : "Loading projects…"}
+                  </p>
+                  <ResourceRetry resources={[members]} />
+                </section>
+              )
+            ) : pathname === "/new-workspace" ? (
+              <NewWorkspace
+                onDirty={setUnsaved}
+                created={(workspace) => {
+                  setWorkspaces((items) => [
+                    ...items.filter((item) => item.id !== workspace.id),
+                    workspace,
                   ]);
                   setRefresh((value) => value + 1);
-                  changeLocation(projectHref(project.id));
+                  changeLocation(workspaceHref(workspace.id), true);
                 }}
               />
+            ) : (
+              <WorkspaceList workspaces={workspaces} />
             )}
           </>
         }

@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/tooltip";
 import "./workspace-frame.css";
 
-export type WorkspaceProject = {
+export type WorkspaceEntry = {
   id: string;
   name: string;
   href: string;
@@ -47,12 +47,12 @@ function subscribeCompact(callback: () => void) {
   return () => query.removeEventListener("change", callback);
 }
 
-function ProjectItem({
-  project,
+function WorkspaceItem({
+  workspace,
   active,
   select,
 }: {
-  project: WorkspaceProject;
+  workspace: WorkspaceEntry;
   active: boolean;
   select: () => void;
 }) {
@@ -67,15 +67,15 @@ function ProjectItem({
     observer.observe(node);
     measure();
     return () => observer.disconnect();
-  }, [project.name]);
+  }, [workspace.name]);
   return (
     <SidebarMenuItem>
       <Tooltip>
         <TooltipTrigger asChild>
           <SidebarMenuButton asChild size="lg" isActive={active}>
             <a
-              href={project.href}
-              aria-label={project.name}
+              href={workspace.href}
+              aria-label={workspace.name}
               aria-current={active ? "page" : undefined}
               onClick={(event) => {
                 if (
@@ -90,17 +90,17 @@ function ProjectItem({
                 select();
               }}
             >
-              <ProjectBadge id={project.id} name={project.name} />
-              <CountBadge count={project.inboxCount} label="Inbox" />
+              <ProjectBadge id={workspace.id} name={workspace.name} />
+              <CountBadge count={workspace.inboxCount} label="Inbox" />
               <span ref={text} data-sidebar="label">
-                {project.name}
+                {workspace.name}
               </span>
             </a>
           </SidebarMenuButton>
         </TooltipTrigger>
         {(truncated || (state === "collapsed" && !isMobile)) && (
           <TooltipContent side="right" className="max-w-xs">
-            {project.name}
+            {workspace.name}
           </TooltipContent>
         )}
       </Tooltip>
@@ -108,20 +108,20 @@ function ProjectItem({
   );
 }
 
-function ProjectNavigation({
-  projects,
-  activeProjectId,
-  onProjectSelect,
+function WorkspaceNavigation({
+  workspaces,
+  activeWorkspaceId,
+  onWorkspaceSelect,
   footer,
   onHome,
-  onAddProject,
+  onAddWorkspace,
 }: {
-  projects: WorkspaceProject[];
-  activeProjectId: string;
-  onProjectSelect: (project: WorkspaceProject) => void;
+  workspaces: WorkspaceEntry[];
+  activeWorkspaceId: string;
+  onWorkspaceSelect: (workspace: WorkspaceEntry) => void;
   footer?: ReactNode;
   onHome?: () => void;
-  onAddProject?: () => void;
+  onAddWorkspace?: () => void;
 }) {
   const { setOpenMobile, isMobile } = useSidebar();
   return (
@@ -148,36 +148,36 @@ function ProjectNavigation({
         >
           <img src="/assets/flowfield.svg" alt="" width={32} height={32} />
         </a>
-        {isMobile && <SidebarTrigger aria-label="Close projects" />}
+        {isMobile && <SidebarTrigger aria-label="Close workspaces" />}
       </SidebarHeader>
       <SidebarContent className="group-data-[collapsible=icon]:overflow-y-auto">
-        <nav aria-label="Projects" className="workspace-projects">
+        <nav aria-label="Workspaces" className="workspace-projects">
           <p className="workspace-projects-label group-data-[collapsible=icon]:hidden">
-            Projects
+            Workspaces
           </p>
           <SidebarMenu className="gap-2">
-            {onAddProject && (
+            {onAddWorkspace && (
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  tooltip="Add project"
-                  aria-label="Add project"
+                  tooltip="New workspace"
+                  aria-label="New workspace"
                   onClick={() => {
-                    onAddProject();
+                    onAddWorkspace();
                     setOpenMobile(false);
                   }}
                 >
                   <Plus />
-                  <span data-sidebar="label">Add project</span>
+                  <span data-sidebar="label">New workspace</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             )}
-            {projects.map((project) => (
-              <ProjectItem
-                key={project.id}
-                project={project}
-                active={project.id === activeProjectId}
+            {workspaces.map((workspace) => (
+              <WorkspaceItem
+                key={workspace.id}
+                workspace={workspace}
+                active={workspace.id === activeWorkspaceId}
                 select={() => {
-                  onProjectSelect(project);
+                  onWorkspaceSelect(workspace);
                   setOpenMobile(false);
                 }}
               />
@@ -192,25 +192,25 @@ function ProjectNavigation({
 
 // Owns layout only. Conversation state, navigation and work remain with their callers.
 export function WorkspaceFrame({
-  projects,
-  activeProjectId,
-  onProjectSelect,
+  workspaces,
+  activeWorkspaceId,
+  onWorkspaceSelect,
   coordinator,
   work,
   footer,
   onHome,
-  onAddProject,
+  onAddWorkspace,
   workLocation,
 }: {
-  projects: WorkspaceProject[];
-  activeProjectId: string;
-  onProjectSelect: (project: WorkspaceProject) => void;
+  workspaces: WorkspaceEntry[];
+  activeWorkspaceId: string;
+  onWorkspaceSelect: (workspace: WorkspaceEntry) => void;
   workLocation?: string;
   coordinator?: ReactNode | ((visible: boolean) => ReactNode);
   work: ReactNode;
   footer?: ReactNode;
   onHome?: () => void;
-  onAddProject?: () => void;
+  onAddWorkspace?: () => void;
 }) {
   const compact = useSyncExternalStore(
     subscribeCompact,
@@ -234,19 +234,19 @@ export function WorkspaceFrame({
         } as CSSProperties
       }
     >
-      <ProjectNavigation
-        projects={projects}
-        activeProjectId={activeProjectId}
-        onProjectSelect={onProjectSelect}
+      <WorkspaceNavigation
+        workspaces={workspaces}
+        activeWorkspaceId={activeWorkspaceId}
+        onWorkspaceSelect={onWorkspaceSelect}
         footer={footer}
         onHome={onHome}
-        onAddProject={onAddProject}
+        onAddWorkspace={onAddWorkspace}
       />
       <main className="workspace-main">
         {coordinator == null ? (
           <div className="workspace-pane workspace-work-only">
             <div className="workspace-mobile-bar md:hidden">
-              <SidebarTrigger aria-label="Open projects" />
+              <SidebarTrigger aria-label="Open workspaces" />
               <span>Flowfield</span>
             </div>
             {work}
@@ -261,7 +261,7 @@ export function WorkspaceFrame({
               <div className="workspace-surface-switch">
                 <SidebarTrigger
                   className="md:hidden"
-                  aria-label="Open projects"
+                  aria-label="Open workspaces"
                 />
                 <TabsList aria-label="Workspace surface">
                   <TabsTrigger value="coordinator">Coordinator</TabsTrigger>
@@ -322,7 +322,7 @@ export function WorkspaceFrame({
                 <TabsContent
                   forceMount
                   value="work"
-                  aria-label="Project work"
+                  aria-label="Workspace work"
                   className="workspace-pane"
                   data-inactive={compact && surface !== "work"}
                   inert={compact && surface !== "work"}

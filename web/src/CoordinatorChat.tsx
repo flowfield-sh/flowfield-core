@@ -53,7 +53,7 @@ export function CoordinatorChat({
   selectedResultId,
 }: {
   workspaceId: string;
-  projectId: string;
+  projectId?: string;
   refresh: unknown;
   drafts: ChatDrafts;
   onSettingsDirty: (dirty: boolean) => void;
@@ -62,7 +62,7 @@ export function CoordinatorChat({
   selectedResultId?: string;
 }) {
   const selected = useResource<Task>(
-    taskKey
+    taskKey && projectId
       ? `projects/${projectId}/view/tasks/${encodeURIComponent(taskKey)}`
       : null,
     refresh,
@@ -78,7 +78,7 @@ export function CoordinatorChat({
     !!taskKey && (taskFocus.key !== selectionKey || !taskFocus.dismissed);
   const contextPending = attachTask && (!selected.data || !!selected.error);
   const taskContext =
-    attachTask && selected.data
+    attachTask && selected.data && projectId
       ? {
           project_id: projectId,
           task_id: selected.data.id,
@@ -490,7 +490,7 @@ export function CoordinatorChat({
             {selected.data ? (
               <WorkspaceLink
                 to={
-                  taskHref(projectId, selected.data) +
+                  taskHref(selected.data.project_id, selected.data) +
                   (selectedResultId
                     ? `/conversation/result:${encodeURIComponent(selectedResultId)}`
                     : "")

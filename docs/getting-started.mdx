@@ -24,16 +24,15 @@ sign-in failures or unavailable models, see [harness setup and recovery](/agents
 Choose **Settings → Appearance** for System, Light or Dark theme. This preference stays
 in your browser and applies across projects.
 
-## Add your project
+## Create a workspace and add your project
 
-Choose **Add project** in the sidebar, then **Choose directory**. The native folder chooser
+Choose **New workspace**, give it a name and click **Create workspace**. A workspace brings projects together around one Coordinator, shared milestones and work settings. Its Coordinator is available before you add a project.
+
+Inside the workspace, choose **Add project**, then **Choose directory**. The native folder chooser
 opens on the machine running Flowfield. Select your existing project directory, then review
 the prefilled **Name**, **Project ID** and **Task prefix** below it. All three are required and
 editable. Choose a unique ID and three-letter prefix if another project already uses them.
-Under **Agents**, choose a Coordinator and worker harness, model and supported controls.
-You can also set parallel worker capacity. These choices are optional and remain editable
-in Project settings. Review the guidance option, then click **Add project** to save everything;
-the worker queue starts paused.
+Click **Add project** to register the directory. New workspaces start with their worker queue paused; adding a project preserves the workspace’s current queue and agent choices.
 
 You can also register the same project from another terminal in its directory:
 
@@ -44,25 +43,22 @@ flowfield project init --workspace WORKSPACE_ID
 
 Replace `WORKSPACE_ID` with the ID printed by `workspace create`. Workspaces are created explicitly; adopting a project preserves its existing repository and instructions.
 
-Keep **Install project guidance** selected to add the coordinator skill and its `AGENTS.md`
-reference while preserving existing instructions. If skipped,
-install later under **Project settings → Coordinator**. Commit the instructions so workers
-receive them in their checkouts.
+Discuss existing project instructions with the Coordinator. Together, decide which guidance should stay in repository files and which belongs in workspace guidance. Adoption preserves existing instructions and does not automatically import or rewrite them.
 
 Registration saves the project identity in `.flowfield/config.toml`. Use the CLI if a
 desktop folder chooser is unavailable.
 
-Once projects are added, Home lists them with **New project** at the top. **Project settings → General** opens directly for editing the name, prefix, description and queue setting.
+Home and the sidebar list workspaces. Open a workspace to find its projects. **Project settings → General** opens directly for editing the project name, prefix and description.
 
 ## Start planning
 
-If you skipped the Coordinator choice during setup, choose a ready harness beside the input in the [Coordinator](/coordinator), wait for models to load,
+Choose a ready harness beside the input in the [Coordinator](/coordinator), wait for models to load,
 then choose its model and supported effort/access controls and save. Native startup hooks
 can run during discovery; it sends no model prompt. Describe what you want to achieve. For example:
 
 > Help me add CSV export to this project. Review the existing code and suggest a small first task before starting implementation.
 
-The Coordinator works in the selected project and is ready to plan without repository
+The Coordinator belongs to the workspace and is ready to plan without repository
 guidance. Worker setup can wait until you are ready to run tasks. For a standalone coding
 conversation, follow [standalone coordinator setup](/agents/overview#standalone-conversations).
 
