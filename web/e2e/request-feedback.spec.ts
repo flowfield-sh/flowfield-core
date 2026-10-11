@@ -105,21 +105,46 @@ test("an outage is reported once across settings reads and polling, recovers, an
   await request.post("/api/projects/initialize", {
     data: { path: existingDirectory(join(state, id)), task_prefix: "FOF" },
   });
+  let offline = false;
+  let releaseReads!: () => void;
+  const heldReads = new Promise<void>((resolve) => {
+    releaseReads = resolve;
+  });
+  const pending = new Set<string>();
+  // Settings mount before their tab opens. Hold these two reads so the outage
+  // reliably affects both the form and validation status, regardless of timing.
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (
+      path === `/api/projects/${id}/inspection/settings` ||
+      path === `/api/projects/${id}/setup-validation`
+    ) {
+      pending.add(path);
+      await heldReads;
+    }
+    return offline ? route.abort("failed") : route.continue();
+  });
   await page.goto(`/projects/${id}/edit/general`);
   const editor = page.getByRole("region", {
     name: "Edit project",
     exact: true,
   });
   await expect(editor.getByLabel("Name", { exact: true })).toBeVisible();
-  await page.route("**/api/**", (route) => route.abort("failed"));
+  await expect.poll(() => pending.size).toBe(2);
+  offline = true;
+  releaseReads();
   await editor.getByRole("tab", { name: "Integration", exact: true }).click();
   const integration = editor.getByRole("region", {
     name: "Integration settings",
   });
   await expect(errors(page)).toContainText("Flowfield is unavailable");
-  await expect(
-    integration.getByRole("button", { name: "Retry loading", exact: true }),
-  ).toBeVisible();
+  const retries = integration.getByRole("button", {
+    name: "Retry loading",
+    exact: true,
+  });
+  await expect(retries).toHaveCount(2);
+  await expect(retries.nth(0)).toBeVisible();
+  await expect(retries.nth(1)).toBeVisible();
   await expect(integration).not.toContainText(
     /Load failed|Cannot reach Flowfield/,
   );
@@ -146,16 +171,21 @@ test("an outage is reported once across settings reads and polling, recovers, an
     .click();
   await expect(errors(page)).toContainText("Could not save project settings");
   await expect(errors(page)).not.toContainText("preserved");
-  await page.unroute("**/api/**");
+  offline = false;
   await errors(page).getByRole("button", { name: "Close toast" }).click();
   await editor.getByRole("tab", { name: "Integration", exact: true }).click();
-  await integration
-    .getByRole("button", { name: "Retry loading", exact: true })
-    .click();
+  await expect(retries).toHaveCount(2);
+  await retries.nth(1).click();
+  await expect(retries).toHaveCount(1);
+  await retries.nth(0).click();
+  await expect(retries).toHaveCount(0);
   await expect(
     integration.getByLabel("Validation commands", { exact: true }),
   ).toBeEnabled();
-  await page.route("**/api/**", (route) => route.abort("failed"));
+  await expect(
+    integration.getByLabel("Run command", { exact: true }),
+  ).toBeEnabled();
+  offline = true;
   await expect(errors(page)).toContainText("Flowfield is unavailable", {
     timeout: 7000,
   });
