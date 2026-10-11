@@ -47,6 +47,7 @@ export function hostStatus(
     model_access: "unverified",
     native_version: null,
     checked: false,
+    checked_at: null,
     problems: selectable ? [] : ["native_missing"],
     catalog_ownership: null,
   };

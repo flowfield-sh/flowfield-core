@@ -258,6 +258,12 @@ function HarnessEntry({
                       : "neutral"
               }
             >
+              {status.checked_at && (
+                <p className="detail-metadata">
+                  Last checked <Timestamp date={status.checked_at} />. Run again
+                  to refresh this result.
+                </p>
+              )}
               <p>
                 {kind === "pi"
                   ? "Reads the installed Pi version. Provider sign-in is checked when you use a model."

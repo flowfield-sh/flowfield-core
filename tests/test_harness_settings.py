@@ -571,6 +571,9 @@ def test_http_host_settings_are_independent_and_do_not_start_models(tmp_path, mo
                     and checked["model_access"] == "unverified"
                 )
                 assert not app.state.supervisor.catalogs.jobs and not app.state.supervisor.jobs
+                assert checked["checked_at"]
+                assert (await client.get("/api/harnesses/claude-code")).json() == checked
+                assert (await client.get("/api/harnesses")).json()[1] == checked
                 ownership = CatalogOwnership(
                     id="interrupted-exact-id",
                     harness="claude-code",
@@ -701,5 +704,87 @@ def test_running_discovery_is_selectable_but_uncertain_cleanup_is_not(tmp_path, 
                     assert result["selectable"] is (phase == "running")
                     assert f"catalog_{phase}" in result["problems"]
             assert not log.exists()  # Availability reads never run the native executable.
+
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("logged_in", [True, False])
+def test_last_diagnostics_survive_reads_without_becoming_launch_authority(tmp_path, logged_in):
+    executable, log = native(tmp_path, logged_in=logged_in)
+    registration = HarnessRegistration(harness="claude-code", executable=str(executable))
+    env = {"HOME": str(tmp_path), "PATH": ""}
+
+    async def exercise():
+        owner = harness_host.HarnessChecks(tmp_path)
+        assert not owner.view(registration, env).checked
+        result = await owner.run(registration, env)
+        assert result.checked_at
+        calls = log.read_text()
+        for _ in range(2):
+            retained = owner.view(registration, env)
+            assert retained.checked and retained.checked_at == result.checked_at
+            assert retained.native_version == result.native_version
+            assert retained.authentication == result.authentication
+            assert retained.problems == result.problems
+            assert retained.selectable  # Historical sign-out never blocks a fresh attempt.
+            retained.problems.append("caller_must_not_mutate_retained_evidence")
+        assert log.read_text() == calls
+        assert not owner.view(registration.model_copy(update={"revision": 2}), env).checked
+        other_config = tmp_path / "other-config"
+        other_config.mkdir()
+        assert not owner.view(registration, {**env, "CLAUDE_CONFIG_DIR": str(other_config)}).checked
+        executable.write_text(executable.read_text() + "\n# replacement version\n")
+        assert not owner.view(registration, env).checked
+        await owner.run(registration, env)
+        executable.unlink()
+        missing = owner.view(registration, env)
+        assert not missing.checked and not missing.native_installed and not missing.selectable
+        await owner.close()
+        assert not owner.results
+        assert not harness_host.HarnessChecks(tmp_path).view(registration, env).checked
+
+    asyncio.run(exercise())
+
+
+def test_diagnostic_results_replace_failures_keep_previous_while_running_and_reject_changes(
+    tmp_path, monkeypatch
+):
+    executable, _ = native(tmp_path)
+    registration = HarnessRegistration(harness="claude-code", executable=str(executable))
+    env = {"HOME": str(tmp_path), "PATH": ""}
+
+    async def exercise():
+        owner = harness_host.HarnessChecks(tmp_path)
+        original = await owner.run(registration, env)
+        entered, release = asyncio.Event(), asyncio.Event()
+
+        async def failed(directory, registration, environment):
+            entered.set()
+            await release.wait()
+            result = harness_host.status(directory, registration, environment)
+            result.checked = True
+            result.problems.append("native_check_failed")
+            return result
+
+        monkeypatch.setattr(harness_host, "check", failed)
+        pending = asyncio.create_task(owner.run(registration, env))
+        await entered.wait()
+        assert owner.view(registration, env).checked_at == original.checked_at
+        release.set()
+        result = await pending
+        retained = owner.view(registration, env)
+        assert retained.checked_at == result.checked_at
+        assert retained.native_version is None and retained.authentication == "unknown"
+        assert retained.problems == ["native_check_failed"]
+        entered.clear()
+        release.clear()
+        changed = asyncio.create_task(owner.run(registration, env))
+        await entered.wait()
+        executable.unlink()
+        release.set()
+        with pytest.raises(ApplicationError, match="changed"):
+            await changed
+        assert not owner.view(registration, env).checked
+        await owner.close()
 
     asyncio.run(exercise())

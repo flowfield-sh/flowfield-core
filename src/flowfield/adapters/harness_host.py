@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import NamedTuple
 
@@ -245,19 +246,71 @@ async def check(
 
 
 class HarnessChecks:
-    """At most one live check per concrete kind; request cancellation retains its owner."""
+    """Own bounded checks and their last observations for this service lifetime."""
 
     def __init__(self, directory: Path):
         self.directory = directory
         self.jobs: dict[str, tuple[str, asyncio.Task[HarnessStatus]]] = {}
+        self.results: dict[str, tuple[str, HarnessStatus]] = {}
         self.closing = False
+
+    @staticmethod
+    def _signature(value: HarnessStatus) -> str:
+        # Detect replacement/removal of the binary and configuration directory without
+        # inspecting credentials. Ordinary native writes inside that directory are fine.
+        identities = []
+        for index, path in enumerate(
+            (value.launch.native_executable, value.launch.config_directory)
+        ):
+            try:
+                info = Path(path).stat() if path else None
+            except OSError:
+                info = None
+            identities.append(
+                [info.st_dev, info.st_ino, info.st_mtime_ns, info.st_ctime_ns, info.st_size]
+                if info and index == 0
+                else [info.st_dev, info.st_ino]
+                if info
+                else None
+            )
+        return json.dumps(
+            [value.launch.model_dump(), value.config_available, identities], sort_keys=True
+        )
+
+    def view(
+        self, registration: HarnessRegistration, environment: Mapping[str, str]
+    ) -> HarnessStatus:
+        value = status(self.directory, registration, environment)
+        retained = self.results.get(registration.harness)
+        if retained and retained[0] == self._signature(value):
+            observed = retained[1]
+            value.checked = observed.checked
+            value.checked_at = observed.checked_at
+            value.native_version = observed.native_version
+            value.authentication = observed.authentication
+            value.problems.extend(p for p in observed.problems if p not in value.problems)
+            # A historical sign-in observation must not block new model selection.
+            # Current path detection and native launches still own availability.
+        return value
+
+    async def _check(
+        self, registration: HarnessRegistration, environment: Mapping[str, str], signature: str
+    ) -> HarnessStatus:
+        value = await check(self.directory, registration, environment)
+        if signature != self._signature(status(self.directory, registration, environment)):
+            raise ApplicationError(
+                "harness_changed", "Host setup changed during the check. Check again.", 409
+            )
+        value.checked_at = datetime.now(UTC).isoformat()
+        self.results[registration.harness] = (signature, value.model_copy(deep=True))
+        return value
 
     async def run(
         self, registration: HarnessRegistration, environment: Mapping[str, str]
     ) -> HarnessStatus:
         if self.closing:
             raise ApplicationError("service_stopping", "The service is stopping.", 409)
-        signature = resolve(registration, environment).model_dump_json()
+        signature = self._signature(status(self.directory, registration, environment))
         old = self.jobs.get(registration.harness)
         if old and not old[1].done():
             if old[0] != signature:
@@ -266,7 +319,7 @@ class HarnessChecks:
                 )
             return await asyncio.shield(old[1])
         job = asyncio.create_task(
-            check(self.directory, registration.model_copy(deep=True), dict(environment))
+            self._check(registration.model_copy(deep=True), dict(environment), signature)
         )
         self.jobs[registration.harness] = (signature, job)
         return await asyncio.shield(job)
@@ -277,3 +330,4 @@ class HarnessChecks:
         for job in jobs:
             job.cancel()
         await asyncio.gather(*jobs, return_exceptions=True)
+        self.results.clear()

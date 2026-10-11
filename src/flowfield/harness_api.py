@@ -5,7 +5,6 @@ from collections.abc import Callable
 
 from fastapi import APIRouter
 
-from flowfield.adapters.harness_host import status
 from flowfield.application import Workspace
 from flowfield.errors import ApplicationError
 from flowfield.harness_models import (
@@ -35,7 +34,7 @@ def harness_router(
         return value
 
     def view(item: HarnessRegistration) -> HarnessStatus:
-        return owned(status(workspace().directory, item, os.environ))
+        return owned(supervisor().harness_checks.view(item, os.environ))
 
     @router.get("")
     def harnesses() -> list[HarnessStatus]:

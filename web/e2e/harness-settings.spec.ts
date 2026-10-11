@@ -31,6 +31,7 @@ function host(kind: "codex" | "claude-code" | "pi") {
     model_access: "unverified",
     native_version: null as string | null,
     checked: false,
+    checked_at: null as string | null,
     problems: [] as string[],
     catalog_ownership: null as null | {
       id: string;
@@ -80,7 +81,9 @@ for (const [kind, name] of [
     );
     await page.route(`**/api/harnesses/${kind}/check`, (route) => {
       checked = true;
-      return route.fulfill({ json: { ...value, checked: true } });
+      value.checked = true;
+      value.checked_at = new Date().toISOString();
+      return route.fulfill({ json: value });
     });
     await page.goto("/settings/harnesses");
     const entry = page.getByRole("region", {
@@ -144,6 +147,39 @@ for (const [kind, name] of [
         : "Model access requires a successful model request.",
     );
     await screenshot(page, testInfo, `${kind}-verified`, entry);
+    const checkedAt = value.checked_at!;
+    await page.reload();
+    await expect(
+      entry.getByRole("heading", {
+        name:
+          kind === "pi" ? "Version verified" : "Version and sign-in verified",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(entry.locator("time").first()).toHaveAttribute(
+      "datetime",
+      checkedAt,
+    );
+    await entry.getByText("Detected setup", { exact: true }).click();
+    await expect(entry).toContainText("fixture.native");
+    if (kind !== "pi")
+      await expect(entry.getByText("Signed in", { exact: true })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.reload();
+    await expect(
+      entry.getByText("Last checked", { exact: false }),
+    ).toBeVisible();
+    await screenshot(page, testInfo, `${kind}-retained-mobile-dark`, entry);
+    value.checked = false;
+    value.checked_at = null;
+    value.native_version = null;
+    value.authentication = "unknown";
+    await page.reload();
+    await expect(
+      entry.getByRole("heading", { name: "Installation detected" }),
+    ).toBeVisible();
+    await expect(entry.locator("time")).toHaveCount(0);
   });
 }
 
@@ -308,6 +344,7 @@ test("native readiness and exact interrupted-discovery confirmation", async ({
       if (url.pathname.endsWith("/check"))
         Object.assign(value, {
           checked: true,
+          checked_at: new Date().toISOString(),
           authentication: "authenticated",
           native_version: "fixture.native",
         });

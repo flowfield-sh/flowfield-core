@@ -77,5 +77,6 @@ class HarnessStatus(HarnessRecord):
     model_access: Literal["unverified"] = "unverified"
     native_version: str | None = None
     checked: bool = False
+    checked_at: str | None = None
     problems: list[str] = Field(default_factory=list)
     catalog_ownership: CatalogOwnership | None = None

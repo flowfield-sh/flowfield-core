@@ -2797,6 +2797,8 @@ export interface components {
        * @default false
        */
       checked: boolean;
+      /** Checked At */
+      checked_at: string | null;
       /** Problems */
       problems: string[];
       catalog_ownership: components["schemas"]["CatalogOwnership"] | null;
