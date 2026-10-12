@@ -3,7 +3,9 @@
 import sqlite3
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+from flowfield.document_models import DocumentSnapshot
 
 if TYPE_CHECKING:
     from flowfield.application import TaskRevision
@@ -20,6 +22,7 @@ class Publication(BaseModel):
     created_at: str
     completion: Literal["code", "report"] = "code"
     target_branch: str | None = None
+    documents: list[DocumentSnapshot] = Field(default_factory=list)
 
 
 def publication_status(task: "TaskRevision") -> PublicationStatus:

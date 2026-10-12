@@ -2,6 +2,7 @@ import { reportError } from "./requestFeedback";
 import { useEffect, useState, useRef, type ReactNode } from "react";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { TaskLabelEditor } from "./TaskLabelEditor";
+import { WorkerDocumentEvidence } from "./WorkerDocuments";
 import { TaskLabels } from "./TaskLabels";
 import { DetailHeader, DraftBadge } from "./Presentation";
 import { MilestoneBadge } from "./MilestoneBadge";
@@ -131,6 +132,7 @@ export function TaskDetail({
           onDirty={setLabelDirty}
           saved={saved}
         />
+        <WorkerDocumentEvidence documents={task.publication?.documents ?? []} />
         {hasTaskNeeds(task, board.pending_code[task.id], false) && (
           <DetailSection title="Waiting on">
             <TaskNeeds

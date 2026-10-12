@@ -570,6 +570,7 @@ def test_notification_cleanup_discards_only_retired_state_and_rolls_back(tmp_pat
             migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 54)
         )
         execution = execution_fixture(tmp_path)
+        projects = execution.workspace.projects()
         saved = execution.settings("harbor")
         with execution.workspace.connection(write=True) as db:
             db.execute(
@@ -599,6 +600,7 @@ def test_notification_cleanup_discards_only_retired_state_and_rolls_back(tmp_pat
     assert logical_data(execution.workspace.directory) == original
     upgraded = Workspace(execution.workspace.directory)
     assert Execution(upgraded).settings("harbor") == saved
+    assert upgraded.projects() == projects
     with upgraded.connection() as db:
         assert not db.execute(
             "SELECT name FROM sqlite_master WHERE name IN "
@@ -611,6 +613,7 @@ def test_notification_cleanup_discards_only_retired_state_and_rolls_back(tmp_pat
         assert db.execute("SELECT count(*) FROM announcement_events").fetchone()[0] == 0
     after = logical_data(upgraded.directory)
     discarded = {
+        "projects",  # New document-default column; complete project values checked above.
         "worker_settings",  # Moved to workspace ownership; exact settings checked above.
         "notifications",
         "notification_state",

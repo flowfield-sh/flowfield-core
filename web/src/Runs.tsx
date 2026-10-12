@@ -1,6 +1,7 @@
 import { ResourceRetry } from "./ResourceRetry";
 import { authorLabel } from "./workspace";
 import { UsageSummary } from "./UsageSummary";
+import { WorkerDocumentEvidence } from "./WorkerDocuments";
 import {
   ContentStack,
   DetailHeading,
@@ -221,6 +222,7 @@ function WorkerEvidence({
         </p>
       )}
       <CheckEvidence checks={record.setup_checks ?? []} title="Runtime setup" />
+      <WorkerDocumentEvidence documents={record.documents ?? []} />
       {record.predecessor_id && (
         <Link
           to={`${taskHref(projectId, { key: taskKey }, "runs")}/worker:${record.predecessor_id}`}

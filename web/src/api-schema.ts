@@ -3261,6 +3261,20 @@ export interface components {
       /** Next Cursor */
       next_cursor: string | number | null;
     };
+    /** DocumentReference */
+    "DocumentReference-Input": {
+      /** Id */
+      id: string;
+      /** Revision */
+      revision?: number | null;
+    };
+    /** DocumentReference */
+    "DocumentReference-Output": {
+      /** Id */
+      id: string;
+      /** Revision */
+      revision: number | null;
+    };
     /** DocumentRestore */
     DocumentRestore: {
       /** Expected Revision */
@@ -3272,6 +3286,23 @@ export interface components {
       author: string;
       /** Revision */
       revision: number;
+    };
+    /** DocumentSnapshot */
+    DocumentSnapshot: {
+      /** Workspace Id */
+      workspace_id: string;
+      /** Id */
+      id: string;
+      /** Revision */
+      revision: number;
+      /** Title */
+      title: string;
+      /** Characters */
+      characters: number;
+      /** Bytes */
+      bytes: number;
+      /** Sha256 */
+      sha256: string;
     };
     /** Edit */
     Edit: {
@@ -4114,6 +4145,8 @@ export interface components {
        * @default
        */
       description: string;
+      /** Worker Documents */
+      worker_documents: components["schemas"]["DocumentReference-Output"][];
       /**
        * Revision
        * @default 1
@@ -4157,6 +4190,9 @@ export interface components {
       description?: string | null;
       /** Task Prefix */
       task_prefix?: string | null;
+      /** Worker Documents */
+      worker_documents?:
+        components["schemas"]["DocumentReference-Input"][] | null;
     };
     /** ProjectSetup */
     ProjectSetup: {
@@ -4208,6 +4244,8 @@ export interface components {
       completion: "code" | "report";
       /** Target Branch */
       target_branch: string | null;
+      /** Documents */
+      documents: components["schemas"]["DocumentSnapshot"][];
     };
     /** Question */
     Question: {
@@ -4740,6 +4778,8 @@ export interface components {
        */
       code_available: boolean;
       usage: components["schemas"]["Usage"];
+      /** Documents */
+      documents: components["schemas"]["DocumentSnapshot"][];
       /** Excluded Files */
       excluded_files: string[];
     };
@@ -5022,6 +5062,8 @@ export interface components {
       archived: boolean;
       /** Dependencies */
       dependencies: string[];
+      /** Documents */
+      documents: components["schemas"]["DocumentReference-Output"][];
       /** Reconciliation Reason */
       reconciliation_reason: string | null;
       /**
@@ -5156,6 +5198,8 @@ export interface components {
       milestone_id?: string | null;
       /** Dependencies */
       dependencies?: string[];
+      /** Documents */
+      documents?: components["schemas"]["DocumentReference-Input"][];
     };
     /** TaskDetail */
     TaskDetail: {
@@ -5226,6 +5270,8 @@ export interface components {
       blocking_questions: components["schemas"]["QuestionReference"][];
       /** Body */
       body: string;
+      /** Documents */
+      documents: components["schemas"]["DocumentReference-Output"][];
       /**
        * Change Note
        * @default
@@ -5263,6 +5309,8 @@ export interface components {
       archived?: boolean | null;
       /** Dependencies */
       dependencies?: string[] | null;
+      /** Documents */
+      documents?: components["schemas"]["DocumentReference-Input"][] | null;
     };
     /** TaskHistoryPage */
     TaskHistoryPage: {
@@ -5408,6 +5456,8 @@ export interface components {
       archived: boolean;
       /** Dependencies */
       dependencies: string[];
+      /** Documents */
+      documents: components["schemas"]["DocumentReference-Output"][];
       /** Reconciliation Reason */
       reconciliation_reason: string | null;
       /**

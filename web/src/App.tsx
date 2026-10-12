@@ -801,6 +801,7 @@ function WorkspaceBoard({
         (!selection.id || incoming) &&
         (selection.kind === "project" && incoming ? (
           <ProjectEditor
+            workspaceId={board.workspace.id}
             key={selection.id}
             incoming={incoming as Project}
             path={projectPath}

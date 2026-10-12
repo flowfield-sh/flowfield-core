@@ -5,6 +5,7 @@ from typing import Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from flowfield.agent_models import AgentChoice, EffectiveAgent
+from flowfield.document_models import DocumentSnapshot
 from flowfield.harness_models import HarnessLaunch
 
 ACTIVE = ("preparing", "running", "stopping", "uncertain")
@@ -170,6 +171,7 @@ class Run(Record):
     accepted_by: str | None = None
     code_available: bool = False
     usage: Usage = Field(default_factory=Usage)
+    documents: list[DocumentSnapshot] = Field(default_factory=list)
     excluded_files: list[str] = Field(default_factory=list)
 
 

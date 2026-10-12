@@ -31,6 +31,7 @@ from flowfield.activity import (
     EntryKind,
 )
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit
+from flowfield.document_models import DocumentReferences, DocumentSnapshot
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import ACTIVE, SettingsEdit
 from flowfield.execution_models import SCHEMA as EXECUTION_SCHEMA
@@ -136,6 +137,13 @@ class Project(Input):
     task_prefix: ProjectPrefix
 
     description: str = ""
+    worker_documents: DocumentReferences = Field(default_factory=list)
+
+    @field_validator("worker_documents", mode="before")
+    @classmethod
+    def stored_documents(cls, value: Any) -> Any:
+        return json.loads(value) if isinstance(value, str) else value
+
     revision: int = 1
     created_at: str
     updated_at: str
@@ -158,6 +166,7 @@ class ProjectEdit(Edit):
     name: Title | None = None
     description: Markdown | None = None
     task_prefix: ProjectPrefix | None = None
+    worker_documents: DocumentReferences | None = None
 
 
 class WorkCreate(Input):
@@ -214,6 +223,7 @@ class TaskCreate(WorkCreate):
     status: WorkStatus = "backlog"
     milestone_id: MilestoneIdentifier | None = None
     dependencies: list[TaskIdentifier] = Field(default_factory=list)
+    documents: DocumentReferences = Field(default_factory=list)
 
     @field_validator("dependencies", "labels")
     @classmethod
@@ -230,6 +240,7 @@ class TaskEdit(Edit):
     milestone_id: MilestoneIdentifier | None = None
     archived: bool | None = None
     dependencies: list[TaskIdentifier] | None = None
+    documents: DocumentReferences | None = None
 
     @field_validator("dependencies", "labels")
     @classmethod
@@ -280,6 +291,7 @@ class TaskRevision(WorkRecord):
     milestone_id: str | None
     archived: bool = False
     dependencies: list[str]
+    documents: DocumentReferences = Field(default_factory=list)
     reconciliation_reason: str | None = None
     change_note: str = ""
     report_completion_revision: int | None = None
@@ -516,7 +528,8 @@ class Workspace:
 
     def _insert_project(self, db: sqlite3.Connection, project: Project) -> None:
         db.execute(
-            "INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO projects (id,name,path,description,revision,created_at,updated_at,"
+            "updated_by,task_prefix) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 project.id,
                 project.name,
@@ -786,6 +799,12 @@ class Workspace:
     ) -> Project:
         current = self._project(db, project_id)
         project = Project(**self._patch(current, request))
+        if request.worker_documents is not None:
+            from flowfield.worker_documents import validate_references
+
+            validate_references(
+                db, self._project_workspace(db, project_id), project.worker_documents
+            )
         if project.task_prefix != current.task_prefix:
             if db.execute(
                 "SELECT 1 FROM tasks WHERE project_id=? LIMIT 1", (project_id,)
@@ -810,6 +829,11 @@ class Workspace:
                 project_id,
             ),
         )
+        if self.schema_version >= 65:
+            db.execute(
+                "UPDATE projects SET worker_documents=? WHERE id=?",
+                (json.dumps([item.model_dump() for item in project.worker_documents]), project_id),
+            )
         return project
 
     @staticmethod
@@ -1037,7 +1061,9 @@ class Workspace:
             ).fetchone()
             previous = TaskRevision.model_validate_json(previous_row[0]) if previous_row else None
             if previous and (
-                previous.body != task.body or previous.dependencies != task.dependencies
+                previous.body != task.body
+                or previous.dependencies != task.dependencies
+                or previous.documents != task.documents
             ):
                 task.agreement_revision = previous.agreement_revision + 1
                 if task.status not in PLANNING:
@@ -1210,6 +1236,7 @@ class Workspace:
                 ("labels", "Labels"),
                 ("milestone_id", "Milestone"),
                 ("dependencies", "Prerequisites"),
+                ("documents", "Worker documents"),
             ):
                 if getattr(previous, field) != getattr(task, field):
                     messages.append(f"{label} updated.")
@@ -1276,6 +1303,10 @@ class Workspace:
             )
         with self.connection(write=True, project_id=project_id) as db:
             project = self._project(db, project_id)
+            if request.documents:
+                from flowfield.worker_documents import validate_references
+
+                validate_references(db, self._project_workspace(db, project_id), request.documents)
             if self.schema_version >= 61:
                 from flowfield.labels import Labels
 
@@ -1361,6 +1392,10 @@ class Workspace:
         with self.connection(write=True, project_id=project_id) as db:
             current = self._task(db, project_id, task_id)
             task_id = current.id
+            if request.documents is not None:
+                from flowfield.worker_documents import validate_references
+
+                validate_references(db, self._project_workspace(db, project_id), request.documents)
             if request.labels is not None and self.schema_version >= 61:
                 from flowfield.labels import Labels
 
@@ -1391,17 +1426,20 @@ class Workspace:
                         "UPDATE tasks SET position=? WHERE project_id=? AND id=?",
                         (self._append_position(db, project_id), project_id, task_id),
                     )
-            if stage_change:
+            if stage_change and not preparation:
                 self._change_task_stages(db, task, stage_change)
             if preparation:
                 return self._publish_task(
                     db,
                     project_id,
                     task_id,
-                    TaskPublish(
-                        **preparation.model_dump(),
-                        expected_revision=task.revision,
-                        author=request.author,
+                    TaskPublish.model_validate(
+                        {
+                            **preparation.model_dump(),
+                            "expected_revision": task.revision,
+                            "author": request.author,
+                            **({"stages": stage_change} if stage_change is not None else {}),
+                        }
                     ),
                 )
             return self._task(db, project_id, task_id)
@@ -1474,6 +1512,8 @@ class Workspace:
                 "Apply or withdraw blocking questions before publishing the task.",
                 409,
             )
+        documents = self._prepare_documents(db, current, request.author)
+        current = self._task(db, project_id, current.id)
         if request.stages:
             self._change_task_stages(db, current, request.stages)
             current = self._task(db, project_id, current.id)
@@ -1503,6 +1543,7 @@ class Workspace:
             and current.publication
             and current.publication.completion == request.completion
             and current.publication.target_branch == target_branch
+            and current.publication.documents == documents
         ):
             return current
         task = TaskRevision(
@@ -1515,6 +1556,7 @@ class Workspace:
             }
         )
         task.publication = Publication(
+            documents=documents,
             completion=request.completion,
             target_branch=target_branch,
             agreement_revision=current.agreement_revision,
@@ -1524,6 +1566,40 @@ class Workspace:
         )
         self._apply_task(db, task)
         return self._task(db, project_id, current.id)
+
+    def _prepare_documents(
+        self, db: sqlite3.Connection, current: Task, author: str
+    ) -> list[DocumentSnapshot]:
+        from flowfield.worker_documents import select
+
+        documents = (
+            select(
+                db,
+                self._project_workspace(db, current.project_id),
+                self._project(db, current.project_id).worker_documents,
+                current.documents,
+            )
+            if self.schema_version >= 65
+            else []
+        )
+        # A newly adopted revision is a scope change, even if the prose description
+        # stayed the same. Old runs/results can never satisfy this newer agreement.
+        if (
+            current.publication
+            and current.publication.documents != documents
+            and current.publication.agreement_revision == current.agreement_revision
+        ):
+            task = TaskRevision(
+                **{
+                    **current.model_dump(),
+                    "revision": current.revision + 1,
+                    "agreement_revision": current.agreement_revision + 1,
+                    "updated_at": now(),
+                    "updated_by": author,
+                }
+            )
+            self._apply_task(db, task)
+        return documents
 
     def prioritize_task(self, project_id: str, task_id: str, request: TaskPriority) -> Task:
         with self.connection(write=True, project_id=project_id) as db:
@@ -1720,6 +1796,8 @@ class Workspace:
                     )
             elif request.completion == "report":
                 target_branch = None
+            documents = self._prepare_documents(db, current, request.author)
+            current = self._task(db, project_id, task_id)
             task = TaskRevision(
                 **{
                     **current.model_dump(),
@@ -1729,6 +1807,7 @@ class Workspace:
                     "reconciliation_reason": None,
                     "change_note": request.note,
                     "publication": Publication(
+                        documents=documents,
                         completion=completion,
                         target_branch=target_branch,
                         agreement_revision=current.agreement_revision,

@@ -625,10 +625,16 @@ class Questions:
         project = self.workspace._edit_project(
             db,
             current.project_id,
-            ProjectEdit(
-                expected_revision=request.expected_project_revision,
-                author=request.author,
-                **({"description": request.description} if request.description is not None else {}),
+            ProjectEdit.model_validate(
+                {
+                    "expected_revision": request.expected_project_revision,
+                    "author": request.author,
+                    **(
+                        {"description": request.description}
+                        if request.description is not None
+                        else {}
+                    ),
+                }
             ),
         )
         self.workspace._apply_tasks(

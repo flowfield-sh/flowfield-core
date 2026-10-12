@@ -464,6 +464,11 @@ class Execution:
                     "correction": correction.model_dump_json() if correction else "",
                     "validation": json.dumps(runtime_settings),
                 }
+                from flowfield.worker_documents import sections as document_sections
+
+                run.documents = task.publication.documents
+                if not continuation and not retrying_input:
+                    assignment.update(document_sections(db, run.documents))
                 handoff = db.execute(
                     "SELECT body FROM activity WHERE project_id=? AND task_id=? "
                     "AND kind='handoff' ORDER BY sequence DESC LIMIT 1",
@@ -496,6 +501,7 @@ class Execution:
                             assignment[section] = previous_sections[section]
                 if continuation or retrying_input:
                     assert predecessor
+                    run.documents = predecessor.documents
                     assignment = json.loads(
                         db.execute(
                             "SELECT assignment FROM runs WHERE id=?",

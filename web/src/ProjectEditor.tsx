@@ -10,14 +10,17 @@ import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
 import type { Project } from "./workspace";
 import { useId, useState } from "react";
 import { IntegrationSettings } from "./Integration";
+import { WorkerDocumentPicker } from "./WorkerDocuments";
 
 const fields = (record?: Project) => ({
   name: record?.name ?? "",
   description: record?.description ?? "",
   task_prefix: record?.task_prefix ?? "",
+  worker_documents: record?.worker_documents ?? [],
 });
 export function ProjectEditor({
   incoming,
+  workspaceId,
   path,
   hasTasks,
   onDirty,
@@ -25,6 +28,7 @@ export function ProjectEditor({
   close,
 }: {
   incoming: Project;
+  workspaceId: string;
   path: string;
   hasTasks: boolean;
   onDirty: (value: boolean) => void;
@@ -132,6 +136,11 @@ export function ProjectEditor({
               value={values.description}
               onChange={(value) => change("description", value)}
               previewEnabled={false}
+            />
+            <WorkerDocumentPicker
+              workspaceId={workspaceId}
+              value={values.worker_documents}
+              change={(value) => change("worker_documents", value)}
             />
             <div className="actions editor-actions">
               <Button size="sm" disabled={!dirty}>

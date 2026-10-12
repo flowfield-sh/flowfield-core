@@ -138,6 +138,7 @@ def brief_context(sections: dict[str, str]) -> dict[str, object]:
         "input",
         "earlier_answers",
         "correction",
+        "documentation",
         "project",
         "milestone",
         "stages",
@@ -149,6 +150,7 @@ def brief_context(sections: dict[str, str]) -> dict[str, object]:
         "predecessor",
         "attempt_history",
         "prior_concerns",
+        *(key for key in sections if key.startswith("document:")),
     )
     context: dict[str, str] = {}
     for key in candidates:
@@ -166,6 +168,8 @@ def brief_context(sections: dict[str, str]) -> dict[str, object]:
             "reading them again. Use read_context for other listed sections and referenced "
             "attempt:<id> sources. Do not request absent section names. "
             "Skip empty sections; retrieve full omitted essentials before acting."
+            " When documentation is listed, use complete inline document sections directly; "
+            "read its manifest and every omitted document:<id> section in full before acting."
         ),
         "sections": {key: len(value) for key, value in sections.items()},
         "truncated_sections": [key for key, limit in limits.items() if len(sections[key]) > limit],

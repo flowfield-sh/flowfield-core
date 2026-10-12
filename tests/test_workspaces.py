@@ -112,7 +112,12 @@ def legacy_store(tmp_path, monkeypatch):
 def preserved_rows(store):
     with closing(storage.connect(store.database)) as db:
         return {
-            table: db.execute(f"SELECT * FROM {table}").fetchall()
+            table: db.execute(
+                "SELECT id,name,path,description,revision,created_at,updated_at,updated_by,"
+                "task_prefix FROM projects"
+                if table == "projects"
+                else f"SELECT * FROM {table}"
+            ).fetchall()
             for table in (
                 "projects",
                 "tasks",
@@ -135,6 +140,7 @@ def test_upgrade_creates_one_workspace_per_project_without_rewriting_evidence(
     workspaces = Workspaces(store)
     assert len(workspaces.all()) == 2
     for project in store.projects():
+        assert project.worker_documents == []
         space = workspaces.for_project(project.id)
         assert space.name == project.name + " Workspace"
         assert workspaces.projects(space.id) == [project]

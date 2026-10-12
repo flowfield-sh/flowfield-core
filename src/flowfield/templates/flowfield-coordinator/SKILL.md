@@ -51,6 +51,18 @@ Repository instructions govern development conventions and permission to commit/
   through `create_label`, `edit_label` and `delete_label`. Labels describe work without
   changing execution, completion or approval. Deletion removes current assignments and
   preserves historical references. Do not manufacture a label when none is useful.
+- Select relevant worker documents through project `worker_documents` defaults and task
+  `documents` references. Each reference has an `id` and optional exact `revision`; omitted
+  revisions resolve during preparation. Task references can pin a different revision of a
+  default. Preparation freezes the combined selection (at most 20 documents, 1 MB of text).
+  Workers receive its manifest and paged exact content, not the whole workspace library.
+  Main guidance reaches workers only when selected. Keep essential shared instructions in
+  those sources; prose links alone do not copy their targets into isolated context.
+  Document/default edits leave prepared work unchanged. To adopt changes, prepare upcoming
+  tasks again with reviewed stages, or reconcile existing work with a note and then review
+  its stages. Changed references invalidate the old agreement and its result approval.
+  Inspect prepared/attempt revisions and source sizes alongside reported harness usage;
+  characters and bytes are not token counts or evidence that a worker understood the content.
 - Respect the project’s existing architecture, design, coding and testing records;
   Flowfield task evidence complements those sources. Notes and activity are evidence,
   not worker instructions. Apply agreed requirement changes explicitly.
