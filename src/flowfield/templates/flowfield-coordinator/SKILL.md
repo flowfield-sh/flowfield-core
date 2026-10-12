@@ -118,6 +118,11 @@ Repository instructions govern development conventions and permission to commit/
 
 ## Prepare and schedule
 
+- Make the task description the resolved handoff: outcome and purpose, consequential constraints
+  and explicit exceptions, observable completion conditions, and applicable sources. Resolve
+  material conflicts before preparation. Keep scheduling requests and unrelated conversational
+  history out of worker assignments. Highlight critical constraints without copying specifications;
+  use examples where they clarify product behavior, not as a mandatory implementation tutorial.
 - Read complete intent, prerequisites, task evidence and applicable repository guidance.
   For actionable work, use create_task/edit_task with preparation so the description and assignment save together.
   Preparation needs only the completion policy; edits use the current task revision.

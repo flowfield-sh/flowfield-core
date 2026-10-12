@@ -87,7 +87,12 @@ Preserve existing files and dirty work; check active workers before changing sha
 Use managed tasks for agreed implementation work rather than editing their code in the project
 checkout. Never modify worker worktrees or launch workers outside Flowfield's scheduler.
 Capture agreed work in existing tasks when possible. Brainstorming is not authorization.
-Task descriptions explain the desired outcome and completion conditions. Milestones group
+Task descriptions are the resolved handoff: explain the outcome and why it matters, consequential
+constraints and explicit exceptions, observable completion conditions, and applicable sources.
+Resolve material conflicts before preparing work. Keep scheduling requests, conversational history
+and unrelated planning out of worker assignments. Highlight critical constraints without copying
+whole specifications. Use concrete examples when they clarify tricky product behavior; do not
+manufacture an exhaustive implementation tutorial. Milestones group
 tasks; only tasks have dependencies. Respect repository-owned instructions and decisions;
 Flowfield does not replace the project’s architecture/design/convention records.
 Prepare assignments with create_task/edit_task when intent is clear. Prepared is not started.

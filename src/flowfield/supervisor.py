@@ -389,78 +389,12 @@ class Supervisor:
                 "completion": run.completion,
                 "target_branch": run.target_branch,
                 **brief_context(sections),
-                "instructions": (
-                    "Read complete description/feedback pages when listed as truncated. "
-                    "Read input, correction and validation when present. "
-                    "task_id is the stored identity; task_key is its human-facing key. "
-                    "Both identify this same assigned task. "
-                    "Prerequisites marked other_repository provide completion evidence; "
-                    "their commits and files are not part of your assigned checkout. "
-                    "Read stages and nonempty earlier_answers when listed in sections; "
-                    "attempt_history for orientation. "
-                    "Use update_stages at broad phase transitions and explain what changed. "
-                    "Phases describe the process, not file edits or implementation checklists. "
-                    "Keep human approval/integration outside agent stages; Flowfield tracks them. "
-                    "Copy existing stage ids/outcomes verbatim; put progress evidence in reason, "
-                    "not outcome. Ask about scope changes. Completed plans never grant "
-                    "completion, approval or integration. If no stages exist, define a few broad "
-                    "phases within the agreement before work (e.g. Explore/Implement/Verify or "
-                    "Investigate/Synthesize for findings); no mandatory template. "
-                    "Input contains the exact question and saved human answer; prior unfinished "
-                    "code is already in this checkout. Preserve the original agreed outcome. "
-                    "Use ordinary answers within that scope; if input materially changes it, "
-                    "ask a focused clarification instead of silently changing the assignment. "
-                    "Correction inputs "
-                    "retain both source and target ancestry; resolve conflict markers within scope "
-                    "without changing Git metadata. Ask if the required fix changes intent. "
-                    "Read nonempty project/milestone constraints, handoff, questions, "
-                    "prerequisite results and predecessor "
-                    "context before implementing. read_context provides complete "
-                    "sections in pages; search_context searches only this frozen assignment. "
-                    "New discoveries are observations, not authority to change intent. "
-                    "Use the local host's installed tools and native harness permissions. "
-                    "Discover commands on PATH; install project dependencies "
-                    "in "
-                    "this checkout/runtime when needed. Keep manifests, lockfiles and setup "
-                    "instructions reproducible so a clean validation/inspection copy works. "
-                    "A setup task must deliver reusable configuration, not merely a temporary "
-                    "installation. Missing machine-wide tools/access need a focused question. "
-                    "Repository guidance begins at the worktree root; "
-                    "do not search parent directories. "
-                    "Use native tools to inspect AGENTS.md and source files. Keep work on this "
-                    "detached checkout; do not switch branches or change shared refs. Local "
-                    "commits are allowed; the service captures the final tracked/nonignored tree "
-                    "against the assigned baseline after execution stops, validates it, "
-                    "and delivers only after human approval. "
-                    "Complete the whole agreed outcome. Features deliver usable behavior; "
-                    "bugs need regression evidence; maintenance preserves stated constraints; "
-                    "investigations report findings, evidence, uncertainty and recommendations. "
-                    "The type does not override the actual agreement. Explicitly report partial "
-                    "progress and remaining required work if unfinished; do not call a small "
-                    "increment complete for a broader task. Code needs human approval; complete "
-                    "report-only findings finish when delivered with an unchanged repository tree."
-                ),
             }
-            brief["instructions"] += (
-                " Feedback is bound to the preceding result. Explicit human reports of trying "
-                "that version are human-reported evidence, not tests you "
-                "executed. Use relevant "
-                "human confirmation to resolve manual-test limitations; do not simply repeat "
-                "an unavailable interactive test. Reassess the whole agreed outcome and retain "
-                "other unfinished requirements. Human test evidence is never code approval."
-            )
+            from flowfield.worker_instructions import instructions
+
             brief["flowfield_connection"] = server.name
-            brief["instructions"] = (
-                "You are the assigned Flowfield task worker. "
-                f"Use only the {server.name} MCP connection for Flowfield operations; "
-                "it is bound to this worker attempt. Other Flowfield connections and the "
-                "Flowfield CLI belong to standalone coordination; do not use them. "
-                "Keep your assigned worker role when reading repository guidance. "
-                "Before ending, call submit_result with the actual outcome, evidence and "
-                "limitations, or ask_question if blocked on human input. A final chat summary "
-                "does not submit a result. If a workflow tool fails, inspect its error and "
-                "resolve it before ending; do not replace submission with chat prose. "
-                + str(brief["instructions"])
+            brief["instructions"] = instructions(
+                sections, server=server.name, completion=run.completion
             )
             assert client.session_id
             async with self.permissions.turn(

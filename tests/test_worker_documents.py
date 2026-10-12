@@ -312,7 +312,10 @@ def test_selected_document_policy_reaches_native_turn_unchanged(tmp_path):
     run = execution.claim("harbor", BASE, {BASE: set()})
     envelope = brief_context(execution.assignment("harbor", run.id))
     assert f"document:{doc.id}" not in envelope["context"]
-    assert "every omitted document:<id> section in full before acting" in envelope["context_policy"]
+    assert (
+        "every omitted required document:<id> section in full before acting"
+        in envelope["context_policy"]
+    )
     payload = json.dumps(envelope, ensure_ascii=False)
 
     async def verify_wire():

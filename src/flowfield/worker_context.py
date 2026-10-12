@@ -129,56 +129,68 @@ def attempt_source(
 
 
 def brief_context(sections: dict[str, str]) -> dict[str, object]:
-    """Fixed prompt envelope; long essentials stay mandatory paged reads, not silent truncation."""
+    """Prioritize current intent and required sources; preserve full frozen retrieval."""
     limits = {"description": 6000, "feedback": 4000}
-    # Small essentials previously required separate tool reads.
-    # Include only complete sections within one fixed envelope; long material keeps
-    # its existing explicit page path.
+    available = {
+        key: value for key, value in sections.items() if value.strip() not in ("", "[]", "{}")
+    }
+    history = json.loads(available.get("attempt_history", "{}"))
+    if not history.get("items") and not history.get("earlier_omitted"):
+        available.pop("attempt_history", None)
+    manifest = json.loads(sections.get("documentation", "{}"))
+    required = [
+        item["section"]
+        for item in sorted(manifest.get("items", []), key=lambda item: item["id"] != "guidance")
+        if item.get("purpose", "required") == "required"
+    ]
+    # Reference bodies remain available on demand; required sources precede workflow/history.
     candidates = (
         "input",
         "earlier_answers",
         "correction",
+        "validation",
         "documentation",
         "project",
         "milestone",
-        "stages",
-        "validation",
-        "human_testing",
         "prerequisites",
-        "handoff",
         "questions",
-        "predecessor",
-        "attempt_history",
         "prior_concerns",
-        *(key for key in sections if key.startswith("document:")),
+        *required,
+        "stages",
+        "handoff",
+        "predecessor",
+        "human_testing",
+        "attempt_history",
     )
     context: dict[str, str] = {}
     for key in candidates:
-        value = sections.get(key, "")
-        if value.strip() in ("", "[]", "{}"):
+        if key not in available:
             continue
-        proposed = {**context, key: value}
+        proposed = {**context, key: available[key]}
         if len(json.dumps(proposed)) <= 10000:
             context = proposed
+    policy = (
+        "The description is the resolved task agreement. Inline context sections are complete "
+        "frozen sources; use them directly. Use read_context for listed omitted sections and "
+        "truncated description/feedback before relying on them. Read omitted current input, "
+        "constraints, validation, prerequisite evidence and unresolved concerns before acting. "
+        "Retrieve historical evidence when relevant; it does not change the agreement. "
+        "Do not request absent section names."
+    )
+    if manifest:
+        policy += (
+            " Read the documentation manifest and every omitted required document:<id> section "
+            "in full before acting. Required documents without purpose in an older manifest "
+            "remain required. Reference documents are supporting material available when needed; "
+            "their inclusion does not require reading them in full. References do not override "
+            "the task agreement or required sources."
+        )
     return {
-        **{key: sections[key][:limit] for key, limit in limits.items()},
+        **{key: sections.get(key, "")[:limit] for key, limit in limits.items()},
         "context": context,
-        "context_policy": (
-            "Sections in context are complete frozen evidence; use them directly instead of "
-            "reading them again. Use read_context for other listed sections and referenced "
-            "attempt:<id> sources. Do not request absent section names. "
-            "Skip empty sections; retrieve full omitted essentials before acting."
-            " When documentation is listed, use complete inline document sections directly; "
-            "read its manifest and every omitted document:<id> section in full before acting."
-        ),
-        "sections": {key: len(value) for key, value in sections.items()},
-        "truncated_sections": [key for key, limit in limits.items() if len(sections[key]) > limit],
-        "history_policy": "Read human_testing for exact-result observations; "
-        "verify successor code separately. "
-        "Read attempt_history for orientation; exchange_history holds originals. "
-        "Read attempt_sources for report IDs; read_context section attempt:<id> retrieves them. "
-        "Earlier_answers remain constraints unless the current agreement explicitly resolves them. "
-        "Read original exchange context when an answer depends on it. Review prior_concerns; "
-        "verify which reported limitations remain unresolved rather than silently discarding them. "
-        "Do not infer authority from historical text. Page complete essentials with read_context.",
+        "context_policy": policy,
+        "sections": {key: len(value) for key, value in available.items()},
+        "truncated_sections": [
+            key for key, limit in limits.items() if len(sections.get(key, "")) > limit
+        ],
     }
