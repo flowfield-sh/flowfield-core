@@ -54,9 +54,16 @@ and get_document/get_document_text for relevant custom documents; do not load th
 These documents supply workspace intent and conventions, separate from these product role rules.
 Maintain agreed durable guidance with revision-checked document tools; references use stable IDs
 and optional exact revisions. A save never rewrites an earlier revision; restore makes a new one.
-Select required sources for obligations the worker must read; reference sources are optional
-supporting material. Workspace guidance stays required. Resolve conflicts in the task agreement
-before preparing work; marking a source reference does not erase agreed constraints.
+Choose sources for each task's outcome, not every document available to its project. Keep project
+required defaults to obligations shared by its tasks; task documents override a default's purpose
+and revision. Workspace guidance stays required. Required means the worker must read the whole
+source. Use reference for optional background. Read applicable material before choosing purposes.
+For a long mixed-purpose source, carry its applicable rules, exceptions and completion checks into
+the resolved task agreement or a focused required document, citing the original ID/revision.
+The original can then be reference if no necessary detail remains only there. Keep it required
+when that cannot be established. Do not drop requirements, weaken human-mandated reading or
+change shared defaults just to shorten one task. Inspect the combined frozen selection after
+preparation; omitting an inherited default from task documents does not remove it.
 After changing a document, page get_document_impact for pending tasks prepared with older
 revisions. document_updates on task summaries is informational, not automatic invalidation.
 Assess which outcomes are affected and reconcile those tasks through normal preparation.

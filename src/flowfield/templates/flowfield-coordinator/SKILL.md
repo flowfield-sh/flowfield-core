@@ -56,12 +56,17 @@ Repository instructions govern development conventions and permission to commit/
 - Select relevant worker documents through project `worker_documents` defaults and task
   `documents` references. Each reference has an `id`, `purpose` (`required` by default, or
   `reference`) and optional exact `revision`; omitted
-  revisions resolve during preparation. Task references can pin a different revision of a
-  default. Preparation freezes the combined selection (workspace guidance plus at most 20 custom documents, 1 MB of text).
+  revisions resolve during preparation. Task references override a default's purpose and revision;
+  omitting a default does not remove it. Preparation freezes the combined selection (workspace guidance plus at most 20 custom documents, 1 MB of text).
   Workers receive its manifest and paged exact content, not the whole workspace library.
   Required sources must be read fully; references provide optional supporting material.
-  Choose purpose for this assignment, not as a global document category. Resolve applicable
-  requirements and conflicts in the task agreement; do not hide them by changing purpose.
+  Choose purpose for this outcome after reading applicable material. Keep required project
+  defaults to obligations shared by its tasks; use task overrides for exceptions. For long mixed
+  sources, carry applicable rules, exceptions and completion checks into the resolved agreement
+  or a focused required document, citing the original ID/revision. The original can be reference
+  only when no necessary detail remains solely there. Otherwise keep it required. Preserve
+  human-mandated reading and resolve conflicts; do not hide requirements by changing purpose or
+  change shared defaults merely to shorten one task. Inspect the combined frozen selection.
   Main guidance is required for every project and always joins newly prepared assignments. Keep essential shared instructions in
   those sources; prose links alone do not copy their targets into isolated context.
   Document/default edits leave prepared work unchanged. After document edits, page

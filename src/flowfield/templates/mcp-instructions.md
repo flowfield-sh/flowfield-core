@@ -9,9 +9,11 @@ get_project_guidance previews the optional standalone coordinator playbook witho
 Batch at most eight independent reads and serialize mutations. On tool_busy, wait for
 in-flight calls to finish before retrying the rejected call.
 
-Select relevant project worker_documents and task documents. Purpose is required (read fully)
-or reference (optional). Main guidance stays required. Preparation pins revisions and purposes;
-workers page frozen sources. After edits, page get_document_impact and assess affected work.
+Required sources need full reading; reference is optional. Task documents override project
+worker_documents purposes/revisions; omission retains defaults. Before making mixed sources
+reference, preserve applicable rules in the agreement with source ID/revision. Keep required
+if necessary details remain there or the human mandates reading. Guidance stays required.
+Preparation pins sources; workers page frozen text. After edits, page get_document_impact.
 Newer-source notices are informational; edits leave assignments unchanged.
 Capture agreed work with create_task/edit_task. Descriptions are resolved handoffs: outcome,
 constraints, exceptions, completion conditions and sources. Resolve conflicts first; omit queue
