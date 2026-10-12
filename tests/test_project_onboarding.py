@@ -179,6 +179,29 @@ def test_local_is_automatic_before_git_or_delivery(tmp_path: Path) -> None:
         assert client.post("/api/projects/project/integration/local", json={}).status_code == 404
 
 
+def test_related_project_prefix_suggestions_are_available(tmp_path: Path) -> None:
+    with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
+        space = client.post("/api/workspaces", json={"name": "Orders"}).json()["id"]
+        for name, prefix in [
+            ("orders-api", "ORD"),
+            ("orders-dashboard", "DAS"),
+            ("orders-import", "IMP"),
+        ]:
+            root = tmp_path / name
+            root.mkdir()
+            defaults = client.post("/api/projects/setup-defaults", json={"path": str(root)}).json()
+            assert defaults["task_prefix"] == prefix
+            assert not (root / ".flowfield").exists()
+            response = client.post(
+                f"/api/workspaces/{space}/projects", json={"path": str(root), **defaults}
+            )
+            assert response.status_code == 201
+            assert (
+                client.post("/api/projects/setup-defaults", json={"path": str(root)}).json()
+                == defaults
+            )
+
+
 def test_setup_defaults_are_read_only_and_preserve_existing_identity(tmp_path: Path) -> None:
     root = tmp_path / "Project with spaces 🚢"
     root.mkdir()

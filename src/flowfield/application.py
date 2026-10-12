@@ -551,8 +551,20 @@ class Workspace:
 
     def _task_prefix(self, db: sqlite3.Connection, project_id: str) -> str:
         candidate = default_task_prefix(project_id)
-        self._available_prefix(db, candidate)
-        return candidate
+        used = {row[0] for row in db.execute("SELECT task_prefix FROM projects")}
+        # Prefer another word in a related repository name before using a stable
+        # alphabetic fallback. Explicit user choices still go through the unique guard.
+        candidates = [candidate, *(default_task_prefix(word) for word in project_id.split("-"))]
+        for prefix in candidates:
+            if prefix not in used:
+                return prefix
+        for number in range(26**3):
+            prefix = "".join(chr(65 + number // divisor % 26) for divisor in (676, 26, 1))
+            if prefix not in used:
+                return prefix
+        raise ApplicationError(
+            "prefix_exhausted", "All three-letter task prefixes are in use.", 409
+        )
 
     def _available_prefix(self, db: sqlite3.Connection, prefix: str) -> None:
         if db.execute("SELECT 1 FROM projects WHERE task_prefix=?", (prefix,)).fetchone():
@@ -585,7 +597,10 @@ class Workspace:
         config = read_config(path)
         with self.connection() as db:
             row = db.execute("SELECT * FROM projects WHERE path = ?", (str(path),)).fetchone()
-            return setup_defaults(path, config, Project(**dict(row)) if row else None)
+            defaults = setup_defaults(path, config, Project(**dict(row)) if row else None)
+            if row is None:
+                defaults.task_prefix = self._task_prefix(db, defaults.id)
+            return defaults
 
     def setup_project(self, request: ProjectSetup, *, workspace_id: str | None = None) -> Project:
         from flowfield.agent_settings import AgentSettings

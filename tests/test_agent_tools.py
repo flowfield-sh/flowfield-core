@@ -226,6 +226,32 @@ def test_worker_reads_runs_submits_and_closes_same_bridge(tmp_path):
     asyncio.run(exercise())
 
 
+def test_scoped_endpoint_accepts_parallel_discovery_connections(tmp_path):
+    execution = fixture(tmp_path)
+
+    async def exercise():
+        grant = await workspace_scope(Supervisor(execution.workspace), "harbor")
+        async with serve_scope(grant) as server:
+            headers = {item.name: item.value for item in server.headers}
+            headers["Accept"] = "application/json, text/event-stream"
+            async with httpx.AsyncClient(headers=headers) as client:
+                # Native clients keep sockets alive while discovering several projects.
+                # Idle sockets must not consume the much smaller tool execution budget.
+                for _ in range(2):
+                    responses = await asyncio.gather(
+                        *(
+                            client.post(
+                                server.url, json={"jsonrpc": "2.0", "id": i, "method": "ping"}
+                            )
+                            for i in range(24)
+                        )
+                    )
+                    assert all(response.status_code == 200 for response in responses)
+                    assert all("result" in response.json() for response in responses)
+
+    asyncio.run(exercise())
+
+
 def test_scoped_endpoint_rejects_ambient_browser_and_expired_access(tmp_path):
     execution = fixture(tmp_path)
 

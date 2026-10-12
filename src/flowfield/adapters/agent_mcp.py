@@ -76,7 +76,11 @@ async def serve_scope(
             lifespan="off",
             access_log=False,
             log_level="error",
-            limit_concurrency=16,
+            # Uvicorn counts idle keep-alive sockets as well as active requests.
+            # Multi-project discovery can open a batch larger than the tool budget;
+            # ScopedTools independently bounds actual work and returns MCP errors.
+            limit_concurrency=64,
+            timeout_keep_alive=1,
             timeout_graceful_shutdown=5,
         )
     )
