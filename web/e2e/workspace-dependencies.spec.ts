@@ -53,7 +53,7 @@ test("cross-project prerequisites link to their owner and refresh dependent view
   await expect(page).toHaveURL(/\/projects\/dependency-core\/tasks\/DPC-1$/);
   await expect(
     page.getByRole("heading", {
-      name: "DPC-1 · dependency-core outcome",
+      name: "dependency-core · DPC-1 · dependency-core outcome",
       exact: true,
     }),
   ).toBeVisible();

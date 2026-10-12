@@ -536,7 +536,7 @@ test("entity identity and drafts persist across task and workspace tabs", async 
     exact: true,
   });
   const title = editor.getByRole("heading", {
-    name: "IDN-1 · First task",
+    name: "identity-layout · IDN-1 · First task",
     exact: true,
   });
 

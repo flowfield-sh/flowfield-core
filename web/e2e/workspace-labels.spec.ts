@@ -85,7 +85,7 @@ test("optional shared labels keep their names and deletion history", async ({
   await page.getByRole("button", { name: "Create task", exact: true }).click();
   await expect(
     page.getByRole("heading", {
-      name: "LBL-2 · Unclassified task",
+      name: "labels-core · LBL-2 · Unclassified task",
       exact: true,
     }),
   ).toBeVisible();

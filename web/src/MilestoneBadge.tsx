@@ -20,7 +20,11 @@ export function MilestoneBadge({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Badge variant="outline" className="milestone-tag" asChild>
+        <Badge
+          variant="outline"
+          className="milestone-tag bg-background"
+          asChild
+        >
           {linked ? (
             <WorkspaceLink
               to={boardHref(milestone.workspace_id, {

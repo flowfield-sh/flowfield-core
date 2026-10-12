@@ -6,6 +6,8 @@ import { WorkerDocumentEvidence } from "./WorkerDocuments";
 import { TaskLabels } from "./TaskLabels";
 import { DetailHeader, DraftBadge } from "./Presentation";
 import { MilestoneBadge } from "./MilestoneBadge";
+import { WorkspaceLink } from "./WorkspaceLink";
+import { projectHref } from "./navigation";
 import { ExpandableMarkdown } from "./ExpandableMarkdown";
 import { BlockedBy } from "./TaskLinks";
 import { TaskNeeds, TaskState, hasTaskNeeds } from "./TaskNeeds";
@@ -78,7 +80,14 @@ export function TaskDetail({
   return (
     <section className="editor task-detail">
       <DetailHeader
-        title={task.key + " · " + task.title}
+        title={
+          <>
+            <WorkspaceLink to={projectHref(board.project.id)}>
+              {board.project.name}
+            </WorkspaceLink>
+            {" · " + task.key + " · " + task.title}
+          </>
+        }
         close={close}
         closeLabel="Back to board"
       >

@@ -48,7 +48,7 @@ import { QueueControls } from "./Workers";
 import { AttentionBoard } from "./AttentionBoard";
 import { MilestoneEditor } from "./MilestoneEditor";
 import { MilestoneList } from "./Milestones";
-import { Attribution, TaskIdentity, DraftBadge } from "./Presentation";
+import { ArchiveAttribution, TaskIdentity, DraftBadge } from "./Presentation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Board,
@@ -1021,6 +1021,17 @@ function WorkspaceBoard({
               )}
 
               <div className="actions">
+                {projectFilter && !milestonesView && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      choose({ kind: "project", id: projectFilter })
+                    }
+                  >
+                    Project settings
+                  </Button>
+                )}
                 {!archive && !showInbox && (
                   <>
                     <Button
@@ -1041,17 +1052,6 @@ function WorkspaceBoard({
                       </Button>
                     )}
                   </>
-                )}
-                {projectFilter && !milestonesView && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      choose({ kind: "project", id: projectFilter })
-                    }
-                  >
-                    Project settings
-                  </Button>
                 )}
               </div>
             </div>
@@ -1520,7 +1520,7 @@ function ArchiveList({
                     <span className="readiness blocked">Needs update</span>
                   )}
                 </span>
-                <Attribution
+                <ArchiveAttribution
                   author={archived.updated_by}
                   date={archived.updated_at}
                 />

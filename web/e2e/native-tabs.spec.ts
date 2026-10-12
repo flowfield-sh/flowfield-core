@@ -78,7 +78,7 @@ test("task links open native tabs without losing the original selection or draft
       await expect(tab).toHaveURL(new RegExp(`/tasks/${first.key}$`));
       await expect(
         tab.getByRole("heading", {
-          name: `${first.key} · Prepare export`,
+          name: `${projectId} · ${first.key} · Prepare export`,
           exact: true,
         }),
       ).toBeVisible();

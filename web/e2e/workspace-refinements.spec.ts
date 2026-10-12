@@ -43,6 +43,18 @@ test("URL-backed board views, creation overlays, milestone cards and document li
       },
     })
   ).json();
+  await request.put(`/api/projects/${project}/tasks/${task.id}`, {
+    data: { expected_revision: task.revision, milestone_id: milestone.id },
+  });
+  await fixtureProject(request, {
+    workspaceId: workspace.id,
+    data: {
+      path: existingDirectory(join(state, "refinement-site")),
+      id: "refinement-site",
+      name: "Public website",
+      task_prefix: "RFS",
+    },
+  });
   for (const [title, status] of [
     ["Ongoing release", "in_progress"],
     ["Delivered release", "done"],
@@ -89,6 +101,9 @@ test("URL-backed board views, creation overlays, milestone cards and document li
     "aria-selected",
     "true",
   );
+  await page.screenshot({
+    path: testInfo.outputPath("project-actions-desktop-light.png"),
+  });
   const filters = page.locator(".board-filters select");
   await expect(filters).toHaveCount(3);
   expect(
@@ -122,6 +137,28 @@ test("URL-backed board views, creation overlays, milestone cards and document li
   await expect(
     other.getByRole("region", { name: "Task details", exact: true }),
   ).toBeVisible();
+  const heading = other.getByRole("heading", {
+    name: `Core service · ${task.key} · Inspect delivery`,
+    exact: true,
+  });
+  await expect(heading).toBeVisible();
+  await expect(
+    heading.getByRole("link", { name: "Core service" }),
+  ).toHaveAttribute("href", `${base}?project=${project}`);
+  await other.setViewportSize({ width: 1440, height: 1000 });
+  await other.screenshot({
+    path: testInfo.outputPath("task-identity-desktop-light.png"),
+  });
+  await other.setViewportSize({ width: 390, height: 844 });
+  await other.evaluate(() => localStorage.setItem("flowfield.theme", "dark"));
+  await other.reload();
+  await expect(heading).toBeVisible();
+  await other.screenshot({
+    path: testInfo.outputPath("task-identity-narrow-dark.png"),
+  });
+  await heading.getByRole("link", { name: "Core service" }).click();
+  await expect(other).toHaveURL(`${base}?project=${project}`);
+  await other.evaluate(() => localStorage.setItem("flowfield.theme", "light"));
   await other.close();
   await page
     .getByRole("button", { name: "Project settings", exact: true })
@@ -180,6 +217,14 @@ test("URL-backed board views, creation overlays, milestone cards and document li
   await expect(page.getByRole("tab", { name: /^Documents/ })).toHaveText(
     "Documents 1",
   );
+  await page.getByRole("link", { name: /Workspace guidance/ }).click();
+  await expect(page.locator(".document-projects")).toHaveText(
+    "Projects: Core service, Public website",
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("document-projects-desktop-light.png"),
+  });
+  await page.getByRole("tab", { name: /^Documents/ }).click();
   await page.getByRole("link", { name: "New document", exact: true }).click();
   await expect(
     page.getByRole("dialog", { name: "New document", exact: true }),
@@ -251,6 +296,9 @@ test("URL-backed board views, creation overlays, milestone cards and document li
     page.getByRole("button", { name: "New milestone", exact: true }),
   ).toHaveCount(0);
   await page.locator(".archive-list .task-card-link").first().hover();
+  await expect(
+    page.locator(".archive-list .record-attribution").first(),
+  ).toContainText("Archived by You");
   await expect(page.getByRole("tooltip")).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath("archive-card-narrow-dark.png"),

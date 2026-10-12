@@ -361,20 +361,22 @@ function DocumentEditor({
         )}
         {loaded && workspaceId && (
           <div className="document-projects">
-            <span>Projects:</span>
+            Projects:{" "}
             {projects
               .filter(
                 (project) =>
                   loaded.id === "guidance" ||
                   project.worker_documents.some((ref) => ref.id === loaded.id),
               )
-              .map((project) => (
-                <WorkspaceLink
-                  key={project.id}
-                  to={boardHref(workspaceId, { project: project.id })}
-                >
-                  {project.name}
-                </WorkspaceLink>
+              .map((project, index) => (
+                <span key={project.id}>
+                  {index > 0 && ", "}
+                  <WorkspaceLink
+                    to={boardHref(workspaceId, { project: project.id })}
+                  >
+                    {project.name}
+                  </WorkspaceLink>
+                </span>
               ))}
             {!projects.some(
               (project) =>

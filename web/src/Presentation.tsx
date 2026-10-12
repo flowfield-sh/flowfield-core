@@ -38,7 +38,7 @@ export function CloseControl({
   );
 }
 
-export function Attribution({
+export function ArchiveAttribution({
   author,
   date,
 }: {
@@ -47,7 +47,7 @@ export function Attribution({
 }) {
   return (
     <span className="record-attribution">
-      {authorLabel(author)} · <Timestamp date={date} />
+      Archived by {authorLabel(author)} · <Timestamp date={date} />
     </span>
   );
 }
@@ -160,7 +160,7 @@ export function DraftBadge({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Badge variant="outline" tabIndex={0}>
+        <Badge variant="outline" className="bg-background" tabIndex={0}>
           Draft
         </Badge>
       </TooltipTrigger>

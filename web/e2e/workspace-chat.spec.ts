@@ -161,7 +161,7 @@ test("member projects share coordinator history and a draft", async ({
   });
   await expect(
     page.getByRole("heading", {
-      name: "SIT-1 · Revised site task",
+      name: "shared-site · SIT-1 · Revised site task",
       exact: true,
     }),
   ).toBeVisible();

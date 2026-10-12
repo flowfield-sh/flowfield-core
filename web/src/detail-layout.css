@@ -530,9 +530,6 @@
     outline: 2px solid var(--ring);
   }
   .document-projects {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 8px;
     font-size: 12px;
   }
   @container (max-width: 800px) {
