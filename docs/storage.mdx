@@ -17,9 +17,11 @@ Choose another workspace directory with `FLOWFIELD_DATA_DIR` or `flowfield --dat
 
 ## Upgrades
 
-Upgrades from 0.2.0 and 0.2.1 preserve project settings, history, approvals and execution
+Upgrades from 0.2.0 through 0.3.1 preserve project settings, task and conversation history, approvals and execution
 ownership. Earlier versions require a separate workspace; preserve their data before
 starting fresh.
+
+Version 0.4.0 removes saved notification history and its delivery records. Pending work remains in Inbox, and available updates remain in Settings → Updates. Notification preferences live in Settings → Notifications; enable optional system delivery there after upgrading.
 
 On startup, Flowfield upgrades supported databases automatically. Before changing an
 existing database, it saves a verified snapshot in `~/.flowfield/backups/` (or your chosen

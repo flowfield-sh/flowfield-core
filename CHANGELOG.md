@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.4.0
+
+A clearer workspace for starting projects, following work, and managing your Flowfield installation.
+
+### Features
+
+- Receive linked Inbox alerts while using Flowfield and optional system notifications while elsewhere. Alerts open the relevant question, permission request or result; bursts are grouped and delivery is coordinated across tabs.
+- Configure announcements and browser permissions in Settings → Notifications, with a test notification action. Manage update checks in Settings → Updates, with release notes, upgrade instructions and the latest check status.
+- Keep each project's Run/Pause choice across service restarts, with the same queue control available in Project settings → General.
+
+### Improvements
+
+- Start from a Home page listing your projects, edit General settings directly, and get an introductory Coordinator message to help begin planning.
+- Find questions, reviews and interventions under Inbox, formerly “Needs you.”
+- Use consistent, dismissible feedback for saves, actions and failures, including inside dialogs. Settings group configuration, observed status and recovery actions more clearly.
+- Use Verify installation to detect and check a harness in one action. Results include their check time and survive page reloads while the service is running. Codex and Claude Code checks cover version and native sign-in; Pi checks its version.
+- Reset task worker model settings to project defaults directly beside Save, with the updated settings remaining open for review.
+
+### Bug fixes
+
+- Improve connection, timeout and interrupted-save feedback while retaining contextual recovery controls.
+- Fix notification permission feedback, alerts suppressed for items outside the visible area, and duplicate announcements during manual update checks.
+
+### Upgrade
+
+Stop Flowfield before updating, then restart it. Workspaces from 0.2.0 through 0.3.1 upgrade automatically after a verified database snapshot. See [storage and recovery](https://docs.flowfield.sh/storage).
+
+Enabled queues can start eligible work when the service returns. Pause queues before shutdown if you want to review work before it resumes. Interrupted workers still require recovery.
+
+The notification bell, saved notification history and legacy notification-history API are removed. Pending work remains in Inbox, and update information moves to Settings → Updates. Existing notification history is discarded during the upgrade; projects, conversations and execution evidence are preserved. Enable optional system delivery in Settings → Notifications.
+
 ## 0.3.1
 
 ### Bug fixes

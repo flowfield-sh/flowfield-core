@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-  workflow_call:
 
 permissions:
   contents: read
@@ -54,7 +53,10 @@ jobs:
       - run: uv run --no-sync pytest
 
   quality:
-    name: Quality, docs and installed packages
+    name: Quality, docs and candidate build
+    outputs:
+      artifact_id: ${{ steps.candidate.outputs.artifact-id }}
+      version: ${{ steps.identity.outputs.version }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -86,8 +88,19 @@ jobs:
       - run: pnpm --dir web check
       - run: node --test runtimes/claude-sdk/cleanup.test.mjs
       - run: make docs
-      - run: make build check-dist
+      - run: make build
       - run: uv publish --dry-run --trusted-publishing never dist/*.whl dist/*.tar.gz
+      - name: Record candidate identity and original file hashes
+        id: identity
+        run: uv run --no-sync python scripts/release.py --build-candidate .work/release-candidate
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        id: candidate
+        with:
+          name: release-candidate-${{ github.run_attempt }}
+          path: .work/release-candidate/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
 
   browser:
     name: Chromium journeys
@@ -154,10 +167,36 @@ jobs:
       - run: node --test runtimes/claude-sdk/cleanup.test.mjs
       - run: uv run --no-sync pytest tests/test_native_adapters.py tests/test_claude_agent.py tests/test_pi_agent.py tests/test_local_execution.py
 
+  installed:
+    name: Candidate installs / ${{ matrix.os }}
+    needs: quality
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15]
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          artifact-ids: ${{ needs.quality.outputs.artifact_id }}
+          merge-multiple: true
+      - name: Verify original artifact bytes
+        working-directory: dist
+        run: shasum -a 256 -c ../SHA256SUMS
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: '0.9.26'
+          python-version: '3.12'
+      - name: Exercise wheel, source and uv tool installs outside the checkout
+        env:
+          RELEASE_VERSION: ${{ needs.quality.outputs.version }}
+        run: uv run --no-project --with packaging --python 3.12 python scripts/check_dist.py --version "$RELEASE_VERSION"
+
   checked:
     name: All checks passed
     if: always()
-    needs: [backend, quality, browser, native]
+    needs: [backend, quality, browser, native, installed]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -167,4 +206,5 @@ jobs:
           QUALITY: ${{ needs.quality.result }}
           BROWSER: ${{ needs.browser.result }}
           NATIVE: ${{ needs.native.result }}
-        run: test "$BACKEND" = success && test "$QUALITY" = success && test "$BROWSER" = success && test "$NATIVE" = success
+          INSTALLED: ${{ needs.installed.result }}
+        run: test "$BACKEND" = success && test "$QUALITY" = success && test "$BROWSER" = success && test "$NATIVE" = success && test "$INSTALLED" = success

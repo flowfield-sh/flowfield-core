@@ -3,11 +3,17 @@ name: Release
 on:
   push:
     tags: ['v*']
-  # Manual runs on main rehearse the exact release artifacts without publishing.
+  # Exercise promotion only: manual runs never tag or publish.
   workflow_dispatch:
+    inputs:
+      candidate_run:
+        description: Successful Tests run for this exact main commit
+        required: true
+        type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -18,15 +24,12 @@ env:
   UV_NO_SYNC: '1'
 
 jobs:
-  checks:
-    uses: ./.github/workflows/tests.yml
-
-  build:
-    needs: checks
+  promote:
+    name: Verify candidate promotion
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 10
     outputs:
-      version: ${{ steps.identity.outputs.version }}
+      artifact_id: ${{ steps.originals.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -36,69 +39,28 @@ jobs:
         with:
           version: '0.9.26'
           python-version: '3.12'
-      - run: uv sync --locked
-      - name: Verify release identity and reviewed notes
-        id: identity
-        run: uv run --no-sync python scripts/release.py --check-ci
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: '24'
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
-        with:
-          version: '11.19.0'
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version: '1.3.11'
-      - run: echo "FLOWFIELD_BUILD_BUN=$(command -v bun)" >> "$GITHUB_ENV"
-      - run: pnpm --dir web install --frozen-lockfile
-      - run: make build
-      - run: uv publish --dry-run --trusted-publishing never dist/*.whl dist/*.tar.gz
-      - name: Record distribution checksums
-        working-directory: dist
-        run: shasum -a 256 ./*.whl ./*.tar.gz > ../SHA256SUMS
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: release-assets
-          path: |
-            dist/*.whl
-            dist/*.tar.gz
-            release-notes.md
-            SHA256SUMS
-            scripts/check_dist.py
-            scripts/check-install.py
-            tests/fake_claude_cli.py
-            tests/fake_pi.py
-          if-no-files-found: error
-          retention-days: 30
-
-  installed:
-    name: Release installs / ${{ matrix.os }}
-    needs: build
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15]
-    steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: release-assets
-      - name: Verify original artifact bytes
-        working-directory: dist
-        run: shasum -a 256 -c ../SHA256SUMS
-      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
-        with:
-          version: '0.9.26'
-          python-version: '3.12'
-      - name: Exercise pip wheel/source and uv tool installations without a checkout
+      - name: Verify successful candidate, source, attempt and original artifact bytes
         env:
-          RELEASE_VERSION: ${{ needs.build.outputs.version }}
-        run: uv run --no-project --with packaging --python 3.12 python scripts/check_dist.py --version "$RELEASE_VERSION"
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_RUN: ${{ inputs.candidate_run }}
+        run: |
+          args=()
+          if [ -n "$CANDIDATE_RUN" ]; then args+=(--candidate-run "$CANDIDATE_RUN"); fi
+          uv run --no-project --python 3.12 python scripts/release.py --promote-ci .work/promoted "${args[@]}"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        id: originals
+        with:
+          name: release-assets-${{ github.run_attempt }}
+          path: .work/promoted/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+      - name: Record promotion receipt
+        run: cat .work/promoted/candidate.json >> "$GITHUB_STEP_SUMMARY"
 
   pypi:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: [build, installed]
+    needs: promote
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment:
@@ -110,7 +72,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: release-assets
+          artifact-ids: ${{ needs.promote.outputs.artifact_id }}
+          merge-multiple: true
       - name: Verify original artifact bytes
         working-directory: dist
         run: shasum -a 256 -c ../SHA256SUMS
@@ -124,7 +87,7 @@ jobs:
           --check-url https://pypi.org/simple dist/*.whl dist/*.tar.gz
 
   github:
-    needs: pypi
+    needs: [promote, pypi]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -132,7 +95,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: release-assets
+          artifact-ids: ${{ needs.promote.outputs.artifact_id }}
+          merge-multiple: true
       - name: Verify original artifact bytes
         working-directory: dist
         run: shasum -a 256 -c ../SHA256SUMS
