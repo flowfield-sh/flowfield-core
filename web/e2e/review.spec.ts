@@ -907,9 +907,11 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await page
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();
+  // Delivery includes asynchronous scheduling and real Git checkout verification.
+  // The full suite's many projects can exceed the default five-second UI budget.
   await expect(
     page.getByText("Delivered to delivery.", { exact: false }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15000 });
   await page.goto(`/projects/${project}`);
   await expect(
     page.getByRole("button", { name: "Try project", exact: true }),

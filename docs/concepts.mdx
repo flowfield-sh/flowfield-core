@@ -93,14 +93,14 @@ indicator describes its live update stream.
 
 ## Agent settings and permissions
 
-Project worker defaults and task overrides use the same harness/model choice, with
+Workspace worker defaults and task overrides use the same harness/model choice, with
 reasoning effort and access mode only where the harness supports those controls.
 Each attempt saves the choice it used. Changing defaults does not alter running attempts
 or explicit task overrides. Unavailable choices fail explicitly instead of selecting
 another model.
 
 Fast mode is available only for models that support it. Workers start with Fast off; enable it
-per task using the lightning button. There is no project-wide speed default. The Coordinator
+per task using the lightning button. There is no workspace-wide speed default. The Coordinator
 has its own Fast choice. Changes affect subsequent attempts and can increase usage;
 historical attempts keep their original choices.
 
