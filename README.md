@@ -25,14 +25,18 @@ Open source. Runs locally. Works with **Codex, Claude Code and Pi**—choose ind
 
 ## Keep the thinking with the work.
 
-| | What you get |
-| --- | --- |
-| **💬 Shape the idea** | Talk through the problem with the Coordinator. Turn decisions into clear tasks and milestones while the work continues beside the conversation. |
-| **🗂️ Connect your projects** | Bring the API, frontend and tooling into one workspace. Share guidance, documents and priorities; link tasks across repositories when one outcome depends on another. |
-| **📚 Give workers the right context** | Select required sources and supporting references. Prepared tasks keep their exact document revisions, and newer source revisions stay visible for review. |
-| **⚡ Build in parallel** | Run independent tasks in separate Git checkouts with your own tools and checks. Dependencies hold later work until its prerequisites are complete. |
-| **📥 Know what needs you** | Find questions, blockers and results in Inbox. Keep each task’s progress, answers and evidence together in its feed. |
-| **🔎 Own the finish** | Inspect the diff, try the exact result, ask for another pass, or approve delivery to your branch. Approval stays tied to the code you reviewed. |
+**💬 Shape the idea** — Talk through the problem with the Coordinator. Turn decisions into clear tasks and milestones while the work continues beside the conversation.
+
+**🗂️ Connect your projects** — Bring the API, frontend and tooling into one workspace. Share guidance, documents and priorities; link tasks across repositories when one outcome depends on another.
+
+**📚 Give workers the right context** — Select required sources and supporting references. Prepared tasks keep their exact document revisions, and newer source revisions stay visible for review.
+
+**⚡ Build in parallel** — Run independent tasks in separate Git checkouts with your own tools and checks. Dependencies hold later work until its prerequisites are complete.
+
+**📥 Know what needs you** — Find questions, blockers and results in Inbox. Keep each task’s progress, answers and evidence together in its feed.
+
+**🔎 Own the finish** — Inspect the diff, try the exact result, ask for another pass, or approve delivery to your branch. Approval stays tied to the code you reviewed.
+
 
 ## One feature. Three repositories. One place to follow it.
 
