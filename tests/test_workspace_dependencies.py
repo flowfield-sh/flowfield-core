@@ -104,13 +104,17 @@ def test_competing_cross_project_edges_cannot_commit_a_cycle(tmp_path):
         assert sorted([first.result(), second.result()]) == ["dependency_cycle", "saved"]
 
 
-def test_foreign_code_is_frozen_evidence_without_local_ancestry_or_worker_scope(tmp_path):
+@pytest.mark.parametrize("managed", [False, True], ids=["frozen-scope", "managed-launch"])
+def test_foreign_code_is_frozen_evidence_without_local_ancestry_or_worker_scope(
+    tmp_path, monkeypatch, managed
+):
     from test_results import approve, current
     from test_results import fixture as result_fixture
 
     from flowfield.adapters.git_workspace import baseline, git
+    from flowfield.agent_models import AgentChoice
     from flowfield.agent_tools import worker_scope
-    from flowfield.execution_models import QueueEdit
+    from flowfield.execution_models import QueueEdit, SettingsEdit
     from flowfield.integration_models import IntegrationConfig
     from flowfield.worker_tools import WorkerBridge
 
@@ -151,9 +155,17 @@ def test_foreign_code_is_frozen_evidence_without_local_ancestry_or_worker_scope(
         ),
     )
     store.publish_task(
-        "site", task.id, TaskPublish(expected_revision=task.revision, completion="report")
+        "site", task.id, TaskPublish(expected_revision=task.revision, completion="code")
     )
     settings = service.execution.settings("site")
+    if managed:
+        settings = service.execution.configure(
+            "site",
+            SettingsEdit(
+                expected_revision=settings.revision,
+                selection=AgentChoice(model="test-model", effort="low"),
+            ),
+        )
     service.execution.queue("site", QueueEdit(expected_revision=settings.revision, enabled=True))
     own_base = baseline(repo)
     assert own_base != accepted.candidate_commit
@@ -166,6 +178,17 @@ def test_foreign_code_is_frozen_evidence_without_local_ancestry_or_worker_scope(
     assert prerequisites[0]["commit"] == accepted.candidate_commit
     assert prerequisites[0]["result"]["summary"] == "Outcome"
     assert BrowserReads(store).board("site").pending_code.get(task.id, []) == []
+    if managed:
+        from test_supervisor import FakeWorker
+
+        monkeypatch.setattr("flowfield.adapters.agent_selection.CodexAgent", FakeWorker)
+        monkeypatch.setattr("flowfield.supervisor.process_stamp", lambda pid: "fixture-process")
+        asyncio.run(service._execute(run, repo))
+        current_run = service.execution.get("site", run.id)
+        assert current_run.status == "in_review", current_run.problem
+        assert (service.environment(run.id).checkout / "result.txt").read_text() == "implemented"
+        assert baseline(repo) == own_base  # Delivery still requires this result's approval.
+        return
     service.execution.started("site", run.id)
 
     async def read_frozen_evidence():

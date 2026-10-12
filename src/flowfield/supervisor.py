@@ -283,8 +283,12 @@ class Supervisor:
         try:
             sections = self.execution.assignment(run.project_id, run.id)
             for prerequisite in json.loads(sections["prerequisites"]):
-                if prerequisite["commit"] and not await asyncio.to_thread(
-                    contains, repository, prerequisite["commit"], starting_commit
+                if (
+                    prerequisite.get("project_id", run.project_id) == run.project_id
+                    and prerequisite["commit"]
+                    and not await asyncio.to_thread(
+                        contains, repository, prerequisite["commit"], starting_commit
+                    )
                 ):
                     raise ApplicationError(
                         "baseline_missing_prerequisite",
