@@ -482,12 +482,17 @@ def test_launcher_stops_with_its_terminal_process_group(tmp_path):
     service, _, _ = fixture(tmp_path)
     service.results.process("harbor")
     inspections = Inspections(service.workspace)
+    # Block before announcing readiness so the group interrupt stays pending even
+    # if it arrives before the child enters its wait. signal.pause has no such handoff.
     inspections.configure(
         "harbor",
         InspectionConfig(
             expected_revision=1,
             run_command="trap 'exit 130' INT\n"
-            "python -c 'import signal; print(\"ready\", flush=True); signal.pause()'\n"
+            "python -c 'import signal; "
+            "signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT}); "
+            'print("ready", flush=True); '
+            "signal.sigwait({signal.SIGINT}); raise SystemExit(130)'\n"
             "touch survived",
         ),
     )

@@ -179,9 +179,12 @@ test("an outage is reported once across settings reads and polling, recovers, an
   offline = false;
   await errors(page).getByRole("button", { name: "Close toast" }).click();
   await editor.getByRole("tab", { name: "Integration", exact: true }).click();
+  // The tab transition can briefly hide both controls. Wait for the failed
+  // resources before recovery so an immediate count cannot skip the clicks.
+  await expect(retries).toHaveCount(2);
   // Wait for each recovery to settle before clicking the next resource's Retry.
   // Otherwise both clicks can hit the same still-visible first button.
-  for (let attempt = 0; attempt < 2 && (await retries.count()); attempt++) {
+  for (let attempt = 0; attempt < 2; attempt++) {
     const count = await retries.count();
     const recovered = page.waitForResponse(
       (response) =>
