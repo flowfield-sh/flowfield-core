@@ -197,9 +197,15 @@ def test_worker_reads_runs_submits_and_closes_same_bridge(tmp_path):
 
     async def exercise():
         bridge = WorkerBridge(execution, run, Commands())
+        grant = worker_scope(bridge)
+        for name, tool in grant.tools.items():
+            assert tool.annotations
+            assert tool.annotations.readOnlyHint == (name in {"read_context", "search_context"})
+            assert tool.annotations.destructiveHint is False
+            assert tool.annotations.openWorldHint is False
         events = await journey(
             tmp_path,
-            worker_scope(bridge),
+            grant,
             [
                 {"name": "read_context", "arguments": {"section": "description"}},
                 {"name": "run_command", "arguments": {"command": "perform assigned check"}},

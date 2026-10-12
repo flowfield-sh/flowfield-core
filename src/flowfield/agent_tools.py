@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.lowlevel import Server
-from mcp.types import CallToolResult, TextContent, Tool
+from mcp.types import CallToolResult, TextContent, Tool, ToolAnnotations
 from pydantic import ValidationError
 
 from flowfield.errors import ApplicationError
@@ -110,7 +110,14 @@ def worker_scope(bridge: WorkerBridge) -> ScopedTools:
     return ScopedTools(
         [
             Tool(
-                name=item["name"], description=item["description"], inputSchema=item["inputSchema"]
+                name=item["name"],
+                description=item["description"],
+                inputSchema=item["inputSchema"],
+                annotations=ToolAnnotations(
+                    readOnlyHint=item["name"] in {"read_context", "search_context"},
+                    destructiveHint=False,
+                    openWorldHint=False,
+                ),
             )
             for item in worker_tools()
         ],

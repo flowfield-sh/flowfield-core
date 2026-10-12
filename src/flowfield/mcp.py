@@ -695,6 +695,8 @@ def create_mcp(
         """Capture agreed work, default feature in Backlog; first search for an existing task.
 
         Include one to eight outcome stages in this same call, even for a draft.
+        Use task keys (for example API-1) for dependencies across projects in this workspace;
+        bare task IDs resolve only within the destination project.
         For actionable intent include preparation with completion. Capture and preparation
         commit atomically or neither is saved. Check
         code destination/check settings first; if genuinely missing, save intent without
@@ -714,6 +716,7 @@ def create_mcp(
         Include preparation for actionable upcoming work, using completion, to save and prepare
         atomically. Failure leaves prior intent
         unchanged. Preserves priority/queue; active work requires reconciliation instead.
+        Cross-project dependencies use task keys (for example API-1), not bare task IDs.
         Read get_task_stages and include stages (expected_revision, stages, reason) here
         to reconcile the plan with the new agreement atomically while idle.
         milestone_id=null clears grouping; archived=false restores.
