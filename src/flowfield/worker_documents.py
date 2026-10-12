@@ -57,6 +57,7 @@ def select(
                 characters=len(doc.body),
                 bytes=len(body),
                 sha256=sha256(body).hexdigest(),
+                purpose=reference.purpose,
             )
         )
     if sum(item.bytes for item in result) > MAX_BYTES:
@@ -80,8 +81,9 @@ def sections(db: sqlite3.Connection, documents: list[DocumentSnapshot]) -> dict[
     if documents:
         result["documentation"] = json.dumps(
             {
-                "policy": "Read every selected document in full before acting. These revisions are "
-                "part of the frozen assignment. Prose references do not expand tool scope. "
+                "policy": "Read required documents in full before acting. Reference documents "
+                "are supporting material to consult when needed, not additional requirements. "
+                "All selected revisions are frozen. Prose references do not expand tool scope. "
                 "Ask a question if necessary material is missing or conflicts with the task.",
                 "items": [
                     {**item.model_dump(), "section": f"document:{item.id}"} for item in documents

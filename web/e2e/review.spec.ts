@@ -608,7 +608,7 @@ test("managed answers show durable pause, safe edits and immutable correction in
   fixture("create");
   await page.goto("/projects/input-browser/tasks/INP-1");
   const inputArea = page.getByRole("form", { name: "Task input", exact: true });
-  await expect(inputArea).toContainText("Answer the worker");
+  await expect(inputArea).toContainText("Answer the question");
   await expect(
     page.getByRole("button", { name: "Stop worker", exact: true }),
   ).toHaveCount(0);

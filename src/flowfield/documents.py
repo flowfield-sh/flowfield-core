@@ -63,6 +63,24 @@ class Documents:
     def __init__(self, store: Workspace):
         self.store = store
 
+    def impact(
+        self, workspace_id: str, identity: str, *, after: str | None = None, limit: int = 20
+    ) -> dict[str, Any]:
+        """Page unfinished tasks prepared with an earlier revision; this is not invalidation."""
+        from flowfield.document_updates import UPDATED_SOURCES
+
+        validate_page(limit)
+        with self.store.connection() as db:
+            self.read(db, workspace_id, identity)
+            rows = db.execute(
+                "SELECT *,project_id || '/' || task_id AS cursor FROM ("
+                + UPDATED_SOURCES
+                + ") WHERE workspace_id=? AND id=? AND project_id || '/' || task_id>? "
+                "ORDER BY project_id,task_id LIMIT ?",
+                (workspace_id, identity, after or "", limit + 1),
+            ).fetchall()
+            return page([dict(row) for row in rows], limit, "cursor")
+
     @staticmethod
     def seed(db: sqlite3.Connection, workspace_id: str, author: str, timestamp: str) -> None:
         db.execute(

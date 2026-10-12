@@ -193,6 +193,8 @@ class ContextReads:
         blocked = [p for p in item.dependencies if p not in completed]
         questions = blocking_questions(db, item.project_id, item.id)
         publication = publication_status(item)
+        from flowfield.document_updates import task_updates
+
         return excerpt(
             {
                 "id": item.id,
@@ -216,6 +218,11 @@ class ContextReads:
                 ),
                 "publication_status": publication,
                 "preparation_issue": preparation_issue(db, item),
+                "document_updates": [
+                    update.model_dump() for update in task_updates(db, item.project_id, item.id)
+                ]
+                if item.publication and item.publication.documents
+                else [],
                 "agreement_revision": item.agreement_revision,
                 "prerequisite_count": len(item.dependencies),
                 "blocked_count": len(blocked),

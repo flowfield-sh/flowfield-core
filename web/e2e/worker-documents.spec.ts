@@ -34,6 +34,9 @@ test("project defaults prepare exact task documents and preserve revision links"
   await page
     .getByRole("checkbox", { name: "Core conventions", exact: true })
     .check();
+  await page
+    .getByRole("combobox", { name: "Use Core conventions as" })
+    .selectOption("reference");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Save changes", exact: true }),
@@ -46,6 +49,9 @@ test("project defaults prepare exact task documents and preserve revision links"
   await expect(
     page.getByRole("checkbox", { name: "Core conventions", exact: true }),
   ).toBeChecked();
+  await expect(
+    page.getByRole("combobox", { name: "Use Core conventions as" }),
+  ).toHaveValue("reference");
   await expect(
     page.getByRole("checkbox", { name: "Workspace guidance", exact: true }),
   ).toBeChecked();
@@ -83,10 +89,18 @@ test("project defaults prepare exact task documents and preserve revision links"
   expect(taskResponse.ok(), await taskResponse.text()).toBeTruthy();
   const task = await taskResponse.json();
   expect(task.publication.documents).toHaveLength(2);
+  expect(
+    task.publication.documents.find(
+      (item: { id: string }) => item.id === doc.id,
+    ).purpose,
+  ).toBe("reference");
   await request.put(`/api/workspaces/${workspace.id}/documents/${doc.id}`, {
     data: { expected_revision: 1, body: "Updated after preparation" },
   });
   await page.goto(`/projects/${project.id}/tasks/${task.key}`);
+  await expect(
+    page.getByText("Newer source revision available", { exact: true }),
+  ).toBeVisible();
   await page
     .locator("summary")
     .filter({ hasText: /^Worker documents$/ })
@@ -98,6 +112,9 @@ test("project defaults prepare exact task documents and preserve revision links"
     }),
   ).toBeVisible();
   await expect(page.getByText(/bytes of source text/)).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Revision 2 available", exact: true }),
+  ).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => localStorage.setItem("flowfield.theme", "dark"));
   await page.reload();
@@ -116,4 +133,10 @@ test("project defaults prepare exact task documents and preserve revision links"
   await expect(
     page.getByText("Keep the public API stable. 🦉", { exact: true }),
   ).toBeVisible();
+  await page.goto(`/workspaces/${workspace.id}/inbox`);
+  await expect(
+    page.getByText("Newer source revision available", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: /Use documented conventions/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${task.key}$`));
 });

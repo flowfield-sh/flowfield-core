@@ -69,7 +69,13 @@ def test_preparation_freezes_union_and_workers_page_only_selected_revisions(tmp_
     task = prepare(store)
     assert len(task.publication.documents) == 3
     docs.edit("harbor", shared.id, DocumentEdit(expected_revision=1, body="New instructions"))
-    assert store.task("harbor", task.id) == task
+    current = store.task("harbor", task.id)
+    assert current.model_dump(exclude={"document_updates"}) == task.model_dump(
+        exclude={"document_updates"}
+    )
+    assert [(u.id, u.prepared_revision, u.latest_revision) for u in current.document_updates] == [
+        (shared.id, 1, 2)
+    ]
     run = execution.claim("harbor", BASE, {BASE: set()})
     assert run.documents == task.publication.documents
     assignment = execution.assignment("harbor", run.id)
@@ -113,12 +119,15 @@ def test_new_revisions_require_preparation_and_change_the_agreement_atomically(t
     first = prepare(store)
     assert prepare(store) == first
     Documents(store).edit("harbor", doc.id, DocumentEdit(expected_revision=1, body="Changed"))
-    assert store.task("harbor", first.id) == first
+    current = store.task("harbor", first.id)
+    assert current.model_dump(exclude={"document_updates"}) == first.model_dump(
+        exclude={"document_updates"}
+    )
     with pytest.raises(ApplicationError, match="current stages"):
         store.publish_task(
             "harbor", first.id, TaskPublish(expected_revision=first.revision, completion="report")
         )
-    assert store.task("harbor", first.id) == first  # Failed preparation rolls back scope too.
+    assert store.task("harbor", first.id) == current  # Failed preparation rolls back scope too.
     refreshed = prepare(store)
     assert refreshed.agreement_revision == first.agreement_revision + 1
     assert refreshed.publication.documents[0].revision == 2

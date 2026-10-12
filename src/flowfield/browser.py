@@ -5,7 +5,7 @@ from collections.abc import Callable
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from flowfield.application import (
     Milestone,
@@ -23,6 +23,7 @@ from flowfield.attention import (
     attention_page,
     workspace_attention_counts,
 )
+from flowfield.document_models import DocumentUpdate
 from flowfield.errors import ApplicationError
 from flowfield.labels import Labels, WorkspaceLabel
 from flowfield.milestones import Milestones
@@ -42,6 +43,7 @@ from flowfield.workspaces import WorkspaceRecord, Workspaces
 
 
 class TaskCard(TaskReference):
+    document_updates: list[DocumentUpdate] = Field(default_factory=list)
     preparation_issue: str | None
     state: WorkState | None = None
     project_id: str
@@ -137,9 +139,14 @@ class BrowserReads:
         questions = blocking_questions(db, task.project_id, task.id)
         publication = publication_status(task)
         state = task_state(self.workspace, db, task.project_id, task.id)
+        from flowfield.document_updates import task_updates
+
         return TaskCard(
             **task.model_dump(exclude={"body", "change_note"}),
             position=position,
+            document_updates=task_updates(db, task.project_id, task.id)
+            if task.publication and task.publication.documents
+            else [],
             status_changed_at=timeline["entered"],
             archived_at=timeline["archived_at"] if task.archived else None,
             archived_by=timeline["archived_by"] if task.archived else None,

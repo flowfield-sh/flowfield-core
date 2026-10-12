@@ -147,7 +147,10 @@ export function TaskDetail({
           onDirty={setLabelDirty}
           saved={saved}
         />
-        <WorkerDocumentEvidence documents={task.publication?.documents ?? []} />
+        <WorkerDocumentEvidence
+          documents={task.publication?.documents ?? []}
+          updates={task.document_updates}
+        />
         {hasTaskNeeds(task, board.pending_code[task.id], false) && (
           <DetailSection title="Waiting on">
             <TaskNeeds

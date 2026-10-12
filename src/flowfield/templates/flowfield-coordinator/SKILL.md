@@ -54,13 +54,20 @@ Repository instructions govern development conventions and permission to commit/
   changing execution, completion or approval. Deletion removes current assignments and
   preserves historical references. Do not manufacture a label when none is useful.
 - Select relevant worker documents through project `worker_documents` defaults and task
-  `documents` references. Each reference has an `id` and optional exact `revision`; omitted
+  `documents` references. Each reference has an `id`, `purpose` (`required` by default, or
+  `reference`) and optional exact `revision`; omitted
   revisions resolve during preparation. Task references can pin a different revision of a
   default. Preparation freezes the combined selection (workspace guidance plus at most 20 custom documents, 1 MB of text).
   Workers receive its manifest and paged exact content, not the whole workspace library.
+  Required sources must be read fully; references provide optional supporting material.
+  Choose purpose for this assignment, not as a global document category. Resolve applicable
+  requirements and conflicts in the task agreement; do not hide them by changing purpose.
   Main guidance is required for every project and always joins newly prepared assignments. Keep essential shared instructions in
   those sources; prose links alone do not copy their targets into isolated context.
-  Document/default edits leave prepared work unchanged. To adopt changes, prepare upcoming
+  Document/default edits leave prepared work unchanged. After document edits, page
+  `get_document_impact`; task `document_updates` and Board/Inbox expose newer revisions.
+  These are informational, not automatic invalidation. Assess relevance, then adopt changes
+  only for affected work. Running attempts keep frozen sources. To adopt changes, prepare upcoming
   tasks again with reviewed stages, or reconcile existing work with a note and then review
   its stages. Changed references invalidate the old agreement and its result approval.
   Inspect prepared/attempt revisions and source sizes alongside reported harness usage;

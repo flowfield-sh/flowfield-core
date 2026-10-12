@@ -2592,7 +2592,8 @@ export interface components {
         | "intervention"
         | "integration"
         | "result"
-        | "permission";
+        | "permission"
+        | "document";
       /** Task Key */
       task_key: string | null;
       /** Title */
@@ -3157,6 +3158,12 @@ export interface components {
       id: string;
       /** Revision */
       revision?: number | null;
+      /**
+       * Purpose
+       * @default required
+       * @enum {string}
+       */
+      purpose: "required" | "reference";
     };
     /** DocumentReference */
     "DocumentReference-Output": {
@@ -3164,6 +3171,12 @@ export interface components {
       id: string;
       /** Revision */
       revision: number | null;
+      /**
+       * Purpose
+       * @default required
+       * @enum {string}
+       */
+      purpose: "required" | "reference";
     };
     /** DocumentRestore */
     DocumentRestore: {
@@ -3193,6 +3206,30 @@ export interface components {
       bytes: number;
       /** Sha256 */
       sha256: string;
+      /**
+       * Purpose
+       * @default required
+       * @enum {string}
+       */
+      purpose: "required" | "reference";
+    };
+    /** DocumentUpdate */
+    DocumentUpdate: {
+      /** Workspace Id */
+      workspace_id: string;
+      /** Id */
+      id: string;
+      /** Title */
+      title: string;
+      /** Prepared Revision */
+      prepared_revision: number;
+      /** Latest Revision */
+      latest_revision: number;
+      /**
+       * Purpose
+       * @enum {string}
+       */
+      purpose: "required" | "reference";
     };
     /** Edit */
     Edit: {
@@ -4987,6 +5024,8 @@ export interface components {
       change_note: string;
       /** Report Completion Revision */
       report_completion_revision: number | null;
+      /** Document Updates */
+      document_updates: components["schemas"]["DocumentUpdate"][];
       /** Preparation Issue */
       preparation_issue: string | null;
       latest_update: components["schemas"]["ActivityEntry"] | null;
@@ -5038,6 +5077,8 @@ export interface components {
       archived: boolean;
       /** Reconciliation Reason */
       reconciliation_reason: string | null;
+      /** Document Updates */
+      document_updates?: components["schemas"]["DocumentUpdate"][];
       /** Preparation Issue */
       preparation_issue: string | null;
       state?: components["schemas"]["WorkState"] | null;
@@ -5137,6 +5178,8 @@ export interface components {
       archived: boolean;
       /** Reconciliation Reason */
       reconciliation_reason: string | null;
+      /** Document Updates */
+      document_updates: components["schemas"]["DocumentUpdate"][];
       /** Preparation Issue */
       preparation_issue: string | null;
       state: components["schemas"]["WorkState"] | null;

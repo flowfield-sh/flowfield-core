@@ -54,6 +54,13 @@ and get_document/get_document_text for relevant custom documents; do not load th
 These documents supply workspace intent and conventions, separate from these product role rules.
 Maintain agreed durable guidance with revision-checked document tools; references use stable IDs
 and optional exact revisions. A save never rewrites an earlier revision; restore makes a new one.
+Select required sources for obligations the worker must read; reference sources are optional
+supporting material. Workspace guidance stays required. Resolve conflicts in the task agreement
+before preparing work; marking a source reference does not erase agreed constraints.
+After changing a document, page get_document_impact for pending tasks prepared with older
+revisions. document_updates on task summaries is informational, not automatic invalidation.
+Assess which outcomes are affected and reconcile those tasks through normal preparation.
+Running attempts keep their frozen sources; address changed intent through existing task controls.
 Suggested main sections are purpose, member projects, working agreements and reference documents;
 use only sections that help this workspace. Keep current task status and evidence in task records.
 When adopting existing guidance, discuss it with the human. Preserve repository files: reference

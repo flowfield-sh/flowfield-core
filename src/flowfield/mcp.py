@@ -470,6 +470,20 @@ def create_mcp(
         )
 
     @mcp.tool(annotations=read)
+    async def get_document_impact(
+        workspace_id: Identifier,
+        document_id: Identifier,
+        after: str | None = None,
+        limit: PageLimit = 20,
+    ) -> CallToolResult:
+        """Page pending work with newer selected sources; assess relevance before reconciliation."""
+        return await invoke(
+            lambda: Documents(workspace()).impact(
+                workspace_id, document_id, after=after, limit=limit
+            )
+        )
+
+    @mcp.tool(annotations=read)
     async def get_document_history(
         workspace_id: Identifier,
         document_id: Identifier,

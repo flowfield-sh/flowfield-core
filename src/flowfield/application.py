@@ -31,7 +31,12 @@ from flowfield.activity import (
     EntryKind,
 )
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit
-from flowfield.document_models import DocumentReference, DocumentReferences, DocumentSnapshot
+from flowfield.document_models import (
+    DocumentReference,
+    DocumentReferences,
+    DocumentSnapshot,
+    DocumentUpdate,
+)
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import ACTIVE, SettingsEdit
 from flowfield.execution_models import SCHEMA as EXECUTION_SCHEMA
@@ -328,6 +333,7 @@ class TaskReference(BaseModel):
 
 
 class Task(TaskRevision):
+    document_updates: list[DocumentUpdate] = Field(default_factory=list)
     preparation_issue: str | None
     latest_update: ActivityEntry | None = None
     position: int
@@ -1175,9 +1181,14 @@ class Workspace:
         blocked = [records[p] for p in current.dependencies if p not in completed]
         questions = blocking_questions(db, project_id, task_id)
         publication = publication_status(current)
+        from flowfield.document_updates import task_updates
+
         return Task(
             **current.model_dump(),
             position=row["position"],
+            document_updates=task_updates(db, project_id, task_id)
+            if current.publication and current.publication.documents
+            else [],
             latest_update=self._latest_update(db, project_id, task_id),
             revisions=revisions,
             publication_status=publication,

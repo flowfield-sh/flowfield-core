@@ -21,16 +21,21 @@ export function TaskState({
   linked?: boolean;
 }) {
   return (
-    <WorkState state={task.state} linked={linked}>
-      {combinedDependencies(task) ? (
-        <BlockedBy
-          prefix="Waiting on"
-          projectId={projectId}
-          tasks={task.blocked_by}
-          open={open}
-        />
-      ) : undefined}
-    </WorkState>
+    <>
+      <WorkState state={task.state} linked={linked}>
+        {combinedDependencies(task) ? (
+          <BlockedBy
+            prefix="Waiting on"
+            projectId={projectId}
+            tasks={task.blocked_by}
+            open={open}
+          />
+        ) : undefined}
+      </WorkState>
+      {!!task.document_updates?.length && (
+        <p className="detail-metadata">Newer source revision available</p>
+      )}
+    </>
   );
 }
 

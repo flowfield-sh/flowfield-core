@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel
 
 from flowfield.browser_links import project_href
+from flowfield.document_updates import UPDATED_SOURCES
 from flowfield.work_state import WorkState, question_state, task_state
 
 if TYPE_CHECKING:
@@ -18,7 +19,9 @@ AttentionColumn = Literal["action", "waiting", "history"]
 class AttentionItem(BaseModel):
     project_id: str | None
     id: str
-    kind: Literal["question", "review", "intervention", "integration", "result", "permission"]
+    kind: Literal[
+        "question", "review", "intervention", "integration", "result", "permission", "document"
+    ]
     task_key: str | None
     title: str
     status: str
@@ -126,7 +129,22 @@ WITH scope_projects AS (SELECT id FROM projects WHERE id=:project), run_items AS
 )
 """
 
-_WORKSPACE_PROJECTION = _PROJECTION.replace(
+# Informational source updates have no actionable notification lifecycle.
+_WITH_DOCUMENTS = (
+    _PROJECTION.rstrip()[:-1]
+    + """
+    UNION ALL
+    SELECT project_id,task_id,'document',task_key,substr(task_title,1,500),
+        'newer_source',max(updated_at),NULL,'waiting',NULL,NULL
+    FROM ("""
+    + UPDATED_SOURCES
+    + """) WHERE project_id IN (SELECT id FROM scope_projects)
+    GROUP BY project_id,task_id
+)
+"""
+)
+
+_WORKSPACE_PROJECTION = _WITH_DOCUMENTS.replace(
     "SELECT id FROM projects WHERE id=:project",
     "SELECT project_id AS id FROM workspace_projects WHERE workspace_id=:workspace "
     "AND (:project IS NULL OR project_id=:project)",
@@ -158,7 +176,7 @@ def attention_counts(db: sqlite3.Connection, project_id: str) -> dict[str, int]:
     """The board badge and inbox use exactly the same current-work projection."""
     return dict(
         db.execute(
-            _PROJECTION
+            _WITH_DOCUMENTS
             + "SELECT bucket,count(*) FROM items WHERE bucket IS NOT NULL GROUP BY bucket",
             {"project": project_id},
         ).fetchall()
@@ -185,7 +203,7 @@ def attention_page(
             workspace._project(db, project_id)
         else:
             raise ValueError("An attention scope is required")
-        projection = _WORKSPACE_PROJECTION if workspace_id is not None else _PROJECTION
+        projection = _WORKSPACE_PROJECTION if workspace_id is not None else _WITH_DOCUMENTS
         args = {
             "project": project_id,
             "workspace": workspace_id,
@@ -209,7 +227,13 @@ def attention_page(
         items = [AttentionItem.model_validate(dict(row)) for row in rows]
         for item in items:
             owner = item.project_id
-            if item.kind == "permission":
+            if item.kind == "document" and owner:
+                item.state = WorkState(
+                    label="Newer source revision available",
+                    tone="idle",
+                    href=f"{project_href(owner)}/tasks/{item.task_key}",
+                )
+            elif item.kind == "permission":
                 item.state = WorkState(
                     label="Review tool permission"
                     if item.status == "pending"
