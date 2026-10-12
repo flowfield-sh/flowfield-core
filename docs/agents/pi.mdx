@@ -17,7 +17,7 @@ If no models appear, configure a provider in Pi on the service host, then choose
 
 Pi tools use **Full access**, without built-in per-tool approvals or a sandbox. Flowfield still requires exact approval before delivering worker code.
 
-Choose Coordinator and worker defaults independently; task **Agent settings** can override the next worker attempt. Models load automatically. See [worker setup](/worker-setup).
+Choose Coordinator and workspace worker defaults independently; task **Agent settings** can override the next attempt. See [worker setup](/worker-setup).
 
 ## Commands
 
@@ -27,7 +27,7 @@ The Coordinator supports `/compact`, `/status`, `/mcp` and `/skills`. Compaction
 
 Unchanged settings resume the native Coordinator session. Stop clears queued work, aborts native execution and closes the session, including extension shutdown hooks. Extensions must honor Pi’s cancellation and cleanup contracts; arbitrary detached services are outside managed cleanup.
 
-Fresh sessions can retrieve saved Flowfield history. Reattach earlier files when their contents matter. Unconfirmed cleanup keeps the attempt occupied until recovery; interrupted prompts are never automatically replayed. See [Coordinator](/coordinator).
+See [Coordinator recovery](/coordinator#stop-and-continue-later) for saved history, fresh sessions and uncertain cleanup.
 
 ## Native customization
 
@@ -39,8 +39,4 @@ Use the [shared connection steps](/agents/overview#standalone-conversations) wit
 
 ```sh
 flowfield integration connect pi
-flowfield integration status pi
-flowfield integration disconnect pi
 ```
-
-These commands manage the native user-scoped MCP connection. Built-in Coordinator and workers receive their connections automatically.

@@ -1,157 +1,47 @@
 ---
-title: Concepts
-description: How people, agents, tasks and review fit together.
+title: How Flowfield works
+description: The roles, work records and approval boundaries behind a coding conversation.
 ---
+
+Flowfield is a workspace behind your coding conversation. You and the Coordinator shape the problem and keep the plan current; workers implement bounded tasks while the service tracks execution and delivers approved results.
 
 ## People and agents
 
-Requirements, design and implementation develop together. You and the **coordinator**
-shape intent, priorities and review through your coding
-conversation. **Workers** implement bounded assignments. The **service** schedules
-ready work, preserves execution facts and delivers explicitly approved code.
+| Role | Responsibility |
+| --- | --- |
+| You | Define what matters, prioritize work, answer questions and approve exact code results. |
+| Coordinator | Explore ideas, maintain shared context, organize tasks and help review outcomes. |
+| Workers | Implement their assigned tasks in isolated repository checkouts. |
+| Service | Schedule eligible work, retain execution evidence and deliver authorized results. |
 
-The coordinator can continue planning while workers run. Closing its conversation
-does not stop the service's enabled queue. The browser gives you direct control of
-priorities, answers, pause, stop and approval.
+The Coordinator can keep planning while workers run. Browser, CLI and Flowfield tools act on the same records; opening a task or inspecting code starts no worker and grants no approval.
 
-Flowfield uses native harness interfaces to run coding conversations and **MCP** to
-give agents project/task tools. See [Agents](/agents/overview) for setup and connections.
+<span id="projects-tasks-and-milestones" />
+<span id="working-with-an-existing-project" />
 
 ## Workspaces, projects, tasks and milestones
 
-A **workspace** groups projects around one Coordinator, shared milestones, labels and worker defaults. Create it explicitly in the browser or with `flowfield workspace create`.
+A [workspace](/workspaces) brings related projects together around one Coordinator, shared documents, milestones, labels, Board and Inbox. Each project identifies an existing repository and its integration settings.
 
-A **project** is an existing directory registered in a workspace through the browser's directory chooser or `flowfield project init --workspace WORKSPACE_ID`. Its settings identify the repository, checks and code delivery branch. Each task belongs to one project.
+A task belongs to one project and describes an outcome and success criteria. A milestone groups tasks across projects. Only tasks form dependencies, including across projects in the same workspace; each task still executes and delivers in its own repository.
 
-A **task** expresses an agreed outcome and success criteria. Its stable key, such as
-`APP-1`, links to the same task across the browser, CLI and MCP. Tasks can depend on
-other tasks in the same workspace, including tasks in other projects; an incomplete prerequisite blocks execution. Each task still runs and delivers in its own repository.
+[Documents](/documents) preserve shared guidance and references with revision history. Selected revisions become part of a prepared worker assignment. Labels classify tasks without changing their execution or approval.
 
-A **milestone** groups related tasks across projects in its workspace. Dependencies connect tasks, not milestones.
-
-**Labels** describe tasks and are shared across a workspace. A task can have several labels
-or none. Maintain their names, colors and short usage guidance in **Workspace settings → Labels**,
-or ask the coordinator. Create and edit labels inline, choosing from 10 soft color swatches. Open a task’s **Labels** section to change its labels.
-Feature, Bug, Maintenance and Investigation are editable starting labels. Labels do not
-change execution or approval. Deleting a label removes it from current tasks while keeping
-its references in task history.
-
-![The board filtered to one milestone beside the Coordinator](/images/milestones.png)
-
-## The task feed
-
-Each task has a feed bringing together its definition and revisions, progress, worker attempts,
-questions, answers, testing observations and results. Open a card to view its feed beside
-the Coordinator. Discuss scope, queue changes and result questions with the coordinator.
-Task inputs answer a specific question, request changes or confirm approval for an exact
-result with an optional testing comment. Saved answers, feedback and approvals appear in
-the feed; the task footer keeps the relevant controls and input errors.
-Definition history highlights changed words and shows before/after values for fields.
-
-Answering a worker question lets the service continue work when the queue permits it.
-Project planning questions are handled by the coordinator when you resume its conversation.
-Asking about a result does not automatically request changes. Earlier results and testing
-observations remain inspectable.
-
-**Current tokens**, below worker output, shows the agent's latest context-window report.
-Hover or focus the ring for its reported token count and capacity. This measures the current
-context rather than total tokens consumed across the task.
-
-An ongoing worker attempt stays at the bottom of the feed as progress events arrive. After
-completion, its output remains in that attempt event; the result contains the worker report
-and review evidence. Press Escape in a task reply composer to cancel it without closing the task.
+<span id="the-task-feed" />
+<span id="notifications" />
 
 ## The board and queue
 
-The workspace owns Board, Inbox, Milestones and Archive. Milestone cards are grouped into Planned, In progress and Complete based on their tasks. Click a milestone card to open its filtered board; the top-right icons open its description popover and editor. Use **Projects** to find its repositories or add another. Project cards open the same board with that project selected. Filter Board and Archive by project, milestone or label; these selections are encoded in the URL for sharing, reload and browser history. Creating a task requires a project; a project filter or a workspace with one project fills that choice for you.
+The board shows **Backlog → Up next → In progress → In review → Done**. Priority, readiness and human attention are separate: an Up next task may still need setup or clarification. The workspace's shared queue starts eligible work when dependencies and worker capacity allow it.
 
-Every task has one to eight outcome stages, including drafts. Your coordinator includes
-the initial stages when creating a task and keeps them aligned when its definition changes.
-Manual creation starts with one stage describing the entered outcome. Workers report
-progress against those stages; completing them does not approve code or mark a task Done.
-
-Tasks move through **Backlog**, **Up next**, **In progress**, **In review** and **Done**.
-Each column scrolls independently below its heading. On narrow screens, scroll the board
-horizontally to reach the other columns.
-
-Up next expresses your execution priorities across the workspace’s projects. Drag tasks within Backlog or Up next to reorder them, or between those columns to change priority. The scheduler follows the shared order and skips work whose project or prerequisites are not ready. Run queue enables eligible starts; an enabled
-empty queue stays enabled. New ready tasks can start when added to it.
-
-New workspaces start with the queue paused. Run/Pause on the board and **Workspace settings → General → Run worker queue** control the same saved setting, including after restart. Enabled queues can start eligible work when the service returns. Pause leaves active work running.
-Each workspace starts with one shared worker slot; two independent tasks can run in separate
-checkouts after you increase the maximum to two in **Workspace settings → Workers**. Waiting for review frees the worker slot.
-The queue shows active workers against that maximum, such as **1/2 active**.
-**Retry worker** queues a fresh attempt with the preserved work; it respects queue pause,
-dependencies and available slots.
-
-**Inbox** brings questions, reviews and interventions into one place, organized into
-**Needs your action**, **Waiting** and **History**. Its badge counts items that need your action.
-Like the board, each column scrolls independently beneath its heading; scroll sideways to
-reach columns on narrow screens.
-The browser's Connected
-indicator describes its live update stream.
+[Tasks, Inbox and review](/tasks) covers scheduling, questions, feedback and recovery. Inbox is the single place to find work needing your attention; notifications point back to it.
 
 ## Agent settings and permissions
 
-Workspace worker defaults and task overrides use the same harness/model choice, with
-reasoning effort and access mode only where the harness supports those controls.
-Each attempt saves the choice it used. Changing defaults does not alter running attempts
-or explicit task overrides. Unavailable choices fail explicitly instead of selecting
-another model.
+The Coordinator has its own harness/model choice. Workspace worker defaults apply to tasks unless a task overrides them. Project settings own setup, checks and the delivery branch. See [agent setup](/agents/overview) and [worker configuration](/worker-setup).
 
-Fast mode is available only for models that support it. Workers start with Fast off; enable it
-per task using the lightning button. There is no workspace-wide speed default. The Coordinator
-has its own Fast choice. Changes affect subsequent attempts and can increase usage;
-historical attempts keep their original choices.
-
-Each workspace has one [Coordinator](/coordinator), with its model, effort and access mode
-selected beside the chat input. Changes apply to subsequent messages and do not configure
-your standalone coding agent.
-Models load automatically for that workspace and harness. It starts a disposable
-native session; startup hooks can run without a model prompt. Changing harness clears
-dependent model, effort, access and Fast choices. Unavailable harnesses remain visible
-with their setup remedy, and do not block another ready harness.
-
-Agents use the tools and credentials on the machine running Flowfield. Each harness
-supplies its access modes; choose one beside the Coordinator input or in Workers settings.
-
-Tool permission requests from connected harness sessions have durable answers
-and response controls in the Coordinator, the task view and **Inbox**. Requests expire or close when
-their live turn ends; saved answers are never replayed into another session. A tool
-permission decision does not approve a result or authorize code delivery.
-
-## Notifications
-
-Settings saves, action feedback and connection errors appear in dismissible notifications at the page’s top-right, including while a dialog is open. Success, information, warnings and errors have distinct icons and colors. Repeated background failures stay quiet until the service or affected data recovers; retry and conflict controls remain beside the content. If a save loses its response, check the saved state before trying again: the action may have completed.
-
-New Inbox items produce a linked toast while Flowfield is active. If the exact item is already visible, Flowfield updates it in place. When you are elsewhere, optional system notifications can bring you back to the question, review or permission request. Bursts are grouped. Project badges continue to count pending Inbox work; closing an alert never answers a question or approves code.
-
-Open **Settings → Notifications** to choose Inbox and update announcements, enable system notifications and send a test. Preferences apply across the workspace; browser permission must be granted separately in each browser. Delivery is best effort, with one presentation attempt shared across clients. Reloading, reopening or enabling notifications does not replay a backlog. An open Flowfield page is required for browser delivery.
-
-Turning on **Send system notifications when inactive** requests browser permission when needed. The checkbox shows the pending change while you respond; allowing notifications saves the preference. Dismissing or denying the prompt leaves the preference unchanged. If permission is blocked, change it in your browser’s site settings; the screen refreshes when you return.
-
-**Allow on this browser** grants local permission without changing the workspace preference. If delivery is already enabled from another browser, use this button to allow the current browser too. The status below the checkbox explains whether this browser can deliver notifications. **Send test notification** tests only this browser, even when automatic system delivery is off. Unsupported environments keep Inbox and in-app announcements available.
-
-Pending work remains in **Inbox**, updates remain in **Settings → Updates**, and persistent problems have recovery controls in the affected area. See [installation](/installation#update) for update checks and upgrade instructions.
+Native tool permissions govern agent actions on the service host. A tool permission decision is separate from human approval to deliver worker code.
 
 ## Results and approval
 
-A result contains the worker's outcome and verification evidence. Code approval names
-an exact candidate and destination. Approval in your coding conversation uses the same
-record as browser approval, without a second confirmation there.
-
-The service validates and delivers approved code. Done means the agreed outcome has
-completed, including code delivery. A checkout blocker preserves approval for a delivery
-retry; a changed candidate needs its own review. Inspection is optional and never grants
-approval by itself.
-
-## Working with an existing project
-
-Use [workspace documents](/documents) for shared guidance and Markdown references, with
-revision history and restores. Discuss existing project instructions with the Coordinator
-and decide which files to reference or material to incorporate. Preserve authoritative
-repository records; tasks own ongoing assignments and execution evidence.
-
-During adoption, identify the delivery branch, reproducible setup commands and meaningful
-checks for your project. Preserve its existing workflow. For parallel work, give tests and
-services separate databases, ports and other mutable resources, or serialize that work.
+A result records an outcome and its verification evidence. Approval identifies the exact candidate and destination; a changed candidate needs another review. Flowfield validates and delivers approved code while preserving conflicting local changes. A report-only task can finish without code approval when its agreed outcome is complete.

@@ -1,80 +1,49 @@
 ---
 title: Local storage
-description: Where Flowfield keeps your data and how to preserve it.
+description: Locate your data, upgrade safely and recover a supported database.
 ---
 
-Flowfield stores workspace records and execution state separately from the installed application and your source code.
+One service data directory stores all your Flowfield workspaces. Project repositories and installed native harness configuration remain separate.
 
 | Location | Contents |
 | --- | --- |
-| `~/.flowfield/` | Database for all workspaces, execution artifacts and isolated task directories |
+| `~/.flowfield/` | Database, execution artifacts and isolated task directories |
 | `~/.flowfield/coordinators/` | Managed working directories for workspace Coordinators |
-| `project/.flowfield/config.toml` | Portable project identity |
-| `project/.flowfield/guidance.json` | Ownership of installed guidance |
-| `project/.agents/skills/flowfield-coordinator/SKILL.md` | Optional installed guidance for standalone conversations |
+| `project/.flowfield/config.toml` | Registered project identity |
+| `project/.flowfield/guidance.json` | Ownership of optional installed guidance |
+| `project/.agents/skills/flowfield-coordinator/SKILL.md` | Optional guidance for standalone coordination |
 
-Choose another data directory with `FLOWFIELD_DATA_DIR` or `flowfield --data-dir
-/absolute/path serve`. Project checkouts and their local edits remain separate from task state.
+Choose another data directory with `FLOWFIELD_DATA_DIR` or `flowfield --data-dir /absolute/path serve`. This changes the service's store, not an individual workspace's repository locations.
 
 ## Upgrades
 
-Upgrades from 0.2.0 through 0.3.1 preserve project settings, task and conversation history, approvals and execution
-ownership. Earlier versions require a separate workspace; preserve their data before
-starting fresh.
+Supported databases from 0.2.0 through 0.4.0 upgrade automatically. When upgrading from project-owned coordination, each project gets a separate workspace named **Project name Workspace**. Its conversation, milestones and queue settings move with it; task history, approvals, repository identity and execution ownership remain associated with the same work. New installations create no workspace until you choose to create one.
 
-Version 0.4.0 removes saved notification history and its delivery records. Pending work remains in Inbox, and available updates remain in Settings → Updates. Notification preferences live in Settings → Notifications; enable optional system delivery there after upgrading.
+Stop the service before updating. Startup saves a verified database snapshot under the data directory's `backups/`, then runs migrations in one transaction. Failure or interruption rolls back the upgrade; errors stop startup with recovery instructions. Unsupported state is rejected without modification, and an older application cannot downgrade a newer database.
 
-When upgrading from project-owned coordination, each existing project gets its own workspace named **Project name Workspace**. Its conversation, milestones and queue settings move with it; tasks, approvals and repository identity stay associated with the same work. Separate project conversations are preserved in separate workspaces. New installations start without any workspace until you create one.
-
-On startup, Flowfield upgrades supported databases automatically. Before changing an
-existing database, it saves a verified snapshot in `~/.flowfield/backups/` (or your chosen
-data directory). Migration steps run in one transaction. An error or interrupted process
-rolls back the upgrade; an error stops startup and includes recovery instructions.
-
-Upgrades require exclusive access: stop the service before updating, then start the new
-build. Flowfield refuses an incompatible database and preserves its contents. Reinstalling
-an older application does not downgrade a newer database. Each workspace retains its saved queue setting after restart.
-Pause the queue before shutdown to hold new starts; interrupted workers still require recovery.
-
-Database upgrades preserve project identity, installed guidance and execution artifacts.
-They do not rewrite project files or install new guidance. Update guidance separately
-using the [agent setup](/agents/overview#standalone-conversations).
+Each workspace keeps its saved queue choice. Pause queues before shutdown if you want to review work before new starts resume; interrupted workers still need recovery. Upgrades preserve project files and installed guidance. Update optional guidance separately using [agent setup](/agents/overview#standalone-conversations).
 
 ## Inspect and recover
 
-These commands work without a running service and never initialize or upgrade a database:
+These commands need no running service and do not initialize or migrate data:
 
 ```sh
 flowfield storage status
 flowfield storage backups
 ```
 
-Add `--json` for structured output. For another workspace, put `--data-dir /absolute/path`
-before `storage`.
+Add `--json` for structured output. To inspect another store, place `--data-dir /absolute/path` before `storage`.
 
-A failed migration normally needs only a corrected build and another start. To recover
-the pre-upgrade database explicitly, stop the service, choose an ID from `storage backups`,
-and run:
+A failed migration normally needs a corrected build and another start. To restore a pre-upgrade snapshot explicitly, stop the service and choose a backup ID:
 
 ```sh
 flowfield storage restore BACKUP_ID --confirm
 ```
 
-Recovery verifies the snapshot and saves the current database before replacing it.
-It refuses a running service, an incompatible schema, a different workspace, or a workspace
-that has received writes since the snapshot. This prevents recovery from discarding newer
-work. Start Flowfield to retry the upgrade after restoring. Keep the workspace at the same
-path when using these recovery snapshots.
+Recovery verifies the snapshot and saves the current database before replacement. It refuses a running service, incompatible schema, different store or writes made since the snapshot, preserving newer work. Keep the data directory at the same path when using these snapshots; restart to retry the upgrade.
 
-## Backups
+## Full backups
 
-Flowfield retains up to three database snapshots, including snapshots made before recovery.
-These are for migration recovery: they do not contain execution artifacts, managed
-workspaces or your project repositories, and cannot repair an unreadable current database.
+Flowfield retains up to three database snapshots for migration recovery. They exclude execution artifacts, managed directories and repositories, and cannot repair an unreadable current database.
 
-For a full backup, stop the service and copy the whole workspace directory together with
-the relevant project repositories. Preserve those files together when recovering from disk
-loss or corruption. Keep a full backup before upgrading.
-
-Normal browser, CLI and agent operations use the service. Offline storage commands are
-limited to inspection and guarded recovery.
+For a full backup, stop the service and copy the entire data directory together with relevant project repositories. Preserve those files together when recovering from disk loss or corruption. Native accounts and session data stay with their harness; back them up separately if needed for native continuation.

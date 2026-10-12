@@ -1,0 +1,51 @@
+---
+title: Workspaces and projects
+description: Organize related repositories around one conversation, roadmap and Inbox.
+---
+
+Create a workspace for projects that you want to plan together: an API, its application and its documentation, for example. It owns one Coordinator and shared work records; each project keeps its repository, tasks and code-delivery destination.
+
+## Create and adopt
+
+Choose **New workspace** from Home or the sidebar. Inside it, open **Projects → Add project → Choose directory**, select an existing repository and review the prefilled name, ID and task prefix. The three-letter prefix appears in task keys such as `API-1` and locks after the first task, including archived tasks.
+
+The CLI uses the same registration:
+
+```sh
+flowfield workspace create "Harbor"
+flowfield project init /absolute/path/catalog-api --workspace WORKSPACE_ID --prefix API
+flowfield project init /absolute/path/reader-app --workspace WORKSPACE_ID --prefix RDR
+```
+
+Replace `WORKSPACE_ID` with the returned workspace ID. Registration writes project identity to `.flowfield/config.toml`; it starts neither a model nor the queue. Before managed implementation, establish a committed repository baseline and [validate its integration settings](/worker-setup).
+
+Existing registrations stay in their current workspace. Moving projects between workspaces and merging conversations are not available. See [storage and upgrades](/storage#upgrades) for how earlier installations become workspaces.
+
+## Find the work
+
+| View | Use it to |
+| --- | --- |
+| Board | Follow task state and set execution priorities. |
+| Inbox | Answer questions, review results and resolve interventions. |
+| Projects | Add repositories, open a project's board and reach its settings. |
+| Milestones | Follow outcomes spanning several projects. |
+| Documents | Maintain shared guidance and references. |
+| Archive | Revisit work you set aside. |
+
+Filter Board and Archive by project, milestone or label. The URL preserves those filters for reload, sharing and browser history. Task and document views stay beside the same Coordinator; on phones, switch between **Work** and **Coordinator**.
+
+## Keep a shared roadmap
+
+You or the Coordinator can create milestones and assign tasks from different projects. Milestones appear under **Planned**, **In progress** or **Complete** according to their tasks. Open a milestone's filtered board to see its work; its card also offers description and editing controls.
+
+Use [task dependencies](/tasks#dependencies) when one repository's work must finish before another can proceed. Milestones organize outcomes; dependencies connect individual tasks.
+
+Labels are optional and shared across the workspace. Edit their names, colors and usage guidance in **Workspace settings → Labels**, or ask the Coordinator. A task can have several labels. Deleting a label removes current assignments while retaining its references in history.
+
+## Configure at the right level
+
+- **Workspace settings** owns its name, queue, worker defaults and shared capacity.
+- **Project settings** owns repository identity, description, worker-document defaults and Integration: branch, setup, checks and local result previews.
+- The **Coordinator input** owns its harness/model controls; task **Agent settings** can override the worker choice for subsequent attempts.
+
+To open Project settings, select that project from Projects or filter the board to it. One project's setup blocker does not prevent ready work in other projects. See [worker setup](/worker-setup) and [workspace documents](/documents) for the remaining configuration.

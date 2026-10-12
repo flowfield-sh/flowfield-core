@@ -13,7 +13,7 @@ In **Settings → Harnesses**, keep detected paths or override the executable an
 
 Models, reasoning effort, access modes and Fast availability come from Codex. Tool approval requests offer one-time allow/deny choices; choose the saved access mode for broader policy changes. Persistent permission grants are not exposed.
 
-Choose Coordinator and worker defaults independently; task **Agent settings** can override the next worker attempt. Models load automatically. See [worker setup](/worker-setup).
+Choose Coordinator and workspace worker defaults independently; task **Agent settings** can override the next attempt. See [worker setup](/worker-setup).
 
 Workspace member repositories are added to the Coordinator’s writable roots in **Agent** mode.
 The managed working directory stays separate. **Read only** and **Full access** retain their native
@@ -27,11 +27,11 @@ The Coordinator supports `/compact`, `/status`, `/mcp` and `/skills`. Compaction
 
 Compatible model and access choices resume the native Coordinator session. Stop interrupts active turns and checks supported native background work.
 
-Fresh sessions can retrieve saved Flowfield history. Reattach earlier files when their contents matter. Unconfirmed cleanup keeps the attempt occupied until recovery; interrupted prompts are never automatically replayed. See [Coordinator](/coordinator).
+See [Coordinator recovery](/coordinator#stop-and-continue-later) for saved history, fresh sessions and uncertain cleanup.
 
 ## Native customization
 
-Codex loads its native repository instructions and skills. Flowfield supplies the project- or task-scoped MCP connection for each managed session.
+Codex loads its native repository instructions and skills. Flowfield supplies the workspace- or task-scoped MCP connection for each managed session.
 
 ## Standalone conversation
 
@@ -39,8 +39,4 @@ Use the [shared connection steps](/agents/overview#standalone-conversations) wit
 
 ```sh
 flowfield integration connect codex
-flowfield integration status codex
-flowfield integration disconnect codex
 ```
-
-These commands manage the native user-scoped MCP connection. Built-in Coordinator and workers receive their connections automatically.

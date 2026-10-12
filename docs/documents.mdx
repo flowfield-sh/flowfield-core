@@ -1,36 +1,34 @@
 ---
 title: Workspace documents
-description: Maintain shared guidance and Markdown references with revision history.
+description: Maintain shared guidance and give workers the revisions relevant to their tasks.
 ---
 
-Open **Documents** in your workspace. **Workspace guidance** is the main document for shared purpose, conventions and references. Add custom documents for architecture, specifications or procedures. Documents belong to the workspace, independently of repository locations.
+Open **Documents** in your workspace. **Workspace guidance** is its main document for purpose, conventions and references. Add custom documents for architecture, specifications or procedures. Keep ongoing work and execution evidence in tasks; repository files can remain authoritative for project conventions.
 
 ## Write and review
 
-Open a document and choose **Edit document**. Write ordinary Markdown and use **Preview** to review it before saving. Useful main-guidance sections might include purpose, member projects, working agreements and references; choose the structure that suits your work.
+Choose **New document**, or open an existing document and choose **Edit document**. Write Markdown, use **Preview**, then save. You and the Coordinator can maintain the same documents. Each saved change records a revision, author and time; unchanged saves add no revision.
 
-Every saved change records a revision, author and time. If another edit arrives while you are writing, your draft stays intact. Copy any changes you want to keep, then choose **Load latest** and reconcile them. Unchanged saves do not create extra revisions.
+If another edit arrives while your draft is dirty, preserve the changes you need, choose **Load latest** and reconcile them. The service rejects stale writes rather than replacing newer content.
 
-Choose an entry in **Revisions** beside the document to inspect earlier content. On narrow screens, revisions appear below it. **Restore this revision** copies its title and body into a new revision, preserving intervening history. Document links keep the same identity across renames; revision links open the exact saved content.
+![A workspace document and its revision history beside the Coordinator](/images/documents.png)
 
-Custom documents can be deleted with **Delete document**. Remove them from project defaults and unfinished task selections first. The document list and detail show which projects include each document in their defaults. Their revisions and prepared worker evidence remain available through existing links; restore a revision to return a document to the list. Workspace guidance stays present and can be edited or cleared.
+Choose an entry in **Revisions** to inspect earlier content. **Restore this revision** copies its title and body into a new revision, retaining intervening history. Document links survive renames; revision links open the exact saved content.
+
+To delete a custom document, remove it from project defaults and unfinished task selections first. Existing revision and worker-evidence links retain its history; restore a revision to return it to the list. Workspace guidance can be edited or cleared and stays present.
 
 ## Work with the Coordinator
 
-Discuss agreed guidance changes in the workspace conversation. The Coordinator can read and edit documents through its workspace tools. Each message captures the main guidance revision; opening a document beside the conversation also captures that document's saved revision. Longer content is read in bounded pages, and custom documents are retrieved when relevant.
+Discuss existing instructions and agreed changes in the [workspace conversation](/coordinator). Each message captures the main guidance revision; opening another document beside it also captures that document's saved revision. The Coordinator can read and edit documents through workspace tools.
 
-Keep current work, questions and execution evidence in tasks. Workspace prose does not change worker settings, queue controls or approval requirements.
+When adopting a project, decide which repository files to reference and which material to incorporate. Flowfield preserves your files and does not automatically import instruction documents. Native harnesses can still load their own repository instructions. Document prose does not change structured queue, worker or approval settings.
 
 ## Supply worker context
 
-In **Project settings**, select **Worker documents** to choose defaults and their purpose. **Required source** means the worker must read the document; **Reference material** supplies optional supporting context. Ask the Coordinator to adjust the selection for a particular task, or pin a specific revision. Purpose belongs to the selection, so the same document can serve different roles in different tasks. Preparation fixes the selected revisions and purposes for that assignment; workspace guidance is always required.
+In **Project settings → Worker documents**, choose project defaults and their purpose. **Required source** means the worker must read the document; **Reference material** supplies optional supporting context. Ask the Coordinator to adjust the selection for a particular task, or pin a specific revision. Purpose belongs to the selection, so the same document can serve different roles in different tasks. Workspace guidance is always required.
 
-Each worker attempt receives a bounded brief that prioritizes the current task agreement and required sources. Small required documents can appear in full; longer required documents and optional references remain available through paged reads from the frozen assignment. Workers must read required sources fully and consult references when needed. Select relevant material: linked documents and paths are not automatically copied. An assignment supports workspace guidance plus up to 20 custom documents and 1 MB of selected source text.
+Preparation freezes selected revisions and purposes for the assignment. Workers receive a bounded brief that prioritizes the current task agreement and required sources. Small required documents may be inline; longer required sources and optional references remain available through paged reads of the frozen content. Workers must read required sources fully and consult references when needed. Select relevant material explicitly; prose links do not copy their targets into the assignment. The limit is workspace guidance plus 20 custom documents and 1 MB of selected text.
 
-Editing a document or changing project defaults preserves prepared assignments and active attempts. When a selected document has a newer revision, unfinished tasks show **Newer source revision available** on the Board, in Inbox’s Waiting column and in task detail. This is information for assessing relevance; it does not block work or invalidate results automatically. The Coordinator can list affected preparations across projects with `get_document_impact`. Ask it to prepare affected upcoming work again with reviewed stages when it should adopt changes. Work already started needs reconciliation. Answer continuations preserve the original document context.
+Document or default edits preserve prepared assignments and active attempts. When a selected document has a newer revision, unfinished tasks show **Newer source revision available** on the Board, in Inbox’s Waiting column and in task detail. This is information for assessing relevance; it does not block work or invalidate results automatically. The Coordinator can list affected preparations across projects with `get_document_impact`. Ask it to prepare affected upcoming work again with reviewed stages when it should adopt changes; work already started needs reconciliation. Answer continuations retain their original document selection.
 
-Expand **Worker documents** in a task or worker attempt to inspect its exact revisions and source size. Reported harness token usage is separate: characters and bytes measure available source text, and do not establish how much the worker read or understood.
-
-## Adopt existing guidance
-
-When adding an existing project, discuss its current instructions and workflow with the Coordinator. You can reference repository files from workspace guidance, incorporate agreed material into documents, or clarify how conflicting instructions should be resolved. Flowfield preserves your files and does not automatically discover or import instruction documents. Native agents may still load the repository instructions they ordinarily use.
+Expand **Worker documents** in a task or attempt to inspect its exact revisions and source size. Harness token reports measure usage separately; available text size does not show what the worker read or understood.

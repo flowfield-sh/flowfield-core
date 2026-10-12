@@ -43,7 +43,7 @@ Workers also need Git.
 
 **Settings → Harnesses** detects the installed executables and native configuration.
 Override a path only when detection needs help. **Verify installation** reads the installed version and native sign-in status (Pi checks the version only). These diagnostics send no model prompt. Accounts stay with each harness. Models load
-when you open a project’s role selector.
+when you open the Coordinator or workspace worker selector.
 See [harness setup and recovery](/agents/overview#setup) if detection, sign-in or model access fails.
 
 ## Start and stop
@@ -59,7 +59,7 @@ only print the link. Ctrl-C stops it. Choose another port with `flowfield serve 
 and give clients the same port using `flowfield --port 8770 ...`.
 
 Flowfield runs locally on macOS and Linux and binds to loopback. Continue with
-[Getting Started](/getting-started#add-your-project) to add a project.
+[Getting started](/getting-started#create-a-workspace) to create a workspace and add a project.
 
 ## Update
 
@@ -69,7 +69,7 @@ share one saved result across browsers and the CLI. Stable installs receive stab
 release notices; prerelease installs can also discover prereleases. Releases must match
 your Python version and have a compatible distribution.
 
-An available-update announcement opens **Settings → Updates**, which contains release notes, upgrade commands and the latest check status. The update remains visible there after its announcement closes; another check of the same version does not repeat the announcement. A newer release can notify again. Flowfield never installs a package update automatically. Failed checks preserve the last successful result and show the failure.
+An available-update announcement opens **Settings → Updates**, with release notes, upgrade commands and the latest check status. Closing it leaves the update there. Failed checks preserve the last successful result; package installation is always manual.
 
 Turn off automatic checks in **Settings → Updates**, or start the service with
 `FLOWFIELD_UPDATE_CHECKS=0`. Manual checks remain available. No project content or usage
@@ -96,6 +96,3 @@ Each workspace retains its queue setting after restart. Pause queues before stop
 Read the [release notes](https://github.com/flowfield-sh/flowfield-core/releases) and
 [storage guidance](/storage) before changing builds. Restart your coding conversation
 after updating installed project guidance.
-
-**Upgrading from 0.1.0:** 0.2.0 requires a fresh workspace. Preserve your previous data
-directory and [choose a new one](/storage) when starting the service.

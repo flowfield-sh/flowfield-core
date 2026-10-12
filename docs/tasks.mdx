@@ -1,0 +1,71 @@
+---
+title: Tasks, Inbox and review
+description: Prioritize work, resolve questions and decide which exact results to deliver.
+---
+
+A task keeps its definition, revisions, stages, worker activity, questions and results together. Open a board card to read that history beside the Coordinator. Discuss the plan in the Coordinator conversation; task inputs answer a particular question, request changes or approve a selected result.
+
+## Define useful work
+
+Describe the outcome and how you will judge it. The Coordinator can clarify the scope, select [worker documents](/documents#supply-worker-context), define one to eight outcome stages and prepare the assignment. Manual task creation starts with one stage based on its title.
+
+The prepared description is the worker's resolved handoff: what to achieve and why, consequential constraints and exceptions, how completion can be observed, and which sources apply. The Coordinator resolves conflicting requirements before preparation and keeps scheduling discussion outside the assignment. Workers receive guidance for their current attempt, including saved answers or revision feedback when relevant.
+
+Preparation fixes the task agreement and selected document revisions. Moving a card to Up next expresses priority, not readiness. Changes to an unstarted task's requirements or references require preparation again; after work starts, ask the Coordinator to reconcile changes with the existing work. Task notes retain discussion and evidence; they do not silently rewrite the assignment.
+
+## Priorities and queue
+
+| Column | Meaning |
+| --- | --- |
+| Backlog | Work you have captured but are not prioritizing for execution. |
+| Up next | Your ordered execution priorities, including tasks with unmet conditions. |
+| In progress | Work that has started, with activity or recovery actions in its feed. |
+| In review | A result needs a decision. |
+| Done | The agreed outcome is complete, including required code delivery. |
+
+Drag tasks within Backlog or Up next to reorder them, or between those columns to change priority. The shared scheduler follows Up next order and skips work whose project, input or prerequisites are not ready. Read the card's status for the specific next action.
+
+New workspaces start paused with one worker slot. **Run queue** enables eligible starts; **Pause queue** prevents new starts while active workers continue. The saved queue choice survives service restarts. Increase **Maximum parallel workers** in **Workspace settings → Workers** when independent tasks can safely run together. Waiting for review frees a worker slot.
+
+**Stop worker** ends one attempt and preserves its unfinished work. **Retry worker** queues a fresh attempt; it respects pause, dependencies and capacity. Follow the displayed recovery action if native cleanup is uncertain.
+
+Each board column scrolls independently. On narrow screens, scroll sideways to reach the other columns.
+
+## Dependencies
+
+A task can depend on tasks in other projects within the same workspace. Prerequisites must finish before dependent work starts; cycles and cross-workspace dependencies are rejected. Each dependent task retains its own checkout and delivery branch. Foreign prerequisite code is not merged into that repository's Git history.
+
+Reopening or changing completed prerequisite work can require downstream reconciliation. Archiving unfinished work does not satisfy its dependents. Ask the Coordinator to review affected tasks when the plan changes.
+
+## Work through Inbox
+
+Inbox gathers attention across the workspace under **Needs your action**, **Waiting** and **History**. Its badge counts items needing your action; the project filter narrows the view.
+
+| Item | Next action |
+| --- | --- |
+| Question | Read the context and send an answer. Worker answers continue managed work when eligible; planning answers need the Coordinator to resume and reconcile them. |
+| Review | Read the selected result, try or inspect it, and request changes or approve it. |
+| Intervention | Inspect the failure or blocker and follow its recovery action. |
+| Tool permission | Allow or deny the native request while its turn is waiting. This grants no code-delivery approval. |
+
+Saved worker answers need no separate human apply step. Once assigned to a continuation, the answer remains in history; send a correction as new input rather than replacing it. Answering or retrying never enables a paused queue. The same actions are available from the task, and the Coordinator can help sort the Inbox and follow up.
+
+## Review an exact result
+
+Read the worker report, limitations and checks against the task's success criteria. Project checks and worker-authored tests are useful evidence; try representative inputs or ask the Coordinator to investigate gaps before deciding what ships.
+
+**Code changes** shows the candidate's changed files and diff. **Try result** prepares an independent copy and a launcher using the project's saved run configuration. See [worker setup](/worker-setup#try-a-result). Trying or inspecting a result grants no approval.
+
+![Code changes and exact-result review beside the Coordinator](/images/code-review.png)
+
+Choose **Request changes** to send concrete feedback for another pass. Attach relevant files or testing observations when needed. Or choose **Approve and integrate**, confirm the selected result and optionally include a testing comment. Explicit approval in the Coordinator conversation records the same exact decision without a second browser confirmation.
+
+Flowfield checks and delivers the approved candidate to the configured project checkout. Conflicting local changes remain intact. Resolve the reported blocker and use its delivery retry action; if the candidate changes, review and approve the new result. A complete report-only result can finish without code approval.
+
+## Stay oriented
+
+Saved definitions, answers, feedback and results remain in the task feed. Older results stay inspectable; links to exact results preserve their identity. **Current tokens** reports the harness's latest context occupancy, not total task usage.
+
+Optional Inbox notifications link back to the item. Configure in-app and system delivery in **Settings → Notifications**; system notifications require browser permission and an open Flowfield page. Closing an alert answers no question and approves no result. Update announcements lead to **Settings → Updates**; see [installation](/installation#update).
+
+Archive work you set aside after reconciling active work, reviews and questions. Restore retains its previous work state; Archive is not completion.
