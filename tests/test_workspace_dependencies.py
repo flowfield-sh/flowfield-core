@@ -36,6 +36,22 @@ def complete(store, project, identity):
     )
 
 
+@pytest.mark.parametrize("destination", ["core", "site"])
+def test_waiting_state_matches_workspace_prerequisites(tmp_path, destination):
+    store = shared(tmp_path)
+    first = store.create_task("core", task_request(title="First"))
+    second = store.create_task(destination, task_request(title="Then", dependencies=[first.key]))
+    for task in (
+        BrowserReads(store).task(destination, second.id),
+        next(t for t in BrowserReads(store).board(destination).tasks if t.id == second.id),
+    ):
+        assert task.state.label == "Waiting on prerequisites"
+        assert task.state.reason == "prerequisites"
+        assert task.blocked_by[0].key == first.key
+    complete(store, "core", first.id)
+    assert BrowserReads(store).task(destination, second.id).state.reason is None
+
+
 def test_same_local_ids_scope_cycles_pagination_and_downstream_reconciliation(tmp_path):
     store = shared(tmp_path)
     core = store.create_task("core", task_request(id="same", title="API", body="API contract"))

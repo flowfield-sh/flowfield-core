@@ -10,7 +10,7 @@ import { WorkspaceList, NewWorkspace } from "./WorkspaceEntry";
 import { Documents } from "./Documents";
 import { ProjectList } from "./ProjectList";
 import { SetupInstructions } from "./SetupInstructions";
-import { taskTab } from "./navigation";
+import { canonicalHref, taskTab } from "./navigation";
 import type { AdjacentContext, AdjacentSnapshot } from "./AdjacentView";
 import { CoordinatorChat, type ChatDrafts } from "./CoordinatorChat";
 import {
@@ -139,6 +139,14 @@ export function App() {
   );
   const workspaceId =
     params.workspaceId ?? knownOwners[projectId ?? ""] ?? projectWorkspace?.id;
+  // Resolving a project alias changes the URL, not the work the human opened.
+  // Use its known workspace before board loading registers all member projects.
+  const workLocation = canonicalHref(
+    pathname,
+    projectId && workspaceId
+      ? { ...knownOwners, [projectId]: workspaceId }
+      : knownOwners,
+  ).split("?")[0];
   const wrongWorkspace = !!(
     params.workspaceId &&
     projectWorkspace &&
@@ -250,7 +258,7 @@ export function App() {
       <AnnouncementProvider navigate={changeLocation}>
         <Toaster theme={appearance.theme} />
         <WorkspaceFrame
-          workLocation={pathname}
+          workLocation={workLocation}
           workspaces={workspaces.map((workspace) => ({
             id: workspace.id,
             name: workspace.name,

@@ -1364,3 +1364,47 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
     path: testInfo.outputPath("coordinator-full-reply.png"),
   });
 });
+
+test("project URL canonicalization preserves the selected mobile coordinator", async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const directory = join(state, "chat-alias");
+  mkdirSync(directory, { recursive: true });
+  await fixtureProject(request, {
+    data: { path: directory, name: "Chat Alias", task_prefix: "CAL" },
+  });
+  const workspace = await projectWorkspace(request, "chat-alias");
+  let release!: () => void;
+  const board = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(
+    `**/api/workspaces/${workspace}/view/board*`,
+    async (route) => {
+      await board;
+      await route.continue();
+    },
+  );
+  await page.goto("/projects/chat-alias");
+  await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
+  await expect(
+    page.getByRole("tab", { name: "Coordinator", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  release();
+  await expect(page).toHaveURL(
+    new RegExp(`/workspaces/${workspace}\\?project=chat-alias$`),
+  );
+  await expect(
+    page.getByRole("tab", { name: "Coordinator", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await page
+    .getByRole("textbox", { name: "Message coordinator", exact: true })
+    .fill("Keep this draft");
+  await page.getByRole("tab", { name: "Work", exact: true }).click();
+  await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
+  await expect(
+    page.getByRole("textbox", { name: "Message coordinator", exact: true }),
+  ).toHaveValue("Keep this draft");
+});

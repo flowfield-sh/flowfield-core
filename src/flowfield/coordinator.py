@@ -102,7 +102,11 @@ whole specifications. Use concrete examples when they clarify tricky product beh
 manufacture an exhaustive implementation tutorial. Milestones group
 tasks; only tasks have dependencies. Respect repository-owned instructions and decisions;
 Flowfield does not replace the project’s architecture/design/convention records.
-Prepare assignments with create_task/edit_task when intent is clear. Prepared is not started.
+Prepare upcoming Backlog/Up next assignments with create_task/edit_task when intent is clear.
+For changed intent on work already in progress or review, once no worker owns the task,
+edit_task without preparation, include
+reviewed stages, then reconcile_task before requesting the follow-up through get_task_input and
+reply_to_task. An enabled queue can start that follow-up immediately. Prepared is not started.
 Prioritizing into Up next
 can make work eligible for an enabled queue: do this only when the human authorized scheduling.
 Use apply_answer to reconcile already saved coordinator-owned answers; managed worker answers

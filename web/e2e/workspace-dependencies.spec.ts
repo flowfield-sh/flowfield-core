@@ -6,7 +6,7 @@ import { test, state, fixtureStages } from "./support";
 test("cross-project prerequisites link to their owner and refresh dependent views", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const workspace = await (
     await request.post("/api/workspaces", {
       data: { name: "Shared dependencies" },
@@ -59,7 +59,14 @@ test("cross-project prerequisites link to their owner and refresh dependent view
   ).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(/\/projects\/dependency-site\/tasks\/DPS-1$/);
-  await expect(task.getByText("Blocked by", { exact: false })).toBeVisible();
+  await expect(task.getByText("Waiting on", { exact: false })).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("dependency-desktop.png"),
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(task.getByText("Waiting on", { exact: false })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("dependency-mobile.png") });
   const refreshed = page.waitForResponse(
     (response) =>
       response.request().method() === "GET" &&
@@ -74,5 +81,5 @@ test("cross-project prerequisites link to their owner and refresh dependent view
     ).ok(),
   ).toBeTruthy();
   await refreshed;
-  await expect(task.getByText("Blocked by", { exact: false })).toHaveCount(0);
+  await expect(task.getByText("Waiting on", { exact: false })).toHaveCount(0);
 });

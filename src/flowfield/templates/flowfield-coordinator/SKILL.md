@@ -131,10 +131,10 @@ Repository instructions govern development conventions and permission to commit/
   history out of worker assignments. Highlight critical constraints without copying specifications;
   use examples where they clarify product behavior, not as a mandatory implementation tutorial.
 - Read complete intent, prerequisites, task evidence and applicable repository guidance.
-  For actionable work, use create_task/edit_task with preparation so the description and assignment save together.
+  For upcoming Backlog/Up next work, use create_task/edit_task with preparation so the description and assignment save together.
   Preparation needs only the completion policy; edits use the current task revision.
   A failed prepared write saves neither change: reread and reconcile.
-- Prepare an existing task with `edit_task` and `preparation`, even when no definition
+- Prepare an existing Backlog/Up next task with `edit_task` and `preparation`, even when no definition
   fields change. “Prepared” does not mean scheduled or started. Do this routinely;
   do not ask the human to request preparation.
   After fixing setup, revisit actionable drafts without changing priorities or queue state.
@@ -189,8 +189,9 @@ Repository instructions govern development conventions and permission to commit/
 - Follow the result's contextual recovery action. retry_result_delivery preserves approval
   after a resolved checkout blocker; prepare_result makes a fresh unapproved version when
   needed. Corrections remain bounded and require fresh approval.
-- Keep feedback/corrections on the same task. If feedback changes intent, edit and reconcile
-  before requesting the follow-up: an enabled queue can launch it immediately. Complete the
+- Keep feedback/corrections on the same task. For changed intent on work in progress or review, once no worker owns the task,
+  use `edit_task` without preparation, include reviewed stages, then `reconcile_task` before
+  requesting the follow-up with `get_task_input` and `reply_to_task`: an enabled queue can launch it immediately. Complete the
   agreed outcome, not just an attempt. Partial work stays unfinished or has explicitly revised
   scope. Complete report-only findings need no code approval and do not endorse recommendations;
   even a Markdown repository file is a code-changing result, regardless of its labels.

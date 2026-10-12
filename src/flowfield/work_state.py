@@ -178,9 +178,16 @@ def task_state(
         return WorkState(label="Archived")
     if task["status"] == "done":
         return WorkState(label="Done", tone="complete")
+    # Schema 62 stores service-unique task keys, including foreign member projects.
+    # Older supported states still use project-local IDs during migration checks.
+    dependency_join = (
+        "d.key=p.value"
+        if workspace.schema_version >= 62
+        else "d.project_id=t.project_id AND d.id=p.value"
+    )
     if db.execute(
         "SELECT 1 FROM tasks t,json_each(t.data,'$.dependencies') p "
-        "JOIN tasks d ON d.project_id=t.project_id AND d.id=p.value "
+        f"JOIN tasks d ON {dependency_join} "
         "WHERE t.project_id=? AND t.id=? AND json_extract(d.data,'$.status')!='done'",
         (project, task_id),
     ).fetchone():

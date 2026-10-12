@@ -742,7 +742,10 @@ def create_mcp(
 
         Include preparation for actionable upcoming work, using completion, to save and prepare
         atomically. Failure leaves prior intent
-        unchanged. Preserves priority/queue; active work requires reconciliation instead.
+        unchanged. Preparation applies only to Backlog/Up next. For work in progress or review,
+        once no worker owns the task, omit preparation, include reviewed stages, then reconcile_task
+        before requesting feedback continuation through get_task_input/reply_to_task.
+        Preserves priority/queue.
         Cross-project dependencies use task keys (for example API-1), not bare task IDs.
         Read get_task_stages and include stages (expected_revision, stages, reason) here
         to reconcile the plan with the new agreement atomically while idle.
