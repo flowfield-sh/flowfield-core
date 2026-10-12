@@ -276,7 +276,9 @@ def test_cli_board_and_readable_output(tmp_path: Path, monkeypatch: pytest.Monke
         assert command(["project", "init", "--workspace", space["id"]]) == project
         command(["project", "edit", "--description", "CSV"])
         assert command(["project", "show"])["description"] == "CSV"
-        milestone = command(["milestone", "create", "--title", "CSV export"])
+        milestone = command(
+            ["milestone", "create", "--workspace", space["id"], "--title", "CSV export"]
+        )
         task = command(
             [
                 "task",

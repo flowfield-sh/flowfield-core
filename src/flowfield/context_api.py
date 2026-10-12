@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends, Request
 
 from flowfield.activity import EntryKind
 from flowfield.application import Workspace
-from flowfield.reads import ContextReads
+from flowfield.milestones import Milestones
+from flowfield.reads import ContextReads, excerpt
 from flowfield.search import Entity, History, Search
 from flowfield.workspaces import Workspaces
 
@@ -192,6 +193,26 @@ def context_router(workspace: Callable[[], Workspace]) -> APIRouter:
 
 def workspace_context_router(workspace: Callable[[], Workspace]) -> APIRouter:
     router = APIRouter(prefix="/api/context/workspaces/{workspace_id}")
+
+    @router.get("/milestones")
+    def milestones(workspace_id: str, after: str | None = None, limit: int = 20) -> dict[str, Any]:
+        return Milestones(workspace()).page(workspace_id, after=after, limit=limit)
+
+    @router.get("/milestones/{identity}")
+    def milestone(workspace_id: str, identity: str) -> dict[str, Any]:
+        return excerpt(Milestones(workspace()).get(workspace_id, identity).model_dump())
+
+    @router.get("/milestones/{identity}/text")
+    def milestone_text(
+        workspace_id: str,
+        identity: str,
+        revision: int | None = None,
+        offset: int = 0,
+        limit: int = 4000,
+    ) -> dict[str, Any]:
+        return Milestones(workspace()).text(
+            workspace_id, identity, revision=revision, offset=offset, limit=limit
+        )
 
     @router.get("/coordinator-history")
     def history(

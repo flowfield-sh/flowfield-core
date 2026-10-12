@@ -3,9 +3,9 @@ title: CLI
 description: Common commands and structured automation.
 ---
 
-Workspace commands talk to your running local service. Commands inside a registered
-project discover its identity from `.flowfield/config.toml`. Use `--project ID` when
-working elsewhere, and `--help` at any command level for its options.
+Commands talk to your running local service. Project and task commands can discover the project
+from `.flowfield/config.toml`; use `--project ID` when working elsewhere. Workspace operations
+use an explicit workspace ID. Use `--help` at any command level for its options.
 
 Commands show readable output by default. Add `--json` for scripts or diagnostic reports.
 
@@ -84,7 +84,9 @@ flowfield task show APP-1
 flowfield task activity APP-1
 flowfield task relationships APP-1
 flowfield task revisions APP-1
-flowfield milestone list
+flowfield milestone list --workspace WORKSPACE_ID
+flowfield milestone show M-1 --workspace WORKSPACE_ID
+flowfield milestone text M-1 --workspace WORKSPACE_ID --revision 1 --offset 0
 flowfield milestone --help
 ```
 

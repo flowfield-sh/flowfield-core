@@ -319,6 +319,40 @@ def main() -> None:
                         space = json.loads(
                             command("workspace", "create", "Installed workspace", "--json")
                         )
+                        milestone = json.loads(
+                            command(
+                                "milestone",
+                                "create",
+                                "--workspace",
+                                space["id"],
+                                "--title",
+                                "Installed milestone",
+                                "--body",
+                                "Shared outcome",
+                                "--json",
+                            )
+                        )
+                        assert (
+                            json.loads(
+                                command("milestone", "list", "--workspace", space["id"], "--json")
+                            )["items"][0]["id"]
+                            == milestone["id"]
+                        )
+                        assert (
+                            json.loads(
+                                command(
+                                    "milestone",
+                                    "text",
+                                    milestone["key"],
+                                    "--workspace",
+                                    space["id"],
+                                    "--revision",
+                                    "1",
+                                    "--json",
+                                )
+                            )["text"]
+                            == "Shared outcome"
+                        )
                         initialized = command(
                             "project",
                             "init",

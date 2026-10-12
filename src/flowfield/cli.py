@@ -437,6 +437,13 @@ def project_list(
 ProjectOption = Annotated[
     str | None, typer.Option(help="Project ID; defaults to local project config.")
 ]
+WorkspaceOption = Annotated[str, typer.Option("--workspace", help="Explicit workspace ID.")]
+
+
+def workspace_item_path(workspace: str, *parts: str) -> str:
+    return "/".join(["workspaces", quote(workspace, safe=""), *(quote(p, safe="") for p in parts)])
+
+
 Expected = Annotated[
     int | None,
     typer.Option(
@@ -1114,7 +1121,7 @@ def task_restore(
 @milestone_app.command("list")
 def milestone_list(
     ctx: typer.Context,
-    project: ProjectOption = None,
+    workspace: WorkspaceOption,
     after: str | None = None,
     limit: int = 20,
     json_output: Json = False,
@@ -1123,7 +1130,7 @@ def milestone_list(
         lambda: ctx.obj.request(
             "GET",
             "context/"
-            + item_path(project, "milestones")
+            + workspace_item_path(workspace, "milestones")
             + "?"
             + urlencode({"after": after or "", "limit": limit}),
         ),
@@ -1133,10 +1140,12 @@ def milestone_list(
 
 @milestone_app.command("show")
 def milestone_show(
-    ctx: typer.Context, milestone: str, project: ProjectOption = None, json_output: Json = False
+    ctx: typer.Context, milestone: str, workspace: WorkspaceOption, json_output: Json = False
 ) -> None:
     output(
-        lambda: ctx.obj.request("GET", "context/" + item_path(project, "milestones", milestone)),
+        lambda: ctx.obj.request(
+            "GET", "context/" + workspace_item_path(workspace, "milestones", milestone)
+        ),
         json_output,
     )
 
@@ -1144,11 +1153,11 @@ def milestone_show(
 @milestone_app.command("create")
 def milestone_create(
     ctx: typer.Context,
+    workspace: WorkspaceOption,
     title: Annotated[str, typer.Option()],
     id: str | None = None,
     body: str | None = None,
     body_file: Path | None = None,
-    project: ProjectOption = None,
     author: Author = "human",
     json_output: Json = False,
 ) -> None:
@@ -1156,7 +1165,7 @@ def milestone_create(
     output(
         lambda: ctx.obj.request(
             "POST",
-            item_path(project, "milestones"),
+            workspace_item_path(workspace, "milestones"),
             {"id": id, "title": title, "body": text_value(body, body_file) or "", "author": author},
         ),
         json_output,
@@ -1167,10 +1176,10 @@ def milestone_create(
 def milestone_edit(
     ctx: typer.Context,
     milestone: str,
+    workspace: WorkspaceOption,
     title: str | None = None,
     body: str | None = None,
     body_file: Path | None = None,
-    project: ProjectOption = None,
     expected_revision: Expected = None,
     author: Author = "human",
     json_output: Json = False,
@@ -1179,7 +1188,7 @@ def milestone_edit(
     output(
         lambda: update(
             ctx.obj,
-            item_path(project, "milestones", milestone),
+            workspace_item_path(workspace, "milestones", milestone),
             {
                 k: v
                 for k, v in {"title": title, "body": text_value(body, body_file)}.items()
@@ -1187,6 +1196,35 @@ def milestone_edit(
             },
             expected_revision,
             author,
+        ),
+        json_output,
+    )
+
+
+@milestone_app.command("text")
+def milestone_text(
+    ctx: typer.Context,
+    milestone: str,
+    workspace: WorkspaceOption,
+    revision: int | None = None,
+    offset: int = 0,
+    limit: int = 4000,
+    json_output: Json = False,
+) -> None:
+    """Read a bounded page of milestone text, preserving its revision across pages."""
+    output(
+        lambda: ctx.obj.request(
+            "GET",
+            "context/"
+            + workspace_item_path(workspace, "milestones", milestone, "text")
+            + "?"
+            + urlencode(
+                {
+                    "offset": offset,
+                    "limit": limit,
+                    **({"revision": revision} if revision is not None else {}),
+                }
+            ),
         ),
         json_output,
     )
@@ -1377,20 +1415,6 @@ def project_text(
 ) -> None:
     """Read full description/path in chunks."""
     read_text(ctx, "project", None, project, field, revision, offset, limit, json_output)
-
-
-@milestone_app.command("text")
-def milestone_text(
-    ctx: typer.Context,
-    milestone: str,
-    project: ProjectOption = None,
-    revision: int | None = None,
-    offset: int = 0,
-    limit: int = 4000,
-    json_output: Json = False,
-) -> None:
-    """Read a full milestone description in chunks."""
-    read_text(ctx, "milestone", milestone, project, "body", revision, offset, limit, json_output)
 
 
 @project_app.command("entry")

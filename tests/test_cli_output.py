@@ -15,6 +15,63 @@ from flowfield.errors import ApplicationError
 runner = CliRunner()
 
 
+def test_workspace_milestones_work_without_projects_and_page_exact_revisions(tmp_path):
+    with running_service(tmp_path / "state") as base:
+        prefix = ["--port", base.rsplit(":", 1)[1]]
+
+        def invoke(*args, failure=False):
+            result = runner.invoke(app, [*prefix, *args, "--json"])
+            assert result.exit_code == (1 if failure else 0), result.output
+            return json.loads(result.stderr if failure else result.stdout)
+
+        first = invoke("workspace", "create", "First")
+        second = invoke("workspace", "create", "Second")
+        body = "🦉" * 9000
+        milestone = invoke(
+            "milestone",
+            "create",
+            "--workspace",
+            first["id"],
+            "--title",
+            "Shared launch",
+            "--body",
+            body,
+        )
+        assert milestone["key"] == "M-1"
+        assert invoke("project", "list")["items"] == []
+        listed = invoke("milestone", "list", "--workspace", first["id"], "--limit", "1")
+        assert [item["id"] for item in listed["items"]] == [milestone["id"]]
+        assert "body" not in listed["items"][0]
+        excerpt = invoke("milestone", "show", "m-1", "--workspace", first["id"])
+        assert excerpt["truncated_fields"]["body"]["total_characters"] == len(body)
+        text = invoke("milestone", "text", "M-1", "--workspace", first["id"], "--revision", "1")
+        assert text["text"] == body[:4000] and text["next_offset"] == 4000
+        assert (
+            invoke("milestone", "show", "M-1", "--workspace", second["id"], failure=True)["error"][
+                "code"
+            ]
+            == "not_found"
+        )
+        changed = invoke(
+            "milestone",
+            "edit",
+            "M-1",
+            "--workspace",
+            first["id"],
+            "--title",
+            "Revised launch",
+            "--expected-revision",
+            "1",
+        )
+        assert changed["revision"] == 2
+        stale = invoke(
+            "milestone", "text", "M-1", "--workspace", first["id"], "--revision", "1", failure=True
+        )
+        assert stale["error"]["code"] == "revision_conflict"
+        missing = runner.invoke(app, [*prefix, "milestone", "list"])
+        assert missing.exit_code == 2 and "--workspace" in missing.output
+
+
 def test_human_reads_cover_real_service_shapes_and_json(tmp_path):
     with running_service(tmp_path / "state") as base:
         prefix = ["--port", base.rsplit(":", 1)[1]]
@@ -45,7 +102,9 @@ def test_human_reads_cover_real_service_shapes_and_json(tmp_path):
         assert "removed" in guidance.stdout
         invoke("task", "create", "--project", "harbor", "--id", "export", "--title", "CSV export")
         invoke("task", "note", "export", "--project", "harbor", "--body", "CSV evidence")
-        invoke("milestone", "create", "--project", "harbor", "--id", "launch", "--title", "Launch")
+        invoke(
+            "milestone", "create", "--workspace", space["id"], "--id", "launch", "--title", "Launch"
+        )
         invoke(
             "harness",
             "configure",
@@ -81,7 +140,13 @@ def test_human_reads_cover_real_service_shapes_and_json(tmp_path):
             (["project", "integration", "show"], "Target:"),
         ]
         for args, expected in cases:
-            args += ["--project", "harbor"] if args != ["project", "list"] else []
+            args += (
+                ["--workspace", space["id"]]
+                if args[0] == "milestone"
+                else ["--project", "harbor"]
+                if args != ["project", "list"]
+                else []
+            )
             human = invoke(*args)
             assert expected in human.stdout, (args, human.stdout)
             assert not human.stdout.lstrip().startswith(("{", "[")), (args, human.stdout)
