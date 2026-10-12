@@ -4,6 +4,7 @@ import json
 import shlex
 
 import pytest
+from click import unstyle
 from project_fixtures import existing_directory
 from test_connection import running_service
 from typer.testing import CliRunner
@@ -74,7 +75,7 @@ def test_workspace_milestones_work_without_projects_and_page_exact_revisions(tmp
         )
         assert stale["error"]["code"] == "revision_conflict"
         missing = runner.invoke(app, [*prefix, "milestone", "list"])
-        assert missing.exit_code == 2 and "--workspace" in missing.output
+        assert missing.exit_code == 2 and "--workspace" in unstyle(missing.output)
 
 
 def test_human_reads_cover_real_service_shapes_and_json(tmp_path):

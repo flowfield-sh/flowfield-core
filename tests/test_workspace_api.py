@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from click import unstyle
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
@@ -159,4 +160,4 @@ def test_cli_adoption_requires_explicit_workspace_without_contacting_service(mon
 
     monkeypatch.setattr("flowfield.client.Client.request", unexpected)
     result = CliRunner().invoke(app, ["project", "init", "."])
-    assert result.exit_code == 2 and "--workspace" in result.output
+    assert result.exit_code == 2 and "--workspace" in unstyle(result.output)
