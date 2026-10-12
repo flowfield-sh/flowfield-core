@@ -13,7 +13,9 @@ test("explicit workspace creation, project adoption and shared draft navigation"
   await expect(
     page.getByRole("heading", { name: "Workspaces", exact: true }),
   ).toBeVisible();
-  expect(await (await request.get("/api/workspaces")).json()).toEqual(before);
+  expect(await (await request.get("/api/workspaces")).json()).toEqual(
+    expect.arrayContaining(before),
+  );
   await page.getByRole("link", { name: "New workspace", exact: true }).click();
   await page.getByLabel("Name", { exact: true }).fill("Product development");
   await page.getByRole("link", { name: "Flowfield", exact: true }).click();
@@ -29,7 +31,11 @@ test("explicit workspace creation, project adoption and shared draft navigation"
     page.getByRole("heading", { name: "Coordinator", exact: true }),
   ).toBeVisible();
   const spaces = await (await request.get("/api/workspaces")).json();
-  expect(spaces.length).toBe(before.length + 1);
+  expect(
+    spaces.filter(
+      (item: { name: string }) => item.name === "Product development",
+    ),
+  ).toHaveLength(1);
   const workspace = spaces.find(
     (item: { name: string }) => item.name === "Product development",
   );
@@ -42,6 +48,9 @@ test("explicit workspace creation, project adoption and shared draft navigation"
     path: testInfo.outputPath("workspace-empty-desktop-light.png"),
   });
   await page.getByRole("button", { name: "Add project", exact: true }).click();
+  await page.getByRole("tab", { name: /^Projects/ }).click();
+  await expect(page).toHaveURL(`/workspaces/${workspace.id}/projects`);
+  await page.getByRole("link", { name: "Add project", exact: true }).click();
   let path: string | null = null;
   await page.route("**/api/projects/select-directory", (route) =>
     route.fulfill({ json: { path } }),

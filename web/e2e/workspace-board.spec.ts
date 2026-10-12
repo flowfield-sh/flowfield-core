@@ -55,6 +55,40 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
       ).ok(),
     ).toBeTruthy();
   }
+  const choice = {
+    harness: "codex",
+    model: "fixture-fast",
+    effort: "low",
+    mode: "read-only",
+    fast: false,
+  };
+  await page.route(`**/api${base}/coordinator-settings`, (route) =>
+    route.fulfill({
+      json: {
+        revision: 1,
+        selection: choice,
+        effective: {
+          choice,
+          source: "workspace",
+          default_revision: 1,
+          override_revision: null,
+        },
+      },
+    }),
+  );
+  await page.route(`**/api${base}/models*`, (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: choice.model,
+          name: "Fixture",
+          efforts: ["low"],
+          modes: [{ id: "read-only", name: "Read only", description: "" }],
+          fast: true,
+        },
+      ],
+    }),
+  );
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(base);
   await expect(
@@ -123,6 +157,9 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Fast mode", exact: true }),
+  ).toBeVisible();
   await expect(page).toHaveURL(`${base}/milestones`);
   await page.getByRole("tab", { name: /^Inbox/ }).click();
   await expect(
@@ -147,6 +184,12 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
       .getByRole("heading", { name: "Delivery workspace", exact: true })
       .first(),
   ).toBeVisible();
+  await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Fast mode", exact: true }),
+  ).toHaveCount(0);
   await page.getByRole("tab", { name: "Workers", exact: true }).click();
   await expect(
     page.getByRole("tab", { name: "Workers", exact: true }),

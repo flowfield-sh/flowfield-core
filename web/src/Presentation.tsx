@@ -121,10 +121,10 @@ export function DetailHeader({
 // One identity layout for board cards, archived rows, and milestone members.
 export function TaskIdentity({
   task,
-  labels,
+  metadata,
   title,
 }: {
-  labels?: ReactNode;
+  metadata?: ReactNode;
   title?: ReactNode;
   task: Pick<TaskRevision, "key" | "title" | "labels"> & {
     status?: string;
@@ -135,13 +135,14 @@ export function TaskIdentity({
     <span className="task-identity">
       <span className="task-labels">
         <span className="task-key">{task.key}</span>
-        {labels ?? (
-          <span className="task-kind-labels">
-            <TaskLabels ids={task.labels} />
-          </span>
-        )}
+        {metadata}
       </span>
       <strong>{title ?? task.title}</strong>
+      {task.labels.length > 0 && (
+        <span className="task-labels">
+          <TaskLabels ids={task.labels} />
+        </span>
+      )}
     </span>
   );
 }

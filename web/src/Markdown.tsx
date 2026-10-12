@@ -95,12 +95,11 @@ export function MarkdownField({
           {label}
         </Label>
         {previewEnabled && (
-          <div role="group" aria-label={`${label} format`}>
+          <div role="group" className="actions" aria-label={`${label} format`}>
             <Button
               size="sm"
-              variant="link"
+              variant={preview ? "ghost" : "secondary"}
               type="button"
-              className="text-button"
               aria-pressed={!preview}
               onClick={() => setPreview(false)}
             >
@@ -108,9 +107,8 @@ export function MarkdownField({
             </Button>
             <Button
               size="sm"
-              variant="link"
+              variant={preview ? "secondary" : "ghost"}
               type="button"
-              className="text-button"
               aria-pressed={preview}
               onClick={() => setPreview(true)}
             >

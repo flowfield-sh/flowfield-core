@@ -124,7 +124,10 @@ test("workspace label management and existing task edits preserve concurrent cha
   await page.goto(`${base}/edit/labels`);
   await page.getByRole("button", { name: "New label", exact: true }).click();
   await page.getByLabel("Label name", { exact: true }).fill("Release");
-  await page.getByLabel("Color", { exact: true }).selectOption("green");
+  await expect(
+    page.locator(".label-color-grid").getByRole("button"),
+  ).toHaveCount(20);
+  await page.getByRole("button", { name: "Green", exact: true }).click();
   await page
     .getByLabel("Guidance", { exact: true })
     .fill("Required for the next release.");
@@ -158,7 +161,7 @@ test("workspace label management and existing task edits preserve concurrent cha
   await expect(page.getByLabel("Guidance", { exact: true })).toHaveValue(
     "Updated elsewhere.",
   );
-  await page.getByLabel("Color", { exact: true }).selectOption("violet");
+  await page.getByRole("button", { name: "Light cyan", exact: true }).click();
   await page.getByRole("button", { name: "Save label", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Edit Release work label", exact: true }),
@@ -183,7 +186,9 @@ test("workspace label management and existing task edits preserve concurrent cha
     .check();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Save labels", exact: true }).click();
-  await expect(page.locator(".entity-labels")).toContainText("Release work");
+  await expect(page.locator(".task-classifications")).toContainText(
+    "Release work",
+  );
   const task = await (
     await request.get("/api/projects/label-settings/view/tasks/LST-1")
   ).json();
@@ -198,12 +203,21 @@ test("workspace label management and existing task edits preserve concurrent cha
   await page
     .getByRole("button", { name: "Edit Release work label", exact: true })
     .click();
-  await expect(page.getByLabel("Color", { exact: true })).toHaveValue("violet");
+  await expect(
+    page.getByRole("button", { name: "Light cyan", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await page.screenshot({
     animations: "disabled",
     path: testInfo.outputPath("label-editor-narrow-dark.png"),
   });
-  await page.getByRole("button", { name: "Delete label", exact: true }).click();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  const remove = page.getByRole("button", {
+    name: "Delete Release work label",
+    exact: true,
+  });
+  await remove.hover();
+  await expect(page.getByRole("tooltip")).toHaveText("Delete label");
+  await remove.click();
   const deleted = page.waitForResponse(
     (response) =>
       response.request().method() === "DELETE" &&

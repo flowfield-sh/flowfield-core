@@ -23,7 +23,16 @@ test("workspace documents preserve drafts, exact history and restore as a new re
     .fill(
       "# Working together\n\nCoordinate core and site here.\n\n- Keep tasks project-specific.\n- Review exact results before delivery.",
     );
+  await expect(
+    page.getByRole("button", { name: "Write", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Preview", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByRole("button", { name: "Write", exact: true }),
+  ).toHaveAttribute("aria-pressed", "false");
   await expect(
     page.getByRole("heading", { name: "Working together", exact: true }),
   ).toBeVisible();
@@ -63,10 +72,6 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Load latest", exact: true }).click();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await page
-    .locator("summary")
-    .filter({ hasText: /^Revision history$/ })
-    .click();
   await page.getByRole("link", { name: "Revision 2", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Working together", exact: true }),
@@ -85,7 +90,8 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   expect(restored.revision).toBe(4);
   expect(restored.restored_from).toBe(2);
   expect(restored.body).toBe(guidance.body);
-  await page.getByRole("link", { name: "All documents", exact: true }).click();
+  await page.getByRole("tab", { name: "Documents", exact: true }).click();
+  await expect(page).toHaveURL(`${base}/documents`);
   await page.getByRole("link", { name: "New document", exact: true }).click();
   await page.getByLabel("Document title", { exact: true }).fill("Architecture");
   await page
@@ -215,10 +221,6 @@ test("document conversation context keeps an uncertain receipt until navigation 
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(() => messages.length).toBe(2);
   expect(messages[1]).toEqual(messages[0]);
-  await page
-    .locator("summary")
-    .filter({ hasText: /^Revision history$/ })
-    .click();
   await page.getByRole("link", { name: "Revision 2", exact: true }).click();
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(() => messages.length).toBe(3);

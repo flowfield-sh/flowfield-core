@@ -83,16 +83,22 @@ export function TaskDetail({
         closeLabel="Back to board"
       >
         <div className="task-conversation-header content-stack">
-          <div className="entity-labels">
-            <TaskLabels ids={task.labels} />
-            <DraftBadge publicationStatus={task.publication_status} />
-            <MilestoneBadge
-              projectId={board.project.id}
-              milestone={board.milestones.find(
-                (m) => m.id === task.milestone_id,
-              )}
-            />
-          </div>
+          {(task.milestone_id || task.publication_status === "draft") && (
+            <div className="entity-labels">
+              <MilestoneBadge
+                projectId={board.project.id}
+                milestone={board.milestones.find(
+                  (m) => m.id === task.milestone_id,
+                )}
+              />
+              <DraftBadge publicationStatus={task.publication_status} />
+            </div>
+          )}
+          {task.labels.length > 0 && (
+            <div className="entity-labels task-classifications">
+              <TaskLabels ids={task.labels} />
+            </div>
+          )}
           <TaskState
             projectId={board.project.id}
             open={openTask}

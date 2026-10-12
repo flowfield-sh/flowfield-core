@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ContentStack } from "./DetailLayout";
+import { ContentStack, DetailHeading } from "./DetailLayout";
 import { ProjectBadge } from "./ProjectBadge";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { workspaceHref } from "./navigation";
@@ -17,9 +17,9 @@ export function WorkspaceList({
 }) {
   return (
     <section className="setup-page" aria-label="Workspaces">
-      <ContentStack space="section" className="welcome">
+      <ContentStack space="section" className="pane-form">
         <div className="detail-heading-row">
-          <h1>Workspaces</h1>
+          <DetailHeading title="Workspaces" titleAs="h2" />
           <Button size="sm" asChild>
             <WorkspaceLink to="/new-workspace">
               <Plus />
@@ -64,8 +64,8 @@ export function NewWorkspace({
   }, [name, onDirty]);
   return (
     <section className="setup-page" aria-label="New workspace">
-      <ContentStack space="section" className="welcome">
-        <h1>New workspace</h1>
+      <ContentStack space="section" className="pane-form">
+        <DetailHeading title="New workspace" titleAs="h2" />
         <p>
           A workspace brings projects together around one Coordinator, shared
           milestones and a board. You can add projects after creating it.
@@ -104,7 +104,7 @@ export function NewWorkspace({
                 onChange={(event) => setName(event.target.value)}
               />
             </Label>
-            <div className="actions">
+            <div className="actions justify-end">
               <Button type="submit">
                 {busy ? "Creating workspace…" : "Create workspace"}
               </Button>

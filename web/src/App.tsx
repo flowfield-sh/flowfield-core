@@ -1,6 +1,5 @@
 import { reportError } from "./requestFeedback";
 import { Toaster } from "@/components/ui/sonner";
-import { TaskLabels } from "./TaskLabels";
 import { LabelCatalog } from "./labelContext";
 import { MilestoneBadge } from "./MilestoneBadge";
 import { AnnouncementProvider } from "./Announcements";
@@ -766,7 +765,7 @@ function WorkspaceBoard({
       value,
       // Radix does not emit a value change for the already selected tab.
       onClick: () => {
-        if (taskRef && value === view) openView(value);
+        if (value === view) openView(value);
       },
     };
   }
@@ -920,15 +919,15 @@ function WorkspaceBoard({
                 </span>
               )}
             </TabsTrigger>
+            <TabsTrigger {...viewTrigger("projects")}>
+              <Folder /> Projects
+              <span className="nav-count">{board.projects.length}</span>
+            </TabsTrigger>
             <TabsTrigger {...viewTrigger("milestones")}>
               <Flag /> Milestones
               {board.milestones.length > 0 && (
                 <span className="nav-count">{board.milestones.length}</span>
               )}
-            </TabsTrigger>
-            <TabsTrigger {...viewTrigger("projects")}>
-              <Folder /> Projects
-              <span className="nav-count">{board.projects.length}</span>
             </TabsTrigger>
             <TabsTrigger {...viewTrigger("documents")}>
               <FileText /> Documents
@@ -982,6 +981,25 @@ function WorkspaceBoard({
                         ))}
                     </NativeSelect>
                   )}
+                  {!showInbox && (
+                    <Label className="field filter-label">
+                      <span className="sr-only">Filter by milestone</span>
+                      <NativeSelect
+                        size="sm"
+                        aria-label="Filter by milestone"
+                        value={filter}
+                        onChange={(e) => setFilter(e.target.value)}
+                      >
+                        <option value="">All work</option>
+                        <option value="none">Without a milestone</option>
+                        {board.milestones.map((milestone) => (
+                          <option key={milestone.id} value={milestone.id}>
+                            {milestone.key} · {milestone.title}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    </Label>
+                  )}
                   {projectFilter && (
                     <Button
                       size="sm"
@@ -1007,23 +1025,6 @@ function WorkspaceBoard({
               )}
               {!showInbox && !milestonesView && !projectsView && (
                 <div className="actions">
-                  <Label className="field filter-label">
-                    <span className="sr-only">Filter by milestone</span>
-                    <NativeSelect
-                      size="sm"
-                      aria-label="Filter by milestone"
-                      value={filter}
-                      onChange={(e) => setFilter(e.target.value)}
-                    >
-                      <option value="">All work</option>
-                      <option value="none">Without a milestone</option>
-                      {board.milestones.map((milestone) => (
-                        <option key={milestone.id} value={milestone.id}>
-                          {milestone.key} · {milestone.title}
-                        </option>
-                      ))}
-                    </NativeSelect>
-                  </Label>
                   <Button
                     size="sm"
                     variant="outline"
@@ -1280,19 +1281,18 @@ function WorkspaceBoard({
                                         {task.title}
                                       </a>
                                     }
-                                    labels={
+                                    metadata={
                                       <>
-                                        <TaskLabels ids={task.labels} />
-                                        <DraftBadge
-                                          publicationStatus={
-                                            task.publication_status
-                                          }
-                                        />
                                         <MilestoneBadge
                                           projectId={task.project_id}
                                           milestone={board.milestones.find(
                                             (m) => m.id === task.milestone_id,
                                           )}
+                                        />
+                                        <DraftBadge
+                                          publicationStatus={
+                                            task.publication_status
+                                          }
                                         />
                                       </>
                                     }

@@ -3767,14 +3767,26 @@ export interface components {
        * @enum {string}
        */
       color:
-        | "blue"
-        | "orange"
-        | "slate"
-        | "violet"
         | "green"
+        | "green-light"
+        | "yellow"
+        | "yellow-light"
+        | "orange"
+        | "orange-light"
         | "red"
+        | "red-light"
         | "pink"
-        | "yellow";
+        | "pink-light"
+        | "violet"
+        | "violet-light"
+        | "blue"
+        | "blue-light"
+        | "cyan"
+        | "cyan-light"
+        | "teal"
+        | "teal-light"
+        | "slate"
+        | "slate-light";
       /**
        * Guidance
        * @default
@@ -3800,14 +3812,26 @@ export interface components {
       /** Color */
       color?:
         | (
-            | "blue"
-            | "orange"
-            | "slate"
-            | "violet"
             | "green"
-            | "red"
-            | "pink"
+            | "green-light"
             | "yellow"
+            | "yellow-light"
+            | "orange"
+            | "orange-light"
+            | "red"
+            | "red-light"
+            | "pink"
+            | "pink-light"
+            | "violet"
+            | "violet-light"
+            | "blue"
+            | "blue-light"
+            | "cyan"
+            | "cyan-light"
+            | "teal"
+            | "teal-light"
+            | "slate"
+            | "slate-light"
           )
         | null;
       /** Guidance */
@@ -5591,14 +5615,26 @@ export interface components {
        * @enum {string}
        */
       color:
-        | "blue"
-        | "orange"
-        | "slate"
-        | "violet"
         | "green"
+        | "green-light"
+        | "yellow"
+        | "yellow-light"
+        | "orange"
+        | "orange-light"
         | "red"
+        | "red-light"
         | "pink"
-        | "yellow";
+        | "pink-light"
+        | "violet"
+        | "violet-light"
+        | "blue"
+        | "blue-light"
+        | "cyan"
+        | "cyan-light"
+        | "teal"
+        | "teal-light"
+        | "slate"
+        | "slate-light";
       /**
        * Guidance
        * @default

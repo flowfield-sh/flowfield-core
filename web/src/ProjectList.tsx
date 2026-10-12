@@ -18,7 +18,7 @@ export function ProjectList({
   return (
     <section className="setup-page" aria-label="Projects">
       <ContentStack space="section" className="collection-layout">
-        <div className="detail-heading-row">
+        <div className="actions justify-end">
           <h2 className="sr-only">Projects</h2>
           <Button size="sm" asChild>
             <WorkspaceLink to={`${workspaceHref(workspaceId)}/projects/new`}>

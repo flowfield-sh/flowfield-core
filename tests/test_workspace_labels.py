@@ -119,9 +119,13 @@ def test_label_http_and_coordinator_tools_are_revision_guarded_and_bounded(tmp_p
         label = created.json()
         assert (
             client.put(
-                base + "/" + label["id"], json={"expected_revision": 1, "color": "green"}
+                base + "/" + label["id"], json={"expected_revision": 1, "color": "cyan-light"}
             ).status_code
             == 200
+        )
+        assert (
+            next(item for item in client.get(base).json() if item["id"] == label["id"])["color"]
+            == "cyan-light"
         )
         assert (
             client.request(

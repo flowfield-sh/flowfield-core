@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { components } from "./api-schema";
 import type { AdjacentSnapshot } from "./AdjacentView";
-import { ContentStack, DetailHeading, Disclosure } from "./DetailLayout";
+import { ContentStack, DetailHeading } from "./DetailLayout";
 import { Markdown, MarkdownField } from "./Markdown";
 import { Timestamp } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
@@ -74,7 +74,7 @@ export function Documents({
     });
   }, [workspaceId, pathname, contextKey, publishView]);
   return (
-    <section className="setup-page" aria-label="Documents">
+    <section className="setup-page documents-page" aria-label="Documents">
       <ContentStack space="section" className="collection-layout">
         {!identity ? (
           <DocumentList path={path} base={base} refresh={refresh} />
@@ -152,7 +152,7 @@ function DocumentList({
   );
   return (
     <>
-      <div className="detail-heading-row">
+      <div className="actions justify-end">
         <h2 className="sr-only">Documents</h2>
         <Button size="sm" asChild>
           <WorkspaceLink to={`${base}/new`}>
@@ -161,11 +161,6 @@ function DocumentList({
           </WorkspaceLink>
         </Button>
       </div>
-      <p className="detail-metadata">
-        Workspace guidance holds shared instructions. Add documents for
-        architecture, specifications or procedures, and discuss existing project
-        guidance with the Coordinator.
-      </p>
       {resource.error && (
         <Button size="sm" variant="outline" onClick={resource.retry}>
           Retry documents
@@ -198,7 +193,7 @@ function DocumentList({
             </WorkspaceLink>
           ))}
       </div>
-      <div className="actions">
+      <div className="actions justify-end">
         {after && (
           <Button size="sm" variant="outline" onClick={() => setAfter(null)}>
             First documents
@@ -258,23 +253,38 @@ function DocumentEditor({
     cancel,
   } = state;
   return (
-    <section ref={editor} aria-label={loaded ? "Document" : "New document"}>
-      <ContentStack space="section">
-        <DetailHeading
-          title={loaded?.title ?? "New document"}
-          titleAs="h2"
-          metadata={
-            loaded ? (
-              <>
-                Revision {loaded.revision} · {authorLabel(loaded.author)} ·{" "}
-                <Timestamp date={loaded.created_at} />
-                {loaded.restored_from
-                  ? ` · Restored from revision ${loaded.restored_from}`
-                  : ""}
-              </>
-            ) : undefined
-          }
-        />
+    <section
+      ref={editor}
+      className={`document-layout ${loaded ? "" : "document-new"}`}
+      aria-label={loaded ? "Document" : "New document"}
+    >
+      <ContentStack space="section" className="document-content">
+        <div className="document-heading">
+          <DetailHeading
+            title={loaded?.title ?? "New document"}
+            titleAs="h2"
+            metadata={
+              loaded ? (
+                <>
+                  Revision {loaded.revision} · {authorLabel(loaded.author)} ·{" "}
+                  <Timestamp date={loaded.created_at} />
+                  {loaded.restored_from
+                    ? ` · Restored from revision ${loaded.restored_from}`
+                    : ""}
+                </>
+              ) : undefined
+            }
+          />
+          {loaded && !historical && !editing && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setEditing(true)}
+            >
+              Edit document
+            </Button>
+          )}
+        </div>
         <EditorFeedback state={state} />
         {historical && latest && loaded ? (
           <ContentStack space="tight">
@@ -282,7 +292,7 @@ function DocumentEditor({
               This is revision {loaded.revision}. The current revision is{" "}
               {latest.revision}.
             </p>
-            <div className="actions">
+            <div className="actions justify-end">
               <Button size="sm" variant="outline" asChild>
                 <WorkspaceLink to={`${base}/${loaded.id}`}>
                   Current document
@@ -339,7 +349,7 @@ function DocumentEditor({
                 value={values.body}
                 onChange={(value) => change("body", value)}
               />
-              <div className="actions">
+              <div className="actions justify-end">
                 <Button
                   size="sm"
                   disabled={!values.title.trim() || (!!loaded && !dirty)}
@@ -361,16 +371,6 @@ function DocumentEditor({
           </form>
         ) : (
           <>
-            {!historical && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="self-start"
-                onClick={() => setEditing(true)}
-              >
-                Edit document
-              </Button>
-            )}
             <Markdown>
               {loaded?.body ||
                 (loaded?.id === "guidance"
@@ -379,14 +379,16 @@ function DocumentEditor({
             </Markdown>
           </>
         )}
-        {loaded && (
-          <RevisionHistory
-            path={`${path}/${loaded.id}`}
-            href={`${base}/${loaded.id}`}
-            revision={latest?.revision ?? loaded.revision}
-          />
-        )}
       </ContentStack>
+      {loaded && (
+        <RevisionHistory
+          key={loaded.id}
+          path={`${path}/${loaded.id}`}
+          href={`${base}/${loaded.id}`}
+          revision={latest?.revision ?? loaded.revision}
+          selected={loaded.revision}
+        />
+      )}
     </section>
   );
 }
@@ -395,42 +397,49 @@ function RevisionHistory({
   path,
   href,
   revision,
+  selected,
 }: {
   path: string;
   href: string;
   revision: number;
+  selected: number;
 }) {
-  const [open, setOpen] = useState(false);
   const [before, setBefore] = useState<number | null>(null);
   const resource = useResource<DocumentPage>(
-    open
-      ? `${path}/history?limit=20${before ? `&before=${before}` : ""}`
-      : null,
+    `${path}/history?limit=20${before ? `&before=${before}` : ""}`,
     revision,
   );
   return (
-    <Disclosure
-      summary="Revision history"
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-    >
+    <aside className="document-history" aria-label="Revision history">
       <ContentStack>
-        {resource.error && (
-          <Button size="sm" variant="outline" onClick={resource.retry}>
-            Retry history
-          </Button>
-        )}
-        {open && !resource.data && !resource.error && <p>Loading history…</p>}
-        {resource.data?.items.map((item) => (
-          <div className="detail-heading-row" key={item.revision}>
-            <WorkspaceLink to={`${href}/revisions/${item.revision}`}>
-              Revision {item.revision}
+        <h3 className="detail-title">Revisions</h3>
+        <nav className="document-revisions" aria-label="Document revisions">
+          {resource.error && (
+            <Button size="sm" variant="outline" onClick={resource.retry}>
+              Retry history
+            </Button>
+          )}
+          {!resource.data && !resource.error && <p>Loading history…</p>}
+          {resource.data?.items.map((item) => (
+            <WorkspaceLink
+              className="document-revision"
+              key={item.revision}
+              aria-label={`Revision ${item.revision}`}
+              aria-current={item.revision === selected ? "page" : undefined}
+              to={`${href}/revisions/${item.revision}`}
+            >
+              <span>
+                Revision {item.revision}
+                {item.revision === revision ? " · Current" : ""}
+              </span>
+              <span className="detail-metadata">
+                {authorLabel(item.author)} ·{" "}
+                <Timestamp date={item.created_at} />
+              </span>
             </WorkspaceLink>
-            <span className="detail-metadata">
-              {authorLabel(item.author)} · <Timestamp date={item.created_at} />
-            </span>
-          </div>
-        ))}
-        <div className="actions">
+          ))}
+        </nav>
+        <div className="actions justify-end">
           {before && (
             <Button size="sm" variant="outline" onClick={() => setBefore(null)}>
               Latest revisions
@@ -447,6 +456,6 @@ function RevisionHistory({
           )}
         </div>
       </ContentStack>
-    </Disclosure>
+    </aside>
   );
 }

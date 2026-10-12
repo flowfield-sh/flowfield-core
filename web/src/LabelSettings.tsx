@@ -1,26 +1,23 @@
 import { useState } from "react";
+import { Check, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
-import { ContentStack, DetailSection } from "./DetailLayout";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { ContentStack } from "./DetailLayout";
 import { ConfirmButton } from "./ConfirmButton";
 import { TaskLabels } from "./TaskLabels";
+import { labelColors } from "./labelColors";
 import { useLabels, type WorkspaceLabel } from "./labelContext";
 import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
+import { reportError } from "./requestFeedback";
 import { request } from "./workspace";
 
-const colors: WorkspaceLabel["color"][] = [
-  "blue",
-  "orange",
-  "slate",
-  "violet",
-  "green",
-  "red",
-  "pink",
-  "yellow",
-];
 const fields = (record?: WorkspaceLabel) => ({
   name: record?.name ?? "",
   color: record?.color ?? "slate",
@@ -39,79 +36,120 @@ export function LabelSettings({
   const labels = useLabels();
   const [selected, setSelected] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   function changeDirty(value: boolean) {
     setDirty(value);
     onDirty(value);
   }
-  function close() {
+  function select(value: string | null) {
     if (dirty && !window.confirm("Discard your unsaved label edits?")) return;
     changeDirty(false);
-    setSelected(null);
+    setSelected(value);
+  }
+  function editor(identity: string) {
+    return (
+      <LabelEditor
+        key={identity}
+        workspaceId={workspaceId}
+        incoming={labels.find((item) => item.id === identity)}
+        onDirty={changeDirty}
+        close={() => select(null)}
+        saved={() => {
+          saved();
+          setSelected(null);
+          changeDirty(false);
+        }}
+      />
+    );
   }
   return (
     <ContentStack space="section">
-      <p>
-        Labels help you and the coordinator recognize work. Guidance explains
-        when to use each label.
-      </p>
-      {selected !== null ? (
-        <LabelEditor
-          key={selected}
-          workspaceId={workspaceId}
-          incoming={labels.find((item) => item.id === selected)}
-          onDirty={changeDirty}
-          close={close}
-          saved={() => {
-            saved();
-            setSelected(null);
-            changeDirty(false);
-          }}
-        />
-      ) : (
-        <DetailSection
-          title="Workspace labels"
-          actions={
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={labels.filter((item) => !item.deleted_at).length >= 100}
-              onClick={() => setSelected("new")}
-            >
-              New label
-            </Button>
+      <div className="actions justify-end">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={
+            selected === "new" ||
+            !!deleting ||
+            labels.filter((item) => !item.deleted_at).length >= 100
           }
+          onClick={() => select("new")}
         >
-          {labels
-            .filter((item) => !item.deleted_at)
-            .map((item) => (
-              <div
-                className="flex items-start justify-between gap-4 rounded-md border p-3"
-                key={item.id}
-              >
-                <ContentStack space="tight">
-                  <TaskLabels ids={[item.id]} />
-                  {item.guidance && (
-                    <p className="detail-metadata whitespace-pre-wrap">
-                      {item.guidance}
-                    </p>
-                  )}
-                </ContentStack>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  aria-label={`Edit ${item.name} label`}
-                  onClick={() => setSelected(item.id)}
-                >
-                  Edit
-                </Button>
+          New label
+        </Button>
+      </div>
+      <div className="label-list">
+        {labels
+          .filter((item) => !item.deleted_at || item.id === selected)
+          .map((item) => (
+            <div className="label-list-item" key={item.id}>
+              <div className="label-list-row">
+                <TaskLabels ids={[item.id]} />
+                <div className="actions">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label={`Edit ${item.name} label`}
+                        disabled={!!deleting || !!item.deleted_at}
+                        onClick={() => select(item.id)}
+                      >
+                        <Pencil />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Edit label</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex">
+                        <ConfirmButton
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label={`Delete ${item.name} label`}
+                          disabled={!!deleting || dirty || !!item.deleted_at}
+                          title={`Delete ${item.name}?`}
+                          description="Remove this label from current tasks? Its past use remains in task history."
+                          action={() => {
+                            setDeleting(item.id);
+                            void request(
+                              `workspaces/${workspaceId}/labels/${item.id}`,
+                              "DELETE",
+                              {
+                                expected_revision: item.revision,
+                                author: "human",
+                              },
+                            )
+                              .then(() => {
+                                if (selected === item.id) select(null);
+                                saved();
+                              })
+                              .catch((error) =>
+                                reportError(error, "Could not delete label"),
+                              )
+                              .finally(() => setDeleting(null));
+                          }}
+                        >
+                          <Trash2 />
+                          <span className="sr-only">Delete label</span>
+                        </ConfirmButton>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete label</TooltipContent>
+                  </Tooltip>
+                </div>
               </div>
-            ))}
-          {!labels.some((item) => !item.deleted_at) && (
-            <p className="detail-metadata">No labels yet.</p>
-          )}
-        </DetailSection>
+              {selected === item.id && editor(item.id)}
+            </div>
+          ))}
+        {selected === "new" && (
+          <div className="label-list-item">{editor("new")}</div>
+        )}
+      </div>
+      {!labels.some((item) => !item.deleted_at) && selected !== "new" && (
+        <p>No labels yet.</p>
       )}
     </ContentStack>
   );
@@ -149,7 +187,11 @@ function LabelEditor({
   });
   const { loaded, values, busy, dirty, change, element: editor } = state;
   return (
-    <section ref={editor} aria-label={loaded ? "Edit label" : "New label"}>
+    <section
+      ref={editor}
+      className="label-editor"
+      aria-label={loaded ? "Edit label" : "New label"}
+    >
       <ContentStack space="section">
         <EditorFeedback state={state} />
         {incoming?.deleted_at && (
@@ -181,22 +223,31 @@ function LabelEditor({
                 onChange={(event) => change("name", event.target.value)}
               />
             </Label>
-            <Label className="field block">
-              Color
-              <NativeSelect
-                aria-label="Color"
-                value={values.color}
-                onChange={(event) =>
-                  change("color", event.target.value as WorkspaceLabel["color"])
-                }
-              >
-                {colors.map((color) => (
-                  <option key={color} value={color}>
-                    {color[0].toUpperCase() + color.slice(1)}
-                  </option>
+            <fieldset className="content-stack" data-space="tight">
+              <legend className="field">Color</legend>
+              <div className="label-color-grid" role="group" aria-label="Color">
+                {Object.entries(labelColors).map(([color, value]) => (
+                  <Tooltip key={color}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-sm"
+                        className={`w-full min-w-0 ${value.className} ${values.color === color ? "ring-2 ring-foreground ring-offset-1 ring-offset-background" : ""}`}
+                        aria-label={value.name}
+                        aria-pressed={values.color === color}
+                        onClick={() =>
+                          change("color", color as WorkspaceLabel["color"])
+                        }
+                      >
+                        {values.color === color && <Check />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{value.name}</TooltipContent>
+                  </Tooltip>
                 ))}
-              </NativeSelect>
-            </Label>
+              </div>
+            </fieldset>
             <Label className="field block">
               Guidance
               <Textarea
@@ -207,43 +258,25 @@ function LabelEditor({
                 onChange={(event) => change("guidance", event.target.value)}
               />
             </Label>
-            <div className="actions">
+            <div className="actions justify-end">
               <Button
                 size="sm"
                 disabled={!values.name.trim() || (!!loaded && !dirty)}
               >
                 {loaded ? "Save label" : "Create label"}
               </Button>
-              {loaded && (
-                <ConfirmButton
-                  size="sm"
-                  variant="outline"
-                  disabled={dirty}
-                  title={`Delete ${loaded.name}?`}
-                  description="Remove this label from current tasks? Its past use remains in task history."
-                  action={() =>
-                    void state.run("DELETE", {
-                      expected_revision: loaded.revision,
-                      author: "human",
-                    })
-                  }
-                >
-                  Delete label
-                </ConfirmButton>
-              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={close}
+              >
+                Cancel
+              </Button>
             </div>
           </fieldset>
         </form>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="self-start"
-          disabled={busy}
-          onClick={close}
-        >
-          Back to labels
-        </Button>
       </ContentStack>
     </section>
   );

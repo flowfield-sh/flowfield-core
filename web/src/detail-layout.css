@@ -439,3 +439,117 @@
     }
   }
 }
+
+@layer components {
+  .label-list {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .label-list:empty {
+    display: none;
+  }
+  .label-list-item + .label-list-item {
+    border-top: 1px solid var(--border);
+  }
+  .label-list-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  .label-editor {
+    padding: 12px;
+  }
+  .label-color-grid {
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: 4px;
+    max-width: 380px;
+  }
+  @media (max-width: 480px) {
+    .label-color-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+  }
+}
+
+@layer components {
+  .documents-page {
+    container-type: inline-size;
+  }
+  .document-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 180px;
+    gap: 24px;
+    align-items: start;
+  }
+  .document-new {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 720px;
+    margin-inline: auto;
+    width: 100%;
+  }
+  .document-content {
+    min-width: 0;
+  }
+  .document-heading {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+  }
+  .document-heading .detail-title {
+    font-size: 20px;
+  }
+  .document-heading .detail-heading-block {
+    flex: 1;
+    min-width: min(100%, 180px);
+    overflow-wrap: anywhere;
+  }
+  .document-history {
+    min-width: 0;
+    border-left: 1px solid var(--border);
+    padding-left: 16px;
+  }
+  .document-revisions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .document-revision {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border-radius: var(--radius);
+    padding: 8px;
+    color: var(--foreground);
+    text-decoration: none;
+  }
+  .document-revision:hover,
+  .document-revision[aria-current="page"] {
+    background: var(--accent);
+  }
+  .document-revision[aria-current="page"] {
+    box-shadow: inset 2px 0 var(--foreground);
+  }
+  .document-revision:focus-visible {
+    outline: 2px solid var(--ring);
+  }
+  @container (max-width: 640px) {
+    .document-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .document-history {
+      border-left: 0;
+      border-top: 1px solid var(--border);
+      padding: 16px 0 0;
+    }
+    .document-revisions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
+  }
+}

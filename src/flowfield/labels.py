@@ -12,7 +12,28 @@ from flowfield.project_config import Identifier
 from flowfield.workspaces import Workspaces
 
 LabelName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)]
-LabelColor = Literal["blue", "orange", "slate", "violet", "green", "red", "pink", "yellow"]
+LabelColor = Literal[
+    "green",
+    "green-light",
+    "yellow",
+    "yellow-light",
+    "orange",
+    "orange-light",
+    "red",
+    "red-light",
+    "pink",
+    "pink-light",
+    "violet",
+    "violet-light",
+    "blue",
+    "blue-light",
+    "cyan",
+    "cyan-light",
+    "teal",
+    "teal-light",
+    "slate",
+    "slate-light",
+]
 LabelGuidance = Annotated[str, StringConstraints(max_length=1000)]
 DEFAULTS = (
     ("feature", "Feature", "blue", "New or expanded product behavior."),

@@ -278,7 +278,7 @@ function useAgentSettingsContent({
   }
   const fields = (
     <ContentStack space="section">
-      <p className="detail-metadata">
+      <p>
         {coordinatorActive
           ? "Stop or finish this message to switch harnesses. Other settings apply to the next message."
           : coordinator
@@ -441,13 +441,8 @@ function useAgentSettingsContent({
 }
 
 export function AgentSettingsForm(props: AgentSettingsProps) {
-  const { fields, fastControl } = useAgentSettingsContent(props);
-  return (
-    <ContentStack space="section">
-      {fields}
-      {fastControl}
-    </ContentStack>
-  );
+  const { fields } = useAgentSettingsContent(props);
+  return fields;
 }
 
 export function AgentSettingsControl({

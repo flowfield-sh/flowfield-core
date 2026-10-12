@@ -253,6 +253,14 @@
     max-width: 560px;
     margin: 60px auto;
   }
+  .pane-form {
+    width: 100%;
+    max-width: 720px;
+    margin-inline: auto;
+  }
+  .pane-form .detail-title {
+    font-size: 20px;
+  }
   .welcome h1 {
     font-size: 36px;
   }
@@ -466,14 +474,6 @@
   }
   .markdown-toolbar label {
     margin: 0;
-  }
-  .markdown-toolbar button {
-    font-size: 12px;
-    padding: 5px;
-  }
-  .markdown-toolbar [aria-pressed="true"] {
-    text-decoration: underline;
-    text-underline-offset: 4px;
   }
   .markdown-preview {
     border: 1px solid var(--border);

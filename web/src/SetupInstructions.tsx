@@ -5,7 +5,7 @@ import { FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ContentStack, DetailSection } from "./DetailLayout";
+import { ContentStack, DetailHeading, DetailSection } from "./DetailLayout";
 import { request, type Project } from "./workspace";
 
 export function SetupInstructions({
@@ -27,8 +27,8 @@ export function SetupInstructions({
   }, [path, onDirty]);
   return (
     <section className="setup-page" aria-label="Project setup instructions">
-      <ContentStack space="section" className="welcome">
-        <h1>Add a project</h1>
+      <ContentStack space="section" className="pane-form">
+        <DetailHeading title="Add a project" titleAs="h2" />
         <p>
           Choose an existing project for this workspace. Discuss its existing
           instructions with the Coordinator to decide what belongs in workspace
@@ -74,7 +74,7 @@ export function SetupInstructions({
                   <Input aria-label="Project directory" value={path} readOnly />
                 </Label>
               )}
-              <div className="actions">
+              <div className="actions justify-end">
                 <Button
                   type="button"
                   variant={path ? "outline" : "default"}
@@ -172,7 +172,7 @@ export function SetupInstructions({
               </DetailSection>
             )}
             {path && (
-              <div className="actions">
+              <div className="actions justify-end">
                 <Button type="submit">
                   {busy === "adding" ? "Adding project…" : "Add project"}
                 </Button>
