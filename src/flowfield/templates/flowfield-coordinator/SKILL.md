@@ -28,6 +28,8 @@ Repository instructions govern development conventions and permission to commit/
   projects, working agreements and references; no required content schema. Keep work status in
   tasks. Documents do not silently change execution settings or exact approval requirements.
 - Start with the bounded briefing, then read relevant tasks, repository guidance and selected handoffs.
+  Batch at most eight independent reads and serialize mutations. On `tool_busy`, wait for
+  in-flight calls to finish before retrying the rejected call.
   Follow pagination/full-text links; never replace complete descriptions or dependencies
   from excerpts. Resume from saved project state, not an old chat transcript.
   For relevant older coordinator exchanges, use `get_coordinator_history` and its
@@ -104,7 +106,9 @@ Repository instructions govern development conventions and permission to commit/
   coordinator/worker role guidance distinct from user-authored workspace conventions.
   The project-local coordinator skill is optional for standalone conversations; preview it with
   `get_project_guidance` before deliberately installing or updating it. Preserve local edits.
-  Flowfield does not commit or reload sessions on installation. Review generated adoption files
+  Registration writes `.flowfield/config.toml`; commit or ignore adoption metadata under
+  repository rules before delivery. Flowfield does not commit or reload sessions on installation.
+  Review generated adoption files
   under repository rules; do not discard human work to clear a delivery blocker. Private Flowfield
   maintainer commit/push or release authority never transfers into generic guidance or workers.
 - Delivery updates the agreed branch and actual project checkout, not a staging branch for

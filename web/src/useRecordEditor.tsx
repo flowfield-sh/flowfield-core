@@ -55,6 +55,16 @@ export function useRecordEditor<R extends { revision: number }, V>({
     );
   }
   async function run(method: string, payload?: unknown, suffix = "") {
+    const action =
+      suffix === "/restore"
+        ? "restore"
+        : method === "GET"
+          ? "load"
+          : method === "DELETE"
+            ? "delete"
+            : method === "POST"
+              ? "create"
+              : "save";
     setBusy(true);
     try {
       const result =
@@ -67,14 +77,20 @@ export function useRecordEditor<R extends { revision: number }, V>({
         await saved(result, method);
         onDirty(otherDirty);
         if (method === "GET") toast.info("Latest version loaded.");
-        else toast.success(method === "POST" ? "Created." : "Changes saved.");
+        else
+          toast.success(
+            action === "delete"
+              ? "Deleted."
+              : action === "restore"
+                ? "Restored."
+                : action === "create"
+                  ? "Created."
+                  : "Changes saved.",
+          );
       }
     } catch (error) {
       if (mounted.current) {
-        reportError(
-          error,
-          `Could not ${method === "GET" ? "load" : method === "POST" ? "create" : "save"} ${recordName}`,
-        );
+        reportError(error, `Could not ${action} ${recordName}`);
         if (error instanceof RequestError && error.code === "revision_conflict")
           setConflict(true);
       }

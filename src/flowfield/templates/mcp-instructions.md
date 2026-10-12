@@ -6,6 +6,8 @@ with ID guidance: read get_document and page get_document_text at its exact revi
 Use list_documents for relevant references. Preserve existing repository guidance and discuss
 how to reference or incorporate it; do not automatically import or rewrite instruction files.
 get_project_guidance previews the optional standalone coordinator playbook without installing it.
+Batch at most eight independent reads and serialize mutations. On tool_busy, wait for
+in-flight calls to finish before retrying the rejected call.
 
 Select relevant project worker_documents defaults and task documents references. Preparation
 pins exact revisions; workers page those sources within their frozen assignment. Main guidance

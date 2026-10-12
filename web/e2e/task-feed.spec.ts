@@ -1450,7 +1450,7 @@ test("task feed follows the live end but preserves reading position and timestam
 test("legacy task-question links resolve into the feed and preserve answers", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, "feed-question")),
@@ -1488,6 +1488,22 @@ test("legacy task-question links resolve into the feed and preserve answers", as
   ).toHaveCount(0);
   const answer = page.getByLabel("Your answer", { exact: true });
   await expect(answer).toHaveAttribute("placeholder", "Your answer…");
+  const input = page.getByRole("form", { name: "Task input", exact: true });
+  await expect(input).toContainText("Answer the question");
+  await expect(
+    input.getByRole("button", { name: "Worker settings", exact: true }),
+  ).toHaveCount(0);
+  await page.screenshot({
+    path: testInfo.outputPath("coordinator-question-desktop-light.png"),
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => localStorage.setItem("flowfield.theme", "dark"));
+  await page.reload();
+  await expect(answer).toBeVisible();
+  await expect(input).toContainText("Answer the question");
+  await page.screenshot({
+    path: testInfo.outputPath("coordinator-question-narrow-dark.png"),
+  });
   await expect(
     page.getByRole("button", { name: "JSON", exact: true }),
   ).toHaveCount(0);

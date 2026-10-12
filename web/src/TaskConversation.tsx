@@ -278,6 +278,10 @@ export function TaskConversation({
     (replyBinding?.question_id === currentQuestion.data?.id
       ? currentQuestion.data?.question
       : undefined);
+  const coordinatorQuestion =
+    !!replyBinding?.question_id &&
+    replyBinding.question_id === currentQuestion.data?.id &&
+    !currentQuestion.data.origin_run_id;
   // Current-result links open the live end; explicit message permalinks and
   // older results retain their exact historical anchor.
   const scrollTarget =
@@ -654,7 +658,7 @@ export function TaskConversation({
               <div className="task-input-context">
                 <strong>
                   {replyBinding?.question_id
-                    ? "Answer the worker"
+                    ? "Answer the question"
                     : draft?.action === "changes"
                       ? "Request changes"
                       : draft?.action === "approve"
@@ -704,7 +708,7 @@ export function TaskConversation({
               onBusy={setUploading}
               onSend={() => void send()}
 
-              controls={settingsControl}
+              controls={coordinatorQuestion ? undefined : settingsControl}
               action={
                 showComposer && (
                   <Button
