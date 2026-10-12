@@ -1430,10 +1430,10 @@ def activity_entry(
     read_text(ctx, "activity", entry, project, "body", None, offset, limit, json_output)
 
 
-@project_app.command("coordinator-history")
+@workspace_app.command("coordinator-history")
 def coordinator_history(
     ctx: typer.Context,
-    project: ProjectOption = None,
+    workspace: WorkspaceOption,
     before: int | None = None,
     limit: int = 20,
     json_output: Json = False,
@@ -1444,7 +1444,7 @@ def coordinator_history(
     )
     output(
         lambda: ctx.obj.request(
-            "GET", "context/" + project_path(project) + "/coordinator-history?" + query
+            "GET", "context/" + workspace_item_path(workspace, "coordinator-history") + "?" + query
         ),
         json_output,
         display_coordinator_history,
@@ -1456,7 +1456,7 @@ def display_coordinator_history(result: dict[str, Any]) -> None:
         typer.echo(f"Exchange {item['number']} · {item['status']} · {item['id']}")
         typer.echo(f"Human: {item['human']}\nCoordinator: {item['coordinator']}")
         if item.get("truncated_fields"):
-            typer.echo("Excerpt; use project coordinator-text for retained text.")
+            typer.echo("Excerpt; use workspace coordinator-text for retained text.")
         if item["output_omitted"]:
             typer.echo("Some public output was omitted and cannot be recovered.")
     if not result["items"]:
@@ -1465,11 +1465,11 @@ def display_coordinator_history(result: dict[str, Any]) -> None:
         typer.echo(f"More available: --before {result['next_cursor']}")
 
 
-@project_app.command("coordinator-text")
+@workspace_app.command("coordinator-text")
 def coordinator_text(
     ctx: typer.Context,
     turn: str,
-    project: ProjectOption = None,
+    workspace: WorkspaceOption,
     field: str = "human",
     revision: int | None = None,
     offset: int = 0,
@@ -1477,7 +1477,21 @@ def coordinator_text(
     json_output: Json = False,
 ) -> None:
     """Read a saved exchange's human/coordinator text in chunks."""
-    read_text(ctx, "coordinator", turn, project, field, revision, offset, limit, json_output)
+    query = urlencode(
+        {
+            "identity": turn,
+            "field": field,
+            "offset": offset,
+            "limit": limit,
+            **({"revision": revision} if revision is not None else {}),
+        }
+    )
+    output(
+        lambda: ctx.obj.request(
+            "GET", "context/" + workspace_item_path(workspace, "text") + "?" + query
+        ),
+        json_output,
+    )
 
 
 def read_text(
@@ -1820,7 +1834,7 @@ from flowfield.integration_cli import register as register_integration  # noqa: 
 from flowfield.storage_cli import register as register_storage  # noqa: E402
 from flowfield.update_cli import register as register_updates  # noqa: E402
 
-register_execution(project_app, task_app)
+register_execution(workspace_app, task_app)
 register_integration(project_app)
 register_storage(app)
 register_updates(app)

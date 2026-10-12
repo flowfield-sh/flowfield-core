@@ -9,7 +9,7 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from flowfield.execution_history import ExecutionHistory
-from flowfield.execution_models import QueueEdit, RunAction, SettingsEdit
+from flowfield.execution_models import RunAction
 from flowfield.harness_models import HarnessKind
 from flowfield.integration_models import IntegrationConfig
 from flowfield.reads import MAX_LIMIT, ContextReads, receipt
@@ -137,21 +137,6 @@ def add_execution_tools(
                 harness=harness,
             )
         ]
-
-    @mcp.tool(annotations=read)
-    def get_workers(project_id: str) -> dict[str, Any]:
-        """Read queue state, saved harness/model/controls, cap and setup problems."""
-        return supervisor().execution.settings(project_id).model_dump()
-
-    @mcp.tool(annotations=write)
-    async def configure_workers(project_id: str, settings: SettingsEdit) -> dict[str, Any]:
-        """Save the human's explicit worker model/effort and cap. Does not enable the queue."""
-        return (await supervisor().configure(project_id, settings)).model_dump()
-
-    @mcp.tool(annotations=write)
-    def set_queue(project_id: str, change: QueueEdit) -> dict[str, Any]:
-        """Enable eligible Up next starts, or pause new reservations. Pause does not stop runs."""
-        return supervisor().execution.queue(project_id, change).model_dump()
 
     @mcp.tool(annotations=read)
     def get_runs(

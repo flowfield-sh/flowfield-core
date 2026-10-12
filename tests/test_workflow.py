@@ -42,7 +42,9 @@ def test_board_grouping_order_archive_and_restart(tmp_path: Path) -> None:
             == project
         )
         assert (tmp_path / "harbor/.flowfield/config.toml").read_bytes() == config
-        milestone = client.post(base + "/milestones", json={"title": "CSV export"}).json()
+        milestone = client.post(
+            f"/api/workspaces/{space}/milestones", json={"title": "CSV export"}
+        ).json()
         for task_id in ["serializer", "button", "rounding"]:
             payload = {
                 "stages": task_request(title=task_id).model_dump()["stages"],
@@ -116,13 +118,17 @@ def test_board_grouping_order_archive_and_restart(tmp_path: Path) -> None:
 
 def test_validation_and_scoped_atomic_edits(tmp_path: Path) -> None:
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
+        spaces = {}
         for identity in ["one", "two"]:
             space = client.post("/api/workspaces", json={"name": identity}).json()["id"]
+            spaces[identity] = space
             client.post(
                 f"/api/workspaces/{space}/projects",
                 json={"id": identity, "path": existing_directory(str(tmp_path / identity))},
             )
-        client.post("/api/projects/two/milestones", json={"id": "foreign", "title": "Other"})
+        client.post(
+            f"/api/workspaces/{spaces['two']}/milestones", json={"id": "foreign", "title": "Other"}
+        )
         base = "/api/projects/one/tasks"
         assert (
             client.post(
@@ -202,15 +208,17 @@ def test_validation_and_scoped_atomic_edits(tmp_path: Path) -> None:
                 ).status_code
                 == 403
             )
-        milestone = client.post("/api/projects/one/milestones", json={"title": "Group"}).json()
+        milestone = client.post(
+            f"/api/workspaces/{spaces['one']}/milestones", json={"title": "Group"}
+        ).json()
         edited = client.put(
-            "/api/projects/one/milestones/" + milestone["id"],
+            f"/api/workspaces/{spaces['one']}/milestones/" + milestone["id"],
             json={"expected_revision": 1, "body": "Related tasks"},
         )
         assert edited.status_code == 200
         assert (
             client.put(
-                "/api/projects/one/milestones/" + milestone["id"],
+                f"/api/workspaces/{spaces['one']}/milestones/" + milestone["id"],
                 json={"expected_revision": 1, "title": "Stale"},
             ).status_code
             == 409

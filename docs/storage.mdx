@@ -1,18 +1,19 @@
 ---
 title: Local storage
-description: Where your workspace lives and how to preserve it.
+description: Where Flowfield keeps your data and how to preserve it.
 ---
 
-Flowfield stores its workspace separately from the installed application and your source code.
+Flowfield stores workspace records and execution state separately from the installed application and your source code.
 
 | Location | Contents |
 | --- | --- |
-| `~/.flowfield/` | Workspace database, execution artifacts and service-owned workspaces |
+| `~/.flowfield/` | Database for all workspaces, execution artifacts and isolated task directories |
+| `~/.flowfield/coordinators/` | Managed working directories for workspace Coordinators |
 | `project/.flowfield/config.toml` | Portable project identity |
 | `project/.flowfield/guidance.json` | Ownership of installed guidance |
-| `project/.agents/skills/flowfield-coordinator/SKILL.md` | Coordinator instructions |
+| `project/.agents/skills/flowfield-coordinator/SKILL.md` | Optional installed guidance for standalone conversations |
 
-Choose another workspace directory with `FLOWFIELD_DATA_DIR` or `flowfield --data-dir
+Choose another data directory with `FLOWFIELD_DATA_DIR` or `flowfield --data-dir
 /absolute/path serve`. Project checkouts and their local edits remain separate from task state.
 
 ## Upgrades
@@ -23,6 +24,8 @@ starting fresh.
 
 Version 0.4.0 removes saved notification history and its delivery records. Pending work remains in Inbox, and available updates remain in Settings → Updates. Notification preferences live in Settings → Notifications; enable optional system delivery there after upgrading.
 
+When upgrading from project-owned coordination, each existing project gets its own workspace named **Project name Workspace**. Its conversation, milestones and queue settings move with it; tasks, approvals and repository identity stay associated with the same work. Separate project conversations are preserved in separate workspaces. New installations start without any workspace until you create one.
+
 On startup, Flowfield upgrades supported databases automatically. Before changing an
 existing database, it saves a verified snapshot in `~/.flowfield/backups/` (or your chosen
 data directory). Migration steps run in one transaction. An error or interrupted process
@@ -30,7 +33,7 @@ rolls back the upgrade; an error stops startup and includes recovery instruction
 
 Upgrades require exclusive access: stop the service before updating, then start the new
 build. Flowfield refuses an incompatible database and preserves its contents. Reinstalling
-an older application does not downgrade a newer database. Each project retains its saved queue setting after restart.
+an older application does not downgrade a newer database. Each workspace retains its saved queue setting after restart.
 Pause the queue before shutdown to hold new starts; interrupted workers still require recovery.
 
 Database upgrades preserve project identity, installed guidance and execution artifacts.

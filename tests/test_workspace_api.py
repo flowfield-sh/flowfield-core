@@ -31,6 +31,21 @@ def test_explicit_creation_adoption_scope_and_no_implicit_resources(tmp_path, mo
         space = created.json()["id"]
         base = f"/api/workspaces/{space}"
         assert client.get(base + "/projects").json() == []
+        assert (
+            client.get(f"/api/context/workspaces/{space}/coordinator-history").json()["items"] == []
+        )
+        paths = client.get("/openapi.json").json()["paths"]
+        assert "/api/projects/initialize" not in paths
+        for suffix in (
+            "workers",
+            "workers/occupancy",
+            "queue",
+            "coordinator-settings",
+            "milestones",
+            "milestones/{milestone_id}",
+        ):
+            assert f"/api/projects/{{project_id}}/{suffix}" not in paths
+        assert "/api/context/projects/{project_id}/coordinator-history" not in paths
         milestone = client.post(
             base + "/milestones", json={"title": "Launch", "body": "Shared intent"}
         )
@@ -123,10 +138,9 @@ def test_shared_role_settings_validate_in_managed_home_and_preserve_queue(tmp_pa
             == 422
         )
         assert client.post(base + "/projects", json={"path": str(repo)}).status_code == 201
-        assert client.get("/api/projects/core/workers").json()["enabled"] is True
+        assert client.get(base + "/workers").json()["enabled"] is True
         assert (
-            client.get("/api/projects/core/coordinator-settings").json()["effective"]["source"]
-            == "workspace"
+            client.get(base + "/coordinator-settings").json()["effective"]["source"] == "workspace"
         )
         # A stale save fails before optional native discovery is restarted.
         client.app.state.supervisor.catalogs.cache.clear()

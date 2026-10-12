@@ -10,7 +10,6 @@ from flowfield.application import Workspace
 from flowfield.milestones import Milestones
 from flowfield.reads import ContextReads, excerpt
 from flowfield.search import Entity, History, Search
-from flowfield.workspaces import Workspaces
 
 
 def context_router(workspace: Callable[[], Workspace]) -> APIRouter:
@@ -131,43 +130,18 @@ def context_router(workspace: Callable[[], Workspace]) -> APIRouter:
     def activity_entry(context: Reads, project_id: str, entry_id: str) -> dict[str, Any]:
         return context.activity_entry(project_id, entry_id)
 
-    @router.get("/{project_id}/milestones")
-    def milestones(
-        context: Reads, project_id: str, after: str | None = None, limit: int = 20
-    ) -> dict[str, Any]:
-        return context.milestones(project_id, after=after, limit=limit)
-
-    @router.get("/{project_id}/milestones/{milestone_id}")
-    def milestone(context: Reads, project_id: str, milestone_id: str) -> dict[str, Any]:
-        return context.milestone(project_id, milestone_id)
-
     @router.get("/{project_id}/text")
     def text(
         context: Reads,
         project_id: str,
-        resource: Literal[
-            "task", "project", "milestone", "activity", "question", "result", "coordinator"
-        ],
+        resource: Literal["task", "project", "activity", "question", "result"],
         identity: str | None = None,
         field: str = "body",
         revision: int | None = None,
         offset: int = 0,
         limit: int = 4000,
     ) -> dict[str, Any]:
-        owner = (
-            Workspaces(context.workspace).for_project(project_id).id
-            if resource == "coordinator"
-            else project_id
-        )
-        return context.text(owner, resource, identity, field, revision, offset, limit)
-
-    @router.get("/{project_id}/coordinator-history")
-    def coordinator_history(
-        context: Reads, project_id: str, before: int | None = None, limit: int = 20
-    ) -> dict[str, Any]:
-        return context.coordinator_history(
-            Workspaces(context.workspace).for_project(project_id).id, before=before, limit=limit
-        )
+        return context.text(project_id, resource, identity, field, revision, offset, limit)
 
     @router.get("/{project_id}/questions")
     def questions(

@@ -12,7 +12,7 @@ from test_storage_migrations import logical_data, raw
 from flowfield import migrations, storage
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit
 from flowfield.agent_settings import AgentSettings
-from flowfield.agent_tools import coordinator_scope
+from flowfield.agent_tools import workspace_scope
 from flowfield.application import ProjectSetup, Workspace
 from flowfield.coordinator_models import CoordinatorSend
 from flowfield.coordinator_store import CoordinatorStore
@@ -157,16 +157,20 @@ def test_old_generation_cannot_write_or_read_through_a_live_grant(tmp_path):
             store.sessions.actor(db, "harbor", first.id, original.id, statuses=("running",))
 
     async def exercise():
-        grant = await coordinator_scope(Supervisor(workspace), "harbor", check=check)
-        assert not (await grant.call("get_board", {})).isError
+        grant = await workspace_scope(Supervisor(workspace), "harbor", check=check)
+        assert not (await grant.call("get_board", {"project_id": "harbor"})).isError
         finish_coordinator(store, first)
         newer, second, generation = start_coordinator(workspace, choice=CLAUDE, session="second")
         writer.write(
             "harbor", second.id, [ActivityUpdate(key="late", kind="agent", text="OLD OUTPUT")]
         )
         assert not newer.get("harbor", second.id).activity.items
-        assert (await grant.call("get_board", {})).isError
-        assert (await grant.call("create_task", {"task": {"title": "Late task"}})).isError
+        assert (await grant.call("get_board", {"project_id": "harbor"})).isError
+        assert (
+            await grant.call(
+                "create_task", {"project_id": "harbor", "task": {"title": "Late task"}}
+            )
+        ).isError
         grant.revoke()
         assert generation.id != original.id
 

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from project_fixtures import adopt
 from typer.testing import CliRunner
 
 import flowfield.guidance as guidance
@@ -21,7 +22,7 @@ def setup(tmp_path: Path) -> tuple[Path, Guidance]:
     root = tmp_path / "project"
     root.mkdir()
     workspace = Workspace(tmp_path / "state")
-    workspace.setup_project(ProjectSetup(path=str(root)))
+    adopt(workspace, ProjectSetup(path=str(root)))
     return root, Guidance(workspace)
 
 

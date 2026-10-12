@@ -658,9 +658,7 @@ def create_mcp(
     @mcp.tool(annotations=read)
     async def get_text(
         project_id: Identifier,
-        resource: Literal[
-            "task", "milestone", "project", "activity", "question", "result", "coordinator"
-        ],
+        resource: Literal["task", "project", "activity", "question", "result"],
         identity: str | None = None,
         field: str = "body",
         revision: int | None = None,
@@ -671,16 +669,13 @@ def create_mcp(
 
         Task: body/change_note/reconciliation_reason/dependencies.
         Result: summary/checks/limitations/feedback/problem/correction.
-        Project: description/path. Milestone and activity: body. Dependencies are a JSON array.
-        Coordinator: human/coordinator public text. Echo its activity revision on subsequent
-        chunks; if output changes, restart at offset 0. Native history is not reconstructed.
-        Pass returned revision on subsequent task/project/milestone chunks. Activity is immutable.
+        Project: description/path. Activity: body. Dependencies are a JSON array.
+        Pass returned revision on subsequent task/project chunks. Activity is immutable.
+        Use get_milestone_text or get_coordinator_text for workspace-owned sources.
         """
         return await invoke(
             lambda: reads().text(
-                Workspaces(workspace()).for_project(project_id).id
-                if resource == "coordinator"
-                else project_id,
+                project_id,
                 resource,
                 identity,
                 field,

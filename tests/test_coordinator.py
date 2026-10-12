@@ -457,7 +457,7 @@ def test_scoped_coordinator_applies_saved_answer_without_granting_code_approval(
     from test_questions import ask
     from test_questions import setup as questions_setup
 
-    from flowfield.agent_tools import coordinator_scope
+    from flowfield.agent_tools import workspace_scope
     from flowfield.questions import QuestionAnswer
 
     workspace, questions = questions_setup(tmp_path)
@@ -471,12 +471,17 @@ def test_scoped_coordinator_applies_saved_answer_without_granting_code_approval(
     )
 
     async def exercise():
-        grant = await coordinator_scope(Supervisor(workspace), "harbor")
-        assert {"review_result", "answer_question", "configure_workers"} <= grant.tools.keys()
+        grant = await workspace_scope(Supervisor(workspace), "harbor")
+        assert {
+            "review_result",
+            "answer_question",
+            "configure_workspace_workers",
+        } <= grant.tools.keys()
         assert "initialize_project" not in grant.tools
         result = await grant.call(
             "apply_answer",
             {
+                "project_id": "harbor",
                 "question_id": question.id,
                 "application": {
                     "expected_revision": 2,

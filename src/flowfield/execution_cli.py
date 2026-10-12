@@ -1,17 +1,24 @@
-"""Managed execution commands under the existing project/task namespaces."""
+"""Workspace worker controls and project-bound task execution commands."""
 
 from typing import Any
 
 import typer
 
 
-def register(project_app: typer.Typer, task_app: typer.Typer) -> None:
+def register(workspace_app: typer.Typer, task_app: typer.Typer) -> None:
     # Import after cli defines its shared option/output conventions.
-    from flowfield.cli import Json, ProjectOption, output, project_path
+    from flowfield.cli import (
+        Json,
+        ProjectOption,
+        WorkspaceOption,
+        output,
+        project_path,
+        workspace_item_path,
+    )
 
     workers = typer.Typer(no_args_is_help=True, help="Configure workers and run/pause the queue.")
     runs = typer.Typer(no_args_is_help=True, help="Inspect, stop and retry task attempts.")
-    project_app.add_typer(workers, name="workers")
+    workspace_app.add_typer(workers, name="workers")
     task_app.add_typer(runs, name="runs")
     results = typer.Typer(no_args_is_help=True, help="Review proposed results and their delivery.")
     task_app.add_typer(results, name="results")
@@ -172,18 +179,18 @@ def register(project_app: typer.Typer, task_app: typer.Typer) -> None:
                         typer.echo(command)
 
     @workers.command("show")
-    def settings(
-        ctx: typer.Context, project: ProjectOption = None, json_output: Json = False
-    ) -> None:
+    def settings(ctx: typer.Context, workspace: WorkspaceOption, json_output: Json = False) -> None:
         output(
-            lambda: ctx.obj.request("GET", project_path(project) + "/workers"), json_output, show
+            lambda: ctx.obj.request("GET", workspace_item_path(workspace, "workers")),
+            json_output,
+            show,
         )
 
     @workers.command("models")
     def models(
         ctx: typer.Context,
+        workspace: WorkspaceOption,
         harness: str = "codex",
-        project: ProjectOption = None,
         refresh: bool = False,
         json_output: Json = False,
     ) -> None:
@@ -191,13 +198,11 @@ def register(project_app: typer.Typer, task_app: typer.Typer) -> None:
         from urllib.parse import urlencode
 
         def discover() -> Any:
-            project_id = project_path(project).split("/")[-1]
             return ctx.obj.request(
                 "GET",
-                "worker-models?"
-                + urlencode(
-                    {"harness": harness, "project_id": project_id, "refresh": str(refresh).lower()}
-                ),
+                workspace_item_path(workspace, "models")
+                + "?"
+                + urlencode({"harness": harness, "refresh": str(refresh).lower()}),
                 timeout=180,
             )
 
@@ -206,6 +211,7 @@ def register(project_app: typer.Typer, task_app: typer.Typer) -> None:
     @workers.command("configure")
     def configure(
         ctx: typer.Context,
+        workspace: WorkspaceOption,
         model: str = typer.Option(...),
         effort: str | None = None,
         harness: str = "codex",
@@ -214,11 +220,10 @@ def register(project_app: typer.Typer, task_app: typer.Typer) -> None:
             help="Access mode from `workers models`; choose explicitly for a new harness.",
         ),
         max_parallel: int = typer.Option(1, min=1, max=16),
-        project: ProjectOption = None,
         json_output: Json = False,
     ) -> None:
         def perform() -> Any:
-            path = project_path(project) + "/workers"
+            path = workspace_item_path(workspace, "workers")
             current = ctx.obj.request("GET", path)
             choice = current.get("selection") or {}
             ctx.obj.request(
@@ -242,9 +247,9 @@ def register(project_app: typer.Typer, task_app: typer.Typer) -> None:
 
         output(perform, json_output, show)
 
-    def queue(ctx: typer.Context, project: str | None, enabled: bool, json_output: bool) -> None:
+    def queue(ctx: typer.Context, workspace: str, enabled: bool, json_output: bool) -> None:
         def perform() -> Any:
-            path = project_path(project)
+            path = workspace_item_path(workspace)
             current = ctx.obj.request("GET", path + "/workers")
             ctx.obj.request(
                 "POST",
@@ -256,14 +261,14 @@ def register(project_app: typer.Typer, task_app: typer.Typer) -> None:
         output(perform, json_output, show)
 
     @workers.command("run")
-    def run(ctx: typer.Context, project: ProjectOption = None, json_output: Json = False) -> None:
+    def run(ctx: typer.Context, workspace: WorkspaceOption, json_output: Json = False) -> None:
         """Enable eligible Up next reservations; already running work is unaffected."""
-        queue(ctx, project, True, json_output)
+        queue(ctx, workspace, True, json_output)
 
     @workers.command("pause")
-    def pause(ctx: typer.Context, project: ProjectOption = None, json_output: Json = False) -> None:
+    def pause(ctx: typer.Context, workspace: WorkspaceOption, json_output: Json = False) -> None:
         """Pause new starts. Stop an individual attempt separately."""
-        queue(ctx, project, False, json_output)
+        queue(ctx, workspace, False, json_output)
 
     @runs.command("list")
     def listing(

@@ -60,7 +60,7 @@ def test_settings_validation_and_permission_http_journey(tmp_path, monkeypatch):
                     await client.put(path, json={"expected_revision": 1, "selection": None})
                 ).status_code == 409
                 coordinator = await client.put(
-                    "/api/projects/harbor/coordinator-settings",
+                    "/api/workspaces/harbor/coordinator-settings",
                     json={
                         "expected_revision": 1,
                         "selection": {"model": "supported", "effort": "low"},

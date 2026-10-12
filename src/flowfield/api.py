@@ -22,9 +22,6 @@ from flowfield.adapters.directory_picker import DirectorySelection, select_direc
 from flowfield.application import (
     Board,
     Health,
-    Milestone,
-    MilestoneCreate,
-    MilestoneEdit,
     Project,
     ProjectEdit,
     ProjectSetup,
@@ -146,13 +143,6 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
             section=template("agents-section.md"), skill=template("flowfield-coordinator/SKILL.md")
         )
 
-    @router.post("/initialize")
-    async def initialize(request: ProjectSetup, service: Service) -> Project:
-        for choice in (request.coordinator, request.worker):
-            if choice:
-                await supervisor().validate_agent_choice(choice, project_path=request.path)
-        return service.setup_project(request)
-
     @router.post("/setup-defaults")
     def setup_defaults(request: ProjectSetup, service: Service) -> ProjectSetupDefaults:
         return service.project_setup_defaults(request)
@@ -207,24 +197,6 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
     @router.get("/{project_id}/board")
     def board(project_id: str, service: Service) -> Board:
         return service.board(project_id)
-
-    @router.get("/{project_id}/milestones")
-    def milestones(project_id: str, service: Service) -> list[Milestone]:
-        return service.milestones(project_id)
-
-    @router.post("/{project_id}/milestones", status_code=201)
-    def create_milestone(project_id: str, request: MilestoneCreate, service: Service) -> Milestone:
-        return service.create_milestone(project_id, request)
-
-    @router.get("/{project_id}/milestones/{milestone_id}")
-    def milestone(project_id: str, milestone_id: str, service: Service) -> Milestone:
-        return service.milestone(project_id, milestone_id)
-
-    @router.put("/{project_id}/milestones/{milestone_id}")
-    def edit_milestone(
-        project_id: str, milestone_id: str, request: MilestoneEdit, service: Service
-    ) -> Milestone:
-        return service.edit_milestone(project_id, milestone_id, request)
 
     @router.get("/{project_id}/tasks")
     def tasks(project_id: str, service: Service, include_archived: bool = False) -> list[Task]:

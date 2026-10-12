@@ -1,7 +1,8 @@
 """Revocable, role-scoped MCP tools over canonical Flowfield operations.
 
 These grants are created by the service, never from agent-supplied role/scope.
-Coordinators receive the complete project interface; workers have explicit run-bound tools.
+Coordinators receive workspace authority and explicit project destinations;
+workers have run-bound tools.
 """
 
 import asyncio
@@ -117,18 +118,6 @@ def worker_scope(bridge: WorkerBridge) -> ScopedTools:
     )
 
 
-async def coordinator_scope(
-    supervisor: "Supervisor",
-    project_id: str,
-    *,
-    author: str = "agent",
-    check: Callable[[], None] | None = None,
-) -> ScopedTools:
-    """Transitional project chat binding, removed when workspace chat replaces its callers."""
-    supervisor.workspace.project(project_id)
-    return await _coordinator_scope(supervisor, project_id=project_id, author=author, check=check)
-
-
 async def workspace_scope(
     supervisor: "Supervisor",
     workspace_id: str,
@@ -138,19 +127,6 @@ async def workspace_scope(
 ) -> ScopedTools:
     """Bind workspace authority while keeping every repository destination explicit."""
     Workspaces(supervisor.workspace).get(workspace_id)
-    return await _coordinator_scope(
-        supervisor, workspace_id=workspace_id, author=author, check=check
-    )
-
-
-async def _coordinator_scope(
-    supervisor: "Supervisor",
-    *,
-    project_id: str | None = None,
-    workspace_id: str | None = None,
-    author: str,
-    check: Callable[[], None] | None,
-) -> ScopedTools:
     workspace = supervisor.workspace
     canonical = create_mcp(
         lambda: workspace, lambda: supervisor, origin="", include_service_tools=False
@@ -163,14 +139,10 @@ async def _coordinator_scope(
         schema = copy.deepcopy(tool.inputSchema)
         properties = schema.get("properties", {})
         if "workspace_id" in properties:
-            if workspace_id is None:
-                continue
             workspace_tools.add(tool.name)
             del properties["workspace_id"]
         if "project_id" in properties:
             project_tools.add(tool.name)
-            if project_id is not None:
-                del properties["project_id"]
         elif tool.name not in workspace_tools and (
             not tool.annotations or not tool.annotations.readOnlyHint
         ):
@@ -180,35 +152,25 @@ async def _coordinator_scope(
             definition = schema.get("$defs", {}).get(value.get("$ref", "").split("/")[-1], value)
             if "author" in definition.get("properties", {}):
                 authored_arguments[tool.name].append(key)
-        schema["required"] = [
-            key
-            for key in schema.get("required", [])
-            if key != "workspace_id" and (key != "project_id" or project_id is None)
-        ]
+        schema["required"] = [key for key in schema.get("required", []) if key != "workspace_id"]
         schema["additionalProperties"] = False
         scoped.append(tool.model_copy(update={"inputSchema": schema}))
 
     async def call(name: str, arguments: dict[str, Any]) -> CallToolResult:
         if "workspace_id" in arguments:
             raise ApplicationError("scope_mismatch", "Workspace is fixed by the service.", 403)
-        if project_id is not None and "project_id" in arguments:
-            raise ApplicationError("scope_mismatch", "Project is fixed by the service.", 403)
         if "project_id" in arguments and name not in project_tools:
             raise ApplicationError("scope_mismatch", "This operation has workspace scope.", 403)
         bound = copy.deepcopy(arguments)
         if name in workspace_tools:
             bound["workspace_id"] = workspace_id
         if name in project_tools:
-            if project_id is not None:
-                bound["project_id"] = project_id
-            else:
-                destination = bound.get("project_id")
-                if not isinstance(destination, str) or not destination:
-                    raise ApplicationError(
-                        "project_required", "Choose an explicit project for this operation.", 409
-                    )
-                assert workspace_id is not None
-                Workspaces(workspace).require_project(workspace_id, destination)
+            destination = bound.get("project_id")
+            if not isinstance(destination, str) or not destination:
+                raise ApplicationError(
+                    "project_required", "Choose an explicit project for this operation.", 409
+                )
+            Workspaces(workspace).require_project(workspace_id, destination)
         # Attribute every authored request, including omitted model defaults, to
         # its service-owned coordinator turn rather than impersonating the human.
         for key in authored_arguments[name]:

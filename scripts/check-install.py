@@ -69,7 +69,14 @@ async def check_mcp(base: str, task: dict, workspace_id: str) -> None:
 
         assert initialized.instructions == template("mcp-instructions.md").strip()
         tools = {tool.name for tool in (await session.list_tools()).tools}
-        assert {"get_task", "get_workers", "get_runs", "review_result", "set_queue"} <= tools
+        assert {
+            "get_task",
+            "get_workspace_workers",
+            "get_runs",
+            "review_result",
+            "set_workspace_queue",
+        } <= tools
+        assert {"get_workers", "configure_workers", "set_queue"}.isdisjoint(tools)
         assert {"get_project_guidance", "update_project_guidance"} <= tools
         assert {
             "get_task_conversation",
@@ -319,6 +326,31 @@ def main() -> None:
                         space = json.loads(
                             command("workspace", "create", "Installed workspace", "--json")
                         )
+                        assert (
+                            json.loads(
+                                command(
+                                    "workspace",
+                                    "coordinator-history",
+                                    "--workspace",
+                                    space["id"],
+                                    "--json",
+                                )
+                            )["items"]
+                            == []
+                        )
+                        assert (
+                            json.loads(
+                                command(
+                                    "workspace",
+                                    "workers",
+                                    "show",
+                                    "--workspace",
+                                    space["id"],
+                                    "--json",
+                                )
+                            )["enabled"]
+                            is False
+                        )
                         milestone = json.loads(
                             command(
                                 "milestone",
@@ -486,7 +518,11 @@ def main() -> None:
                     board = json.loads(command("status", "--json"))
                     assert board["columns"][1]["tasks"][0]["key"] == task["key"]
                     assert board["recommendation"]["action"] == "publish"
-                    workers = json.loads(command("project", "workers", "show", "--json"))
+                    workers = json.loads(
+                        command(
+                            "workspace", "workers", "show", "--workspace", space["id"], "--json"
+                        )
+                    )
                     assert workers["selection"] is None and workers["max_parallel"] == 1
                     assert workers["enabled"] is False
                     assert json.loads(command("task", "runs", "list", "--json"))["items"] == []

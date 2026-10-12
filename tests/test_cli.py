@@ -39,18 +39,27 @@ def test_coordinator_history_cli_cursor_and_full_text(monkeypatch):
     monkeypatch.setattr(Client, "request", request)
     page = runner.invoke(
         app,
-        ["project", "coordinator-history", "--project", "harbor", "--before", "5", "--limit", "1"],
+        [
+            "workspace",
+            "coordinator-history",
+            "--workspace",
+            "harbor",
+            "--before",
+            "5",
+            "--limit",
+            "1",
+        ],
     )
     assert page.exit_code == 0, page.output
     assert "Original requirement" in page.output and "--before 4" in page.output
-    assert calls[-1] == ("GET", "context/projects/harbor/coordinator-history?before=5&limit=1")
+    assert calls[-1] == ("GET", "context/workspaces/harbor/coordinator-history?before=5&limit=1")
     full = runner.invoke(
         app,
         [
-            "project",
+            "workspace",
             "coordinator-text",
             "older",
-            "--project",
+            "--workspace",
             "harbor",
             "--field",
             "coordinator",
@@ -63,9 +72,7 @@ def test_coordinator_history_cli_cursor_and_full_text(monkeypatch):
     assert full.exit_code == 0, full.output
     assert "Retained reply" in full.output and "--offset 14 --revision 3" in full.output
     assert "cannot be recovered" in full.output
-    assert (
-        "resource=coordinator&identity=older&field=coordinator&revision=3&offset=2" in calls[-1][1]
-    )
+    assert "identity=older&field=coordinator&offset=2&limit=4000&revision=3" in calls[-1][1]
 
 
 def test_cli_help_and_versions() -> None:

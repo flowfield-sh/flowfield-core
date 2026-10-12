@@ -10,14 +10,10 @@ from flowfield.adapters.git_review import changed_files, file_patch
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import (
     ModelOption,
-    QueueEdit,
     Run,
     RunAction,
     RunLocation,
     RunPage,
-    SettingsEdit,
-    WorkerOccupancy,
-    WorkerSettings,
 )
 from flowfield.harness_models import HarnessKind
 from flowfield.review_models import ChangedFiles, FilePatch
@@ -38,22 +34,6 @@ def execution_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
         return await supervisor().model_options(
             refresh=refresh, harness=harness, project_id=project_id, project_path=project_path
         )
-
-    @router.get("/projects/{project_id}/workers")
-    def settings(project_id: str) -> WorkerSettings:
-        return supervisor().execution.settings(project_id)
-
-    @router.put("/projects/{project_id}/workers")
-    async def configure(project_id: str, request: SettingsEdit) -> WorkerSettings:
-        return await supervisor().configure(project_id, request)
-
-    @router.get("/projects/{project_id}/workers/occupancy")
-    def occupancy(project_id: str) -> WorkerOccupancy:
-        return supervisor().execution.occupancy(project_id)
-
-    @router.post("/projects/{project_id}/queue")
-    def queue(project_id: str, request: QueueEdit) -> WorkerSettings:
-        return supervisor().execution.queue(project_id, request)
 
     @router.get("/projects/{project_id}/runs")
     def runs(

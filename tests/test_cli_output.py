@@ -26,6 +26,11 @@ def test_workspace_milestones_work_without_projects_and_page_exact_revisions(tmp
 
         first = invoke("workspace", "create", "First")
         second = invoke("workspace", "create", "Second")
+        assert invoke("workspace", "coordinator-history", "--workspace", first["id"])["items"] == []
+        blocked = invoke("workspace", "workers", "run", "--workspace", first["id"], failure=True)
+        assert blocked["error"]["code"] == "worker_model_required"
+        assert not invoke("workspace", "workers", "show", "--workspace", second["id"])["enabled"]
+        assert not invoke("workspace", "workers", "pause", "--workspace", first["id"])["enabled"]
         body = "🦉" * 9000
         milestone = invoke(
             "milestone",
@@ -129,11 +134,11 @@ def test_human_reads_cover_real_service_shapes_and_json(tmp_path):
             (["task", "relationships", "export"], "No items yet."),
             (["project", "search", "CSV", "--limit", "1"], "More available: --before"),
             (["project", "search", "unfindable"], "No matching evidence."),
-            (["project", "coordinator-history"], "No saved coordinator exchanges."),
+            (["workspace", "coordinator-history"], "No saved coordinator exchanges."),
             (["milestone", "list"], "Launch"),
             (["milestone", "show", "launch"], "Launch"),
             (["inbox", "list"], "No questions in this view."),
-            (["project", "workers", "show"], "Queue paused"),
+            (["workspace", "workers", "show"], "Queue paused"),
             (["task", "runs", "list"], "No attempts yet."),
             (["task", "results", "list", "export"], "No results yet."),
             (["project", "integration", "list"], "No integrations yet."),
@@ -142,7 +147,7 @@ def test_human_reads_cover_real_service_shapes_and_json(tmp_path):
         for args, expected in cases:
             args += (
                 ["--workspace", space["id"]]
-                if args[0] == "milestone"
+                if args[0] in {"milestone", "workspace"}
                 else ["--project", "harbor"]
                 if args != ["project", "list"]
                 else []
@@ -235,7 +240,7 @@ def test_model_choices_need_no_json_and_preserve_machine_payload(monkeypatch):
         }
     ]
     monkeypatch.setattr(Client, "request", lambda *args, **kwargs: value)
-    args = ["project", "workers", "models", "--project", "harbor"]
+    args = ["workspace", "workers", "models", "--workspace", "harbor"]
     human = runner.invoke(app, args)
     assert human.exit_code == 0 and "Effort: Not configurable" in human.stdout
     assert "Access: Accept edits (--mode acceptEdits)" in human.stdout

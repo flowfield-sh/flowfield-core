@@ -119,17 +119,17 @@ definition, stages and assignment preparation in one operation.
 ```sh
 flowfield inbox list
 flowfield inbox show QUESTION_ID
-flowfield project workers show
-flowfield project workers models
-flowfield project workers run
-flowfield project workers pause
+flowfield workspace workers show --workspace ID
+flowfield workspace workers models --workspace ID
+flowfield workspace workers run --workspace ID
+flowfield workspace workers pause --workspace ID
 flowfield task runs list
 flowfield task runs show ATTEMPT_ID
 flowfield task results list APP-1
 flowfield task results show RESULT_ID
 ```
 
-`project workers run` enables eligible Up next starts; `pause` leaves active workers
+`workspace workers run` enables eligible Up next starts; `pause` leaves active workers
 running. `task runs stop ATTEMPT_ID` targets one attempt. Inspect `task results review
 --help` for exact-candidate approval and request-changes options; a result revision and
 candidate commit are required. `task results retry-delivery --help` describes recovery
@@ -138,9 +138,9 @@ when approved code is blocked from reaching the checkout.
 `task runs retry ATTEMPT_ID` returns stopped or failed work to Up next. It does not enable
 a paused queue or bypass the worker limit.
 
-Use `project workers models --project PROJECT_ID` to discover the project's native model
+Use `workspace workers models --workspace ID` to discover native model
 IDs and supported controls. `--refresh` reloads after native configuration or account
-changes. `project workers configure --help` lists harness, model, effort, access mode
+changes. `workspace workers configure --help` lists harness, model, effort, access mode
 and parallel-worker settings. Omit effort only when that model offers no effort control.
 Saving worker settings does not enable the queue.
 
@@ -158,8 +158,8 @@ Configure the target branch and trusted project checks to match your repository.
 Repeat `--check` for multiple commands; `--setup` adds dependency setup. Your coordinator
 can configure and validate richer environment and run-command settings through MCP.
 Flowfield automatically uses the service host’s tools, credentials and native harness
-configuration. Use `flowfield project workers models` to see access modes, then pass
-`--mode MODE_ID` to `flowfield project workers configure` with the model and its supported
+configuration. Use `flowfield workspace workers models` to see access modes, then pass
+`--mode MODE_ID` to `flowfield workspace workers configure` with the model and its supported
 effort. A harness change clears inherited access; choose that harness's native access mode.
 See [Worker setup and checks](/worker-setup) for configuration order and validation.
 
@@ -234,10 +234,10 @@ exit status. Versioned edits require the current revision; do not overwrite newe
 from an outdated read. Paged reads return cursors and truncation metadata: follow them
 rather than treating the first page as complete history.
 
-Read older saved coordinator exchanges with `flowfield project coordinator-history
---project PROJECT --json`. It returns newest first; pass `next_cursor` as `--before`.
-Read an exchange's retained text with `flowfield project coordinator-text TURN
---project PROJECT --field human --revision REVISION --json`, or use `--field coordinator`
+Read older saved coordinator exchanges with `flowfield workspace coordinator-history
+--workspace ID --json`. It returns newest first; pass `next_cursor` as `--before`.
+Read an exchange's retained text with `flowfield workspace coordinator-text TURN
+--workspace ID --field human --revision REVISION --json`, or use `--field coordinator`
 for public reply prose. Follow `next_offset` as `--offset` while keeping the revision;
 restart the read if output changed. Marked omissions are not recoverable, and these
 reads do not reconstruct native tool history or transfer permissions or approval.

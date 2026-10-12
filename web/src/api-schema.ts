@@ -72,23 +72,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/initialize": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Initialize */
-    post: operations["initialize_api_projects_initialize_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/projects/setup-defaults": {
     parameters: {
       query?: never;
@@ -204,42 +187,6 @@ export interface paths {
     /** Board */
     get: operations["board_api_projects__project_id__board_get"];
     put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/projects/{project_id}/milestones": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestones */
-    get: operations["milestones_api_projects__project_id__milestones_get"];
-    put?: never;
-    /** Create Milestone */
-    post: operations["create_milestone_api_projects__project_id__milestones_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/projects/{project_id}/milestones/{milestone_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone */
-    get: operations["milestone_api_projects__project_id__milestones__milestone_id__get"];
-    /** Edit Milestone */
-    put: operations["edit_milestone_api_projects__project_id__milestones__milestone_id__put"];
     post?: never;
     delete?: never;
     options?: never;
@@ -1026,40 +973,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/context/projects/{project_id}/milestones": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestones */
-    get: operations["milestones_api_context_projects__project_id__milestones_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/context/projects/{project_id}/milestones/{milestone_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone */
-    get: operations["milestone_api_context_projects__project_id__milestones__milestone_id__get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/context/projects/{project_id}/text": {
     parameters: {
       query?: never;
@@ -1069,23 +982,6 @@ export interface paths {
     };
     /** Text */
     get: operations["text_api_context_projects__project_id__text_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/context/projects/{project_id}/coordinator-history": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Coordinator History */
-    get: operations["coordinator_history_api_context_projects__project_id__coordinator_history_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1521,58 +1417,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/workers": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Settings */
-    get: operations["settings_api_projects__project_id__workers_get"];
-    /** Configure */
-    put: operations["configure_api_projects__project_id__workers_put"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/projects/{project_id}/workers/occupancy": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Occupancy */
-    get: operations["occupancy_api_projects__project_id__workers_occupancy_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/projects/{project_id}/queue": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Queue */
-    post: operations["queue_api_projects__project_id__queue_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/projects/{project_id}/runs": {
     parameters: {
       query?: never;
@@ -1719,24 +1563,6 @@ export interface paths {
     /** Workspace */
     get: operations["workspace_api_projects__project_id__workspace_get"];
     put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/projects/{project_id}/coordinator-settings": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Coordinator Settings */
-    get: operations["coordinator_settings_api_projects__project_id__coordinator_settings_get"];
-    /** Coordinator Edit */
-    put: operations["coordinator_edit_api_projects__project_id__coordinator_settings_put"];
     post?: never;
     delete?: never;
     options?: never;
@@ -5731,29 +5557,6 @@ export interface components {
        */
       remaining_work: string;
     };
-    /** WorkerSettings */
-    WorkerSettings: {
-      /** Project Id */
-      project_id: string;
-      /**
-       * Revision
-       * @default 1
-       */
-      revision: number;
-      selection: components["schemas"]["AgentChoice-Output"] | null;
-      /**
-       * Max Parallel
-       * @default 1
-       */
-      max_parallel: number;
-      /**
-       * Enabled
-       * @default false
-       */
-      enabled: boolean;
-      /** Problem */
-      problem: string | null;
-    };
     /** WorkspaceCreate */
     WorkspaceCreate: {
       /** Name */
@@ -5947,39 +5750,6 @@ export interface operations {
           "application/json": {
             [key: string]: number;
           };
-        };
-      };
-    };
-  };
-  initialize_api_projects_initialize_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ProjectSetup"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Project"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };
@@ -6291,140 +6061,6 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Board"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestones_api_projects__project_id__milestones_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Milestone"][];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  create_milestone_api_projects__project_id__milestones_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["MilestoneCreate"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Milestone"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_api_projects__project_id__milestones__milestone_id__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
-        milestone_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Milestone"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  edit_milestone_api_projects__project_id__milestones__milestone_id__put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
-        milestone_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["MilestoneEdit"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Milestone"];
         };
       };
       /** @description Validation Error */
@@ -8460,127 +8096,14 @@ export interface operations {
       };
     };
   };
-  milestones_api_context_projects__project_id__milestones_get: {
-    parameters: {
-      query?: {
-        after?: string | null;
-        limit?: number;
-      };
-      header?: never;
-      path: {
-        project_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_api_context_projects__project_id__milestones__milestone_id__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
-        milestone_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
   text_api_context_projects__project_id__text_get: {
     parameters: {
       query: {
-        resource:
-          | "task"
-          | "project"
-          | "milestone"
-          | "activity"
-          | "question"
-          | "result"
-          | "coordinator";
+        resource: "task" | "project" | "activity" | "question" | "result";
         identity?: string | null;
         field?: string;
         revision?: number | null;
         offset?: number;
-        limit?: number;
-      };
-      header?: never;
-      path: {
-        project_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  coordinator_history_api_context_projects__project_id__coordinator_history_get: {
-    parameters: {
-      query?: {
-        before?: number | null;
         limit?: number;
       };
       header?: never;
@@ -9573,138 +9096,6 @@ export interface operations {
       };
     };
   };
-  settings_api_projects__project_id__workers_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["WorkerSettings"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  configure_api_projects__project_id__workers_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["SettingsEdit"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["WorkerSettings"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  occupancy_api_projects__project_id__workers_occupancy_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["WorkerOccupancy"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  queue_api_projects__project_id__queue_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["QueueEdit"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["WorkerSettings"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
   runs_api_projects__project_id__runs_get: {
     parameters: {
       query?: {
@@ -9997,72 +9388,6 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["WorkspaceRecord"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  coordinator_settings_api_projects__project_id__coordinator_settings_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AgentSettingsView"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  coordinator_edit_api_projects__project_id__coordinator_settings_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["AgentSettingsEdit"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AgentSettingsView"];
         };
       };
       /** @description Validation Error */

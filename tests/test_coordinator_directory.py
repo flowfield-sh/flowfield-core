@@ -69,14 +69,12 @@ def test_upgrade_starts_fresh_once_in_managed_home_with_saved_chat(tmp_path, mon
         )
         service, conversation = setup(tmp_path, monkeypatch)
 
-        async def first_turn():
-            turn = service.coordinator.send("harbor", conversation.id, message())
-            done = await settled(service, turn)
-            assert done.status == "completed"
-            await service.close()
-            return done
-
-        previous = asyncio.run(first_turn())
+        # Seed persisted pre-upgrade evidence; the current runtime only launches
+        # coordinators after the storage owner has applied supported migrations.
+        owner, previous, _ = start_coordinator(service.workspace)
+        finish_coordinator(owner, previous)
+        previous = owner.get("harbor", previous.id)
+        asyncio.run(service.close())
         with service.workspace.connection() as db:
             source, _ = service.coordinator.store.sessions.current(db, "harbor")
     assert not (service.workspace.directory / "coordinators").exists()

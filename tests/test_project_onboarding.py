@@ -51,14 +51,14 @@ def test_creation_configures_workspace_roles_separately_from_adoption(tmp_path, 
         created = client.post(base + "/projects", json={"path": str(root)})
         assert created.status_code == 201, created.text
         project = created.json()["id"]
-        worker = client.get(f"/api/projects/{project}/workers").json()
+        worker = client.get(base + "/workers").json()
         assert worker["selection"]["model"] == "fixture" and worker["max_parallel"] == 3
         assert worker["enabled"] is False
         coordinator = AgentSettings(client.app.state.workspace).get(project, "coordinator")
         assert coordinator.selection.model == "fixture"
         assert coordinator.selection.mode == "read-only"
         assert client.post(base + "/projects", json={"path": str(root)}).status_code == 201
-        assert client.get(f"/api/projects/{project}/workers").json() == worker
+        assert client.get(base + "/workers").json() == worker
         assert (
             client.get(
                 "/api/worker-models", params={"project_id": project, "project_path": str(root)}

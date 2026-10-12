@@ -28,7 +28,7 @@ def test_worker_cli_uses_one_choice_and_does_not_carry_access_between_harnesses(
     calls = []
     current = {
         "revision": 7,
-        "project_id": "harbor",
+        "workspace_id": "harbor",
         "enabled": False,
         "max_parallel": 1,
         "selection": dict(harness="codex", model="old", effort="low", mode="read-only", fast=False),
@@ -44,10 +44,10 @@ def test_worker_cli_uses_one_choice_and_does_not_carry_access_between_harnesses(
     result = CliRunner().invoke(
         app,
         [
-            "project",
+            "workspace",
             "workers",
             "configure",
-            "--project",
+            "--workspace",
             "harbor",
             "--harness",
             "claude-code",
@@ -59,7 +59,7 @@ def test_worker_cli_uses_one_choice_and_does_not_carry_access_between_harnesses(
     assert result.exit_code == 0, result.output
     assert calls[1] == (
         "PUT",
-        "projects/harbor/workers",
+        "workspaces/harbor/workers",
         {
             "expected_revision": 7,
             "max_parallel": 1,
@@ -71,10 +71,10 @@ def test_worker_cli_uses_one_choice_and_does_not_carry_access_between_harnesses(
     result = CliRunner().invoke(
         app,
         [
-            "project",
+            "workspace",
             "workers",
             "models",
-            "--project",
+            "--workspace",
             "harbor",
             "--harness",
             "claude-code",
@@ -83,7 +83,7 @@ def test_worker_cli_uses_one_choice_and_does_not_carry_access_between_harnesses(
         ],
     )
     assert result.exit_code == 0, result.output
-    assert calls[-1][1] == "worker-models?harness=claude-code&project_id=harbor&refresh=true"
+    assert calls[-1][1] == "workspaces/harbor/models?harness=claude-code&refresh=true"
 
 
 def test_worker_defaults_preserve_harness_optional_effort_and_override_provenance(tmp_path):

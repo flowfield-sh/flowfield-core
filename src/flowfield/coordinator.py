@@ -17,8 +17,7 @@ from flowfield.adapters.coordinator_directory import repositories_for_scope
 from flowfield.adapters.harness_host import resolve
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_models import AgentCommand
-from flowfield.agent_settings import AgentSettings
-from flowfield.agent_tools import coordinator_scope, workspace_scope
+from flowfield.agent_tools import workspace_scope
 from flowfield.attachments import Attachments
 from flowfield.coordinator_models import CoordinatorSend, CoordinatorTurn
 from flowfield.coordinator_ownership import column as owner_column
@@ -122,11 +121,7 @@ class Coordinator:
         if self.closing:
             raise ApplicationError("service_stopping", "The service is stopping.", 409)
         workspace = self.supervisor.workspace
-        settings = (
-            CoordinatorSettings(workspace).get(project)
-            if workspace.schema_version >= 59
-            else AgentSettings(workspace).get(project, "coordinator")
-        )
+        settings = CoordinatorSettings(workspace).get(project)
         if not settings.effective:
             raise ApplicationError(
                 "coordinator_settings", "Choose coordinator settings first.", 409
@@ -243,9 +238,7 @@ class Coordinator:
                 )
 
         try:
-            grant = await (
-                workspace_scope if workspace.schema_version >= 59 else coordinator_scope
-            )(
+            grant = await workspace_scope(
                 self.supervisor,
                 turn.workspace_id,
                 author=f"coordinator:{turn.id}",
@@ -312,7 +305,7 @@ class Coordinator:
                         turn.workspace_id,
                         None,
                         turn.text,
-                        workspace_scope=workspace.schema_version >= 59,
+                        workspace_scope=True,
                     )
                     # Reject unsupported input before promoting the current binding:
                     # native history is only materialized by its first prompt.

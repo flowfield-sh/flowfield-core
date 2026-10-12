@@ -26,6 +26,10 @@ def test_workspace_grant_over_native_mcp_and_shared_queue(tmp_path, monkeypatch)
 
     async def exercise():
         grant = await workspace_scope(service, space.id)
+        assert {"get_workers", "configure_workers", "set_queue"}.isdisjoint(grant.tools)
+        assert {"milestone", "coordinator"}.isdisjoint(
+            grant.tools["get_text"].inputSchema["properties"]["resource"]["enum"]
+        )
         configured = await grant.call(
             "configure_workspace_workers",
             {

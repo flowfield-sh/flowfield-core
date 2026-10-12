@@ -19,7 +19,7 @@ paths only when needed. Accounts and native settings stay with the harness.
 The latest result and its check time survive page reloads while the service is running. Restarting the service or changing the saved paths or detected installation clears the result. Choose **Verify installation** again after changing your native account or upgrading a harness.
 After installing a missing harness, choose **Verify installation** again. The same action detects the new installation and verifies it.
 
-Models load automatically when you open a selector. Saved project choices preload on open
+Models load automatically when you open a selector. Saved choices preload on open
 and reconnect. Discovery sends no model prompt, though native startup hooks can run.
 Capabilities and access modes are described on each agent's page.
 
@@ -30,7 +30,8 @@ service host, then resend. Flowfield does not automatically replay failed prompt
 
 Flowfield uses [MCP](https://modelcontextprotocol.io/docs/getting-started/intro) to give
 agents access to project work. Built-in Coordinator and workers receive scoped connections
-automatically, bound to their project or task attempt. Tools follow the same saved-answer,
+automatically, bound to their workspace or task attempt. Coordinator repository operations
+name a member project explicitly. Tools follow the same saved-answer,
 revision and exact-result approval rules as the browser and CLI. Tool permission decisions
 never approve delivery of worker code.
 
