@@ -293,15 +293,10 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
   await page
     .getByRole("button", { name: "Edit milestone", exact: true })
     .click();
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Description", exact: true })
     .fill("Export filtered expenses without losing row order.");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  await page
-    .getByRole("button", { name: /^(Close editor|Back to board)$/ })
-    .click();
-  await closeOverlay(page);
   await page.getByRole("tab", { name: /^Board / }).click();
   await page.getByLabel("Filter by milestone").selectOption("");
 
@@ -1019,7 +1014,13 @@ test("conversation capture prepares atomically while task defaults show only use
   });
   expect(task.publication_status).toBe("published");
   expect(task.status).toBe("backlog");
-  expect((await call("get_workers", { project_id })).enabled).toBe(false);
+  expect(
+    (
+      await call("get_workspace_workers", {
+        workspace_id: await projectWorkspace(request, project_id),
+      })
+    ).enabled,
+  ).toBe(false);
   await page.goto(`/projects/${project_id}/tasks/CAP-1`);
   const editor = page.getByRole("region", {
     name: "Task details",
@@ -1157,7 +1158,13 @@ test("conversation capture prepares atomically while task defaults show only use
   await expect(
     editor.getByRole("button", { name: "Edit", exact: true }),
   ).toHaveCount(0);
-  expect((await call("get_workers", { project_id })).enabled).toBe(false);
+  expect(
+    (
+      await call("get_workspace_workers", {
+        workspace_id: await projectWorkspace(request, project_id),
+      })
+    ).enabled,
+  ).toBe(false);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   await expect(

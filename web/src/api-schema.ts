@@ -660,7 +660,8 @@ export interface paths {
     /** Edit Document */
     put: operations["edit_document_api_workspaces__workspace_id__documents__identity__put"];
     post?: never;
-    delete?: never;
+    /** Delete Document */
+    delete: operations["delete_document_api_workspaces__workspace_id__documents__identity__delete"];
     options?: never;
     head?: never;
     patch?: never;
@@ -2657,6 +2658,8 @@ export interface components {
     };
     /** BrowserWorkspaceBoard */
     BrowserWorkspaceBoard: {
+      /** Document Count */
+      document_count: number;
       workspace: components["schemas"]["WorkspaceRecord"];
       /** Projects */
       projects: components["schemas"]["Project"][];
@@ -3080,6 +3083,10 @@ export interface components {
       restored_from?: number | null;
       /** Characters */
       characters: number;
+      /** Deleted At */
+      deleted_at?: string | null;
+      /** Deleted By */
+      deleted_by?: string | null;
       /** Body */
       body: string;
     };
@@ -3130,6 +3137,10 @@ export interface components {
       restored_from?: number | null;
       /** Characters */
       characters: number;
+      /** Deleted At */
+      deleted_at?: string | null;
+      /** Deleted By */
+      deleted_by?: string | null;
     };
     /** DocumentPage */
     DocumentPage: {
@@ -7424,6 +7435,42 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["DocumentEdit"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Document"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_document_api_workspaces__workspace_id__documents__identity__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Edit"];
       };
     };
     responses: {

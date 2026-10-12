@@ -81,6 +81,7 @@ class BrowserBoard(BaseModel):
 
 
 class BrowserWorkspaceBoard(BaseModel):
+    document_count: int
     workspace: WorkspaceRecord
     projects: list[Project]
     project_problems: dict[str, str]
@@ -243,6 +244,11 @@ class BrowserReads:
                 pending.update({item.key: blocked.get(item.id, []) for item in items})
             counts = workspace_attention_counts(db, workspace_id)
             return BrowserWorkspaceBoard(
+                document_count=db.execute(
+                    "SELECT count(*) FROM workspace_documents WHERE workspace_id=? "
+                    "AND deleted_at IS NULL",
+                    (workspace_id,),
+                ).fetchone()[0],
                 workspace=owner,
                 projects=projects,
                 project_problems=dict(

@@ -1,4 +1,4 @@
-import { useCallback, useRef, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, type MouseEvent } from "react";
 import { useBlocker, useLocation, useMatches, useNavigate } from "react-router";
 
 const pagePaths = [
@@ -32,13 +32,15 @@ const pagePaths = [
   "projects/:projectId/milestones/new",
   "projects/:projectId/milestones/:milestoneId/:milestoneTab?",
 ];
-export const workspacePaths = pagePaths.flatMap((path) => [
-  path,
-  path + "/related/questions/:overlayQuestionId",
-]);
+const nestedProjectPaths = pagePaths
+  .filter((path) => path.startsWith("projects/"))
+  .map((path) => `workspaces/:workspaceId/${path}`);
+export const workspacePaths = [...pagePaths, ...nestedProjectPaths].flatMap(
+  (path) => [path, path + "/related/questions/:overlayQuestionId"],
+);
 export function withoutQuestionOverlay(path: string) {
   return path.replace(
-    /^(\/(?:projects|workspaces)\/[^/]+(?:\/.*)?)\/related\/questions\/[^/]+\/?$/,
+    /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+)(?:\/.*)?)\/related\/questions\/[^/]+\/?$/,
     "$1",
   );
 }
@@ -56,8 +58,15 @@ export function taskTab(tab?: string): TaskTab {
     return "history";
   return "task";
 }
-export function projectHref(id: string) {
-  return `/projects/${encodeURIComponent(id)}`;
+export function canonicalHref(path: string, owners: Record<string, string>) {
+  return path.replace(/^\/projects\/([^/?#]+)/, (prefix, id: string) =>
+    owners[decodeURIComponent(id)]
+      ? `${workspaceHref(owners[decodeURIComponent(id)])}${prefix}`
+      : prefix,
+  );
+}
+export function projectHref(id: string, workspaceId?: string) {
+  return `${workspaceId ? workspaceHref(workspaceId) : ""}/projects/${encodeURIComponent(id)}`;
 }
 export function workspaceHref(id: string) {
   return `/workspaces/${encodeURIComponent(id)}`;
@@ -77,7 +86,7 @@ function editorIdentity(path: string) {
       "/settings",
     )
     .replace(
-      /^(\/(?:projects|workspaces)\/[^/]+\/edit)\/(general|info|coordinator|workers|integration|labels)\/?$/,
+      /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+)\/edit)\/(general|info|coordinator|workers|integration|labels)\/?$/,
       "$1",
     )
     .replace(
@@ -86,19 +95,23 @@ function editorIdentity(path: string) {
     );
 }
 export function entityPage(path: string) {
-  return /^\/(?:projects|workspaces)\/[^/]+\/(?:tasks\/[^/]+|milestones\/[^/]+|inbox\/[^/]+|edit)(?:\/.*)?$/.test(
-    withoutQuestionOverlay(path),
+  return (
+    /\/(?:projects|documents)\/new$/.test(withoutQuestionOverlay(path)) ||
+    /^\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+)\/(?:tasks\/[^/]+|milestones\/[^/]+|inbox\/[^/]+|edit)(?:\/.*)?$/.test(
+      withoutQuestionOverlay(path),
+    )
   );
 }
 export function collectionPath(path: string) {
   const base = withoutQuestionOverlay(path);
   return base
+    .replace(/\/(projects|documents)\/new$/, "/$1")
     .replace(
-      /^(\/(?:projects|workspaces)\/[^/]+)\/(tasks\/.*|edit(?:\/.*)?)$/,
+      /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+))\/(tasks\/.*|edit(?:\/.*)?)$/,
       "$1",
     )
     .replace(
-      /^(\/(?:projects|workspaces)\/[^/]+)\/(milestones|inbox)\/.*$/,
+      /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+))\/(milestones|inbox)\/.*$/,
       "$1/$2",
     );
 }
@@ -124,8 +137,8 @@ export function entityNavigationState(
     sameProject || (workspaceOrigin && target.startsWith("/projects/"));
   const betweenTasks =
     retainOrigin &&
-    /^\/projects\/[^/]+\/tasks\/[^/]+/.test(current) &&
-    /^\/projects\/[^/]+\/tasks\/[^/]+/.test(target);
+    /^\/(?:workspaces\/[^/]+\/)?projects\/[^/]+\/tasks\/[^/]+/.test(current) &&
+    /^\/(?:workspaces\/[^/]+\/)?projects\/[^/]+\/tasks\/[^/]+/.test(target);
   const index = window.history.state?.idx;
   return {
     backgroundPath: retainOrigin
@@ -169,11 +182,24 @@ export function useWorkspaceNavigation(
           workspaceOwner(nextLocation.pathname)) ||
         (overlayDirty && currentLocation.pathname !== nextLocation.pathname) ||
         (unsaved &&
-          editorIdentity(currentLocation.pathname) !==
-            editorIdentity(nextLocation.pathname))),
+          editorIdentity(
+            canonicalHref(currentLocation.pathname, projectOwners),
+          ) !==
+            editorIdentity(
+              canonicalHref(nextLocation.pathname, projectOwners),
+            ))),
   );
+  useEffect(() => {
+    const target = canonicalHref(location.pathname, projectOwners);
+    if (target !== location.pathname)
+      void navigate(target + location.search + location.hash, {
+        replace: true,
+        state: location.state,
+      });
+  }, [location, navigate, projectOwners]);
   const changeLocation = useCallback(
     (url: string, replace = false) => {
+      url = canonicalHref(url, projectOwners);
       bypass.current = replace;
       void navigate(url, {
         replace,
@@ -186,7 +212,7 @@ export function useWorkspaceNavigation(
       });
       bypass.current = false;
     },
-    [navigate, location],
+    [navigate, location, projectOwners],
   );
   return {
     discardChanges: {
@@ -215,7 +241,10 @@ export function useWorkspaceNavigation(
         void navigate(origin.index - index);
         return;
       }
-      const target = location.state?.backgroundPath ?? fallback;
+      const target = canonicalHref(
+        location.state?.backgroundPath ?? fallback,
+        projectOwners,
+      );
       void navigate(target === "/new-workspace" ? "/" : target, {
         replace: true,
         state: null,

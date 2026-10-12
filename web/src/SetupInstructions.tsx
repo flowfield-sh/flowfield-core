@@ -5,17 +5,20 @@ import { FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ContentStack, DetailHeading, DetailSection } from "./DetailLayout";
+import { ContentStack, DetailSection } from "./DetailLayout";
+import { DetailHeader } from "./Presentation";
 import { request, type Project } from "./workspace";
 
 export function SetupInstructions({
   added,
   workspaceId,
   onDirty,
+  close,
 }: {
   added: (project: Project) => void;
   workspaceId: string;
   onDirty: (dirty: boolean) => void;
+  close: () => void;
 }) {
   const [path, setPath] = useState("");
   const [id, setId] = useState("");
@@ -26,9 +29,9 @@ export function SetupInstructions({
     onDirty(!!path);
   }, [path, onDirty]);
   return (
-    <section className="setup-page" aria-label="Project setup instructions">
+    <section className="editor" aria-label="Project setup instructions">
       <ContentStack space="section" className="pane-form">
-        <DetailHeading title="Add a project" titleAs="h2" />
+        <DetailHeader title="Add a project" close={close} />
         <p>
           Choose an existing project for this workspace. Discuss its existing
           instructions with the Coordinator to decide what belongs in workspace

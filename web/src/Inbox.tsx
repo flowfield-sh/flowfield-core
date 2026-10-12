@@ -1,3 +1,4 @@
+import { ScopedAnchor } from "./WorkspaceLink";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
 import { authorLabel } from "./workspace";
@@ -293,12 +294,12 @@ function QuestionDetail({
           <OverlayHeading>
             <header className="detail-heading-block overlay-heading">
               <div className="question-meta">
-                <a
+                <ScopedAnchor
                   href={scopeHref}
                   onClick={(e) => followLink(e, () => open(scopeHref))}
                 >
                   {loaded.task_key ?? "Project"}
-                </a>
+                </ScopedAnchor>
                 <span role="status">
                   {loaded.delivery?.state ?? states[loaded.status]}
                 </span>
@@ -310,7 +311,7 @@ function QuestionDetail({
                 />
               </div>
               <h2>
-                <a
+                <ScopedAnchor
                   href={
                     close
                       ? location.pathname
@@ -323,7 +324,7 @@ function QuestionDetail({
                   }
                 >
                   {loaded.question}
-                </a>
+                </ScopedAnchor>
               </h2>
             </header>
           </OverlayHeading>
@@ -354,14 +355,14 @@ function QuestionDetail({
           {correctionLink && (
             <p>
               Correction saved.{" "}
-              <a
+              <ScopedAnchor
                 href={correctionLink}
                 onClick={(event) =>
                   followLink(event, () => open(correctionLink))
                 }
               >
                 Open the new input
-              </a>{" "}
+              </ScopedAnchor>{" "}
               and ask the coordinator to apply it.
             </p>
           )}

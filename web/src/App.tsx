@@ -1,3 +1,4 @@
+import { ProjectOwners, ScopedAnchor } from "./WorkspaceLink";
 import { reportError } from "./requestFeedback";
 import { Toaster } from "@/components/ui/sonner";
 import { LabelCatalog } from "./labelContext";
@@ -31,7 +32,6 @@ import {
   Folder,
   FileText,
 } from "lucide-react";
-import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
 import { EntityOverlay, EntityPane } from "./EntityOverlay";
@@ -45,7 +45,7 @@ import { WorkspaceEditor } from "./WorkspaceEditor";
 import { QueueControls } from "./Workers";
 import { AttentionBoard } from "./AttentionBoard";
 import { MilestoneEditor } from "./MilestoneEditor";
-import { MilestoneDetail, MilestoneList } from "./Milestones";
+import { MilestoneList } from "./Milestones";
 import {
   Attribution,
   CollectionLayout,
@@ -142,6 +142,11 @@ export function App() {
   );
   const workspaceId =
     params.workspaceId ?? knownOwners[projectId ?? ""] ?? projectWorkspace?.id;
+  const wrongWorkspace = !!(
+    params.workspaceId &&
+    projectWorkspace &&
+    params.workspaceId !== projectWorkspace.id
+  );
   const workspace = workspaces.find((item) => item.id === workspaceId);
   const workspaceRefresh = `${refresh}:${JSON.stringify(
     Object.entries(projectRefresh).filter(
@@ -244,162 +249,174 @@ export function App() {
     action();
   }
   return (
-    <AnnouncementProvider navigate={changeLocation}>
-      <Toaster theme={appearance.theme} />
-      <WorkspaceFrame
-        workLocation={pathname}
-        workspaces={workspaces.map((workspace) => ({
-          id: workspace.id,
-          name: workspace.name,
-          href: workspaceHref(workspace.id),
-          inboxCount: attentionCounts?.[workspace.id] ?? 0,
-        }))}
-        activeWorkspaceId={workspaceId ?? ""}
-        onWorkspaceSelect={(workspace) => changeLocation(workspace.href)}
-        onHome={() => changeLocation("/")}
-        onAddWorkspace={() => changeLocation("/new-workspace")}
-        footer={
-          <>
-            <SettingsLink active={pathname.startsWith("/settings/")} />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <p
-                  className="connection"
-                  role="status"
-                  tabIndex={0}
-                  aria-label={connectionStatus}
-                >
-                  <span className={live ? "live-dot" : "live-dot offline"} />
-                  <span data-sidebar="label">{connectionStatus}</span>
-                </p>
-              </TooltipTrigger>
-              <TooltipContent side="right">{connectionStatus}</TooltipContent>
-            </Tooltip>
-          </>
-        }
-        coordinator={
-          connected && workspaceId && workspace && !notFound
-            ? (visible) => (
-                <CoordinatorChat
-                  key={workspaceId}
-                  workspaceId={workspaceId}
-                  viewPath={pathname}
-                  adjacent={
-                    adjacent?.workspaceId === workspaceId &&
-                    adjacent.pathname === pathname
-                      ? adjacent.context
-                      : null
-                  }
-                  refresh={workspaceRefresh}
-                  drafts={chatDrafts}
-                  onSettingsDirty={setChatSettingsDirty}
-                  controlsActive={
-                    visible &&
-                    (!entityPage(pathname) || !!params.taskKey) &&
-                    !params.overlayQuestionId
+    <ProjectOwners.Provider value={knownOwners}>
+      <AnnouncementProvider navigate={changeLocation}>
+        <Toaster theme={appearance.theme} />
+        <WorkspaceFrame
+          workLocation={pathname}
+          workspaces={workspaces.map((workspace) => ({
+            id: workspace.id,
+            name: workspace.name,
+            href: workspaceHref(workspace.id),
+            inboxCount: attentionCounts?.[workspace.id] ?? 0,
+          }))}
+          activeWorkspaceId={workspaceId ?? ""}
+          onWorkspaceSelect={(workspace) => changeLocation(workspace.href)}
+          onHome={() => changeLocation("/")}
+          onAddWorkspace={() => changeLocation("/new-workspace")}
+          footer={
+            <>
+              <SettingsLink active={pathname.startsWith("/settings/")} />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p
+                    className="connection"
+                    role="status"
+                    tabIndex={0}
+                    aria-label={connectionStatus}
+                  >
+                    <span className={live ? "live-dot" : "live-dot offline"} />
+                    <span data-sidebar="label">{connectionStatus}</span>
+                  </p>
+                </TooltipTrigger>
+                <TooltipContent side="right">{connectionStatus}</TooltipContent>
+              </Tooltip>
+            </>
+          }
+          coordinator={
+            connected &&
+            workspaceId &&
+            workspace &&
+            !notFound &&
+            !wrongWorkspace &&
+            (!projectId ||
+              (projectWorkspace?.id ?? knownOwners[projectId]) === workspaceId)
+              ? (visible) => (
+                  <CoordinatorChat
+                    key={workspaceId}
+                    workspaceId={workspaceId}
+                    viewPath={pathname}
+                    adjacent={
+                      adjacent?.workspaceId === workspaceId &&
+                      adjacent.pathname === pathname
+                        ? adjacent.context
+                        : null
+                    }
+                    refresh={workspaceRefresh}
+                    drafts={chatDrafts}
+                    onSettingsDirty={setChatSettingsDirty}
+                    controlsActive={
+                      visible &&
+                      (!entityPage(pathname) || !!params.taskKey) &&
+                      !params.overlayQuestionId
+                    }
+                  />
+                )
+              : undefined
+          }
+          work={
+            <>
+              {!connected ? (
+                <section className="welcome">
+                  <h1>
+                    {loading ? "Opening your workspace" : "Service unavailable"}
+                  </h1>
+                  {!loading && (
+                    <>
+                      <p>Check that Flowfield is running, then try again.</p>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setLoading(true);
+                          setRefresh((v) => v + 1);
+                        }}
+                      >
+                        Retry connection
+                      </Button>
+                    </>
+                  )}
+                </section>
+              ) : notFound || wrongWorkspace ? (
+                <section className="welcome">
+                  <h1>Page not found</h1>
+                  <p>Choose a workspace to continue.</p>
+                </section>
+              ) : pathname.startsWith("/settings/") ? (
+                <FlowfieldSettings
+                  onDirty={setUnsaved}
+                  appearance={appearance}
+                  tab={
+                    pathname === "/settings/appearance"
+                      ? "appearance"
+                      : pathname === "/settings/notifications"
+                        ? "notifications"
+                        : pathname === "/settings/updates"
+                          ? "updates"
+                          : "harnesses"
                   }
                 />
-              )
-            : undefined
-        }
-        work={
-          <>
-            {!connected ? (
-              <section className="welcome">
-                <h1>
-                  {loading ? "Opening your workspace" : "Service unavailable"}
-                </h1>
-                {!loading && (
-                  <>
-                    <p>Check that Flowfield is running, then try again.</p>
+              ) : workspaceId &&
+                workspace &&
+                (!projectId ||
+                  (projectWorkspace?.id ?? knownOwners[projectId]) ===
+                    workspaceId) ? (
+                <WorkspaceBoard
+                  publishView={setAdjacent}
+                  registerProjects={registerProjects}
+                  key={workspaceId}
+                  workspaceId={workspaceId}
+                  projectId={projectId}
+                  refresh={workspaceRefresh}
+                  params={params}
+                  pathname={pathname}
+                  backgroundPath={backgroundPath}
+                  closeEntity={closeEntity}
+                  changeLocation={changeLocation}
+                  navigate={navigate}
+                  setUnsaved={setUnsaved}
+                  setOverlayDirty={setOverlayDirty}
+                  closeQuestion={closeQuestion}
+                />
+              ) : projectId || workspaceId ? (
+                <section className="welcome">
+                  <h1>
+                    {params.workspaceId || projectWorkspace
+                      ? "Workspace not found"
+                      : projectWorkspaceError
+                        ? "Could not open project"
+                        : "Opening workspace…"}
+                  </h1>
+                  {projectWorkspaceError && (
                     <Button
                       size="sm"
-                      onClick={() => {
-                        setLoading(true);
-                        setRefresh((v) => v + 1);
-                      }}
+                      variant="outline"
+                      onClick={retryProjectWorkspace}
                     >
-                      Retry connection
+                      Retry project
                     </Button>
-                  </>
-                )}
-              </section>
-            ) : notFound ? (
-              <section className="welcome">
-                <h1>Page not found</h1>
-                <p>Choose a workspace to continue.</p>
-              </section>
-            ) : pathname.startsWith("/settings/") ? (
-              <FlowfieldSettings
-                onDirty={setUnsaved}
-                appearance={appearance}
-                tab={
-                  pathname === "/settings/appearance"
-                    ? "appearance"
-                    : pathname === "/settings/notifications"
-                      ? "notifications"
-                      : pathname === "/settings/updates"
-                        ? "updates"
-                        : "harnesses"
-                }
-              />
-            ) : workspaceId && workspace ? (
-              <WorkspaceBoard
-                publishView={setAdjacent}
-                registerProjects={registerProjects}
-                key={workspaceId}
-                workspaceId={workspaceId}
-                projectId={projectId}
-                refresh={workspaceRefresh}
-                params={params}
-                pathname={pathname}
-                backgroundPath={backgroundPath}
-                closeEntity={closeEntity}
-                changeLocation={changeLocation}
-                navigate={navigate}
-                setUnsaved={setUnsaved}
-                setOverlayDirty={setOverlayDirty}
-                closeQuestion={closeQuestion}
-              />
-            ) : projectId || workspaceId ? (
-              <section className="welcome">
-                <h1>
-                  {params.workspaceId || projectWorkspace
-                    ? "Workspace not found"
-                    : projectWorkspaceError
-                      ? "Could not open project"
-                      : "Opening workspace…"}
-                </h1>
-                {projectWorkspaceError && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={retryProjectWorkspace}
-                  >
-                    Retry project
-                  </Button>
-                )}
-              </section>
-            ) : pathname === "/new-workspace" ? (
-              <NewWorkspace
-                onDirty={setUnsaved}
-                created={(workspace) => {
-                  setWorkspaces((items) => [
-                    ...items.filter((item) => item.id !== workspace.id),
-                    workspace,
-                  ]);
-                  setRefresh((value) => value + 1);
-                  changeLocation(workspaceHref(workspace.id), true);
-                }}
-              />
-            ) : (
-              <WorkspaceList workspaces={workspaces} />
-            )}
-          </>
-        }
-      />
-      <DiscardChangesDialog {...discardChanges} />
-    </AnnouncementProvider>
+                  )}
+                </section>
+              ) : pathname === "/new-workspace" ? (
+                <NewWorkspace
+                  onDirty={setUnsaved}
+                  created={(workspace) => {
+                    setWorkspaces((items) => [
+                      ...items.filter((item) => item.id !== workspace.id),
+                      workspace,
+                    ]);
+                    setRefresh((value) => value + 1);
+                    changeLocation(workspaceHref(workspace.id), true);
+                  }}
+                />
+              ) : (
+                <WorkspaceList workspaces={workspaces} />
+              )}
+            </>
+          }
+        />
+        <DiscardChangesDialog {...discardChanges} />
+      </AnnouncementProvider>
+    </ProjectOwners.Provider>
   );
 }
 
@@ -499,8 +516,10 @@ function WorkspaceBoard({
         : params.milestoneId
           ? { kind: "milestone", id: params.milestoneId! }
           : projectId &&
-              (pathname === `${projectHref(projectId)}/edit` ||
-                pathname.startsWith(`${projectHref(projectId)}/edit/`))
+              (pathname === `${projectHref(projectId, workspaceId)}/edit` ||
+                pathname.startsWith(
+                  `${projectHref(projectId, workspaceId)}/edit/`,
+                ))
             ? { kind: "project", id: projectId }
             : newKind === "task" || newKind === "milestone"
               ? { kind: newKind }
@@ -510,9 +529,12 @@ function WorkspaceBoard({
     background === `${base}/${view}` ||
     background.startsWith(`${base}/${view}/`) ||
     (!!projectId &&
-      (background === `${projectHref(projectId)}/${view}` ||
-        background.startsWith(`${projectHref(projectId)}/${view}/`)));
-  const projectsView = inView("projects");
+      (background === `${projectHref(projectId, workspaceId)}/${view}` ||
+        background.startsWith(
+          `${projectHref(projectId, workspaceId)}/${view}/`,
+        )));
+  const projectsView =
+    background === `${base}/projects` || background === `${base}/projects/new`;
   const documentsView = pathname.startsWith(`${base}/documents`);
   const addingProject = pathname.endsWith("/projects/new");
   const selectedProject = board?.projects.find(
@@ -635,16 +657,20 @@ function WorkspaceBoard({
       return (
         base + (milestonesView ? "/milestones" : archived ? "/archive" : "")
       );
-    if (next.kind === "project") return projectHref(next.id!) + "/edit";
+    if (next.kind === "project")
+      return projectHref(next.id!, workspaceId) + "/edit";
     if (!next.id) return base + "/" + next.kind + "s/new";
     if (next.kind === "task") {
       const task = board?.tasks.find(
         (t) =>
           t.key === next.id || (t.project_id === projectId && t.id === next.id),
       );
-      return taskHref(task?.project_id ?? projectId!, {
-        key: task?.key ?? next.id,
-      });
+      return (
+        base +
+        taskHref(task?.project_id ?? projectId!, {
+          key: task?.key ?? next.id,
+        })
+      );
     }
     const milestone = board?.milestones.find(
       (m) => m.id === next.id || m.key === next.id,
@@ -706,7 +732,7 @@ function WorkspaceBoard({
               taskTab(params.tab),
             )
           : kind === "milestone"
-            ? `${base}/milestones/${(item as Milestone).key}`
+            ? `${base}/milestones`
             : selectionUrl({ kind, id: item.id }),
       true,
     );
@@ -822,21 +848,6 @@ function WorkspaceBoard({
             onDirty={setUnsaved}
             saved={(item) => saved("milestone", item)}
             close={() => choose(null)}
-            viewTasks={
-              incoming && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  type="button"
-                  onClick={() => {
-                    setFilter(incoming.id);
-                    changeLocation(base);
-                  }}
-                >
-                  View tasks
-                </Button>
-              )
-            }
           />
         ) : incoming && selectedProject ? (
           <TaskDetail
@@ -930,7 +941,8 @@ function WorkspaceBoard({
               )}
             </TabsTrigger>
             <TabsTrigger {...viewTrigger("documents")}>
-              <FileText /> Documents
+              <FileText /> Documents{" "}
+              <span className="nav-count">{board.document_count}</span>
             </TabsTrigger>
             <TabsTrigger {...viewTrigger("archive")}>
               <Archive /> Archive
@@ -950,7 +962,7 @@ function WorkspaceBoard({
           {!projectsView && !documentsView && (
             <div className="board-toolbar">
               {!milestonesView && (
-                <div className="actions">
+                <div className="actions board-filters">
                   <NativeSelect
                     size="sm"
                     aria-label="Filter by project"
@@ -964,6 +976,22 @@ function WorkspaceBoard({
                       </option>
                     ))}
                   </NativeSelect>
+                  {!showInbox && (
+                    <NativeSelect
+                      size="sm"
+                      aria-label="Filter by milestone"
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value)}
+                    >
+                      <option value="">All work</option>
+                      <option value="none">Without a milestone</option>
+                      {board.milestones.map((milestone) => (
+                        <option key={milestone.id} value={milestone.id}>
+                          {milestone.key} · {milestone.title}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  )}
                   {!showInbox && (
                     <NativeSelect
                       size="sm"
@@ -981,39 +1009,18 @@ function WorkspaceBoard({
                         ))}
                     </NativeSelect>
                   )}
-                  {!showInbox && (
-                    <Label className="field filter-label">
-                      <span className="sr-only">Filter by milestone</span>
-                      <NativeSelect
-                        size="sm"
-                        aria-label="Filter by milestone"
-                        value={filter}
-                        onChange={(e) => setFilter(e.target.value)}
-                      >
-                        <option value="">All work</option>
-                        <option value="none">Without a milestone</option>
-                        {board.milestones.map((milestone) => (
-                          <option key={milestone.id} value={milestone.id}>
-                            {milestone.key} · {milestone.title}
-                          </option>
-                        ))}
-                      </NativeSelect>
-                    </Label>
-                  )}
-                  {projectFilter && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        choose({ kind: "project", id: projectFilter })
-                      }
-                    >
-                      Project settings
-                    </Button>
-                  )}
                 </div>
               )}
 
+              {projectFilter && !milestonesView && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => choose({ kind: "project", id: projectFilter })}
+                >
+                  Project settings
+                </Button>
+              )}
               {milestonesView && (
                 <Button
                   size="sm"
@@ -1054,24 +1061,11 @@ function WorkspaceBoard({
             </div>
           )}
           {projectsView ? (
-            addingProject ? (
-              <SetupInstructions
-                workspaceId={workspaceId}
-                onDirty={setUnsaved}
-                added={(project) => {
-                  setUnsaved(false);
-                  setRetry((v) => v + 1);
-                  setProjectFilter(project.id);
-                  changeLocation(base, true);
-                }}
-              />
-            ) : (
-              <ProjectList
-                projects={board.projects}
-                problems={board.project_problems}
-                workspaceId={workspaceId}
-              />
-            )
+            <ProjectList
+              projects={board.projects}
+              problems={board.project_problems}
+              workspaceId={workspaceId}
+            />
           ) : documentsView ? (
             <Documents
               key={workspaceId}
@@ -1082,6 +1076,7 @@ function WorkspaceBoard({
               refresh={refresh}
               onDirty={setUnsaved}
               navigate={changeLocation}
+              close={() => closeEntity(base + "/documents")}
               publishView={publishView}
             />
           ) : milestonesView ? (
@@ -1089,7 +1084,21 @@ function WorkspaceBoard({
               <CollectionLayout>
                 <MilestoneList
                   board={board}
-                  selected={selection?.id}
+                  viewTasks={(id) => {
+                    setFilter(id);
+                    setProjectFilter("");
+                    setLabelFilter("");
+                    const members = board.tasks.filter(
+                      (task) => task.milestone_id === id,
+                    );
+                    changeLocation(
+                      base +
+                        (members.length &&
+                        members.every((task) => task.archived)
+                          ? "/archive"
+                          : ""),
+                    );
+                  }}
                   open={(id) => choose({ kind: "milestone", id })}
                 />
               </CollectionLayout>
@@ -1264,7 +1273,7 @@ function WorkspaceBoard({
                                   <TaskIdentity
                                     task={task}
                                     title={
-                                      <a
+                                      <ScopedAnchor
                                         className="task-card-link"
                                         aria-label={`${task.key} ${task.title}`}
                                         href={taskHref(task.project_id, task)}
@@ -1279,7 +1288,7 @@ function WorkspaceBoard({
                                         }
                                       >
                                         {task.title}
-                                      </a>
+                                      </ScopedAnchor>
                                     }
                                     metadata={
                                       <>
@@ -1385,31 +1394,37 @@ function WorkspaceBoard({
                     : "New task"
                   : selection.kind === "milestone"
                     ? selection.id
-                      ? "Milestone details"
+                      ? "Edit milestone"
                       : "New milestone"
                     : "Project details"
               }
               suspended={!!params.overlayQuestionId}
               close={() => choose(null)}
             >
-              {selection.kind === "milestone" ? (
-                incoming ? (
-                  <MilestoneDetail
-                    milestone={incoming as Milestone}
-                    close={() => choose(null)}
-                  >
-                    {editorPanel}
-                  </MilestoneDetail>
-                ) : (
-                  editorPanel
-                )
-              ) : (
-                editorPanel
-              )}
+              {editorPanel}
             </EntityOverlay>
           )
         )}
       </Tabs>
+      {addingProject && (
+        <EntityOverlay
+          title="Add a project"
+          identity="new-project"
+          close={() => closeEntity(base + "/projects")}
+        >
+          <SetupInstructions
+            workspaceId={workspaceId}
+            onDirty={setUnsaved}
+            close={() => closeEntity(base + "/projects")}
+            added={(project) => {
+              setUnsaved(false);
+              setRetry((v) => v + 1);
+              setProjectFilter(project.id);
+              changeLocation(projectHref(project.id, workspaceId), true);
+            }}
+          />
+        </EntityOverlay>
+      )}
       {workspaceSettings && (
         <EntityOverlay
           title="Workspace settings"

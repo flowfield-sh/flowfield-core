@@ -481,7 +481,7 @@
   }
   .document-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 180px;
+    grid-template-columns: minmax(0, 1fr) 220px;
     gap: 24px;
     align-items: start;
   }
@@ -517,14 +517,14 @@
   .document-revisions {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 12px;
   }
   .document-revision {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
     border-radius: var(--radius);
-    padding: 8px;
+    padding: 12px;
     color: var(--foreground);
     text-decoration: none;
   }

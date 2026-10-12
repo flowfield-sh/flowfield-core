@@ -1,3 +1,4 @@
+import { ScopedAnchor } from "./WorkspaceLink";
 import { TaskLabels } from "./TaskLabels";
 import { authorLabel } from "./workspace";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -59,13 +60,13 @@ export function CollectionRow({
   timestamp?: string;
 }) {
   const link = (
-    <a
+    <ScopedAnchor
       className={`collection-row ${className}${selected ? " selected" : ""}`}
       href={href}
       onClick={(event) => followLink(event, open)}
     >
       {children}
-    </a>
+    </ScopedAnchor>
   );
   return timestamp ? (
     <ExactTimeTooltip date={timestamp}>{link}</ExactTimeTooltip>

@@ -10,6 +10,7 @@ from urllib.parse import quote
 from pydantic import BaseModel, ConfigDict, Field
 
 from flowfield.attention import actionable_attention
+from flowfield.browser_links import project_href
 
 if TYPE_CHECKING:
     from flowfield.application import Workspace
@@ -141,7 +142,7 @@ def reconcile_attention(
                 "state='pending'",
                 (key,),
             )
-            base = f"/projects/{quote(project['id'], safe='')}"
+            base = project_href(db, project["id"])
             task = f"{base}/tasks/{quote(row['task_key'], safe='')}" if row["task_key"] else base
             label = "Needs your attention"
             if kind == "question":

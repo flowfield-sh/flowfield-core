@@ -1,10 +1,8 @@
-import type { ReactNode } from "react";
-import { DetailSection } from "./DetailLayout";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DetailHeader } from "./Presentation";
-import { Markdown, MarkdownField } from "./Markdown";
+import { MarkdownField } from "./Markdown";
 import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
 import type { Milestone } from "./workspace";
 
@@ -18,14 +16,12 @@ export function MilestoneEditor({
   onDirty,
   saved,
   close,
-  viewTasks,
 }: {
   incoming?: Milestone;
   path: string;
   onDirty: (value: boolean) => void;
   saved: (record: Milestone) => void;
   close: () => void;
-  viewTasks?: ReactNode;
 }) {
   const state = useRecordEditor({
     recordName: "milestone",
@@ -36,23 +32,17 @@ export function MilestoneEditor({
     onDirty,
     saved,
   });
-  const {
-    values,
-    loaded,
-    editing,
-    busy,
-    dirty,
-    change,
-    element: editor,
-    cancel,
-  } = state;
+  const { values, loaded, busy, dirty, change, element: editor } = state;
   return (
     <section
       ref={editor}
-      className={incoming ? "embedded-editor" : "editor"}
+      className="editor"
       aria-label={loaded ? "Edit milestone" : "New milestone"}
     >
-      {!incoming && <DetailHeader title="New milestone" close={close} />}
+      <DetailHeader
+        title={loaded ? `Edit ${loaded.key}` : "New milestone"}
+        close={close}
+      />
       <EditorFeedback state={state} />
       <form
         onSubmit={(event) => {
@@ -69,65 +59,30 @@ export function MilestoneEditor({
           className="content-stack"
           data-space="section"
         >
-          {editing ? (
-            <>
-              <Label className="field block">
-                Title
-                <Input
-                  value={values.title}
-                  maxLength={200}
-                  required
-                  onChange={(event) => change("title", event.target.value)}
-                />
-              </Label>
-              <MarkdownField
-                label="Description"
-                value={values.body}
-                onChange={(value) => change("body", value)}
-                previewEnabled={false}
-              />
-            </>
-          ) : (
-            <DetailSection className="record-info" title={<>Description</>}>
-              <div className="agreement-content">
-                <Markdown>{values.body || "No description yet."}</Markdown>
-              </div>
-            </DetailSection>
-          )}
-          <div className="actions editor-actions">
-            {editing ? (
-              <>
-                <Button
-                  size="sm"
-                  disabled={!values.title.trim() || (!!loaded && !dirty)}
-                >
-                  {loaded ? "Save changes" : "Create milestone"}
-                </Button>
-                {loaded && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    type="button"
-                    className="quiet"
-                    onClick={cancel}
-                  >
-                    Cancel
-                  </Button>
-                )}
-              </>
-            ) : (
-              <>
-                <Button
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                  onClick={() => state.setEditing(true)}
-                >
-                  Edit
-                </Button>
-                {viewTasks}
-              </>
-            )}
+          <Label className="field block">
+            Title
+            <Input
+              value={values.title}
+              maxLength={200}
+              required
+              onChange={(event) => change("title", event.target.value)}
+            />
+          </Label>
+          <MarkdownField
+            label="Description"
+            value={values.body}
+            onChange={(value) => change("body", value)}
+          />
+          <div className="actions justify-end">
+            <Button
+              size="sm"
+              disabled={!values.title.trim() || (!!loaded && !dirty)}
+            >
+              {loaded ? "Save changes" : "Create milestone"}
+            </Button>
+            <Button size="sm" variant="outline" type="button" onClick={close}>
+              Cancel
+            </Button>
           </div>
         </fieldset>
       </form>

@@ -99,6 +99,9 @@
     flex-wrap: wrap;
     gap: 16px;
   }
+  .board-filters {
+    margin-right: auto;
+  }
   .actions {
     display: flex;
     align-items: center;
@@ -703,19 +706,28 @@
     text-underline-offset: 4px;
   }
 
-  .milestone-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
+  .milestone-board {
     display: grid;
-    gap: 12px;
+    grid-template-columns: repeat(3, minmax(240px, 1fr));
+    gap: 16px;
+    overflow-x: auto;
   }
-  .milestone-panel {
+  .milestone-column {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
     min-width: 0;
   }
-  .milestone-panel.editor {
-    width: 100%;
-    max-width: none;
+  .milestone-card {
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+  }
+  .milestone-description {
+    width: min(480px, calc(100vw - 32px));
+    max-height: min(500px, 70vh);
+    overflow-y: auto;
   }
   a.milestone-tag {
     text-decoration: none;
@@ -1048,12 +1060,6 @@
 }
 
 @layer components {
-  .board-toolbar .filter-label {
-    margin-bottom: 0;
-  }
-  .board-toolbar .filter-label > [data-slot="native-select-wrapper"] {
-    margin-top: 0;
-  }
   .field {
     display: block;
     line-height: 1.4;

@@ -5,8 +5,18 @@ import sqlite3
 from hashlib import sha256
 
 from flowfield.document_models import DocumentReference, DocumentSnapshot
-from flowfield.documents import Documents
+from flowfield.documents import Document, Documents
 from flowfield.errors import ApplicationError
+
+
+def require_active(document: Document) -> None:
+    if document.deleted_at:
+        raise ApplicationError(
+            "document_deleted",
+            f"Restore or remove the deleted document {document.title!r} before preparing work.",
+            409,
+        )
+
 
 MAX_DOCUMENTS = 20
 MAX_BYTES = 1_000_000
@@ -16,7 +26,7 @@ def validate_references(
     db: sqlite3.Connection, workspace_id: str, references: list[DocumentReference]
 ) -> None:
     for reference in references:
-        Documents.read(db, workspace_id, reference.id, reference.revision)
+        require_active(Documents.read(db, workspace_id, reference.id, reference.revision))
 
 
 def select(
@@ -32,6 +42,7 @@ def select(
     result = []
     for identity, reference in sorted(selected.items()):
         doc = Documents.read(db, workspace_id, identity, reference.revision)
+        require_active(doc)
         body = doc.body.encode("utf-8")
         result.append(
             DocumentSnapshot(

@@ -226,6 +226,10 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     def edit_document(workspace_id: str, identity: str, request: DocumentEdit) -> Document:
         return Documents(supervisor().workspace).edit(workspace_id, identity, request)
 
+    @router.delete("/{workspace_id}/documents/{identity}")
+    def delete_document(workspace_id: str, identity: str, request: Edit) -> Document:
+        return Documents(supervisor().workspace).delete(workspace_id, identity, request)
+
     @router.get("/{workspace_id}/documents/{identity}/history")
     def document_history(
         workspace_id: str,

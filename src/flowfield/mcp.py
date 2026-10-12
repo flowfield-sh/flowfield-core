@@ -506,6 +506,19 @@ def create_mcp(
         )
 
     @mcp.tool(annotations=write)
+    async def delete_document(
+        workspace_id: Identifier, document_id: Identifier, changes: Edit
+    ) -> CallToolResult:
+        """Delete custom documents, retaining revisions; remove selections first. Guidance stays."""
+        return await mutate(
+            lambda: (
+                Documents(workspace())
+                .delete(workspace_id, document_id, attributed(changes))
+                .model_dump()
+            )
+        )
+
+    @mcp.tool(annotations=write)
     async def restore_document(
         workspace_id: Identifier, document_id: Identifier, changes: DocumentRestore
     ) -> CallToolResult:

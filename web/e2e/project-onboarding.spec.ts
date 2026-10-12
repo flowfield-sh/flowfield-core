@@ -77,7 +77,9 @@ test("directory adoption preserves guidance, cancellation and required identity 
     animations: "disabled",
   });
   await setup.getByRole("button", { name: "Add project", exact: true }).click();
-  await expect(page).toHaveURL(`/workspaces/${workspace.id}`);
+  await expect(page).toHaveURL(
+    `/workspaces/${workspace.id}/projects/native-directory-project`,
+  );
   expect(readFileSync(join(directory, "AGENTS.md"), "utf8")).toBe(
     "Keep the repository conventions.\n",
   );
@@ -123,17 +125,25 @@ test("registration conflicts retain the selected directory and allow identity co
   ).toContainText("another directory");
   expect(existsSync(join(selected, ".flowfield"))).toBe(false);
   await setup.getByLabel("Project ID", { exact: true }).fill("picked-unique");
+  const prefix = (
+    await (await request.get("/api/projects/picked-collision")).json()
+  ).task_prefix;
+  await setup.getByLabel("Task prefix", { exact: true }).fill(prefix);
   await setup.getByRole("button", { name: "Add project", exact: true }).click();
   await expect(
     page
       .locator("[data-sonner-toast][data-type=error]")
-      .filter({ hasText: "prefix PIC is already used" }),
+      .filter({ hasText: `prefix ${prefix} is already used` }),
   ).toBeVisible();
   await expect(setup.getByLabel("Project directory")).toHaveValue(selected);
   await setup.getByLabel("Task prefix", { exact: true }).fill("PKU");
   await setup.getByRole("button", { name: "Add project", exact: true }).click();
-  await expect(page).toHaveURL(`/workspaces/${workspace}`);
+  await expect(page).toHaveURL(
+    `/workspaces/${workspace}/projects/picked-unique`,
+  );
   expect(existsSync(join(selected, "AGENTS.md"))).toBe(false);
   await page.getByRole("tab", { name: /^Projects/ }).click();
-  await expect(page.locator('a[href="/projects/picked-unique"]')).toBeVisible();
+  await expect(
+    page.locator(`a[href="/workspaces/${workspace}/projects/picked-unique"]`),
+  ).toBeVisible();
 });

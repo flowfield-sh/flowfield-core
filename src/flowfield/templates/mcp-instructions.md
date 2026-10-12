@@ -20,3 +20,5 @@ continue automatically. Follow get_result's next_action for recovery. review_res
 human approval of that exact candidate; inspection is optional. The service validates and
 delivers approved code; verify delivery before claiming Done. On stale writes, reread;
 inspect uncertain effects before retrying. Never invent approval, authority or successful work.
+
+Delete custom documents only when no project default or unfinished task selects them. Deletion preserves revisions and prepared evidence; restore_document can restore a deleted document. Main workspace guidance can be cleared but not deleted.

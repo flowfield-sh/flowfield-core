@@ -6,6 +6,9 @@ import { Label } from "@/components/ui/label";
 import type { components } from "./api-schema";
 import type { AdjacentSnapshot } from "./AdjacentView";
 import { ContentStack, DetailHeading } from "./DetailLayout";
+import { ConfirmButton } from "./ConfirmButton";
+import { EntityOverlay } from "./EntityOverlay";
+import { DetailHeader } from "./Presentation";
 import { Markdown, MarkdownField } from "./Markdown";
 import { Timestamp } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
@@ -29,6 +32,7 @@ export function Documents({
   refresh,
   onDirty,
   navigate,
+  close,
   publishView,
 }: {
   workspaceId: string;
@@ -39,6 +43,7 @@ export function Documents({
   onDirty: (value: boolean) => void;
   navigate: (path: string, replace?: boolean) => void;
   publishView: (value: AdjacentSnapshot) => void;
+  close: () => void;
 }) {
   const base = `${workspaceHref(workspaceId)}/documents`;
   const path = `workspaces/${workspaceId}/documents`;
@@ -76,7 +81,7 @@ export function Documents({
   return (
     <section className="setup-page documents-page" aria-label="Documents">
       <ContentStack space="section" className="collection-layout">
-        {!identity ? (
+        {!identity || isNew ? (
           <DocumentList path={path} base={base} refresh={refresh} />
         ) : (
           <>
@@ -85,9 +90,10 @@ export function Documents({
                 <WorkspaceLink to={base}>All documents</WorkspaceLink>
               </Button>
             </div>
-            {isNew || (document && latest.data) ? (
+            {document && latest.data ? (
               <DocumentEditor
                 key={`${identity}:${revision ?? "current"}`}
+                close={close}
                 incoming={document ?? undefined}
                 latest={latest.data ?? undefined}
                 historical={!!revision}
@@ -106,7 +112,10 @@ export function Documents({
                     latest.setData(value);
                     historical.invalidate();
                     historical.setData(value);
-                    navigate(`${base}/${value.id}`, true);
+                    navigate(
+                      value.deleted_at ? base : `${base}/${value.id}`,
+                      true,
+                    );
                   }
                 }}
               />
@@ -132,6 +141,28 @@ export function Documents({
           </>
         )}
       </ContentStack>
+      {isNew && (
+        <EntityOverlay
+          title="New document"
+          identity="new-document"
+          close={close}
+        >
+          <DocumentEditor
+            historical={false}
+            path={path}
+            base={base}
+            onDirty={onDirty}
+            close={close}
+            read={async () => {
+              throw new Error("No document yet");
+            }}
+            saved={(value) => {
+              onDirty(false);
+              navigate(base + "/" + value.id, true);
+            }}
+          />
+        </EntityOverlay>
+      )}
     </section>
   );
 }
@@ -222,6 +253,7 @@ function DocumentEditor({
   onDirty,
   saved,
   read,
+  close,
 }: {
   incoming?: Document;
   latest?: Document;
@@ -231,6 +263,7 @@ function DocumentEditor({
   onDirty: (value: boolean) => void;
   saved: (record: Document, method: string) => void;
   read: () => Promise<Document>;
+  close: () => void;
 }) {
   const state = useRecordEditor({
     incoming,
@@ -259,39 +292,50 @@ function DocumentEditor({
       aria-label={loaded ? "Document" : "New document"}
     >
       <ContentStack space="section" className="document-content">
-        <div className="document-heading">
-          <DetailHeading
-            title={loaded?.title ?? "New document"}
-            titleAs="h2"
-            metadata={
-              loaded ? (
-                <>
-                  Revision {loaded.revision} · {authorLabel(loaded.author)} ·{" "}
-                  <Timestamp date={loaded.created_at} />
-                  {loaded.restored_from
-                    ? ` · Restored from revision ${loaded.restored_from}`
-                    : ""}
-                </>
-              ) : undefined
-            }
-          />
-          {loaded && !historical && !editing && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setEditing(true)}
-            >
-              Edit document
-            </Button>
-          )}
-        </div>
+        {!loaded && <DetailHeader title="New document" close={close} />}
+        {loaded && (
+          <div className="document-heading">
+            <DetailHeading
+              title={loaded?.title ?? "New document"}
+              titleAs="h2"
+            />
+            {loaded && !historical && !editing && !loaded.deleted_at && (
+              <div className="actions">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditing(true)}
+                >
+                  Edit document
+                </Button>
+                {loaded.id !== "guidance" && (
+                  <ConfirmButton
+                    size="sm"
+                    variant="outline"
+                    title="Delete document?"
+                    description="Remove this document from the list? Past revisions and prepared worker context are retained."
+                    action={() =>
+                      void state.run("DELETE", {
+                        expected_revision: loaded.revision,
+                        author: "human",
+                      })
+                    }
+                  >
+                    Delete document
+                  </ConfirmButton>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         <EditorFeedback state={state} />
-        {historical && latest && loaded ? (
-          <ContentStack space="tight">
-            <p>
-              This is revision {loaded.revision}. The current revision is{" "}
-              {latest.revision}.
-            </p>
+        {(historical || loaded?.deleted_at) && latest && loaded ? (
+          <ContentStack>
+            {loaded.deleted_at && (
+              <p role="status">
+                This document was deleted. Restore a revision to use it again.
+              </p>
+            )}
             <div className="actions justify-end">
               <Button size="sm" variant="outline" asChild>
                 <WorkspaceLink to={`${base}/${loaded.id}`}>
@@ -300,7 +344,10 @@ function DocumentEditor({
               </Button>
               <Button
                 size="sm"
-                disabled={busy || latest.revision === loaded.revision}
+                disabled={
+                  busy ||
+                  (!loaded.deleted_at && latest.revision === loaded.revision)
+                }
                 onClick={() =>
                   void state.run(
                     "POST",
@@ -318,7 +365,7 @@ function DocumentEditor({
             </div>
           </ContentStack>
         ) : null}
-        {!historical && editing ? (
+        {!historical && !loaded?.deleted_at && editing ? (
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -433,8 +480,12 @@ function RevisionHistory({
                 {item.revision === revision ? " · Current" : ""}
               </span>
               <span className="detail-metadata">
-                {authorLabel(item.author)} ·{" "}
-                <Timestamp date={item.created_at} />
+                {item.author === "migration" || item.author === "human"
+                  ? item.author === "migration"
+                    ? "Flowfield"
+                    : "You"
+                  : authorLabel(item.author)}{" "}
+                · <Timestamp date={item.created_at} />
               </span>
             </WorkspaceLink>
           ))}

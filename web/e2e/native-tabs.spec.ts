@@ -18,7 +18,7 @@ test("task links open native tabs without losing the original selection or draft
   const projectId = `native-tabs-${testInfo.repeatEachIndex}`;
   const prefix = `Z${String.fromCharCode(65 + Math.floor(testInfo.repeatEachIndex / 26), 65 + (testInfo.repeatEachIndex % 26))}`;
   const call = await connectMcp(request);
-  await fixtureMcpProject(call, {
+  const { workspace_id } = await fixtureMcpProject(call, {
     project_id: projectId,
     path: existingDirectory(join(state, projectId)),
     task_prefix: prefix,
@@ -40,7 +40,7 @@ test("task links open native tabs without losing the original selection or draft
       dependencies: [first.key],
     },
   });
-  const originalPath = `/projects/${projectId}/tasks/${second.key}`;
+  const originalPath = `/workspaces/${workspace_id}/projects/${projectId}/tasks/${second.key}`;
   await page.goto(originalPath);
   const details = page.getByRole("region", {
     name: "Task details",
@@ -57,7 +57,7 @@ test("task links open native tabs without losing the original selection or draft
   });
   await expect(link).toHaveAttribute(
     "href",
-    `/projects/${projectId}/tasks/${first.key}`,
+    `/workspaces/${workspace_id}/projects/${projectId}/tasks/${first.key}`,
   );
   const catalogs: Response[] = [];
   context.on("response", (response) => {

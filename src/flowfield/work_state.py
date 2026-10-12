@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel
 
+from flowfield.browser_links import project_href
+
 if TYPE_CHECKING:
     from flowfield.application import Workspace
 
@@ -63,11 +65,11 @@ def question_state(db: sqlite3.Connection, project: str, identity: str) -> WorkS
         else "Resume coordinator",
         tone="waiting",
         href=(
-            f"/projects/{project}/tasks/{row['key']}/conversation/question:{identity}"
+            f"{project_href(db, project)}/tasks/{row['key']}/conversation/question:{identity}"
             + (f":{row['revision']}" if row["status"] in ("open", "answered", "withdrawn") else "")
         )
         if row["key"]
-        else f"/projects/{project}/inbox/{identity}",
+        else f"{project_href(db, project)}/inbox/{identity}",
     )
 
 
@@ -88,7 +90,7 @@ def task_state(
         (project, task_id, task_id, task_id),
     ).fetchone()
     task_id = task["id"]
-    href = f"/projects/{project}/tasks/{task['key']}"
+    href = f"{project_href(db, project)}/tasks/{task['key']}"
     owner = db.execute(
         "SELECT id,status,data FROM runs WHERE project_id=? AND task_id=? "
         "AND status IN ('preparing','running','stopping','uncertain') ORDER BY number DESC LIMIT 1",

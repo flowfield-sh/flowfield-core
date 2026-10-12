@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel
 
+from flowfield.browser_links import project_href
 from flowfield.work_state import WorkState, question_state, task_state
 
 if TYPE_CHECKING:
@@ -214,9 +215,9 @@ def attention_page(
                     if item.status == "pending"
                     else "Permission " + item.status,
                     tone="attention" if item.status == "pending" else "idle",
-                    href=f"/projects/{owner}/tasks/{item.task_key}"
-                    if item.task_key
-                    else f"/projects/{owner}/inbox"
+                    href=f"{project_href(db, owner)}/tasks/{item.task_key}"
+                    if item.task_key and owner
+                    else f"{project_href(db, owner)}/inbox"
                     if owner
                     else f"/workspaces/{workspace_id}/inbox",
                 )

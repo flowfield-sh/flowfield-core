@@ -126,7 +126,7 @@ test("workspace label management and existing task edits preserve concurrent cha
   await page.getByLabel("Label name", { exact: true }).fill("Release");
   await expect(
     page.locator(".label-color-grid").getByRole("button"),
-  ).toHaveCount(20);
+  ).toHaveCount(10);
   await page.getByRole("button", { name: "Green", exact: true }).click();
   await page
     .getByLabel("Guidance", { exact: true })
@@ -161,7 +161,7 @@ test("workspace label management and existing task edits preserve concurrent cha
   await expect(page.getByLabel("Guidance", { exact: true })).toHaveValue(
     "Updated elsewhere.",
   );
-  await page.getByRole("button", { name: "Light cyan", exact: true }).click();
+  await page.getByRole("button", { name: "Cyan", exact: true }).click();
   await page.getByRole("button", { name: "Save label", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Edit Release work label", exact: true }),
@@ -204,7 +204,7 @@ test("workspace label management and existing task edits preserve concurrent cha
     .getByRole("button", { name: "Edit Release work label", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "Light cyan", exact: true }),
+    page.getByRole("button", { name: "Cyan", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   await page.screenshot({
     animations: "disabled",

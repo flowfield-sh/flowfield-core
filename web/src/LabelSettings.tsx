@@ -12,7 +12,7 @@ import {
 import { ContentStack } from "./DetailLayout";
 import { ConfirmButton } from "./ConfirmButton";
 import { TaskLabels } from "./TaskLabels";
-import { labelColors } from "./labelColors";
+import { labelColors, labelPalette } from "./labelColors";
 import { useLabels, type WorkspaceLabel } from "./labelContext";
 import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
 import { reportError } from "./requestFeedback";
@@ -20,7 +20,8 @@ import { request } from "./workspace";
 
 const fields = (record?: WorkspaceLabel) => ({
   name: record?.name ?? "",
-  color: record?.color ?? "slate",
+  color: (record?.color.replace("-light", "") ??
+    "slate") as WorkspaceLabel["color"],
   guidance: record?.guidance ?? "",
 });
 
@@ -80,6 +81,10 @@ export function LabelSettings({
         </Button>
       </div>
       <div className="label-list">
+        {selected === "new" && (
+          <div className="label-list-item">{editor("new")}</div>
+        )}
+
         {labels
           .filter((item) => !item.deleted_at || item.id === selected)
           .map((item) => (
@@ -144,9 +149,6 @@ export function LabelSettings({
               {selected === item.id && editor(item.id)}
             </div>
           ))}
-        {selected === "new" && (
-          <div className="label-list-item">{editor("new")}</div>
-        )}
       </div>
       {!labels.some((item) => !item.deleted_at) && selected !== "new" && (
         <p>No labels yet.</p>
@@ -226,15 +228,15 @@ function LabelEditor({
             <fieldset className="content-stack" data-space="tight">
               <legend className="field">Color</legend>
               <div className="label-color-grid" role="group" aria-label="Color">
-                {Object.entries(labelColors).map(([color, value]) => (
+                {labelPalette.map((color) => (
                   <Tooltip key={color}>
                     <TooltipTrigger asChild>
                       <Button
                         type="button"
                         variant="outline"
                         size="icon-sm"
-                        className={`w-full min-w-0 ${value.className} ${values.color === color ? "ring-2 ring-foreground ring-offset-1 ring-offset-background" : ""}`}
-                        aria-label={value.name}
+                        className={`w-full min-w-0 ${labelColors[color].className} ${values.color === color ? "ring-2 ring-foreground ring-offset-1 ring-offset-background" : ""}`}
+                        aria-label={labelColors[color].name}
                         aria-pressed={values.color === color}
                         onClick={() =>
                           change("color", color as WorkspaceLabel["color"])
@@ -243,7 +245,7 @@ function LabelEditor({
                         {values.color === color && <Check />}
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>{value.name}</TooltipContent>
+                    <TooltipContent>{labelColors[color].name}</TooltipContent>
                   </Tooltip>
                 ))}
               </div>

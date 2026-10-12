@@ -284,7 +284,11 @@ def test_upgrade_preserves_prepared_and_running_context_and_rolls_back(tmp_path,
         raise ValueError("fixture migration failure")
 
     with monkeypatch.context() as broken:
-        broken.setattr(migrations, "MIGRATIONS", (*migrations.MIGRATIONS[:-1], Migration(65, fail)))
+        broken.setattr(
+            migrations,
+            "MIGRATIONS",
+            tuple(Migration(65, fail) if m.version == 65 else m for m in migrations.MIGRATIONS),
+        )
         with pytest.raises(ApplicationError):
             Workspace(execution.workspace.directory)
     assert logical_data(execution.workspace.directory) == before
@@ -293,3 +297,44 @@ def test_upgrade_preserves_prepared_and_running_context_and_rolls_back(tmp_path,
     assert upgraded.task("harbor", run.task_id) == task
     assert Execution(upgraded).get("harbor", run.id) == run
     assert Execution(upgraded).assignment("harbor", run.id) == assignment
+
+
+def test_selected_document_policy_reaches_native_turn_unchanged(tmp_path):
+    from test_native_adapters import start
+
+    execution = fixture(tmp_path)
+    store = execution.workspace
+    doc = Documents(store).create(
+        "harbor", DocumentCreate(title="Large contract", body="A rule.\n" * 2000)
+    )
+    defaults(store, [{"id": doc.id}])
+    prepare(store)
+    run = execution.claim("harbor", BASE, {BASE: set()})
+    envelope = brief_context(execution.assignment("harbor", run.id))
+    assert f"document:{doc.id}" not in envelope["context"]
+    assert "every omitted document:<id> section in full before acting" in envelope["context_policy"]
+    payload = json.dumps(envelope, ensure_ascii=False)
+
+    async def verify_wire():
+        agent = await start(tmp_path, [])
+        frames = []
+        send = agent.rpc.send
+
+        async def capture(message):
+            await send(message)
+            if message.get("method") == "turn/start":
+                frames.append(message)
+
+        agent.rpc.send = capture
+        try:
+            assert await agent.prompt(payload, None) == {"status": "completed"}
+            assert frames[0]["params"]["input"] == [{"type": "text", "text": payload}]
+            manifest = json.loads(
+                json.loads(frames[0]["params"]["input"][0]["text"])["context"]["documentation"]
+            )
+            assert manifest["items"][0]["revision"] == 1
+            assert manifest["items"][0]["characters"] == len(doc.body)
+        finally:
+            assert await agent.stop()
+
+    asyncio.run(verify_wire())

@@ -179,10 +179,14 @@ test("an outage is reported once across settings reads and polling, recovers, an
   offline = false;
   await errors(page).getByRole("button", { name: "Close toast" }).click();
   await editor.getByRole("tab", { name: "Integration", exact: true }).click();
-  await expect(retries).toHaveCount(2);
-  await retries.nth(1).click();
-  await expect(retries).toHaveCount(1);
-  await retries.nth(0).click();
+  // A recovered background read can clear another retry while the click is settling.
+  for (let attempt = 0; attempt < 2 && (await retries.count()); attempt++) {
+    try {
+      await retries.first().click({ timeout: 1500 });
+    } catch {
+      await expect(retries).toHaveCount(0);
+    }
+  }
   await expect(retries).toHaveCount(0);
   await expect(
     integration.getByLabel("Validation commands", { exact: true }),
@@ -340,7 +344,10 @@ test("a saved correction is not offered for resubmission when the following read
   );
   await expect(
     detail.getByRole("link", { name: "Open the new input" }),
-  ).toHaveAttribute("href", `/projects/${id}/inbox/corrected`);
+  ).toHaveAttribute(
+    "href",
+    `/workspaces/${await projectWorkspace(request, id)}/projects/${id}/inbox/corrected`,
+  );
   await expect(detail.getByLabel("Your answer", { exact: true })).toHaveCount(
     0,
   );

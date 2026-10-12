@@ -150,10 +150,14 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
   await expect(
     page.getByText("0 of 2 tasks done", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("link", { name: /M-1 · Launch together/ }).click();
+  await page
+    .locator(".milestone-card")
+    .filter({ hasText: "Launch together" })
+    .getByRole("link", { name: "Edit", exact: true })
+    .click();
   await expect(page).toHaveURL(`${base}/milestones/M-1`);
   await expect(
-    page.getByRole("dialog", { name: "Milestone details", exact: true }),
+    page.getByRole("dialog", { name: "Edit milestone", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);

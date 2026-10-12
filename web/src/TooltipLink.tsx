@@ -1,3 +1,4 @@
+import { ScopedAnchor } from "./WorkspaceLink";
 import type { AnchorHTMLAttributes } from "react";
 import {
   Tooltip,
@@ -14,9 +15,9 @@ export function TooltipLink({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <a {...props} className={`inline-flex w-fit ${className}`}>
+        <ScopedAnchor {...props} className={`inline-flex w-fit ${className}`}>
           {children}
-        </a>
+        </ScopedAnchor>
       </TooltipTrigger>
       <TooltipContent collisionPadding={8} className="max-w-xs">
         {tooltip}

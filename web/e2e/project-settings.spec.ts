@@ -154,9 +154,9 @@ test("milestones group tasks with linked details and long project intent stays o
     name: "Edit milestone",
     exact: true,
   });
-  await expect(editor).toContainText("Deliver a useful export.");
-
-  await editor.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(editor.getByLabel("Description", { exact: true })).toHaveValue(
+    "Deliver a useful export.",
+  );
   await editor
     .getByLabel("Description", { exact: true })
     .fill("Preserved milestone draft");
@@ -172,12 +172,18 @@ test("milestones group tasks with linked details and long project intent stays o
     .getByRole("button", { name: "Save changes", exact: true })
     .click();
   await page.reload();
-  await expect(editor).toContainText("Preserved milestone draft");
+  await expect(page.locator(".milestone-board")).toBeVisible();
   await page.goto(`/workspaces/${workspace_id}/milestones/export`);
-  await expect(editor).toContainText("Preserved milestone draft");
+  await expect(editor.getByLabel("Description", { exact: true })).toHaveValue(
+    "Preserved milestone draft",
+  );
   // Historical tab URLs remain valid aliases of the simplified detail.
   await page.goto(`/workspaces/${workspace_id}/milestones/export/tasks`);
-  await expect(editor).toContainText("Preserved milestone draft");
+  await expect(editor.getByLabel("Description", { exact: true })).toHaveValue(
+    "Preserved milestone draft",
+  );
+  await page.keyboard.press("Escape");
+  await page.getByRole("tab", { name: /^Milestones/ }).click();
   await page.getByRole("button", { name: "View tasks", exact: true }).click();
   await expect(page).toHaveURL(`/workspaces/${workspace_id}`);
   await expect(page.getByLabel("Filter by milestone")).toHaveValue("export");

@@ -28,7 +28,7 @@ export function WorkerDocumentPicker({
   return (
     <Disclosure summary={`Worker documents · ${value.length} selected`}>
       <ContentStack space="content">
-        <p className="detail-metadata">
+        <p>
           Defaults for this project’s tasks. Revisions are fixed when the
           coordinator prepares each assignment.
         </p>

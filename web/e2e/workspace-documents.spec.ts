@@ -13,7 +13,7 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   const base = `/workspaces/${workspace.id}`;
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(base);
-  await page.getByRole("tab", { name: "Documents", exact: true }).click();
+  await page.getByRole("tab", { name: /^Documents/ }).click();
   await page.getByRole("link", { name: /Workspace guidance/ }).click();
   await page
     .getByRole("button", { name: "Edit document", exact: true })
@@ -90,7 +90,7 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   expect(restored.revision).toBe(4);
   expect(restored.restored_from).toBe(2);
   expect(restored.body).toBe(guidance.body);
-  await page.getByRole("tab", { name: "Documents", exact: true }).click();
+  await page.getByRole("tab", { name: /^Documents/ }).click();
   await expect(page).toHaveURL(`${base}/documents`);
   await page.getByRole("link", { name: "New document", exact: true }).click();
   await page.getByLabel("Document title", { exact: true }).fill("Architecture");
@@ -111,9 +111,7 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   await expect(
     page.getByRole("heading", { name: "Architecture", exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("tab", { name: "Documents", exact: true }),
-  ).toBeInViewport();
+  await expect(page.getByRole("tab", { name: /^Documents/ })).toBeInViewport();
   await page.screenshot({
     path: testInfo.outputPath("document-narrow-dark.png"),
     animations: "disabled",

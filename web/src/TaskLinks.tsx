@@ -1,3 +1,6 @@
+import { useContext } from "react";
+import { ProjectOwners } from "./WorkspaceLink";
+import { canonicalHref } from "./navigation";
 import { useLocation, useNavigate } from "react-router";
 import { entityNavigationState } from "./navigation";
 import { TooltipLink } from "./TooltipLink";
@@ -14,7 +17,10 @@ export function TaskLink({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const href = taskHref(task.project_id, task);
+  const href = canonicalHref(
+    taskHref(task.project_id, task),
+    useContext(ProjectOwners),
+  );
   return (
     <TooltipLink
       className="task-key"

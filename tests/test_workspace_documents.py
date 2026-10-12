@@ -225,3 +225,109 @@ def test_document_view_binds_exact_revision_and_rejects_other_workspaces(tmp_pat
                 conversation.id,
                 request.model_copy(update={"id": uuid4().hex, "view_context": view}),
             )
+
+
+def test_document_delete_restore_preserves_sources_and_guards_in_use(tmp_path):
+    from flowfield.application import Edit, ProjectEdit, TaskEdit
+    from flowfield.document_models import DocumentReference
+    from flowfield.worker_documents import sections, select
+
+    execution = fixture(tmp_path)
+    store, docs = execution.workspace, Documents(execution.workspace)
+    value = docs.create("harbor", DocumentCreate(title="Contract", body="Frozen contract"))
+    with store.connection() as db:
+        frozen = select(db, "harbor", [], [DocumentReference(id=value.id)])
+    project = store.project("harbor")
+    store.edit_project(
+        "harbor",
+        ProjectEdit(expected_revision=project.revision, worker_documents=[{"id": value.id}]),
+    )
+    with pytest.raises(ApplicationError, match="Remove this document"):
+        docs.delete("harbor", value.id, Edit(expected_revision=1))
+    project = store.project("harbor")
+    store.edit_project(
+        "harbor", ProjectEdit(expected_revision=project.revision, worker_documents=[])
+    )
+    task = store.task("harbor", "task-0")
+    task = store.edit_task(
+        "harbor", task.id, TaskEdit(expected_revision=task.revision, documents=[{"id": value.id}])
+    )
+    with pytest.raises(ApplicationError, match="Remove this document"):
+        docs.delete("harbor", value.id, Edit(expected_revision=1))
+    store.edit_task("harbor", task.id, TaskEdit(expected_revision=task.revision, documents=[]))
+    deleted = docs.delete("harbor", value.id, Edit(expected_revision=1, author="human"))
+    assert deleted.deleted_at and deleted.deleted_by == "human"
+    assert deleted.revision == 2
+    assert value.id not in [item.id for item in docs.page("harbor").items]
+    assert docs.get("harbor", value.id, 1).body == value.body
+    assert [r.revision for r in docs.history("harbor", value.id).items] == [2, 1]
+    with store.connection() as db:
+        assert sections(db, frozen)[f"document:{value.id}"] == value.body
+    with pytest.raises(ApplicationError, match="stale"):
+        docs.edit("harbor", value.id, DocumentEdit(expected_revision=1, body="Race"))
+    with pytest.raises(ApplicationError, match="Restore this document"):
+        docs.edit("harbor", value.id, DocumentEdit(expected_revision=2, body="Race"))
+    with pytest.raises(ApplicationError, match="not deleted"):
+        docs.delete("harbor", "guidance", Edit(expected_revision=1))
+    restored = docs.restore("harbor", value.id, DocumentRestore(expected_revision=2, revision=1))
+    assert restored.revision == 3 and restored.deleted_at is None
+    assert restored.body == value.body
+    assert value.id in [item.id for item in docs.page("harbor").items]
+
+
+def test_document_deletion_upgrade_and_rollback(tmp_path, monkeypatch):
+    with monkeypatch.context() as old:
+        old.setattr(
+            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 66)
+        )
+        store = Workspace(tmp_path / "state")
+        space = Workspaces(store).create(WorkspaceCreate(name="Existing"))
+    before = logical_data(store.directory)
+    migration = next(m for m in migrations.MIGRATIONS if m.version == 66)
+
+    def fail(db):
+        migration.apply(db)
+        raise ValueError("fixture rollback")
+
+    with monkeypatch.context() as broken:
+        broken.setattr(
+            migrations,
+            "MIGRATIONS",
+            tuple(Migration(66, fail) if m.version == 66 else m for m in migrations.MIGRATIONS),
+        )
+        with pytest.raises(ApplicationError, match="rolled back"):
+            Workspace(store.directory)
+    assert logical_data(store.directory) == before
+    upgraded = Workspace(store.directory)
+    assert Documents(upgraded).get(space.id, "guidance").deleted_at is None
+    with upgraded.connection() as db:
+        assert not db.execute("PRAGMA foreign_key_check").fetchall()
+
+
+def test_document_delete_tools_and_http_preserve_attribution_and_count(tmp_path):
+    from flowfield.browser import BrowserReads
+
+    store = Workspace(tmp_path / "state")
+    space = Workspaces(store).create(WorkspaceCreate(name="Product"))
+    docs = Documents(store)
+    doc = docs.create(space.id, DocumentCreate(title="Removable", body="Keep history"))
+
+    async def remove():
+        grant = await workspace_scope(Supervisor(store), space.id, author="coordinator:test")
+        result = await grant.call(
+            "delete_document",
+            {"document_id": doc.id, "changes": {"expected_revision": 1, "author": "human"}},
+        )
+        assert not result.isError
+        grant.revoke()
+
+    asyncio.run(remove())
+    assert docs.get(space.id, doc.id).deleted_by == "coordinator:test"
+    assert BrowserReads(store).workspace_board(space.id).document_count == 1
+    with TestClient(create_app(data_dir=store.directory), base_url="http://localhost") as client:
+        base = f"/api/workspaces/{space.id}/documents/{doc.id}"
+        assert client.get(base, params={"revision": 1}).json()["body"] == "Keep history"
+        restored = client.post(base + "/restore", json={"expected_revision": 2, "revision": 1})
+        assert restored.status_code == 200
+        assert client.request("DELETE", base, json={"expected_revision": 3}).status_code == 200
+        assert client.request("DELETE", base, json={"expected_revision": 3}).status_code == 409

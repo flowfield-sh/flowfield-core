@@ -71,7 +71,7 @@ test("task keys link to persistent selections with history and draft protection"
   await page.keyboard.press("Escape");
   await expect(blocker).toHaveAttribute(
     "href",
-    "/projects/navigation/tasks/NAV-1",
+    `/workspaces/${workspace}/projects/navigation/tasks/NAV-1`,
   );
   await expect(
     page.getByText("Completion criteria set", { exact: true }),
@@ -217,7 +217,13 @@ test("collections open and close entity details through the same routes", async 
 
   for (const path of ["milestones", "archive"]) {
     await page.goto(`/projects/${project_id}/${path}`);
-    const row = page.locator(".collection-row").first();
+    const row =
+      path === "milestones"
+        ? page
+            .locator(".milestone-card")
+            .getByRole("link", { name: "Edit", exact: true })
+            .first()
+        : page.locator(".collection-row").first();
     await expect(row).toBeVisible();
 
     await row.click();
@@ -271,6 +277,8 @@ test("task metadata and internal Markdown links stay inside the router", async (
   await editor.getByRole("link", { name: "M-1", exact: true }).click();
   await expect(page).toHaveURL(`/workspaces/${workspace}/milestones/M-1`);
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(boot);
+  await page.keyboard.press("Escape");
+  await page.getByRole("tab", { name: /^Milestones/ }).click();
   await page.getByRole("button", { name: "View tasks", exact: true }).click();
   await expect(page).toHaveURL(`/workspaces/${workspace}`);
   await expect(page.getByLabel("Filter by milestone")).toHaveValue("questions");
@@ -334,8 +342,8 @@ test("shared overlays preserve the workspace, related return paths and mobile cr
   await expect(card).toBeFocused();
   await expect(page.getByLabel("Filter by milestone")).toHaveValue("group");
   await page.getByRole("tab", { name: /^Milestones(?: \d+)?$/ }).click();
-  const row = page.locator(".milestone-list .collection-row");
-  await row.click();
+  const row = page.locator(".milestone-card");
+  await expect(row).toBeVisible();
   await expect(
     page.getByRole("tablist", { name: "Workspace views" }),
   ).toBeVisible();
@@ -360,7 +368,7 @@ test("shared overlays preserve the workspace, related return paths and mobile cr
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(`/workspaces/${workspace}`);
   await page.getByRole("tab", { name: /^Milestones(?: \d+)?$/ }).click();
-  await expect(page.locator(".milestone-list")).toBeVisible();
+  await expect(page.locator(".milestone-board")).toBeVisible();
   await page
     .getByRole("button", { name: "New milestone", exact: true })
     .click();

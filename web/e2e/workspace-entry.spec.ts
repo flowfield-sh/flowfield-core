@@ -48,6 +48,10 @@ test("explicit workspace creation, project adoption and shared draft navigation"
     path: testInfo.outputPath("workspace-empty-desktop-light.png"),
   });
   await page.getByRole("button", { name: "Add project", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Add a project", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.getByRole("tab", { name: /^Projects/ }).click();
   await expect(page).toHaveURL(`/workspaces/${workspace.id}/projects`);
   await page.getByRole("link", { name: "Add project", exact: true }).click();
@@ -77,7 +81,9 @@ test("explicit workspace creation, project adoption and shared draft navigation"
     path: testInfo.outputPath("workspace-adoption-desktop-light.png"),
   });
   await page.getByRole("button", { name: "Add project", exact: true }).click();
-  await expect(page).toHaveURL(`/workspaces/${workspace.id}`);
+  await expect(page).toHaveURL(
+    `/workspaces/${workspace.id}/projects/entry-core`,
+  );
   expect(readFileSync(join(path, "AGENTS.md"), "utf8")).toBe(
     "Keep these project conventions.\n",
   );
