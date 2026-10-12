@@ -15,14 +15,13 @@
         ]
       },
       {
-        "group": "Reference",
+        "group": "Workflow",
         "pages": [
-          "installation",
+          "workspaces",
           "coordinator",
           "documents",
-          "worker-setup",
-          "cli",
-          "storage"
+          "tasks",
+          "worker-setup"
         ]
       },
       {
@@ -32,6 +31,14 @@
           "agents/codex",
           "agents/claude-code",
           "agents/pi"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "installation",
+          "cli",
+          "storage"
         ]
       }
     ]

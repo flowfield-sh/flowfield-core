@@ -1,60 +1,40 @@
 ---
 title: Worker setup and checks
-description: Configure reproducible setup, validation and local result previews.
+description: Configure repository setup, meaningful checks and local result previews.
 ---
 
-Filter the board by the project, open **Project settings → Integration**, or ask the coordinator to configure
-these settings. Use the commands your repository already documents.
+Before running tasks, configure each project's **Project settings → Integration**, directly or with the Coordinator. Use the repository's existing scripts and a committed baseline.
 
 | Setting | Purpose | Example |
 | --- | --- | --- |
 | Destination branch | Existing local branch where approved code is delivered. | `main` |
-| Setup commands | Install dependencies in each fresh worktree before work or checks. Optional; one shell command per line. | `pnpm install --frozen-lockfile` |
-| Validation commands | Required checks on the proposed code before approval. One shell command per line. | `pnpm test` |
-| Run command | Optional command for **Try result**. Runs only when you launch the prepared copy in your terminal. | `pnpm dev` |
+| Setup commands | Install dependencies in fresh worktrees. | `pnpm install --frozen-lockfile` |
+| Validation commands | Check the proposed code before approval. | `pnpm test` |
+| Run command | Optional launcher for **Try result**. | `pnpm dev` |
 
-For a pnpm project, those commands are enough if its scripts already define tests and a
-development server. A Python, Rust or other project should use its own setup and check
-commands instead. Flowfield does not choose a language environment for you.
+Enter one shell command per line for setup and validation. Choose commands appropriate to your repository; the service host must already provide the language tools and credentials.
 
 ## Validate before running workers
 
-1. Commit setup scripts, dependency manifests and any installed
-   [project guidance](/getting-started#create-a-workspace-and-add-your-project) to the destination branch. Commit or ignore
-   adoption metadata under your repository’s rules; untracked files can block delivery.
-2. Save the Integration settings, then run **Validate setup**. It checks the saved branch
-   in a fresh worktree, runs setup and validation, and reports checkout readiness. It starts
-   no model and does not enable the queue.
-3. In **Workers**, select a harness, model and supported effort/access controls. Start with one worker
-   slot; increase it when independent tasks can run without sharing mutable resources.
-4. Move a prepared task to **Up next** and choose **Run queue**.
+1. Commit setup scripts, manifests and relevant repository guidance to the destination branch. Commit or ignore adoption metadata under your repository's rules; untracked files can block delivery.
+2. Save Integration settings and choose **Validate setup**. Flowfield checks the saved branch in a fresh worktree, runs setup and validation and reports readiness. It starts no model and enables no queue.
+3. Choose a worker harness and model in **Workspace settings → Workers**, with supported effort/access controls. Start with one worker slot; increase capacity when independent tasks can run safely together.
+4. Have the Coordinator prepare a task, move it to **Up next** and choose **Run queue**.
 
-Coordinator and worker choices are independent. Task **Agent settings** can override the
-worker default; changes apply to the next attempt. Every running attempt keeps its frozen
-choice and host registration. Different harnesses can run independent tasks in parallel,
-with separate worktrees and scoped Flowfield connections. Native accounts stay in the harness.
+Setup and checks run in the worktree directory and must leave source files unchanged. Keep dependency outputs ignored; use `FLOWFIELD_RUNTIME_DIR` for temporary files and `FLOWFIELD_WORKSPACE` for the checkout path. Checks must finish and return a failing exit code on failure. A development server belongs in Run command, not validation.
 
-Workers run until they finish or you stop them. **Stop worker** preserves unfinished work;
-use **Retry worker** to queue a fresh attempt. Setup and validation commands have their own
-configured timeouts.
+Read failed validation output, fix the scripts or configuration and validate again. Revalidate after changing setup, checks or the destination branch. Setup and validation commands have configured timeouts.
 
-Setup and validation commands run in the worktree directory. They must leave source files
-unchanged. Keep dependency outputs ignored and put temporary files under
-`FLOWFIELD_RUNTIME_DIR`; `FLOWFIELD_WORKSPACE` identifies the checkout. The service host
-must already provide the required language tools and credentials.
+## Choose workers
 
-If a check fails, read its output in **Validate setup**, correct the project or commands,
-and validate again. Revalidate after changing setup, checks or the destination branch.
-Checks must finish and return a failing exit code on failure; do not put a development
-server in the validation list.
+Workspace defaults apply across member projects. Task **Agent settings** can override them; each attempt retains the harness, model and host registration it started with. Changes affect subsequent attempts, and unavailable choices fail explicitly rather than substituting a model.
+
+The Coordinator's choice is independent. Supported Fast mode can be enabled per task for subsequent attempts; it starts off and has no workspace-wide default. [Agent setup](/agents/overview) covers native accounts, discovery and permissions; [documents](/documents#supply-worker-context) covers the sources selected for workers.
+
+Workers use separate Git worktrees and scoped Flowfield connections. Git isolation separates repository edits, not the whole host: use separate ports, databases and other mutable resources for concurrent tasks, or serialize them. Native access modes govern agent tools; configured setup and validation commands run directly on the service host.
 
 ## Try a result
 
-**Try result** prepares an independent copy of the selected code candidate and supplies a
-launcher. Run that command in your terminal to execute setup followed by the saved run
-command. Preparing or running the copy never approves the result.
+**Try result** prepares an independent copy of the selected candidate and supplies a launcher. Run it in your terminal to execute setup followed by the saved Run command. Preparing or running the copy grants no approval.
 
-Use separate ports, databases and other mutable resources for concurrent workers and
-preview copies, or serialize that work. Git worktrees separate ordinary file edits; Local
-does not isolate the whole machine. Harness access modes govern agent tool requests;
-configured setup and validation commands run directly on the service host.
+Use the same resource-isolation rules for preview copies. Review the exact result before [approving its delivery](/tasks#review-an-exact-result).

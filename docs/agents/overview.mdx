@@ -1,70 +1,49 @@
 ---
-title: Overview
-description: Connect the coding harness you already use.
+title: Agent setup
+description: Use your native coding harness for the Coordinator, workers or a standalone conversation.
 ---
 
-Use [Codex](/agents/codex), [Claude Code](/agents/claude-code), [Pi](/agents/pi),
-or a mix. Install and sign in on the machine running Flowfield, then select a harness
-and model for your Coordinator and workers. Support ships with Flowfield.
+Use [Codex](/agents/codex), [Claude Code](/agents/claude-code), [Pi](/agents/pi), or a mix. Flowfield includes their integrations; native accounts, providers and advanced settings stay with each harness.
 
 ## Setup
 
-1. Add your existing project.
-2. Choose a harness and model for each role during project creation or in project settings.
-3. Configure and validate [worker delivery](/worker-setup) before running tasks.
+1. Install and sign in to a supported harness on the machine running Flowfield.
+2. Choose the Coordinator's harness/model beside its input. Choose worker defaults in **Workspace settings → Workers**; tasks can override them.
+3. Configure and validate [project integration](/worker-setup) before running workers.
 
-**Settings → Harnesses** detects native installations. Override executable/configuration
-paths only when needed. Accounts and native settings stay with the harness.
-**Verify installation** reads the installed version and native sign-in status for Codex and Claude Code. For Pi, verification checks the version; sign-in belongs to its providers. These diagnostics do not send a model request; model access is established by a successful turn.
-The latest result and its check time survive page reloads while the service is running. Restarting the service or changing the saved paths or detected installation clears the result. Choose **Verify installation** again after changing your native account or upgrading a harness.
-After installing a missing harness, choose **Verify installation** again. The same action detects the new installation and verifies it.
+**Settings → Harnesses** detects installations. Override executable or configuration-directory paths only when detection needs help. **Verify installation** checks version and native sign-in for Codex/Claude Code; Pi verification checks version, while provider access remains in Pi. It sends no model prompt. Successful use establishes model access.
 
-Models load automatically when you open a selector. Saved choices preload on open
-and reconnect. Discovery sends no model prompt, though native startup hooks can run.
-Capabilities and access modes are described on each agent's page.
+Verification results persist across page reloads while the service runs. Verify again after installing/upgrading a harness or changing its account or paths. Unavailable harnesses show their setup remedy and leave ready harnesses usable.
 
-If a turn fails, follow the recovery message, check the native account or provider on the
-service host, then resend. Flowfield does not automatically replay failed prompts.
+Models load when you open a selector; saved choices preload on open and reconnect. Discovery opens a disposable native session without a model prompt, so startup hooks can run. Harness changes clear dependent model, effort, access and Fast choices. Native capabilities are documented on each agent page.
 
 ## Flowfield tools
 
-Flowfield uses [MCP](https://modelcontextprotocol.io/docs/getting-started/intro) to give
-agents access to project work. Built-in Coordinator and workers receive scoped connections
-automatically, bound to their workspace or task attempt. Coordinator repository operations
-name a member project explicitly. Tools follow the same saved-answer,
-revision and exact-result approval rules as the browser and CLI. Tool permission decisions
-never approve delivery of worker code.
+Built-in Coordinator and workers receive [MCP](https://modelcontextprotocol.io/docs/getting-started/intro) connections automatically, scoped to their workspace or task attempt. Coordinator repository operations name a member project; workers retain their assigned checkout and selected context. Browser, CLI and tools share the same revision, saved-answer and exact-approval rules.
 
-The Coordinator can retrieve saved conversation history and full reply text through these
-tools; native tool history stays with the harness. See [Coordinator](/coordinator) for
-session continuation and recovery.
+Native instructions and extensions can still apply. Reconcile relevant conventions through [workspace documents](/documents); selecting an access mode or allowing a tool never approves worker code delivery.
 
 ## Standalone conversations
 
-To keep the conversation in your own harness, connect it to the running Flowfield service.
-Replace `claude-code` with `codex` or `pi` as needed:
+To coordinate from your own harness, connect it to the running service. Use `codex`, `claude-code` or `pi`:
 
 ```sh
 flowfield integration connect claude-code
 flowfield integration status claude-code
 ```
 
-Connect saves a user-scoped native MCP connection, preserving other servers. Status checks
-configuration, service reachability and tool discovery. Start a fresh harness conversation
-to load a new connection; native project overrides and organization policy still apply.
+Connect saves a user-scoped native MCP connection while preserving other servers. Status checks configuration, service reachability and tool discovery. Start a fresh harness conversation to load it; native project overrides and organization policy still apply.
 
-Install guidance in your [adopted project](/getting-started#add-your-project):
+Optionally install the coordinator skill in an [adopted project](/workspaces#create-and-adopt):
 
 ```sh
 flowfield project guidance preview
 flowfield project guidance install
 ```
 
-This adds the coordinator skill and an `AGENTS.md` reference while preserving existing
-instructions. Review and commit the files. Ask a fresh conversation to read the guidance,
-then your Flowfield board.
+This adds a skill and `AGENTS.md` reference while preserving existing instructions. Review and commit the files. Ask the fresh conversation to read the guidance, find the intended workspace and inspect its projects and board. Managed task workers use their own assignment instructions.
 
-For another service port or connection name, use matching options:
+For a different service port or connection name, use matching options:
 
 ```sh
 flowfield --port 8770 integration connect claude-code --name flowfield-local
@@ -72,5 +51,12 @@ flowfield --port 8770 integration status claude-code --name flowfield-local
 flowfield --port 8770 integration disconnect claude-code --name flowfield-local
 ```
 
-Disconnect removes that connection. Restart the harness to unload its tools. Projects,
-conversations and tasks stay saved. Built-in roles need none of these standalone commands.
+Disconnect removes that connection; restart the harness to unload its tools. Work records remain saved. Built-in roles need none of these standalone commands.
+
+## Recover setup and discovery
+
+Follow a failed turn's recovery message, check native sign-in/provider access on the service host and resend deliberately. Flowfield never automatically replays an interrupted prompt. Harness-specific remedies live on the [Codex](/agents/codex), [Claude Code](/agents/claude-code) and [Pi](/agents/pi) pages.
+
+A lost model-discovery owner can leave a hold across restart. Inspect and stop remaining native discovery on the host, then use the confirmation in Harnesses settings or the [CLI](/cli#host-harness-settings) with the exact discovery ID. Confirmation clears the hold without starting a process; refresh models afterward.
+
+For an interrupted Coordinator session, see [Stop and continue later](/coordinator#stop-and-continue-later). Worker recovery actions appear in [tasks and Inbox](/tasks).

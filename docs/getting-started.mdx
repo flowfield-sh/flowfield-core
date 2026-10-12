@@ -1,110 +1,53 @@
 ---
-title: Getting Started
-description: Add your project, plan in the Coordinator, and review your first task.
+title: Getting started
+description: Create a workspace, shape a useful first task, and review its result.
 ---
 
-Shape your project with the [Coordinator](/coordinator) and a visual task board. Let
-workers build, then use their results to refine the plan. This guide takes an existing
-project from its first conversation to a reviewed task.
+Flowfield keeps your planning conversation, shared context and agent work together. Start with one existing repository, then add related projects when you need them.
 
-![Flowfield board with tasks, priorities and work ready for review](/images/board-overview.png)
+![A Flowfield workspace with its Coordinator and shared board](/images/board-overview.png)
 
 ## Install and start
 
-Install and sign in to [Codex CLI](https://developers.openai.com/codex/cli/), [Claude Code](https://code.claude.com/docs/en/setup) or [Pi](https://pi.dev). Then install Flowfield with [uv](https://docs.astral.sh/uv/getting-started/installation/):
+[Install Flowfield](/installation) and sign in to [Codex, Claude Code or Pi](/agents/overview#setup) on the same machine. With uv:
 
 ```sh
 uv tool install flowfield-core
 flowfield serve
 ```
 
-Flowfield uses installed Codex, Claude Code or Pi. No separate integration install
-is needed. Configure nonstandard paths in **Settings → Harnesses**. For missing harnesses,
-sign-in failures or unavailable models, see [harness setup and recovery](/agents/overview#setup).
-Choose **Settings → Appearance** for System, Light or Dark theme. This preference stays
-in your browser and applies across projects.
+Keep the service terminal open while using Flowfield. It opens the local browser interface; Ctrl-C stops the service.
 
-## Create a workspace and add your project
+## Create a workspace
 
-Choose **New workspace**, give it a name and click **Create workspace**. A workspace brings projects together around one Coordinator, shared milestones and work settings. Its Coordinator is available before you add a project.
+Choose **New workspace**, enter a name and choose **Create workspace**. Home and the sidebar list your workspaces. Each has one Coordinator, shared work views and its own worker queue.
 
-Inside the workspace, open **Projects**, choose **Add project**, then **Choose directory**. An empty board also offers **Add project**. The native folder chooser
-opens on the machine running Flowfield. Select your existing project directory, then review
-the prefilled **Name**, **Project ID** and **Task prefix** below it. All three are required and
-editable. Choose a unique ID and three-letter prefix if another project already uses them.
-Click **Add project** to register the directory. New workspaces start with their worker queue paused; adding a project preserves the workspace’s current queue and agent choices.
+## Add your project
 
-You can also register the same project from another terminal in its directory:
+Open **Projects → Add project → Choose directory**. Select an existing repository, review its name, ID and three-letter task prefix, then choose **Add project**. The folder chooser operates on the machine running Flowfield; use the [CLI](/cli#workspaces-and-projects) if it is unavailable.
 
-```sh
-flowfield workspace create "My workspace"
-flowfield project init --workspace WORKSPACE_ID
-```
+Discuss the repository's existing instructions and roadmap with the Coordinator. Decide what should stay in repository files and what belongs in [workspace documents](/documents). Adding a project preserves those files and leaves the queue paused in a new workspace.
 
-Replace `WORKSPACE_ID` with the ID printed by `workspace create`. Workspaces are created explicitly; adopting a project preserves its existing repository and instructions.
+See [Workspaces and projects](/workspaces) when coordinating several repositories.
 
-Discuss existing project instructions with the Coordinator. Together, decide which guidance should stay in repository files and which belongs in workspace guidance. Adoption preserves existing instructions and does not automatically import or rewrite them.
+## Shape the first task
 
-Registration saves the project identity in `.flowfield/config.toml`. Use the CLI if a
-desktop folder chooser is unavailable.
+Choose the Coordinator's harness and model beside its input, save, and describe the problem. For example:
 
-Home and the sidebar list workspaces. Each workspace opens its shared board, with tabs for Inbox, Milestones, Projects and Archive. Filter by a project to open **Project settings** for its name, prefix, description and Integration configuration. The header’s **Workspace settings** button owns the workspace name, queue and agent defaults.
+> People get stuck importing their first catalog. Read the existing code and instructions, help me narrow the scope, and prepare a small task with clear success criteria.
 
-## Start planning
+Work through assumptions and tradeoffs before queuing implementation. You and the Coordinator can maintain documents, milestones and tasks. Open a task beside the conversation to discuss its definition or a particular result.
 
-Choose a ready harness beside the input in the [Coordinator](/coordinator), wait for models to load,
-then choose its model and supported effort/access controls and save. Native startup hooks
-can run during discovery; it sends no model prompt. Describe what you want to achieve. For example:
-
-> Help me add CSV export to this project. Review the existing code and suggest a small first task before starting implementation.
-
-The Coordinator belongs to the workspace and is ready to plan without repository
-guidance. Worker setup can wait until you are ready to run tasks. For a standalone coding
-conversation, follow [standalone coordinator setup](/agents/overview#standalone-conversations).
-
-The Coordinator opens with a short welcome to help you describe a fresh idea or point to existing code, docs and a roadmap. It can help turn agreed priorities into milestones and tasks and configure Integration before workers start. The welcome itself makes no model call.
-
-## Prepare the first task
-
-Ask your coordinator to configure the destination branch, dependency setup and checks,
-then validate setup. Add a run command if you want to try results locally. Choose a worker
-harness and model in **Workspace settings → Workers**, with effort and access mode where supported. Models load automatically when you open the selector. Task overrides can choose a different worker. See [Worker setup and checks](/worker-setup) for repository configuration and an example.
-
-Worker-setting changes apply to the next attempt. See [Concepts](/concepts#agent-settings-and-permissions) for the worker environment.
-
-Describe one small change and its success criteria. Ask the coordinator to capture and
-prepare the task in Flowfield. Open its feed to read the agreed definition. The coordinator
-maintains task intent; you control priorities and review.
+Before running workers, ask the Coordinator to configure the project's delivery branch, setup commands and checks, then validate setup. Choose a worker harness and model in **Workspace settings → Workers**. [Worker setup and checks](/worker-setup) explains configuration and local result previews.
 
 ## Run the task
 
-Move the task to **Up next** and click **Run queue**. Ready tasks run when their
-dependencies, setup and input requirements are satisfied. The task moves to **In progress**;
-its feed shows worker activity and any questions.
+Move the prepared task to **Up next** and choose **Run queue**. Its status explains any missing setup, input or prerequisite. Eligible work runs in an isolated checkout; open the task to follow activity.
 
-Answer questions in the task feed or **Inbox**. Your saved answer lets the service
-continue managed work when the queue permits it. **Pause queue** prevents new starts;
-active workers continue. **Stop worker** stops the selected attempt.
+Questions and reviews appear in **Inbox**. A saved worker answer continues managed work when the queue permits it. **Pause queue** prevents new starts while active workers continue; **Stop worker** stops one attempt.
 
-**Retry worker** returns stopped or failed work to **Up next**. It starts when the queue is
-running and a worker slot is available. The queue status shows occupancy, such as **1/2 active**.
+## Review the result
 
-## Review and finish
+Read the worker's report and project checks. Inspect **Code changes**, or use **Try result** to test an independent copy. Request changes when needed. When the exact result is ready, choose **Approve and integrate** and confirm, or explicitly approve that result in the Coordinator conversation.
 
-When the task reaches **In review**, read its result and checks. Inspect the diff or use
-**Try result** to test an independent copy of that exact version. Request changes, or
-choose **Approve and integrate**, optionally add testing notes or an approval comment,
-then confirm. Approval stays tied to that selected result; changed results require a new review.
-
-![A task feed beside the Coordinator, with a result ready for review](/images/overview.png)
-
-Open **Code changes** to inspect the exact candidate before approving it.
-
-![Code review beside the coordinator conversation](/images/code-review.png)
-
-Flowfield delivers approved code to your configured project checkout, then marks the task
-**Done**. Local edits that prevent delivery remain intact and the result explains the next
-action. A complete report-only task can finish without code approval.
-
-To run independent tasks together, set **Maximum parallel workers** to **2** under
-**Workers**. Dependent tasks wait until prerequisite work is complete and its code is available.
+Flowfield delivers approved code to the configured checkout before marking the task **Done**. If local changes block delivery, follow the recovery action without discarding your work. See [Tasks, Inbox and review](/tasks) for dependencies, feedback and recovery.
