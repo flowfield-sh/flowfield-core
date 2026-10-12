@@ -315,3 +315,69 @@ test("Inbox shares board scrolling and wraps long cards", async ({
     });
   }
 });
+
+test("milestones share board scrolling, compact controls and URL views", async ({
+  page,
+  request,
+}, testInfo) => {
+  const workspace = await (
+    await request.post("/api/workspaces", {
+      data: { name: "Milestone scrolling" },
+    })
+  ).json();
+  const base = `/workspaces/${workspace.id}`;
+  for (let index = 0; index < 16; index++) {
+    expect(
+      (
+        await request.post(`/api${base}/milestones`, {
+          data: { title: `Milestone ${index}`, body: "Shared release scope" },
+        })
+      ).ok(),
+    ).toBeTruthy();
+  }
+  await page.setViewportSize({ width: 1440, height: 760 });
+  await page.goto(`${base}/milestones`);
+  const planned = page.getByRole("region", {
+    name: "Planned milestones",
+    exact: true,
+  });
+  await expect(planned.locator(".task-card")).toHaveCount(16);
+  const header = page.getByRole("heading", { name: "Planned 16", exact: true });
+  const before = await header.boundingBox();
+  await planned.focus();
+  await page.keyboard.press("End");
+  await expect
+    .poll(() => planned.evaluate((node) => node.scrollTop))
+    .toBeGreaterThan(0);
+  expect(await header.boundingBox()).toEqual(before);
+  await page.screenshot({
+    path: testInfo.outputPath("milestones-scroll-desktop.png"),
+  });
+  await planned
+    .getByRole("link", { name: "Milestone 15", exact: true })
+    .click();
+  const selection = new URL(page.url()).searchParams.get("milestone");
+  expect(selection).toBeTruthy();
+  await expect(page.getByLabel("Filter by milestone")).toHaveValue(selection!);
+  await page.reload();
+  await expect(page.getByLabel("Filter by milestone")).toHaveValue(selection!);
+  await page.goBack();
+  await expect(page).toHaveURL(`${base}/milestones`);
+  await page.goForward();
+  await expect(page.getByLabel("Filter by milestone")).toHaveValue(selection!);
+  await page.goto(`${base}/milestones`);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const board = page.locator(".board");
+  expect(
+    await board.evaluate((node) => node.scrollWidth > node.clientWidth),
+  ).toBeTruthy();
+  await board.evaluate((node) => {
+    node.scrollLeft = node.scrollWidth;
+  });
+  await expect(
+    page.getByRole("heading", { name: "Complete 0", exact: true }),
+  ).toBeInViewport();
+  await page.screenshot({
+    path: testInfo.outputPath("milestones-scroll-narrow.png"),
+  });
+});

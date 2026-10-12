@@ -1,6 +1,7 @@
 import { RequestError, requestRecovered } from "./requestFeedback";
 export { RequestError } from "./requestFeedback";
 import type { components } from "./api-schema";
+import { actorLabels, actorRoles } from "./api-schema";
 export const columns = [
   "backlog",
   "up_next",
@@ -12,8 +13,15 @@ export type WorkStatus = (typeof columns)[number];
 export const label = (value: string) =>
   value.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
 
-export const authorLabel = (author: string | null) =>
-  author?.startsWith("coordinator:") ? "Coordinator" : author;
+export const authorLabel = (author: string | null) => {
+  if (!author) return author;
+  const role = author.startsWith("worker:")
+    ? "worker"
+    : author.startsWith("coordinator:")
+      ? "coordinator"
+      : actorRoles[author as keyof typeof actorRoles];
+  return actorLabels[role as keyof typeof actorLabels] ?? author;
+};
 export type WorkspaceRecord = components["schemas"]["WorkspaceRecord"];
 export type Project = components["schemas"]["Project"];
 export type Milestone = components["schemas"]["Milestone"];

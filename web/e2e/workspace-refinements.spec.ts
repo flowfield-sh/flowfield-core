@@ -9,7 +9,7 @@ import {
   existingDirectory,
 } from "./support";
 
-test("nested resources, creation overlays, milestone cards and document lifecycle", async ({
+test("URL-backed board views, creation overlays, milestone cards and document lifecycle", async ({
   page,
   request,
   context,
@@ -80,10 +80,10 @@ test("nested resources, creation overlays, milestone cards and document lifecycl
   const projectLink = page.getByRole("link", { name: /Core service/ });
   await expect(projectLink).toHaveAttribute(
     "href",
-    `${base}/projects/${project}`,
+    `${base}?project=${project}`,
   );
   await projectLink.click();
-  await expect(page).toHaveURL(`${base}/projects/${project}`);
+  await expect(page).toHaveURL(`${base}?project=${project}`);
   await expect(page.getByLabel("Filter by project")).toHaveValue(project);
   await expect(page.getByRole("tab", { name: /^Board/ })).toHaveAttribute(
     "aria-selected",
@@ -96,19 +96,28 @@ test("nested resources, creation overlays, milestone cards and document lifecycl
       nodes.map((node) => node.getAttribute("aria-label")),
     ),
   ).toEqual(["Filter by project", "Filter by milestone", "Filter by label"]);
+  await page.getByLabel("Filter by label").selectOption("bug");
+  await expect(page).toHaveURL(`${base}?project=${project}&label=bug`);
+  expect(
+    (
+      await request.delete(`/api${base}/labels/bug`, {
+        data: { expected_revision: 1 },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  await expect(page.getByLabel("Filter by label")).toHaveValue("");
+  await expect(page).toHaveURL(`${base}?project=${project}`);
   const taskLink = page
     .locator(".task-card")
     .getByRole("link")
     .filter({ hasText: "Inspect delivery" });
   await expect(taskLink).toHaveAttribute(
     "href",
-    `${base}/projects/${project}/tasks/${task.key}`,
+    `/projects/${project}/tasks/${task.key}`,
   );
   const other = await context.newPage();
   await other.goto(`/projects/${project}/tasks/${task.key}`);
-  await expect(other).toHaveURL(
-    `${base}/projects/${project}/tasks/${task.key}`,
-  );
+  await expect(other).toHaveURL(`/projects/${project}/tasks/${task.key}`);
   await other.reload();
   await expect(
     other.getByRole("region", { name: "Task details", exact: true }),
@@ -117,10 +126,10 @@ test("nested resources, creation overlays, milestone cards and document lifecycl
   await page
     .getByRole("button", { name: "Project settings", exact: true })
     .click();
-  await expect(page).toHaveURL(`${base}/projects/${project}/edit`);
+  await expect(page).toHaveURL(`/projects/${project}/edit`);
   await page.getByLabel("Name", { exact: true }).fill("Unsaved project");
   await page.getByRole("tab", { name: "Integration", exact: true }).click();
-  await expect(page).toHaveURL(`${base}/projects/${project}/edit/integration`);
+  await expect(page).toHaveURL(`/projects/${project}/edit/integration`);
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await page.getByRole("tab", { name: "General", exact: true }).click();
   await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
@@ -137,9 +146,14 @@ test("nested resources, creation overlays, milestone cards and document lifecycl
   ).toContainText("Delivered release");
   const card = page
     .getByRole("region", { name: "Planned", exact: true })
-    .locator(".milestone-card");
+    .locator(".task-card");
   await expect(card).toContainText("Release readiness");
-  await card.getByRole("button", { name: "Description", exact: true }).click();
+  await card
+    .getByRole("button", {
+      name: `Description for ${milestone.key}`,
+      exact: true,
+    })
+    .click();
   await expect(page.locator(".milestone-description")).toContainText(
     "Review the release across projects.",
   );
@@ -147,14 +161,18 @@ test("nested resources, creation overlays, milestone cards and document lifecycl
     path: testInfo.outputPath("milestone-popover-desktop-light.png"),
   });
   await page.keyboard.press("Escape");
-  await card.getByRole("link", { name: "Edit", exact: true }).click();
+  await card
+    .getByRole("link", { name: `Edit ${milestone.key}`, exact: true })
+    .click();
   await expect(page.getByLabel("Title", { exact: true })).toHaveValue(
     "Release readiness",
   );
   await page.getByLabel("Title", { exact: true }).fill("Release checklist");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page).toHaveURL(`${base}/milestones`);
-  await card.getByRole("button", { name: "View tasks", exact: true }).click();
+  await card
+    .getByRole("link", { name: "Release checklist", exact: true })
+    .click();
   await expect(page.getByLabel("Filter by milestone")).toHaveValue(
     milestone.id,
   );
@@ -166,6 +184,9 @@ test("nested resources, creation overlays, milestone cards and document lifecycl
   await expect(
     page.getByRole("dialog", { name: "New document", exact: true }),
   ).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("document-create-desktop-light.png"),
+  });
   await page.getByLabel("Document title", { exact: true }).fill("Architecture");
   await page
     .getByRole("textbox", { name: "Content", exact: true })
@@ -222,16 +243,23 @@ test("nested resources, creation overlays, milestone cards and document lifecycl
   });
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(`${base}/projects`);
-  const foreign = await (
-    await request.post("/api/workspaces", { data: { name: "Other workspace" } })
-  ).json();
-  await page.goto(
-    `/workspaces/${foreign.id}/projects/${project}/tasks/${task.key}`,
-  );
+  await page.goto(`${base}/archive`);
   await expect(
-    page.getByRole("heading", { name: "Page not found", exact: true }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "New task", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "New milestone", exact: true }),
+  ).toHaveCount(0);
+  await page.locator(".archive-list .task-card-link").first().hover();
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await page.screenshot({
+    path: testInfo.outputPath("archive-card-narrow-dark.png"),
+  });
+  /* Legacy resource links canonicalize to project resource routes. */
+
+  await page.goto(`${base}/projects/${project}/tasks/${task.key}`);
+  await expect(page).toHaveURL(`/projects/${project}/tasks/${task.key}`);
   await expect(
     page.getByRole("region", { name: "Task details", exact: true }),
-  ).toHaveCount(0);
+  ).toBeVisible();
 });

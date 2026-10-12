@@ -111,7 +111,7 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
   await page
     .getByRole("button", { name: "Back to board", exact: true })
     .click();
-  await expect(page).toHaveURL(base);
+  await expect(page).toHaveURL(`${base}?project=board-site`);
   await expect(page.getByLabel("Filter by project")).toHaveValue("board-site");
   await expect(
     page.getByRole("textbox", { name: "Message coordinator", exact: true }),
@@ -151,9 +151,9 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
     page.getByText("0 of 2 tasks done", { exact: true }),
   ).toBeVisible();
   await page
-    .locator(".milestone-card")
+    .locator(".task-card")
     .filter({ hasText: "Launch together" })
-    .getByRole("link", { name: "Edit", exact: true })
+    .getByRole("link", { name: "Edit M-1", exact: true })
     .click();
   await expect(page).toHaveURL(`${base}/milestones/M-1`);
   await expect(

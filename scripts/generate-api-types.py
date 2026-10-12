@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from flowfield.actors import ACTOR_LABELS, ACTOR_ROLES
 from flowfield.api import create_app
 
 root = Path(__file__).resolve().parents[1]
@@ -29,6 +30,13 @@ with tempfile.TemporaryDirectory(prefix="flowfield-contracts-") as directory:
             str(output),
         ],
         check=True,
+    )
+    output.write_text(
+        output.read_text(encoding="utf-8")
+        + "\n// Shared attribution vocabulary from flowfield.actors.\n"
+        + f"export const actorRoles = {json.dumps(ACTOR_ROLES)} as const;\n"
+        + f"export const actorLabels = {json.dumps(ACTOR_LABELS)} as const;\n",
+        encoding="utf-8",
     )
     subprocess.run(
         ["pnpm", "--dir", str(root / "web"), "exec", "prettier", "--write", str(output)],

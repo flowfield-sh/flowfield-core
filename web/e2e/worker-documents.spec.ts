@@ -48,15 +48,18 @@ test("project defaults prepare exact task documents and preserve revision links"
   ).toBeChecked();
   await expect(
     page.getByRole("checkbox", { name: "Workspace guidance", exact: true }),
-  ).not.toBeChecked();
+  ).toBeChecked();
   await page.screenshot({
     path: testInfo.outputPath("worker-documents-desktop-light.png"),
     animations: "disabled",
   });
+  await expect(
+    page.getByRole("checkbox", { name: "Workspace guidance", exact: true }),
+  ).toBeDisabled();
   // Preserve a dirty selection when the project is edited elsewhere.
   await page
-    .getByRole("checkbox", { name: "Workspace guidance", exact: true })
-    .check();
+    .getByRole("checkbox", { name: "Core conventions", exact: true })
+    .uncheck();
   const saved = await (await request.get(`/api/projects/${project.id}`)).json();
   await request.put(`/api/projects/${project.id}`, {
     data: {
@@ -79,7 +82,7 @@ test("project defaults prepare exact task documents and preserve revision links"
   });
   expect(taskResponse.ok(), await taskResponse.text()).toBeTruthy();
   const task = await taskResponse.json();
-  expect(task.publication.documents).toHaveLength(1);
+  expect(task.publication.documents).toHaveLength(2);
   await request.put(`/api/workspaces/${workspace.id}/documents/${doc.id}`, {
     data: { expected_revision: 1, body: "Updated after preparation" },
   });

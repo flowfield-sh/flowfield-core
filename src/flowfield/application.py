@@ -31,7 +31,7 @@ from flowfield.activity import (
     EntryKind,
 )
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit
-from flowfield.document_models import DocumentReferences, DocumentSnapshot
+from flowfield.document_models import DocumentReference, DocumentReferences, DocumentSnapshot
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import ACTIVE, SettingsEdit
 from flowfield.execution_models import SCHEMA as EXECUTION_SCHEMA
@@ -137,12 +137,32 @@ class Project(Input):
     task_prefix: ProjectPrefix
 
     description: str = ""
-    worker_documents: DocumentReferences = Field(default_factory=list)
+    worker_documents: DocumentReferences = Field(
+        default_factory=lambda: [DocumentReference(id="guidance")], validate_default=True
+    )
 
     @field_validator("worker_documents", mode="before")
     @classmethod
     def stored_documents(cls, value: Any) -> Any:
-        return json.loads(value) if isinstance(value, str) else value
+        references = json.loads(value) if isinstance(value, str) else value
+        if not isinstance(references, list):
+            return references
+        # Apply the shared default to current project settings, never to frozen assignments.
+        return (
+            references
+            if any(
+                (
+                    item.id
+                    if isinstance(item, DocumentReference)
+                    else item.get("id")
+                    if isinstance(item, dict)
+                    else None
+                )
+                == "guidance"
+                for item in references
+            )
+            else [*references, {"id": "guidance"}]
+        )
 
     revision: int = 1
     created_at: str

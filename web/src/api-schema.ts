@@ -3089,6 +3089,7 @@ export interface components {
       deleted_by?: string | null;
       /** Body */
       body: string;
+      readonly actor: components["schemas"]["Actor"];
     };
     /** DocumentCreate */
     DocumentCreate: {
@@ -3141,6 +3142,7 @@ export interface components {
       deleted_at?: string | null;
       /** Deleted By */
       deleted_by?: string | null;
+      readonly actor: components["schemas"]["Actor"];
     };
     /** DocumentPage */
     DocumentPage: {
@@ -11340,3 +11342,20 @@ export interface operations {
     };
   };
 }
+
+// Shared attribution vocabulary from flowfield.actors.
+export const actorRoles = {
+  human: "human",
+  coordinator: "coordinator",
+  agent: "coordinator",
+  worker: "worker",
+  flowfield: "flowfield",
+  service: "flowfield",
+  migration: "flowfield",
+} as const;
+export const actorLabels = {
+  human: "You",
+  coordinator: "Coordinator",
+  worker: "Worker",
+  flowfield: "Flowfield",
+} as const;

@@ -19,7 +19,11 @@ export function WorkspaceLink({
     <Link
       {...props}
       to={to}
-      state={entityNavigationState(location.pathname, location.state, to)}
+      state={entityNavigationState(
+        location.pathname + location.search,
+        location.state,
+        to,
+      )}
     />
   );
 }

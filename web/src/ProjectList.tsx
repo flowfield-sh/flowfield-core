@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ContentStack } from "./DetailLayout";
 import { ProjectBadge } from "./ProjectBadge";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { projectHref, workspaceHref } from "./navigation";
+import { boardHref, workspaceHref } from "./navigation";
 import type { Project } from "./workspace";
 
 export function ProjectList({
@@ -34,7 +34,7 @@ export function ProjectList({
           {projects.map((project) => (
             <WorkspaceLink
               key={project.id}
-              to={projectHref(project.id)}
+              to={boardHref(workspaceId, { project: project.id })}
               className="project-list-row"
             >
               <ProjectBadge id={project.id} name={project.name} />

@@ -108,13 +108,6 @@
     gap: 8px;
     flex-wrap: wrap;
   }
-  .filter-label {
-    margin: 0;
-  }
-  .filter-label select {
-    margin: 0;
-    max-width: 180px;
-  }
   .board-layout {
     display: flex;
     flex: 1;
@@ -146,10 +139,16 @@
     flex-shrink: 0;
   }
   .column-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     min-height: 0;
     min-width: 0;
     overflow: auto;
     overscroll-behavior-y: contain;
+  }
+  .column-cards > * {
+    flex-shrink: 0;
   }
   .column {
     background: var(--muted);
@@ -171,6 +170,7 @@
     font-size: 10px;
   }
   .task-card {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -182,7 +182,30 @@
     border: 1px solid var(--border);
     box-shadow: 0 2px 3px #18181b08;
     border-radius: 7px;
-    margin-bottom: 10px;
+    margin-bottom: 0;
+  }
+  .task-card-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+  .task-card:has(.task-card-link:hover) {
+    border-color: var(--muted-foreground);
+  }
+  .task-card:has(.task-card-link:focus-visible) {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .task-card
+    :is(
+      a:not(.task-card-link),
+      button,
+      [data-slot="badge"],
+      [data-slot="tooltip-trigger"]
+    ) {
+    position: relative;
+    z-index: 1;
   }
   .task-card.picked {
     border-color: var(--ring);
@@ -283,10 +306,6 @@
       margin: 0;
     }
 
-    .board-toolbar {
-      align-items: flex-start;
-      flex-direction: column;
-    }
     .welcome {
       margin: 25px auto;
     }
@@ -295,12 +314,10 @@
   /* Priority belongs to upcoming work; execution columns reflect recorded progress. */
   .card-shell {
     position: relative;
-    margin-bottom: 0.7rem;
     border-radius: 0.6rem;
   }
   .card-shell .task-card {
     width: 100%;
-    margin-bottom: 0;
   }
   .card-shell[draggable="true"] > .task-card {
     cursor: grab;
@@ -341,13 +358,6 @@
     flex: 1;
     min-width: 0;
     overflow-wrap: anywhere;
-  }
-  .archive-labels {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 8px;
   }
   .collection-empty {
     margin: 0;
@@ -625,17 +635,6 @@
     min-width: 0;
     max-width: none;
   }
-  .collection-row {
-    display: grid;
-    gap: 10px;
-    padding: 16px;
-    color: inherit;
-    text-decoration: none;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--background);
-    overflow-wrap: anywhere;
-  }
   .project-list {
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -662,11 +661,6 @@
   .project-list-row:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: -2px;
-  }
-  .collection-row:hover,
-  .collection-row.selected {
-    border-color: var(--foreground);
-    box-shadow: 0 0 0 1px var(--foreground);
   }
   .record-attribution {
     font-size: 12px;
@@ -706,23 +700,21 @@
     text-underline-offset: 4px;
   }
 
-  .milestone-board {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(240px, 1fr));
-    gap: 16px;
-    overflow-x: auto;
+  .board.three-column-board {
+    grid-template-columns: repeat(3, minmax(280px, 1fr));
   }
-  .milestone-column {
+  .work-card-heading {
     display: flex;
-    flex-direction: column;
-    gap: 16px;
-    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 8px;
   }
-  .milestone-card {
-    padding: 16px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--card);
+  .work-card-controls {
+    display: flex;
+    gap: 4px;
+    position: relative;
+    z-index: 2;
   }
   .milestone-description {
     width: min(480px, calc(100vw - 32px));
@@ -991,20 +983,13 @@
   .attention-card {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 4px;
     height: 100%;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px;
     background: var(--background);
     color: var(--foreground);
     text-decoration: none;
     min-width: 0;
     overflow-wrap: anywhere;
-  }
-  .attention-card:hover,
-  .attention-card.selected {
-    border-color: var(--ring);
   }
   .attention-card strong {
     font-size: 13px;
@@ -1080,9 +1065,6 @@
   }
   .card-tabs [data-slot="tabs-trigger"] {
     flex: 0 0 auto;
-  }
-  .attention-board {
-    grid-template-columns: repeat(3, minmax(280px, 1fr));
   }
   .attention-column ul {
     list-style: none;

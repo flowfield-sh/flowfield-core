@@ -215,9 +215,9 @@ def attention_page(
                     if item.status == "pending"
                     else "Permission " + item.status,
                     tone="attention" if item.status == "pending" else "idle",
-                    href=f"{project_href(db, owner)}/tasks/{item.task_key}"
+                    href=f"{project_href(owner)}/tasks/{item.task_key}"
                     if item.task_key and owner
-                    else f"{project_href(db, owner)}/inbox"
+                    else f"{project_href(owner)}/inbox"
                     if owner
                     else f"/workspaces/{workspace_id}/inbox",
                 )

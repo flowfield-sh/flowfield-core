@@ -120,7 +120,7 @@ function Column({
           )}
           {page.loading && !page.data && <p>Loading…</p>}
           {page.data && !page.data.items.length && (
-            <p className="muted">
+            <p className="empty-column">
               {column === "action"
                 ? "Nothing needs your attention."
                 : column === "waiting"
@@ -213,7 +213,7 @@ export function AttentionBoard(props: {
           />
         </EntityOverlay>
       )}
-      <div className="board attention-board">
+      <div className="board three-column-board attention-board">
         <Column {...props} column="action" />
         <Column {...props} column="waiting" />
         <Column {...props} column="history" />

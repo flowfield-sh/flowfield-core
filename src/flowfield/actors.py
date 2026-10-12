@@ -12,6 +12,7 @@ ACTOR_ROLES: dict[str, ActorRole] = {
     "worker": "worker",
     "flowfield": "flowfield",
     "service": "flowfield",
+    "migration": "flowfield",
 }
 ACTOR_LABELS = {
     "human": "You",

@@ -744,7 +744,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
       .getByRole("link", { name: "Related question", exact: true }),
   ).toHaveAttribute(
     "href",
-    `/workspaces/${await projectWorkspace(request, project_id)}/projects/${project_id}/tasks/ASK-2/conversation/question%3Aexport-scope%3A1`,
+    `/projects/${project_id}/tasks/ASK-2/conversation/question%3Aexport-scope%3A1`,
   );
 });
 
@@ -893,10 +893,7 @@ test("retracting answers reopens questions and preserves earlier responses", asy
   const detail = page.getByRole("dialog", { name: "Question", exact: true });
   await expect(
     detail.getByRole("link", { name: "Which rows?", exact: true }),
-  ).toHaveAttribute(
-    "href",
-    `/workspaces/${await projectWorkspace(request, project_id)}/projects/${project_id}/inbox/scope`,
-  );
+  ).toHaveAttribute("href", `/projects/${project_id}/inbox/scope`);
   await expect(
     detail.getByRole("button", { name: "Retract", exact: true }),
   ).toHaveCount(0);
@@ -933,7 +930,9 @@ test("retracting answers reopens questions and preserves earlier responses", asy
   await detail
     .getByRole("button", { name: "Close question", exact: true })
     .click();
-  await expect(page).toHaveURL(new RegExp(`/projects/${project_id}/inbox$`));
+  await expect(page).toHaveURL(
+    `/workspaces/${await projectWorkspace(request, project_id)}/inbox?project=${project_id}`,
+  );
 });
 
 test("project questions link affected tasks and reconcile through CLI and MCP", async ({
@@ -993,14 +992,11 @@ test("project questions link affected tasks and reconcile through CLI and MCP", 
     detail.getByRole("link", { name: "Project", exact: true }),
   ).toHaveAttribute(
     "href",
-    `/workspaces/${await projectWorkspace(request, project_id)}/projects/${project_id}`,
+    `/workspaces/${await projectWorkspace(request, project_id)}?project=${project_id}`,
   );
   await expect(
     detail.getByRole("link", { name: "PRJ-2", exact: true }),
-  ).toHaveAttribute(
-    "href",
-    `/workspaces/${await projectWorkspace(request, project_id)}/projects/${project_id}/tasks/PRJ-2`,
-  );
+  ).toHaveAttribute("href", `/projects/${project_id}/tasks/PRJ-2`);
   await detail.getByRole("link", { name: "PRJ-2", exact: true }).hover();
   await expect(page.getByRole("tooltip")).toHaveText("Report");
   await detail
@@ -1217,7 +1213,7 @@ test("related questions preserve the page, drafts, focus and router history", as
     name: "Task details",
     exact: true,
   });
-  const origin = `/workspaces/${await projectWorkspace(request, project_id)}/projects/${project_id}/tasks/OVR-1`;
+  const origin = `/projects/${project_id}/tasks/OVR-1`;
   await expect(
     editor.getByText("Needs your answer before work can continue:", {
       exact: true,
@@ -1858,7 +1854,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     })
     .click();
   await expect(page).toHaveURL(
-    `/workspaces/${await projectWorkspace(request, project_id)}/projects/${project_id}/inbox`,
+    `/workspaces/${await projectWorkspace(request, project_id)}/inbox?project=${project_id}`,
   );
   await expect(
     page.getByRole("region", { name: "Needs your action", exact: true }),

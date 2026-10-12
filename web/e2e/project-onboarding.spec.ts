@@ -78,7 +78,7 @@ test("directory adoption preserves guidance, cancellation and required identity 
   });
   await setup.getByRole("button", { name: "Add project", exact: true }).click();
   await expect(page).toHaveURL(
-    `/workspaces/${workspace.id}/projects/native-directory-project`,
+    `/workspaces/${workspace.id}?project=native-directory-project`,
   );
   expect(readFileSync(join(directory, "AGENTS.md"), "utf8")).toBe(
     "Keep the repository conventions.\n",
@@ -139,11 +139,11 @@ test("registration conflicts retain the selected directory and allow identity co
   await setup.getByLabel("Task prefix", { exact: true }).fill("PKU");
   await setup.getByRole("button", { name: "Add project", exact: true }).click();
   await expect(page).toHaveURL(
-    `/workspaces/${workspace}/projects/picked-unique`,
+    `/workspaces/${workspace}?project=picked-unique`,
   );
   expect(existsSync(join(selected, "AGENTS.md"))).toBe(false);
   await page.getByRole("tab", { name: /^Projects/ }).click();
   await expect(
-    page.locator(`a[href="/workspaces/${workspace}/projects/picked-unique"]`),
+    page.locator(`a[href="/workspaces/${workspace}?project=picked-unique"]`),
   ).toBeVisible();
 });

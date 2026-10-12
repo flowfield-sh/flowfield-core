@@ -1,25 +1,26 @@
+import { Pencil, FileText } from "lucide-react";
 import { ContentStack } from "./DetailLayout";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { Popover } from "radix-ui";
 import { Markdown } from "./Markdown";
+import { WorkCard } from "./WorkCard";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { workspaceHref } from "./navigation";
+import { boardHref, workspaceHref } from "./navigation";
 import type { Board } from "./workspace";
 
 export function MilestoneList({
   board,
-  open,
-  viewTasks,
 }: {
   board: Pick<Board, "tasks" | "milestones">;
-  open: (id: string) => void;
-  viewTasks: (id: string) => void;
 }) {
   const cards = board.milestones.map((milestone) => {
-    const tasks = board.tasks.filter(
-      (t) =>
-        t.milestone_id === milestone.id && (!t.archived || t.status === "done"),
-    );
+    const members = board.tasks.filter((t) => t.milestone_id === milestone.id);
+    const tasks = members.filter((t) => !t.archived || t.status === "done");
     const done = tasks.filter((t) => t.status === "done").length;
     const column =
       tasks.length && done === tasks.length
@@ -27,72 +28,69 @@ export function MilestoneList({
         : tasks.some((t) => !["backlog", "up_next"].includes(t.status))
           ? "In progress"
           : "Planned";
-    return { milestone, tasks, done, column };
+    return {
+      milestone,
+      tasks,
+      done,
+      column,
+      archived: !!members.length && members.every((t) => t.archived),
+    };
   });
   return (
-    <div className="milestone-board">
+    <div className="board three-column-board" aria-label="Milestones">
       {["Planned", "In progress", "Complete"].map((column) => (
-        <section key={column} className="milestone-column" aria-label={column}>
-          <h3 className="detail-title flex items-center gap-2">
-            {column}{" "}
-            <span className="nav-count">
+        <section key={column} className="column" aria-label={column}>
+          <h2>
+            {column}
+            <span className="count">
               {cards.filter((card) => card.column === column).length}
             </span>
-          </h3>
-          <ContentStack>
+          </h2>
+          <div
+            className="column-cards"
+            role="region"
+            aria-label={`${column} milestones`}
+            tabIndex={0}
+          >
             {cards
               .filter((card) => card.column === column)
-              .map(({ milestone, tasks, done }) => (
-                <article key={milestone.id} className="milestone-card">
-                  <ContentStack>
-                    <div className="actions justify-between">
-                      <span className="detail-metadata">{milestone.key}</span>{" "}
-                      <Button size="sm" variant="outline" asChild>
-                        <WorkspaceLink
-                          to={
-                            workspaceHref(milestone.workspace_id) +
-                            "/milestones/" +
-                            encodeURIComponent(milestone.key)
-                          }
-                          onClick={(event) => {
-                            if (
-                              !event.metaKey &&
-                              !event.ctrlKey &&
-                              !event.shiftKey &&
-                              !event.altKey &&
-                              event.button === 0
-                            ) {
-                              event.preventDefault();
-                              open(milestone.id);
-                            }
-                          }}
-                        >
-                          Edit
-                        </WorkspaceLink>
-                      </Button>
-                    </div>
-                    <strong>{milestone.title}</strong>
-                    <span>
-                      {done} of {tasks.length} tasks done
-                    </span>
-                    <div className="actions">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => viewTasks(milestone.id)}
-                      >
-                        View tasks
-                      </Button>
-                      <Popover.Root>
-                        <Popover.Trigger asChild>
-                          <Button size="sm" variant="outline">
-                            Description
+              .map(({ milestone, tasks, done, archived }) => (
+                <WorkCard key={milestone.id}>
+                  <div className="work-card-heading">
+                    <span className="task-key">{milestone.key}</span>
+                    <div className="work-card-controls">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="icon-xs" variant="ghost" asChild>
+                            <WorkspaceLink
+                              aria-label={`Edit ${milestone.key}`}
+                              to={`${workspaceHref(milestone.workspace_id)}/milestones/${milestone.key}`}
+                            >
+                              <Pencil />
+                            </WorkspaceLink>
                           </Button>
-                        </Popover.Trigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Edit milestone</TooltipContent>
+                      </Tooltip>
+                      <Popover.Root>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Popover.Trigger asChild>
+                              <Button
+                                size="icon-xs"
+                                variant="ghost"
+                                aria-label={`Description for ${milestone.key}`}
+                              >
+                                <FileText />
+                              </Button>
+                            </Popover.Trigger>
+                          </TooltipTrigger>
+                          <TooltipContent>Description</TooltipContent>
+                        </Tooltip>
                         <Popover.Portal>
                           <Popover.Content
                             sideOffset={8}
-                            align="start"
+                            align="end"
                             className="composer-settings milestone-description"
                           >
                             <ContentStack>
@@ -107,13 +105,30 @@ export function MilestoneList({
                         </Popover.Portal>
                       </Popover.Root>
                     </div>
-                  </ContentStack>
-                </article>
+                  </div>
+                  <span className="task-identity">
+                    <strong>
+                      <WorkspaceLink
+                        className="task-card-link"
+                        to={boardHref(
+                          milestone.workspace_id,
+                          { milestone: milestone.id },
+                          archived,
+                        )}
+                      >
+                        {milestone.title}
+                      </WorkspaceLink>
+                    </strong>
+                  </span>
+                  <span className="detail-metadata">
+                    {done} of {tasks.length} tasks done
+                  </span>
+                </WorkCard>
               ))}
             {!cards.some((card) => card.column === column) && (
-              <p className="collection-empty">No milestones</p>
+              <p className="empty-column">No milestones yet</p>
             )}
-          </ContentStack>
+          </div>
         </section>
       ))}
     </div>

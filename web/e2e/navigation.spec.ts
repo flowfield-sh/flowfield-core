@@ -71,7 +71,7 @@ test("task keys link to persistent selections with history and draft protection"
   await page.keyboard.press("Escape");
   await expect(blocker).toHaveAttribute(
     "href",
-    `/workspaces/${workspace}/projects/navigation/tasks/NAV-1`,
+    `/projects/navigation/tasks/NAV-1`,
   );
   await expect(
     page.getByText("Completion criteria set", { exact: true }),
@@ -220,10 +220,10 @@ test("collections open and close entity details through the same routes", async 
     const row =
       path === "milestones"
         ? page
-            .locator(".milestone-card")
-            .getByRole("link", { name: "Edit", exact: true })
+            .locator(".task-card")
+            .getByRole("link", { name: "Edit M-1", exact: true })
             .first()
-        : page.locator(".collection-row").first();
+        : page.locator(".archive-list .task-card-link").first();
     await expect(row).toBeVisible();
 
     await row.click();
@@ -275,12 +275,12 @@ test("task metadata and internal Markdown links stay inside the router", async (
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(boot);
   await page.goBack();
   await editor.getByRole("link", { name: "M-1", exact: true }).click();
-  await expect(page).toHaveURL(`/workspaces/${workspace}/milestones/M-1`);
+  await expect(page).toHaveURL(`/workspaces/${workspace}?milestone=questions`);
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(boot);
   await page.keyboard.press("Escape");
   await page.getByRole("tab", { name: /^Milestones/ }).click();
-  await page.getByRole("button", { name: "View tasks", exact: true }).click();
-  await expect(page).toHaveURL(`/workspaces/${workspace}`);
+  await page.locator(".task-card-link").first().click();
+  await expect(page).toHaveURL(`/workspaces/${workspace}?milestone=questions`);
   await expect(page.getByLabel("Filter by milestone")).toHaveValue("questions");
   await expect(
     page.getByRole("link", { name: /LNK-1 (?:Feature )?Export books/ }),
@@ -342,19 +342,19 @@ test("shared overlays preserve the workspace, related return paths and mobile cr
   await expect(card).toBeFocused();
   await expect(page.getByLabel("Filter by milestone")).toHaveValue("group");
   await page.getByRole("tab", { name: /^Milestones(?: \d+)?$/ }).click();
-  const row = page.locator(".milestone-card");
+  const row = page.locator(".task-card");
   await expect(row).toBeVisible();
   await expect(
     page.getByRole("tablist", { name: "Workspace views" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "View tasks", exact: true }).click();
+  await page.locator(".task-card-link").first().click();
   await expect(page.getByLabel("Filter by milestone")).toHaveValue("group");
   await card.click();
   await expect(dialog).toBeVisible();
   await dialog
     .getByRole("button", { name: /^(Close editor|Back to board)$/ })
     .click();
-  await expect(page).toHaveURL(`/workspaces/${workspace}`);
+  await expect(page).toHaveURL(`/workspaces/${workspace}?milestone=group`);
   await page
     .getByRole("button", { name: "Workspace settings", exact: true })
     .click();
@@ -366,9 +366,9 @@ test("shared overlays preserve the workspace, related return paths and mobile cr
     page.getByRole("dialog", { name: "Workspace settings", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page).toHaveURL(`/workspaces/${workspace}`);
+  await expect(page).toHaveURL(`/workspaces/${workspace}?milestone=group`);
   await page.getByRole("tab", { name: /^Milestones(?: \d+)?$/ }).click();
-  await expect(page.locator(".milestone-board")).toBeVisible();
+  await expect(page.locator(".three-column-board")).toBeVisible();
   await page
     .getByRole("button", { name: "New milestone", exact: true })
     .click();
@@ -550,7 +550,7 @@ test("entity identity and drafts persist across task and workspace tabs", async 
   ).toHaveCount(0);
   await expect(editor.getByLabel("Add prerequisite")).toHaveCount(0);
   await expect(
-    editor.getByRole("button", { name: "Edit", exact: true }),
+    editor.getByRole("button", { name: "Edit M-1", exact: true }),
   ).toHaveCount(0);
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "New task", exact: true }).click();

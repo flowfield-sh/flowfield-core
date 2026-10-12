@@ -214,7 +214,7 @@
   overflow: hidden;
 }
 .workspace-task-board > .board-content,
-.workspace-task-board > .attention-board {
+.workspace-task-board > .board {
   flex: 1;
   min-height: 0;
 }

@@ -82,7 +82,7 @@ test("explicit workspace creation, project adoption and shared draft navigation"
   });
   await page.getByRole("button", { name: "Add project", exact: true }).click();
   await expect(page).toHaveURL(
-    `/workspaces/${workspace.id}/projects/entry-core`,
+    `/workspaces/${workspace.id}?project=entry-core`,
   );
   expect(readFileSync(join(path, "AGENTS.md"), "utf8")).toBe(
     "Keep these project conventions.\n",

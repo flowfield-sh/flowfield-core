@@ -331,3 +331,21 @@ def test_document_delete_tools_and_http_preserve_attribution_and_count(tmp_path)
         assert restored.status_code == 200
         assert client.request("DELETE", base, json={"expected_revision": 3}).status_code == 200
         assert client.request("DELETE", base, json={"expected_revision": 3}).status_code == 409
+
+
+def test_document_attribution_uses_task_feed_actor_roles():
+    from flowfield.actors import actor
+    from flowfield.documents import DocumentHeader
+
+    for identity in ("human", "coordinator:session", "worker:attempt", "flowfield", "migration"):
+        record = DocumentHeader(
+            workspace_id="work",
+            id="guidance",
+            revision=1,
+            title="Guidance",
+            created_at="2026-10-12T00:00:00Z",
+            author=identity,
+            characters=0,
+        )
+        assert record.actor == actor(identity)
+        assert record.actor.role != "other"

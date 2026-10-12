@@ -59,14 +59,44 @@ export function taskTab(tab?: string): TaskTab {
   return "task";
 }
 export function canonicalHref(path: string, owners: Record<string, string>) {
-  return path.replace(/^\/projects\/([^/?#]+)/, (prefix, id: string) =>
-    owners[decodeURIComponent(id)]
-      ? `${workspaceHref(owners[decodeURIComponent(id)])}${prefix}`
-      : prefix,
+  if (!path.startsWith("/") || path.startsWith("//")) return path;
+  const url = new URL(path, window.location.origin);
+  const nested = url.pathname.match(
+    /^\/workspaces\/([^/]+)(\/projects\/([^/]+)(?:\/.*)?)$/,
+  );
+  if (nested && nested[3] !== "new") url.pathname = nested[2];
+  const project = url.pathname.match(
+    /^\/projects\/([^/]+)(\/(?:archive|inbox|milestones))?\/?$/,
+  );
+  const owner =
+    nested?.[1] ??
+    (project ? owners[decodeURIComponent(project[1])] : undefined);
+  if (project && owner) {
+    url.pathname =
+      workspaceHref(decodeURIComponent(owner)) + (project[2] ?? "");
+    url.searchParams.set("project", decodeURIComponent(project[1]));
+  }
+  return url.pathname + url.search + url.hash;
+}
+export function boardHref(
+  workspaceId: string,
+  filters: { project?: string; milestone?: string; label?: string } = {},
+  archive = false,
+) {
+  const query = new URLSearchParams(
+    Object.entries(filters).filter(([, value]) => !!value) as [
+      string,
+      string,
+    ][],
+  );
+  return (
+    workspaceHref(workspaceId) +
+    (archive ? "/archive" : "") +
+    (query.size ? "?" + query : "")
   );
 }
-export function projectHref(id: string, workspaceId?: string) {
-  return `${workspaceId ? workspaceHref(workspaceId) : ""}/projects/${encodeURIComponent(id)}`;
+export function projectHref(id: string) {
+  return `/projects/${encodeURIComponent(id)}`;
 }
 export function workspaceHref(id: string) {
   return `/workspaces/${encodeURIComponent(id)}`;
@@ -98,22 +128,25 @@ export function entityPage(path: string) {
   return (
     /\/(?:projects|documents)\/new$/.test(withoutQuestionOverlay(path)) ||
     /^\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+)\/(?:tasks\/[^/]+|milestones\/[^/]+|inbox\/[^/]+|edit)(?:\/.*)?$/.test(
-      withoutQuestionOverlay(path),
+      withoutQuestionOverlay(path.split("?")[0]),
     )
   );
 }
 export function collectionPath(path: string) {
-  const base = withoutQuestionOverlay(path);
-  return base
-    .replace(/\/(projects|documents)\/new$/, "/$1")
-    .replace(
-      /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+))\/(tasks\/.*|edit(?:\/.*)?)$/,
-      "$1",
-    )
-    .replace(
-      /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+))\/(milestones|inbox)\/.*$/,
-      "$1/$2",
-    );
+  const [pathname, query] = path.split("?");
+  const base = withoutQuestionOverlay(pathname);
+  return (
+    base
+      .replace(/\/(projects|documents)\/new$/, "/$1")
+      .replace(
+        /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+))\/(tasks\/.*|edit(?:\/.*)?)$/,
+        "$1",
+      )
+      .replace(
+        /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+))\/(milestones|inbox)\/.*$/,
+        "$1/$2",
+      ) + (query ? "?" + query : "")
+  );
 }
 type EntityNavigationState = {
   backgroundPath?: string;
@@ -126,7 +159,7 @@ export function entityNavigationState(
   replace = false,
 ) {
   if (!entityPage(target)) return null;
-  const current = withoutQuestionOverlay(pathname);
+  const current = withoutQuestionOverlay(pathname.split("?")[0]);
   const sameEditor =
     entityPage(current) && editorIdentity(current) === editorIdentity(target);
   const sameProject = current.split("/")[2] === target.split("/")[2];
@@ -142,7 +175,7 @@ export function entityNavigationState(
   const index = window.history.state?.idx;
   return {
     backgroundPath: retainOrigin
-      ? (state?.backgroundPath ?? collectionPath(current))
+      ? (state?.backgroundPath ?? collectionPath(pathname))
       : collectionPath(target),
     returnTo: !retainOrigin
       ? undefined
@@ -190,9 +223,12 @@ export function useWorkspaceNavigation(
             ))),
   );
   useEffect(() => {
-    const target = canonicalHref(location.pathname, projectOwners);
-    if (target !== location.pathname)
-      void navigate(target + location.search + location.hash, {
+    const target = canonicalHref(
+      location.pathname + location.search + location.hash,
+      projectOwners,
+    );
+    if (target !== location.pathname + location.search + location.hash)
+      void navigate(target, {
         replace: true,
         state: location.state,
       });
@@ -200,11 +236,17 @@ export function useWorkspaceNavigation(
   const changeLocation = useCallback(
     (url: string, replace = false) => {
       url = canonicalHref(url, projectOwners);
+      if (
+        !replace &&
+        url === location.pathname + location.search + location.hash
+      )
+        return;
       bypass.current = replace;
       void navigate(url, {
+        flushSync: !replace,
         replace,
         state: entityNavigationState(
-          location.pathname,
+          location.pathname + location.search,
           location.state,
           url,
           replace,

@@ -20,7 +20,7 @@ def unique_references(value: list[DocumentReference]) -> list[DocumentReference]
 
 
 DocumentReferences = Annotated[
-    list[DocumentReference], Field(max_length=20), AfterValidator(unique_references)
+    list[DocumentReference], Field(max_length=21), AfterValidator(unique_references)
 ]
 
 

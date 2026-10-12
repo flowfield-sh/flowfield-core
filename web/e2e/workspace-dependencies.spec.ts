@@ -47,7 +47,7 @@ test("cross-project prerequisites link to their owner and refresh dependent view
     .first();
   await expect(prerequisite).toHaveAttribute(
     "href",
-    `/workspaces/${workspace.id}/projects/dependency-core/tasks/DPC-1`,
+    `/projects/dependency-core/tasks/DPC-1`,
   );
   await prerequisite.click();
   await expect(page).toHaveURL(/\/projects\/dependency-core\/tasks\/DPC-1$/);

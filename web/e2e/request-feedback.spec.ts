@@ -179,13 +179,19 @@ test("an outage is reported once across settings reads and polling, recovers, an
   offline = false;
   await errors(page).getByRole("button", { name: "Close toast" }).click();
   await editor.getByRole("tab", { name: "Integration", exact: true }).click();
-  // A recovered background read can clear another retry while the click is settling.
+  // Wait for each recovery to settle before clicking the next resource's Retry.
+  // Otherwise both clicks can hit the same still-visible first button.
   for (let attempt = 0; attempt < 2 && (await retries.count()); attempt++) {
-    try {
-      await retries.first().click({ timeout: 1500 });
-    } catch {
-      await expect(retries).toHaveCount(0);
-    }
+    const count = await retries.count();
+    const recovered = page.waitForResponse(
+      (response) =>
+        response.ok() &&
+        (response.url().endsWith(`/api/projects/${id}/inspection/settings`) ||
+          response.url().endsWith(`/api/projects/${id}/setup-validation`)),
+    );
+    await retries.first().click();
+    await recovered;
+    await expect.poll(() => retries.count()).toBeLessThan(count);
   }
   await expect(retries).toHaveCount(0);
   await expect(
@@ -344,10 +350,7 @@ test("a saved correction is not offered for resubmission when the following read
   );
   await expect(
     detail.getByRole("link", { name: "Open the new input" }),
-  ).toHaveAttribute(
-    "href",
-    `/workspaces/${await projectWorkspace(request, id)}/projects/${id}/inbox/corrected`,
-  );
+  ).toHaveAttribute("href", `/projects/${id}/inbox/corrected`);
   await expect(detail.getByLabel("Your answer", { exact: true })).toHaveCount(
     0,
   );

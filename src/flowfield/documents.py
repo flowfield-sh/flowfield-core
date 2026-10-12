@@ -4,8 +4,9 @@ import sqlite3
 from typing import Any
 from uuid import uuid4
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
+from flowfield.actors import Actor, actor
 from flowfield.application import Edit, Input, Markdown, Workspace, now
 from flowfield.errors import ApplicationError
 from flowfield.project_config import Identifier, Title
@@ -40,12 +41,17 @@ class DocumentHeader(Input):
     deleted_at: str | None = None
     deleted_by: str | None = None
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def actor(self) -> Actor:
+        return actor(self.author)
+
 
 class Document(DocumentHeader):
     body: str
 
     def header(self) -> DocumentHeader:
-        return DocumentHeader(**self.model_dump(exclude={"body"}))
+        return DocumentHeader(**self.model_dump(exclude={"body", "actor"}))
 
 
 class DocumentPage(Input):

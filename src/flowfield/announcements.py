@@ -142,7 +142,7 @@ def reconcile_attention(
                 "state='pending'",
                 (key,),
             )
-            base = project_href(db, project["id"])
+            base = project_href(project["id"])
             task = f"{base}/tasks/{quote(row['task_key'], safe='')}" if row["task_key"] else base
             label = "Needs your attention"
             if kind == "question":

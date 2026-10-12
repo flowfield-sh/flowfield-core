@@ -5,7 +5,8 @@ import { createRoot } from "react-dom/client";
 import { HostProvider, browserHost } from "./HostCapabilities";
 import { App } from "./App";
 import "./style.css";
-import { createBrowserRouter, RouterProvider } from "react-router";
+import { createBrowserRouter } from "react-router";
+import { RouterProvider } from "react-router/dom";
 import { workspacePaths } from "./navigation";
 const router = createBrowserRouter([
   {

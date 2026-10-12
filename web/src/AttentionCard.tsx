@@ -1,4 +1,4 @@
-import { Card } from "@/components/ui/card";
+import { WorkCard } from "./WorkCard";
 import { Badge } from "@/components/ui/badge";
 import { WorkspaceLink } from "./WorkspaceLink";
 import type { ReactNode } from "react";
@@ -22,13 +22,8 @@ export function AttentionCard({
   selected?: boolean;
 }) {
   return (
-    <Card
-      className={`gap-0 p-0 shadow-none transition-colors hover:border-foreground/40 ${selected ? "border-foreground/40" : ""}`}
-    >
-      <WorkspaceLink
-        to={href}
-        className={`attention-card border-0 rounded-xl${selected ? " selected" : ""}`}
-      >
+    <WorkCard selected={selected}>
+      <WorkspaceLink to={href} className="attention-card task-card-link">
         <span className="attention-card-meta">
           <Badge variant="outline">{kind}</Badge>
           <span>{reference}</span>
@@ -40,6 +35,6 @@ export function AttentionCard({
           <span aria-hidden="true"> →</span>
         </span>
       </WorkspaceLink>
-    </Card>
+    </WorkCard>
   );
 }

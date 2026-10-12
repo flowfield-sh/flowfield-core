@@ -54,9 +54,9 @@ Repository instructions govern development conventions and permission to commit/
 - Select relevant worker documents through project `worker_documents` defaults and task
   `documents` references. Each reference has an `id` and optional exact `revision`; omitted
   revisions resolve during preparation. Task references can pin a different revision of a
-  default. Preparation freezes the combined selection (at most 20 documents, 1 MB of text).
+  default. Preparation freezes the combined selection (workspace guidance plus at most 20 custom documents, 1 MB of text).
   Workers receive its manifest and paged exact content, not the whole workspace library.
-  Main guidance reaches workers only when selected. Keep essential shared instructions in
+  Main guidance is required for every project and always joins newly prepared assignments. Keep essential shared instructions in
   those sources; prose links alone do not copy their targets into isolated context.
   Document/default edits leave prepared work unchanged. To adopt changes, prepare upcoming
   tasks again with reviewed stages, or reconcile existing work with a note and then review

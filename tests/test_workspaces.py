@@ -140,7 +140,7 @@ def test_upgrade_creates_one_workspace_per_project_without_rewriting_evidence(
     workspaces = Workspaces(store)
     assert len(workspaces.all()) == 2
     for project in store.projects():
-        assert project.worker_documents == []
+        assert [ref.id for ref in project.worker_documents] == ["guidance"]
         space = workspaces.for_project(project.id)
         assert space.name == project.name + " Workspace"
         assert workspaces.projects(space.id) == [project]

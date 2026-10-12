@@ -1,3 +1,4 @@
+import { useLocation } from "react-router";
 import { ProjectOwners, ScopedAnchor } from "./WorkspaceLink";
 import { reportError } from "./requestFeedback";
 import { Toaster } from "@/components/ui/sonner";
@@ -22,7 +23,7 @@ import { useTheme } from "./AppearanceSettings";
 import { FlowfieldSettings, SettingsLink } from "./FlowfieldSettings";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ContentStack } from "./DetailLayout";
-import { Card } from "@/components/ui/card";
+import { WorkCard } from "./WorkCard";
 import {
   Settings,
   Columns3,
@@ -31,6 +32,7 @@ import {
   Archive,
   Folder,
   FileText,
+  Plus,
 } from "lucide-react";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
@@ -46,13 +48,7 @@ import { QueueControls } from "./Workers";
 import { AttentionBoard } from "./AttentionBoard";
 import { MilestoneEditor } from "./MilestoneEditor";
 import { MilestoneList } from "./Milestones";
-import {
-  Attribution,
-  CollectionLayout,
-  CollectionRow,
-  TaskIdentity,
-  DraftBadge,
-} from "./Presentation";
+import { Attribution, TaskIdentity, DraftBadge } from "./Presentation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Board,
@@ -72,6 +68,7 @@ import {
 import { QuestionOverlay } from "./Inbox";
 import { DiscardChangesDialog } from "./DiscardChangesDialog";
 import {
+  boardHref,
   followLink,
   entityPage,
   projectHref,
@@ -516,23 +513,19 @@ function WorkspaceBoard({
         : params.milestoneId
           ? { kind: "milestone", id: params.milestoneId! }
           : projectId &&
-              (pathname === `${projectHref(projectId, workspaceId)}/edit` ||
-                pathname.startsWith(
-                  `${projectHref(projectId, workspaceId)}/edit/`,
-                ))
+              (pathname === `${projectHref(projectId)}/edit` ||
+                pathname.startsWith(`${projectHref(projectId)}/edit/`))
             ? { kind: "project", id: projectId }
             : newKind === "task" || newKind === "milestone"
               ? { kind: newKind }
               : null;
-  const background = backgroundPath ?? pathname;
+  const background = (backgroundPath ?? pathname).split("?")[0];
   const inView = (view: string) =>
     background === `${base}/${view}` ||
     background.startsWith(`${base}/${view}/`) ||
     (!!projectId &&
-      (background === `${projectHref(projectId, workspaceId)}/${view}` ||
-        background.startsWith(
-          `${projectHref(projectId, workspaceId)}/${view}/`,
-        )));
+      (background === `${projectHref(projectId)}/${view}` ||
+        background.startsWith(`${projectHref(projectId)}/${view}/`)));
   const projectsView =
     background === `${base}/projects` || background === `${base}/projects/new`;
   const documentsView = pathname.startsWith(`${base}/documents`);
@@ -540,28 +533,21 @@ function WorkspaceBoard({
   const selectedProject = board?.projects.find(
     (project) => project.id === projectId,
   );
-  const [projectFilter, setProjectFilter] = useState(projectId ?? "");
-  const [labelFilter, setLabelFilter] = useState("");
-  if (
-    board &&
-    labelFilter &&
-    !board.labels.some((item) => item.id === labelFilter && !item.deleted_at)
-  )
-    setLabelFilter("");
-  const [filterRoute, setFilterRoute] = useState(pathname);
-  if (filterRoute !== pathname) {
-    setFilterRoute(pathname);
-    if (
-      projectId &&
-      !params.taskKey &&
-      !params.questionId &&
-      !pathname.includes("/edit")
-    )
-      setProjectFilter(projectId);
+  const location = useLocation();
+  const query = new URLSearchParams(
+    backgroundPath?.split("?")[1] ?? location.search,
+  );
+  const projectFilter = query.get("project") ?? "";
+  const labelFilter = query.get("label") ?? "";
+  const filter = query.get("milestone") ?? "";
+  function changeFilter(name: string, value: string) {
+    const next = new URLSearchParams(location.search);
+    if (value) next.set(name, value);
+    else next.delete(name);
+    changeLocation(pathname + (next.size ? "?" + next : ""));
   }
   const milestonesView = inView("milestones");
   const showInbox = inView("inbox");
-  const [filter, setFilter] = useState("");
   const archive =
     inView("archive") || (!backgroundPath && !!selectedTask?.archived);
   const surface = taskRef
@@ -576,6 +562,18 @@ function WorkspaceBoard({
             ? "archive"
             : "board";
   const filtered = surface === "board" || surface === "archive";
+  useEffect(() => {
+    if (
+      filtered &&
+      board &&
+      labelFilter &&
+      !board.labels.some((item) => item.id === labelFilter && !item.deleted_at)
+    ) {
+      const next = new URLSearchParams(location.search);
+      next.delete("label");
+      changeLocation(pathname + (next.size ? "?" + next : ""), true);
+    }
+  }, [filtered, board, labelFilter, location.search, pathname, changeLocation]);
   const adjacentContext: AdjacentContext | null =
     board && (!taskRef || (taskDetail && !detailError))
       ? {
@@ -655,22 +653,20 @@ function WorkspaceBoard({
   function selectionUrl(next: Selection | null, archived = archive) {
     if (!next)
       return (
-        base + (milestonesView ? "/milestones" : archived ? "/archive" : "")
+        base +
+        (milestonesView ? "/milestones" : archived ? "/archive" : "") +
+        (query.size ? "?" + query : "")
       );
-    if (next.kind === "project")
-      return projectHref(next.id!, workspaceId) + "/edit";
+    if (next.kind === "project") return projectHref(next.id!) + "/edit";
     if (!next.id) return base + "/" + next.kind + "s/new";
     if (next.kind === "task") {
       const task = board?.tasks.find(
         (t) =>
           t.key === next.id || (t.project_id === projectId && t.id === next.id),
       );
-      return (
-        base +
-        taskHref(task?.project_id ?? projectId!, {
-          key: task?.key ?? next.id,
-        })
-      );
+      return taskHref(task?.project_id ?? projectId!, {
+        key: task?.key ?? next.id,
+      });
     }
     const milestone = board?.milestones.find(
       (m) => m.id === next.id || m.key === next.id,
@@ -783,7 +779,13 @@ function WorkspaceBoard({
             : "board";
   function openView(value: string) {
     navigate(() =>
-      changeLocation(base + (value === "board" ? "" : "/" + value)),
+      changeLocation(
+        base +
+          (value === "board" ? "" : "/" + value) +
+          (["board", "inbox", "archive"].includes(value) && query.size
+            ? "?" + query
+            : ""),
+      ),
     );
   }
   function viewTrigger(value: string) {
@@ -956,7 +958,7 @@ function WorkspaceBoard({
         </div>
         <TabsContent
           value={view}
-          className={`workspace-work-content ${!milestonesView && !projectsView && !documentsView && !archive ? "workspace-task-board" : ""}`}
+          className={`workspace-work-content ${!projectsView && !documentsView && !archive ? "workspace-task-board" : ""}`}
           hidden={!!taskRef}
         >
           {!projectsView && !documentsView && (
@@ -967,7 +969,9 @@ function WorkspaceBoard({
                     size="sm"
                     aria-label="Filter by project"
                     value={projectFilter}
-                    onChange={(event) => setProjectFilter(event.target.value)}
+                    onChange={(event) =>
+                      changeFilter("project", event.target.value)
+                    }
                   >
                     <option value="">All projects</option>
                     {board.projects.map((project) => (
@@ -981,7 +985,9 @@ function WorkspaceBoard({
                       size="sm"
                       aria-label="Filter by milestone"
                       value={filter}
-                      onChange={(e) => setFilter(e.target.value)}
+                      onChange={(e) =>
+                        changeFilter("milestone", e.target.value)
+                      }
                     >
                       <option value="">All work</option>
                       <option value="none">Without a milestone</option>
@@ -997,7 +1003,9 @@ function WorkspaceBoard({
                       size="sm"
                       aria-label="Filter by label"
                       value={labelFilter}
-                      onChange={(event) => setLabelFilter(event.target.value)}
+                      onChange={(event) =>
+                        changeFilter("label", event.target.value)
+                      }
                     >
                       <option value="">All labels</option>
                       {board.labels
@@ -1012,52 +1020,40 @@ function WorkspaceBoard({
                 </div>
               )}
 
-              {projectFilter && !milestonesView && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => choose({ kind: "project", id: projectFilter })}
-                >
-                  Project settings
-                </Button>
-              )}
-              {milestonesView && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => choose({ kind: "milestone" })}
-                >
-                  New milestone
-                </Button>
-              )}
-              {!showInbox && !milestonesView && !projectsView && (
-                <div className="actions">
+              <div className="actions">
+                {!archive && !showInbox && (
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={() => choose({ kind: "milestone" })}
+                    >
+                      <Plus />
+                      New milestone
+                    </Button>
+                    {!milestonesView && (
+                      <Button
+                        size="sm"
+                        disabled={!board.projects.length}
+                        onClick={() => choose({ kind: "task" })}
+                      >
+                        <Plus />
+                        New task
+                      </Button>
+                    )}
+                  </>
+                )}
+                {projectFilter && !milestonesView && (
                   <Button
                     size="sm"
                     variant="outline"
-                    className="quiet"
                     onClick={() =>
-                      choose(
-                        filter && filter !== "none"
-                          ? { kind: "milestone", id: filter }
-                          : { kind: "milestone" },
-                      )
+                      choose({ kind: "project", id: projectFilter })
                     }
                   >
-                    {filter && filter !== "none"
-                      ? "Edit milestone"
-                      : "New milestone"}
+                    Project settings
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!board.projects.length}
-                    onClick={() => choose({ kind: "task" })}
-                  >
-                    New task
-                  </Button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
           {projectsView ? (
@@ -1073,6 +1069,7 @@ function WorkspaceBoard({
               identity={params.documentId}
               revision={params.documentRevision}
               pathname={pathname}
+              projects={board.projects}
               refresh={refresh}
               onDirty={setUnsaved}
               navigate={changeLocation}
@@ -1080,29 +1077,7 @@ function WorkspaceBoard({
               publishView={publishView}
             />
           ) : milestonesView ? (
-            <section className="collection-view" aria-label="Milestones">
-              <CollectionLayout>
-                <MilestoneList
-                  board={board}
-                  viewTasks={(id) => {
-                    setFilter(id);
-                    setProjectFilter("");
-                    setLabelFilter("");
-                    const members = board.tasks.filter(
-                      (task) => task.milestone_id === id,
-                    );
-                    changeLocation(
-                      base +
-                        (members.length &&
-                        members.every((task) => task.archived)
-                          ? "/archive"
-                          : ""),
-                    );
-                  }}
-                  open={(id) => choose({ kind: "milestone", id })}
-                />
-              </CollectionLayout>
-            </section>
+            <MilestoneList board={board} />
           ) : showInbox ? (
             <AttentionBoard
               workspaceId={workspaceId}
@@ -1124,7 +1099,7 @@ function WorkspaceBoard({
                   Refresh board
                 </Button>
               )}
-              {!board.projects.length && (
+              {!board.projects.length && !archive && (
                 <div className="actions px-4">
                   <p>Add a project to start creating tasks.</p>
                   <Button
@@ -1262,12 +1237,10 @@ function WorkspaceBoard({
                                   setDropTarget({ status: column, before });
                                 }}
                               >
-                                <Card
-                                  className={
+                                <WorkCard
+                                  selected={
                                     selection?.id === task.key &&
                                     selection.kind === "task"
-                                      ? "task-card picked gap-1 p-3"
-                                      : "task-card gap-1 p-3"
                                   }
                                 >
                                   <TaskIdentity
@@ -1351,7 +1324,7 @@ function WorkspaceBoard({
                                       }
                                     />
                                   )}
-                                </Card>
+                                </WorkCard>
                               </div>
                             ))}
                             {!tasks.length && (
@@ -1419,8 +1392,10 @@ function WorkspaceBoard({
             added={(project) => {
               setUnsaved(false);
               setRetry((v) => v + 1);
-              setProjectFilter(project.id);
-              changeLocation(projectHref(project.id, workspaceId), true);
+              changeLocation(
+                boardHref(workspaceId, { project: project.id }),
+                true,
+              );
             }}
           />
         </EntityOverlay>
@@ -1507,37 +1482,49 @@ function ArchiveList({
         <ul>
           {entries.map(({ task, archived }) => (
             <li key={task.key}>
-              <CollectionRow
-                className="archive-row"
-                timestamp={archived.updated_at}
+              <WorkCard
                 selected={
                   selection?.kind === "task" && selection.id === task.key
                 }
-                href={taskHref(task.project_id, task)}
-                open={() => choose({ kind: "task", id: task.key })}
               >
                 <span className="archive-task">
-                  <TaskIdentity task={task} />
+                  <TaskIdentity
+                    task={task}
+                    metadata={
+                      <>
+                        <MilestoneBadge
+                          milestone={milestones.find(
+                            (m) => m.id === task.milestone_id,
+                          )}
+                        />
+                        <DraftBadge
+                          publicationStatus={task.publication_status}
+                        />
+                      </>
+                    }
+                    title={
+                      <ScopedAnchor
+                        className="task-card-link"
+                        href={taskHref(task.project_id, task)}
+                        onClick={(event) =>
+                          followLink(event, () =>
+                            choose({ kind: "task", id: task.key }),
+                          )
+                        }
+                      >
+                        {task.title}
+                      </ScopedAnchor>
+                    }
+                  />
                   {task.reconciliation_reason && (
                     <span className="readiness blocked">Needs update</span>
-                  )}
-                  {task.milestone_id && (
-                    <span className="archive-labels">
-                      <MilestoneBadge
-                        projectId={task.project_id}
-                        linked={false}
-                        milestone={milestones.find(
-                          (m) => m.id === task.milestone_id,
-                        )}
-                      />
-                    </span>
                   )}
                 </span>
                 <Attribution
                   author={archived.updated_by}
                   date={archived.updated_at}
                 />
-              </CollectionRow>
+              </WorkCard>
             </li>
           ))}
         </ul>

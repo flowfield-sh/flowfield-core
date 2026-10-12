@@ -69,7 +69,7 @@ export function ProjectEditor({
         active={tab}
         change={(value) =>
           void navigate(
-            projectHref(incoming.id, workspaceId) +
+            projectHref(incoming.id) +
               "/edit" +
               (value === "general" ? "" : "/" + value),
             { state: location.state },

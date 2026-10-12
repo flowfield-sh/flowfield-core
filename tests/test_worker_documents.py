@@ -67,7 +67,7 @@ def test_preparation_freezes_union_and_workers_page_only_selected_revisions(tmp_
         ),
     )
     task = prepare(store)
-    assert len(task.publication.documents) == 2
+    assert len(task.publication.documents) == 3
     docs.edit("harbor", shared.id, DocumentEdit(expected_revision=1, body="New instructions"))
     assert store.task("harbor", task.id) == task
     run = execution.claim("harbor", BASE, {BASE: set()})
@@ -77,7 +77,7 @@ def test_preparation_freezes_union_and_workers_page_only_selected_revisions(tmp_
     assert manifest["characters"] == 9000 + len(specific.body)
     assert manifest["bytes"] == 36000 + len(specific.body)
     assert f"document:{unrelated.id}" not in assignment
-    assert "document:guidance" not in assignment
+    assert assignment["document:guidance"] == ""
     assert "🦉" not in json.dumps(brief_context(assignment), ensure_ascii=False)
     assert len(json.dumps(brief_context(assignment)["context"])) <= 10000
     assert brief_context(assignment)["context"][f"document:{specific.id}"] == specific.body
@@ -127,7 +127,7 @@ def test_new_revisions_require_preparation_and_change_the_agreement_atomically(t
     assert store.task("harbor", first.id) == refreshed
     removed = prepare(store)
     assert removed.agreement_revision == refreshed.agreement_revision + 1
-    assert removed.publication.documents == []
+    assert [item.id for item in removed.publication.documents] == ["guidance"]
 
 
 def test_document_edits_and_default_changes_preserve_answer_continuations(tmp_path):
@@ -293,7 +293,7 @@ def test_upgrade_preserves_prepared_and_running_context_and_rolls_back(tmp_path,
             Workspace(execution.workspace.directory)
     assert logical_data(execution.workspace.directory) == before
     upgraded = Workspace(execution.workspace.directory)
-    assert upgraded.project("harbor").worker_documents == []
+    assert [item.id for item in upgraded.project("harbor").worker_documents] == ["guidance"]
     assert upgraded.task("harbor", run.task_id) == task
     assert Execution(upgraded).get("harbor", run.id) == run
     assert Execution(upgraded).assignment("harbor", run.id) == assignment
@@ -338,3 +338,18 @@ def test_selected_document_policy_reaches_native_turn_unchanged(tmp_path):
             assert await agent.stop()
 
     asyncio.run(verify_wire())
+
+
+def test_workspace_guidance_is_required_and_uses_frozen_revisions(tmp_path):
+    execution = fixture(tmp_path)
+    store = execution.workspace
+    docs = Documents(store)
+    assert [ref.id for ref in store.project("harbor").worker_documents] == ["guidance"]
+    assert [ref.id for ref in defaults(store, []).worker_documents] == ["guidance"]
+    docs.edit("harbor", "guidance", DocumentEdit(expected_revision=1, body="Shared rule"))
+    task = prepare(store)
+    assert [(item.id, item.revision) for item in task.publication.documents] == [("guidance", 2)]
+    docs.edit("harbor", "guidance", DocumentEdit(expected_revision=2, body="Later rule"))
+    run = execution.claim("harbor", BASE, {BASE: set()})
+    assert execution.assignment("harbor", run.id)["document:guidance"] == "Shared rule"
+    assert run.documents == task.publication.documents

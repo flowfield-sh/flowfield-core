@@ -1,4 +1,3 @@
-import { ScopedAnchor } from "./WorkspaceLink";
 import { TaskLabels } from "./TaskLabels";
 import { authorLabel } from "./workspace";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,10 +10,9 @@ import {
 import { ArrowLeft, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { type ReactNode } from "react";
-import { followLink } from "./navigation";
 import { label, type TaskRevision } from "./workspace";
 import { useOverlayClose, OverlayHeading } from "./EntityOverlay";
-import { ExactTimeTooltip, Timestamp } from "./Timestamp";
+import { Timestamp } from "./Timestamp";
 
 export function CloseControl({
   label,
@@ -40,41 +38,6 @@ export function CloseControl({
   );
 }
 
-export function CollectionLayout({ children }: { children: ReactNode }) {
-  return <div className="collection-layout">{children}</div>;
-}
-
-export function CollectionRow({
-  children,
-  href,
-  selected,
-  open,
-  className = "",
-  timestamp,
-}: {
-  children: ReactNode;
-  href: string;
-  selected?: boolean;
-  open: () => void;
-  className?: string;
-  timestamp?: string;
-}) {
-  const link = (
-    <ScopedAnchor
-      className={`collection-row ${className}${selected ? " selected" : ""}`}
-      href={href}
-      onClick={(event) => followLink(event, open)}
-    >
-      {children}
-    </ScopedAnchor>
-  );
-  return timestamp ? (
-    <ExactTimeTooltip date={timestamp}>{link}</ExactTimeTooltip>
-  ) : (
-    link
-  );
-}
-
 export function Attribution({
   author,
   date,
@@ -84,7 +47,7 @@ export function Attribution({
 }) {
   return (
     <span className="record-attribution">
-      {authorLabel(author)} · <Timestamp date={date} tooltip={false} />
+      {authorLabel(author)} · <Timestamp date={date} />
     </span>
   );
 }

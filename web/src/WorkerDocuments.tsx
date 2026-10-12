@@ -40,7 +40,9 @@ export function WorkerDocumentPicker({
             <SettingsCheckbox
               key={document.id}
               checked={!!selected}
-              disabled={!selected && value.length >= 20}
+              disabled={
+                document.id === "guidance" || (!selected && value.length >= 21)
+              }
               onChange={(event) =>
                 change(
                   event.target.checked
@@ -49,7 +51,11 @@ export function WorkerDocumentPicker({
                 )
               }
               hint={
-                selected?.revision ? `Revision ${selected.revision}` : undefined
+                document.id === "guidance"
+                  ? "Required for every project"
+                  : selected?.revision
+                    ? `Revision ${selected.revision}`
+                    : undefined
               }
             >
               {document.title}

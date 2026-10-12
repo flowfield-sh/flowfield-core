@@ -504,7 +504,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   await expect(
     history.getByRole("heading", { name: "Review 1 delivery", exact: true }),
   ).toBeVisible();
-  await expect(history).toContainText("Approved by human");
+  await expect(history).toContainText("Approved by You");
   const advanced = git(
     "-c",
     "user.name=Fixture",

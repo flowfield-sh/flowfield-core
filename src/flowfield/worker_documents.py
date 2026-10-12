@@ -18,7 +18,7 @@ def require_active(document: Document) -> None:
         )
 
 
-MAX_DOCUMENTS = 20
+MAX_DOCUMENTS = 21
 MAX_BYTES = 1_000_000
 
 
@@ -38,7 +38,11 @@ def select(
     # A task can choose a particular revision of a default, without duplicating it.
     selected = {item.id: item for item in [*defaults, *references]}
     if len(selected) > MAX_DOCUMENTS:
-        raise ApplicationError("document_limit", "Select at most 20 worker documents.", 409)
+        raise ApplicationError(
+            "document_limit",
+            "Select at most 20 custom worker documents alongside workspace guidance.",
+            409,
+        )
     result = []
     for identity, reference in sorted(selected.items()):
         doc = Documents.read(db, workspace_id, identity, reference.revision)

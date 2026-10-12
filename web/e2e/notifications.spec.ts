@@ -316,7 +316,7 @@ test("a burst groups into one Inbox toast without losing pending items", async (
   const grouped = alertFor(page, "5 items need your attention");
   await expect(grouped).toBeVisible({ timeout: 10000 });
   await grouped.getByRole("button", { name: "Open", exact: true }).click();
-  await expect(page).toHaveURL(/notify-brs\/inbox$/);
+  await expect(page).toHaveURL(/\/inbox\?project=notify-brs$/);
   expect(
     (await (await request.get("/api/projects/attention-counts")).json())[
       "notify-brs"

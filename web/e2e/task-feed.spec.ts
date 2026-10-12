@@ -279,6 +279,7 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
     "up_next",
   );
   await closeOverlay(page);
+  await expect(page.getByLabel("Filter by project")).toHaveValue("harbor");
   await page.getByRole("tab", { name: /^Archive \d/ }).click();
   await expect(
     page.getByRole("link", { name: /Add download button/ }),
@@ -290,9 +291,8 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
   await page.getByRole("tab", { name: /^Board \d/ }).click();
   await page.getByLabel("Filter by milestone").selectOption("csv");
   await expect(page.locator(".task-card")).toHaveCount(2);
-  await page
-    .getByRole("button", { name: "Edit milestone", exact: true })
-    .click();
+  await page.getByRole("tab", { name: /^Milestones/ }).click();
+  await page.getByRole("link", { name: "Edit M-1", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Description", exact: true })
     .fill("Export filtered expenses without losing row order.");

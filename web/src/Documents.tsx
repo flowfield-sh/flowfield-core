@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FileText, Plus } from "lucide-react";
+import { ArrowLeft, FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,8 +14,8 @@ import { Timestamp } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
 import { useResource } from "./useResource";
-import { authorLabel, request } from "./workspace";
-import { workspaceHref } from "./navigation";
+import { request, type Project } from "./workspace";
+import { boardHref, workspaceHref } from "./navigation";
 
 type Document = components["schemas"]["Document"];
 type DocumentPage = components["schemas"]["DocumentPage"];
@@ -27,6 +27,7 @@ const fields = (record?: Document) => ({
 export function Documents({
   workspaceId,
   identity,
+  projects,
   revision,
   pathname,
   refresh,
@@ -37,6 +38,7 @@ export function Documents({
 }: {
   workspaceId: string;
   identity?: string;
+  projects: Project[];
   revision?: string;
   pathname: string;
   refresh: string;
@@ -82,18 +84,20 @@ export function Documents({
     <section className="setup-page documents-page" aria-label="Documents">
       <ContentStack space="section" className="collection-layout">
         {!identity || isNew ? (
-          <DocumentList path={path} base={base} refresh={refresh} />
+          <DocumentList
+            path={path}
+            base={base}
+            refresh={refresh}
+            projects={projects}
+          />
         ) : (
           <>
-            <div className="actions">
-              <Button variant="link" size="sm" asChild>
-                <WorkspaceLink to={base}>All documents</WorkspaceLink>
-              </Button>
-            </div>
             {document && latest.data ? (
               <DocumentEditor
                 key={`${identity}:${revision ?? "current"}`}
-                close={close}
+                close={() => navigate(base)}
+                projects={projects}
+                workspaceId={workspaceId}
                 incoming={document ?? undefined}
                 latest={latest.data ?? undefined}
                 historical={!!revision}
@@ -171,7 +175,9 @@ function DocumentList({
   path,
   base,
   refresh,
+  projects,
 }: {
+  projects: Project[];
   path: string;
   base: string;
   refresh: string;
@@ -220,6 +226,19 @@ function DocumentList({
                   {item.id === "guidance" ? "Main guidance · " : ""}Revision{" "}
                   {item.revision} · <Timestamp date={item.created_at} />
                 </span>
+                <span className="detail-metadata">
+                  Projects:{" "}
+                  {projects
+                    .filter(
+                      (project) =>
+                        item.id === "guidance" ||
+                        project.worker_documents.some(
+                          (ref) => ref.id === item.id,
+                        ),
+                    )
+                    .map((project) => project.name)
+                    .join(", ") || "None"}
+                </span>
               </ContentStack>
             </WorkspaceLink>
           ))}
@@ -254,7 +273,11 @@ function DocumentEditor({
   saved,
   read,
   close,
+  projects = [],
+  workspaceId,
 }: {
+  projects?: Project[];
+  workspaceId?: string;
   incoming?: Document;
   latest?: Document;
   historical: boolean;
@@ -288,13 +311,21 @@ function DocumentEditor({
   return (
     <section
       ref={editor}
-      className={`document-layout ${loaded ? "" : "document-new"}`}
+      className={`document-layout ${loaded ? "" : "document-new editor"}`}
       aria-label={loaded ? "Document" : "New document"}
     >
       <ContentStack space="section" className="document-content">
         {!loaded && <DetailHeader title="New document" close={close} />}
         {loaded && (
           <div className="document-heading">
+            <Button
+              size="icon-sm"
+              variant="outline"
+              aria-label="Back to documents"
+              onClick={close}
+            >
+              <ArrowLeft />
+            </Button>
             <DetailHeading
               title={loaded?.title ?? "New document"}
               titleAs="h2"
@@ -326,6 +357,30 @@ function DocumentEditor({
                 )}
               </div>
             )}
+          </div>
+        )}
+        {loaded && workspaceId && (
+          <div className="document-projects">
+            <span>Projects:</span>
+            {projects
+              .filter(
+                (project) =>
+                  loaded.id === "guidance" ||
+                  project.worker_documents.some((ref) => ref.id === loaded.id),
+              )
+              .map((project) => (
+                <WorkspaceLink
+                  key={project.id}
+                  to={boardHref(workspaceId, { project: project.id })}
+                >
+                  {project.name}
+                </WorkspaceLink>
+              ))}
+            {!projects.some(
+              (project) =>
+                loaded.id === "guidance" ||
+                project.worker_documents.some((ref) => ref.id === loaded.id),
+            ) && <span>None</span>}
           </div>
         )}
         <EditorFeedback state={state} />
@@ -460,7 +515,10 @@ function RevisionHistory({
     <aside className="document-history" aria-label="Revision history">
       <ContentStack>
         <h3 className="detail-title">Revisions</h3>
-        <nav className="document-revisions" aria-label="Document revisions">
+        <nav
+          className="project-list document-revisions"
+          aria-label="Document revisions"
+        >
           {resource.error && (
             <Button size="sm" variant="outline" onClick={resource.retry}>
               Retry history
@@ -469,24 +527,21 @@ function RevisionHistory({
           {!resource.data && !resource.error && <p>Loading history…</p>}
           {resource.data?.items.map((item) => (
             <WorkspaceLink
-              className="document-revision"
+              className="project-list-row document-revision"
               key={item.revision}
               aria-label={`Revision ${item.revision}`}
               aria-current={item.revision === selected ? "page" : undefined}
               to={`${href}/revisions/${item.revision}`}
             >
-              <span>
-                Revision {item.revision}
-                {item.revision === revision ? " · Current" : ""}
-              </span>
-              <span className="detail-metadata">
-                {item.author === "migration" || item.author === "human"
-                  ? item.author === "migration"
-                    ? "Flowfield"
-                    : "You"
-                  : authorLabel(item.author)}{" "}
-                · <Timestamp date={item.created_at} />
-              </span>
+              <ContentStack space="tight" className="col-span-2 gap-0.5">
+                <span>
+                  Revision {item.revision}
+                  {item.revision === revision ? " · Current" : ""}
+                </span>
+                <span className="detail-metadata">
+                  {item.actor.label} · <Timestamp date={item.created_at} />
+                </span>
+              </ContentStack>
             </WorkspaceLink>
           ))}
         </nav>
