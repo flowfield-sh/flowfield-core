@@ -1,9 +1,10 @@
-import { fixtureProgress } from "./support";
-import { fixtureStages } from "./support";
-import { join } from "node:path";
-import { execFileSync } from "node:child_process";
-import { expect } from "@playwright/test";
 import {
+  fixtureCliProject,
+  projectWorkspace,
+  fixtureProject,
+  fixtureMcpProject,
+  fixtureProgress,
+  fixtureStages,
   test,
   existingDirectory,
   state,
@@ -14,6 +15,9 @@ import {
   connectMcp,
   stubModelCatalog,
 } from "./support";
+import { join } from "node:path";
+import { execFileSync } from "node:child_process";
+import { expect } from "@playwright/test";
 
 test("board failures use toasts and keep recovery beside retained work", async ({
   page,
@@ -21,7 +25,7 @@ test("board failures use toasts and keep recovery beside retained work", async (
 }) => {
   expect(
     (
-      await request.post("/api/projects/initialize", {
+      await fixtureProject(request, {
         data: {
           path: existingDirectory(join(state, "board-recovery")),
           task_prefix: "BRC",
@@ -37,7 +41,8 @@ test("board failures use toasts and keep recovery beside retained work", async (
     ).ok(),
   ).toBe(true);
   let fail = true;
-  await page.route("**/api/projects/board-recovery/view/board", (route) =>
+  const workspace = await projectWorkspace(request, "board-recovery");
+  await page.route(`**/api/workspaces/${workspace}/view/board`, (route) =>
     fail
       ? route.fulfill({
           status: 503,
@@ -52,7 +57,7 @@ test("board failures use toasts and keep recovery beside retained work", async (
     .locator("[data-sonner-toast][data-type=error]")
     .filter({ hasText: "Temporary board failure" });
   await expect(
-    page.getByRole("heading", { name: "Could not open project" }),
+    page.getByRole("heading", { name: "Could not open workspace" }),
   ).toBeVisible();
   await expect(alert).toContainText("Temporary board failure");
   await expect(page.getByRole("button", { name: "Retry board" })).toBeVisible();
@@ -108,7 +113,8 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const project = join(state, "harbor");
-  cli(["project", "init", existingDirectory(project), "--name", "Harbor"]);
+  fixtureCliProject([existingDirectory(project), "--name", "Harbor"]);
+  const workspace = await projectWorkspace(request, "harbor");
   cli([
     "project",
     "edit",
@@ -120,8 +126,8 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
   cli([
     "milestone",
     "create",
-    "--project",
-    "harbor",
+    "--workspace",
+    workspace,
     "--id",
     "csv",
     "--title",
@@ -141,7 +147,7 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
       id,
       "--title",
       title,
-      "--type",
+      "--label",
       type,
       "--status",
       "up-next",
@@ -316,7 +322,7 @@ test("coordinator updates refresh the agreement while project editing retains co
   request,
 }) => {
   const call = await connectMcp(request);
-  await call("initialize_project", {
+  await fixtureMcpProject(call, {
     project_id: "live",
     path: existingDirectory(join(state, "live")),
     name: "Live project",
@@ -342,8 +348,9 @@ test("coordinator updates refresh the agreement while project editing retains co
   });
   await expect(page.locator(".task-definition")).toContainText("Agent update");
   await closeOverlay(page);
+  await page.getByLabel("Filter by project").selectOption("live");
   await page
-    .getByRole("button", { name: "Project details", exact: true })
+    .getByRole("button", { name: "Project settings", exact: true })
     .click();
   await expect(
     page.getByRole("region", { name: "Edit project", exact: true }),
@@ -370,7 +377,7 @@ test("coordinator updates refresh the agreement while project editing retains co
     .getByRole("button", { name: "Discard changes", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "Project details", exact: true })
+    .getByRole("button", { name: "Project settings", exact: true })
     .click();
   await ensureEditing(page);
   await page
@@ -395,7 +402,7 @@ test("priority races preserve agent progress and message drafts; touch can prior
   browser,
 }) => {
   const call = await connectMcp(request);
-  await call("initialize_project", {
+  await fixtureMcpProject(call, {
     project_id: "race",
     path: existingDirectory(join(state, "race")),
   });
@@ -497,7 +504,7 @@ test("Conversation permalinks preserve message drafts while coordinator revision
     if (req.url().includes("/revisions/")) revisionReads.push(req.url());
   });
   const call = await connectMcp(request);
-  await call("initialize_project", {
+  await fixtureMcpProject(call, {
     project_id: "tabs",
     path: existingDirectory(join(state, "tabs")),
   });
@@ -556,7 +563,7 @@ test("Conversation permalinks preserve message drafts while coordinator revision
   ).toHaveCount(0);
   await expect(
     page.getByRole("group", { name: "Message task context" }),
-  ).toContainText("TAB-1");
+  ).toHaveCount(0);
 });
 
 test("archive preserves dated records and supports restore and mobile archiving", async ({
@@ -564,12 +571,12 @@ test("archive preserves dated records and supports restore and mobile archiving"
   request,
 }) => {
   const call = await connectMcp(request);
-  await call("initialize_project", {
+  const { workspace_id } = await fixtureMcpProject(call, {
     project_id: "archive-list",
     path: existingDirectory(join(state, "archive-list")),
   });
   await call("create_milestone", {
-    project_id: "archive-list",
+    workspace_id,
     milestone: { id: "csv", title: "Exports" },
   });
   for (const [id, status, milestone_id] of [
@@ -673,7 +680,7 @@ test("readable conversation preserves message drafts, revision links and legacy 
   page,
   request,
 }) => {
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, "readable")),
       task_prefix: "REA",
@@ -772,14 +779,14 @@ test("readable conversation preserves message drafts, revision links and legacy 
   await expect(editor.getByRole("tab")).toHaveCount(0);
 });
 
-test("task changes refresh only their project, without reloading the project catalog", async ({
+test("task changes refresh their workspace without reloading the workspace catalog", async ({
   page,
   request,
 }) => {
   for (const id of ["scope-one", "scope-two"]) {
     expect(
       (
-        await request.post("/api/projects/initialize", {
+        await fixtureProject(request, {
           data: {
             id,
             path: existingDirectory(join(state, id)),
@@ -796,7 +803,8 @@ test("task changes refresh only their project, without reloading the project cat
       ).ok(),
     ).toBe(true);
   }
-  await page.goto("/projects/scope-one");
+  const workspace = await projectWorkspace(request, "scope-one");
+  await page.goto(`/workspaces/${workspace}`);
   await expect(page.getByRole("link", { name: /Original/ })).toBeVisible();
   await expect(
     page.getByRole("status", { name: "Connected", exact: true }),
@@ -822,7 +830,9 @@ test("task changes refresh only their project, without reloading the project cat
   page.on("request", (req) => {
     if (
       req.method() === "GET" &&
-      /\/api\/projects(?:$|\/scope-one\/view\/board$)/.test(req.url())
+      ["/api/workspaces", `/api/workspaces/${workspace}/view/board`].includes(
+        new URL(req.url()).pathname,
+      )
     )
       reads.push(req.url());
   });
@@ -847,14 +857,14 @@ test("task changes refresh only their project, without reloading the project cat
     page.getByRole("link", { name: /Relevant change/ }),
   ).toBeVisible();
   expect(reads).toHaveLength(1);
-  expect(reads[0]).toContain("scope-one/view/board");
+  expect(reads[0]).toContain(`${workspace}/view/board`);
 });
 
 test("publication shares browser, CLI and MCP state without manual editing", async ({
   page,
   request,
 }) => {
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, "publication")),
       task_prefix: "PRE",
@@ -970,7 +980,7 @@ test("conversation capture prepares atomically while task defaults show only use
   request,
 }) => {
   const project_id = "conversation-capture";
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, project_id)),
       task_prefix: "CAP",
@@ -1351,7 +1361,7 @@ test("task feed follows the live end but preserves reading position and timestam
   page,
   request,
 }) => {
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, "feed-reading")),
       task_prefix: "FED",
@@ -1434,7 +1444,7 @@ test("legacy task-question links resolve into the feed and preserve answers", as
   page,
   request,
 }) => {
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, "feed-question")),
       task_prefix: "FQN",
@@ -1493,7 +1503,7 @@ test("archive confirmation retains its selected revision across live changes", a
   page,
   request,
 }) => {
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, "archive-confirmation")),
       task_prefix: "ACF",

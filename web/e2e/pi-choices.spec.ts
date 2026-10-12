@@ -1,6 +1,14 @@
+import {
+  fixtureProject,
+  projectWorkspace,
+  choose,
+  test,
+  hostStatus,
+  existingDirectory,
+  state,
+} from "./support";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
-import { choose, test, hostStatus, existingDirectory, state } from "./support";
 
 test("Pi shares automatic discovery and preserves provider-qualified model choices", async ({
   page,
@@ -9,7 +17,7 @@ test("Pi shares automatic discovery and preserves provider-qualified model choic
   const project = "pi-choices";
   expect(
     (
-      await request.post("/api/projects/initialize", {
+      await fixtureProject(request, {
         data: {
           path: existingDirectory(join(state, project)),
           task_prefix: "PII",
@@ -17,6 +25,7 @@ test("Pi shares automatic discovery and preserves provider-qualified model choic
       })
     ).ok(),
   ).toBe(true);
+  const workspace = await projectWorkspace(request, project);
   await page.route("**/api/harnesses", (route) =>
     route.fulfill({
       json: [
@@ -30,7 +39,7 @@ test("Pi shares automatic discovery and preserves provider-qualified model choic
   const loaded = new Promise<void>((resolve) => {
     release = resolve;
   });
-  await page.route("**/api/worker-models*", async (route) => {
+  await page.route(`**/api/workspaces/${workspace}/models*`, async (route) => {
     expect(new URL(route.request().url()).searchParams.get("harness")).toBe(
       "pi",
     );
@@ -47,7 +56,7 @@ test("Pi shares automatic discovery and preserves provider-qualified model choic
   });
   let selection: unknown = null;
   await page.route(
-    `**/api/projects/${project}/coordinator-settings`,
+    `**/api/workspaces/${workspace}/coordinator-settings`,
     async (route) => {
       if (route.request().method() === "PUT")
         selection = route.request().postDataJSON().selection;
@@ -58,7 +67,7 @@ test("Pi shares automatic discovery and preserves provider-qualified model choic
           effective: selection
             ? {
                 choice: selection,
-                source: "project",
+                source: "workspace",
                 default_revision: 2,
                 override_revision: null,
                 registration: null,

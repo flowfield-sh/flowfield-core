@@ -1,8 +1,10 @@
-import { choose, fixtureStages } from "./support";
-import { join } from "node:path";
-
-import { expect } from "@playwright/test";
 import {
+  fixtureCliProject,
+  projectWorkspace,
+  fixtureProject,
+  fixtureMcpProject,
+  choose,
+  fixtureStages,
   test,
   existingDirectory,
   state,
@@ -10,21 +12,20 @@ import {
   closeOverlay,
   connectMcp,
 } from "./support";
+import { join } from "node:path";
+
+import { expect } from "@playwright/test";
 
 test("task keys link to persistent selections with history and draft protection", async ({
   page,
   request,
 }) => {
-  cli([
-    "project",
-    "init",
+  fixtureCliProject([
     existingDirectory(join(state, "navigation")),
     "--name",
     "Navigation trial",
   ]);
-  cli([
-    "project",
-    "init",
+  fixtureCliProject([
     existingDirectory(join(state, "nav-other")),
     "--name",
     "Other navigation",
@@ -32,6 +33,8 @@ test("task keys link to persistent selections with history and draft protection"
     "NVO",
   ]);
   const call = await connectMcp(request);
+  const workspace = await projectWorkspace(request, "navigation");
+  const otherWorkspace = await projectWorkspace(request, "nav-other");
   const one = await call("create_task", {
     project_id: "navigation",
     task: {
@@ -61,10 +64,8 @@ test("task keys link to persistent selections with history and draft protection"
   expect([one.key, two.key, old.key]).toEqual(["NAV-1", "NAV-2", "NAV-3"]);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto("/projects/navigation");
-  const blocker = page
-    .locator(".work-state")
-    .getByRole("link", { name: "NAV-1", exact: true });
+  await page.goto(`/workspaces/${workspace}`);
+  const blocker = page.getByRole("link", { name: "NAV-1", exact: true });
   await blocker.hover();
   await expect(page.getByRole("tooltip")).toHaveText("Prepare the export");
   await page.keyboard.press("Escape");
@@ -99,14 +100,14 @@ test("task keys link to persistent selections with history and draft protection"
     .getByLabel("Message coordinator", { exact: true })
     .fill("Unsaved title");
   await page.goBack();
-  await expect(page).toHaveURL(/projects\/navigation$/);
+  await expect(page).toHaveURL(`/workspaces/${workspace}`);
   await page.goForward();
   await expect(page).toHaveURL(/tasks\/NAV-1$/);
   await expect(
     page.getByLabel("Message coordinator", { exact: true }),
   ).toHaveValue("Unsaved title");
   await page.goBack();
-  await expect(page).toHaveURL(/projects\/navigation$/);
+  await expect(page).toHaveURL(`/workspaces/${workspace}`);
   await expect(editor).toHaveCount(0);
   await page.goForward();
   await expect(
@@ -120,9 +121,7 @@ test("task keys link to persistent selections with history and draft protection"
       name: /NAV-2 (?:Feature (?:DRAFT )?)?Download the export/,
     })
     .click();
-  const prerequisite = editor
-    .locator(".work-state")
-    .getByRole("link", { name: "NAV-1", exact: true });
+  const prerequisite = editor.getByRole("link", { name: "NAV-1", exact: true });
   await expect(editor.getByText("Task defined", { exact: true })).toBeVisible();
   await prerequisite.click();
   await expect(page).toHaveURL(/tasks\/NAV-1$/);
@@ -137,9 +136,9 @@ test("task keys link to persistent selections with history and draft protection"
   await page
     .getByRole("link", { name: "Other navigation", exact: true })
     .click();
-  await expect(page).toHaveURL(/projects\/nav-other$/);
+  await expect(page).toHaveURL(`/workspaces/${otherWorkspace}`);
   await page.goBack();
-  await expect(page).toHaveURL(/projects\/navigation$/);
+  await expect(page).toHaveURL(`/workspaces/${workspace}`);
   await page
     .getByRole("link", {
       name: /NAV-2 (?:Feature (?:DRAFT )?)?Download the export/,
@@ -197,13 +196,13 @@ test("collections open and close entity details through the same routes", async 
 }) => {
   const call = await connectMcp(request);
   const project_id = "collection-layout";
-  await call("initialize_project", {
+  const { workspace_id } = await fixtureMcpProject(call, {
     project_id,
     path: existingDirectory(join(state, project_id)),
     task_prefix: "COL",
   });
   await call("create_milestone", {
-    project_id,
+    workspace_id,
     milestone: { id: "group", title: "Delivery" },
   });
   await call("create_task", {
@@ -236,14 +235,15 @@ test("task metadata and internal Markdown links stay inside the router", async (
   request,
 }) => {
   const project_id = "link-routing";
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, project_id)),
       task_prefix: "LNK",
     },
   });
+  const workspace = await projectWorkspace(request, project_id);
   const milestone = await request.post(
-    `/api/projects/${project_id}/milestones`,
+    `/api/workspaces/${workspace}/milestones`,
     { data: { id: "questions", title: "Export milestone" } },
   );
   expect(milestone.ok()).toBe(true);
@@ -253,7 +253,7 @@ test("task metadata and internal Markdown links stay inside the router", async (
       id: "export",
       title: "Export books",
       milestone_id: "questions",
-      body: `[Project milestones](/projects/${project_id}/milestones)`,
+      body: `[Workspace milestones](/workspaces/${workspace}/milestones)`,
     },
   });
   await page.goto(`/projects/${project_id}/tasks/LNK-1`);
@@ -263,16 +263,16 @@ test("task metadata and internal Markdown links stay inside the router", async (
     exact: true,
   });
   await editor
-    .getByRole("link", { name: "Project milestones", exact: true })
+    .getByRole("link", { name: "Workspace milestones", exact: true })
     .click();
-  await expect(page).toHaveURL(`/projects/${project_id}/milestones`);
+  await expect(page).toHaveURL(`/workspaces/${workspace}/milestones`);
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(boot);
   await page.goBack();
   await editor.getByRole("link", { name: "M-1", exact: true }).click();
-  await expect(page).toHaveURL(`/projects/${project_id}/milestones/M-1`);
+  await expect(page).toHaveURL(`/workspaces/${workspace}/milestones/M-1`);
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(boot);
   await page.getByRole("button", { name: "View tasks", exact: true }).click();
-  await expect(page).toHaveURL(`/projects/${project_id}`);
+  await expect(page).toHaveURL(`/workspaces/${workspace}`);
   await expect(page.getByLabel("Filter by milestone")).toHaveValue("questions");
   await expect(
     page.getByRole("link", { name: /LNK-1 (?:Feature )?Export books/ }),
@@ -284,10 +284,11 @@ test("shared overlays preserve the workspace, related return paths and mobile cr
   request,
 }) => {
   const id = "edit"; // A project ID must not be mistaken for an editor route.
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: { path: existingDirectory(join(state, id)), task_prefix: "UNI" },
   });
-  await request.post(`/api/projects/${id}/milestones`, {
+  const workspace = await projectWorkspace(request, id);
+  await request.post(`/api/workspaces/${workspace}/milestones`, {
     data: { id: "group", title: "First delivery" },
   });
   await request.post(`/api/projects/${id}/tasks`, {
@@ -304,7 +305,7 @@ test("shared overlays preserve the workspace, related return paths and mobile cr
   await expect(board).toBeVisible();
 
   await expect(
-    page.getByRole("tablist", { name: "Project views", exact: true }),
+    page.getByRole("tablist", { name: "Workspace views", exact: true }),
   ).toContainText("Inbox");
   await expect(page.locator(".up_next .queue-controls")).toContainText(
     "Run queue",
@@ -335,7 +336,9 @@ test("shared overlays preserve the workspace, related return paths and mobile cr
   await page.getByRole("tab", { name: /^Milestones(?: \d+)?$/ }).click();
   const row = page.locator(".milestone-list .collection-row");
   await row.click();
-  await expect(page.getByRole("tab")).toHaveCount(0);
+  await expect(
+    page.getByRole("tablist", { name: "Workspace views" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "View tasks", exact: true }).click();
   await expect(page.getByLabel("Filter by milestone")).toHaveValue("group");
   await card.click();
@@ -343,19 +346,19 @@ test("shared overlays preserve the workspace, related return paths and mobile cr
   await dialog
     .getByRole("button", { name: /^(Close editor|Back to board)$/ })
     .click();
-  await expect(page).toHaveURL(`/projects/${id}`);
+  await expect(page).toHaveURL(`/workspaces/${workspace}`);
   await page
-    .getByRole("button", { name: "Project details", exact: true })
+    .getByRole("button", { name: "Workspace settings", exact: true })
     .click();
   await expect(
-    page.getByRole("dialog", { name: "Project details", exact: true }),
+    page.getByRole("dialog", { name: "Workspace settings", exact: true }),
   ).toBeVisible();
   await page.reload();
   await expect(
-    page.getByRole("dialog", { name: "Project details", exact: true }),
+    page.getByRole("dialog", { name: "Workspace settings", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page).toHaveURL(`/projects/${id}`);
+  await expect(page).toHaveURL(`/workspaces/${workspace}`);
   await page.getByRole("tab", { name: /^Milestones(?: \d+)?$/ }).click();
   await expect(page.locator(".milestone-list")).toBeVisible();
   await page
@@ -387,7 +390,7 @@ test("shared overlays preserve the workspace, related return paths and mobile cr
     .getByRole("button", { name: "Discard changes", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "Add project", exact: true }),
+    page.getByRole("button", { name: "Workspace settings", exact: true }),
   ).toBeVisible();
   await page.getByRole("tab", { name: /^Board / }).click();
   await page.getByRole("button", { name: "New task", exact: true }).click();
@@ -415,7 +418,7 @@ test("closing entity overlays returns through history without duplicate collecti
   request,
 }) => {
   const id = "history-roundtrip";
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: { path: existingDirectory(join(state, id)), task_prefix: "HIS" },
   });
   await request.post(`/api/projects/${id}/tasks`, {
@@ -432,7 +435,8 @@ test("closing entity overlays returns through history without duplicate collecti
       recommendation: "Small",
     },
   });
-  const board = `/projects/${id}`;
+  const workspace = await projectWorkspace(request, id);
+  const board = `/workspaces/${workspace}`;
   const inbox = `${board}/inbox`;
   await page.goto(board);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
@@ -475,8 +479,8 @@ test("closing entity overlays returns through history without duplicate collecti
     })
     .click();
   await expect(page).toHaveURL(board);
-  // Direct links have no known in-app origin, so Close stays in the project.
-  await page.goto(`${board}/tasks/HIS-1`);
+  // Direct task links return to their workspace's board.
+  await page.goto(`/projects/${id}/tasks/HIS-1`);
   await page
     .getByRole("button", {
       name: /^(Close editor|Back to board)$/,
@@ -486,15 +490,16 @@ test("closing entity overlays returns through history without duplicate collecti
   await expect(page).toHaveURL(board);
 });
 
-test("entity identity and drafts persist across task and project tabs", async ({
+test("entity identity and drafts persist across task and workspace tabs", async ({
   page,
   request,
 }) => {
   const project = "identity-layout";
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: { path: existingDirectory(join(state, project)), task_prefix: "IDN" },
   });
-  await request.post(`/api/projects/${project}/milestones`, {
+  const workspace = await projectWorkspace(request, project);
+  await request.post(`/api/workspaces/${workspace}/milestones`, {
     data: { id: "first", title: "First milestone" },
   });
   await request.post(`/api/projects/${project}/tasks`, {
@@ -550,41 +555,37 @@ test("entity identity and drafts persist across task and project tabs", async ({
   const settingsReady = new Promise<void>((resolve) => {
     releaseSettings = resolve;
   });
-  await page.route(`**/api/projects/${project}/workers`, async (route) => {
+  await page.route(`**/api/workspaces/${workspace}/workers`, async (route) => {
     await settingsReady;
     await route.continue();
   });
   await page
-    .getByRole("button", { name: "Project details", exact: true })
+    .getByRole("button", { name: "Workspace settings", exact: true })
     .click();
   await page.getByRole("tab", { name: "Workers", exact: true }).click();
   await expect(page).toHaveURL(
-    new RegExp(`/projects/${project}/edit/workers$`),
+    new RegExp(`/workspaces/${workspace}/edit/workers$`),
   );
   await expect(page.getByLabel("Maximum parallel workers")).toBeDisabled();
   releaseSettings();
   await page.getByLabel("Maximum parallel workers").fill("3");
-  await page.getByRole("tab", { name: "Integration", exact: true }).click();
-  await page
-    .getByLabel("Destination branch", { exact: true })
-    .fill("draft-target");
+  await page.getByRole("tab", { name: "General", exact: true }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Draft workspace name");
   await page.getByRole("tab", { name: "Workers", exact: true }).click();
   await expect(page.getByLabel("Maximum parallel workers")).toHaveValue("3");
-  await page.getByRole("tab", { name: "Integration", exact: true }).click();
-  await expect(
-    page.getByLabel("Destination branch", { exact: true }),
-  ).toHaveValue("draft-target");
+  await page.getByRole("tab", { name: "General", exact: true }).click();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
+    "Draft workspace name",
+  );
   // Switch to mobile, then deliberately discard the drafts on refresh.
   await page.setViewportSize({ width: 390, height: 844 });
 
   page.on("dialog", (dialog) => dialog.accept());
   await page.reload();
   await expect(
-    page.getByRole("tab", { name: "Integration", exact: true }),
+    page.getByRole("tab", { name: "General", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
-  await expect(
-    page.getByLabel("Destination branch", { exact: true }),
-  ).toHaveValue("");
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue(project);
 });
 
 test.describe("relative timestamps", () => {
@@ -594,9 +595,7 @@ test.describe("relative timestamps", () => {
     page,
   }) => {
     const project = "relative-times";
-    cli([
-      "project",
-      "init",
+    fixtureCliProject([
       existingDirectory(join(state, project)),
       "--prefix",
       "TIM",
@@ -655,16 +654,18 @@ test("sidebar rail names remain accessible and idle input opens deliberately", a
   request,
 }) => {
   const name = "A carefully tended collection of pocket gardens";
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, "sidebar-names")),
       name,
       task_prefix: "SBN",
     },
   });
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: { path: existingDirectory(join(state, "short-name")), name: "Short" },
   });
+  const workspace = await projectWorkspace(request, "sidebar-names");
+  const shortWorkspace = await projectWorkspace(request, "short-name");
   const path = "/api/projects/sidebar-names";
   await request.post(path + "/tasks", {
     data: {
@@ -685,16 +686,16 @@ test("sidebar rail names remain accessible and idle input opens deliberately", a
   expect(question.ok()).toBe(true);
   // Other journeys adopt projects concurrently. Keep this rail's actual records
   // scoped so a new sibling project cannot scroll the focused trigger away.
-  await page.route("**/api/projects", async (route) => {
+  await page.route("**/api/workspaces", async (route) => {
     const response = await route.fetch();
     const projects = await response.json();
     await route.fulfill({
       json: projects.filter((project: { id: string }) =>
-        ["sidebar-names", "short-name"].includes(project.id),
+        [workspace, shortWorkspace].includes(project.id),
       ),
     });
   });
-  await page.goto("/projects/sidebar-names");
+  await page.goto(`/workspaces/${workspace}`);
   const settings = page.getByRole("dialog", {
     name: "Coordinator model settings",
     exact: true,
@@ -702,7 +703,7 @@ test("sidebar rail names remain accessible and idle input opens deliberately", a
   await settings.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(settings).not.toBeVisible();
   const sidebar = page.getByRole("navigation", {
-    name: "Projects",
+    name: "Workspaces",
     exact: true,
   });
   const short = sidebar.getByRole("link", { name: "Short", exact: true });
@@ -720,14 +721,14 @@ test("sidebar rail names remain accessible and idle input opens deliberately", a
   await page.mouse.move(0, 0);
   await short.focus();
   await expect(page.getByRole("tooltip")).toHaveText("Short");
-  await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
   await expect(long).toBeFocused();
   await expect(page.getByRole("tooltip")).toHaveText(name);
   await page.keyboard.press("Escape");
   // Mobile uses a conventional project drawer; project views remain above work.
   await page.setViewportSize({ width: 650, height: 844 });
   await page
-    .getByRole("button", { name: "Open projects", exact: true })
+    .getByRole("button", { name: "Open workspaces", exact: true })
     .click();
   await expect(long).toBeVisible();
   await expect(long.getByLabel("Inbox: 1")).toHaveText("1");
@@ -754,8 +755,8 @@ test("sidebar rail names remain accessible and idle input opens deliberately", a
   ).toHaveCount(0);
   await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
   await expect(
-    page.getByRole("group", { name: "Message task context" }),
-  ).toContainText("Read the current agreement");
+    page.getByLabel("Message coordinator", { exact: true }),
+  ).toBeVisible();
   expect(
     (await (await request.get(path + "/tasks/idle/thread")).json()).items.some(
       (item: { kind: string }) => item.kind === "reply",
@@ -767,7 +768,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   page,
   request,
 }, testInfo) => {
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, "workspace-frame")),
       name: "Workspace frame",
@@ -777,6 +778,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await request.post("/api/projects/workspace-frame/tasks", {
     data: { stages: fixtureStages(), title: "Review the workspace layout" },
   });
+  const workspace = await projectWorkspace(request, "workspace-frame");
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/projects/workspace-frame");
   await expect(page.locator("html")).toHaveClass("dark");
@@ -821,7 +823,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   });
   await expect(detail).toBeVisible();
   await expect(
-    page.getByRole("tablist", { name: "Project views" }),
+    page.getByRole("tablist", { name: "Workspace views" }),
   ).toBeVisible();
   const back = detail.getByRole("button", { name: "Back to board" });
   const heading = detail.getByRole("heading", { name: /WSF-1/ });
@@ -888,7 +890,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await page.getByRole("tab", { name: /^Board/ }).focus();
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("tab", { name: /^Inbox/ })).toBeFocused();
-  await expect(page).toHaveURL(/\/projects\/workspace-frame$/);
+  await expect(page).toHaveURL(`/workspaces/${workspace}`);
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/inbox$/);
   await page.goBack();
@@ -901,7 +903,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   );
   await page.setViewportSize({ width: 390, height: 844 });
   await page
-    .getByRole("button", { name: "Open projects", exact: true })
+    .getByRole("button", { name: "Open workspaces", exact: true })
     .click();
   await page
     .getByRole("link", { name: "Workspace frame", exact: true })
@@ -927,7 +929,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
     page.getByRole("region", { name: "Task details", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("tablist", { name: "Project views" }),
+    page.getByRole("tablist", { name: "Workspace views" }),
   ).toBeVisible();
   expect(
     await projectTabs.evaluate(
@@ -948,7 +950,7 @@ test("long task tooltips never expand the workspace scroll owners", async ({
   page,
   request,
 }) => {
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, "tooltip-overflow")),
       task_prefix: "TOV",

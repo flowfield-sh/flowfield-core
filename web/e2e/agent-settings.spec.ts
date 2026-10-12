@@ -1,4 +1,10 @@
-import { choose, fixtureStages, test } from "./support";
+import {
+  fixtureProject,
+  projectWorkspace,
+  choose,
+  fixtureStages,
+  test,
+} from "./support";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
@@ -11,11 +17,12 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   mkdirSync(path, { recursive: true });
   expect(
     (
-      await request.post("/api/projects/initialize", {
+      await fixtureProject(request, {
         data: { path, task_prefix: "AGS" },
       })
     ).ok(),
   ).toBe(true);
+  const workspace = await projectWorkspace(request, "agent-settings");
   const task = await (
     await request.post("/api/projects/agent-settings/tasks", {
       data: { stages: fixtureStages(), title: "Check project behavior" },
@@ -45,7 +52,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     selection: null as typeof first | null,
     effective: {
       choice: first,
-      source: "project",
+      source: "workspace",
       default_revision: 1,
       override_revision: 1,
     },
@@ -88,7 +95,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
         selection: payload.selection,
         effective: {
           choice: payload.selection ?? first,
-          source: payload.selection ? "override" : "project",
+          source: payload.selection ? "override" : "workspace",
           default_revision: 1,
           override_revision: settings.revision + 1,
         },
@@ -245,7 +252,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     .getByRole("button", { name: "Codex · second · medium", exact: true })
     .click();
   await expect(
-    picker.getByText("Overrides project defaults for the next worker run.", {
+    picker.getByText("Overrides workspace defaults for the next worker run.", {
       exact: true,
     }),
   ).toBeVisible();
@@ -315,7 +322,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.emulateMedia({ colorScheme: "light" });
   await expect(
-    picker.getByText("Overrides project defaults for the next worker run.", {
+    picker.getByText("Overrides workspace defaults for the next worker run.", {
       exact: true,
     }),
   ).toBeVisible();
@@ -367,7 +374,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   ).toBe(true);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.route(
-    "**/api/projects/agent-settings/coordinator-settings",
+    `**/api/workspaces/${workspace}/coordinator-settings`,
     (route) =>
       route.fulfill({
         json: { revision: 1, selection: null, effective: null },
@@ -388,7 +395,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     released_at: null,
   };
   await page.route(
-    "**/api/projects/agent-settings/view/attention?*",
+    `**/api/workspaces/${workspace}/view/attention?*`,
     (route) => {
       const column = new URL(route.request().url()).searchParams.get("column");
       const shown =
@@ -399,6 +406,8 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
             ? [
                 {
                   id: permission.id,
+                  project_id: "agent-settings",
+                  task_id: task.id,
                   kind: "permission",
                   task_key: task.key,
                   title: permission.title,
@@ -472,7 +481,7 @@ test("Integration uses Local automatically and preserves drafts across project t
   mkdirSync(path, { recursive: true });
   expect(
     (
-      await request.post("/api/projects/initialize", {
+      await fixtureProject(request, {
         data: { path, task_prefix: "LOC" },
       })
     ).ok(),

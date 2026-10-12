@@ -1,3 +1,11 @@
+import {
+  fixtureProject,
+  projectWorkspace,
+  test,
+  existingDirectory,
+  state,
+  fixtureStages,
+} from "./support";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import {
@@ -6,7 +14,6 @@ import {
   type BrowserContext,
   type APIRequestContext,
 } from "@playwright/test";
-import { test, existingDirectory, state, fixtureStages } from "./support";
 
 test.beforeEach(async ({ request }) => {
   await request.patch("/api/announcements/settings", {
@@ -17,7 +24,7 @@ test.beforeEach(async ({ request }) => {
 async function setup(request: APIRequestContext, project: string) {
   expect(
     (
-      await request.post("/api/projects/initialize", {
+      await fixtureProject(request, {
         data: {
           path: existingDirectory(join(state, project)),
           task_prefix:
@@ -125,10 +132,11 @@ test("queue failures have contextual recovery and no notification center", async
   ).toBe(404);
   await page.getByRole("link", { name: "Choose model", exact: true }).click();
   await expect(page).toHaveURL(/edit\/workers$/);
+  const workspace = await projectWorkspace(request, "notify-que");
   const workers = await (
-    await request.get("/api/projects/notify-que/workers")
+    await request.get(`/api/workspaces/${workspace}/workers`)
   ).json();
-  await page.route("**/api/projects/notify-que/workers", (route) =>
+  await page.route(`**/api/workspaces/${workspace}/workers`, (route) =>
     route.fulfill({
       json: {
         ...workers,
@@ -533,14 +541,16 @@ test("resolved permission links open the exact request without permitting anythi
   request,
 }) => {
   await setup(request, "notify-prm");
+  const workspace = await projectWorkspace(request, "notify-prm");
   const now = new Date().toISOString();
   await page.route(
-    "**/api/projects/notify-prm/permissions/expired?*",
+    `**/api/workspaces/${workspace}/permissions/expired?*`,
     (route) =>
       route.fulfill({
         json: {
           id: "expired",
-          project_id: "notify-prm",
+          project_id: null,
+          workspace_id: workspace,
           role: "coordinator",
           title: "Read project files",
           details: "Read-only inspection",
@@ -555,7 +565,7 @@ test("resolved permission links open the exact request without permitting anythi
         },
       }),
   );
-  await ready(page, "/projects/notify-prm/inbox?permission=expired");
+  await ready(page, `/workspaces/${workspace}/inbox?permission=expired`);
   const dialog = page.getByRole("dialog", {
     name: "Tool permission",
     exact: true,
@@ -566,7 +576,7 @@ test("resolved permission links open the exact request without permitting anythi
     0,
   );
   await page.keyboard.press("Escape");
-  await expect(page).toHaveURL(/notify-prm\/inbox$/);
+  await expect(page).toHaveURL(`/workspaces/${workspace}/inbox`);
 });
 
 async function pendingPermission(page: Page) {

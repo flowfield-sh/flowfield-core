@@ -405,7 +405,7 @@ test("native readiness and exact interrupted-discovery confirmation", async ({
   ]);
 });
 
-test("mobile settings close project navigation and keep long host paths inside the page", async ({
+test("mobile settings close workspace navigation and keep long host paths inside the page", async ({
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -419,14 +419,14 @@ test("mobile settings close project navigation and keep long host paths inside t
   });
   await page.goto("/");
   await page
-    .getByRole("button", { name: "Open projects", exact: true })
+    .getByRole("button", { name: "Open workspaces", exact: true })
     .click();
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Settings", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Close projects", exact: true }),
+    page.getByRole("button", { name: "Close workspaces", exact: true }),
   ).toHaveCount(0);
   const entry = page.getByRole("region", {
     name: "Codex settings",

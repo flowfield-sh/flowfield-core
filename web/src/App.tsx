@@ -144,6 +144,11 @@ export function App() {
   const workspaceId =
     params.workspaceId ?? knownOwners[projectId ?? ""] ?? projectWorkspace?.id;
   const workspace = workspaces.find((item) => item.id === workspaceId);
+  const workspaceRefresh = `${refresh}:${JSON.stringify(
+    Object.entries(projectRefresh).filter(
+      ([id]) => knownOwners[id] === workspaceId,
+    ),
+  )}`;
   const { data: attentionCounts } = useResource<Record<string, number>>(
     "workspaces/attention-counts",
     `${refresh}:${JSON.stringify(projectRefresh)}`,
@@ -286,7 +291,7 @@ export function App() {
                       ? adjacent.context
                       : null
                   }
-                  refresh={`${refresh}:${JSON.stringify(projectRefresh)}`}
+                  refresh={workspaceRefresh}
                   drafts={chatDrafts}
                   onSettingsDirty={setChatSettingsDirty}
                   controlsActive={
@@ -346,7 +351,7 @@ export function App() {
                 key={workspaceId}
                 workspaceId={workspaceId}
                 projectId={projectId}
-                refresh={refresh + ":" + JSON.stringify(projectRefresh)}
+                refresh={workspaceRefresh}
                 params={params}
                 pathname={pathname}
                 backgroundPath={backgroundPath}

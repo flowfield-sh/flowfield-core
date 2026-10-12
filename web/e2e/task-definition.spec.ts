@@ -1,8 +1,13 @@
-import { choose, fixtureStages } from "./support";
+import {
+  fixtureProject,
+  projectWorkspace,
+  choose,
+  fixtureStages,
+  test,
+} from "./support";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
-import { test } from "./support";
 
 test("long definitions collapse with a fade and history loads only when expanded", async ({
   page,
@@ -10,7 +15,7 @@ test("long definitions collapse with a fade and history loads only when expanded
 }, testInfo) => {
   const path = join(process.env.FLOWFIELD_SMOKE_STATE!, "definition-preview");
   mkdirSync(path, { recursive: true });
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: { path, task_prefix: "DEF" },
   });
   const body =
@@ -109,16 +114,17 @@ test("long definitions collapse with a fade and history loads only when expanded
     .toContain("A short replacement.");
 });
 
-test("project workers have no speed setting even when the model supports Fast", async ({
+test("workspace worker defaults have no speed setting even when the model supports Fast", async ({
   page,
   request,
 }) => {
   const path = join(process.env.FLOWFIELD_SMOKE_STATE!, "task-speed");
   mkdirSync(path, { recursive: true });
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: { path, task_prefix: "SPD" },
   });
-  await page.route("**/api/worker-models*", (route) =>
+  const workspace = await projectWorkspace(request, "task-speed");
+  await page.route(`**/api/workspaces/${workspace}/models*`, (route) =>
     route.fulfill({
       json: [
         {
@@ -133,12 +139,12 @@ test("project workers have no speed setting even when the model supports Fast", 
     }),
   );
   const settings = await (
-    await request.get("/api/projects/task-speed/workers")
+    await request.get(`/api/workspaces/${workspace}/workers`)
   ).json();
   expect(settings).not.toHaveProperty("fast");
   expect(
     (
-      await request.put("/api/projects/task-speed/workers", {
+      await request.put(`/api/workspaces/${workspace}/workers`, {
         data: {
           expected_revision: settings.revision,
           model: "test",
@@ -148,7 +154,7 @@ test("project workers have no speed setting even when the model supports Fast", 
       })
     ).status(),
   ).toBe(422);
-  await page.goto("/projects/task-speed/edit/workers");
+  await page.goto(`/workspaces/${workspace}/edit/workers`);
   const form = page.getByRole("region", { name: "Worker settings" });
   await choose(form.getByLabel("Model", { exact: true }), "test");
   await expect(form.getByRole("button", { name: "Fast mode" })).toHaveCount(0);
@@ -162,7 +168,7 @@ test("definition revisions show focused word diffs and compact field values", as
   mkdirSync(join(process.env.FLOWFIELD_SMOKE_STATE!, project), {
     recursive: true,
   });
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: {
       path: join(process.env.FLOWFIELD_SMOKE_STATE!, project),
       task_prefix: "DIF",
@@ -173,6 +179,7 @@ test("definition revisions show focused word diffs and compact field values", as
       data: {
         stages: fixtureStages(),
         title: "Search café",
+        labels: ["feature"],
         body: "Keep all rows. Preserve café labels.",
       },
     })

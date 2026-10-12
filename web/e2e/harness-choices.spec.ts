@@ -1,6 +1,6 @@
-import { join } from "node:path";
-import { expect } from "@playwright/test";
 import {
+  fixtureProject,
+  projectWorkspace,
   choose,
   test,
   hostStatus,
@@ -8,6 +8,8 @@ import {
   state,
   fixtureStages,
 } from "./support";
+import { join } from "node:path";
+import { expect } from "@playwright/test";
 
 for (const onlyClaude of [false, true]) {
   test(`worker choices support ${onlyClaude ? "Claude alone" : "independent supported harnesses"} with automatic scoped discovery`, async ({
@@ -17,7 +19,7 @@ for (const onlyClaude of [false, true]) {
     const project = onlyClaude
       ? "claude-only-choices"
       : "mixed-harness-choices";
-    const initialized = await request.post("/api/projects/initialize", {
+    const initialized = await fixtureProject(request, {
       data: {
         path: existingDirectory(join(state, project)),
         task_prefix: onlyClaude ? "KCL" : "MHC",
@@ -28,13 +30,14 @@ for (const onlyClaude of [false, true]) {
       codex.native_installed = false;
       codex.problems = ["native_missing"];
     }
+    const workspace = await projectWorkspace(request, project);
     await page.route("**/api/harnesses", (route) =>
       route.fulfill({ json: [codex, hostStatus("claude-code")] }),
     );
     const discoveries: string[] = [];
-    await page.route("**/api/worker-models*", (route) => {
+    await page.route(`**/api/workspaces/${workspace}/models*`, (route) => {
       const url = new URL(route.request().url());
-      expect(url.searchParams.get("project_id")).toBe(project);
+      expect(url.pathname).toBe(`/api/workspaces/${workspace}/models`);
       expect(url.searchParams.get("refresh")).toBe("false");
       const kind = url.searchParams.get("harness")!;
       discoveries.push(kind);
@@ -68,7 +71,7 @@ for (const onlyClaude of [false, true]) {
       });
       expect(initialized.ok()).toBe(true);
     });
-    await page.goto(`/projects/${project}/edit/workers`);
+    await page.goto(`/workspaces/${workspace}/edit/workers`);
     const form = page.getByRole("region", {
       name: "Worker settings",
       exact: true,
@@ -78,7 +81,9 @@ for (const onlyClaude of [false, true]) {
     ).toContainText(onlyClaude ? "Claude Code" : "Codex");
     await expect
       .poll(() => discoveries)
-      .toEqual([onlyClaude ? "claude-code" : "codex"]);
+      .toEqual(
+        onlyClaude ? ["claude-code", "claude-code"] : ["codex", "codex"],
+      );
     if (!onlyClaude) {
       await choose(form.getByLabel("Model", { exact: true }), "codex-model");
       await choose(form.getByLabel("Reasoning effort"), "low");
@@ -96,7 +101,9 @@ for (const onlyClaude of [false, true]) {
       );
       await expect(form.getByLabel("Reasoning effort")).toHaveCount(0);
       await expect(form.getByLabel("Access mode")).toHaveCount(0);
-      await expect.poll(() => discoveries).toEqual(["codex", "claude-code"]);
+      await expect
+        .poll(() => discoveries)
+        .toEqual(["codex", "codex", "claude-code"]);
     }
     await choose(
       form.getByLabel("Model", { exact: true }),
@@ -110,7 +117,7 @@ for (const onlyClaude of [false, true]) {
     let captured: unknown;
     let savedSettings: unknown;
     let savedReads = 0;
-    await page.route(`**/api/projects/${project}/workers`, (route) => {
+    await page.route(`**/api/workspaces/${workspace}/workers`, (route) => {
       if (route.request().method() !== "PUT") {
         if (!savedSettings) return route.continue();
         savedReads++;
@@ -119,7 +126,7 @@ for (const onlyClaude of [false, true]) {
       const body = route.request().postDataJSON();
       captured = body;
       savedSettings = {
-        project_id: project,
+        workspace_id: workspace,
         revision: 2,
         enabled: false,
         problem: null,
@@ -165,8 +172,8 @@ for (const onlyClaude of [false, true]) {
     // The service coalesces/caches these reads; the open editor retains its model.
     expect(discoveries).toEqual(
       onlyClaude
-        ? ["claude-code", "claude-code"]
-        : ["codex", "claude-code", "claude-code"],
+        ? ["claude-code", "claude-code", "claude-code"]
+        : ["codex", "codex", "claude-code", "claude-code"],
     );
     await page.setViewportSize({ width: 390, height: 844 });
     expect(
@@ -182,19 +189,20 @@ test("Claude-only coordinator saves native choices independently of worker defau
   request,
 }, testInfo) => {
   const project = "claude-only-chat";
-  const initialized = await request.post("/api/projects/initialize", {
+  const initialized = await fixtureProject(request, {
     data: { path: existingDirectory(join(state, project)), task_prefix: "KCC" },
   });
   expect(initialized.ok()).toBe(true);
+  const workspace = await projectWorkspace(request, project);
   await page.route("**/api/harnesses", (route) =>
     route.fulfill({
       json: [hostStatus("codex", false), hostStatus("claude-code")],
     }),
   );
   let discoveries = 0;
-  await page.route("**/api/worker-models*", (route) => {
+  await page.route(`**/api/workspaces/${workspace}/models*`, (route) => {
     const url = new URL(route.request().url());
-    expect(url.searchParams.get("project_id")).toBe(project);
+    expect(url.pathname).toBe(`/api/workspaces/${workspace}/models`);
     expect(url.searchParams.get("harness")).toBe("claude-code");
     discoveries++;
     return route.fulfill({
@@ -222,7 +230,7 @@ test("Claude-only coordinator saves native choices independently of worker defau
   };
   let captured: unknown;
   await page.route(
-    `**/api/projects/${project}/coordinator-settings`,
+    `**/api/workspaces/${workspace}/coordinator-settings`,
     (route) => {
       if (route.request().method() === "PUT") {
         captured = route.request().postDataJSON();
@@ -232,7 +240,7 @@ test("Claude-only coordinator saves native choices independently of worker defau
           selection: choice,
           effective: {
             choice,
-            source: "project",
+            source: "workspace",
             default_revision: 2,
             override_revision: null,
             registration: null,
@@ -306,7 +314,7 @@ test("Claude-only coordinator saves native choices independently of worker defau
     }),
   ).toBeVisible();
   const workers = await (
-    await request.get(`/api/projects/${project}/workers`)
+    await request.get(`/api/workspaces/${workspace}/workers`)
   ).json();
   expect(workers.selection).toBeNull();
   expect(discoveries).toBe(2);
@@ -359,7 +367,7 @@ test("switching harnesses disables dependent controls and ignores late catalogs"
   const project = "harness-switch-race";
   expect(
     (
-      await request.post("/api/projects/initialize", {
+      await fixtureProject(request, {
         data: {
           path: existingDirectory(join(state, project)),
           task_prefix: "HSR",
@@ -367,6 +375,7 @@ test("switching harnesses disables dependent controls and ignores late catalogs"
       })
     ).ok(),
   ).toBe(true);
+  const workspace = await projectWorkspace(request, project);
   await page.route("**/api/harnesses", (route) =>
     route.fulfill({ json: [hostStatus("codex"), hostStatus("claude-code")] }),
   );
@@ -375,7 +384,7 @@ test("switching harnesses disables dependent controls and ignores late catalogs"
     releaseClaude = resolve;
   });
   let requestedClaude = false;
-  await page.route("**/api/worker-models*", async (route) => {
+  await page.route(`**/api/workspaces/${workspace}/models*`, async (route) => {
     const claude =
       new URL(route.request().url()).searchParams.get("harness") ===
       "claude-code";
@@ -397,7 +406,7 @@ test("switching harnesses disables dependent controls and ignores late catalogs"
       })
       .catch(() => {});
   });
-  await page.goto(`/projects/${project}/edit/workers`);
+  await page.goto(`/workspaces/${workspace}/edit/workers`);
   const form = page.getByRole("region", {
     name: "Worker settings",
     exact: true,
@@ -436,7 +445,7 @@ test("configured project choices preload and unknown harness status stays loadin
   const project = "preloaded-choices";
   expect(
     (
-      await request.post("/api/projects/initialize", {
+      await fixtureProject(request, {
         data: {
           path: existingDirectory(join(state, project)),
           task_prefix: "PLC",
@@ -444,6 +453,7 @@ test("configured project choices preload and unknown harness status stays loadin
       })
     ).ok(),
   ).toBe(true);
+  const workspace = await projectWorkspace(request, project);
   const choice = {
     harness: "codex",
     model: "saved-model",
@@ -451,25 +461,27 @@ test("configured project choices preload and unknown harness status stays loadin
     mode: "default",
     fast: false,
   };
-  await page.route(`**/api/projects/${project}/coordinator-settings`, (route) =>
-    route.fulfill({
-      json: {
-        revision: 1,
-        selection: choice,
-        effective: {
-          choice,
-          source: "project",
-          default_revision: 1,
-          override_revision: null,
-          registration: null,
+  await page.route(
+    `**/api/workspaces/${workspace}/coordinator-settings`,
+    (route) =>
+      route.fulfill({
+        json: {
+          revision: 1,
+          selection: choice,
+          effective: {
+            choice,
+            source: "workspace",
+            default_revision: 1,
+            override_revision: null,
+            registration: null,
+          },
         },
-      },
-    }),
+      }),
   );
-  await page.route(`**/api/projects/${project}/workers`, (route) =>
+  await page.route(`**/api/workspaces/${workspace}/workers`, (route) =>
     route.fulfill({
       json: {
-        project_id: project,
+        workspace_id: workspace,
         revision: 1,
         selection: { ...choice, harness: "claude-code" },
         max_parallel: 1,
@@ -493,9 +505,11 @@ test("configured project choices preload and unknown harness status stays loadin
     releaseModels = resolve;
   });
   const discovered: string[] = [];
-  await page.route("**/api/worker-models*", async (route) => {
+  await page.route(`**/api/workspaces/${workspace}/models*`, async (route) => {
     const query = new URL(route.request().url()).searchParams;
-    expect(query.get("project_id")).toBe(project);
+    expect(new URL(route.request().url()).pathname).toBe(
+      `/api/workspaces/${workspace}/models`,
+    );
     discovered.push(query.get("harness")!);
     await models;
     await route.fulfill({

@@ -1,6 +1,13 @@
+import {
+  fixtureProject,
+  projectWorkspace,
+  test,
+  existingDirectory,
+  state,
+  choose,
+} from "./support";
 import { join } from "node:path";
 import { expect, type Locator, type Page } from "@playwright/test";
-import { test, existingDirectory, state, choose } from "./support";
 
 const errors = (page: Page) =>
   page.locator('[data-sonner-toast][data-type="error"]');
@@ -23,7 +30,7 @@ for (const kind of [
     request,
   }) => {
     const id = `feedback-${kind}`;
-    const created = await request.post("/api/projects/initialize", {
+    const created = await fixtureProject(request, {
       data: {
         path: existingDirectory(join(state, id)),
         task_prefix: `F${kind.slice(0, 2).toUpperCase()}`,
@@ -102,7 +109,7 @@ test("an outage is reported once across settings reads and polling, recovers, an
   request,
 }, testInfo) => {
   const id = "feedback-offline";
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: { path: existingDirectory(join(state, id)), task_prefix: "FOF" },
   });
   let offline = false;
@@ -154,10 +161,8 @@ test("an outage is reported once across settings reads and polling, recovers, an
   });
   await errors(page).getByRole("button", { name: "Close toast" }).click();
   await expect(errors(page)).toHaveCount(0);
-  await editor.getByRole("tab", { name: "Workers", exact: true }).click();
-  await expect(
-    editor.getByRole("button", { name: "Refresh models" }),
-  ).toBeVisible();
+  await editor.getByRole("tab", { name: "General", exact: true }).click();
+  await expect(editor.getByLabel("Name", { exact: true })).toBeVisible();
   // Observe two real notification polls: dismissed background failures stay dismissed.
   for (let i = 0; i < 2; i++)
     await page.waitForRequest("**/api/announcements/poll");
@@ -200,20 +205,21 @@ test("worker and coordinator settings report failed saves with their own action 
   request,
 }) => {
   const id = "feedback-models";
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: { path: existingDirectory(join(state, id)), task_prefix: "FMD" },
   });
-  await page.route("**/api/worker-models*", (route) =>
+  const workspace = await projectWorkspace(request, id);
+  await page.route(`**/api/workspaces/${workspace}/models*`, (route) =>
     route.fulfill({
       json: [{ id: "fixture", name: "Fixture", efforts: ["low"] }],
     }),
   );
-  await page.goto(`/projects/${id}/edit/workers`);
+  await page.goto(`/workspaces/${workspace}/edit/workers`);
   const workers = page.getByRole("region", { name: "Worker settings" });
   await choose(workers.getByLabel("Model", { exact: true }), "fixture");
   await choose(workers.getByLabel("Reasoning effort"), "low");
   await workers.getByLabel("Maximum parallel workers").fill("3");
-  await page.route(`**/api/projects/${id}/workers`, (route) =>
+  await page.route(`**/api/workspaces/${workspace}/workers`, (route) =>
     route.request().method() === "PUT" ? route.abort() : route.continue(),
   );
   await workers.getByRole("button", { name: "Save worker settings" }).click();
@@ -228,8 +234,10 @@ test("worker and coordinator settings report failed saves with their own action 
   await expect(settings).toBeVisible();
   await choose(settings.getByLabel("Model", { exact: true }), "fixture");
   await choose(settings.getByLabel("Reasoning effort"), "low");
-  await page.route(`**/api/projects/${id}/coordinator-settings`, (route) =>
-    route.request().method() === "PUT" ? route.abort() : route.continue(),
+  await page.route(
+    `**/api/workspaces/${workspace}/coordinator-settings`,
+    (route) =>
+      route.request().method() === "PUT" ? route.abort() : route.continue(),
   );
   await settings.getByRole("button", { name: "Save", exact: true }).click();
   await expect(errors(page)).toContainText("Could not save model settings");
@@ -265,7 +273,7 @@ test("a saved correction is not offered for resubmission when the following read
   request,
 }) => {
   const id = "feedback-correction";
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: { path: existingDirectory(join(state, id)), task_prefix: "FCR" },
   });
   const question = {

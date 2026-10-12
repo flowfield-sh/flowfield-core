@@ -1,19 +1,25 @@
+import {
+  fixtureProject,
+  projectWorkspace,
+  test,
+  existingDirectory,
+  state,
+} from "./support";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
-import { test, existingDirectory, state } from "./support";
 
 test("home, welcome and editable settings form a complete project journey", async ({
   page,
   request,
 }, testInfo) => {
-  await page.route("**/api/projects", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/workspaces", (route) => route.fulfill({ json: [] }));
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Set up your project" }),
+    page.getByRole("heading", { name: "Workspaces", exact: true }),
   ).toBeVisible();
-  await page.unroute("**/api/projects");
+  await page.unroute("**/api/workspaces");
   const project = "project-experience";
-  const response = await request.post("/api/projects/initialize", {
+  const response = await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, project)),
       task_prefix: "UXA",
@@ -21,11 +27,12 @@ test("home, welcome and editable settings form a complete project journey", asyn
     },
   });
   expect(response.ok()).toBe(true);
+  const workspace = await projectWorkspace(request, project);
   await page.reload();
-  const home = page.getByRole("region", { name: "Projects", exact: true });
-  await expect(home.getByRole("heading", { name: "Projects" })).toBeVisible();
+  const home = page.getByRole("region", { name: "Workspaces", exact: true });
+  await expect(home.getByRole("heading", { name: "Workspaces" })).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Set up your project" }),
+    page.getByRole("heading", { name: "New workspace", exact: true }),
   ).toHaveCount(0);
   await page.screenshot({
     animations: "disabled",
@@ -47,13 +54,15 @@ test("home, welcome and editable settings form a complete project journey", asyn
   ).toBe(true);
   await home.getByRole("link", { name: /Garden planner/ }).click();
   const welcome = page.getByRole("article", { name: "Coordinator welcome" });
-  await expect(welcome).toContainText("Starting fresh?");
+  await expect(welcome).toContainText("workspace");
   await expect(welcome).not.toContainText("Coordinator · Welcome");
-  await expect(welcome).toContainText("Existing project?");
-  await expect(welcome).toContainText("Project settings → Integration");
+
   expect(
-    (await (await request.get(`/api/projects/${project}/coordinator`)).json())
-      .items,
+    (
+      await (
+        await request.get(`/api/workspaces/${workspace}/coordinator`)
+      ).json()
+    ).items,
   ).toEqual([]);
   await page.reload();
   await expect(welcome).toBeVisible();
@@ -64,7 +73,7 @@ test("home, welcome and editable settings form a complete project journey", asyn
 
   // Exercise the queue UI without permitting a native worker launch.
   let workers = {
-    project_id: project,
+    workspace_id: workspace,
     revision: 1,
     enabled: false,
     selection: {
@@ -77,10 +86,10 @@ test("home, welcome and editable settings form a complete project journey", asyn
     max_parallel: 1,
     problem: null,
   };
-  await page.route(`**/api/projects/${project}/workers`, (route) =>
+  await page.route(`**/api/workspaces/${workspace}/workers`, (route) =>
     route.fulfill({ json: workers }),
   );
-  await page.route(`**/api/projects/${project}/queue`, (route) => {
+  await page.route(`**/api/workspaces/${workspace}/queue`, (route) => {
     const body = route.request().postDataJSON();
     expect(body.expected_revision).toBe(workers.revision);
     workers = {
@@ -90,8 +99,9 @@ test("home, welcome and editable settings form a complete project journey", asyn
     };
     return route.fulfill({ json: workers });
   });
+  await page.getByLabel("Filter by project").selectOption(project);
   await page
-    .getByRole("button", { name: "Project details", exact: true })
+    .getByRole("button", { name: "Project settings", exact: true })
     .click();
   const editor = page.getByRole("region", {
     name: "Edit project",
@@ -152,11 +162,6 @@ test("home, welcome and editable settings form a complete project journey", asyn
   await savedToast.locator("[data-close-button]").click();
   await expect(savedToast).toHaveCount(0);
   await expect(editor).toBeVisible();
-  await expect(editor.locator('[data-slot="separator"]')).toBeVisible();
-  await editor.getByLabel("Run worker queue", { exact: true }).click();
-  await expect(
-    editor.getByLabel("Run worker queue", { exact: true }),
-  ).toBeChecked();
   await editor.getByRole("tab", { name: "Integration", exact: true }).click();
   await expect(
     editor.getByLabel("Validation commands", { exact: true }),
@@ -164,9 +169,9 @@ test("home, welcome and editable settings form a complete project journey", asyn
   await editor.getByLabel("Validation commands", { exact: true }).fill("");
   await editor.getByRole("tab", { name: "General", exact: true }).click();
   await page.reload();
-  await expect(
-    editor.getByLabel("Run worker queue", { exact: true }),
-  ).toBeChecked();
+  await expect(editor.getByLabel("Name", { exact: true })).toHaveValue(
+    "Garden plans",
+  );
   await page.screenshot({
     animations: "disabled",
     path: testInfo.outputPath("general-desktop.png"),
@@ -184,16 +189,32 @@ test("home, welcome and editable settings form a complete project journey", asyn
     animations: "disabled",
     path: testInfo.outputPath("integration-hints-mobile.png"),
   });
+  await page.goto(`/workspaces/${workspace}/edit`);
+  const shared = page.getByRole("region", {
+    name: "Edit workspace",
+    exact: true,
+  });
+  await expect(shared.locator('[data-slot="separator"]')).toBeVisible();
+  await shared.getByLabel("Run worker queue", { exact: true }).click();
+  await expect(
+    shared.getByLabel("Run worker queue", { exact: true }),
+  ).toBeChecked();
+  await page.reload();
+  await expect(
+    shared.getByLabel("Run worker queue", { exact: true }),
+  ).toBeChecked();
   await page.goto("/");
-  await expect(home.getByRole("link", { name: /Garden plans/ })).toBeVisible();
+  await expect(
+    home.getByRole("link", { name: /Garden planner/ }),
+  ).toBeVisible();
   await page.screenshot({
     animations: "disabled",
     path: testInfo.outputPath("projects-mobile.png"),
   });
-  await home.getByRole("link", { name: "New project", exact: true }).click();
-  await expect(page).toHaveURL("/new-project");
+  await home.getByRole("link", { name: "New workspace", exact: true }).click();
+  await expect(page).toHaveURL("/new-workspace");
   await expect(
-    page.getByRole("heading", { name: "Set up your project" }),
+    page.getByRole("heading", { name: "New workspace", exact: true }),
   ).toBeVisible();
 });
 
@@ -202,7 +223,7 @@ test("settings toasts preserve drafts, support keyboard dismissal and expire acr
   request,
 }, testInfo) => {
   const project = "toast-settings";
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, project)),
       task_prefix: "TST",

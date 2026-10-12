@@ -1,5 +1,5 @@
 import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import {
   test as base,
@@ -125,6 +125,11 @@ export async function closeOverlay(page: Page) {
       .last();
     if (!(await dialog.count())) return;
     const url = page.url();
+    // A just-saved result may leave a dismissible toast over the close control.
+    for (const toast of await page
+      .getByRole("button", { name: "Close toast", exact: true })
+      .all())
+      await toast.click();
     try {
       await dialog.locator(".close-control").first().click({ timeout: 1000 });
     } catch (error) {
@@ -148,6 +153,97 @@ export async function ensureEditing(page: Page) {
     .or(page.getByLabel("Description", { exact: true }));
   await expect(button.or(field).first()).toBeAttached();
   if (await button.isVisible()) await button.click();
+}
+
+// Deliberate fixture setup uses the same explicit workspace/adoption operations as users.
+export async function fixtureProject(
+  request: APIRequestContext,
+  options: {
+    data: Record<string, unknown> & { path: string };
+    workspaceId?: string;
+  },
+) {
+  const { coordinator, worker, max_parallel, ...project } = options.data;
+  let workspaceId = options.workspaceId;
+  if (!workspaceId) {
+    const created = await request.post("/api/workspaces", {
+      data: { name: project.name ?? basename(project.path) },
+    });
+    expect(created.ok(), await created.text()).toBeTruthy();
+    workspaceId = (await created.json()).id;
+  }
+  const adopted = await request.post(
+    `/api/workspaces/${workspaceId}/projects`,
+    { data: project },
+  );
+  if (adopted.ok()) {
+    for (const [resource, selection] of [
+      ["coordinator-settings", coordinator],
+      ["workers", worker],
+    ] as const) {
+      if (!selection) continue;
+      const saved = await request.put(
+        `/api/workspaces/${workspaceId}/${resource}`,
+        {
+          data: {
+            expected_revision: 1,
+            selection,
+            ...(resource === "workers" && max_parallel ? { max_parallel } : {}),
+          },
+        },
+      );
+      expect(saved.ok(), await saved.text()).toBeTruthy();
+    }
+  }
+  return adopted;
+}
+
+export async function projectWorkspace(
+  request: APIRequestContext,
+  projectId: string,
+): Promise<string> {
+  const response = await request.get(`/api/projects/${projectId}/workspace`);
+  expect(response.ok(), await response.text()).toBeTruthy();
+  return (await response.json()).id;
+}
+
+export function fixtureCliProject(arguments_: string[]) {
+  const nameAt = arguments_.indexOf("--name");
+  const workspace = cli([
+    "workspace",
+    "create",
+    nameAt < 0 ? basename(arguments_[0]) : arguments_[nameAt + 1],
+  ]);
+  return cli([
+    "project",
+    "init",
+    arguments_[0],
+    "--workspace",
+    workspace.id,
+    ...arguments_.slice(1),
+  ]);
+}
+
+export async function fixtureMcpProject(
+  call: Awaited<ReturnType<typeof connectMcp>>,
+  input: Record<string, unknown> & { path: string; project_id: string },
+) {
+  const { project_id: id, workspace_id: existingWorkspace, ...project } = input;
+  const workspaceId =
+    existingWorkspace ??
+    (
+      await call("create_workspace", {
+        request: { name: project.name ?? basename(project.path) },
+      })
+    ).id;
+  await call("adopt_workspace_project", {
+    workspace_id: workspaceId,
+    project: { ...project, id },
+  });
+  return {
+    ...(await call("get_project", { project_id: id })),
+    workspace_id: workspaceId,
+  };
 }
 
 export async function connectMcp(request: APIRequestContext) {
@@ -190,7 +286,7 @@ export async function connectMcp(request: APIRequestContext) {
     });
     expect(response.ok()).toBe(true);
     const result = (await response.json()).result;
-    expect(result.isError).toBe(false);
+    expect(result.isError, JSON.stringify(result)).toBe(false);
     return result.structuredContent;
   };
 }

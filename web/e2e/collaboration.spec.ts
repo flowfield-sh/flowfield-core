@@ -1,9 +1,9 @@
-import { fixtureProgress } from "./support";
-import { fixtureStages } from "./support";
-import { join } from "node:path";
-
-import { expect } from "@playwright/test";
 import {
+  fixtureCliProject,
+  fixtureProject,
+  fixtureMcpProject,
+  fixtureProgress,
+  fixtureStages,
   test,
   existingDirectory,
   state,
@@ -13,6 +13,9 @@ import {
   connectMcp,
   resultMessage,
 } from "./support";
+import { join } from "node:path";
+
+import { expect } from "@playwright/test";
 
 test("coordinator dependencies update blockers, links and reconciliation without browser editing", async ({
   page,
@@ -20,7 +23,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
 }) => {
   const call = await connectMcp(request);
   const identity = { project_id: "dependencies" };
-  await call("initialize_project", {
+  await fixtureMcpProject(call, {
     ...identity,
     path: existingDirectory(join(state, "dependencies")),
   });
@@ -72,19 +75,18 @@ test("coordinator dependencies update blockers, links and reconciliation without
     exact: true,
   });
   await expect(
-    detail.getByText(/^Waiting on (DEP-1, DEP-3|DEP-3, DEP-1)$/),
+    detail.getByRole("heading", { name: "Waiting on", exact: true }),
   ).toBeVisible();
   await expect(
     detail.getByText("Waiting on prerequisites", { exact: true }),
   ).toHaveCount(0);
-  await expect(detail.locator(".task-needs")).toHaveCount(0);
+  await expect(detail.locator(".task-needs")).toContainText(
+    /Blocked by DEP-1, DEP-3|Blocked by DEP-3, DEP-1/,
+  );
   await detail.getByRole("link", { name: "DEP-3", exact: true }).hover();
   await expect(page.getByRole("tooltip")).toHaveText("Prepare export settings");
   await expect(detail.getByLabel("Add prerequisite")).toHaveCount(0);
-  await detail
-    .locator(".work-state")
-    .getByRole("link", { name: "DEP-1", exact: true })
-    .click();
+  await detail.getByRole("link", { name: "DEP-1", exact: true }).click();
   await expect(page).toHaveURL(/DEP-1$/);
   await page.getByText("Related work", { exact: true }).click();
   await expect(
@@ -100,7 +102,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
     detail.getByText("Needs code from DEP-1", { exact: true }),
   ).toBeVisible();
   await expect(
-    detail.getByText("Waiting on DEP-3", { exact: true }),
+    detail.getByText("Blocked by DEP-3", { exact: true }),
   ).toBeVisible();
   await page
     .getByRole("button", {
@@ -110,7 +112,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
     .click();
   const card = page.locator(".task-card").filter({ hasText: "Download CSV" });
   await expect(
-    card.getByText("Waiting on DEP-3", { exact: true }),
+    card.getByText("Blocked by DEP-3", { exact: true }),
   ).toBeVisible();
   await expect(
     card.getByRole("link", { name: "DEP-3", exact: true }),
@@ -125,9 +127,7 @@ test("three-letter prefix setup, coordinator dependencies and immediate accessib
   request,
 }) => {
   const call = await connectMcp(request);
-  const adopted = cli([
-    "project",
-    "init",
+  const adopted = fixtureCliProject([
     existingDirectory(join(state, "detail-settings")),
     "--name",
     "Detail settings",
@@ -135,8 +135,9 @@ test("three-letter prefix setup, coordinator dependencies and immediate accessib
     "UIX",
   ]);
   await page.goto("/projects/" + adopted.id);
+  await page.getByLabel("Filter by project").selectOption(adopted.id);
   await page
-    .getByRole("button", { name: "Project details", exact: true })
+    .getByRole("button", { name: "Project settings", exact: true })
     .click();
   await ensureEditing(page);
   await expect(page.getByLabel("Directory", { exact: true })).toHaveCount(0);
@@ -208,7 +209,7 @@ test("three-letter prefix setup, coordinator dependencies and immediate accessib
     },
   });
   await expect(
-    dependencies.getByText("Waiting on UIT-2", { exact: true }),
+    dependencies.getByText("Blocked by UIT-2", { exact: true }),
   ).toBeVisible();
   await fixtureProgress(request, {
     ...identity,
@@ -231,7 +232,7 @@ test("three-letter prefix setup, coordinator dependencies and immediate accessib
   await keyLink.hover();
   await expect(tooltip).toBeVisible();
 
-  const mcpProject = await call("initialize_project", {
+  const mcpProject = await fixtureMcpProject(call, {
     project_id: "prefix-transport",
     path: existingDirectory(join(state, "prefix-transport")),
     task_prefix: "mcp",
@@ -246,7 +247,8 @@ test("three-letter prefix setup, coordinator dependencies and immediate accessib
     "CLX",
   ]);
   expect(cliProject.task_prefix).toBe("CLX");
-  const reinitialized = await call("initialize_project", {
+  const reinitialized = await fixtureMcpProject(call, {
+    workspace_id: mcpProject.workspace_id,
     project_id: "prefix-transport",
     path: join(state, "prefix-transport"),
     task_prefix: "clx",
@@ -260,7 +262,7 @@ test("task activity, Markdown and independently retrievable handoffs preserve th
 }) => {
   const call = await connectMcp(request);
   const identity = { project_id: "activity-trial" };
-  await call("initialize_project", {
+  await fixtureMcpProject(call, {
     ...identity,
     path: existingDirectory(join(state, "activity-trial")),
     task_prefix: "ACT",
@@ -355,7 +357,7 @@ test("conversation pages exact revisions without hiding notes or superseded hand
   page,
   request,
 }) => {
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, "edit-feed")),
       task_prefix: "EDF",
@@ -456,7 +458,7 @@ test("question-only cards omit empty needs while project questions remain visibl
 }) => {
   const call = await connectMcp(request);
   const project_id = "compact-needs";
-  await call("initialize_project", {
+  await fixtureMcpProject(call, {
     project_id,
     path: existingDirectory(join(state, project_id)),
     task_prefix: "CMP",
@@ -506,7 +508,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
 }) => {
   const call = await connectMcp(request);
   const project_id = "inbox-trial";
-  await call("initialize_project", {
+  await fixtureMcpProject(call, {
     project_id,
     path: existingDirectory(join(state, project_id)),
     task_prefix: "ASK",
@@ -751,7 +753,7 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
 }) => {
   const call = await connectMcp(request);
   const project_id = "inbox-conflict";
-  await call("initialize_project", {
+  await fixtureMcpProject(call, {
     project_id,
     path: existingDirectory(join(state, project_id)),
     task_prefix: "CNF",
@@ -861,7 +863,7 @@ test("retracting answers reopens questions and preserves earlier responses", asy
 }) => {
   const call = await connectMcp(request);
   const project_id = "reversible";
-  await call("initialize_project", {
+  await fixtureMcpProject(call, {
     project_id,
     path: existingDirectory(join(state, project_id)),
     task_prefix: "REV",
@@ -936,7 +938,7 @@ test("project questions link affected tasks and reconcile through CLI and MCP", 
 }) => {
   const call = await connectMcp(request);
   const project_id = "project-input";
-  await call("initialize_project", {
+  await fixtureMcpProject(call, {
     project_id,
     path: existingDirectory(join(state, project_id)),
     task_prefix: "PRJ",
@@ -1077,7 +1079,7 @@ test("selected handoff survives a fresh MCP connection and shows stale context",
 }) => {
   const call = await connectMcp(request);
   const project_id = "handoff-trial";
-  await call("initialize_project", {
+  await fixtureMcpProject(call, {
     project_id,
     path: existingDirectory(join(state, project_id)),
     task_prefix: "HOF",
@@ -1171,7 +1173,7 @@ test("related questions preserve the page, drafts, focus and router history", as
   request,
 }) => {
   const project_id = "overlays";
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, project_id)),
       task_prefix: "OVR",
@@ -1296,7 +1298,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
 }) => {
   const project_id = "review-flow";
   const call = await connectMcp(request);
-  await call("initialize_project", {
+  const { workspace_id } = await fixtureMcpProject(call, {
     project_id,
     path: existingDirectory(join(state, project_id)),
     task_prefix: "RFL",
@@ -1431,7 +1433,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.route(
-    `**/api/projects/${project_id}/view/attention**`,
+    `**/api/workspaces/${workspace_id}/view/attention**`,
     async (route) => {
       const response = await route.fetch();
       const data = await response.json();
@@ -1457,6 +1459,8 @@ test("review journey preserves feedback, navigates complete files and reviews a 
         ...data.items,
         ...runs.map((run) => ({
           id: run.id,
+          project_id,
+          task_id: run.task_id,
           kind: run.status === "failed" ? "intervention" : "result",
           task_key: run.task_key,
           title:
@@ -1641,7 +1645,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     return route.fallback();
   });
   // Result explanations use the same observed state even when a separate settings read fails.
-  const workerSettingsPath = `**/api/projects/${project_id}/workers`;
+  const workerSettingsPath = `**/api/workspaces/${workspace_id}/workers`;
   await page.route(workerSettingsPath, (route) => route.abort());
   first = { ...first, status: "changes_requested" };
   await page.goto(`/projects/${project_id}/tasks/RFL-1/changes/first`);

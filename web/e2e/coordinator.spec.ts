@@ -1,8 +1,13 @@
-import { choose, fixtureStages } from "./support";
+import {
+  fixtureProject,
+  projectWorkspace,
+  choose,
+  fixtureStages,
+  test,
+} from "./support";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
-import { test } from "./support";
 import type { components } from "../src/api-schema";
 
 type Turn = components["schemas"]["CoordinatorTurn"];
@@ -37,7 +42,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     mkdirSync(directory, { recursive: true });
     expect(
       (
-        await request.post("/api/projects/initialize", {
+        await fixtureProject(request, {
           data: {
             path: directory,
             name: id === "chat-browser" ? "Chat Browser" : "Chat Other",
@@ -54,7 +59,8 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
       })
     ).ok(),
   ).toBeTruthy();
-  const historyPath = "/api/projects/chat-browser/coordinator";
+  const workspace = await projectWorkspace(request, "chat-browser");
+  const historyPath = `/api/workspaces/${workspace}/coordinator`;
   const first = (await request.post(historyPath)).json();
   const conversation = await first;
   const turns: Turn[] = [];
@@ -62,7 +68,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   let sends = 0;
   let recovery: string | null = null;
   let permission: components["schemas"]["PermissionRecord"] | null = null;
-  await page.route("**/api/projects/chat-browser/permissions?*", (route) => {
+  await page.route(`**/api/workspaces/${workspace}/permissions?*`, (route) => {
     expect(new URL(route.request().url()).searchParams.get("role")).toBe(
       "coordinator",
     );
@@ -75,7 +81,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     });
   });
   await page.route(
-    "**/api/projects/chat-browser/permissions/setup/answer",
+    `**/api/workspaces/${workspace}/permissions/setup/answer`,
     (route) => {
       expect(route.request().postDataJSON()).toEqual({
         expected_revision: 1,
@@ -110,7 +116,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     const turn: Turn = {
       ...message,
       number: sends,
-      project_id: "chat-browser",
+      workspace_id: workspace,
       conversation_id: conversation.id,
       created_at: new Date().toISOString(),
       status: "running",
@@ -123,7 +129,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
           effort: "low",
           mode: "read-only",
         },
-        source: "project",
+        source: "workspace",
         default_revision: 1,
         override_revision: 1,
       },
@@ -184,7 +190,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     active = null;
     await route.fulfill({ json: saved });
   });
-  await page.route("**/api/worker-models*", (route) =>
+  await page.route(`**/api/workspaces/${workspace}/models*`, (route) =>
     route.fulfill({
       json: [
         {
@@ -208,7 +214,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     }),
   );
   await page.route(
-    "**/api/projects/chat-browser/coordinator-settings",
+    `**/api/workspaces/${workspace}/coordinator-settings`,
     (route) =>
       route.fulfill({
         json: {
@@ -226,7 +232,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
               effort: "low",
               mode: "read-only",
             },
-            source: "project",
+            source: "workspace",
             default_revision: 1,
             override_revision: null,
           },
@@ -235,7 +241,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   );
   let discoveries = 0;
   await page.route(
-    "**/api/projects/chat-browser/coordinator/commands/discover*",
+    `**/api/workspaces/${workspace}/coordinator/commands/discover*`,
     async (route) => {
       discoveries++;
       await route.fulfill({
@@ -405,7 +411,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   permission = {
     id: "setup",
     project_id: null,
-    workspace_id: "chat-browser",
+    workspace_id: workspace,
     role: "coordinator",
     task_id: null,
     run_id: null,
@@ -469,7 +475,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     page.getByText("Tool permission history", { exact: true }),
   ).toHaveCount(0);
   expect(turns[0].text).toContain(
-    "[screen.png](/api/projects/chat-browser/attachments/",
+    `[screen.png](/api/workspaces/${workspace}/attachments/`,
   );
   await page
     .locator(".composer-toolbar")
@@ -483,12 +489,14 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   ).toHaveCount(0);
   active!.activity.items.find((item) => item.key === "reply")!.text +=
     " Open [CHT-1](/projects/chat-browser/tasks/CHT-1).";
-  await page.evaluate(() =>
-    window.dispatchEvent(
-      new CustomEvent("flowfield:activity", {
-        detail: { projects: ["chat-browser"] },
-      }),
-    ),
+  await page.evaluate(
+    ({ workspace, turn }) =>
+      window.dispatchEvent(
+        new CustomEvent("flowfield:activity", {
+          detail: { coordinator_activity: [[workspace, turn]] },
+        }),
+      ),
+    { workspace, turn: active!.id },
   );
   await expect(
     page
@@ -532,7 +540,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   for (const control of [
     page.getByRole("link", { name: "Flowfield", exact: true }),
     page.getByRole("link", { name: "Settings", exact: true }),
-    page.getByRole("button", { name: "Add project", exact: true }),
+    page.getByRole("button", { name: "New workspace", exact: true }),
     page.getByRole("link", { name: "Chat Browser", exact: true }),
     page.locator(".connection"),
   ]) {
@@ -703,14 +711,15 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   await page.setViewportSize({ width: 390, height: 844 });
   const directory = join(state, "chat-settings");
   mkdirSync(directory, { recursive: true });
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: { path: directory, name: "Chat Settings", task_prefix: "CST" },
   });
+  const workspace = await projectWorkspace(request, "chat-settings");
   let release!: () => void;
   const discovery = new Promise<void>((resolve) => {
     release = resolve;
   });
-  await page.route("**/api/worker-models*", async (route) => {
+  await page.route(`**/api/workspaces/${workspace}/models*`, async (route) => {
     await discovery;
     await route.fulfill({
       json: [
@@ -756,7 +765,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   type Settings = components["schemas"]["AgentSettingsView"];
   let settings: Settings = { revision: 1, selection: null, effective: null };
   await page.route(
-    "**/api/projects/chat-settings/coordinator-settings",
+    `**/api/workspaces/${workspace}/coordinator-settings`,
     async (route) => {
       if (route.request().method() === "PUT") {
         const change = route.request().postDataJSON();
@@ -766,7 +775,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
           selection: change.selection,
           effective: {
             choice: change.selection,
-            source: "project",
+            source: "workspace",
             default_revision: settings.revision + 1,
             override_revision: null,
             registration: null,
@@ -778,7 +787,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   );
   let sends = 0;
   await page.route(
-    "**/api/projects/chat-settings/coordinator/messages",
+    `**/api/workspaces/${workspace}/coordinator/messages`,
     (route) => {
       sends++;
       return route.fulfill({
@@ -940,13 +949,14 @@ test("long project chat preserves loaded history while live pages advance", asyn
 }) => {
   const directory = join(state, "long-chat-project");
   mkdirSync(directory, { recursive: true });
-  await request.post("/api/projects/initialize", {
+  await fixtureProject(request, {
     data: { path: directory, task_prefix: "LCH" },
   });
-  await page.route("**/api/worker-models*", (route) =>
+  const workspace = await projectWorkspace(request, "long-chat-project");
+  await page.route(`**/api/workspaces/${workspace}/models*`, (route) =>
     route.fulfill({ json: [] }),
   );
-  const historyPath = "/api/projects/long-chat-project/coordinator";
+  const historyPath = `/api/workspaces/${workspace}/coordinator`;
   let count = 40;
   const turn = (number: number): Turn => ({
     guidance_revision: null,
@@ -954,7 +964,7 @@ test("long project chat preserves loaded history while live pages advance", asyn
     task_context: null,
     id: `history-message-${number}`,
     number,
-    workspace_id: "long-chat-project",
+    workspace_id: workspace,
     conversation_id: "saved",
     text: `Planning exchange ${number}`,
     created_at: new Date().toISOString(),
@@ -970,7 +980,7 @@ test("long project chat preserves loaded history while live pages advance", asyn
         mode: null,
         fast: null,
       },
-      source: "project",
+      source: "workspace",
       default_revision: 1,
       override_revision: null,
       registration: null,
@@ -1104,7 +1114,7 @@ test("automatic task context preserves one coordinator and immutable retry recei
           selection: choice,
           effective: {
             choice,
-            source: "project",
+            source: "workspace",
             default_revision: 1,
             override_revision: null,
           },
@@ -1254,19 +1264,20 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
   mkdirSync(join(state, project), { recursive: true });
   expect(
     (
-      await request.post("/api/projects/initialize", {
+      await fixtureProject(request, {
         data: { path: join(state, project), task_prefix: "CFR" },
       })
     ).ok(),
   ).toBe(true);
+  const workspace = await projectWorkspace(request, project);
   const conversation = await (
-    await request.post(`/api/projects/${project}/coordinator`)
+    await request.post(`/api/workspaces/${workspace}/coordinator`)
   ).json();
   const now = new Date().toISOString();
   const turn = {
     id: "long-reply-turn",
     number: 1,
-    project_id: project,
+    workspace_id: workspace,
     conversation_id: conversation.id,
     text: "Explain the decision",
     task_context: null,
@@ -1279,7 +1290,7 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
     launch: null,
     settings: {
       choice: { harness: "codex", model: "test-model", effort: "low" },
-      source: "project",
+      source: "workspace",
       default_revision: 1,
     },
     activity: {
@@ -1301,7 +1312,7 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
       ],
     },
   };
-  await page.route(`**/api/projects/${project}/coordinator{,?*}`, (route) =>
+  await page.route(`**/api/workspaces/${workspace}/coordinator{,?*}`, (route) =>
     route.fulfill({
       json: {
         conversation,
@@ -1314,7 +1325,7 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
     }),
   );
   const offsets: string[] = [];
-  await page.route(`**/api/context/projects/${project}/text?*`, (route) => {
+  await page.route(`**/api/context/workspaces/${workspace}/text?*`, (route) => {
     const params = new URL(route.request().url()).searchParams;
     expect(params.get("revision")).toBe("7");
     expect(params.get("identity")).toBe(turn.id);

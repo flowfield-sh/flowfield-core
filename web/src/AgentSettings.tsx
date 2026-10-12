@@ -266,7 +266,7 @@ function useAgentSettingsContent({
       resource.invalidate();
       resource.setData(updated);
       setDraft(null);
-      toast.success(reset ? "Using project defaults." : "Settings saved.");
+      toast.success(reset ? "Using workspace defaults." : "Settings saved.");
       if (!reset) onSaved?.();
     } catch (error) {
       setError((error as Error).message);
@@ -283,7 +283,7 @@ function useAgentSettingsContent({
           ? "Stop or finish this message to switch harnesses. Other settings apply to the next message."
           : coordinator
             ? "Applies to your next message. Switching harnesses starts a fresh session; saved chat stays available."
-            : "Overrides project defaults for the next worker run."}
+            : "Overrides workspace defaults for the next worker run."}
       </p>
       <form
         onSubmit={(event) => {

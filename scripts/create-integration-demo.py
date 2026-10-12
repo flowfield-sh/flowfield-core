@@ -17,6 +17,7 @@ from flowfield.integration_models import IntegrationConfig
 from flowfield.results import Results
 from flowfield.stage_models import StageUpdate
 from flowfield.stages import Stages
+from flowfield.workspaces import WorkspaceCreate, Workspaces
 
 
 def main() -> None:
@@ -34,7 +35,10 @@ def main() -> None:
     workspace = Workspace(args.state or root / "state")
     repo = root / "harbor-integration"
     repo.mkdir()
-    project = workspace.setup_project(
+    spaces = Workspaces(workspace)
+    space = spaces.create(WorkspaceCreate(name="Harbor integration workspace"))
+    project = spaces.adopt(
+        space.id,
         ProjectSetup(path=str(repo), name="Harbor · Integration trial", task_prefix="INT"),
     )
     git(repo, "init", "-b", "main")

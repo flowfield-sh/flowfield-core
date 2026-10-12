@@ -1,24 +1,22 @@
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import { execFileSync } from "node:child_process";
-import { expect } from "@playwright/test";
 import {
+  fixtureCliProject,
   test,
   existingDirectory,
   state,
   checkout,
   cli,
-  closeOverlay,
   connectMcp,
   resultMessage,
 } from "./support";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { execFileSync } from "node:child_process";
+import { expect } from "@playwright/test";
 
 test("managed review keeps its URL, binds the result, and preserves feedback on conflict", async ({
   page,
 }, testInfo) => {
-  cli([
-    "project",
-    "init",
+  fixtureCliProject([
     existingDirectory(join(state, "run-ui")),
     "--prefix",
     "RUN",
@@ -411,7 +409,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   ).toHaveCount(0);
   await expect(
     page.getByRole("group", { name: "Message task context" }),
-  ).toContainText("selected result");
+  ).toHaveCount(0);
   await page
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();
@@ -542,107 +540,49 @@ test("validated result approval delivers real Git code with the worker queue pau
   ).toBeVisible();
 });
 
-test("existing-project adoption previews and preserves coordinator guidance", async ({
+test("adoption preserves repository guidance and standalone installation stays explicit", async ({
   page,
-}, testInfo) => {
+  request,
+}) => {
   const root = existingDirectory(join(state, "adoption-guidance"));
   execFileSync("git", ["init", "-b", "main", root], { stdio: "ignore" });
   const agents = join(root, "AGENTS.md");
   const original = "# Repository rules\n\nKeep our conventions.\n";
   writeFileSync(agents, original);
   writeFileSync(join(root, "AGENTS.override.md"), "Local override\n");
-  await page.goto("/new-project");
+  const adopted = fixtureCliProject([root]);
+  await page.goto("/projects/" + adopted.id);
   await expect(
-    page.getByRole("region", { name: "Project setup instructions" }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Add a project from the CLI", { exact: true }),
-  ).toHaveCount(0);
-  await expect(page.getByLabel("Existing project directory")).toHaveCount(0);
-  const adopted = cli(["project", "init", root]);
-  await page.goto("/projects/" + adopted.id + "/edit/coordinator");
-  await expect(
-    page.getByRole("heading", { name: "Project guidance", exact: true }),
-  ).toBeVisible();
-  await page.getByText("Preview or copy guidance", { exact: true }).click();
-  await expect(page.getByRole("button", { name: "Copy skill" })).toBeVisible();
+    page.getByRole("article", { name: "Coordinator welcome" }),
+  ).toContainText("workspace guidance");
   expect(readFileSync(agents, "utf8")).toBe(original);
-  await page.getByRole("button", { name: "Install project guidance" }).click();
-  await expect(
-    page
-      .locator("[data-sonner-toast][data-type=success]")
-      .filter({ hasText: "Project guidance installed" }),
-  ).toBeVisible();
-  await expect(
-    page.getByText(/^Untracked adoption files:.*config.toml.*guidance.json/),
-  ).toContainText("Leaving them untracked blocks code delivery");
+  expect(existsSync(join(root, ".agents"))).toBe(false);
+  const before = await (
+    await request.get("/api/projects/" + adopted.id + "/workspace")
+  ).json();
+  cli(["project", "guidance", "install"], root);
   expect(readFileSync(agents, "utf8").startsWith(original)).toBe(true);
   expect(
     existsSync(join(root, ".agents/skills/flowfield-coordinator/SKILL.md")),
   ).toBe(true);
-  await expect(
-    page.getByText("Instruction files and worker baseline", { exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByText("Remove installed guidance", { exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByText(
-      "Review additional instruction files: AGENTS.override.md. They may override this guidance.",
-      {
-        exact: true,
-      },
-    ),
-  ).toBeVisible();
-  await expect(
-    page.getByText(
-      "Start a fresh coding conversation; open sessions do not reload guidance. " +
-        "Ask the harness to read AGENTS.md and the coordinator skill explicitly.",
-      { exact: true },
-    ),
-  ).toBeVisible();
-  await page.reload();
-  await expect(
-    page.getByRole("button", { name: "Install project guidance" }),
-  ).toBeDisabled();
   writeFileSync(agents, readFileSync(agents, "utf8") + "\nNew local rule\n");
-  await expect(
-    page.getByRole("status").filter({ hasText: "Project guidance installed" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("status").filter({ hasText: "Project guidance installed" }),
-  ).not.toContainText("Untracked adoption files");
-  await expect(
-    page.getByRole("status").filter({ hasText: "Project files need review" }),
-  ).toContainText("Leaving them untracked blocks code delivery");
-  await expect(page.getByRole("heading", { name: "Next steps" })).toBeVisible();
-  if (process.env.FLOWFIELD_VISUAL_EVIDENCE) {
-    await page.screenshot({
-      path: testInfo.outputPath("guidance-installed-desktop.png"),
-      animations: "disabled",
-    });
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.screenshot({
-      path: testInfo.outputPath("guidance-installed-mobile.png"),
-      animations: "disabled",
-    });
-    await page.emulateMedia({ colorScheme: "dark" });
-    await page.reload();
-    await expect(
-      page.getByRole("heading", { name: "Project guidance installed" }),
-    ).toBeVisible();
-    await page.screenshot({
-      path: testInfo.outputPath("guidance-installed-mobile-dark.png"),
-      animations: "disabled",
-    });
-  }
   cli(["project", "guidance", "remove"], root);
   expect(readFileSync(agents, "utf8")).toBe(original + "\nNew local rule\n");
+  expect(readFileSync(join(root, "AGENTS.override.md"), "utf8")).toBe(
+    "Local override\n",
+  );
   expect(
     existsSync(join(root, ".agents/skills/flowfield-coordinator/SKILL.md")),
   ).toBe(false);
-  await closeOverlay(page);
-  await expect(page).toHaveURL(/\/projects\/adoption-guidance$/);
+  await page.reload();
+  await expect(
+    page.getByRole("tablist", { name: "Workspace views" }),
+  ).toBeVisible();
+  expect(
+    await (
+      await request.get("/api/projects/" + adopted.id + "/workspace")
+    ).json(),
+  ).toEqual(before);
 });
 
 test("managed answers show durable pause, safe edits and immutable correction input", async ({

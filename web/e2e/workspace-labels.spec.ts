@@ -204,10 +204,16 @@ test("workspace label management and existing task edits preserve concurrent cha
     path: testInfo.outputPath("label-editor-narrow-dark.png"),
   });
   await page.getByRole("button", { name: "Delete label", exact: true }).click();
+  const deleted = page.waitForResponse(
+    (response) =>
+      response.request().method() === "DELETE" &&
+      response.url().endsWith(`/labels/${release.id}`),
+  );
   await page
     .getByRole("alertdialog")
     .getByRole("button", { name: "Delete label", exact: true })
     .click();
+  expect((await deleted).ok()).toBeTruthy();
   await expect(
     page.getByRole("button", { name: "Edit Release work label", exact: true }),
   ).toHaveCount(0);

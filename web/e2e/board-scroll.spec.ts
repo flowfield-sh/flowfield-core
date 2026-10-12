@@ -1,6 +1,13 @@
+import {
+  fixtureProject,
+  projectWorkspace,
+  test,
+  existingDirectory,
+  state,
+  fixtureStages,
+} from "./support";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
-import { test, existingDirectory, state, fixtureStages } from "./support";
 
 test.use({ launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] } });
 
@@ -11,7 +18,7 @@ test("board columns scroll independently with fixed headings and reachable cards
   const project = "column-scroll";
   expect(
     (
-      await request.post("/api/projects/initialize", {
+      await fixtureProject(request, {
         data: {
           path: existingDirectory(join(state, project)),
           task_prefix: "BSC",
@@ -34,11 +41,13 @@ test("board columns scroll independently with fixed headings and reachable cards
       ).toBe(true);
     }
   }
+  const workspace = await projectWorkspace(request, project);
   // Report occupancy without starting a model or changing the paused queue.
-  await page.route(`**/api/projects/${project}/workers/occupancy`, (route) =>
-    route.fulfill({ json: { active: 1, uncertain: 0 } }),
+  await page.route(
+    `**/api/workspaces/${workspace}/workers/occupancy`,
+    (route) => route.fulfill({ json: { active: 1, uncertain: 0 } }),
   );
-  await page.route(`**/api/projects/${project}/workers`, async (route) => {
+  await page.route(`**/api/workspaces/${workspace}/workers`, async (route) => {
     const response = await route.fetch();
     await route.fulfill({
       json: { ...(await response.json()), max_parallel: 2 },
@@ -145,7 +154,7 @@ test("Inbox shares board scrolling and wraps long cards", async ({
   const project = "attention-scroll";
   expect(
     (
-      await request.post("/api/projects/initialize", {
+      await fixtureProject(request, {
         data: {
           path: existingDirectory(join(state, project)),
           task_prefix: "ASC",
@@ -153,40 +162,47 @@ test("Inbox shares board scrolling and wraps long cards", async ({
       })
     ).ok(),
   ).toBe(true);
-  await page.route(`**/api/projects/${project}/view/attention?*`, (route) => {
-    const query = new URL(route.request().url()).searchParams;
-    const column = query.get("column")!;
-    const offset = Number(query.get("offset") ?? 0);
-    return route.fulfill({
-      json: {
-        items: Array.from({ length: offset ? 1 : 14 }, (_, i) => ({
-          id: `${column}-${offset + i}`,
-          kind:
-            column === "waiting" && offset + i === 0
-              ? "permission"
-              : "question",
-          task_key: null,
-          title: `${column} item ${offset + i} ${"long-unbroken-title".repeat(15)}`,
-          status:
-            column === "action"
-              ? "open"
-              : column === "waiting"
-                ? "answered"
-                : "applied",
-          updated_at: "2026-10-09T12:00:00Z",
-        })),
-        total: 15,
-        next_offset: offset ? null : 14,
-      },
-    });
-  });
+  const workspace = await projectWorkspace(request, project);
   await page.route(
-    "**/api/projects/" + project + "/permissions/waiting-0?*",
+    `**/api/workspaces/${workspace}/view/attention?*`,
+    (route) => {
+      const query = new URL(route.request().url()).searchParams;
+      const column = query.get("column")!;
+      const offset = Number(query.get("offset") ?? 0);
+      return route.fulfill({
+        json: {
+          items: Array.from({ length: offset ? 1 : 14 }, (_, i) => ({
+            id: `${column}-${offset + i}`,
+            project_id:
+              column === "waiting" && offset + i === 0 ? null : project,
+            kind:
+              column === "waiting" && offset + i === 0
+                ? "permission"
+                : "question",
+            task_key: null,
+            title: `${column} item ${offset + i} ${"long-unbroken-title".repeat(15)}`,
+            status:
+              column === "action"
+                ? "open"
+                : column === "waiting"
+                  ? "answered"
+                  : "applied",
+            updated_at: "2026-10-09T12:00:00Z",
+          })),
+          total: 15,
+          next_offset: offset ? null : 14,
+        },
+      });
+    },
+  );
+  await page.route(
+    `**/api/workspaces/${workspace}/permissions/waiting-0?*`,
     (route) =>
       route.fulfill({
         json: {
           id: "waiting-0",
-          project_id: project,
+          project_id: null,
+          workspace_id: workspace,
           role: "coordinator",
           task_id: null,
           run_id: null,

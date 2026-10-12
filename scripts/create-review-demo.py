@@ -24,6 +24,7 @@ from flowfield.result_models import ResultReview
 from flowfield.results import Results
 from flowfield.stage_models import StageUpdate
 from flowfield.stages import Stages
+from flowfield.workspaces import WorkspaceCreate, Workspaces
 
 
 def main() -> None:
@@ -37,8 +38,10 @@ def main() -> None:
     workspace = Workspace(root / "state")
     repo = root / "harbor-review"
     repo.mkdir()
-    project = workspace.setup_project(
-        ProjectSetup(path=str(repo), name="Harbor · Review trial", task_prefix="RVW")
+    spaces = Workspaces(workspace)
+    space = spaces.create(WorkspaceCreate(name="Harbor review workspace"))
+    project = spaces.adopt(
+        space.id, ProjectSetup(path=str(repo), name="Harbor · Review trial", task_prefix="RVW")
     )
     git(repo, "init")
     with (repo / ".gitignore").open("a") as ignored:

@@ -1,12 +1,13 @@
-import { join } from "node:path";
-import { expect, type Response } from "@playwright/test";
 import {
+  fixtureMcpProject,
   test,
   existingDirectory,
   state,
   connectMcp,
   fixtureStages,
 } from "./support";
+import { join } from "node:path";
+import { expect, type Response } from "@playwright/test";
 
 test("task links open native tabs without losing the original selection or draft", async ({
   page,
@@ -17,7 +18,7 @@ test("task links open native tabs without losing the original selection or draft
   const projectId = `native-tabs-${testInfo.repeatEachIndex}`;
   const prefix = `Z${String.fromCharCode(65 + Math.floor(testInfo.repeatEachIndex / 26), 65 + (testInfo.repeatEachIndex % 26))}`;
   const call = await connectMcp(request);
-  await call("initialize_project", {
+  await fixtureMcpProject(call, {
     project_id: projectId,
     path: existingDirectory(join(state, projectId)),
     task_prefix: prefix,
@@ -50,7 +51,7 @@ test("task links open native tabs without losing the original selection or draft
   ).toBeVisible();
   const draft = page.getByLabel("Message coordinator", { exact: true });
   await draft.fill("Keep this requirement while inspecting the prerequisite");
-  const link = details.locator(".work-state").getByRole("link", {
+  const link = details.getByRole("link", {
     name: first.key,
     exact: true,
   });

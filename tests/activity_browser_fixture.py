@@ -4,7 +4,7 @@ import json
 import sys
 from pathlib import Path
 
-from project_fixtures import task_request
+from project_fixtures import adopt, task_request
 
 from flowfield.activity import ActivityCreate
 from flowfield.agent_models import AgentChoice
@@ -18,7 +18,7 @@ execution = Execution(ws)
 if sys.argv[2] == "create":
     path = Path(sys.argv[1]) / "stream-project"
     path.mkdir()
-    ws.setup_project(ProjectSetup(path=str(path), task_prefix="STR"))
+    adopt(ws, ProjectSetup(path=str(path), task_prefix="STR"))
     task = ws.create_task(
         "stream-project",
         task_request(
