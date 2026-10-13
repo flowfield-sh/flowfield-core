@@ -75,15 +75,16 @@ test("coordinator dependencies update blockers, links and reconciliation without
     name: "Task details",
     exact: true,
   });
-  await expect(
-    detail.getByRole("heading", { name: "Waiting on", exact: true }),
-  ).toBeVisible();
+  const dependencyState = detail.locator(
+    ".task-conversation-header .work-state",
+  );
+  await expect(dependencyState).toHaveText(
+    /Waiting on DEP-1, DEP-3|Waiting on DEP-3, DEP-1/,
+  );
   await expect(
     detail.getByText("Waiting on prerequisites", { exact: true }),
   ).toHaveCount(0);
-  await expect(detail.locator(".task-needs")).toContainText(
-    /Blocked by DEP-1, DEP-3|Blocked by DEP-3, DEP-1/,
-  );
+  await expect(detail.locator(".task-needs")).toHaveCount(0);
   await detail.getByRole("link", { name: "DEP-3", exact: true }).hover();
   await expect(page.getByRole("tooltip")).toHaveText("Prepare export settings");
   await expect(detail.getByLabel("Add prerequisite")).toHaveCount(0);
@@ -102,9 +103,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
   await expect(
     detail.getByText("Needs code from DEP-1", { exact: true }),
   ).toBeVisible();
-  await expect(
-    detail.getByText("Blocked by DEP-3", { exact: true }),
-  ).toBeVisible();
+  await expect(dependencyState).toHaveText("Waiting on DEP-3");
   await page
     .getByRole("button", {
       name: /^(Close editor|Back to board)$/,
@@ -112,9 +111,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
     })
     .click();
   const card = page.locator(".task-card").filter({ hasText: "Download CSV" });
-  await expect(
-    card.getByText("Blocked by DEP-3", { exact: true }),
-  ).toBeVisible();
+  await expect(card.locator(".work-state")).toHaveText("Waiting on DEP-3");
   await expect(
     card.getByRole("link", { name: "DEP-3", exact: true }),
   ).toHaveCount(1);
@@ -210,8 +207,8 @@ test("three-letter prefix setup, coordinator dependencies and immediate accessib
     },
   });
   await expect(
-    dependencies.getByText("Blocked by UIT-2", { exact: true }),
-  ).toBeVisible();
+    dependencies.locator(".task-conversation-header .work-state"),
+  ).toHaveText("Waiting on UIT-2");
   await fixtureProgress(request, {
     ...identity,
     task_id: prerequisite.key,

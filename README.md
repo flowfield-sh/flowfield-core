@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://pypi.org/project/flowfield-core/"><img src="https://img.shields.io/pypi/v/flowfield-core?logo=pypi&amp;logoColor=white&amp;color=2563eb" alt="PyPI version"></a>
   <a href="https://github.com/flowfield-sh/flowfield-core/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/flowfield-sh/flowfield-core/tests.yml?branch=main&amp;label=tests" alt="Tests"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-2563eb" alt="Apache 2.0 license"></a>
+  <a href="https://github.com/flowfield-sh/flowfield-core/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-2563eb" alt="Apache 2.0 license"></a>
 </p>
 
 ![The workspace board and Coordinator, with work spanning several projects](https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/board-hero.png)
@@ -75,7 +75,7 @@ Prefer planning from your own coding-agent session? [Connect a standalone agent]
 
 ## Contributing
 
-Bug reports, feature requests and feedback are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for issue reporting and contribution policy. Report vulnerabilities through [private security reporting](https://github.com/flowfield-sh/flowfield-core/security/advisories/new).
+Bug reports, feature requests and feedback are welcome. See [CONTRIBUTING.md](https://github.com/flowfield-sh/flowfield-core/blob/main/CONTRIBUTING.md) for issue reporting and contribution policy. Report vulnerabilities through [private security reporting](https://github.com/flowfield-sh/flowfield-core/security/advisories/new).
 
 ### Build from source
 
@@ -87,4 +87,4 @@ pnpm --dir web build
 uv run flowfield serve
 ```
 
-Flowfield is licensed under the [Apache License 2.0](LICENSE).
+Flowfield is licensed under the [Apache License 2.0](https://github.com/flowfield-sh/flowfield-core/blob/main/LICENSE).
