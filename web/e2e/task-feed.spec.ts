@@ -13,7 +13,6 @@ import {
   closeOverlay,
   ensureEditing,
   connectMcp,
-  stubModelCatalog,
 } from "./support";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -177,28 +176,22 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
     exact: true,
     includeHidden: true,
   });
-  await rounding.dragTo(backlog);
+  await expect(rounding).not.toHaveAttribute("draggable", "true");
+  await call("prioritize_task", {
+    project_id: "harbor",
+    task_id: "rounding",
+    priority: { expected_revision: 1, status: "backlog" },
+  });
   await expect(backlog).toContainText("Fix total rounding");
-  expect(
-    (await call("get_board", { project_id: "harbor" })).columns
-      .flatMap((c: { tasks: { id: string; status: string }[] }) => c.tasks)
-      .find((t: { id: string }) => t.id === "rounding").status,
-  ).toBe("backlog");
-  // A keyboard/touch alternative shares the same operation.
-  await page.getByRole("link", { name: /Fix total rounding/ }).click();
-  await page
-    .getByRole("button", { name: "Choose for Up next", exact: true })
-    .focus();
-  await page.keyboard.press("Enter");
-  await expect(upNext).toContainText("Fix total rounding");
-  await closeOverlay(page);
-  await rounding.dragTo(
-    page.getByRole("region", {
-      name: "In progress",
-      exact: true,
-      includeHidden: true,
-    }),
-  );
+  const queued = await call("get_task", {
+    project_id: "harbor",
+    task_id: "rounding",
+  });
+  await call("prioritize_task", {
+    project_id: "harbor",
+    task_id: "rounding",
+    priority: { expected_revision: queued.revision, status: "up_next" },
+  });
   await expect(upNext).toContainText("Fix total rounding");
   const current = await call("get_task", {
     project_id: "harbor",
@@ -216,26 +209,32 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
       includeHidden: true,
     }),
   ).toContainText("Fix total rounding");
-  await expect(rounding).toHaveAttribute("draggable", "false");
+  await expect(rounding).not.toHaveAttribute("draggable", "true");
   await page.getByRole("link", { name: /Fix total rounding/ }).click();
   await expect(
     page
       .getByRole("region", { name: "Task details", exact: true })
       .getByRole("button", { name: "Archive", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Move task", exact: true }),
   ).toHaveCount(0);
   await page
     .getByRole("button", { name: /^(Close editor|Back to board)$/ })
     .click();
-  await page
-    .locator(".card-shell")
-    .filter({ hasText: "Add download button" })
-    .dragTo(
-      page.locator(".card-shell").filter({ hasText: "Build CSV serializer" }),
-      { targetPosition: { x: 15, y: 10 } },
-    );
+  const button = await call("get_task", {
+    project_id: "harbor",
+    task_id: "button",
+  });
+  await call("prioritize_task", {
+    project_id: "harbor",
+    task_id: "button",
+    priority: {
+      expected_revision: button.revision,
+      status: "up_next",
+      before_id: "serializer",
+    },
+  });
   await expect(
     page
       .getByRole("region", {
@@ -247,25 +246,15 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
       .first(),
   ).toContainText("Add download button");
   await page.getByRole("link", { name: /Add download button/ }).click();
-  await page
-    .getByRole("region", { name: "Task details", exact: true })
-    .getByRole("button", { name: "Archive", exact: true })
-    .click();
-  const archiveConfirmation = page.getByRole("alertdialog");
-  await expect(archiveConfirmation).toBeVisible();
-  await expect(
-    archiveConfirmation.getByRole("button", { name: "Cancel", exact: true }),
-  ).toBeFocused();
-  await archiveConfirmation
-    .getByRole("button", { name: "Cancel", exact: true })
-    .click();
-  expect(cli(["task", "show", "button", "--project", "harbor"]).archived).toBe(
-    false,
-  );
-  await page.getByRole("button", { name: "Archive", exact: true }).click();
-  await archiveConfirmation
-    .getByRole("button", { name: "Archive", exact: true })
-    .click();
+  const toArchive = await call("get_task", {
+    project_id: "harbor",
+    task_id: "button",
+  });
+  await call("edit_task", {
+    project_id: "harbor",
+    task_id: "button",
+    changes: { expected_revision: toArchive.revision, archived: true },
+  });
   await expect(
     page
       .getByRole("region", {
@@ -286,22 +275,33 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
   ).toBeVisible();
   await expect(page.locator(".column")).toHaveCount(0);
   await page.getByRole("link", { name: /Add download button/ }).click();
-  await page.getByRole("button", { name: "Restore", exact: true }).click();
+  const archived = await call("get_task", {
+    project_id: "harbor",
+    task_id: "button",
+  });
+  await call("edit_task", {
+    project_id: "harbor",
+    task_id: "button",
+    changes: { expected_revision: archived.revision, archived: false },
+  });
   await closeOverlay(page);
   await page.getByRole("tab", { name: /^Board \d/ }).click();
   await page.getByLabel("Filter by milestone").selectOption("csv");
   await expect(page.locator(".task-card")).toHaveCount(2);
   await page.getByRole("tab", { name: /^Milestones/ }).click();
   await page.locator(".three-column-board .task-card-link").first().click();
-  await page
-    .getByRole("button", { name: "Edit milestone", exact: true })
-    .click();
-  await page
-    .getByRole("textbox", { name: "Description", exact: true })
-    .fill("Export filtered expenses without losing row order.");
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await call("edit_milestone", {
+    workspace_id: workspace,
+    milestone_id: "csv",
+    changes: {
+      expected_revision: 1,
+      body: "Export filtered expenses without losing row order.",
+    },
+  });
   await expect(
-    page.getByRole("button", { name: "Edit milestone", exact: true }),
+    page.getByText("Export filtered expenses without losing row order.", {
+      exact: true,
+    }),
   ).toBeVisible();
   await page.getByRole("tab", { name: /^Board / }).click();
   await page.getByLabel("Filter by milestone").selectOption("");
@@ -395,105 +395,6 @@ test("coordinator updates refresh the agreement while project editing retains co
   await expect(
     page.locator("[data-sonner-toast][data-type=error]"),
   ).toContainText("stale");
-});
-
-test("priority races preserve agent progress and message drafts; touch can prioritize", async ({
-  page,
-  request,
-  browser,
-}) => {
-  const call = await connectMcp(request);
-  await fixtureMcpProject(call, {
-    project_id: "race",
-    path: existingDirectory(join(state, "race")),
-  });
-  await call("create_task", {
-    project_id: "race",
-    task: {
-      stages: fixtureStages(),
-      id: "one",
-      title: "Race task",
-      body: "Original",
-    },
-  });
-  await page.goto("/projects/race");
-  await page.getByRole("link", { name: /Race task/ }).click();
-  await page
-    .getByLabel("Message coordinator", { exact: true })
-    .fill("Keep this unsaved requirement");
-  const priorityPage = await page.context().newPage();
-  await priorityPage.goto("/projects/race");
-  // Hold the real priority request while the coordinator starts work.
-  let release!: () => void;
-  let received!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const started = new Promise<void>((resolve) => {
-    received = resolve;
-  });
-  await priorityPage.route("**/tasks/one/prioritize", async (route) => {
-    received();
-    await gate;
-    await route.continue();
-  });
-  await priorityPage
-    .locator(".card-shell")
-    .filter({ hasText: "Race task" })
-    .dragTo(
-      priorityPage.getByRole("region", {
-        name: "Up next",
-        exact: true,
-        includeHidden: true,
-      }),
-    );
-  await started;
-  await fixtureProgress(request, {
-    project_id: "race",
-    task_id: "one",
-    progress: { expected_revision: 1, status: "in_progress" },
-  });
-  release();
-  await expect(
-    priorityPage
-      .locator("[data-sonner-toast][data-type=error]")
-      .filter({ hasText: "Priority could not change" }),
-  ).toContainText("stale");
-  await expect(
-    page.getByRole("region", {
-      name: "In progress",
-      exact: true,
-      includeHidden: true,
-    }),
-  ).toContainText("Race task");
-  await expect(
-    page.getByLabel("Message coordinator", { exact: true }),
-  ).toHaveValue("Keep this unsaved requirement");
-  await priorityPage.unrouteAll({ behavior: "wait" });
-  await priorityPage.close();
-  await call("create_task", {
-    project_id: "race",
-    task: { stages: fixtureStages(), id: "touch", title: "Touch task" },
-  });
-  const context = await browser.newContext({
-    hasTouch: true,
-    viewport: { width: 390, height: 844 },
-  });
-  await stubModelCatalog(context);
-  const touch = await context.newPage();
-  await touch.goto("http://127.0.0.1:8766/projects/race");
-  await touch.getByRole("link", { name: /Touch task/ }).tap();
-  await touch
-    .getByRole("button", { name: "Choose for Up next", exact: true })
-    .tap();
-  await expect(
-    touch.getByRole("region", {
-      name: "Up next",
-      exact: true,
-      includeHidden: true,
-    }),
-  ).toContainText("Touch task");
-  await context.close();
 });
 
 test("Conversation permalinks preserve message drafts while coordinator revisions update", async ({
@@ -619,7 +520,7 @@ test("archive preserves dated records and supports restore and mobile archiving"
   await page.goto("/projects/archive-list");
   await expect(
     page.getByRole("button", { name: "New task", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await closeOverlay(page);
   await page.getByRole("tab", { name: /^Archive \d/ }).click();
   const archive = page.getByRole("region", {
@@ -653,9 +554,12 @@ test("archive preserves dated records and supports restore and mobile archiving"
   ).toHaveCount(0);
   await expect(
     actions.getByRole("button", { name: "Restore", exact: true }),
-  ).toBeEnabled();
-  await actions.getByRole("button", { name: "Restore", exact: true }).click();
-  await expect(archive.getByRole("listitem")).toHaveCount(1);
+  ).toHaveCount(0);
+  await call("edit_task", {
+    project_id: "archive-list",
+    task_id: "older",
+    changes: { expected_revision: 3, archived: false },
+  });
   expect(
     (await call("get_task", { project_id: "archive-list", task_id: "older" }))
       .status,
@@ -665,11 +569,14 @@ test("archive preserves dated records and supports restore and mobile archiving"
   await page.getByRole("link", { name: /older task/ }).click();
   await page.setViewportSize({ width: 390, height: 844 });
 
-  await actions.getByRole("button", { name: "Archive", exact: true }).click();
-  await page
-    .getByRole("alertdialog")
-    .getByRole("button", { name: "Archive", exact: true })
-    .click();
+  await expect(
+    actions.getByRole("button", { name: "Archive", exact: true }),
+  ).toHaveCount(0);
+  await call("edit_task", {
+    project_id: "archive-list",
+    task_id: "older",
+    changes: { expected_revision: 4, archived: true },
+  });
   await closeOverlay(page);
   await page.getByRole("tab", { name: /^Archive \d/ }).click();
   await expect(archive.getByRole("listitem").first()).toContainText(
@@ -1054,7 +961,8 @@ test("conversation capture prepares atomically while task defaults show only use
     "Initial task plan",
   );
   await expect(stages.getByRole("link")).toHaveCount(0);
-  // The sticky stage is already visible; focus it without scrolling the feed.
+  await page.getByText("Stages", { exact: true }).click();
+  // Stage details are optional evidence below the definition.
   await stages
     .locator(".task-stage")
     .first()
@@ -1104,6 +1012,7 @@ test("conversation capture prepares atomically while task defaults show only use
     "Investigate: Planned",
   );
   await page.reload();
+  await page.getByText("Stages", { exact: true }).click();
   await expect(stages.locator('[aria-current="step"]')).toHaveText(
     "Report: Active",
   );
@@ -1354,7 +1263,7 @@ test("attempt activity updates without reloading the board and replays on reload
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Archive", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Retry worker", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Retry worker", exact: true }),
@@ -1526,64 +1435,4 @@ test("legacy task-question links resolve into the feed and preserve answers", as
   );
   await expect(page).toHaveURL(/conversation\/question%3Achoice$/);
   await expect(page.locator('[data-kind="answer"]')).toContainText("JSON");
-});
-
-test("archive confirmation retains its selected revision across live changes", async ({
-  page,
-  request,
-}) => {
-  await fixtureProject(request, {
-    data: {
-      path: existingDirectory(join(state, "archive-confirmation")),
-      task_prefix: "ACF",
-    },
-  });
-  const path = "/api/projects/archive-confirmation";
-  const task = await (
-    await request.post(path + "/tasks", {
-      data: {
-        stages: fixtureStages(),
-        id: "one",
-        title: "Confirm the selected task",
-        body: "Original agreement",
-      },
-    })
-  ).json();
-  await page.goto("/projects/archive-confirmation/tasks/ACF-1");
-  await page.getByRole("button", { name: "Archive", exact: true }).click();
-  const confirmation = page.getByRole("alertdialog", {
-    name: "Archive ACF-1?",
-    exact: true,
-  });
-  await expect(confirmation).toBeVisible();
-  const updated = await request.put(path + "/tasks/one", {
-    data: {
-      expected_revision: task.revision,
-      body: "Revised agreement",
-      author: "agent",
-    },
-  });
-  expect(updated.ok()).toBe(true);
-  await expect(page.getByLabel("Current task definition")).toContainText(
-    "Revised agreement",
-  );
-  await confirmation
-    .getByRole("button", { name: "Archive", exact: true })
-    .click();
-  await expect(
-    page.locator("[data-sonner-toast][data-type=error]"),
-  ).toContainText(/stale/i);
-  expect((await (await request.get(path + "/tasks/one")).json()).archived).toBe(
-    false,
-  );
-  await page.getByRole("button", { name: "Archive", exact: true }).click();
-  await confirmation
-    .getByRole("button", { name: "Archive", exact: true })
-    .click();
-  await expect(
-    page.getByRole("region", { name: "Task details", exact: true }),
-  ).toHaveCount(0);
-  expect((await (await request.get(path + "/tasks/one")).json()).archived).toBe(
-    true,
-  );
 });

@@ -16,21 +16,17 @@ const pagePaths = [
   "workspaces/:workspaceId/archive",
   "workspaces/:workspaceId/inbox",
   "workspaces/:workspaceId/milestones",
-  "workspaces/:workspaceId/milestones/new",
   "workspaces/:workspaceId/milestones/:milestoneId/revisions/:milestoneRevision",
   "workspaces/:workspaceId/milestones/:milestoneId/:milestoneTab?",
-  "workspaces/:workspaceId/tasks/new",
   "workspaces/:workspaceId/edit/:workspaceTab?",
   "projects/:projectId",
   "projects/:projectId/archive",
   "projects/:projectId/inbox",
   "projects/:projectId/inbox/:questionId",
   "projects/:projectId/edit/:projectTab?",
-  "projects/:projectId/tasks/new/:tab?",
   "projects/:projectId/tasks/:taskKey/:tab?/:runId?",
   "projects/:projectId/tasks/:taskKey/:tab/:runId/integrations/:integrationId",
   "projects/:projectId/milestones",
-  "projects/:projectId/milestones/new",
   "projects/:projectId/milestones/:milestoneId/:milestoneTab?",
 ];
 const nestedProjectPaths = pagePaths
@@ -117,7 +113,7 @@ function editorIdentity(path: string) {
       "/settings",
     )
     .replace(
-      /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+)\/edit)\/(general|info|coordinator|workers|integration|labels)\/?$/,
+      /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+)\/edit)\/(general|info|coordinator|workers|integration)\/?$/,
       "$1",
     )
     .replace(
@@ -127,8 +123,8 @@ function editorIdentity(path: string) {
 }
 export function entityPage(path: string) {
   return (
-    /\/(?:projects|documents)\/new$/.test(withoutQuestionOverlay(path)) ||
-    /^\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+)\/(?:tasks\/[^/]+|milestones\/[^/]+|inbox\/[^/]+|edit)(?:\/.*)?$/.test(
+    /\/projects\/new$/.test(withoutQuestionOverlay(path)) ||
+    /^\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+)\/(?:tasks\/[^/]+|milestones\/[^/]+|documents\/[^/]+|inbox\/[^/]+|edit)(?:\/.*)?$/.test(
       withoutQuestionOverlay(path.split("?")[0]),
     )
   );
@@ -138,13 +134,13 @@ export function collectionPath(path: string) {
   const base = withoutQuestionOverlay(pathname);
   return (
     base
-      .replace(/\/(projects|documents)\/new$/, "/$1")
+      .replace(/\/(projects)\/new$/, "/$1")
       .replace(
         /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+))\/(tasks\/.*|edit(?:\/.*)?)$/,
         "$1",
       )
       .replace(
-        /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+))\/(milestones|inbox)\/.*$/,
+        /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+))\/(milestones|documents|inbox)\/.*$/,
         "$1/$2",
       ) + (query ? "?" + query : "")
   );

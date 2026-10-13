@@ -10,7 +10,7 @@ import { WorkspaceList, NewWorkspace } from "./WorkspaceEntry";
 import { Documents } from "./Documents";
 import { ProjectList } from "./ProjectList";
 import { SetupInstructions } from "./SetupInstructions";
-import { canonicalHref, taskTab } from "./navigation";
+import { canonicalHref } from "./navigation";
 import type { AdjacentContext, AdjacentSnapshot } from "./AdjacentView";
 import { CoordinatorChat, type ChatDrafts } from "./CoordinatorChat";
 import {
@@ -32,21 +32,18 @@ import {
   Archive,
   Folder,
   FileText,
-  Plus,
 } from "lucide-react";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
 import { EntityOverlay, EntityPane } from "./EntityOverlay";
 import { DetailHeader } from "./Presentation";
 import { useResource } from "./useResource";
-import { NewTask } from "./NewTask";
 import { TaskDetail } from "./TaskDetail";
-import { TaskPriority } from "./TaskPriority";
 import { ProjectEditor } from "./ProjectEditor";
 import { WorkspaceEditor } from "./WorkspaceEditor";
 import { QueueControls } from "./Workers";
 import { AttentionBoard } from "./AttentionBoard";
-import { MilestoneEditor } from "./MilestoneEditor";
+import { MilestoneDetail } from "./MilestoneDetail";
 import { MilestoneList } from "./Milestones";
 import { ArchiveAttribution, TaskIdentity, DraftBadge } from "./Presentation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -54,7 +51,6 @@ import {
   Board,
   WorkspaceBoard as SharedBoard,
   compareTasks,
-  isUpcoming,
   columns,
   Milestone,
   label,
@@ -63,7 +59,6 @@ import {
   request,
   Task,
   TaskCard,
-  WorkStatus,
 } from "./workspace";
 import { QuestionOverlay } from "./Inbox";
 import { DiscardChangesDialog } from "./DiscardChangesDialog";
@@ -77,8 +72,7 @@ import {
   useWorkspaceNavigation,
 } from "./navigation";
 
-type Selection = { kind: "task" | "milestone" | "project"; id?: string };
-type WorkRecord = Project | Milestone | Task;
+type Selection = { kind: "task" | "milestone" | "project"; id: string };
 
 export function App() {
   const appearance = useTheme();
@@ -488,11 +482,9 @@ function WorkspaceBoard({
   const taskRef = params.taskKey;
   const {
     data: taskDetail,
-    setData: setTaskDetail,
     error: detailError,
     errorCode: detailErrorCode,
     loading: detailLoading,
-    invalidate: invalidateDetail,
   } = useResource<Task>(
     taskRef && projectId
       ? `${projectPath}/view/tasks/${encodeURIComponent(taskRef)}`
@@ -515,11 +507,6 @@ function WorkspaceBoard({
     (t) =>
       t.project_id === projectId && (t.key === taskRef || t.id === taskRef),
   );
-  const newKind = pathname.includes("/tasks/new")
-    ? "task"
-    : pathname.endsWith("/milestones/new")
-      ? "milestone"
-      : null;
   const workspaceSettings =
     pathname === `${base}/edit` ||
     pathname.startsWith(`${base}/edit/`) ||
@@ -536,9 +523,7 @@ function WorkspaceBoard({
               (pathname === `${projectHref(projectId)}/edit` ||
                 pathname.startsWith(`${projectHref(projectId)}/edit/`))
             ? { kind: "project", id: projectId }
-            : newKind === "task" || newKind === "milestone"
-              ? { kind: newKind }
-              : null;
+            : null;
   const background = (backgroundPath ?? pathname).split("?")[0];
   const inView = (view: string) =>
     background === `${base}/${view}` ||
@@ -646,40 +631,6 @@ function WorkspaceBoard({
       context: JSON.parse(viewSnapshot) as AdjacentContext | null,
     });
   }, [workspaceId, pathname, viewSnapshot, publishView, documentsView]);
-  const [dragged, setDragged] = useState<TaskCard | null>(null);
-  const [dropTarget, setDropTarget] = useState<{
-    status: WorkStatus;
-    before: string | null;
-  } | null>(null);
-  const [prioritizing, setPrioritizing] = useState(false);
-  const priorityPending = useRef(false);
-  async function prioritize(
-    task: TaskCard,
-    status: WorkStatus,
-    before: string | null = null,
-  ) {
-    if (priorityPending.current || !isUpcoming(status)) return;
-    priorityPending.current = true;
-    setPrioritizing(true);
-    try {
-      await request<Task>(
-        `projects/${task.project_id}/view/tasks/${encodeURIComponent(task.id)}/prioritize`,
-        "POST",
-        {
-          expected_revision: task.revision,
-          status,
-          before_id: before,
-          author: "human",
-        },
-      );
-    } catch (e) {
-      reportError(e, "Priority could not change");
-    } finally {
-      priorityPending.current = false;
-      setPrioritizing(false);
-      setRetry((v) => v + 1);
-    }
-  }
   function selectionUrl(next: Selection | null, archived = archive) {
     if (!next)
       return (
@@ -688,7 +639,6 @@ function WorkspaceBoard({
         (query.size ? "?" + query : "")
       );
     if (next.kind === "project") return projectHref(next.id!) + "/edit";
-    if (!next.id) return base + "/" + next.kind + "s/new";
     if (next.kind === "task") {
       const task = board?.tasks.find(
         (t) =>
@@ -714,56 +664,20 @@ function WorkspaceBoard({
       changeLocation(selectionUrl(next));
     });
   }
-  function saved(kind: Selection["kind"], item: WorkRecord) {
-    // Invalidate older in-flight snapshots before applying a completed mutation.
+  function savedProject(item: Project) {
     invalidate();
-    invalidateDetail();
-    if (kind === "task") setTaskDetail(item as Task);
-    setBoard((current) => {
-      if (!current) return current;
-      if (kind === "project")
-        return {
-          ...current,
-          projects: current.projects.map((project) =>
-            project.id === item.id ? (item as Project) : project,
-          ),
-        };
-      const key = kind === "task" ? "tasks" : "milestones";
-      return {
-        ...current,
-        [key]: [
-          ...current[key].filter((v) =>
-            kind === "task"
-              ? (v as TaskCard).key !== (item as Task).key
-              : v.id !== item.id,
-          ),
-          item,
-        ],
-      } as SharedBoard;
-    });
+    setBoard((current) =>
+      current
+        ? {
+            ...current,
+            projects: current.projects.map((project) =>
+              project.id === item.id ? item : project,
+            ),
+          }
+        : current,
+    );
     setUnsaved(false);
-    const previous =
-      kind === "task"
-        ? board?.tasks.find((t) => t.key === (item as Task).key)
-        : null;
-    const archiveChanged =
-      previous && previous.archived !== (item as Task).archived;
-    if (kind !== "milestone" || !selection?.id)
-      changeLocation(
-        archiveChanged
-          ? selectionUrl(null)
-          : kind === "task"
-            ? taskHref(
-                (item as Task).project_id,
-                item as Task,
-                taskTab(params.tab),
-              )
-            : kind === "milestone"
-              ? `${base}/milestones/${(item as Milestone).key}`
-              : selectionUrl({ kind, id: item.id }),
-        true,
-      );
-    setRetry((v) => v + 1);
+    setRetry((value) => value + 1);
   }
   if (!board)
     return (
@@ -879,7 +793,7 @@ function WorkspaceBoard({
           </section>
         ))}
       {selection &&
-        (!selection.id || incoming) &&
+        incoming &&
         (selection.kind === "project" && incoming ? (
           <ProjectEditor
             workspaceId={board.workspace.id}
@@ -888,25 +802,22 @@ function WorkspaceBoard({
             path={projectPath}
             hasTasks={board.tasks.some((task) => task.project_id === projectId)}
             onDirty={setUnsaved}
-            saved={(item) => saved("project", item)}
+            saved={savedProject}
             close={() => choose(null)}
           />
         ) : selection.kind === "milestone" ? (
-          <MilestoneEditor
-            key={`${selection.id ?? "new"}:${params.milestoneRevision ?? "latest"}`}
-            incoming={incoming as Milestone | undefined}
+          <MilestoneDetail
+            key={`${selection.id}:${params.milestoneRevision ?? "latest"}`}
+            milestone={incoming as Milestone}
             latest={selectedMilestone}
             historical={!!params.milestoneRevision}
             path={path}
-            onDirty={setUnsaved}
-            saved={(item) => saved("milestone", item)}
             close={() => choose(null)}
           />
         ) : incoming && selectedProject ? (
           <TaskDetail
             key={selection.id}
             task={incoming as Task}
-            path={projectPath}
             board={
               {
                 ...board,
@@ -925,27 +836,10 @@ function WorkspaceBoard({
               } as Board
             }
             setUnsaved={setUnsaved}
-            saved={(item) => saved("task", item)}
             close={() => choose(null)}
             openTask={(id) => choose({ kind: "task", id })}
-            priorityControls={
-              <TaskPriority
-                task={incoming as Task}
-                busy={prioritizing}
-                prioritize={prioritize}
-              />
-            }
           />
-        ) : (
-          <NewTask
-            key={selection.id ?? "new"}
-            defaultProjectId={projectFilter}
-            board={board}
-            setUnsaved={setUnsaved}
-            saved={(item) => saved("task", item)}
-            close={() => choose(null)}
-          />
-        ))}
+        ) : null)}
     </>
   );
   return (
@@ -1009,7 +903,7 @@ function WorkspaceBoard({
         </div>
         <TabsContent
           value={view}
-          className={`workspace-work-content ${!projectsView && !documentsView && !archive ? "workspace-task-board" : ""}`}
+          className={`${documentsView && params.documentId ? "workspace-detail-content " : ""}workspace-work-content ${!projectsView && !documentsView && !archive ? "workspace-task-board" : ""}`}
           hidden={!!taskRef || !!params.milestoneId}
         >
           {!projectsView && !documentsView && (
@@ -1083,27 +977,6 @@ function WorkspaceBoard({
                     Project settings
                   </Button>
                 )}
-                {!archive && !showInbox && (
-                  <>
-                    <Button
-                      size="sm"
-                      onClick={() => choose({ kind: "milestone" })}
-                    >
-                      <Plus />
-                      New milestone
-                    </Button>
-                    {!milestonesView && (
-                      <Button
-                        size="sm"
-                        disabled={!board.projects.length}
-                        onClick={() => choose({ kind: "task" })}
-                      >
-                        <Plus />
-                        New task
-                      </Button>
-                    )}
-                  </>
-                )}
               </div>
             </div>
           )}
@@ -1117,6 +990,7 @@ function WorkspaceBoard({
             <Documents
               key={workspaceId}
               workspaceId={workspaceId}
+              close={() => closeEntity(`${base}/documents`)}
               identity={params.documentId}
               revision={params.documentRevision}
               pathname={pathname}
@@ -1124,7 +998,6 @@ function WorkspaceBoard({
               refresh={refresh}
               onDirty={setUnsaved}
               navigate={changeLocation}
-              close={() => closeEntity(base + "/documents")}
               publishView={publishView}
             />
           ) : milestonesView ? (
@@ -1178,40 +1051,9 @@ function WorkspaceBoard({
                         .sort(compareTasks);
                       return (
                         <section
-                          className={`column ${column} ${dropTarget?.status === column && dropTarget.before === null ? "drop-at-end" : ""}`}
+                          className={`column ${column}`}
                           aria-label={label(column)}
                           key={column}
-                          onDragOver={(e) => {
-                            if (
-                              !dragged ||
-                              archive ||
-                              !isUpcoming(column) ||
-                              prioritizing
-                            )
-                              return;
-                            e.preventDefault();
-                            e.dataTransfer.dropEffect = "move";
-                            setDropTarget({ status: column, before: null });
-                          }}
-                          onDrop={(e) => {
-                            if (!dragged || archive || !isUpcoming(column))
-                              return;
-                            e.preventDefault();
-                            if (dropTarget?.before === dragged.key) {
-                              setDragged(null);
-                              setDropTarget(null);
-                              return;
-                            }
-                            void prioritize(
-                              dragged,
-                              column,
-                              dropTarget?.status === column
-                                ? dropTarget.before
-                                : null,
-                            );
-                            setDragged(null);
-                            setDropTarget(null);
-                          }}
                         >
                           <h2>
                             {label(column)}
@@ -1242,52 +1084,7 @@ function WorkspaceBoard({
                             aria-label={`${label(column)} tasks`}
                           >
                             {tasks.map((task) => (
-                              <div
-                                className={`card-shell ${dragged?.key === task.key ? "dragging" : ""} ${dropTarget?.before === task.key ? "drop-before" : ""}`}
-                                key={task.key}
-                                draggable={
-                                  !archive &&
-                                  isUpcoming(column) &&
-                                  !prioritizing
-                                }
-                                onDragStart={(e) => {
-                                  setDragged(task);
-                                  e.dataTransfer.effectAllowed = "move";
-                                  e.dataTransfer.setData(
-                                    "text/plain",
-                                    task.key,
-                                  );
-                                }}
-                                onDragEnd={() => {
-                                  setDragged(null);
-                                  setDropTarget(null);
-                                }}
-                                onDragOver={(e) => {
-                                  if (
-                                    !dragged ||
-                                    archive ||
-                                    !isUpcoming(column) ||
-                                    prioritizing
-                                  )
-                                    return;
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  e.dataTransfer.dropEffect = "move";
-                                  const bounds =
-                                    e.currentTarget.getBoundingClientRect();
-                                  const upcoming = activeTasks
-                                    .filter((t) => t.status === column)
-                                    .sort(compareTasks);
-                                  const index = upcoming.findIndex(
-                                    (t) => t.key === task.key,
-                                  );
-                                  const before =
-                                    e.clientY < bounds.top + bounds.height / 2
-                                      ? task.key
-                                      : (upcoming[index + 1]?.key ?? null);
-                                  setDropTarget({ status: column, before });
-                                }}
-                              >
+                              <div className="card-shell" key={task.key}>
                                 <WorkCard
                                   selected={
                                     selection?.id === task.key &&
@@ -1416,18 +1213,8 @@ function WorkspaceBoard({
         ) : (
           selection && (
             <EntityOverlay
-              identity={`${selection.kind}:${selection.id ?? "new"}`}
-              title={
-                selection.kind === "task"
-                  ? selection.id
-                    ? "Task details"
-                    : "New task"
-                  : selection.kind === "milestone"
-                    ? selection.id
-                      ? "Edit milestone"
-                      : "New milestone"
-                    : "Project details"
-              }
+              identity={`${selection.kind}:${selection.id}`}
+              title="Project details"
               suspended={!!params.overlayQuestionId}
               close={() => choose(null)}
             >
@@ -1465,7 +1252,6 @@ function WorkspaceBoard({
         >
           <WorkspaceEditor
             incoming={board.workspace}
-            refresh={() => setRetry((value) => value + 1)}
             onDirty={setUnsaved}
             saved={(workspace) => {
               invalidate();

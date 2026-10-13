@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, FileText, Plus } from "lucide-react";
+import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { components } from "./api-schema";
 import type { AdjacentSnapshot } from "./AdjacentView";
-import { ContentStack, DetailHeading } from "./DetailLayout";
-import { ConfirmButton } from "./ConfirmButton";
-import { EntityOverlay } from "./EntityOverlay";
+import { ContentStack } from "./DetailLayout";
+import { EntityPane } from "./EntityOverlay";
 import { DetailHeader } from "./Presentation";
 import { Markdown, MarkdownField } from "./Markdown";
 import { RevisionHistory } from "./RevisionHistory";
@@ -34,8 +33,8 @@ export function Documents({
   refresh,
   onDirty,
   navigate,
-  close,
   publishView,
+  close,
 }: {
   workspaceId: string;
   identity?: string;
@@ -50,9 +49,8 @@ export function Documents({
 }) {
   const base = `${workspaceHref(workspaceId)}/documents`;
   const path = `workspaces/${workspaceId}/documents`;
-  const isNew = identity === "new";
   const latest = useResource<Document>(
-    identity && !isNew ? `${path}/${identity}` : null,
+    identity ? `${path}/${identity}` : null,
     refresh,
   );
   const historical = useResource<Document>(
@@ -60,16 +58,15 @@ export function Documents({
     refresh,
   );
   const document = revision ? historical.data : latest.data;
-  const view =
-    identity && !isNew
-      ? document
-        ? {
-            surface: "document" as const,
-            document_id: document.id,
-            document_revision: document.revision,
-          }
-        : null
-      : { surface: "documents" as const };
+  const view = identity
+    ? document
+      ? {
+          surface: "document" as const,
+          document_id: document.id,
+          document_revision: document.revision,
+        }
+      : null
+    : { surface: "documents" as const };
   const contextKey = JSON.stringify(view);
   useEffect(() => {
     publishView({
@@ -81,97 +78,85 @@ export function Documents({
           : { view: JSON.parse(contextKey), task: null },
     });
   }, [workspaceId, pathname, contextKey, publishView]);
-  return (
-    <section className="setup-page documents-page" aria-label="Documents">
-      <ContentStack space="section" className="collection-layout">
-        {!identity || isNew ? (
+  if (!identity)
+    return (
+      <section className="setup-page documents-page" aria-label="Documents">
+        <ContentStack space="section" className="collection-layout">
           <DocumentList
             path={path}
             base={base}
             refresh={refresh}
             projects={projects}
           />
-        ) : (
-          <>
-            {document && latest.data ? (
-              <DocumentEditor
-                key={`${identity}:${revision ?? "current"}`}
-                close={() => navigate(base)}
-                projects={projects}
-                workspaceId={workspaceId}
-                incoming={document ?? undefined}
-                latest={latest.data ?? undefined}
-                historical={!!revision}
-                path={path}
-                base={base}
-                onDirty={onDirty}
-                read={async () => {
-                  const fresh = await request<Document>(`${path}/${identity}`);
-                  latest.invalidate();
-                  latest.setData(fresh);
-                  return revision ? document! : fresh;
-                }}
-                saved={(value, method) => {
-                  if (method !== "GET") {
-                    latest.invalidate();
-                    latest.setData(value);
-                    historical.invalidate();
-                    historical.setData(value);
-                    navigate(
-                      value.deleted_at ? base : `${base}/${value.id}`,
-                      true,
-                    );
-                  }
-                }}
-              />
-            ) : (
-              <ContentStack>
-                <p role={latest.error || historical.error ? "alert" : "status"}>
-                  {latest.error || historical.error || "Loading document…"}
-                </p>
-                {(latest.error || historical.error) && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      latest.retry();
-                      historical.retry();
-                    }}
-                  >
-                    Retry document
-                  </Button>
-                )}
-              </ContentStack>
-            )}
-          </>
-        )}
-      </ContentStack>
-      {isNew && (
-        <EntityOverlay
-          title="New document"
-          identity="new-document"
+        </ContentStack>
+      </section>
+    );
+  return (
+    <EntityPane
+      label="Document details"
+      identity={`${identity}:${revision ?? "current"}`}
+      close={close}
+      returnFocusHref={`${base}/${identity}`}
+    >
+      {document && latest.data ? (
+        <DocumentEditor
+          key={`${identity}:${revision ?? "current"}`}
+          incoming={document}
+          latest={latest.data}
+          historical={!!revision}
+          workspaceId={workspaceId}
+          projects={projects}
+          path={path}
+          base={base}
+          onDirty={onDirty}
           close={close}
-        >
-          <DocumentEditor
-            historical={false}
-            path={path}
-            base={base}
-            onDirty={onDirty}
+          read={async () => {
+            const fresh = await request<Document>(`${path}/${identity}`);
+            latest.invalidate();
+            latest.setData(fresh);
+            return revision ? document : fresh;
+          }}
+          saved={(value, method) => {
+            if (method !== "GET") {
+              latest.invalidate();
+              latest.setData(value);
+              historical.invalidate();
+              historical.setData(value);
+              if (revision) navigate(`${base}/${value.id}`, true);
+            }
+          }}
+        />
+      ) : (
+        <section className="editor">
+          <DetailHeader
+            title={
+              latest.error || historical.error
+                ? "Could not load document"
+                : "Loading document…"
+            }
             close={close}
-            read={async () => {
-              throw new Error("No document yet");
-            }}
-            saved={(value) => {
-              onDirty(false);
-              navigate(base + "/" + value.id, true);
-            }}
+            closeLabel="Back"
           />
-        </EntityOverlay>
+          {(latest.error || historical.error) && (
+            <ContentStack>
+              <p role="alert">{latest.error || historical.error}</p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  latest.retry();
+                  historical.retry();
+                }}
+              >
+                Retry document
+              </Button>
+            </ContentStack>
+          )}
+        </section>
       )}
-    </section>
+    </EntityPane>
   );
 }
-
 function DocumentList({
   path,
   base,
@@ -190,15 +175,7 @@ function DocumentList({
   );
   return (
     <>
-      <div className="actions justify-end">
-        <h2 className="sr-only">Documents</h2>
-        <Button size="sm" asChild>
-          <WorkspaceLink to={`${base}/new`}>
-            <Plus />
-            New document
-          </WorkspaceLink>
-        </Button>
-      </div>
+      <h2 className="sr-only">Documents</h2>
       {resource.error && (
         <Button size="sm" variant="outline" onClick={resource.retry}>
           Retry documents
@@ -268,20 +245,20 @@ function DocumentEditor({
   incoming,
   latest,
   historical,
+  workspaceId,
+  projects,
   path,
   base,
   onDirty,
   saved,
   read,
   close,
-  projects = [],
-  workspaceId,
 }: {
-  projects?: Project[];
-  workspaceId?: string;
-  incoming?: Document;
-  latest?: Document;
+  incoming: Document;
+  latest: Document;
   historical: boolean;
+  workspaceId: string;
+  projects: Project[];
   path: string;
   base: string;
   onDirty: (value: boolean) => void;
@@ -296,7 +273,7 @@ function DocumentEditor({
     saved,
     read,
     recordName: "document",
-    path: (record) => path + (record ? `/${record.id}` : ""),
+    path: (record) => `${path}/${record!.id}`,
   });
   const {
     loaded,
@@ -309,30 +286,50 @@ function DocumentEditor({
     element: editor,
     cancel,
   } = state;
+  const selected = loaded!;
   return (
     <section
       ref={editor}
-      className={`document-layout ${loaded ? "" : "document-new editor"}`}
-      aria-label={loaded ? "Document" : "New document"}
+      className="editor documents-page"
+      aria-label="Document"
     >
-      <ContentStack space="section" className="document-content">
-        {!loaded && <DetailHeader title="New document" close={close} />}
-        {loaded && (
-          <div className="document-heading">
-            <Button
-              size="icon-sm"
-              variant="outline"
-              aria-label="Back to documents"
-              onClick={close}
-            >
-              <ArrowLeft />
-            </Button>
-            <DetailHeading
-              title={loaded?.title ?? "New document"}
-              titleAs="h2"
-            />
-            {loaded && !historical && !editing && !loaded.deleted_at && (
-              <div className="actions">
+      <DetailHeader
+        title={selected.title}
+        close={close}
+        closeLabel="Back"
+        actions={
+          <div className="actions justify-end">
+            {historical || selected.deleted_at ? (
+              <>
+                <Button size="sm" variant="outline" asChild>
+                  <WorkspaceLink to={`${base}/${selected.id}`}>
+                    Current document
+                  </WorkspaceLink>
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={
+                    busy ||
+                    (!selected.deleted_at &&
+                      latest.revision === selected.revision)
+                  }
+                  onClick={() =>
+                    void state.run(
+                      "POST",
+                      {
+                        expected_revision: latest.revision,
+                        revision: selected.revision,
+                        author: "human",
+                      },
+                      "/restore",
+                    )
+                  }
+                >
+                  Restore this revision
+                </Button>
+              </>
+            ) : (
+              !editing && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -340,34 +337,22 @@ function DocumentEditor({
                 >
                   Edit document
                 </Button>
-                {loaded.id !== "guidance" && (
-                  <ConfirmButton
-                    size="sm"
-                    variant="outline"
-                    title="Delete document?"
-                    description="Remove this document from the list? Past revisions and prepared worker context are retained."
-                    action={() =>
-                      void state.run("DELETE", {
-                        expected_revision: loaded.revision,
-                        author: "human",
-                      })
-                    }
-                  >
-                    Delete document
-                  </ConfirmButton>
-                )}
-              </div>
+              )
             )}
           </div>
-        )}
-        {loaded && workspaceId && (
+        }
+      />
+      <div className="document-layout">
+        <ContentStack space="section" className="document-content">
           <div className="document-projects">
             Projects:{" "}
             {projects
               .filter(
                 (project) =>
-                  loaded.id === "guidance" ||
-                  project.worker_documents.some((ref) => ref.id === loaded.id),
+                  selected.id === "guidance" ||
+                  project.worker_documents.some(
+                    (ref) => ref.id === selected.id,
+                  ),
               )
               .map((project, index) => (
                 <span key={project.id}>
@@ -381,87 +366,51 @@ function DocumentEditor({
               ))}
             {!projects.some(
               (project) =>
-                loaded.id === "guidance" ||
-                project.worker_documents.some((ref) => ref.id === loaded.id),
+                selected.id === "guidance" ||
+                project.worker_documents.some((ref) => ref.id === selected.id),
             ) && <span>None</span>}
           </div>
-        )}
-        <EditorFeedback state={state} />
-        {(historical || loaded?.deleted_at) && latest && loaded ? (
-          <ContentStack>
-            {loaded.deleted_at && (
-              <p role="status">
-                This document was deleted. Restore a revision to use it again.
-              </p>
-            )}
-            <div className="actions justify-end">
-              <Button size="sm" variant="outline" asChild>
-                <WorkspaceLink to={`${base}/${loaded.id}`}>
-                  Current document
-                </WorkspaceLink>
-              </Button>
-              <Button
-                size="sm"
-                disabled={
-                  busy ||
-                  (!loaded.deleted_at && latest.revision === loaded.revision)
-                }
-                onClick={() =>
-                  void state.run(
-                    "POST",
-                    {
-                      expected_revision: latest.revision,
-                      revision: loaded.revision,
-                      author: "human",
-                    },
-                    "/restore",
-                  )
-                }
-              >
-                Restore this revision
-              </Button>
-            </div>
-          </ContentStack>
-        ) : null}
-        {!historical && !loaded?.deleted_at && editing ? (
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void state.run(loaded ? "PUT" : "POST", {
-                ...values,
-                ...(loaded ? { expected_revision: loaded.revision } : {}),
-                author: "human",
-              });
-            }}
-          >
-            <fieldset
-              disabled={busy}
-              className="content-stack"
-              data-space="section"
+          <EditorFeedback state={state} />
+          {selected.deleted_at && (
+            <p role="status">
+              This document was deleted. Restore a revision to use it again.
+            </p>
+          )}
+          {!historical && !selected.deleted_at && editing ? (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void state.run("PUT", {
+                  ...values,
+                  expected_revision: selected.revision,
+                  author: "human",
+                });
+              }}
             >
-              <Label className="field block">
-                Document title
-                <Input
-                  required
-                  maxLength={200}
-                  value={values.title}
-                  onChange={(event) => change("title", event.target.value)}
+              <fieldset
+                disabled={busy}
+                className="content-stack"
+                data-space="section"
+              >
+                <Label className="field block">
+                  Document title
+                  <Input
+                    required
+                    maxLength={200}
+                    value={values.title}
+                    onChange={(event) => change("title", event.target.value)}
+                  />
+                </Label>
+                <MarkdownField
+                  label="Content"
+                  rows={16}
+                  value={values.body}
+                  onChange={(value) => change("body", value)}
                 />
-              </Label>
-              <MarkdownField
-                label="Content"
-                rows={16}
-                value={values.body}
-                onChange={(value) => change("body", value)}
-              />
-              <div className="actions justify-end">
-                <Button
-                  size="sm"
-                  disabled={!values.title.trim() || (!!loaded && !dirty)}
-                >
-                  {loaded ? "Save document" : "Create document"}
-                </Button>
-                {loaded && (
+                <div className="actions justify-end">
+                  <Button size="sm" disabled={!values.title.trim() || !dirty}>
+                    Save document
+                  </Button>
                   <Button
                     type="button"
                     size="sm"
@@ -470,30 +419,26 @@ function DocumentEditor({
                   >
                     Cancel
                   </Button>
-                )}
-              </div>
-            </fieldset>
-          </form>
-        ) : (
-          <>
+                </div>
+              </fieldset>
+            </form>
+          ) : (
             <Markdown>
-              {loaded?.body ||
-                (loaded?.id === "guidance"
+              {selected.body ||
+                (selected.id === "guidance"
                   ? "No shared guidance yet. Write it here or discuss it with the Coordinator."
                   : "This document is empty.")}
             </Markdown>
-          </>
-        )}
-      </ContentStack>
-      {loaded && (
+          )}
+        </ContentStack>
         <RevisionHistory
-          key={loaded.id}
-          path={`${path}/${loaded.id}`}
-          href={`${base}/${loaded.id}`}
-          revision={latest?.revision ?? loaded.revision}
-          selected={loaded.revision}
+          key={selected.id}
+          path={`${path}/${selected.id}`}
+          href={`${base}/${selected.id}`}
+          revision={latest.revision}
+          selected={selected.revision}
         />
-      )}
+      </div>
     </section>
   );
 }

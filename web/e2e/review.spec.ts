@@ -212,7 +212,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
     });
     await expect(
       footer.getByRole("button", { name: "Archive", exact: true }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await footer.getByRole("button", { name: action, exact: true }).click();
     await expect(
       page.getByText("Code and check output were kept.", { exact: false }),
@@ -1150,7 +1150,7 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   await expect(recovery).toBeVisible();
   await expect(
     actions.getByRole("button", { name: "Archive", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(recovery.getByRole("link")).toHaveCount(0);
   const taskPath = "/api/projects/outcome-checks/tasks/work";
   const originalTask = await (await request.get(taskPath)).json();

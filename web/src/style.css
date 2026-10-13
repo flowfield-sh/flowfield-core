@@ -249,10 +249,15 @@
   }
   .editor-heading {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
     gap: 16px;
+  }
+  .editor-heading-actions {
+    margin-inline-start: auto;
+    max-width: 100%;
   }
   .editor-heading h2 {
     margin: 0;
@@ -311,35 +316,12 @@
     }
   }
 
-  /* Priority belongs to upcoming work; execution columns reflect recorded progress. */
   .card-shell {
     position: relative;
     border-radius: 0.6rem;
   }
   .card-shell .task-card {
     width: 100%;
-  }
-  .card-shell[draggable="true"] > .task-card {
-    cursor: grab;
-  }
-  .card-shell.dragging {
-    opacity: 0.45;
-  }
-  .card-shell.drop-before::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: -0.4rem;
-    border-top: 3px solid var(--muted-foreground);
-  }
-  .column.drop-at-end::after {
-    content: "Drop at end";
-    display: block;
-    border-top: 3px solid var(--muted-foreground);
-    padding: 0.5rem;
-    color: var(--muted-foreground);
-    font-size: 0.8rem;
   }
   .archive-list {
     min-width: 0;
@@ -421,6 +403,12 @@
     display: none;
   }
 
+  .reference-link {
+    font-size: 12px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
   .markdown {
     font-size: 0.875rem;
     overflow-wrap: anywhere;
@@ -440,6 +428,18 @@
   }
   .markdown > :last-child {
     margin-bottom: 0;
+  }
+  .markdown ul {
+    list-style-type: disc;
+  }
+  .markdown ol {
+    list-style-type: decimal;
+  }
+  .markdown ul ul {
+    list-style-type: circle;
+  }
+  .markdown ul ul ul {
+    list-style-type: square;
   }
   .markdown ul,
   .markdown ol {

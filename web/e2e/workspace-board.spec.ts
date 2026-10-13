@@ -117,35 +117,20 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
     page.getByRole("textbox", { name: "Message coordinator", exact: true }),
   ).toHaveValue("Coordinate the release");
   await page.getByLabel("Filter by project").selectOption("");
-  await page.getByRole("button", { name: "New task", exact: true }).click();
-  await page.getByLabel("Title", { exact: true }).fill("New site work");
   await expect(
-    page.getByRole("button", { name: "Create task", exact: true }),
-  ).toBeDisabled();
-  await page.getByLabel("Project", { exact: true }).selectOption("board-site");
-  await page.getByRole("button", { name: "Create task", exact: true }).click();
-  await expect(page).toHaveURL(/\/projects\/board-site\/tasks\/BST-2$/);
-  await page
-    .getByRole("button", { name: "Back to board", exact: true })
-    .click();
-  const coreCard = page.locator(".card-shell").filter({
-    has: page.getByRole("link", { name: "BCR-1 Core release", exact: true }),
-  });
-  const siteCard = page.locator(".card-shell").filter({
-    has: page.getByRole("link", { name: "BST-1 Site release", exact: true }),
-  });
-  await siteCard.dragTo(coreCard, { targetPosition: { x: 20, y: 4 } });
-  await expect
-    .poll(async () => {
-      const board = await (await request.get(`/api${base}/view/board`)).json();
-      return board.tasks
-        .sort(
-          (a: { position: number }, b: { position: number }) =>
-            a.position - b.position,
-        )
-        .map((task: { key: string }) => task.key);
-    })
-    .toEqual(["BST-1", "BCR-1", "BST-2"]);
+    page.getByRole("button", { name: "New task", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.locator('.card-shell[draggable="true"]')).toHaveCount(0);
+  expect(
+    (
+      await request.post("/api/projects/board-site/tasks", {
+        data: { title: "New site work", stages: fixtureStages() },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  await expect(
+    page.getByRole("link", { name: "BST-2 New site work", exact: true }),
+  ).toBeVisible();
   await page.getByRole("tab", { name: /^Milestones/ }).click();
   await expect(
     page.getByText("0 of 2 tasks done", { exact: true }),

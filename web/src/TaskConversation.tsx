@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
   Fragment,
-  type ReactNode,
 } from "react";
 import { useParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +16,7 @@ import { Composer } from "./Composer";
 import { AgentSettingsControl } from "./AgentSettings";
 import { choiceLabel } from "./HarnessModels";
 import { ArrowUp } from "lucide-react";
-import { ContentStack, DetailHeading } from "./DetailLayout";
+import { Disclosure, ContentStack, DetailHeading } from "./DetailLayout";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
 import { request, type Task, type Board } from "./workspace";
@@ -80,12 +79,12 @@ export function StageHeader({
     <>
       <ResourceRetry resources={[plan]} />
       {!!plan.data?.stages.length && (
-        <div>
+        <Disclosure summary="Stages">
           <StageSequence stages={plan.data.stages} label="Task stages" />
           {plan.data.agreement_revision !== task.agreement_revision && (
             <p className="muted">Update stages to match the task.</p>
           )}
-        </div>
+        </Disclosure>
       )}
     </>
   );
@@ -97,7 +96,6 @@ export function TaskConversation({
   board,
   refresh,
   onDirty,
-  taskActions,
   onSettingsDirty,
 }: {
   projectId: string;
@@ -105,7 +103,6 @@ export function TaskConversation({
   board: Board;
   refresh: unknown;
   onDirty: (dirty: boolean) => void;
-  taskActions: ReactNode;
   onSettingsDirty: (dirty: boolean) => void;
 }) {
   const route = useParams();
@@ -877,7 +874,6 @@ export function TaskConversation({
                 refresh={tick}
                 changed={() => setRevision((n) => n + 1)}
               />
-              {taskActions}
             </div>
           </form>
         </OverlayFooter>

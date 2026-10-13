@@ -39,17 +39,17 @@ test("CLI adoption updates the browser, task creation and initial connection rec
     .click();
   const workspace = await projectWorkspace(request, adopted.id);
   await expect(page).toHaveURL(`/workspaces/${workspace}`);
-  await page.getByRole("button", { name: "New task", exact: true }).click();
-  await page
-    .getByRole("textbox", { name: "Title", exact: true })
-    .fill("Investigate large exports");
-  await page.getByRole("button", { name: "Choose labels" }).click();
-  await page
-    .getByRole("checkbox", { name: "Investigation", exact: true })
-    .click();
-  await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Create task", exact: true }).click();
-  await page.getByRole("button", { name: "Back to board" }).click();
+  expect(
+    (
+      await request.post(`/api/projects/${adopted.id}/tasks`, {
+        data: {
+          title: "Investigate large exports",
+          labels: ["investigation"],
+          stages: fixtureStages(),
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
   await expect(
     page
       .getByRole("region", {
@@ -150,30 +150,16 @@ test("milestones group tasks with linked details and long project intent stays o
   await badge.click();
   await expect(page).toHaveURL(`/workspaces/${workspace_id}/milestones/M-1`);
   await expect(page.locator(".board")).not.toBeVisible();
-  await page
-    .getByRole("button", { name: "Edit milestone", exact: true })
-    .click();
-  const editor = page.getByRole("region", {
-    name: "Milestone",
-    exact: true,
-  });
-  await expect(editor.getByLabel("Description", { exact: true })).toHaveValue(
-    "Deliver a useful export.",
-  );
-  await editor
-    .getByLabel("Description", { exact: true })
-    .fill("Preserved milestone draft");
+  const editor = page.getByRole("region", { name: "Milestone", exact: true });
   await expect(
-    page.getByRole("tablist", { name: "Workspace views" }),
+    editor.getByText("Deliver a useful export.", { exact: true }),
   ).toBeVisible();
-  await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Keep editing", exact: true }).click();
-  await expect(editor.getByLabel("Description", { exact: true })).toHaveValue(
-    "Preserved milestone draft",
-  );
-  await editor
-    .getByRole("button", { name: "Save changes", exact: true })
-    .click();
+  await expect(editor.getByRole("textbox")).toHaveCount(0);
+  await call("edit_milestone", {
+    workspace_id,
+    milestone_id: "export",
+    changes: { expected_revision: 1, body: "Preserved milestone draft" },
+  });
   await page.reload();
   await expect(
     page.getByRole("region", { name: "Milestone details", exact: true }),

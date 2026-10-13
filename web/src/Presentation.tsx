@@ -71,8 +71,8 @@ export function DetailHeader({
         {closeLabel.startsWith("Back") && (
           <CloseControl label={closeLabel} close={close} />
         )}
-        <h2 className="min-w-0 flex-1">{title}</h2>
-        {actions}
+        <h2 className="min-w-0 flex-1 basis-44">{title}</h2>
+        {actions && <div className="editor-heading-actions">{actions}</div>}
         {!closeLabel.startsWith("Back") && (
           <CloseControl label={closeLabel} close={close} />
         )}

@@ -36,6 +36,10 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   await expect(
     page.getByRole("heading", { name: "Working together", exact: true }),
   ).toBeVisible();
+  await expect(page.locator(".markdown ul").first()).toHaveCSS(
+    "list-style-type",
+    "disc",
+  );
   await page
     .getByRole("button", { name: "Save document", exact: true })
     .click();
@@ -92,16 +96,18 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   expect(restored.body).toBe(guidance.body);
   await page.getByRole("tab", { name: /^Documents/ }).click();
   await expect(page).toHaveURL(`${base}/documents`);
-  await page.getByRole("link", { name: "New document", exact: true }).click();
-  await page.getByLabel("Document title", { exact: true }).fill("Architecture");
-  await page
-    .getByRole("textbox", { name: "Content", exact: true })
-    .fill(
-      `[Shared conventions](${base}/documents/guidance)\n\nCore owns the service. Site owns the public website.`,
-    );
-  await page
-    .getByRole("button", { name: "Create document", exact: true })
-    .click();
+  await expect(
+    page.getByRole("link", { name: "New document", exact: true }),
+  ).toHaveCount(0);
+  const doc = await (
+    await request.post(`/api${base}/documents`, {
+      data: {
+        title: "Architecture",
+        body: `[Shared conventions](${base}/documents/guidance)\n\nCore owns the service. Site owns the public website.`,
+      },
+    })
+  ).json();
+  await page.goto(`${base}/documents/${doc.id}`);
   await expect(
     page.getByRole("heading", { name: "Architecture", exact: true }),
   ).toBeVisible();

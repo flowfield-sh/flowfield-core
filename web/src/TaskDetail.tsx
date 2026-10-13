@@ -1,8 +1,7 @@
-import { reportError } from "./requestFeedback";
-import { useEffect, useState, useRef, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
-import { TaskLabelEditor } from "./TaskLabelEditor";
-import { WorkerDocumentEvidence } from "./WorkerDocuments";
+import { TaskLabels } from "./TaskLabels";
+import { TaskDocuments } from "./TaskDocuments";
 import { DetailHeader, DraftBadge } from "./Presentation";
 import { MilestoneBadge } from "./MilestoneBadge";
 import { WorkspaceLink } from "./WorkspaceLink";
@@ -11,71 +10,27 @@ import { ExpandableMarkdown } from "./ExpandableMarkdown";
 import { BlockedBy } from "./TaskLinks";
 import { TaskNeeds, TaskState, hasTaskNeeds } from "./TaskNeeds";
 import { TaskConversation, StageHeader } from "./TaskConversation";
-import { Button } from "@/components/ui/button";
-import { ActionTooltip } from "./ActionTooltip";
-import { ConfirmButton } from "./ConfirmButton";
 import { AgentPermissions } from "./AgentPermissions";
-import { label, request, type Board, type Task } from "./workspace";
+import { label, type Board, type Task } from "./workspace";
 export function TaskDetail({
   task,
   board,
-  path,
   setUnsaved,
-  saved,
   close,
   openTask,
-  priorityControls,
 }: {
   task: Task;
   board: Board;
-  path: string;
   setUnsaved: (dirty: boolean) => void;
-  saved: (task: Task) => void;
   close: () => void;
   openTask: (id: string) => void;
-  priorityControls: ReactNode;
 }) {
-  const alive = useRef(true);
-  useEffect(() => {
-    alive.current = true;
-    return () => {
-      alive.current = false;
-    };
-  }, []);
   const [dirty, setDirty] = useState(false);
-  const [labelDirty, setLabelDirty] = useState(false);
   const [settingsDirty, setSettingsDirty] = useState(false);
-  const [busy, setBusy] = useState(false);
   useEffect(() => {
-    setUnsaved(dirty || settingsDirty || labelDirty);
+    setUnsaved(dirty || settingsDirty);
     return () => setUnsaved(false);
-  }, [dirty, settingsDirty, labelDirty, setUnsaved]);
-  const archiveReason = dirty
-    ? "Send or discard your message before archiving."
-    : settingsDirty
-      ? "Save or discard worker settings before archiving."
-      : labelDirty
-        ? "Save or discard label changes before archiving."
-        : task.archive_blocker;
-  async function archive() {
-    setBusy(true);
-    try {
-      const result = await request<Task>(
-        path + "/view/tasks/" + task.id,
-        "PUT",
-        {
-          expected_revision: task.revision,
-          archived: !task.archived,
-          author: "human",
-        },
-      );
-      if (alive.current) saved(result);
-    } catch (e) {
-      if (alive.current) reportError(e, "Could not update task");
-    } finally {
-      if (alive.current) setBusy(false);
-    }
-  }
+  }, [dirty, settingsDirty, setUnsaved]);
   return (
     <section className="editor task-detail">
       <DetailHeader
@@ -84,43 +39,17 @@ export function TaskDetail({
             <WorkspaceLink to={projectHref(board.project.id)}>
               {board.project.name}
             </WorkspaceLink>
-            {" · " + task.key + " · " + task.title}
+            {" / "}
+            <span className="task-heading-key">{task.key}</span> {task.title}
           </>
         }
         close={close}
         closeLabel="Back to board"
       >
-        <div className="task-conversation-header content-stack">
+        <ContentStack className="task-conversation-header">
           <div className="actions task-references" aria-label="Task references">
-            <MilestoneBadge
-              projectId={board.project.id}
-              milestone={board.milestones.find(
-                (m) => m.id === task.milestone_id,
-              )}
-            />
-            <DraftBadge publicationStatus={task.publication_status} />
-            {task.publication?.milestone && (
-              <WorkspaceLink
-                className="detail-metadata"
-                to={`/workspaces/${task.publication.milestone.workspace_id}/milestones/${task.publication.milestone.key}/revisions/${task.publication.milestone.revision}`}
-              >
-                Prepared with revision {task.publication.milestone.revision}
-              </WorkspaceLink>
-            )}
-            <WorkerDocumentEvidence
-              compact
-              documents={task.publication?.documents ?? []}
-              updates={task.document_updates}
-            />
-            <TaskLabelEditor
-              task={task}
-              path={path}
-              onDirty={setLabelDirty}
-              saved={saved}
-            />
-          </div>
-          <div className="actions task-progress">
             <TaskState
+              sourceUpdates={false}
               projectId={board.project.id}
               open={openTask}
               task={{
@@ -132,13 +61,23 @@ export function TaskDetail({
                 },
               }}
             />
-            <StageHeader
-              projectId={board.project.id}
-              task={task}
-              refresh={board}
+            <MilestoneBadge
+              milestone={
+                task.publication?.milestone ??
+                board.milestones.find((m) => m.id === task.milestone_id)
+              }
+              preparedRevision={task.publication?.milestone?.revision}
+              changed={!!task.milestone_update}
             />
+            <DraftBadge publicationStatus={task.publication_status} />
+            <TaskDocuments documents={task.publication?.documents ?? []} />
           </div>
-        </div>
+          {!!task.labels.length && (
+            <div className="entity-labels task-classifications">
+              <TaskLabels ids={task.labels} />
+            </div>
+          )}
+        </ContentStack>
       </DetailHeader>
       <ContentStack space="section" className="task-context">
         <AgentPermissions
@@ -154,6 +93,7 @@ export function TaskDetail({
             {task.body}
           </ExpandableMarkdown>
         </div>
+        <StageHeader projectId={board.project.id} task={task} refresh={board} />
         {hasTaskNeeds(task, board.pending_code[task.id], false) && (
           <DetailSection title="Waiting on">
             <TaskNeeds
@@ -201,35 +141,6 @@ export function TaskDetail({
         refresh={board}
         onDirty={setDirty}
         onSettingsDirty={setSettingsDirty}
-        taskActions={
-          <>
-            {priorityControls}
-            <ActionTooltip label={archiveReason} disabled>
-              {task.archived ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={busy || !!archiveReason}
-                  onClick={() => void archive()}
-                >
-                  Restore
-                </Button>
-              ) : (
-                <ConfirmButton
-                  size="sm"
-                  variant="outline"
-                  disabled={busy || !!archiveReason}
-                  title={`Archive ${task.key}?`}
-                  description="Remove this task from the board? Its status stays the same. Restore it from Archive anytime."
-                  action={() => void archive()}
-                >
-                  Archive
-                </ConfirmButton>
-              )}
-            </ActionTooltip>
-          </>
-        }
       />
     </section>
   );

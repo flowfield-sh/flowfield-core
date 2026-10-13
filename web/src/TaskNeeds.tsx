@@ -14,11 +14,13 @@ export function TaskState({
   projectId,
   open,
   linked = false,
+  sourceUpdates = true,
 }: {
   task: TaskCard;
   projectId: string;
   open: (id: string) => void;
   linked?: boolean;
+  sourceUpdates?: boolean;
 }) {
   return (
     <>
@@ -32,13 +34,14 @@ export function TaskState({
           />
         ) : undefined}
       </WorkState>
-      {(!!task.document_updates?.length || !!task.milestone_update) && (
-        <p className="detail-metadata">
-          {task.milestone_update
-            ? "Milestone details changed"
-            : "Newer source revision available"}
-        </p>
-      )}
+      {sourceUpdates &&
+        (!!task.document_updates?.length || !!task.milestone_update) && (
+          <p className="detail-metadata">
+            {task.milestone_update
+              ? "Milestone details changed"
+              : "Newer source revision available"}
+          </p>
+        )}
     </>
   );
 }

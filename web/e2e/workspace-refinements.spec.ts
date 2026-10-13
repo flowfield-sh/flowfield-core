@@ -9,7 +9,7 @@ import {
   existingDirectory,
 } from "./support";
 
-test("URL-backed board views, creation overlays, milestone cards and document lifecycle", async ({
+test("URL-backed board views, milestone reading and document lifecycle", async ({
   page,
   request,
   context,
@@ -138,7 +138,7 @@ test("URL-backed board views, creation overlays, milestone cards and document li
     other.getByRole("region", { name: "Task details", exact: true }),
   ).toBeVisible();
   const heading = other.getByRole("heading", {
-    name: `Core service · ${task.key} · Inspect delivery`,
+    name: `Core service / ${task.key} Inspect delivery`,
     exact: true,
   });
   await expect(heading).toBeVisible();
@@ -194,14 +194,22 @@ test("URL-backed board views, creation overlays, milestone cards and document li
   await page.screenshot({
     path: testInfo.outputPath("milestone-pane-desktop-light.png"),
   });
-  await page
-    .getByRole("button", { name: "Edit milestone", exact: true })
-    .click();
-  await expect(page.getByLabel("Title", { exact: true })).toHaveValue(
-    "Release readiness",
-  );
-  await page.getByLabel("Title", { exact: true }).fill("Release checklist");
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Edit milestone", exact: true }),
+  ).toHaveCount(0);
+  expect(
+    (
+      await request.put(`/api${base}/milestones/${milestone.id}`, {
+        data: {
+          expected_revision: milestone.revision,
+          title: "Release checklist",
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  await expect(
+    page.getByRole("heading", { name: /Release checklist/ }),
+  ).toBeVisible();
   await expect(page).toHaveURL(`${base}/milestones/${milestone.key}`);
   await page.getByRole("link", { name: "View tasks", exact: true }).click();
   await expect(page.getByLabel("Filter by milestone")).toHaveValue(
@@ -219,37 +227,27 @@ test("URL-backed board views, creation overlays, milestone cards and document li
     path: testInfo.outputPath("document-projects-desktop-light.png"),
   });
   await page.getByRole("tab", { name: /^Documents/ }).click();
-  await page.getByRole("link", { name: "New document", exact: true }).click();
-  await expect(
-    page.getByRole("dialog", { name: "New document", exact: true }),
-  ).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath("document-create-desktop-light.png"),
-  });
-  await page.getByLabel("Document title", { exact: true }).fill("Architecture");
-  await page
-    .getByRole("textbox", { name: "Content", exact: true })
-    .fill("# Overview\nCore owns the API.");
-  await page
-    .getByRole("button", { name: "Create document", exact: true })
-    .click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  const docUrl = page.url();
+  const doc = await (
+    await request.post(`/api${base}/documents`, {
+      data: { title: "Architecture", body: "# Overview\nCore owns the API." },
+    })
+  ).json();
+  const docUrl = `${base}/documents/${doc.id}`;
+  await page.goto(docUrl);
   await expect(page.getByRole("tab", { name: /^Documents/ })).toHaveText(
     "Documents 2",
   );
   await expect(page.getByText(/This is revision/)).toHaveCount(0);
-  await page
-    .getByRole("button", { name: "Delete document", exact: true })
-    .click();
-  await page
-    .getByRole("alertdialog")
-    .getByRole("button", { name: "Delete document", exact: true })
-    .click();
-  await expect(page).toHaveURL(`${base}/documents`);
-  await expect(page.getByRole("tab", { name: /^Documents/ })).toHaveText(
-    "Documents 1",
-  );
+  await expect(
+    page.getByRole("button", { name: "Delete document", exact: true }),
+  ).toHaveCount(0);
+  expect(
+    (
+      await request.delete(`/api${base}/documents/${doc.id}`, {
+        data: { expected_revision: 1 },
+      })
+    ).ok(),
+  ).toBeTruthy();
   await page.goto(docUrl);
   await expect(
     page.getByText(

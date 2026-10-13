@@ -1,4 +1,3 @@
-import { Popover } from "radix-ui";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -132,10 +131,8 @@ export function WorkerDocumentPicker({
 export function WorkerDocumentEvidence({
   documents,
   updates = [],
-  compact = false,
 }: {
   documents: Snapshot[];
-  compact?: boolean;
   updates?: components["schemas"]["DocumentUpdate"][];
 }) {
   if (!documents.length) return null;
@@ -148,19 +145,14 @@ export function WorkerDocumentEvidence({
           their saved sources.
         </p>
       )}
-      {!compact && (
-        <p className="detail-metadata">
-          {documents
-            .reduce((sum, item) => sum + item.characters, 0)
-            .toLocaleString()}{" "}
-          characters ·{" "}
-          {documents
-            .reduce((sum, item) => sum + item.bytes, 0)
-            .toLocaleString()}{" "}
-          bytes of source text. Token usage is reported separately by the
-          harness.
-        </p>
-      )}
+      <p className="detail-metadata">
+        {documents
+          .reduce((sum, item) => sum + item.characters, 0)
+          .toLocaleString()}{" "}
+        characters ·{" "}
+        {documents.reduce((sum, item) => sum + item.bytes, 0).toLocaleString()}{" "}
+        bytes of source text. Token usage is reported separately by the harness.
+      </p>
       <ul>
         {documents.map((item) => (
           <li key={item.id}>
@@ -187,26 +179,5 @@ export function WorkerDocumentEvidence({
       </ul>
     </ContentStack>
   );
-  return compact ? (
-    <Popover.Root>
-      <Popover.Trigger asChild>
-        <Button size="sm" variant="ghost">
-          Documents · {documents.length}
-        </Button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
-          align="start"
-          sideOffset={6}
-          collisionPadding={16}
-          className="composer-settings"
-          aria-label="Task documents"
-        >
-          {content}
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
-  ) : (
-    <Disclosure summary="Worker documents">{content}</Disclosure>
-  );
+  return <Disclosure summary="Worker documents">{content}</Disclosure>;
 }

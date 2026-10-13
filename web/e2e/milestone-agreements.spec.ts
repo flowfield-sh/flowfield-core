@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { expect } from "@playwright/test";
 import { test, state, fixtureStages } from "./support";
 
-test("milestone details retain history and prepared context through edits", async ({
+test("milestone reading preserves prepared revisions and renders acceptance lists", async ({
   page,
   request,
 }, testInfo) => {
@@ -17,132 +17,126 @@ test("milestone details retain history and prepared context through edits", asyn
   mkdirSync(path, { recursive: true });
   const project = await (
     await request.post(`/api${base}/projects`, {
-      data: { path, task_prefix: "AGR" },
+      data: { path, name: "fx demo", task_prefix: "FXD" },
     })
   ).json();
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto(`${base}/milestones`);
-  await page
-    .getByRole("button", { name: "New milestone", exact: true })
-    .click();
-  const editor = page.getByRole("region", {
-    name: "New milestone",
-    exact: true,
-  });
-  await editor
-    .getByLabel("Title", { exact: true })
-    .fill("Installed harness integration");
-  await editor
-    .getByLabel("Description", { exact: true })
-    .fill("Support the complete installed journey.");
-  await editor
-    .getByLabel("Acceptance criteria", { exact: true })
-    .fill("Cold installation works without a checkout.");
-  await page.screenshot({
-    path: testInfo.outputPath("milestone-editor-desktop-light.png"),
-    animations: "disabled",
-  });
-  await editor
-    .getByRole("button", { name: "Create milestone", exact: true })
-    .click();
-  await expect(editor).not.toBeVisible();
-  const milestone = (
-    await (await request.get(`/api${base}/milestones`)).json()
-  )[0];
-  const taskResponse = await request.post(`/api/projects/${project.id}/tasks`, {
+  const criteria =
+    "- Cold installation works without a checkout.\n  - Executable discovery works.\n\n1. Configure the harness.\n2. Run the smoke check.\n\n- [ ] Complete the walkthrough.";
+  const milestone = await (
+    await request.post(`/api${base}/milestones`, {
+      data: {
+        title: "Installed harness integration",
+        body: "Support the complete installed journey.",
+        acceptance_criteria: criteria,
+      },
+    })
+  ).json();
+  const response = await request.post(`/api/projects/${project.id}/tasks`, {
     data: {
-      title: "Check installed discovery",
+      title: "Verify fx discovery and setup errors",
       body: "Verify installed executable discovery.",
+      labels: ["feature"],
       milestone_id: milestone.id,
       stages: fixtureStages(),
       preparation: { completion: "report" },
     },
   });
-  expect(taskResponse.ok(), await taskResponse.text()).toBeTruthy();
-  const task = await taskResponse.json();
+  expect(response.ok(), await response.text()).toBeTruthy();
+  const task = await response.json();
   expect(task.publication.milestone.revision).toBe(1);
-  await page.goto(`${base}/milestones/${milestone.key}`);
-  const edit = page.getByRole("region", {
-    name: "Milestone",
-    exact: true,
-  });
-  await edit
-    .getByRole("button", { name: "Edit milestone", exact: true })
-    .click();
-  await edit
-    .getByLabel("Acceptance criteria", { exact: true })
-    .fill("Cold installation and offline discovery work.");
-  await edit.getByRole("button", { name: "Save changes", exact: true }).click();
-  await page.goto(`${base}/milestones/${milestone.key}`);
-  await edit.getByRole("link", { name: "Revision 1", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp("/revisions/1$"));
+  expect(
+    (
+      await request.put(`/api${base}/milestones/${milestone.id}`, {
+        data: {
+          expected_revision: 1,
+          acceptance_criteria:
+            "- Cold installation and offline discovery work.",
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`${base}/milestones/${milestone.key}/revisions/1`);
+  const pane = page.getByRole("region", { name: "Milestone", exact: true });
+  await expect(pane.getByRole("textbox")).toHaveCount(0);
   await expect(
-    edit.getByText("Cold installation works without a checkout.", {
-      exact: true,
-    }),
-  ).toBeVisible();
-  await expect(edit.getByRole("textbox")).toHaveCount(0);
-  await expect(page.locator(".three-column-board")).not.toBeVisible();
+    page.getByRole("button", { name: /Edit milestone|New milestone/ }),
+  ).toHaveCount(0);
+  await expect(
+    pane.locator(".markdown ul:not(.contains-task-list)").first(),
+  ).toHaveCSS("list-style-type", "disc");
+  await expect(pane.locator(".markdown ul ul")).toHaveCSS(
+    "list-style-type",
+    "circle",
+  );
+  await expect(pane.locator(".markdown ol")).toHaveCSS(
+    "list-style-type",
+    "decimal",
+  );
+  await expect(pane.locator(".markdown .task-list-item")).toHaveCSS(
+    "list-style-type",
+    "none",
+  );
+  const title = await page
+    .getByRole("heading", { name: /Installed harness integration/ })
+    .boundingBox();
+  const action = await page
+    .getByRole("link", { name: "View tasks", exact: true })
+    .boundingBox();
+  expect(action!.x).toBeGreaterThan(title!.x + title!.width);
   await page.screenshot({
     path: testInfo.outputPath("milestone-history-desktop-light.png"),
   });
-  await edit
-    .getByRole("link", { name: "Current milestone", exact: true })
-    .click();
-  await edit
-    .getByRole("button", { name: "Edit milestone", exact: true })
-    .click();
-  await edit.getByLabel("Title", { exact: true }).fill("Unsaved local title");
-  await edit.getByRole("link", { name: "Revision 1", exact: true }).click();
-  await page.getByRole("button", { name: "Keep editing", exact: true }).click();
-  await expect(edit.getByLabel("Title", { exact: true })).toHaveValue(
-    "Unsaved local title",
-  );
-  const update = await request.put(`/api${base}/milestones/${milestone.id}`, {
-    data: { expected_revision: 2, title: "Changed elsewhere" },
-  });
-  expect(update.ok(), await update.text()).toBeTruthy();
-  await expect(edit.getByText(/A newer revision is available/)).toBeVisible();
-  await expect(edit.getByLabel("Title", { exact: true })).toHaveValue(
-    "Unsaved local title",
-  );
-  page.once("dialog", (dialog) => dialog.accept());
-  await edit.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.goto(`/projects/${project.id}/tasks/${task.key}`);
+  const taskPane = page.getByRole("region", {
+    name: "Task details",
+    exact: true,
+  });
   await expect(
-    page.getByText("Milestone details changed", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByLabel("Current task definition", { exact: true }),
-  ).toHaveText("DefinitionVerify installed executable discovery.");
-  await expect(
-    page.getByText("Cold installation works without a checkout.", {
+    taskPane.getByRole("heading", {
+      name: "fx demo / FXD-1 Verify fx discovery and setup errors",
       exact: true,
     }),
+  ).toBeVisible();
+  await expect(
+    taskPane.getByText("Milestone details changed", { exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("link", { name: "Prepared with revision 1" }),
-  ).toHaveAttribute("href", new RegExp("/revisions/1$"));
+    taskPane.getByLabel("Current task definition", { exact: true }),
+  ).toHaveText("DefinitionVerify installed executable discovery.");
+  await expect(taskPane.locator(".task-classifications")).toHaveText("Feature");
+  await expect(
+    taskPane.getByRole("button", {
+      name: /^(Edit|Archive|Restore|Edit labels|Choose for Up next)$/,
+    }),
+  ).toHaveCount(0);
+  const badge = taskPane.getByRole("link", { name: "M-1", exact: true });
+  await expect(badge).toHaveAttribute(
+    "href",
+    `${base}/milestones/M-1/revisions/1`,
+  );
+  await badge.hover();
+  await expect(page.getByRole("tooltip")).toContainText(
+    "Prepared with revision 1.",
+  );
+  await page.keyboard.press("Escape");
   await page.screenshot({
     path: testInfo.outputPath("milestone-task-desktop-light.png"),
-    animations: "disabled",
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => localStorage.setItem("flowfield.theme", "dark"));
   await page.reload();
+  await expect(taskPane).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("milestone-task-narrow-dark.png"),
-    animations: "disabled",
   });
-  await page.goto(`${base}/milestones/${milestone.key}`);
+  await badge.click();
+  await expect(page).toHaveURL(new RegExp("/revisions/1$"));
   await expect(
-    edit.getByText("Cold installation and offline discovery work.", {
-      exact: true,
-    }),
+    pane.getByText("Cold installation works without a checkout."),
   ).toBeVisible();
   await page.screenshot({
-    path: testInfo.outputPath("milestone-editor-narrow-dark.png"),
-    animations: "disabled",
+    path: testInfo.outputPath("milestone-history-narrow-dark.png"),
   });
   await page.goto(`${base}/inbox`);
   await expect(

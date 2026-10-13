@@ -179,7 +179,7 @@ test("task keys link to persistent selections with history and draft protection"
   await page.reload();
   await expect(
     editor.getByRole("button", { name: "Restore", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await page.goto("/projects/navigation/tasks/NAV-999");
   await expect(
     page.getByRole("heading", { name: "Task not found", exact: true }),
@@ -288,7 +288,7 @@ test("task metadata and internal Markdown links stay inside the router", async (
   ).toBeVisible();
 });
 
-test("shared overlays preserve the workspace, related return paths and mobile creation", async ({
+test("shared panes preserve the workspace and related return paths on mobile", async ({
   page,
   request,
 }) => {
@@ -371,52 +371,14 @@ test("shared overlays preserve the workspace, related return paths and mobile cr
   await expect(page).toHaveURL(`/workspaces/${workspace}?milestone=group`);
   await page.getByRole("tab", { name: /^Milestones(?: \d+)?$/ }).click();
   await expect(page.locator(".three-column-board")).toBeVisible();
-  await page
-    .getByRole("button", { name: "New milestone", exact: true })
-    .click();
   await expect(
-    page.getByRole("dialog", { name: "New milestone", exact: true }),
-  ).toBeVisible();
-  await page.getByLabel("Title", { exact: true }).fill("Draft milestone");
-  // Releasing/repeating Escape cannot dismiss the confirmation opened by that key.
-  await page.keyboard.down("Escape");
-  const discard = page.getByRole("alertdialog", {
-    name: "Discard your unsaved edits?",
-  });
-  await expect(discard).toBeVisible();
-  await page.keyboard.up("Escape");
-  await page.keyboard.press("Escape");
-  await expect(discard).toBeVisible();
-  await expect(
-    discard.getByRole("button", { name: "Keep editing" }),
-  ).toBeFocused();
-  await discard.getByRole("button", { name: "Keep editing" }).click();
-  await expect(page.getByLabel("Title", { exact: true })).toBeFocused();
-  await expect(page.getByLabel("Title", { exact: true })).toHaveValue(
-    "Draft milestone",
-  );
-  await page.keyboard.press("Escape");
-  await page
-    .getByRole("button", { name: "Discard changes", exact: true })
-    .click();
-  await expect(
-    page.getByRole("button", { name: "Workspace settings", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("tab", { name: /^Board / }).click();
-  await page.getByRole("button", { name: "New task", exact: true }).click();
+    page.getByRole("button", { name: "New milestone", exact: true }),
+  ).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
-  const create = page.getByRole("dialog", { name: "New task", exact: true });
-
-  await page.getByLabel("Title", { exact: true }).fill("A mobile draft");
-
-  await page.keyboard.press("Escape");
-  await page
-    .getByRole("button", { name: "Discard changes", exact: true })
-    .click();
-  await expect(create).toHaveCount(0);
-  expect(await page.evaluate(() => document.body.style.overflow)).not.toBe(
-    "hidden",
-  );
+  await page.getByRole("tab", { name: /^Board / }).click();
+  await expect(
+    page.getByRole("button", { name: "New task", exact: true }),
+  ).toHaveCount(0);
   // The earlier explicit reload is the only document navigation in this journey.
   expect(await page.evaluate(() => performance.timeOrigin)).toBeGreaterThan(
     boot,
@@ -538,7 +500,7 @@ test("entity identity and drafts persist across task and workspace tabs", async 
     exact: true,
   });
   const title = editor.getByRole("heading", {
-    name: "identity-layout · IDN-1 · First task",
+    name: "identity-layout / IDN-1 First task",
     exact: true,
   });
 
@@ -555,12 +517,9 @@ test("entity identity and drafts persist across task and workspace tabs", async 
     editor.getByRole("button", { name: "Edit M-1", exact: true }),
   ).toHaveCount(0);
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "New task", exact: true }).click();
-  const creation = page.getByRole("region", { name: "New task", exact: true });
-  await expect(creation.getByRole("tab")).toHaveCount(0);
-  await expect(creation.getByLabel("Title", { exact: true })).toBeVisible();
-  await expect(creation.getByLabel("Add prerequisite")).toHaveCount(0);
-  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "New task", exact: true }),
+  ).toHaveCount(0);
   let releaseSettings!: () => void;
   const settingsReady = new Promise<void>((resolve) => {
     releaseSettings = resolve;

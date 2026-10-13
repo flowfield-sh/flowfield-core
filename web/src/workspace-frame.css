@@ -207,6 +207,14 @@
   flex-direction: column;
   gap: 20px;
 }
+.workspace-work-content.workspace-detail-content {
+  padding: 0;
+  overflow: hidden;
+}
+.workspace-work-content.workspace-detail-content > .entity-pane {
+  flex: 1;
+  min-height: 0;
+}
 .workspace-work-content > * {
   flex-shrink: 0;
 }
