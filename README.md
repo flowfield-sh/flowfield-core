@@ -21,74 +21,55 @@ The idea is in one conversation. The API work is in another. A worker needs an a
 
 **Flowfield gives that work a home.** Plan with the Coordinator, keep shared knowledge in versioned documents, and let workers build focused tasks in your existing repositories. Questions and reviews come back to one Inbox. You decide what ships.
 
-Open source. Runs locally. Works with **Codex, Claude Code and Pi**—choose independently for the Coordinator and workers.
+Flowfield works with **Codex, Claude Code and Pi**, with more harness support coming. Choose independently for the Coordinator and workers.
 
-## Keep the thinking with the work.
+## Get started
 
-**💬 Shape the idea** — Talk through the problem with the Coordinator. Turn decisions into clear tasks and milestones while the work continues beside the conversation.
-
-**🗂️ Connect your projects** — Bring the API, frontend and tooling into one workspace. Share guidance, documents and priorities; link tasks across repositories when one outcome depends on another.
-
-**📚 Give workers the right context** — Select required sources and supporting references. Prepared tasks keep their exact document revisions, and newer source revisions stay visible for review.
-
-**⚡ Build in parallel** — Run independent tasks in separate Git checkouts with your own tools and checks. Dependencies hold later work until its prerequisites are complete.
-
-**📥 Know what needs you** — Find questions, blockers and results in Inbox. Keep each task’s progress, answers and evidence together in its feed.
-
-**🔎 Own the finish** — Inspect the diff, try the exact result, ask for another pass, or approve delivery to your branch. Approval stays tied to the code you reviewed.
-
-
-## One feature. Three repositories. One place to follow it.
-
-Suppose you’re adding a booking flow: an API, a customer site and a check-in tool.
-
-1. **Work out the contract.** Discuss the behavior with the Coordinator and save the shared rules in a document.
-2. **Make the work concrete.** Prepare a task in each project, with the relevant sources and dependencies. Keep the rollout together in a milestone.
-3. **Let workers build.** Independent tasks run in parallel. Answer a worker’s question once; Flowfield continues the task with that answer.
-4. **Review what came back.** Inspect results and checks, request changes where needed, and approve each exact code result for delivery.
-
-When the plan changes, update the shared knowledge and reconcile affected work with the Coordinator. The board shows where things stand; the task feeds preserve how they got there.
-
-## A closer look
-
-<table>
-  <tr>
-    <td width="50%"><a href="docs/images/documents.png"><img src="docs/images/documents.png" alt="Versioned workspace documents alongside the Coordinator"></a></td>
-    <td width="50%"><a href="docs/images/code-review.png"><img src="docs/images/code-review.png" alt="An exact code result with its diff, checks and review actions"></a></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>Context that stays with the work</strong><br>Shared documents. Exact revisions.</td>
-    <td align="center"><strong>A finish you can inspect</strong><br>Changes, checks and your approval.</td>
-  </tr>
-</table>
-
-[Explore the product →](https://flowfield.sh/product/)
-
-## Bring your repos. Bring your agents.
-
-Install and sign in to [Codex CLI](https://developers.openai.com/codex/cli/), [Claude Code](https://code.claude.com/docs/en/setup) or [Pi](https://pi.dev), then:
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and sign in to a supported coding harness, then:
 
 ```sh
 uv tool install flowfield-core
 flowfield serve
 ```
 
-Open [localhost:8765](http://127.0.0.1:8765), create a workspace and add your existing projects. Or adopt a repository from your terminal:
+Open [localhost:8765](http://127.0.0.1:8765), create a workspace and add your existing repositories. See [Getting started](https://docs.flowfield.sh/getting-started) for the walkthrough or [Installation](https://docs.flowfield.sh/installation) for requirements and alternatives.
 
-```sh
-flowfield workspace create "My workspace"
-flowfield project init /path/to/your/repo --workspace WORKSPACE_ID
-```
+## Keep the thinking with the work.
 
-Use the ID printed by `workspace create`. Choose a Coordinator model, start a conversation, and configure worker settings when you’re ready to run tasks. See [Getting started](https://docs.flowfield.sh/getting-started) for the walkthrough and [Installation](https://docs.flowfield.sh/installation) for the pip alternative.
+**💬 Shape the idea**<br>Talk through the problem with the Coordinator. Turn decisions into clear tasks and milestones while the work continues beside the conversation.
 
-Your repositories keep their tools, conventions and history. Workers use separate Git checkouts; approved code is delivered to the configured branch while protecting your working changes. Flowfield runs on your machine and uses your installed coding harnesses and their accounts.
+**🗂️ Connect your projects**<br>Bring the API, frontend and tooling into one workspace. Share guidance, documents and priorities; link tasks across repositories when one outcome depends on another.
 
-Prefer planning from your own coding-agent session? [Connect a standalone agent](https://docs.flowfield.sh/agents/overview#standalone-conversations) through MCP.
+**📚 Give workers the right context**<br>Select required sources and supporting references. Prepared tasks keep their exact document revisions, and newer source revisions stay visible for review.
+
+**⚡ Build in parallel**<br>Run independent tasks in separate Git checkouts with your own tools and checks. Dependencies hold later work until its prerequisites are complete.
+
+**📥 Know what needs you**<br>Find questions, blockers and results in Inbox. Keep each task’s progress, answers and evidence together in its feed.
+
+**🔎 Own the finish**<br>Inspect the diff, try the exact result, ask for another pass, or approve delivery to your branch. Approval stays tied to the code you reviewed.
+
+## A closer look
+
+<table>
+  <tr>
+    <td width="33%" align="center"><a href="docs/images/readme/board.png"><img src="docs/images/readme/board.png" alt="Workspace board with tasks across three projects"></a><br><strong>Board</strong></td>
+    <td width="33%" align="center"><a href="docs/images/readme/documents.png"><img src="docs/images/readme/documents.png" alt="Shared workspace document with revision history"></a><br><strong>Documents</strong></td>
+    <td width="33%" align="center"><a href="docs/images/readme/milestones.png"><img src="docs/images/readme/milestones.png" alt="Milestones grouping work across projects"></a><br><strong>Milestones</strong></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="docs/images/readme/inbox.png"><img src="docs/images/readme/inbox.png" alt="Inbox with a worker question, a blocker and code ready for review"></a><br><strong>Inbox</strong></td>
+    <td align="center"><a href="docs/images/readme/task.png"><img src="docs/images/readme/task.png" alt="Task conversation with a worker question and reply controls"></a><br><strong>Task conversation</strong></td>
+    <td align="center"><a href="docs/images/readme/review.png"><img src="docs/images/readme/review.png" alt="Code result with its diff, checks and review actions"></a><br><strong>Code review</strong></td>
+  </tr>
+</table>
+
+[Explore the product →](https://flowfield.sh/product/)
 
 ## Go deeper
 
 [Workspaces](https://docs.flowfield.sh/workspaces) · [Coordinator](https://docs.flowfield.sh/coordinator) · [Documents](https://docs.flowfield.sh/documents) · [Workers and review](https://docs.flowfield.sh/tasks) · [CLI](https://docs.flowfield.sh/cli)
+
+Prefer planning from your own coding-agent session? [Connect a standalone agent](https://docs.flowfield.sh/agents/overview#standalone-conversations) through MCP.
 
 <details>
 <summary><strong>Build from source</strong></summary>
@@ -103,6 +84,8 @@ uv run flowfield serve
 
 </details>
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for issue reporting and contribution policy. Report vulnerabilities through [private security reporting](https://github.com/flowfield-sh/flowfield-core/security/advisories/new).
+## Contributing
 
-[Apache License 2.0](LICENSE).
+Bug reports, feature requests and feedback are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for issue reporting and contribution policy. Report vulnerabilities through [private security reporting](https://github.com/flowfield-sh/flowfield-core/security/advisories/new).
+
+Flowfield is licensed under the [Apache License 2.0](LICENSE).
