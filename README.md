@@ -1,65 +1,83 @@
 <h1 align="center">Flowfield</h1>
 
-<p align="center"><strong>A workspace for you and your coding agents, with a board and task feeds.</strong></p>
+<p align="center"><strong>Ship software. Not slop.</strong></p>
+<p align="center">A workspace for you and your coding agents.<br>Work through the idea, keep the context, and build across projects without losing the plot.</p>
+
+<p align="center">
+  <a href="https://flowfield.sh">Website</a> · <a href="https://docs.flowfield.sh/getting-started">Get started</a> · <a href="https://docs.flowfield.sh">Documentation</a>
+</p>
 
 <p align="center">
   <a href="https://pypi.org/project/flowfield-core/"><img src="https://img.shields.io/pypi/v/flowfield-core?logo=pypi&amp;logoColor=white&amp;color=2563eb" alt="PyPI version"></a>
   <a href="https://github.com/flowfield-sh/flowfield-core/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/flowfield-sh/flowfield-core/tests.yml?branch=main&amp;label=tests" alt="Tests"></a>
-  <a href="https://docs.flowfield.sh/getting-started"><img src="https://github.com/flowfield-sh/flowfield-core/actions/workflows/docs.yml/badge.svg?branch=main" alt="Documentation"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-2563eb" alt="Apache 2.0 license"></a>
 </p>
 
-![Flowfield board with priorities, questions and results ready for review](https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/board-hero.png)
+![The workspace board and Coordinator, with work spanning several projects](https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/board-hero.png)
 
-## What is Flowfield?
+## From conversation to finished work.
 
-**💬 Plan with the Coordinator**\
-Explore ideas, turn them into milestones and tasks, and refine the plan while workers build. Open a card beside the conversation to discuss its scope or results.
+The idea is in one conversation. The implementation is in another. An agent needs an answer, a task is waiting on another task, and the reason you chose this approach is buried twenty messages back.
 
-**📋 Organize work on the board**\
-Prioritize tasks, track dependencies, and see what’s queued, running or ready for review. Inbox brings questions, blockers and review requests into one place.
+**Flowfield gives that work a home.** Delegate planning and coordination through one conversation while workers carry out focused tasks in your existing repositories. Shared knowledge stays in versioned documents, and questions and reviews come back to one Inbox. You decide what ships.
 
-**🧵 Follow each task in its feed**\
-Keep definitions, progress, tool activity, questions, answers and results together. See what changed and respond to the work that needs your attention.
+Flowfield works with **Codex, Claude Code and Pi**, with more harness support coming. Choose independently for the Coordinator and workers.
 
-**⚡ Run workers in parallel**\
-Independent tasks run in separate Git checkouts with configurable worker capacity. Dependencies hold work until it’s ready, and each worker uses your project’s tools and checks.
+## Get started
 
-**🔎 Review and integrate results**\
-Inspect code changes, try an exact result, and request revisions or approve delivery to your project. Flowfield protects your working changes and keeps approval tied to the code you reviewed.
-
-## Install
-
-Install and sign in to [Codex CLI](https://developers.openai.com/codex/cli/) or [Claude Code](https://code.claude.com/docs/en/setup) or [Pi](https://pi.dev), then:
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and sign in to a supported coding harness, then:
 
 ```sh
 uv tool install flowfield-core
 flowfield serve
 ```
 
-The browser opens at [localhost:8765](http://127.0.0.1:8765). See [Installation](https://docs.flowfield.sh/installation) for the pip alternative.
+Open [localhost:8765](http://127.0.0.1:8765), create a workspace and add your existing repositories. See [Getting started](https://docs.flowfield.sh/getting-started) for the walkthrough or [Installation](https://docs.flowfield.sh/installation) for requirements and alternatives.
 
-Choose **Add project** in the sidebar and select an existing directory, or register it from a terminal:
+## Keep the thinking with the work.
 
-```sh
-flowfield workspace create "My workspace"
-flowfield project init --workspace WORKSPACE_ID
-```
+Ask the Coordinator to organize the work, maintain shared context and follow up on results. Use the board, documents and task controls yourself whenever you prefer. Conversation and direct actions work on the same plan.
 
-Replace `WORKSPACE_ID` with the ID printed by `workspace create`. Workspaces are created explicitly; adopting a project preserves its existing repository and instructions.
+**💬 Shape the idea**<br>Talk through the problem with the Coordinator. It turns agreed decisions into tasks and milestones while the work continues beside the conversation.
 
-Start planning in the [Coordinator](https://docs.flowfield.sh/coordinator), or connect a [standalone coding agent](https://docs.flowfield.sh/agents/overview#standalone-conversations). Connect the harness you already use: Codex, Claude Code or Pi 1.1+. Choose independently for the Coordinator and workers. Native support ships with Flowfield.
+**🗂️ Connect your projects**<br>Work across your existing repositories in one workspace. The Coordinator can organize shared priorities and link dependent tasks across projects.
 
-## Fits your existing project
+**📚 Give workers the right context**<br>The Coordinator maintains shared documents and selects the sources each task needs. Prepared tasks keep their exact document revisions, and newer revisions stay visible for review.
 
-Choose an existing repository and use its tools, setup commands and tests. Keep architecture, designs and coding conventions in your repository; Flowfield keeps ongoing work on the board and execution evidence in task feeds.
+**⚡ Build in parallel**<br>Workers carry out independent tasks in separate Git checkouts using your tools and checks. Flowfield holds dependent work until its prerequisites are complete.
 
-Workers use separate Git checkouts. You review an exact code result before Flowfield delivers it to your project’s configured branch. Your working changes stay protected.
+**📥 Know what needs you**<br>Inbox brings together questions, blockers and results. Ask the Coordinator to sort through them, or respond directly. Task feeds preserve progress, answers and evidence.
 
-## Documentation
+**🔎 Own the finish**<br>Ask the Coordinator to help review a result or request another pass. Inspect and try the code yourself when useful, then approve delivery through the conversation or task controls. Approval stays tied to the exact result.
 
-[Getting Started](https://docs.flowfield.sh/getting-started) · [Concepts](https://docs.flowfield.sh/concepts) · [CLI](https://docs.flowfield.sh/cli) · [Agents](https://docs.flowfield.sh/agents/overview)
+## A closer look
 
-## Build from source
+<table>
+  <tr>
+    <td width="33%" align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/board.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/board.png" alt="Workspace board with tasks across three projects"></a><br><strong>Board</strong></td>
+    <td width="33%" align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/documents.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/documents.png" alt="Shared workspace document with revision history"></a><br><strong>Documents</strong></td>
+    <td width="33%" align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/milestones.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/milestones.png" alt="Milestones grouping work across projects"></a><br><strong>Milestones</strong></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/inbox.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/inbox.png" alt="Inbox with a question, a blocker and code ready for review"></a><br><strong>Inbox</strong></td>
+    <td align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/task.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/task.png" alt="Task conversation with a question and reply controls"></a><br><strong>Task conversation</strong></td>
+    <td align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/review.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/review.png" alt="Code result with its diff, checks and review actions"></a><br><strong>Code review</strong></td>
+  </tr>
+</table>
+
+[Explore the product →](https://flowfield.sh/product/)
+
+## Go deeper
+
+[Workspaces](https://docs.flowfield.sh/workspaces) · [Coordinator](https://docs.flowfield.sh/coordinator) · [Documents](https://docs.flowfield.sh/documents) · [Workers and review](https://docs.flowfield.sh/tasks) · [CLI](https://docs.flowfield.sh/cli)
+
+Prefer planning from your own coding-agent session? [Connect a standalone agent](https://docs.flowfield.sh/agents/overview#standalone-conversations) through MCP.
+
+## Contributing
+
+Bug reports, feature requests and feedback are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for issue reporting and contribution policy. Report vulnerabilities through [private security reporting](https://github.com/flowfield-sh/flowfield-core/security/advisories/new).
+
+### Build from source
 
 Requires Python 3.12+, uv, Node 24+, pnpm 11.19.0 and Bun 1.3.11. Set `FLOWFIELD_BUILD_BUN` to the Bun executable before `make setup`.
 
@@ -69,8 +87,4 @@ pnpm --dir web build
 uv run flowfield serve
 ```
 
-See [CONTRIBUTING.md](https://github.com/flowfield-sh/flowfield-core/blob/main/CONTRIBUTING.md) for issue reporting and contribution policy. Report vulnerabilities through [private security reporting](https://github.com/flowfield-sh/flowfield-core/security/advisories/new).
-
-## License
-
-[Apache License 2.0](https://github.com/flowfield-sh/flowfield-core/blob/main/LICENSE).
+Flowfield is licensed under the [Apache License 2.0](LICENSE).

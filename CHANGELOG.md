@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.5.0
+
+Bring related repositories into one workspace, with a shared Coordinator, plan and knowledge.
+
+### Features
+
+- Create workspaces for multiple existing repositories. Plan through one Coordinator conversation and follow shared Board, Inbox, milestones, labels and worker controls while each project keeps its own code-delivery destination.
+- Link task dependencies across projects in the same workspace. Workers receive the relevant prerequisite evidence while their implementation and approval stay scoped to one project.
+- Maintain shared, versioned documents with revision history and restoration. Select required sources and reference material for each project or task; prepared work retains exact revisions and shows when newer sources are available.
+- Replace fixed task types with optional workspace labels, and keep project, milestone and label filters in the URL for navigation and sharing.
+
+### Improvements
+
+- Give workers clearer, state-specific handoffs for implementation, answered questions and requested changes, with resolved prerequisite details and task-focused source selection.
+- Recover a normally finished worker turn that omitted its result or blocking question with one visible reminder in the same session. The extra reporting turn is limited to 60 seconds; code still needs exact human approval. See [following an attempt](https://docs.flowfield.sh/tasks#follow-an-attempt).
+
+### Bug fixes
+
+- Correct dependency readiness and status across repositories so unrelated Git histories do not block downstream work.
+- Make planning-question answers and document lifecycle feedback clearer, and keep Coordinator navigation usable on narrow screens.
+
+### Upgrade
+
+Stop Flowfield before updating, then restart it. Supported installations from 0.2.0 through 0.4.0 upgrade automatically after a verified database snapshot. Each existing project gets its own **Project name Workspace**, preserving its conversation, settings, milestones and work history. Existing projects are not combined automatically; moving them between workspaces is not yet supported. See [storage and recovery](https://docs.flowfield.sh/storage).
+
+Saved queue choices are retained. Pause queues before shutdown if you want to review work before new starts resume; interrupted workers still require recovery. Update installed Coordinator guidance and reconnect standalone agent sessions after upgrading.
+
+Workspace ownership changes the CLI, API and MCP interfaces for coordination, milestones, labels and worker controls. Update scripts and integrations to use workspace IDs and explicit project destinations for task work. See the [CLI reference](https://docs.flowfield.sh/cli) and [standalone agent setup](https://docs.flowfield.sh/agents/overview#standalone-conversations).
+
 ## 0.4.0
 
 A clearer workspace for starting projects, following work, and managing your Flowfield installation.
