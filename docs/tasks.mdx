@@ -29,6 +29,8 @@ New workspaces start paused with one worker slot. **Run queue** enables eligible
 
 **Stop worker** ends one attempt and preserves its unfinished work. **Retry worker** queues a fresh attempt; it respects pause, dependencies and capacity. Follow the displayed recovery action if native cleanup is uncertain.
 
+If a worker ends normally without submitting a result or asking a blocking question, Flowfield gives that same attempt one reminder to report its outcome, with up to 60 seconds to respond. The reminder appears in worker activity. If reporting still fails, the attempt fails with its work preserved for inspection and explicit retry. Submitted code still requires your exact approval.
+
 Each board column scrolls independently. On narrow screens, scroll sideways to reach the other columns.
 
 ## Dependencies

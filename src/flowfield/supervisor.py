@@ -48,6 +48,8 @@ from flowfield.worker_context import brief_context
 from flowfield.worker_tools import WorkerBridge
 from flowfield.workspaces import Workspaces
 
+COMPLETION_REMINDER_SECONDS = 60
+
 
 def process_stamp(pid: int) -> str:
     value = subprocess.run(
@@ -390,7 +392,7 @@ class Supervisor:
                 "target_branch": run.target_branch,
                 **brief_context(sections),
             }
-            from flowfield.worker_instructions import instructions
+            from flowfield.worker_instructions import completion_reminder, instructions
 
             brief["flowfield_connection"] = server.name
             brief["instructions"] = instructions(
@@ -413,6 +415,34 @@ class Supervisor:
                         sections.get("feedback", "") + sections.get("input", ""),
                     ),
                 )
+                if (
+                    outcome.get("status") == "completed"
+                    and not bridge.result
+                    and not bridge.question_id
+                    and not self.closing
+                    and not client.stopping
+                    and self.execution.get(run.project_id, run.id).status == "running"
+                ):
+                    if activity:
+                        activity.emit(
+                            ActivityUpdate(
+                                key="completion-reminder",
+                                kind="status",
+                                text="Worker ended without reporting an outcome. "
+                                "Asking once for a result or blocking question (up to 60 seconds).",
+                            )
+                        )
+                    try:
+                        async with asyncio.timeout(COMPLETION_REMINDER_SECONDS):
+                            outcome = await client.prompt(
+                                completion_reminder(server.name), permission_handler(turn)
+                            )
+                    except TimeoutError as error:
+                        raise ApplicationError(
+                            "worker_reporting_timeout",
+                            "Worker did not finish reporting within the reminder time limit. "
+                            "Work is preserved; inspect it and explicitly retry.",
+                        ) from error
             confirmed = await client.stop()
             if not confirmed:
                 terminal, problem = (
