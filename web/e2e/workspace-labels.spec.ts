@@ -174,10 +174,7 @@ test("workspace label management and existing task edits preserve concurrent cha
   await page
     .getByRole("link", { name: "LST-1 Classify existing work", exact: true })
     .click();
-  await page
-    .locator("summary")
-    .filter({ hasText: /^Labels$/ })
-    .click();
+  await page.getByRole("button", { name: "Edit labels", exact: true }).click();
   await page
     .getByRole("button", { name: "Choose labels", exact: true })
     .click();
@@ -186,9 +183,9 @@ test("workspace label management and existing task edits preserve concurrent cha
     .check();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Save labels", exact: true }).click();
-  await expect(page.locator(".task-classifications")).toContainText(
-    "Release work",
-  );
+  await expect(
+    page.getByRole("button", { name: "Edit labels", exact: true }),
+  ).toContainText("Release work");
   const task = await (
     await request.get("/api/projects/label-settings/view/tasks/LST-1")
   ).json();

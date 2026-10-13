@@ -14,7 +14,8 @@ export function WorkspaceLink({
   ...props
 }: Omit<LinkProps, "to" | "state"> & { to: string }) {
   const location = useLocation();
-  to = canonicalHref(to, useContext(ProjectOwners));
+  const owners = useContext(ProjectOwners);
+  to = canonicalHref(to, owners);
   return (
     <Link
       {...props}
@@ -23,6 +24,8 @@ export function WorkspaceLink({
         location.pathname + location.search,
         location.state,
         to,
+        false,
+        owners,
       )}
     />
   );

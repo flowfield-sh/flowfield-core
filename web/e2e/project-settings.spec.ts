@@ -148,12 +148,13 @@ test("milestones group tasks with linked details and long project intent stays o
   await page.keyboard.press("Escape");
   await expect(page.getByRole("tooltip")).toHaveCount(0);
   await badge.click();
-  await expect(page).toHaveURL(`/workspaces/${workspace_id}?milestone=export`);
-  await page.getByRole("tab", { name: /^Milestones/ }).click();
-  await page.getByRole("link", { name: "Edit M-1", exact: true }).click();
-  await expect(page.locator(".board")).toBeVisible();
+  await expect(page).toHaveURL(`/workspaces/${workspace_id}/milestones/M-1`);
+  await expect(page.locator(".board")).not.toBeVisible();
+  await page
+    .getByRole("button", { name: "Edit milestone", exact: true })
+    .click();
   const editor = page.getByRole("region", {
-    name: "Edit milestone",
+    name: "Milestone",
     exact: true,
   });
   await expect(editor.getByLabel("Description", { exact: true })).toHaveValue(
@@ -164,7 +165,7 @@ test("milestones group tasks with linked details and long project intent stays o
     .fill("Preserved milestone draft");
   await expect(
     page.getByRole("tablist", { name: "Workspace views" }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Keep editing", exact: true }).click();
   await expect(editor.getByLabel("Description", { exact: true })).toHaveValue(
@@ -174,19 +175,22 @@ test("milestones group tasks with linked details and long project intent stays o
     .getByRole("button", { name: "Save changes", exact: true })
     .click();
   await page.reload();
-  await expect(page.locator(".three-column-board")).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Milestone details", exact: true }),
+  ).toBeVisible();
   await page.goto(`/workspaces/${workspace_id}/milestones/export`);
-  await expect(editor.getByLabel("Description", { exact: true })).toHaveValue(
-    "Preserved milestone draft",
-  );
+  await expect(
+    editor.getByText("Preserved milestone draft", { exact: true }),
+  ).toBeVisible();
   // Historical tab URLs remain valid aliases of the simplified detail.
   await page.goto(`/workspaces/${workspace_id}/milestones/export/tasks`);
-  await expect(editor.getByLabel("Description", { exact: true })).toHaveValue(
-    "Preserved milestone draft",
-  );
+  await expect(
+    editor.getByText("Preserved milestone draft", { exact: true }),
+  ).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("tab", { name: /^Milestones/ }).click();
   await page.getByRole("link", { name: "CSV export", exact: true }).click();
+  await page.getByRole("link", { name: "View tasks", exact: true }).click();
   await expect(page).toHaveURL(`/workspaces/${workspace_id}?milestone=export`);
   await expect(page.getByLabel("Filter by milestone")).toHaveValue("export");
   await expect(page.locator(".task-card")).toHaveCount(2);

@@ -125,3 +125,58 @@ def test_view_membership_and_task_identity_are_validated_before_reserving(tmp_pa
     assert turn.view_context.project_id == task.project_id
     history = ContextReads(ws).coordinator_history("harbor")
     assert history["items"][0]["task_context"]["key"] == task.key
+
+
+def test_milestone_view_retains_exact_revision_and_validates_scope(tmp_path, monkeypatch):
+    from flowfield.application import MilestoneEdit
+
+    service, conversation = setup(tmp_path, monkeypatch)
+    ws, store = service.workspace, service.coordinator.store
+    milestones = Milestones(ws)
+    milestone = milestones.create("harbor", MilestoneCreate(title="Original outcome"))
+    milestones.edit("harbor", milestone.id, MilestoneEdit(expected_revision=1, title="New outcome"))
+    foreign = Workspaces(ws).create(WorkspaceCreate(name="Elsewhere"))
+    other = milestones.create(foreign.id, MilestoneCreate(title="Foreign outcome"))
+    for view in [
+        CoordinatorViewSelection(surface="milestone", milestone_id=milestone.id),
+        CoordinatorViewSelection(surface="milestone", milestone_revision=1),
+        CoordinatorViewSelection(surface="milestone", milestone_id=other.id, milestone_revision=1),
+        CoordinatorViewSelection(
+            surface="milestone", milestone_id=milestone.id, milestone_revision=99
+        ),
+        CoordinatorViewSelection(surface="board", milestone_id=milestone.id, milestone_revision=1),
+    ]:
+        with pytest.raises(ApplicationError):
+            store.reserve(
+                "harbor",
+                conversation.id,
+                CoordinatorSend(id=uuid4().hex, text="Review", view_context=view),
+            )
+        assert store.page("harbor").items == []
+    request = CoordinatorSend(
+        id=uuid4().hex,
+        text="Review this version",
+        view_context=CoordinatorViewSelection(
+            surface="milestone", milestone_id=milestone.id, milestone_revision=1
+        ),
+    )
+    turn, fresh = store.reserve("harbor", conversation.id, request)
+    assert fresh
+    assert turn.view_context.milestone_title == "Original outcome"
+    assert turn.view_context.milestone_revision == 1
+    assert store.reserve("harbor", conversation.id, request) == (turn, False)
+    prompt = json.loads(service.coordinator._prompt(turn, "scoped", resumed=True))
+    assert prompt["adjacent_view"]["milestone_revision"] == 1
+    with pytest.raises(ApplicationError) as changed:
+        store.reserve(
+            "harbor",
+            conversation.id,
+            request.model_copy(
+                update={
+                    "view_context": request.view_context.model_copy(
+                        update={"milestone_revision": 2}
+                    )
+                }
+            ),
+        )
+    assert changed.value.code == "message_conflict"

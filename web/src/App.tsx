@@ -499,6 +499,18 @@ function WorkspaceBoard({
       : null,
     `${refresh}:${retry}`,
   );
+  const historicalMilestone = useResource<Milestone>(
+    params.milestoneId && params.milestoneRevision
+      ? `${path}/milestones/${params.milestoneId}?revision=${params.milestoneRevision}`
+      : null,
+    refresh,
+  );
+  const selectedMilestone = board?.milestones.find(
+    (item) => item.id === params.milestoneId || item.key === params.milestoneId,
+  );
+  const viewedMilestone = params.milestoneRevision
+    ? historicalMilestone.data
+    : selectedMilestone;
   const selectedTask = board?.tasks.find(
     (t) =>
       t.project_id === projectId && (t.key === taskRef || t.id === taskRef),
@@ -558,17 +570,19 @@ function WorkspaceBoard({
   const showInbox = inView("inbox");
   const archive =
     inView("archive") || (!backgroundPath && !!selectedTask?.archived);
-  const surface = taskRef
-    ? "task"
-    : projectsView
-      ? "projects"
-      : milestonesView
-        ? "milestones"
-        : showInbox
-          ? "inbox"
-          : archive
-            ? "archive"
-            : "board";
+  const surface = params.milestoneId
+    ? "milestone"
+    : taskRef
+      ? "task"
+      : projectsView
+        ? "projects"
+        : milestonesView
+          ? "milestones"
+          : showInbox
+            ? "inbox"
+            : archive
+              ? "archive"
+              : "board";
   const filtered = surface === "board" || surface === "archive";
   useEffect(() => {
     if (
@@ -583,7 +597,9 @@ function WorkspaceBoard({
     }
   }, [filtered, board, labelFilter, location.search, pathname, changeLocation]);
   const adjacentContext: AdjacentContext | null =
-    board && (!taskRef || (taskDetail && !detailError))
+    board &&
+    (!taskRef || (taskDetail && !detailError)) &&
+    (!params.milestoneId || viewedMilestone)
       ? {
           view: {
             surface,
@@ -594,7 +610,13 @@ function WorkspaceBoard({
                   ? projectFilter || null
                   : null,
             milestone_id:
-              filtered && filter && filter !== "none" ? filter : null,
+              surface === "milestone"
+                ? viewedMilestone?.id
+                : filtered && filter && filter !== "none"
+                  ? filter
+                  : null,
+            milestone_revision:
+              surface === "milestone" ? viewedMilestone?.revision : null,
             without_milestone: filtered && filter === "none",
             label_id: filtered ? labelFilter || null : null,
           },
@@ -726,20 +748,21 @@ function WorkspaceBoard({
         : null;
     const archiveChanged =
       previous && previous.archived !== (item as Task).archived;
-    changeLocation(
-      archiveChanged
-        ? selectionUrl(null)
-        : kind === "task"
-          ? taskHref(
-              (item as Task).project_id,
-              item as Task,
-              taskTab(params.tab),
-            )
-          : kind === "milestone"
-            ? `${base}/milestones`
-            : selectionUrl({ kind, id: item.id }),
-      true,
-    );
+    if (kind !== "milestone" || !selection?.id)
+      changeLocation(
+        archiveChanged
+          ? selectionUrl(null)
+          : kind === "task"
+            ? taskHref(
+                (item as Task).project_id,
+                item as Task,
+                taskTab(params.tab),
+              )
+            : kind === "milestone"
+              ? `${base}/milestones/${(item as Milestone).key}`
+              : selectionUrl({ kind, id: item.id }),
+        true,
+      );
     setRetry((v) => v + 1);
   }
   if (!board)
@@ -771,9 +794,7 @@ function WorkspaceBoard({
       ? selectedProject
       : selection?.kind === "task"
         ? (taskDetail ?? undefined)
-        : board.milestones.find(
-            (e) => e.id === selection?.id || e.key === selection?.id,
-          );
+        : viewedMilestone;
   const view = documentsView
     ? "documents"
     : projectsView
@@ -809,7 +830,27 @@ function WorkspaceBoard({
     <>
       {selection?.id &&
         !incoming &&
-        (selection.kind === "task" && detailLoading && !detailError ? (
+        (selection.kind === "milestone" && params.milestoneRevision ? (
+          <section className="editor">
+            <DetailHeader
+              title={
+                historicalMilestone.error
+                  ? "Could not load milestone revision"
+                  : "Loading milestone…"
+              }
+              close={() => choose(null)}
+            />
+            {historicalMilestone.error && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={historicalMilestone.retry}
+              >
+                Retry milestone revision
+              </Button>
+            )}
+          </section>
+        ) : selection.kind === "task" && detailLoading && !detailError ? (
           <section className="editor">Loading task…</section>
         ) : (
           <section className="editor" role="alert">
@@ -852,8 +893,10 @@ function WorkspaceBoard({
           />
         ) : selection.kind === "milestone" ? (
           <MilestoneEditor
-            key={selection.id ?? "new"}
+            key={`${selection.id ?? "new"}:${params.milestoneRevision ?? "latest"}`}
             incoming={incoming as Milestone | undefined}
+            latest={selectedMilestone}
+            historical={!!params.milestoneRevision}
             path={path}
             onDirty={setUnsaved}
             saved={(item) => saved("milestone", item)}
@@ -967,7 +1010,7 @@ function WorkspaceBoard({
         <TabsContent
           value={view}
           className={`workspace-work-content ${!projectsView && !documentsView && !archive ? "workspace-task-board" : ""}`}
-          hidden={!!taskRef}
+          hidden={!!taskRef || !!params.milestoneId}
         >
           {!projectsView && !documentsView && (
             <div className="board-toolbar">
@@ -1356,9 +1399,15 @@ function WorkspaceBoard({
             </ContentStack>
           )}
         </TabsContent>
-        {selection?.kind === "task" && selection.id ? (
+        {(selection?.kind === "task" || selection?.kind === "milestone") &&
+        selection.id ? (
           <EntityPane
-            identity={selection.id}
+            label={
+              selection.kind === "milestone"
+                ? "Milestone details"
+                : "Task details"
+            }
+            identity={`${selection.id}:${params.milestoneRevision ?? "latest"}`}
             close={() => choose(null)}
             returnFocusHref={selectionUrl(selection)}
           >

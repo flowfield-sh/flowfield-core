@@ -716,11 +716,6 @@
     position: relative;
     z-index: 2;
   }
-  .milestone-description {
-    width: min(480px, calc(100vw - 32px));
-    max-height: min(500px, 70vh);
-    overflow-y: auto;
-  }
   a.milestone-tag {
     text-decoration: none;
   }

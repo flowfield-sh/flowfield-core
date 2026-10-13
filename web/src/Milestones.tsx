@@ -1,13 +1,3 @@
-import { Pencil, FileText } from "lucide-react";
-import { ContentStack } from "./DetailLayout";
-import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip";
-import { Popover } from "radix-ui";
-import { Markdown } from "./Markdown";
 import { WorkCard } from "./WorkCard";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { boardHref, workspaceHref } from "./navigation";
@@ -58,79 +48,27 @@ export function MilestoneList({
                 <WorkCard key={milestone.id}>
                   <div className="work-card-heading">
                     <span className="task-key">{milestone.key}</span>
-                    <div className="work-card-controls">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button size="icon-xs" variant="ghost" asChild>
-                            <WorkspaceLink
-                              aria-label={`Edit ${milestone.key}`}
-                              to={`${workspaceHref(milestone.workspace_id)}/milestones/${milestone.key}`}
-                            >
-                              <Pencil />
-                            </WorkspaceLink>
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Edit milestone</TooltipContent>
-                      </Tooltip>
-                      <Popover.Root>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Popover.Trigger asChild>
-                              <Button
-                                size="icon-xs"
-                                variant="ghost"
-                                aria-label={`Description for ${milestone.key}`}
-                              >
-                                <FileText />
-                              </Button>
-                            </Popover.Trigger>
-                          </TooltipTrigger>
-                          <TooltipContent>Description</TooltipContent>
-                        </Tooltip>
-                        <Popover.Portal>
-                          <Popover.Content
-                            sideOffset={8}
-                            align="end"
-                            className="composer-settings milestone-description"
-                          >
-                            <ContentStack>
-                              <h3 className="detail-title">
-                                {milestone.title}
-                              </h3>
-                              <Markdown>
-                                {milestone.body || "No description yet."}
-                              </Markdown>
-                              {!!milestone.acceptance_criteria && (
-                                <>
-                                  <h4>Acceptance criteria</h4>
-                                  <Markdown>
-                                    {milestone.acceptance_criteria}
-                                  </Markdown>
-                                </>
-                              )}
-                            </ContentStack>
-                          </Popover.Content>
-                        </Popover.Portal>
-                      </Popover.Root>
-                    </div>
                   </div>
                   <span className="task-identity">
                     <strong>
                       <WorkspaceLink
                         className="task-card-link"
-                        to={boardHref(
-                          milestone.workspace_id,
-                          { milestone: milestone.id },
-                          archived,
-                        )}
+                        to={`${workspaceHref(milestone.workspace_id)}/milestones/${milestone.key}`}
                       >
                         {milestone.title}
                       </WorkspaceLink>
                     </strong>
                   </span>
-                  <span className="detail-metadata">
+                  <WorkspaceLink
+                    className="detail-metadata"
+                    to={boardHref(
+                      milestone.workspace_id,
+                      { milestone: milestone.id },
+                      archived,
+                    )}
+                  >
                     {done} of {tasks.length} tasks done
-                  </span>
+                  </WorkspaceLink>
                 </WorkCard>
               ))}
             {!cards.some((card) => card.column === column) && (

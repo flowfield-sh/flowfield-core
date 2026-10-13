@@ -127,6 +127,7 @@ export function EntityOverlay({
 
 // Inline details share the same heading, scroll and footer owners as modal editors.
 export function EntityPane({
+  label = "Task details",
   children,
   close,
   identity,
@@ -136,6 +137,7 @@ export function EntityPane({
   close: () => void;
   identity: string;
   returnFocusHref: string;
+  label?: string;
 }) {
   const [title, setTitle] = useState<HTMLDivElement | null>(null);
   const [body, setBody] = useState<HTMLDivElement | null>(null);
@@ -173,7 +175,7 @@ export function EntityPane({
           <OverlayFooterHost.Provider value={footer}>
             <section
               className="entity-pane"
-              aria-label="Task details"
+              aria-label={label}
               onKeyDown={(event) => {
                 if (event.key === "Escape" && !event.defaultPrevented) {
                   event.preventDefault();

@@ -28,12 +28,12 @@ export function CloseControl({
       size="icon-sm"
       variant="ghost"
       type="button"
-      className={`close-control ${label === "Back to board" ? "-ms-2" : "-me-2"}`}
+      className={`close-control ${label.startsWith("Back") ? "-ms-2" : "-me-2"}`}
       aria-label={label}
       title={label}
       onClick={dismiss}
     >
-      {label === "Back to board" ? <ArrowLeft /> : <X />}
+      {label.startsWith("Back") ? <ArrowLeft /> : <X />}
     </Button>
   );
 }
@@ -68,12 +68,12 @@ export function DetailHeader({
   return (
     <OverlayHeading>
       <div className="editor-heading">
-        {closeLabel === "Back to board" && (
+        {closeLabel.startsWith("Back") && (
           <CloseControl label={closeLabel} close={close} />
         )}
         <h2 className="min-w-0 flex-1">{title}</h2>
         {actions}
-        {closeLabel !== "Back to board" && (
+        {!closeLabel.startsWith("Back") && (
           <CloseControl label={closeLabel} close={close} />
         )}
       </div>

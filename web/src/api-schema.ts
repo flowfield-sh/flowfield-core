@@ -3034,6 +3034,7 @@ export interface components {
         | "archive"
         | "projects"
         | "milestones"
+        | "milestone"
         | "task"
         | "documents"
         | "document";
@@ -3041,6 +3042,8 @@ export interface components {
       project_id: string | null;
       /** Milestone Id */
       milestone_id: string | null;
+      /** Milestone Revision */
+      milestone_revision: number | null;
       /** Label Id */
       label_id: string | null;
       /**
@@ -3062,8 +3065,6 @@ export interface components {
       project_revision: number | null;
       /** Milestone Title */
       milestone_title: string | null;
-      /** Milestone Revision */
-      milestone_revision: number | null;
       /** Label Name */
       label_name: string | null;
       /** Label Revision */
@@ -3083,6 +3084,7 @@ export interface components {
         | "archive"
         | "projects"
         | "milestones"
+        | "milestone"
         | "task"
         | "documents"
         | "document";
@@ -3090,6 +3092,8 @@ export interface components {
       project_id?: string | null;
       /** Milestone Id */
       milestone_id?: string | null;
+      /** Milestone Revision */
+      milestone_revision?: number | null;
       /** Label Id */
       label_id?: string | null;
       /**

@@ -102,8 +102,7 @@ test("project defaults prepare exact task documents and preserve revision links"
     page.getByText("Newer source revision available", { exact: true }),
   ).toBeVisible();
   await page
-    .locator("summary")
-    .filter({ hasText: /^Worker documents$/ })
+    .getByRole("button", { name: "Documents · 2", exact: true })
     .click();
   await expect(
     page.getByRole("link", {
@@ -111,7 +110,7 @@ test("project defaults prepare exact task documents and preserve revision links"
       exact: true,
     }),
   ).toBeVisible();
-  await expect(page.getByText(/bytes of source text/)).toBeVisible();
+  await expect(page.getByText(/bytes of source text/)).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Revision 2 available", exact: true }),
   ).toBeVisible();
@@ -119,8 +118,7 @@ test("project defaults prepare exact task documents and preserve revision links"
   await page.evaluate(() => localStorage.setItem("flowfield.theme", "dark"));
   await page.reload();
   await page
-    .locator("summary")
-    .filter({ hasText: /^Worker documents$/ })
+    .getByRole("button", { name: "Documents · 2", exact: true })
     .click();
   await page.screenshot({
     path: testInfo.outputPath("worker-documents-narrow-dark.png"),

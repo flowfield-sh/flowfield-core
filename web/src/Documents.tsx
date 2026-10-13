@@ -10,6 +10,7 @@ import { ConfirmButton } from "./ConfirmButton";
 import { EntityOverlay } from "./EntityOverlay";
 import { DetailHeader } from "./Presentation";
 import { Markdown, MarkdownField } from "./Markdown";
+import { RevisionHistory } from "./RevisionHistory";
 import { Timestamp } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
@@ -494,76 +495,5 @@ function DocumentEditor({
         />
       )}
     </section>
-  );
-}
-
-function RevisionHistory({
-  path,
-  href,
-  revision,
-  selected,
-}: {
-  path: string;
-  href: string;
-  revision: number;
-  selected: number;
-}) {
-  const [before, setBefore] = useState<number | null>(null);
-  const resource = useResource<DocumentPage>(
-    `${path}/history?limit=20${before ? `&before=${before}` : ""}`,
-    revision,
-  );
-  return (
-    <aside className="document-history" aria-label="Revision history">
-      <ContentStack>
-        <h3 className="detail-title">Revisions</h3>
-        <nav
-          className="project-list document-revisions"
-          aria-label="Document revisions"
-        >
-          {resource.error && (
-            <Button size="sm" variant="outline" onClick={resource.retry}>
-              Retry history
-            </Button>
-          )}
-          {!resource.data && !resource.error && <p>Loading history…</p>}
-          {resource.data?.items.map((item) => (
-            <WorkspaceLink
-              className="project-list-row document-revision"
-              key={item.revision}
-              aria-label={`Revision ${item.revision}`}
-              aria-current={item.revision === selected ? "page" : undefined}
-              to={`${href}/revisions/${item.revision}`}
-            >
-              <ContentStack space="tight" className="col-span-2 gap-0.5">
-                <span>
-                  Revision {item.revision}
-                  {item.revision === revision ? " · Current" : ""}
-                </span>
-                <span className="detail-metadata">
-                  {item.actor.label} · <Timestamp date={item.created_at} />
-                </span>
-              </ContentStack>
-            </WorkspaceLink>
-          ))}
-        </nav>
-        <div className="actions justify-end">
-          {before && (
-            <Button size="sm" variant="outline" onClick={() => setBefore(null)}>
-              Latest revisions
-            </Button>
-          )}
-          {resource.data?.next_cursor && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setBefore(Number(resource.data!.next_cursor))}
-            >
-              Older revisions
-            </Button>
-          )}
-        </div>
-      </ContentStack>
-    </aside>
   );
 }

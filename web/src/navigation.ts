@@ -17,6 +17,7 @@ const pagePaths = [
   "workspaces/:workspaceId/inbox",
   "workspaces/:workspaceId/milestones",
   "workspaces/:workspaceId/milestones/new",
+  "workspaces/:workspaceId/milestones/:milestoneId/revisions/:milestoneRevision",
   "workspaces/:workspaceId/milestones/:milestoneId/:milestoneTab?",
   "workspaces/:workspaceId/tasks/new",
   "workspaces/:workspaceId/edit/:workspaceTab?",
@@ -157,6 +158,7 @@ export function entityNavigationState(
   state: EntityNavigationState | null,
   target: string,
   replace = false,
+  projectOwners: Record<string, string> = {},
 ) {
   if (!entityPage(target)) return null;
   const current = withoutQuestionOverlay(pathname.split("?")[0]);
@@ -166,8 +168,26 @@ export function entityNavigationState(
   const workspaceOrigin =
     current.startsWith("/workspaces/") ||
     state?.backgroundPath?.startsWith("/workspaces/");
+  const owner = (path: string) => {
+    const [, kind, id] = path.split("/");
+    return kind === "workspaces"
+      ? id
+      : kind === "projects"
+        ? projectOwners[id]
+        : undefined;
+  };
+  const sameWorkspace = !!owner(current) && owner(current) === owner(target);
   const retainOrigin =
-    sameProject || (workspaceOrigin && target.startsWith("/projects/"));
+    sameProject ||
+    sameWorkspace ||
+    (workspaceOrigin && target.startsWith("/projects/"));
+  const milestonePath = (path: string) =>
+    path.match(
+      /^(\/workspaces\/[^/]+\/milestones\/[^/]+)(?:\/revisions\/[^/]+)?$/,
+    )?.[1];
+  const sameMilestone =
+    !!milestonePath(current) &&
+    milestonePath(current) === milestonePath(target);
   const betweenTasks =
     retainOrigin &&
     /^\/(?:workspaces\/[^/]+\/)?projects\/[^/]+\/tasks\/[^/]+/.test(current) &&
@@ -179,7 +199,11 @@ export function entityNavigationState(
       : collectionPath(target),
     returnTo: !retainOrigin
       ? undefined
-      : replace || sameEditor || betweenTasks || current.endsWith("/new")
+      : replace ||
+          sameEditor ||
+          sameMilestone ||
+          betweenTasks ||
+          current.endsWith("/new")
         ? state?.returnTo
         : typeof index === "number"
           ? { path: pathname, index }
@@ -250,6 +274,7 @@ export function useWorkspaceNavigation(
           location.state,
           url,
           replace,
+          projectOwners,
         ),
       });
       bypass.current = false;

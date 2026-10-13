@@ -31,12 +31,21 @@ def freeze_view(
         or (selection.milestone_id and selection.without_milestone)
         or (
             not filtered
-            and (selection.milestone_id or selection.label_id or selection.without_milestone)
+            and (
+                (selection.milestone_id and selection.surface != "milestone")
+                or selection.label_id
+                or selection.without_milestone
+            )
         )
         or (
-            selection.surface in {"projects", "milestones", "documents", "document"}
+            selection.surface in {"projects", "milestones", "milestone", "documents", "document"}
             and selection.project_id
         )
+        or (
+            selection.surface == "milestone"
+            and (not selection.milestone_id or not selection.milestone_revision)
+        )
+        or (selection.surface != "milestone" and selection.milestone_revision is not None)
         or (
             selection.surface == "document"
             and (not selection.document_id or not selection.document_revision)
@@ -65,7 +74,13 @@ def freeze_view(
         project = store._project(db, selection.project_id)
         value.project_name, value.project_revision = project.name, project.revision
     if selection.milestone_id:
-        milestone = Milestones.read(db, workspace_id, selection.milestone_id)
+        milestone = (
+            Milestones.revision(
+                db, workspace_id, selection.milestone_id, selection.milestone_revision
+            )
+            if selection.milestone_revision
+            else Milestones.read(db, workspace_id, selection.milestone_id)
+        )
         value.milestone_title, value.milestone_revision = milestone.title, milestone.revision
     if selection.label_id:
         label = Labels.read(db, workspace_id, selection.label_id)
@@ -84,7 +99,7 @@ def same_view(
 ) -> bool:
     if saved is None or requested is None:
         return saved is None and requested is None
-    return (
-        saved.model_dump(include=set(CoordinatorViewSelection.model_fields))
-        == requested.model_dump()
-    )
+    fields = set(CoordinatorViewSelection.model_fields)
+    if requested.surface != "milestone":
+        fields.discard("milestone_revision")
+    return saved.model_dump(include=fields) == requested.model_dump(include=fields)

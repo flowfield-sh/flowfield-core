@@ -221,7 +221,7 @@ test("collections open and close entity details through the same routes", async 
       path === "milestones"
         ? page
             .locator(".task-card")
-            .getByRole("link", { name: "Edit M-1", exact: true })
+            .getByRole("link", { name: "Delivery", exact: true })
             .first()
         : page.locator(".archive-list .task-card-link").first();
     await expect(row).toBeVisible();
@@ -275,11 +275,12 @@ test("task metadata and internal Markdown links stay inside the router", async (
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(boot);
   await page.goBack();
   await editor.getByRole("link", { name: "M-1", exact: true }).click();
-  await expect(page).toHaveURL(`/workspaces/${workspace}?milestone=questions`);
+  await expect(page).toHaveURL(`/workspaces/${workspace}/milestones/M-1`);
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(boot);
   await page.keyboard.press("Escape");
   await page.getByRole("tab", { name: /^Milestones/ }).click();
   await page.locator(".task-card-link").first().click();
+  await page.getByRole("link", { name: "View tasks", exact: true }).click();
   await expect(page).toHaveURL(`/workspaces/${workspace}?milestone=questions`);
   await expect(page.getByLabel("Filter by milestone")).toHaveValue("questions");
   await expect(
@@ -348,6 +349,7 @@ test("shared overlays preserve the workspace, related return paths and mobile cr
     page.getByRole("tablist", { name: "Workspace views" }),
   ).toBeVisible();
   await page.locator(".task-card-link").first().click();
+  await page.getByRole("link", { name: "View tasks", exact: true }).click();
   await expect(page.getByLabel("Filter by milestone")).toHaveValue("group");
   await card.click();
   await expect(dialog).toBeVisible();

@@ -356,13 +356,19 @@ test("milestones share board scrolling, compact controls and URL views", async (
   await planned
     .getByRole("link", { name: "Milestone 15", exact: true })
     .click();
+  await expect(
+    page.getByRole("region", { name: "Milestone details", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "View tasks", exact: true }).click();
   const selection = new URL(page.url()).searchParams.get("milestone");
   expect(selection).toBeTruthy();
   await expect(page.getByLabel("Filter by milestone")).toHaveValue(selection!);
   await page.reload();
   await expect(page.getByLabel("Filter by milestone")).toHaveValue(selection!);
   await page.goBack();
-  await expect(page).toHaveURL(`${base}/milestones`);
+  await expect(
+    page.getByRole("region", { name: "Milestone details", exact: true }),
+  ).toBeVisible();
   await page.goForward();
   await expect(page.getByLabel("Filter by milestone")).toHaveValue(selection!);
   await page.goto(`${base}/milestones`);

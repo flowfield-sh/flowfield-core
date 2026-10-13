@@ -3,8 +3,6 @@ import { useEffect, useState, useRef, type ReactNode } from "react";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { TaskLabelEditor } from "./TaskLabelEditor";
 import { WorkerDocumentEvidence } from "./WorkerDocuments";
-import { PreparedMilestone } from "./MilestoneContext";
-import { TaskLabels } from "./TaskLabels";
 import { DetailHeader, DraftBadge } from "./Presentation";
 import { MilestoneBadge } from "./MilestoneBadge";
 import { WorkspaceLink } from "./WorkspaceLink";
@@ -93,39 +91,53 @@ export function TaskDetail({
         closeLabel="Back to board"
       >
         <div className="task-conversation-header content-stack">
-          {(task.milestone_id || task.publication_status === "draft") && (
-            <div className="entity-labels">
-              <MilestoneBadge
-                projectId={board.project.id}
-                milestone={board.milestones.find(
-                  (m) => m.id === task.milestone_id,
-                )}
-              />
-              <DraftBadge publicationStatus={task.publication_status} />
-            </div>
-          )}
-          {task.labels.length > 0 && (
-            <div className="entity-labels task-classifications">
-              <TaskLabels ids={task.labels} />
-            </div>
-          )}
-          <TaskState
-            projectId={board.project.id}
-            open={openTask}
-            task={{
-              ...task,
-              state: task.state ?? {
-                label: label(task.status),
-                tone: "idle",
-                href: null,
-              },
-            }}
-          />
-          <StageHeader
-            projectId={board.project.id}
-            task={task}
-            refresh={board}
-          />
+          <div className="actions task-references" aria-label="Task references">
+            <MilestoneBadge
+              projectId={board.project.id}
+              milestone={board.milestones.find(
+                (m) => m.id === task.milestone_id,
+              )}
+            />
+            <DraftBadge publicationStatus={task.publication_status} />
+            {task.publication?.milestone && (
+              <WorkspaceLink
+                className="detail-metadata"
+                to={`/workspaces/${task.publication.milestone.workspace_id}/milestones/${task.publication.milestone.key}/revisions/${task.publication.milestone.revision}`}
+              >
+                Prepared with revision {task.publication.milestone.revision}
+              </WorkspaceLink>
+            )}
+            <WorkerDocumentEvidence
+              compact
+              documents={task.publication?.documents ?? []}
+              updates={task.document_updates}
+            />
+            <TaskLabelEditor
+              task={task}
+              path={path}
+              onDirty={setLabelDirty}
+              saved={saved}
+            />
+          </div>
+          <div className="actions task-progress">
+            <TaskState
+              projectId={board.project.id}
+              open={openTask}
+              task={{
+                ...task,
+                state: task.state ?? {
+                  label: label(task.status),
+                  tone: "idle",
+                  href: null,
+                },
+              }}
+            />
+            <StageHeader
+              projectId={board.project.id}
+              task={task}
+              refresh={board}
+            />
+          </div>
         </div>
       </DetailHeader>
       <ContentStack space="section" className="task-context">
@@ -142,20 +154,6 @@ export function TaskDetail({
             {task.body}
           </ExpandableMarkdown>
         </div>
-        <TaskLabelEditor
-          task={task}
-          path={path}
-          onDirty={setLabelDirty}
-          saved={saved}
-        />
-        <WorkerDocumentEvidence
-          documents={task.publication?.documents ?? []}
-          updates={task.document_updates}
-        />
-        <PreparedMilestone
-          binding={task.publication?.milestone}
-          update={task.milestone_update}
-        />
         {hasTaskNeeds(task, board.pending_code[task.id], false) && (
           <DetailSection title="Waiting on">
             <TaskNeeds

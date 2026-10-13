@@ -1,3 +1,4 @@
+import { Popover } from "radix-ui";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -131,21 +132,23 @@ export function WorkerDocumentPicker({
 export function WorkerDocumentEvidence({
   documents,
   updates = [],
+  compact = false,
 }: {
   documents: Snapshot[];
+  compact?: boolean;
   updates?: components["schemas"]["DocumentUpdate"][];
 }) {
   if (!documents.length) return null;
-  return (
-    <Disclosure summary="Worker documents">
-      <ContentStack space="content">
-        {!!updates.length && (
-          <p>
-            Newer source revisions are available. Discuss their relevance with
-            the coordinator before preparing affected work again. Active
-            attempts keep their saved sources.
-          </p>
-        )}
+  const content = (
+    <ContentStack space="content">
+      {!!updates.length && (
+        <p>
+          Newer source revisions are available. Discuss their relevance with the
+          coordinator before preparing affected work again. Active attempts keep
+          their saved sources.
+        </p>
+      )}
+      {!compact && (
         <p className="detail-metadata">
           {documents
             .reduce((sum, item) => sum + item.characters, 0)
@@ -157,32 +160,53 @@ export function WorkerDocumentEvidence({
           bytes of source text. Token usage is reported separately by the
           harness.
         </p>
-        <ul>
-          {documents.map((item) => (
-            <li key={item.id}>
-              <WorkspaceLink
-                to={`/workspaces/${item.workspace_id}/documents/${item.id}/revisions/${item.revision}`}
-              >
-                {item.title} · revision {item.revision}
-              </WorkspaceLink>
-              {" · " +
-                (item.purpose === "reference" ? "Reference" : "Required")}
-              {updates
-                .filter((update) => update.id === item.id)
-                .map((update) => (
-                  <span key={update.id}>
-                    {" · "}
-                    <WorkspaceLink
-                      to={`/workspaces/${item.workspace_id}/documents/${item.id}/revisions/${update.latest_revision}`}
-                    >
-                      Revision {update.latest_revision} available
-                    </WorkspaceLink>
-                  </span>
-                ))}
-            </li>
-          ))}
-        </ul>
-      </ContentStack>
-    </Disclosure>
+      )}
+      <ul>
+        {documents.map((item) => (
+          <li key={item.id}>
+            <WorkspaceLink
+              to={`/workspaces/${item.workspace_id}/documents/${item.id}/revisions/${item.revision}`}
+            >
+              {item.title} · revision {item.revision}
+            </WorkspaceLink>
+            {" · " + (item.purpose === "reference" ? "Reference" : "Required")}
+            {updates
+              .filter((update) => update.id === item.id)
+              .map((update) => (
+                <span key={update.id}>
+                  {" · "}
+                  <WorkspaceLink
+                    to={`/workspaces/${item.workspace_id}/documents/${item.id}/revisions/${update.latest_revision}`}
+                  >
+                    Revision {update.latest_revision} available
+                  </WorkspaceLink>
+                </span>
+              ))}
+          </li>
+        ))}
+      </ul>
+    </ContentStack>
+  );
+  return compact ? (
+    <Popover.Root>
+      <Popover.Trigger asChild>
+        <Button size="sm" variant="ghost">
+          Documents · {documents.length}
+        </Button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="start"
+          sideOffset={6}
+          collisionPadding={16}
+          className="composer-settings"
+          aria-label="Task documents"
+        >
+          {content}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  ) : (
+    <Disclosure summary="Worker documents">{content}</Disclosure>
   );
 }

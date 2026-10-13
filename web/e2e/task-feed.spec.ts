@@ -292,11 +292,17 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
   await page.getByLabel("Filter by milestone").selectOption("csv");
   await expect(page.locator(".task-card")).toHaveCount(2);
   await page.getByRole("tab", { name: /^Milestones/ }).click();
-  await page.getByRole("link", { name: "Edit M-1", exact: true }).click();
+  await page.locator(".three-column-board .task-card-link").first().click();
+  await page
+    .getByRole("button", { name: "Edit milestone", exact: true })
+    .click();
   await page
     .getByRole("textbox", { name: "Description", exact: true })
     .fill("Export filtered expenses without losing row order.");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Edit milestone", exact: true }),
+  ).toBeVisible();
   await page.getByRole("tab", { name: /^Board / }).click();
   await page.getByLabel("Filter by milestone").selectOption("");
 

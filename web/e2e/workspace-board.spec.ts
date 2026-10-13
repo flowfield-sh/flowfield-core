@@ -153,11 +153,11 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
   await page
     .locator(".task-card")
     .filter({ hasText: "Launch together" })
-    .getByRole("link", { name: "Edit M-1", exact: true })
+    .getByRole("link", { name: "Launch together", exact: true })
     .click();
   await expect(page).toHaveURL(`${base}/milestones/M-1`);
   await expect(
-    page.getByRole("dialog", { name: "Edit milestone", exact: true }),
+    page.getByRole("region", { name: "Milestone details", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);

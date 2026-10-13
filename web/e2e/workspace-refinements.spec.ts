@@ -186,30 +186,24 @@ test("URL-backed board views, creation overlays, milestone cards and document li
     .locator(".task-card");
   await expect(card).toContainText("Release readiness");
   await card
-    .getByRole("button", {
-      name: `Description for ${milestone.key}`,
-      exact: true,
-    })
+    .getByRole("link", { name: "Release readiness", exact: true })
     .click();
-  await expect(page.locator(".milestone-description")).toContainText(
-    "Review the release across projects.",
-  );
+  await expect(
+    page.getByRole("region", { name: "Milestone", exact: true }),
+  ).toContainText("Review the release across projects.");
   await page.screenshot({
-    path: testInfo.outputPath("milestone-popover-desktop-light.png"),
+    path: testInfo.outputPath("milestone-pane-desktop-light.png"),
   });
-  await page.keyboard.press("Escape");
-  await card
-    .getByRole("link", { name: `Edit ${milestone.key}`, exact: true })
+  await page
+    .getByRole("button", { name: "Edit milestone", exact: true })
     .click();
   await expect(page.getByLabel("Title", { exact: true })).toHaveValue(
     "Release readiness",
   );
   await page.getByLabel("Title", { exact: true }).fill("Release checklist");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(page).toHaveURL(`${base}/milestones`);
-  await card
-    .getByRole("link", { name: "Release checklist", exact: true })
-    .click();
+  await expect(page).toHaveURL(`${base}/milestones/${milestone.key}`);
+  await page.getByRole("link", { name: "View tasks", exact: true }).click();
   await expect(page.getByLabel("Filter by milestone")).toHaveValue(
     milestone.id,
   );

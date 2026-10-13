@@ -5,7 +5,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { boardHref } from "./navigation";
+import { workspaceHref } from "./navigation";
 import type { Milestone } from "./workspace";
 
 export function MilestoneBadge({
@@ -27,9 +27,7 @@ export function MilestoneBadge({
         >
           {linked ? (
             <WorkspaceLink
-              to={boardHref(milestone.workspace_id, {
-                milestone: milestone.id,
-              })}
+              to={`${workspaceHref(milestone.workspace_id)}/milestones/${milestone.key}`}
             >
               {milestone.key}
             </WorkspaceLink>
