@@ -83,8 +83,10 @@ def test_workspace_tools_work_before_adoption_and_guard_full_text(tmp_path):
             {"milestone_id": value["id"], "changes": {"expected_revision": 1, "body": "Updated"}},
         )
         assert not changed.isError
-        stale = await grant.call("get_milestone_text", {"identity": value["id"], "revision": 1})
-        assert stale.isError and stale.structuredContent["error"]["code"] == "revision_conflict"
+        historical = await grant.call(
+            "get_milestone_text", {"identity": value["id"], "revision": 1}
+        )
+        assert not historical.isError and historical.structuredContent["text"] == "🦉" * 4000
         assert (
             await grant.call(
                 "get_milestone", {"workspace_id": "elsewhere", "milestone_id": value["id"]}

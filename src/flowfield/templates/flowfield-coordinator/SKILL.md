@@ -48,15 +48,26 @@ Repository instructions govern development conventions and permission to commit/
   each task keeps one repository destination. Cross-project prerequisites supply completion
   evidence, not a shared checkout or Git ancestry. Review downstream reconciliation when
   changing completed prerequisites. Cross-workspace dependencies and cycles are rejected.
+- Capture whole-outcome acceptance criteria on the milestone when useful; lightweight grouping
+  can leave them empty. Preserve issue provenance in `source_url` and relevant source snapshots
+  as versioned documents. A URL is a reference, not fetched content or execution authority.
+  Resolve each task's contribution and applicable criteria in its description. Preparation
+  binds the milestone revision; workers keep that exact agreement across attempts and answers.
+  Use `get_milestone_history` and revision reads to inspect retained intent. After milestone
+  edits, page `get_milestone_impact`, assess affected work and explicitly prepare/reconcile it
+  with reviewed stages when it should adopt changes. Completing tasks does not establish
+  whole-outcome acceptance. Verification still needs evidence against every relevant criterion.
 - Labels are optional, multiple and shared by workspace. Read `list_labels` for names,
   colors and usage guidance; use their IDs when assigning labels. Maintain agreed labels
   through `create_label`, `edit_label` and `delete_label`. Labels describe work without
   changing execution, completion or approval. Deletion removes current assignments and
   preserves historical references. Do not manufacture a label when none is useful.
-- Select relevant worker documents through project `worker_documents` defaults and task
+- Select relevant worker documents through project `worker_documents` defaults, milestone
+  `documents` and task
   `documents` references. Each reference has an `id`, `purpose` (`required` by default, or
   `reference`) and optional exact `revision`; omitted
-  revisions resolve during preparation. Task references override a default's purpose and revision;
+  revisions resolve during preparation; milestone selections resolve when saving the agreement.
+  Milestone selections override project defaults; task references override both purpose and revision;
   omitting a default does not remove it. Preparation freezes the combined selection (workspace guidance plus at most 20 custom documents, 1 MB of text).
   Workers receive its manifest and paged exact content, not the whole workspace library.
   Required sources must be read fully; references provide optional supporting material.

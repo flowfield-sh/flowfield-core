@@ -855,6 +855,7 @@ function WorkspaceBoard({
             key={selection.id ?? "new"}
             incoming={incoming as Milestone | undefined}
             path={path}
+            workspaceId={workspaceId}
             onDirty={setUnsaved}
             saved={(item) => saved("milestone", item)}
             close={() => choose(null)}

@@ -4,21 +4,33 @@ import { Button } from "@/components/ui/button";
 import { DetailHeader } from "./Presentation";
 import { MarkdownField } from "./Markdown";
 import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
+import { WorkerDocumentPicker } from "./WorkerDocuments";
+import { MilestoneHistory } from "./MilestoneAgreement";
 import type { Milestone } from "./workspace";
+import type { components } from "./api-schema";
 
 const fields = (record?: Milestone) => ({
   title: record?.title ?? "",
   body: record?.body ?? "",
+  acceptance_criteria: record?.acceptance_criteria ?? "",
+  source_url: record?.source_url ?? "",
+  documents: (record?.documents ?? []).map(({ id, revision, purpose }) => ({
+    id,
+    revision,
+    purpose,
+  })) as components["schemas"]["Project"]["worker_documents"],
 });
 export function MilestoneEditor({
   incoming,
   path,
+  workspaceId,
   onDirty,
   saved,
   close,
 }: {
   incoming?: Milestone;
   path: string;
+  workspaceId: string;
   onDirty: (value: boolean) => void;
   saved: (record: Milestone) => void;
   close: () => void;
@@ -73,6 +85,27 @@ export function MilestoneEditor({
             value={values.body}
             onChange={(value) => change("body", value)}
           />
+          <MarkdownField
+            label="Acceptance criteria"
+            value={values.acceptance_criteria}
+            onChange={(value) => change("acceptance_criteria", value)}
+          />
+          <Label className="field block">
+            Source URL
+            <Input
+              type="url"
+              maxLength={2000}
+              value={values.source_url}
+              onChange={(event) => change("source_url", event.target.value)}
+            />
+          </Label>
+          <WorkerDocumentPicker
+            workspaceId={workspaceId}
+            scope="milestone"
+            value={values.documents}
+            change={(value) => change("documents", value)}
+          />
+          {loaded && <MilestoneHistory milestone={loaded} />}
           <div className="actions justify-end">
             <Button
               size="sm"

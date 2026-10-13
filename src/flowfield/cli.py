@@ -33,7 +33,7 @@ app.add_typer(workspace_app, name="workspace", help="Create workspaces and organ
 app.add_typer(task_app, name="task", help="Capture, prioritize and track tasks.")
 app.add_typer(inbox_app, name="inbox", help="Read questions, answer them, and apply decisions.")
 app.add_typer(
-    milestone_app, name="milestone", help="Group related tasks without gates or dependencies."
+    milestone_app, name="milestone", help="Capture shared outcomes and milestone agreements."
 )
 app.add_typer(integration_app, name="integration", help="Connect and check coding harnesses.")
 app.add_typer(harness_app, name="harness", help="Configure and check native coding harnesses.")
@@ -502,7 +502,14 @@ def display(result: Any) -> None:
         and "items" in result
         and (not result["items"] or "kind" not in result["items"][0])
     ):
-        if result["items"] and "change_note" in result["items"][0]:
+        if result["items"] and "prepared_revision" in result["items"][0]:
+            for item in result["items"]:
+                typer.echo(
+                    f"{item['task_key']} · {item['task_title']} · "
+                    f"Prepared revision {item['prepared_revision']} → "
+                    f"Available revision {item['latest_revision']}"
+                )
+        elif result["items"] and "change_note" in result["items"][0]:
             for item in result["items"]:
                 typer.echo(
                     f"Revision {item['revision']} · {item['updated_by']} · "
@@ -623,6 +630,10 @@ def display(result: Any) -> None:
                     )
         if result.get("body"):
             typer.echo(result["body"])
+        if result.get("acceptance_criteria"):
+            typer.echo(f"\nAcceptance criteria\n{result['acceptance_criteria']}")
+        if result.get("source_url"):
+            typer.echo(f"Source: {result['source_url']}")
         if result.get("handoff"):
             handoff = result["handoff"]
             typer.echo(
@@ -665,10 +676,16 @@ def text_value(text: str | None, file: Path | None) -> str | None:
 
 
 def stages_value(file: Path) -> Any:
+    return json_file_value(file, "Stages")
+
+
+def json_file_value(file: Path, label: str) -> Any:
     try:
         return json.loads(file.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
-        raise ApplicationError("invalid_request", "Stages file must contain valid JSON.") from error
+        raise ApplicationError(
+            "invalid_request", f"{label} file must contain valid JSON."
+        ) from error
 
 
 def update(
@@ -1140,11 +1157,18 @@ def milestone_list(
 
 @milestone_app.command("show")
 def milestone_show(
-    ctx: typer.Context, milestone: str, workspace: WorkspaceOption, json_output: Json = False
+    ctx: typer.Context,
+    milestone: str,
+    workspace: WorkspaceOption,
+    revision: int | None = None,
+    json_output: Json = False,
 ) -> None:
     output(
         lambda: ctx.obj.request(
-            "GET", "context/" + workspace_item_path(workspace, "milestones", milestone)
+            "GET",
+            "context/"
+            + workspace_item_path(workspace, "milestones", milestone)
+            + (f"?revision={revision}" if revision is not None else ""),
         ),
         json_output,
     )
@@ -1158,15 +1182,27 @@ def milestone_create(
     id: str | None = None,
     body: str | None = None,
     body_file: Path | None = None,
+    acceptance_criteria: str | None = None,
+    acceptance_file: Path | None = None,
+    source_url: str = "",
+    documents_file: Path | None = None,
     author: Author = "human",
     json_output: Json = False,
 ) -> None:
-    """Create an optional grouping. Tasks can also stand alone."""
+    """Capture an outcome with optional criteria and sources. Tasks can stand alone."""
     output(
         lambda: ctx.obj.request(
             "POST",
             workspace_item_path(workspace, "milestones"),
-            {"id": id, "title": title, "body": text_value(body, body_file) or "", "author": author},
+            {
+                "id": id,
+                "title": title,
+                "body": text_value(body, body_file) or "",
+                "author": author,
+                "acceptance_criteria": text_value(acceptance_criteria, acceptance_file) or "",
+                "source_url": source_url,
+                "documents": json_file_value(documents_file, "Documents") if documents_file else [],
+            },
         ),
         json_output,
     )
@@ -1180,18 +1216,30 @@ def milestone_edit(
     title: str | None = None,
     body: str | None = None,
     body_file: Path | None = None,
+    acceptance_criteria: str | None = None,
+    acceptance_file: Path | None = None,
+    source_url: str | None = None,
+    documents_file: Path | None = None,
     expected_revision: Expected = None,
     author: Author = "human",
     json_output: Json = False,
 ) -> None:
-    """Edit a milestone's title or description without changing its members."""
+    """Revise a milestone agreement without changing its prepared tasks."""
     output(
         lambda: update(
             ctx.obj,
             workspace_item_path(workspace, "milestones", milestone),
             {
                 k: v
-                for k, v in {"title": title, "body": text_value(body, body_file)}.items()
+                for k, v in {
+                    "title": title,
+                    "body": text_value(body, body_file),
+                    "acceptance_criteria": text_value(acceptance_criteria, acceptance_file),
+                    "source_url": source_url,
+                    "documents": json_file_value(documents_file, "Documents")
+                    if documents_file
+                    else None,
+                }.items()
                 if v is not None
             },
             expected_revision,
@@ -1207,6 +1255,7 @@ def milestone_text(
     milestone: str,
     workspace: WorkspaceOption,
     revision: int | None = None,
+    field: str = "body",
     offset: int = 0,
     limit: int = 4000,
     json_output: Json = False,
@@ -1222,9 +1271,65 @@ def milestone_text(
                 {
                     "offset": offset,
                     "limit": limit,
+                    "field": field,
                     **({"revision": revision} if revision is not None else {}),
                 }
             ),
+        ),
+        json_output,
+    )
+
+
+@milestone_app.command("history")
+def milestone_history(
+    ctx: typer.Context,
+    milestone: str,
+    workspace: WorkspaceOption,
+    before: int | None = None,
+    limit: int = 20,
+    json_output: Json = False,
+) -> None:
+    """List retained agreement revisions."""
+
+    def human(value: dict[str, Any]) -> None:
+        for item in value["items"]:
+            typer.echo(
+                f"Revision {item['revision']} · {item['updated_by']} · "
+                f"{item['updated_at']} · {item['title']}"
+            )
+        if value.get("next_cursor") is not None:
+            typer.echo(f"More available: --before {value['next_cursor']}")
+
+    output(
+        lambda: ctx.obj.request(
+            "GET",
+            "context/"
+            + workspace_item_path(workspace, "milestones", milestone, "history")
+            + "?"
+            + urlencode({"limit": limit, **({"before": before} if before is not None else {})}),
+        ),
+        json_output,
+        human,
+    )
+
+
+@milestone_app.command("impact")
+def milestone_impact(
+    ctx: typer.Context,
+    milestone: str,
+    workspace: WorkspaceOption,
+    after: str | None = None,
+    limit: int = 20,
+    json_output: Json = False,
+) -> None:
+    """Find unfinished tasks prepared against an older milestone agreement."""
+    output(
+        lambda: ctx.obj.request(
+            "GET",
+            "context/"
+            + workspace_item_path(workspace, "milestones", milestone, "impact")
+            + "?"
+            + urlencode({"limit": limit, **({"after": after} if after is not None else {})}),
         ),
         json_output,
     )

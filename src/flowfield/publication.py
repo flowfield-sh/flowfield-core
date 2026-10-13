@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from flowfield.document_models import DocumentSnapshot
+from flowfield.milestone_models import MilestoneBinding
 
 if TYPE_CHECKING:
     from flowfield.application import TaskRevision
@@ -23,6 +24,7 @@ class Publication(BaseModel):
     completion: Literal["code", "report"] = "code"
     target_branch: str | None = None
     documents: list[DocumentSnapshot] = Field(default_factory=list)
+    milestone: MilestoneBinding | None = None
 
 
 def publication_status(task: "TaskRevision") -> PublicationStatus:

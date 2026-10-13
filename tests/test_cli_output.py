@@ -42,6 +42,8 @@ def test_workspace_milestones_work_without_projects_and_page_exact_revisions(tmp
             "Shared launch",
             "--body",
             body,
+            "--acceptance-criteria",
+            "Installed journey works",
         )
         assert milestone["key"] == "M-1"
         assert invoke("project", "list")["items"] == []
@@ -70,10 +72,37 @@ def test_workspace_milestones_work_without_projects_and_page_exact_revisions(tmp
             "1",
         )
         assert changed["revision"] == 2
-        stale = invoke(
-            "milestone", "text", "M-1", "--workspace", first["id"], "--revision", "1", failure=True
+        retained = invoke("milestone", "text", "M-1", "--workspace", first["id"], "--revision", "1")
+        assert retained["text"] == body[:4000]
+        criteria = invoke(
+            "milestone",
+            "text",
+            "M-1",
+            "--workspace",
+            first["id"],
+            "--field",
+            "acceptance_criteria",
+            "--revision",
+            "1",
         )
-        assert stale["error"]["code"] == "revision_conflict"
+        assert criteria["text"] == "Installed journey works"
+        history = runner.invoke(
+            app, [*prefix, "milestone", "history", "M-1", "--workspace", first["id"]]
+        )
+        assert history.exit_code == 0 and "Revision 1" in history.output
+        malformed = tmp_path / "documents.json"
+        malformed.write_text("not JSON")
+        invalid = invoke(
+            "milestone",
+            "edit",
+            "M-1",
+            "--workspace",
+            first["id"],
+            "--documents-file",
+            str(malformed),
+            failure=True,
+        )
+        assert invalid["error"]["code"] == "invalid_request"
         missing = runner.invoke(app, [*prefix, "milestone", "list"])
         assert missing.exit_code == 2 and "--workspace" in unstyle(missing.output)
 

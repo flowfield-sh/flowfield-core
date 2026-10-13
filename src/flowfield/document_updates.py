@@ -26,6 +26,19 @@ WHERE json_extract(t.data,'$.status')!='done'
     AND d.revision>json_extract(s.value,'$.revision')
 """
 
+UPDATED_MILESTONES = """
+SELECT t.project_id,t.id AS task_id,t.key AS task_key,
+    json_extract(t.data,'$.title') AS task_title,
+    json_extract(m.data,'$.updated_at') AS updated_at
+FROM tasks t JOIN workspace_projects w ON w.project_id=t.project_id
+JOIN milestones m ON m.workspace_id=w.workspace_id
+    AND m.id=json_extract(t.data,'$.milestone_id')
+WHERE json_extract(t.data,'$.status')!='done'
+    AND coalesce(json_extract(t.data,'$.archived'),0)=0
+    AND json_extract(t.data,'$.publication.milestone.id')=m.id
+    AND json_extract(m.data,'$.revision')>json_extract(t.data,'$.publication.milestone.revision')
+"""
+
 
 def task_updates(db: sqlite3.Connection, project: str, task: str) -> list[DocumentUpdate]:
     return [

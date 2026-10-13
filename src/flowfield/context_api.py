@@ -173,19 +173,32 @@ def workspace_context_router(workspace: Callable[[], Workspace]) -> APIRouter:
         return Milestones(workspace()).page(workspace_id, after=after, limit=limit)
 
     @router.get("/milestones/{identity}")
-    def milestone(workspace_id: str, identity: str) -> dict[str, Any]:
-        return excerpt(Milestones(workspace()).get(workspace_id, identity).model_dump())
+    def milestone(workspace_id: str, identity: str, revision: int | None = None) -> dict[str, Any]:
+        return excerpt(Milestones(workspace()).get(workspace_id, identity, revision).model_dump())
+
+    @router.get("/milestones/{identity}/history")
+    def milestone_history(
+        workspace_id: str, identity: str, before: int | None = None, limit: int = 20
+    ) -> dict[str, Any]:
+        return Milestones(workspace()).history(workspace_id, identity, before=before, limit=limit)
+
+    @router.get("/milestones/{identity}/impact")
+    def milestone_impact(
+        workspace_id: str, identity: str, after: str | None = None, limit: int = 20
+    ) -> dict[str, Any]:
+        return Milestones(workspace()).impact(workspace_id, identity, after=after, limit=limit)
 
     @router.get("/milestones/{identity}/text")
     def milestone_text(
         workspace_id: str,
         identity: str,
         revision: int | None = None,
+        field: Literal["body", "acceptance_criteria"] = "body",
         offset: int = 0,
         limit: int = 4000,
     ) -> dict[str, Any]:
         return Milestones(workspace()).text(
-            workspace_id, identity, revision=revision, offset=offset, limit=limit
+            workspace_id, identity, revision=revision, field=field, offset=offset, limit=limit
         )
 
     @router.get("/coordinator-history")

@@ -2,7 +2,7 @@
 
 import json
 import sqlite3
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from flowfield.application import (
     Milestone,
@@ -12,9 +12,31 @@ from flowfield.application import (
     generated_id,
     now,
 )
+from flowfield.document_models import DocumentReference, DocumentSnapshot
 from flowfield.errors import ApplicationError
+from flowfield.milestone_models import MilestoneUpdate
 from flowfield.reads import page, validate_page
 from flowfield.workspaces import Workspaces
+
+if TYPE_CHECKING:
+    from flowfield.application import TaskRevision
+
+
+def milestone_update(db: sqlite3.Connection, task: "TaskRevision") -> MilestoneUpdate | None:
+    binding = task.publication.milestone if task.publication else None
+    if not binding or task.archived or task.status == "done" or binding.id != task.milestone_id:
+        return None
+    current = Milestones.read(db, binding.workspace_id, binding.id)
+    if current.revision <= binding.revision:
+        return None
+    return MilestoneUpdate(
+        workspace_id=current.workspace_id,
+        id=current.id,
+        key=current.key,
+        title=current.title,
+        prepared_revision=binding.revision,
+        latest_revision=current.revision,
+    )
 
 
 class Milestones:
@@ -32,9 +54,75 @@ class Milestones:
             raise ApplicationError("not_found", "Milestone not found in this workspace.", 404)
         return Milestone.model_validate_json(row[0])
 
-    def get(self, workspace_id: str, identity: str) -> Milestone:
+    @staticmethod
+    def revision(
+        db: sqlite3.Connection, workspace_id: str, identity: str, revision: int
+    ) -> Milestone:
+        current = Milestones.read(db, workspace_id, identity)
+        row = db.execute(
+            "SELECT data FROM milestone_revisions WHERE workspace_id=? AND id=? AND revision=?",
+            (workspace_id, current.id, revision),
+        ).fetchone()
+        if row is None:
+            raise ApplicationError("not_found", "Milestone revision not retained.", 404)
+        return Milestone.model_validate_json(row[0])
+
+    def get(self, workspace_id: str, identity: str, revision: int | None = None) -> Milestone:
         with self.store.connection() as db:
-            return self.read(db, workspace_id, identity)
+            return (
+                self.revision(db, workspace_id, identity, revision)
+                if revision is not None
+                else self.read(db, workspace_id, identity)
+            )
+
+    def history(
+        self, workspace_id: str, identity: str, *, before: int | None = None, limit: int = 20
+    ) -> dict[str, Any]:
+        validate_page(limit, before)
+        with self.store.connection() as db:
+            current = self.read(db, workspace_id, identity)
+            rows = db.execute(
+                "SELECT json_remove(data,'$.body','$.acceptance_criteria') "
+                "FROM milestone_revisions "
+                "WHERE workspace_id=? AND id=? AND revision<? ORDER BY revision DESC LIMIT ?",
+                (workspace_id, current.id, before or current.revision + 1, limit + 1),
+            )
+            return page([json.loads(row[0]) for row in rows], limit, "revision")
+
+    def impact(
+        self, workspace_id: str, identity: str, *, after: str | None = None, limit: int = 20
+    ) -> dict[str, Any]:
+        validate_page(limit, after)
+        with self.store.connection() as db:
+            current = self.read(db, workspace_id, identity)
+            rows = db.execute(
+                "SELECT t.project_id,t.id AS task_id,t.key AS task_key,"
+                "json_extract(t.data,'$.title') AS task_title,"
+                "json_extract(t.data,'$.status') AS task_status,"
+                "json_extract(t.data,'$.publication.milestone.revision') AS prepared_revision,"
+                "t.project_id||'/'||t.id AS cursor FROM tasks t "
+                "JOIN workspace_projects w ON w.project_id=t.project_id "
+                "WHERE w.workspace_id=? AND json_extract(t.data,'$.milestone_id')=? "
+                "AND json_extract(t.data,'$.publication.milestone.id')=? "
+                "AND json_extract(t.data,'$.publication.milestone.revision')<? "
+                "AND json_extract(t.data,'$.status')!='done' "
+                "AND coalesce(json_extract(t.data,'$.archived'),0)=0 "
+                "AND t.project_id||'/'||t.id>? ORDER BY t.project_id,t.id LIMIT ?",
+                (workspace_id, current.id, current.id, current.revision, after or "", limit + 1),
+            )
+            return page(
+                [{**dict(row), "latest_revision": current.revision} for row in rows],
+                limit,
+                "cursor",
+            )
+
+    @staticmethod
+    def freeze_documents(
+        db: sqlite3.Connection, workspace_id: str, references: list[DocumentReference]
+    ) -> list[DocumentSnapshot]:
+        from flowfield.worker_documents import select
+
+        return select(db, workspace_id, [], references)
 
     @staticmethod
     def read_all(db: sqlite3.Connection, workspace_id: str) -> list[Milestone]:
@@ -57,7 +145,8 @@ class Milestones:
         with self.store.connection() as db:
             Workspaces.read(db, workspace_id)
             rows = db.execute(
-                "SELECT json_remove(data,'$.body') FROM milestones WHERE workspace_id=? "
+                "SELECT json_remove(data,'$.body','$.acceptance_criteria') "
+                "FROM milestones WHERE workspace_id=? "
                 "AND id>? ORDER BY id LIMIT ?",
                 (workspace_id, after or "", limit + 1),
             ).fetchall()
@@ -76,6 +165,9 @@ class Milestones:
                 key=f"M-{number}",
                 title=request.title,
                 body=request.body,
+                acceptance_criteria=request.acceptance_criteria,
+                source_url=request.source_url,
+                documents=self.freeze_documents(db, workspace_id, request.documents),
                 revision=1,
                 created_at=now(),
                 updated_at=now(),
@@ -94,7 +186,28 @@ class Milestones:
 
     def edit(self, workspace_id: str, identity: str, request: MilestoneEdit) -> Milestone:
         with self.store.connection(write=True) as db:
-            value = Milestone(**self.store._patch(self.read(db, workspace_id, identity), request))
+            current = self.read(db, workspace_id, identity)
+            self.store._current(current.revision, request.expected_revision)
+            changes = request.model_dump(
+                exclude_unset=True, exclude={"expected_revision", "author"}
+            )
+            if request.documents is not None:
+                changes["documents"] = [
+                    item.model_dump()
+                    for item in self.freeze_documents(db, workspace_id, request.documents)
+                ]
+            values = current.model_dump()
+            if all(values[key] == value for key, value in changes.items()):
+                return current
+            value = Milestone(
+                **{
+                    **values,
+                    **changes,
+                    "revision": current.revision + 1,
+                    "updated_at": now(),
+                    "updated_by": request.author,
+                }
+            )
             db.execute(
                 "UPDATE milestones SET data=? WHERE workspace_id=? AND id=?",
                 (value.model_dump_json(), workspace_id, value.id),
@@ -107,6 +220,7 @@ class Milestones:
         identity: str,
         *,
         revision: int | None = None,
+        field: Literal["body", "acceptance_criteria"] = "body",
         offset: int = 0,
         limit: int = 4000,
     ) -> dict[str, Any]:
@@ -114,16 +228,15 @@ class Milestones:
             raise ApplicationError(
                 "invalid_request", "Offset must be nonnegative; limit must be 1–4000 characters."
             )
-        value = self.get(workspace_id, identity)
-        if revision is not None and revision != value.revision:
-            raise ApplicationError("revision_conflict", "Text changed. Start reading again.", 409)
-        text = value.body[offset : offset + limit]
+        value = self.get(workspace_id, identity, revision)
+        body = getattr(value, field)
+        text = body[offset : offset + limit]
         return {
             "id": value.id,
             "revision": value.revision,
-            "field": "body",
+            "field": field,
             "text": text,
             "offset": offset,
-            "total_characters": len(value.body),
-            "next_offset": offset + len(text) if offset + len(text) < len(value.body) else None,
+            "total_characters": len(body),
+            "next_offset": offset + len(text) if offset + len(text) < len(body) else None,
         }

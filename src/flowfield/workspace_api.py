@@ -1,7 +1,7 @@
 """Explicit workspace entry and shared settings; repository adoption creates no defaults."""
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Query
 
@@ -171,8 +171,26 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
         return Milestones(supervisor().workspace).create(workspace_id, request)
 
     @router.get("/{workspace_id}/milestones/{identity}")
-    def milestone(workspace_id: str, identity: str) -> Milestone:
-        return Milestones(supervisor().workspace).get(workspace_id, identity)
+    def milestone(
+        workspace_id: str, identity: str, revision: int | None = Query(None, ge=1)
+    ) -> Milestone:
+        return Milestones(supervisor().workspace).get(workspace_id, identity, revision)
+
+    @router.get("/{workspace_id}/milestones/{identity}/history")
+    def milestone_history(
+        workspace_id: str, identity: str, before: int | None = None, limit: int = 20
+    ) -> dict[str, Any]:
+        return Milestones(supervisor().workspace).history(
+            workspace_id, identity, before=before, limit=limit
+        )
+
+    @router.get("/{workspace_id}/milestones/{identity}/impact")
+    def milestone_impact(
+        workspace_id: str, identity: str, after: str | None = None, limit: int = 20
+    ) -> dict[str, Any]:
+        return Milestones(supervisor().workspace).impact(
+            workspace_id, identity, after=after, limit=limit
+        )
 
     @router.put("/{workspace_id}/milestones/{identity}")
     def edit_milestone(workspace_id: str, identity: str, request: MilestoneEdit) -> Milestone:
@@ -183,11 +201,12 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
         workspace_id: str,
         identity: str,
         revision: int | None = None,
+        field: Literal["body", "acceptance_criteria"] = "body",
         offset: int = 0,
         limit: int = 4000,
     ) -> dict[str, Any]:
         return Milestones(supervisor().workspace).text(
-            workspace_id, identity, revision=revision, offset=offset, limit=limit
+            workspace_id, identity, revision=revision, field=field, offset=offset, limit=limit
         )
 
     @router.get("/{workspace_id}/labels")

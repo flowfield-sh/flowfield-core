@@ -26,7 +26,8 @@ from flowfield.attention import (
 from flowfield.document_models import DocumentUpdate
 from flowfield.errors import ApplicationError
 from flowfield.labels import Labels, WorkspaceLabel
-from flowfield.milestones import Milestones
+from flowfield.milestone_models import MilestoneUpdate
+from flowfield.milestones import Milestones, milestone_update
 from flowfield.publication import (
     Publication,
     PublicationStatus,
@@ -44,6 +45,7 @@ from flowfield.workspaces import WorkspaceRecord, Workspaces
 
 class TaskCard(TaskReference):
     document_updates: list[DocumentUpdate] = Field(default_factory=list)
+    milestone_update: MilestoneUpdate | None = None
     preparation_issue: str | None
     state: WorkState | None = None
     project_id: str
@@ -147,6 +149,9 @@ class BrowserReads:
             document_updates=task_updates(db, task.project_id, task.id)
             if task.publication and task.publication.documents
             else [],
+            milestone_update=milestone_update(db, task)
+            if self.workspace.schema_version >= 68
+            else None,
             status_changed_at=timeline["entered"],
             archived_at=timeline["archived_at"] if task.archived else None,
             archived_by=timeline["archived_by"] if task.archived else None,

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel
 
 from flowfield.browser_links import project_href
-from flowfield.document_updates import UPDATED_SOURCES
+from flowfield.document_updates import UPDATED_MILESTONES, UPDATED_SOURCES
 from flowfield.work_state import WorkState, question_state, task_state
 
 if TYPE_CHECKING:
@@ -136,8 +136,10 @@ _WITH_DOCUMENTS = (
     UNION ALL
     SELECT project_id,task_id,'document',task_key,substr(task_title,1,500),
         'newer_source',max(updated_at),NULL,'waiting',NULL,NULL
-    FROM ("""
+    FROM (SELECT project_id,task_id,task_key,task_title,updated_at FROM ("""
     + UPDATED_SOURCES
+    + ") UNION ALL "
+    + UPDATED_MILESTONES
     + """) WHERE project_id IN (SELECT id FROM scope_projects)
     GROUP BY project_id,task_id
 )

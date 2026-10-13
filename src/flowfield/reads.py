@@ -194,6 +194,11 @@ class ContextReads:
         questions = blocking_questions(db, item.project_id, item.id)
         publication = publication_status(item)
         from flowfield.document_updates import task_updates
+        from flowfield.milestones import milestone_update
+
+        milestone_change = (
+            milestone_update(db, item) if self.workspace.schema_version >= 68 else None
+        )
 
         return excerpt(
             {
@@ -205,6 +210,7 @@ class ContextReads:
                 "labels": item.labels,
                 "status": item.status,
                 "milestone_id": item.milestone_id,
+                "milestone_update": milestone_change.model_dump() if milestone_change else None,
                 "archived": item.archived,
                 "revision": item.revision,
                 "position": position,

@@ -577,6 +577,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/milestones/{identity}/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Milestone History */
+    get: operations["milestone_history_api_workspaces__workspace_id__milestones__identity__history_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/milestones/{identity}/impact": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Milestone Impact */
+    get: operations["milestone_impact_api_workspaces__workspace_id__milestones__identity__impact_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/workspaces/{workspace_id}/milestones/{identity}/text": {
     parameters: {
       query?: never;
@@ -1051,6 +1085,40 @@ export interface paths {
     };
     /** Milestone */
     get: operations["milestone_api_context_workspaces__workspace_id__milestones__identity__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/context/workspaces/{workspace_id}/milestones/{identity}/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Milestone History */
+    get: operations["milestone_history_api_context_workspaces__workspace_id__milestones__identity__history_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/context/workspaces/{workspace_id}/milestones/{identity}/impact": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Milestone Impact */
+    get: operations["milestone_impact_api_context_workspaces__workspace_id__milestones__identity__impact_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -3907,6 +3975,37 @@ export interface components {
       workspace_id: string;
       /** Key */
       key: string;
+      /**
+       * Acceptance Criteria
+       * @default
+       */
+      acceptance_criteria: string;
+      /**
+       * Source Url
+       * @default
+       */
+      source_url: string;
+      /** Documents */
+      documents: components["schemas"]["DocumentSnapshot"][];
+    };
+    /** MilestoneBinding */
+    MilestoneBinding: {
+      /** Workspace Id */
+      workspace_id: string;
+      /** Id */
+      id: string;
+      /** Key */
+      key: string;
+      /** Title */
+      title: string;
+      /** Revision */
+      revision: number;
+      /**
+       * Origin
+       * @default preparation
+       * @enum {string}
+       */
+      origin: "preparation" | "upgrade";
     };
     /** MilestoneCreate */
     MilestoneCreate: {
@@ -3924,6 +4023,18 @@ export interface components {
        * @default human
        */
       author: string;
+      /**
+       * Acceptance Criteria
+       * @default
+       */
+      acceptance_criteria: string;
+      /**
+       * Source Url
+       * @default
+       */
+      source_url: string;
+      /** Documents */
+      documents?: components["schemas"]["DocumentReference-Input"][];
     };
     /** MilestoneEdit */
     MilestoneEdit: {
@@ -3938,6 +4049,27 @@ export interface components {
       title?: string | null;
       /** Body */
       body?: string | null;
+      /** Acceptance Criteria */
+      acceptance_criteria?: string | null;
+      /** Source Url */
+      source_url?: string | null;
+      /** Documents */
+      documents?: components["schemas"]["DocumentReference-Input"][] | null;
+    };
+    /** MilestoneUpdate */
+    MilestoneUpdate: {
+      /** Workspace Id */
+      workspace_id: string;
+      /** Id */
+      id: string;
+      /** Key */
+      key: string;
+      /** Title */
+      title: string;
+      /** Prepared Revision */
+      prepared_revision: number;
+      /** Latest Revision */
+      latest_revision: number;
     };
     /** ModelOption */
     ModelOption: {
@@ -4197,6 +4329,7 @@ export interface components {
       target_branch: string | null;
       /** Documents */
       documents: components["schemas"]["DocumentSnapshot"][];
+      milestone: components["schemas"]["MilestoneBinding"] | null;
     };
     /** Question */
     Question: {
@@ -5026,6 +5159,7 @@ export interface components {
       report_completion_revision: number | null;
       /** Document Updates */
       document_updates: components["schemas"]["DocumentUpdate"][];
+      milestone_update: components["schemas"]["MilestoneUpdate"] | null;
       /** Preparation Issue */
       preparation_issue: string | null;
       latest_update: components["schemas"]["ActivityEntry"] | null;
@@ -5079,6 +5213,7 @@ export interface components {
       reconciliation_reason: string | null;
       /** Document Updates */
       document_updates?: components["schemas"]["DocumentUpdate"][];
+      milestone_update?: components["schemas"]["MilestoneUpdate"] | null;
       /** Preparation Issue */
       preparation_issue: string | null;
       state?: components["schemas"]["WorkState"] | null;
@@ -5180,6 +5315,7 @@ export interface components {
       reconciliation_reason: string | null;
       /** Document Updates */
       document_updates: components["schemas"]["DocumentUpdate"][];
+      milestone_update: components["schemas"]["MilestoneUpdate"] | null;
       /** Preparation Issue */
       preparation_issue: string | null;
       state: components["schemas"]["WorkState"] | null;
@@ -7122,7 +7258,9 @@ export interface operations {
   };
   milestone_api_workspaces__workspace_id__milestones__identity__get: {
     parameters: {
-      query?: never;
+      query?: {
+        revision?: number | null;
+      };
       header?: never;
       path: {
         workspace_id: string;
@@ -7188,10 +7326,85 @@ export interface operations {
       };
     };
   };
+  milestone_history_api_workspaces__workspace_id__milestones__identity__history_get: {
+    parameters: {
+      query?: {
+        before?: number | null;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  milestone_impact_api_workspaces__workspace_id__milestones__identity__impact_get: {
+    parameters: {
+      query?: {
+        after?: string | null;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   milestone_text_api_workspaces__workspace_id__milestones__identity__text_get: {
     parameters: {
       query?: {
         revision?: number | null;
+        field?: "body" | "acceptance_criteria";
         offset?: number;
         limit?: number;
       };
@@ -8376,7 +8589,83 @@ export interface operations {
   };
   milestone_api_context_workspaces__workspace_id__milestones__identity__get: {
     parameters: {
-      query?: never;
+      query?: {
+        revision?: number | null;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  milestone_history_api_context_workspaces__workspace_id__milestones__identity__history_get: {
+    parameters: {
+      query?: {
+        before?: number | null;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  milestone_impact_api_context_workspaces__workspace_id__milestones__identity__impact_get: {
+    parameters: {
+      query?: {
+        after?: string | null;
+        limit?: number;
+      };
       header?: never;
       path: {
         workspace_id: string;
@@ -8412,6 +8701,7 @@ export interface operations {
     parameters: {
       query?: {
         revision?: number | null;
+        field?: "body" | "acceptance_criteria";
         offset?: number;
         limit?: number;
       };

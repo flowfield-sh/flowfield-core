@@ -284,10 +284,20 @@ class Documents:
                 "AND json_extract(t.data,'$.status')!='done' LIMIT 1",
                 (workspace_id, identity),
             ).fetchone()
-            if defaults or tasks:
+            milestones = (
+                db.execute(
+                    "SELECT m.id FROM milestones m,json_each(m.data,'$.documents') ref "
+                    "WHERE m.workspace_id=? AND json_extract(ref.value,'$.id')=? LIMIT 1",
+                    (workspace_id, identity),
+                ).fetchone()
+                if self.store.schema_version >= 68
+                else None
+            )
+            if defaults or tasks or milestones:
                 raise ApplicationError(
                     "document_in_use",
-                    "Remove this document from project defaults and unfinished task selections "
+                    "Remove this document from milestone sources, project defaults "
+                    "and unfinished task selections "
                     "before deleting it.",
                     409,
                 )

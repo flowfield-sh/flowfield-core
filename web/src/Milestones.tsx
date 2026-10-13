@@ -100,6 +100,14 @@ export function MilestoneList({
                               <Markdown>
                                 {milestone.body || "No description yet."}
                               </Markdown>
+                              {!!milestone.acceptance_criteria && (
+                                <>
+                                  <h4>Acceptance criteria</h4>
+                                  <Markdown>
+                                    {milestone.acceptance_criteria}
+                                  </Markdown>
+                                </>
+                              )}
                             </ContentStack>
                           </Popover.Content>
                         </Popover.Portal>

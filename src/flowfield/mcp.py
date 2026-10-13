@@ -388,18 +388,50 @@ def create_mcp(
 
     @mcp.tool(annotations=read)
     async def get_milestone(
-        workspace_id: Identifier, milestone_id: MilestoneIdentifier
+        workspace_id: Identifier,
+        milestone_id: MilestoneIdentifier,
+        revision: Annotated[int, Field(ge=1)] | None = None,
     ) -> CallToolResult:
         """Read a milestone by workspace-local key (M-1) or internal ID."""
         return await invoke(
-            lambda: excerpt(Milestones(workspace()).get(workspace_id, milestone_id).model_dump())
+            lambda: excerpt(
+                Milestones(workspace()).get(workspace_id, milestone_id, revision).model_dump()
+            )
+        )
+
+    @mcp.tool(annotations=read)
+    async def get_milestone_history(
+        workspace_id: Identifier,
+        milestone_id: MilestoneIdentifier,
+        before: Annotated[int, Field(ge=1)] | None = None,
+        limit: PageLimit = 20,
+    ) -> CallToolResult:
+        """Page retained milestone revisions; read an exact revision with get_milestone."""
+        return await invoke(
+            lambda: Milestones(workspace()).history(
+                workspace_id, milestone_id, before=before, limit=limit
+            )
+        )
+
+    @mcp.tool(annotations=read)
+    async def get_milestone_impact(
+        workspace_id: Identifier,
+        milestone_id: MilestoneIdentifier,
+        after: str | None = None,
+        limit: PageLimit = 20,
+    ) -> CallToolResult:
+        """Find unfinished tasks using an older milestone agreement for explicit reconciliation."""
+        return await invoke(
+            lambda: Milestones(workspace()).impact(
+                workspace_id, milestone_id, after=after, limit=limit
+            )
         )
 
     @mcp.tool(annotations=write)
     async def create_milestone(
         workspace_id: Identifier, milestone: MilestoneCreate
     ) -> CallToolResult:
-        """Create an optional grouping; omit id to generate one."""
+        """Capture outcome, optional acceptance criteria and sources; omit id to generate one."""
         return await mutate(
             lambda: Milestones(workspace()).create(workspace_id, attributed(milestone)).model_dump()
         )
@@ -422,13 +454,14 @@ def create_mcp(
         workspace_id: Identifier,
         identity: MilestoneIdentifier,
         revision: int | None = None,
+        field: Literal["body", "acceptance_criteria"] = "body",
         offset: Annotated[int, Field(ge=0)] = 0,
         limit: Annotated[int, Field(ge=1, le=4000)] = 4000,
     ) -> CallToolResult:
-        """Read full milestone body in bounded chunks; echo revision and follow next_offset."""
+        """Read description or acceptance criteria in bounded chunks at a retained revision."""
         return await invoke(
             lambda: Milestones(workspace()).text(
-                workspace_id, identity, revision=revision, offset=offset, limit=limit
+                workspace_id, identity, revision=revision, field=field, offset=offset, limit=limit
             )
         )
 

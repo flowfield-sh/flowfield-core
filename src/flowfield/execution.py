@@ -440,6 +440,13 @@ class Execution:
                     if task.milestone_id
                     else None
                 )
+                if task.publication.milestone:
+                    from flowfield.milestones import Milestones
+
+                    binding = task.publication.milestone
+                    milestone = Milestones.revision(
+                        db, binding.workspace_id, binding.id, binding.revision
+                    )
                 assignment = {
                     "agreement": json.dumps(
                         {
@@ -455,6 +462,10 @@ class Execution:
                     "description": task.body,
                     "project": project.description,
                     "milestone": milestone.body if milestone else "",
+                    "milestone_criteria": milestone.acceptance_criteria if milestone else "",
+                    "milestone_agreement": task.publication.milestone.model_dump_json()
+                    if task.publication.milestone
+                    else "",
                     "prerequisites": json.dumps(prerequisites),
                     "feedback": run.feedback,
                     "predecessor": predecessor.result.model_dump_json()

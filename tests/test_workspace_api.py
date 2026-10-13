@@ -58,7 +58,8 @@ def test_explicit_creation_adoption_scope_and_no_implicit_resources(tmp_path, mo
         )
         assert changed.status_code == 200
         assert client.get(base + "/milestones").json() == [changed.json()]
-        assert client.get(base + "/milestones/M-1/text?revision=1").status_code == 409
+        retained = client.get(base + "/milestones/M-1/text?revision=1")
+        assert retained.status_code == 200 and retained.json()["text"] == "Shared intent"
         assert client.get(base + "/coordinator-settings").json()["selection"] is None
         assert client.get(base + "/workers").json()["enabled"] is False
         assert client.get(base + "/workers/occupancy").json()["active"] == 0

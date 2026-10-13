@@ -15,10 +15,12 @@ export function WorkerDocumentPicker({
   workspaceId,
   value,
   change,
+  scope = "project",
 }: {
   workspaceId: string;
   value: Reference[];
   change: (value: Reference[]) => void;
+  scope?: "project" | "milestone";
 }) {
   const [cursors, setCursors] = useState<string[]>([]);
   const cursor = cursors.at(-1);
@@ -27,78 +29,109 @@ export function WorkerDocumentPicker({
     workspaceId,
   );
   return (
-    <Disclosure summary={`Worker documents · ${value.length} selected`}>
+    <Disclosure
+      summary={`${scope === "milestone" ? "Milestone sources" : "Worker documents"} · ${value.length} selected`}
+    >
       <ContentStack space="content">
         <p>
-          Defaults for this project’s tasks. Revisions are fixed when the
-          coordinator prepares each assignment. Required documents must be read;
-          references provide optional supporting material.
+          {scope === "milestone"
+            ? "Sources for this milestone’s tasks. Revisions are fixed when you save the agreement."
+            : "Defaults for this project’s tasks. Revisions are fixed when the coordinator prepares each assignment."}{" "}
+          Required documents must be read; references provide optional
+          supporting material.
         </p>
         <ResourceRetry resources={[page]} />
         {page.loading && <p>Loading documents…</p>}
-        {page.data?.items.map((document) => {
-          const selected = value.find((item) => item.id === document.id);
-          return (
-            <ContentStack key={document.id} space="tight">
-              <SettingsCheckbox
-                checked={!!selected}
-                disabled={
-                  document.id === "guidance" ||
-                  (!selected && value.length >= 21)
-                }
-                onChange={(event) =>
-                  change(
-                    event.target.checked
-                      ? [
-                          ...value,
-                          {
-                            id: document.id,
-                            revision: null,
-                            purpose: "required",
-                          },
-                        ]
-                      : value.filter((item) => item.id !== document.id),
-                  )
-                }
-                hint={
-                  document.id === "guidance"
-                    ? "Required for every project"
-                    : selected?.revision
-                      ? `Revision ${selected.revision}`
-                      : undefined
-                }
-              >
-                {document.title}
-              </SettingsCheckbox>
-              {selected && document.id !== "guidance" && (
-                <label>
-                  <span className="detail-metadata">
-                    Use {document.title} as
-                  </span>
-                  <NativeSelect
-                    value={selected.purpose}
-                    onChange={(event) =>
-                      change(
-                        value.map((item) =>
-                          item.id === document.id
-                            ? {
-                                ...item,
-                                purpose: event.target
-                                  .value as Reference["purpose"],
-                              }
-                            : item,
-                        ),
-                      )
-                    }
-                  >
-                    <option value="required">Required source</option>
-                    <option value="reference">Reference material</option>
-                  </NativeSelect>
-                </label>
-              )}
-            </ContentStack>
-          );
-        })}
+        {page.data?.items
+          .filter(
+            (document) =>
+              scope === "project" ||
+              document.id !== "guidance" ||
+              value.some((item) => item.id === document.id),
+          )
+          .map((document) => {
+            const selected = value.find((item) => item.id === document.id);
+            return (
+              <ContentStack key={document.id} space="tight">
+                <SettingsCheckbox
+                  checked={!!selected}
+                  disabled={
+                    (document.id === "guidance" && scope === "project") ||
+                    (!selected && value.length >= 21)
+                  }
+                  onChange={(event) =>
+                    change(
+                      event.target.checked
+                        ? [
+                            ...value,
+                            {
+                              id: document.id,
+                              revision: null,
+                              purpose: "required",
+                            },
+                          ]
+                        : value.filter((item) => item.id !== document.id),
+                    )
+                  }
+                  hint={
+                    document.id === "guidance"
+                      ? "Required for every project"
+                      : selected?.revision
+                        ? `Revision ${selected.revision}`
+                        : undefined
+                  }
+                >
+                  {document.title}
+                </SettingsCheckbox>
+                {selected && document.id !== "guidance" && (
+                  <label>
+                    <span className="detail-metadata">
+                      Use {document.title} as
+                    </span>
+                    <NativeSelect
+                      value={selected.purpose}
+                      onChange={(event) =>
+                        change(
+                          value.map((item) =>
+                            item.id === document.id
+                              ? {
+                                  ...item,
+                                  purpose: event.target
+                                    .value as Reference["purpose"],
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                    >
+                      <option value="required">Required source</option>
+                      <option value="reference">Reference material</option>
+                    </NativeSelect>
+                  </label>
+                )}
+                {scope === "milestone" &&
+                  selected?.revision &&
+                  selected.revision < document.revision && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        change(
+                          value.map((item) =>
+                            item.id === document.id
+                              ? { ...item, revision: document.revision }
+                              : item,
+                          ),
+                        )
+                      }
+                    >
+                      Use revision {document.revision} of {document.title}
+                    </Button>
+                  )}
+              </ContentStack>
+            );
+          })}
         <div className="actions">
           {!!cursors.length && (
             <Button

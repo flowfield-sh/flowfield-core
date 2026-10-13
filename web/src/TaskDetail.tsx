@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, type ReactNode } from "react";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { TaskLabelEditor } from "./TaskLabelEditor";
 import { WorkerDocumentEvidence } from "./WorkerDocuments";
+import { PreparedMilestone } from "./MilestoneAgreement";
 import { TaskLabels } from "./TaskLabels";
 import { DetailHeader, DraftBadge } from "./Presentation";
 import { MilestoneBadge } from "./MilestoneBadge";
@@ -150,6 +151,10 @@ export function TaskDetail({
         <WorkerDocumentEvidence
           documents={task.publication?.documents ?? []}
           updates={task.document_updates}
+        />
+        <PreparedMilestone
+          binding={task.publication?.milestone}
+          update={task.milestone_update}
         />
         {hasTaskNeeds(task, board.pending_code[task.id], false) && (
           <DetailSection title="Waiting on">

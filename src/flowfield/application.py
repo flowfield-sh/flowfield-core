@@ -43,6 +43,7 @@ from flowfield.execution_models import SCHEMA as EXECUTION_SCHEMA
 from flowfield.inspection_models import SCHEMA as INSPECTION_SCHEMA
 from flowfield.integration_models import SCHEMA as INTEGRATION_SCHEMA
 from flowfield.migrations import current_version
+from flowfield.milestone_models import MilestoneBinding, MilestoneUpdate, SourceURL
 from flowfield.project_config import Identifier, ProjectConfig, Title, read_config, write_config
 from flowfield.publication import (
     Publication,
@@ -202,12 +203,17 @@ class WorkCreate(Input):
 
 
 class MilestoneCreate(WorkCreate):
-    pass
+    acceptance_criteria: Markdown = ""
+    source_url: SourceURL = ""
+    documents: DocumentReferences = Field(default_factory=list)
 
 
 class MilestoneEdit(Edit):
     title: Title | None = None
     body: Markdown | None = None
+    acceptance_criteria: Markdown | None = None
+    source_url: SourceURL | None = None
+    documents: DocumentReferences | None = None
 
 
 class ContentRecord(BaseModel):
@@ -228,6 +234,9 @@ class WorkRecord(ContentRecord):
 class Milestone(ContentRecord):
     workspace_id: str = Field(validation_alias=AliasChoices("workspace_id", "project_id"))
     key: str
+    acceptance_criteria: Markdown = ""
+    source_url: SourceURL = ""
+    documents: list[DocumentSnapshot] = Field(default_factory=list)
 
 
 class TaskPreparation(Input):
@@ -334,6 +343,7 @@ class TaskReference(BaseModel):
 
 class Task(TaskRevision):
     document_updates: list[DocumentUpdate] = Field(default_factory=list)
+    milestone_update: MilestoneUpdate | None = None
     preparation_issue: str | None
     latest_update: ActivityEntry | None = None
     position: int
@@ -1182,10 +1192,12 @@ class Workspace:
         questions = blocking_questions(db, project_id, task_id)
         publication = publication_status(current)
         from flowfield.document_updates import task_updates
+        from flowfield.milestones import milestone_update
 
         return Task(
             **current.model_dump(),
             position=row["position"],
+            milestone_update=milestone_update(db, current) if self.schema_version >= 68 else None,
             document_updates=task_updates(db, project_id, task_id)
             if current.publication and current.publication.documents
             else [],
@@ -1558,7 +1570,7 @@ class Workspace:
                 "Apply or withdraw blocking questions before publishing the task.",
                 409,
             )
-        documents = self._prepare_documents(db, current, request.author)
+        documents, milestone = self._prepare_sources(db, current, request.author)
         current = self._task(db, project_id, current.id)
         if request.stages:
             self._change_task_stages(db, current, request.stages)
@@ -1590,6 +1602,7 @@ class Workspace:
             and current.publication.completion == request.completion
             and current.publication.target_branch == target_branch
             and current.publication.documents == documents
+            and current.publication.milestone == milestone
         ):
             return current
         task = TaskRevision(
@@ -1603,6 +1616,7 @@ class Workspace:
         )
         task.publication = Publication(
             documents=documents,
+            milestone=milestone,
             completion=request.completion,
             target_branch=target_branch,
             agreement_revision=current.agreement_revision,
@@ -1613,16 +1627,34 @@ class Workspace:
         self._apply_task(db, task)
         return self._task(db, project_id, current.id)
 
-    def _prepare_documents(
+    def _prepare_sources(
         self, db: sqlite3.Connection, current: Task, author: str
-    ) -> list[DocumentSnapshot]:
+    ) -> tuple[list[DocumentSnapshot], MilestoneBinding | None]:
         from flowfield.worker_documents import select
 
+        milestone = (
+            self._milestone(db, current.project_id, current.milestone_id)
+            if current.milestone_id and self.schema_version >= 68
+            else None
+        )
+        binding = MilestoneBinding(**milestone.model_dump()) if milestone else None
         documents = (
             select(
                 db,
                 self._project_workspace(db, current.project_id),
-                self._project(db, current.project_id).worker_documents,
+                [
+                    *self._project(db, current.project_id).worker_documents,
+                    *(
+                        [
+                            DocumentReference(
+                                id=item.id, revision=item.revision, purpose=item.purpose
+                            )
+                            for item in milestone.documents
+                        ]
+                        if milestone
+                        else []
+                    ),
+                ],
                 current.documents,
             )
             if self.schema_version >= 65
@@ -1632,7 +1664,10 @@ class Workspace:
         # stayed the same. Old runs/results can never satisfy this newer agreement.
         if (
             current.publication
-            and current.publication.documents != documents
+            and (
+                current.publication.documents != documents
+                or current.publication.milestone != binding
+            )
             and current.publication.agreement_revision == current.agreement_revision
         ):
             task = TaskRevision(
@@ -1645,7 +1680,7 @@ class Workspace:
                 }
             )
             self._apply_task(db, task)
-        return documents
+        return documents, binding
 
     def prioritize_task(self, project_id: str, task_id: str, request: TaskPriority) -> Task:
         with self.connection(write=True, project_id=project_id) as db:
@@ -1842,7 +1877,7 @@ class Workspace:
                     )
             elif request.completion == "report":
                 target_branch = None
-            documents = self._prepare_documents(db, current, request.author)
+            documents, milestone = self._prepare_sources(db, current, request.author)
             current = self._task(db, project_id, task_id)
             task = TaskRevision(
                 **{
@@ -1854,6 +1889,7 @@ class Workspace:
                     "change_note": request.note,
                     "publication": Publication(
                         documents=documents,
+                        milestone=milestone,
                         completion=completion,
                         target_branch=target_branch,
                         agreement_revision=current.agreement_revision,
