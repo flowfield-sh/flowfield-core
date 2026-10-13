@@ -23,7 +23,7 @@ from flowfield.supervisor import Supervisor
         ("partial", "in_review", 2),
         ("ask", "waiting_for_input", 2),
         ("silent", "failed", 2),
-        ("timeout", "failed", 2),
+        ("slow_reporting", "in_review", 2),
         ("uncertain", "uncertain", 2),
         ("stop_during", "stopped", 2),
         ("cancel_during", "stopped", 2),
@@ -35,7 +35,7 @@ from flowfield.supervisor import Supervisor
         ("closing", "failed", 1),
     ],
 )
-def test_bounded_reporting_recovery(tmp_path, monkeypatch, behavior, expected, prompts):
+def test_single_reporting_reminder(tmp_path, monkeypatch, behavior, expected, prompts):
     workers = []
     execution = fixture(tmp_path)
     repository = tmp_path / "harbor"
@@ -93,8 +93,12 @@ def test_bounded_reporting_recovery(tmp_path, monkeypatch, behavior, expected, p
                 assert self.session_id == "fixture-" + self.cwd.parent.name
                 assert (self.cwd / "result.txt").read_text() == "preserved first-turn work"
                 assert not attachments
-                if behavior == "timeout":
-                    await asyncio.Event().wait()
+                if behavior == "slow_reporting":
+                    # Advance past the former deadline without a real minute-long wait.
+                    loop = asyncio.get_running_loop()
+                    clock = loop.time
+                    monkeypatch.setattr(loop, "time", lambda: clock() + 61)
+                    await asyncio.sleep(0.001)
                 if behavior == "stop_during":
                     # Same public stop operation while the reminder is running.
                     self.stop_job = asyncio.create_task(
@@ -142,8 +146,6 @@ def test_bounded_reporting_recovery(tmp_path, monkeypatch, behavior, expected, p
 
     monkeypatch.setattr("flowfield.adapters.agent_selection.CodexAgent", Worker)
     monkeypatch.setattr("flowfield.supervisor.process_stamp", lambda pid: "fixture")
-    if behavior == "timeout":
-        monkeypatch.setattr("flowfield.supervisor.COMPLETION_REMINDER_SECONDS", 0.02)
 
     async def exercise():
         job = asyncio.create_task(service._execute(run, repository))
@@ -164,8 +166,6 @@ def test_bounded_reporting_recovery(tmp_path, monkeypatch, behavior, expected, p
     assert len(reminders) == (prompts == 2)
     if behavior == "partial":
         assert current.result.outcome == "partial" and current.result.remaining_work
-    if behavior == "timeout":
-        assert "time limit" in current.problem
     if behavior in {"ask", "question"}:
         assert current.question_id and current.input_checkpoint
     if expected in {"failed", "stopped", "uncertain"}:

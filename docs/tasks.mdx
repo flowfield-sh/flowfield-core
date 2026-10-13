@@ -41,7 +41,7 @@ Open an **In progress** task to follow the worker's activity and reported stages
 
 If a worker ends normally without either, Flowfield immediately gives it one reminder in the same session and checkout. The reminder appears in activity and asks it to report the work already performed, including partial progress or a blocking question when appropriate. The worker keeps its existing tools and permissions; submitted code still requires your exact approval.
 
-The extra reporting turn has a 60-second limit; this is not a limit on the original task. Normal submissions need no extra model turn. When the reminder is needed, it uses additional model tokens; its cost depends on the session context, model and caching, not just the reminder's length. It keeps the worker slot occupied until the attempt ends and cleanup is confirmed. If it times out or still produces no submission or question, work is preserved and the attempt needs inspection and explicit retry. Cleanup can take additional time.
+Normal submissions need no extra model turn. When the reminder is needed, it uses additional model tokens; its cost depends on the session context, model and caching, not just the reminder's length. It keeps the worker slot occupied until the attempt ends and cleanup is confirmed. If the worker still finishes without a submission or question, work is preserved and the attempt needs inspection and explicit retry.
 
 **Stop worker** ends an active attempt, including one responding to a reminder, and preserves its unfinished work. **Retry worker** queues a fresh attempt; it respects pause, dependencies and capacity. Follow the displayed recovery action if native cleanup is uncertain. The reporting reminder does not restart stopped or interrupted attempts.
 

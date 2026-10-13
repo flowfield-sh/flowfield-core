@@ -14,7 +14,7 @@ Bring related repositories into one workspace, with a shared Coordinator, plan a
 ### Improvements
 
 - Give workers clearer, state-specific handoffs for implementation, answered questions and requested changes, with resolved prerequisite details and task-focused source selection.
-- Recover a normally finished worker turn that omitted its result or blocking question with one visible reminder in the same session. The extra reporting turn is limited to 60 seconds; code still needs exact human approval. See [following an attempt](https://docs.flowfield.sh/tasks#follow-an-attempt).
+- Recover a normally finished worker turn that omitted its result or blocking question with one visible reminder in the same session. Code still needs exact human approval. See [following an attempt](https://docs.flowfield.sh/tasks#follow-an-attempt).
 
 ### Bug fixes
 

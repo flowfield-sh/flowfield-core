@@ -48,8 +48,6 @@ from flowfield.worker_context import brief_context
 from flowfield.worker_tools import WorkerBridge
 from flowfield.workspaces import Workspaces
 
-COMPLETION_REMINDER_SECONDS = 60
-
 
 def process_stamp(pid: int) -> str:
     value = subprocess.run(
@@ -429,20 +427,12 @@ class Supervisor:
                                 key="completion-reminder",
                                 kind="status",
                                 text="Worker ended without reporting an outcome. "
-                                "Asking once for a result or blocking question (up to 60 seconds).",
+                                "Asking once for a result or blocking question.",
                             )
                         )
-                    try:
-                        async with asyncio.timeout(COMPLETION_REMINDER_SECONDS):
-                            outcome = await client.prompt(
-                                completion_reminder(server.name), permission_handler(turn)
-                            )
-                    except TimeoutError as error:
-                        raise ApplicationError(
-                            "worker_reporting_timeout",
-                            "Worker did not finish reporting within the reminder time limit. "
-                            "Work is preserved; inspect it and explicitly retry.",
-                        ) from error
+                    outcome = await client.prompt(
+                        completion_reminder(server.name), permission_handler(turn)
+                    )
             confirmed = await client.stop()
             if not confirmed:
                 terminal, problem = (
