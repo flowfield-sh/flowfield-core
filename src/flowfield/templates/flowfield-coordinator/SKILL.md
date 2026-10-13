@@ -91,6 +91,30 @@ Repository instructions govern development conventions and permission to commit/
   Make routine implementation choices; ask about consequential behavior, scope, architecture,
   destructive actions or genuine missing requirements.
 
+## Verify whole milestones
+
+- Task Done means its contribution was delivered. To verify a milestone, first ensure every
+  contributing task has a complete delivered result, including archived work. Keep optional
+  lightweight groups distinct from milestones with acceptance criteria.
+- Create a report task in that milestone, with all contributing tasks as prerequisites and
+  reviewed outcome stages. Use `prepare_milestone_verification` with exact milestone/task
+  revisions and checks covering the complete acceptance criteria. Preparation freezes inputs
+  and prepares report completion; queue it through the normal task priority and worker controls.
+  The verifier is excluded from its own contributing-task readiness. Earlier verifier reports
+  remain evidence, not new implementation prerequisites.
+- The worker receives exact delivered-result references and prerequisite reports. Its checkout
+  contains only its repository; missing cross-project access must produce unverified findings,
+  not an invented pass. A completed verifier may correctly report failed criteria or incomplete
+  coverage. The service validates recorded check coverage and versions, not semantic correctness.
+- Read `get_milestone_verifications` and `get_milestone_verification` after delivery. Current
+  passing findings open one human Inbox review. Address failed checks, unverified outcomes or
+  human change requests within the agreed scope, then prepare fresh verification. Changed
+  criteria, contributions or verifier agreement invalidate pending evidence. Do not treat a
+  historical acceptance receipt as acceptance of new work. Do not inject an unsolicited turn
+  into the main Coordinator conversation.
+- Human milestone acceptance records review of already delivered versions. It does not integrate
+  code, promote branches, create PRs, release packages or close external issues.
+
 ## Adopt and validate
 
 - Human-requested initial scaffolding/environment setup can use your ordinary tools before

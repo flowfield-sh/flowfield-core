@@ -45,7 +45,10 @@ def freeze_view(
             selection.surface == "milestone"
             and (not selection.milestone_id or not selection.milestone_revision)
         )
-        or (selection.surface != "milestone" and selection.milestone_revision is not None)
+        or (
+            selection.surface != "milestone"
+            and (selection.milestone_revision is not None or selection.verification_id is not None)
+        )
         or (
             selection.surface == "document"
             and (not selection.document_id or not selection.document_revision)
@@ -82,6 +85,16 @@ def freeze_view(
             else Milestones.read(db, workspace_id, selection.milestone_id)
         )
         value.milestone_title, value.milestone_revision = milestone.title, milestone.revision
+    if selection.verification_id:
+        from flowfield.milestone_verification import read as read_verification
+
+        verification = read_verification(db, workspace_id, selection.verification_id)
+        if verification.milestone_id != milestone.id:
+            raise ApplicationError(
+                "invalid_view_context", "Verification belongs to another milestone."
+            )
+        value.verification_revision = verification.revision
+        value.verification_status = verification.status
     if selection.label_id:
         label = Labels.read(db, workspace_id, selection.label_id)
         if label.deleted_at:

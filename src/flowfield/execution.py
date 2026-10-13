@@ -475,6 +475,13 @@ class Execution:
                     "correction": correction.model_dump_json() if correction else "",
                     "validation": json.dumps(runtime_settings),
                 }
+                from flowfield.milestone_verification import assignment as verification_assignment
+
+                assignment["milestone_verification"] = (
+                    verification_assignment(db, project_id, task.id, task.agreement_revision)
+                    if self.workspace.schema_version >= 69
+                    else ""
+                )
                 from flowfield.worker_documents import sections as document_sections
 
                 run.documents = task.publication.documents
@@ -642,6 +649,28 @@ class Execution:
                         "If that work remains unfinished, submit a partial outcome instead.",
                         409,
                     )
+            from flowfield.milestone_verification import validate_report
+            from flowfield.verification_models import MilestoneVerification
+
+            sections = json.loads(
+                db.execute("SELECT assignment FROM runs WHERE id=?", (run_id,)).fetchone()[0]
+            )
+            frozen = sections.get("milestone_verification")
+            if frozen and result.outcome == "complete" and not result.verification:
+                raise ApplicationError(
+                    "verification_evidence_incomplete",
+                    "Submit structured milestone verification findings before "
+                    "completing this report.",
+                    409,
+                )
+            if result.verification:
+                if not frozen:
+                    raise ApplicationError(
+                        "scope_mismatch", "This task is not a milestone verifier.", 403
+                    )
+                validate_report(
+                    MilestoneVerification.model_validate_json(frozen), result.verification
+                )
             run.result = result
             self._save(db, run)
 

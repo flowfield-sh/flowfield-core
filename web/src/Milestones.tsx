@@ -6,23 +6,30 @@ import type { Board } from "./workspace";
 export function MilestoneList({
   board,
 }: {
-  board: Pick<Board, "tasks" | "milestones">;
+  board: Pick<Board, "tasks" | "milestones" | "milestone_states">;
 }) {
   const cards = board.milestones.map((milestone) => {
     const members = board.tasks.filter((t) => t.milestone_id === milestone.id);
     const tasks = members.filter((t) => !t.archived || t.status === "done");
     const done = tasks.filter((t) => t.status === "done").length;
+    const state = board.milestone_states?.[milestone.id] ?? "";
     const column =
-      tasks.length && done === tasks.length
+      state === "accepted" ||
+      (!milestone.acceptance_criteria.trim() &&
+        tasks.length > 0 &&
+        done === tasks.length)
         ? "Complete"
-        : tasks.some((t) => !["backlog", "up_next"].includes(t.status))
+        : state || (tasks.length && done === tasks.length)
           ? "In progress"
-          : "Planned";
+          : tasks.some((t) => !["backlog", "up_next"].includes(t.status))
+            ? "In progress"
+            : "Planned";
     return {
       milestone,
       tasks,
       done,
       column,
+      state,
       archived: !!members.length && members.every((t) => t.archived),
     };
   });
@@ -44,7 +51,7 @@ export function MilestoneList({
           >
             {cards
               .filter((card) => card.column === column)
-              .map(({ milestone, tasks, done, archived }) => (
+              .map(({ milestone, tasks, done, archived, state }) => (
                 <WorkCard key={milestone.id}>
                   <div className="work-card-heading">
                     <span className="task-key">{milestone.key}</span>
@@ -58,6 +65,21 @@ export function MilestoneList({
                         {milestone.title}
                       </WorkspaceLink>
                     </strong>
+                  </span>
+                  <span className="detail-metadata">
+                    {(
+                      {
+                        verifying: "Verifying",
+                        ready: "Ready for review",
+                        failed: "Verification needs follow-up",
+                        stale: "Verification out of date",
+                        changes_requested: "Changes requested",
+                        accepted: "Accepted",
+                      } as Record<string, string>
+                    )[state] ??
+                      (tasks.length && done === tasks.length
+                        ? "Tasks complete · Not yet verified"
+                        : "")}
                   </span>
                   <WorkspaceLink
                     className="detail-metadata"

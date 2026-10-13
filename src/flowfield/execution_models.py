@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from flowfield.agent_models import AgentChoice, EffectiveAgent
 from flowfield.document_models import DocumentSnapshot
 from flowfield.harness_models import HarnessLaunch
+from flowfield.verification_models import VerificationReport
 
 ACTIVE = ("preparing", "running", "stopping", "uncertain")
 RunStatus = Literal[
@@ -67,6 +68,7 @@ class RunAction(Record):
 
 
 class WorkerResult(Record):
+    verification: VerificationReport | None = None
     summary: str = Field(min_length=1, max_length=8000)
     checks: str = Field(min_length=1, max_length=8000)
     limitations: str = Field(default="", max_length=8000)

@@ -1927,3 +1927,94 @@ register_execution(workspace_app, task_app)
 register_integration(project_app)
 register_storage(app)
 register_updates(app)
+
+
+@milestone_app.command("verifications")
+def milestone_verifications(
+    ctx: typer.Context,
+    milestone: str,
+    workspace: WorkspaceOption,
+    before: int | None = None,
+    limit: int = 20,
+    json_output: Json = False,
+) -> None:
+    """Read milestone verification and acceptance history."""
+    output(
+        lambda: ctx.obj.request(
+            "GET",
+            workspace_item_path(workspace, "milestones", milestone, "verifications")
+            + "?"
+            + urlencode({"limit": limit, **({"before": before} if before else {})}),
+        ),
+        json_output,
+    )
+
+
+@milestone_app.command("verification")
+def milestone_verification_show(
+    ctx: typer.Context,
+    verification: str,
+    workspace: WorkspaceOption,
+    json_output: Json = False,
+) -> None:
+    """Read exact criteria, inputs, findings and review feedback."""
+    output(
+        lambda: ctx.obj.request(
+            "GET", workspace_item_path(workspace, "verifications", verification)
+        ),
+        json_output,
+    )
+
+
+@milestone_app.command("verify")
+def milestone_verify(
+    ctx: typer.Context,
+    milestone: str,
+    workspace: WorkspaceOption,
+    check: Annotated[list[str], typer.Option()],
+    project: str = typer.Option(...),
+    task: str = typer.Option(...),
+    expected_revision: int = typer.Option(...),
+    expected_task_revision: int = typer.Option(...),
+    json_output: Json = False,
+) -> None:
+    """Prepare a staged report task to verify delivered milestone contributions."""
+    output(
+        lambda: ctx.obj.request(
+            "POST",
+            workspace_item_path(workspace, "milestones", milestone, "verifications"),
+            {
+                "expected_revision": expected_revision,
+                "project_id": project,
+                "task_id": task,
+                "expected_task_revision": expected_task_revision,
+                "checks": check,
+            },
+        ),
+        json_output,
+    )
+
+
+@milestone_app.command("review")
+def milestone_review(
+    ctx: typer.Context,
+    verification: str,
+    workspace: WorkspaceOption,
+    action: Annotated[str, typer.Option(help="accept or request_changes")],
+    expected_revision: int = typer.Option(...),
+    note: str = "",
+    json_output: Json = False,
+) -> None:
+    """Record human review of an exact passing verification; does not promote code."""
+    output(
+        lambda: ctx.obj.request(
+            "POST",
+            workspace_item_path(workspace, "verifications", verification, "review"),
+            {
+                "expected_revision": expected_revision,
+                "action": action,
+                "note": note,
+            },
+        ),
+        json_output,
+    )

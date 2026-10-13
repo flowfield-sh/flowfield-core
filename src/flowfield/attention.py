@@ -20,7 +20,14 @@ class AttentionItem(BaseModel):
     project_id: str | None
     id: str
     kind: Literal[
-        "question", "review", "intervention", "integration", "result", "permission", "document"
+        "question",
+        "review",
+        "intervention",
+        "integration",
+        "result",
+        "permission",
+        "document",
+        "milestone",
     ]
     task_key: str | None
     title: str
@@ -158,6 +165,24 @@ _WORKSPACE_PROJECTION = _WITH_DOCUMENTS.replace(
 )
 
 
+_WORKSPACE_PROJECTION = (
+    _WORKSPACE_PROJECTION.rstrip()[:-1]
+    + """
+    UNION ALL
+    SELECT NULL,v.id,'milestone',json_extract(v.data,'$.milestone_key'),
+        substr(json_extract(v.data,'$.title'),1,500),v.status,
+        json_extract(v.data,'$.updated_at'),NULL,
+        CASE v.status WHEN 'ready' THEN 'action' WHEN 'verifying' THEN 'waiting'
+        ELSE 'history' END,NULL,NULL
+    FROM milestone_verifications v WHERE v.workspace_id=:workspace
+        AND (:project IS NULL OR EXISTS (SELECT 1 FROM json_each(v.data,'$.tasks') t
+            WHERE json_extract(t.value,'$.project_id')=:project)
+            OR json_extract(v.data,'$.project_id')=:project)
+)
+"""
+)
+
+
 def workspace_attention_counts(db: sqlite3.Connection, workspace_id: str) -> dict[str, int]:
     return dict(
         db.execute(
@@ -230,7 +255,25 @@ def attention_page(
         items = [AttentionItem.model_validate(dict(row)) for row in rows]
         for item in items:
             owner = item.project_id
-            if item.kind == "document" and owner:
+            if item.kind == "milestone":
+                item.next_action = {
+                    "ready": "Review milestone",
+                    "verifying": "Verifying milestone",
+                    "failed": "Verification needs follow-up",
+                    "stale": "Verification out of date",
+                    "accepted": "Milestone accepted",
+                    "changes_requested": "Changes requested",
+                }[item.status]
+                item.state = WorkState(
+                    label=item.next_action,
+                    tone="attention"
+                    if item.status == "ready"
+                    else "complete"
+                    if item.status == "accepted"
+                    else "idle",
+                    href=f"/workspaces/{workspace_id}/milestones/{item.task_key}?verification={item.id}",
+                )
+            elif item.kind == "document" and owner:
                 item.state = WorkState(
                     label="Milestone details changed"
                     if item.status == "milestone_changed"

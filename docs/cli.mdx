@@ -51,7 +51,11 @@ flowfield task revisions APP-1
 flowfield task stages APP-1 --json
 flowfield milestone list --workspace WORKSPACE_ID
 flowfield milestone show M-1 --workspace WORKSPACE_ID
+flowfield milestone verifications M-1 --workspace WORKSPACE_ID
+flowfield milestone verification VERIFICATION_ID --workspace WORKSPACE_ID
 ```
+
+`milestone verify` prepares an upcoming staged report task with repeated `--check` values and exact milestone/task revisions. The task must depend on every delivered contribution. `milestone review VERIFICATION_ID --workspace WORKSPACE_ID --action accept --expected-revision REVISION` records human acceptance of current passing evidence. Use `--action request_changes --note "Required change"` to return feedback. These actions do not promote code.
 
 Task and milestone keys accept either case; internal IDs remain exact. `task create` and `edit` accept repeated `--depends-on` keys for same-workspace prerequisites, including other projects. Repeated `--label LABEL_ID` selects labels; edits replace that set. Use `--no-labels` to clear it.
 

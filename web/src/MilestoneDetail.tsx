@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { DetailHeader } from "./Presentation";
+import { MilestoneVerification } from "./MilestoneVerification";
 import { Markdown } from "./Markdown";
 import { ContentStack, DetailSection } from "./DetailLayout";
 import { RevisionHistory } from "./RevisionHistory";
@@ -9,12 +10,16 @@ import type { Milestone } from "./workspace";
 
 export function MilestoneDetail({
   milestone,
+  refresh,
+  onDirty,
   latest,
   historical,
   path,
   close,
 }: {
   milestone: Milestone;
+  refresh: unknown;
+  onDirty: (dirty: boolean) => void;
   latest?: Milestone;
   historical: boolean;
   path: string;
@@ -59,6 +64,17 @@ export function MilestoneDetail({
               {milestone.acceptance_criteria || "No acceptance criteria yet."}
             </Markdown>
           </DetailSection>
+          {!historical && (
+            <MilestoneVerification
+              key={milestone.id}
+              refresh={refresh}
+              onDirty={onDirty}
+              path={path}
+              milestoneId={milestone.id}
+              milestoneKey={milestone.key}
+              revision={milestone.revision}
+            />
+          )}
         </ContentStack>
         <RevisionHistory
           key={milestone.id}

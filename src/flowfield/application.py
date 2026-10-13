@@ -53,6 +53,7 @@ from flowfield.publication import (
     publication_status,
     readiness,
     stages_need_reconciliation,
+    verification_issue,
 )
 from flowfield.questions import QuestionReference, Questions, blocking_questions, pending_questions
 from flowfield.reply_models import SCHEMA as REPLY_SCHEMA
@@ -528,6 +529,10 @@ class Workspace:
                 db.execute("BEGIN IMMEDIATE" if write else "BEGIN")
                 require_current(db, self.schema_version)
                 yield db
+                if write and notify and db.total_changes and self.schema_version >= 69:
+                    from flowfield.milestone_verification import reconcile
+
+                    reconcile(db, project_id)
                 changed = db.total_changes > 0
                 changed_projects = {project_id}
                 if (
@@ -1202,7 +1207,7 @@ class Workspace:
             readiness=readiness(
                 current,
                 publication,
-                blocked=bool(blocked or questions),
+                blocked=bool(blocked or questions or verification_issue(db, current)),
                 stages_stale=stages_need_reconciliation(
                     db, project_id, task_id, current.agreement_revision
                 ),

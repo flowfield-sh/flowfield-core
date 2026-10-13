@@ -33,6 +33,7 @@ from flowfield.harness_models import HarnessKind
 from flowfield.inspection import Inspections
 from flowfield.inspection_models import Inspection, InspectionConfig, InspectionPrepare
 from flowfield.labels import LabelCreate, LabelEdit, Labels
+from flowfield.milestone_verification import MilestoneVerifications
 from flowfield.milestones import Milestones
 from flowfield.project_config import Identifier
 from flowfield.questions import (
@@ -47,6 +48,7 @@ from flowfield.questions import (
 from flowfield.reads import MAX_LIMIT, ContextReads, excerpt, receipt
 from flowfield.search import Entity, History, Search
 from flowfield.supervisor import Supervisor
+from flowfield.verification_models import VerificationPrepare
 from flowfield.workspaces import ProjectAdoption, WorkspaceCreate, WorkspaceEdit, Workspaces
 
 PageLimit = Annotated[int, Field(ge=1, le=MAX_LIMIT)]
@@ -381,7 +383,7 @@ def create_mcp(
     async def list_milestones(
         workspace_id: Identifier, after: str | None = None, limit: PageLimit = 20
     ) -> CallToolResult:
-        """Read milestone groupings without a dependency or work-status lifecycle."""
+        """Read milestone groupings; use verification history for reviewed outcomes."""
         return await invoke(
             lambda: Milestones(workspace()).page(workspace_id, after=after, limit=limit)
         )
@@ -409,6 +411,50 @@ def create_mcp(
         """Page retained milestone revisions; read an exact revision with get_milestone."""
         return await invoke(
             lambda: Milestones(workspace()).history(
+                workspace_id, milestone_id, before=before, limit=limit
+            )
+        )
+
+    @mcp.tool(annotations=write)
+    async def prepare_milestone_verification(
+        workspace_id: Identifier,
+        milestone_id: MilestoneIdentifier,
+        preparation: VerificationPrepare,
+    ) -> CallToolResult:
+        """Freeze delivered contributions and checks; prepare an upcoming staged report task.
+        All contributing tasks must have complete delivered results. The verifier belongs to
+        the milestone but is excluded from its own readiness. Cover the entire criteria in
+        checks. Queue the task normally. Passing evidence requests human Inbox acceptance.
+        """
+        return await mutate(
+            lambda: (
+                MilestoneVerifications(workspace())
+                .prepare(workspace_id, milestone_id, attributed(preparation))
+                .model_dump()
+            )
+        )
+
+    @mcp.tool(annotations=read)
+    async def get_milestone_verification(
+        workspace_id: Identifier, verification_id: Identifier
+    ) -> CallToolResult:
+        """Read exact verification inputs, findings and human review feedback."""
+        return await invoke(
+            lambda: (
+                MilestoneVerifications(workspace()).get(workspace_id, verification_id).model_dump()
+            )
+        )
+
+    @mcp.tool(annotations=read)
+    async def get_milestone_verifications(
+        workspace_id: Identifier,
+        milestone_id: MilestoneIdentifier,
+        before: int | None = None,
+        limit: PageLimit = 20,
+    ) -> CallToolResult:
+        """Page verification and acceptance history; acceptance does not promote code."""
+        return await invoke(
+            lambda: MilestoneVerifications(workspace()).history(
                 workspace_id, milestone_id, before=before, limit=limit
             )
         )

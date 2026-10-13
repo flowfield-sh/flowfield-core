@@ -25,6 +25,7 @@ class Publication(BaseModel):
     target_branch: str | None = None
     documents: list[DocumentSnapshot] = Field(default_factory=list)
     milestone: MilestoneBinding | None = None
+    verification_id: str | None = None
 
 
 def publication_status(task: "TaskRevision") -> PublicationStatus:
@@ -79,6 +80,8 @@ def preparation_issue(
         return None
     if task.reconciliation_reason:
         return task.reconciliation_reason
+    if issue := verification_issue(db, task):
+        return issue
     if task.status != "done" and stages_need_reconciliation(
         db, task.project_id, task.id, task.agreement_revision
     ):
@@ -98,3 +101,13 @@ def preparation_issue(
     if task.publication:
         return "Task changed. Ask the coordinator to prepare it again."
     return "Ask the coordinator to prepare this task." if include_draft_hint else None
+
+
+def verification_issue(db: sqlite3.Connection, task: "TaskRevision") -> str | None:
+    binding = task.publication.verification_id if task.publication else None
+    if not binding or task.status == "done" or task.archived:
+        return None
+    row = db.execute("SELECT status FROM milestone_verifications WHERE id=?", (binding,)).fetchone()
+    if not row or row[0] != "verifying":
+        return "Ask the coordinator to prepare a new milestone verification."
+    return None

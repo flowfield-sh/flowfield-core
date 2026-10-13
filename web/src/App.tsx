@@ -602,6 +602,10 @@ function WorkspaceBoard({
                   : null,
             milestone_revision:
               surface === "milestone" ? viewedMilestone?.revision : null,
+            verification_id:
+              surface === "milestone"
+                ? new URLSearchParams(location.search).get("verification")
+                : null,
             without_milestone: filtered && filter === "none",
             label_id: filtered ? labelFilter || null : null,
           },
@@ -809,6 +813,8 @@ function WorkspaceBoard({
           <MilestoneDetail
             key={`${selection.id}:${params.milestoneRevision ?? "latest"}`}
             milestone={incoming as Milestone}
+            refresh={refresh}
+            onDirty={setUnsaved}
             latest={selectedMilestone}
             historical={!!params.milestoneRevision}
             path={path}

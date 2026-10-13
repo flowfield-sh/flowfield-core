@@ -27,6 +27,7 @@ from flowfield.document_models import DocumentUpdate
 from flowfield.errors import ApplicationError
 from flowfield.labels import Labels, WorkspaceLabel
 from flowfield.milestone_models import MilestoneUpdate
+from flowfield.milestone_verification import board_states
 from flowfield.milestones import Milestones, milestone_update
 from flowfield.publication import (
     Publication,
@@ -36,6 +37,7 @@ from flowfield.publication import (
     publication_status,
     readiness,
     stages_need_reconciliation,
+    verification_issue,
 )
 from flowfield.questions import QuestionReference, Questions, blocking_questions
 from flowfield.reads import task_metadata
@@ -77,6 +79,7 @@ class TaskDetail(TaskRevision, TaskCard):
 class BrowserBoard(BaseModel):
     labels: list[WorkspaceLabel]
     project: Project
+    milestone_states: dict[str, str] = Field(default_factory=dict)
     milestones: list[Milestone]
     tasks: list[TaskCard]
     needs_you_count: int
@@ -90,6 +93,7 @@ class BrowserWorkspaceBoard(BaseModel):
     projects: list[Project]
     project_problems: dict[str, str]
     labels: list[WorkspaceLabel]
+    milestone_states: dict[str, str] = Field(default_factory=dict)
     milestones: list[Milestone]
     tasks: list[TaskCard]
     needs_you_count: int
@@ -160,7 +164,7 @@ class BrowserReads:
             readiness=readiness(
                 task,
                 publication,
-                blocked=bool(blocked or questions),
+                blocked=bool(blocked or questions or verification_issue(db, task)),
                 stages_stale=stages_need_reconciliation(
                     db, task.project_id, task.id, task.agreement_revision
                 ),
@@ -224,12 +228,17 @@ class BrowserReads:
             cards, pending = self._project_cards(
                 db, project_id, records, positions, self.workspace._completed(records, db)
             )
+            counts = Questions(self.workspace).counts(db, project_id)
             return BrowserBoard(
                 labels=Labels.read_all(db, self.workspace._project_workspace(db, project_id)),
                 project=project,
                 milestones=self.workspace._milestones(db, project_id),
                 tasks=cards,
-                **Questions(self.workspace).counts(db, project_id),
+                milestone_states=board_states(
+                    db, self.workspace._project_workspace(db, project_id)
+                ),
+                needs_you_count=counts["needs_you_count"],
+                awaiting_application_count=counts["awaiting_application_count"],
                 pending_code=pending,
             )
 
@@ -272,6 +281,7 @@ class BrowserReads:
                 ),
                 labels=Labels.read_all(db, workspace_id),
                 milestones=Milestones.read_all(db, workspace_id),
+                milestone_states=board_states(db, workspace_id),
                 tasks=cards,
                 pending_code=pending,
                 needs_you_count=counts.get("action", 0),

@@ -963,10 +963,10 @@ test("conversation capture prepares atomically while task defaults show only use
   await expect(stages.getByRole("link")).toHaveCount(0);
   await page.getByText("Stages", { exact: true }).click();
   // Stage details are optional evidence below the definition.
-  await stages
-    .locator(".task-stage")
-    .first()
-    .evaluate((el) => (el as HTMLElement).focus({ preventScroll: true }));
+  await stages.locator(".task-stage").first().focus();
+  // Exercise keyboard focus after the disclosure pointer interaction.
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
   await expect(page.getByRole("tooltip")).toContainText(
     "Compare available formats",
   );

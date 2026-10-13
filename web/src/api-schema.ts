@@ -594,6 +594,58 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/milestones/{identity}/verifications": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Verification History */
+    get: operations["verification_history_api_workspaces__workspace_id__milestones__identity__verifications_get"];
+    put?: never;
+    /** Prepare Verification */
+    post: operations["prepare_verification_api_workspaces__workspace_id__milestones__identity__verifications_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/verifications/{identity}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Verification */
+    get: operations["verification_api_workspaces__workspace_id__verifications__identity__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/verifications/{identity}/review": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Review Verification */
+    post: operations["review_verification_api_workspaces__workspace_id__verifications__identity__review_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/workspaces/{workspace_id}/milestones/{identity}/impact": {
     parameters: {
       query?: never;
@@ -2661,7 +2713,8 @@ export interface components {
         | "integration"
         | "result"
         | "permission"
-        | "document";
+        | "document"
+        | "milestone";
       /** Task Key */
       task_key: string | null;
       /** Title */
@@ -2712,6 +2765,10 @@ export interface components {
       /** Labels */
       labels: components["schemas"]["WorkspaceLabel"][];
       project: components["schemas"]["Project"];
+      /** Milestone States */
+      milestone_states?: {
+        [key: string]: string;
+      };
       /** Milestones */
       milestones: components["schemas"]["Milestone"][];
       /** Tasks */
@@ -2738,6 +2795,10 @@ export interface components {
       };
       /** Labels */
       labels: components["schemas"]["WorkspaceLabel"][];
+      /** Milestone States */
+      milestone_states?: {
+        [key: string]: string;
+      };
       /** Milestones */
       milestones: components["schemas"]["Milestone"][];
       /** Tasks */
@@ -3044,6 +3105,8 @@ export interface components {
       milestone_id: string | null;
       /** Milestone Revision */
       milestone_revision: number | null;
+      /** Verification Id */
+      verification_id: string | null;
       /** Label Id */
       label_id: string | null;
       /**
@@ -3065,6 +3128,10 @@ export interface components {
       project_revision: number | null;
       /** Milestone Title */
       milestone_title: string | null;
+      /** Verification Revision */
+      verification_revision: number | null;
+      /** Verification Status */
+      verification_status: string | null;
       /** Label Name */
       label_name: string | null;
       /** Label Revision */
@@ -3094,6 +3161,8 @@ export interface components {
       milestone_id?: string | null;
       /** Milestone Revision */
       milestone_revision?: number | null;
+      /** Verification Id */
+      verification_id?: string | null;
       /** Label Id */
       label_id?: string | null;
       /**
@@ -3120,6 +3189,41 @@ export interface components {
       details: string;
       /** Number */
       number: number;
+    };
+    /** CriterionFinding */
+    CriterionFinding: {
+      /** Check */
+      check: number;
+      /**
+       * Verdict
+       * @enum {string}
+       */
+      verdict: "passed" | "failed" | "unverified";
+      /** Evidence */
+      evidence: string;
+    };
+    /** DeliveredTask */
+    DeliveredTask: {
+      /** Project Id */
+      project_id: string;
+      /** Task Id */
+      task_id: string;
+      /** Task Key */
+      task_key: string;
+      /** Revision */
+      revision: number;
+      /** Agreement Revision */
+      agreement_revision: number;
+      /** Result Id */
+      result_id: string;
+      /** Result Revision */
+      result_revision: number;
+      /** Settings Revision */
+      settings_revision: number | null;
+      /** Commit */
+      commit: string;
+      /** Target Branch */
+      target_branch: string | null;
     };
     /** Delivery */
     Delivery: {
@@ -4057,6 +4161,82 @@ export interface components {
       /** Latest Revision */
       latest_revision: number;
     };
+    /** MilestoneVerification */
+    MilestoneVerification: {
+      /** Id */
+      id: string;
+      /** Workspace Id */
+      workspace_id: string;
+      /** Milestone Id */
+      milestone_id: string;
+      /** Milestone Key */
+      milestone_key: string;
+      /** Milestone Revision */
+      milestone_revision: number;
+      /** Title */
+      title: string;
+      /** Criteria */
+      criteria: string;
+      /** Checks */
+      checks: string[];
+      /** Tasks */
+      tasks: components["schemas"]["DeliveredTask"][];
+      /** Project Id */
+      project_id: string;
+      /** Task Id */
+      task_id: string;
+      /** Task Key */
+      task_key: string;
+      /** Agreement Revision */
+      agreement_revision: number;
+      /**
+       * Revision
+       * @default 1
+       */
+      revision: number;
+      /**
+       * Status
+       * @default verifying
+       * @enum {string}
+       */
+      status:
+        | "verifying"
+        | "ready"
+        | "failed"
+        | "stale"
+        | "accepted"
+        | "changes_requested";
+      /**
+       * Current
+       * @default true
+       */
+      current: boolean;
+      report: components["schemas"]["VerificationReport"] | null;
+      /**
+       * Limitations
+       * @default
+       */
+      limitations: string;
+      /** Result Id */
+      result_id: string | null;
+      /** Created At */
+      created_at: string;
+      /** Updated At */
+      updated_at: string;
+      /** Author */
+      author: string;
+      /** Reviewed By */
+      reviewed_by: string | null;
+      /** Reviewed At */
+      reviewed_at: string | null;
+      /**
+       * Review Note
+       * @default
+       */
+      review_note: string;
+      /** Problem */
+      problem: string | null;
+    };
     /** ModelOption */
     ModelOption: {
       /** Id */
@@ -4316,6 +4496,8 @@ export interface components {
       /** Documents */
       documents: components["schemas"]["DocumentSnapshot"][];
       milestone: components["schemas"]["MilestoneBinding"] | null;
+      /** Verification Id */
+      verification_id: string | null;
     };
     /** Question */
     Question: {
@@ -5714,6 +5896,58 @@ export interface components {
       /** Context */
       ctx?: Record<string, never>;
     };
+    /** VerificationPrepare */
+    VerificationPrepare: {
+      /** Expected Revision */
+      expected_revision: number;
+      /** Project Id */
+      project_id: string;
+      /** Task Id */
+      task_id: string;
+      /** Expected Task Revision */
+      expected_task_revision: number;
+      /** Checks */
+      checks: string[];
+      /**
+       * Author
+       * @default coordinator
+       */
+      author: string;
+    };
+    /** VerificationReport */
+    VerificationReport: {
+      /** Verification Id */
+      verification_id: string;
+      /** Findings */
+      findings: components["schemas"]["CriterionFinding"][];
+      /**
+       * Coverage
+       * @enum {string}
+       */
+      coverage: "complete" | "incomplete";
+      /** Coverage Notes */
+      coverage_notes: string;
+    };
+    /** VerificationReview */
+    VerificationReview: {
+      /** Expected Revision */
+      expected_revision: number;
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: "accept" | "request_changes";
+      /**
+       * Note
+       * @default
+       */
+      note: string;
+      /**
+       * Author
+       * @default human
+       */
+      author: string;
+    };
     /** WorkState */
     WorkState: {
       /** Label */
@@ -5738,6 +5972,7 @@ export interface components {
     };
     /** WorkerResult */
     WorkerResult: {
+      verification: components["schemas"]["VerificationReport"] | null;
       /** Summary */
       summary: string;
       /** Checks */
@@ -7336,6 +7571,147 @@ export interface operations {
           "application/json": {
             [key: string]: unknown;
           };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  verification_history_api_workspaces__workspace_id__milestones__identity__verifications_get: {
+    parameters: {
+      query?: {
+        before?: number | null;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  prepare_verification_api_workspaces__workspace_id__milestones__identity__verifications_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VerificationPrepare"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MilestoneVerification"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  verification_api_workspaces__workspace_id__verifications__identity__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MilestoneVerification"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  review_verification_api_workspaces__workspace_id__verifications__identity__review_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VerificationReview"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MilestoneVerification"];
         };
       };
       /** @description Validation Error */

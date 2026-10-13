@@ -44,6 +44,7 @@ class CoordinatorViewSelection(AgentRecord):
     project_id: Identifier | None = None
     milestone_id: Identifier | None = None
     milestone_revision: int | None = Field(default=None, ge=1)
+    verification_id: Identifier | None = None
     label_id: Identifier | None = None
     without_milestone: bool = False
     document_id: Identifier | None = None
@@ -56,6 +57,8 @@ class CoordinatorViewContext(CoordinatorViewSelection):
     project_name: str | None = None
     project_revision: int | None = None
     milestone_title: str | None = None
+    verification_revision: int | None = None
+    verification_status: str | None = None
     label_name: str | None = None
     label_revision: int | None = None
     document_title: str | None = None

@@ -38,9 +38,15 @@ from flowfield.execution_models import (
 )
 from flowfield.harness_models import HarnessKind
 from flowfield.labels import LabelCreate, LabelEdit, Labels, WorkspaceLabel
+from flowfield.milestone_verification import MilestoneVerifications
 from flowfield.milestones import Milestones
 from flowfield.permission_models import PermissionAnswer, PermissionPage, PermissionRecord
 from flowfield.supervisor import Supervisor
+from flowfield.verification_models import (
+    MilestoneVerification,
+    VerificationPrepare,
+    VerificationReview,
+)
 from flowfield.workspaces import (
     ProjectAdoption,
     WorkspaceCreate,
@@ -182,6 +188,34 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     ) -> dict[str, Any]:
         return Milestones(supervisor().workspace).history(
             workspace_id, identity, before=before, limit=limit
+        )
+
+    @router.get("/{workspace_id}/milestones/{identity}/verifications")
+    def verification_history(
+        workspace_id: str, identity: str, before: int | None = None, limit: int = 20
+    ) -> dict[str, Any]:
+        return MilestoneVerifications(supervisor().workspace).history(
+            workspace_id, identity, before=before, limit=limit
+        )
+
+    @router.post("/{workspace_id}/milestones/{identity}/verifications")
+    def prepare_verification(
+        workspace_id: str, identity: str, request: VerificationPrepare
+    ) -> MilestoneVerification:
+        return MilestoneVerifications(supervisor().workspace).prepare(
+            workspace_id, identity, request
+        )
+
+    @router.get("/{workspace_id}/verifications/{identity}")
+    def verification(workspace_id: str, identity: str) -> MilestoneVerification:
+        return MilestoneVerifications(supervisor().workspace).get(workspace_id, identity)
+
+    @router.post("/{workspace_id}/verifications/{identity}/review")
+    def review_verification(
+        workspace_id: str, identity: str, request: VerificationReview
+    ) -> MilestoneVerification:
+        return MilestoneVerifications(supervisor().workspace).review(
+            workspace_id, identity, request
         )
 
     @router.get("/{workspace_id}/milestones/{identity}/impact")
