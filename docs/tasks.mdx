@@ -27,10 +27,6 @@ Drag tasks within Backlog or Up next to reorder them, or between those columns t
 
 New workspaces start paused with one worker slot. **Run queue** enables eligible starts; **Pause queue** prevents new starts while active workers continue. The saved queue choice survives service restarts. Increase **Maximum parallel workers** in **Workspace settings → Workers** when independent tasks can safely run together. Waiting for review frees a worker slot.
 
-**Stop worker** ends one attempt and preserves its unfinished work. **Retry worker** queues a fresh attempt; it respects pause, dependencies and capacity. Follow the displayed recovery action if native cleanup is uncertain.
-
-If a worker ends normally without submitting a result or asking a blocking question, Flowfield gives that same attempt one reminder to report its outcome, with up to 60 seconds to respond. The reminder appears in worker activity. If reporting still fails, the attempt fails with its work preserved for inspection and explicit retry. Submitted code still requires your exact approval.
-
 Each board column scrolls independently. On narrow screens, scroll sideways to reach the other columns.
 
 ## Dependencies
@@ -38,6 +34,16 @@ Each board column scrolls independently. On narrow screens, scroll sideways to r
 A task can depend on tasks in other projects within the same workspace. Prerequisites must finish before dependent work starts; cycles and cross-workspace dependencies are rejected. Each dependent task retains its own checkout and delivery branch. Foreign prerequisite code is not merged into that repository's Git history.
 
 Reopening or changing completed prerequisite work can require downstream reconciliation. Archiving unfinished work does not satisfy its dependents. Ask the Coordinator to review affected tasks when the plan changes.
+
+## Follow an attempt
+
+Open an **In progress** task to follow the worker's activity and reported stages. The worker should finish by submitting an outcome with its checks and limitations, or asking a blocking question. A final chat summary alone does not create a reviewable result.
+
+If a worker ends normally without either, Flowfield immediately gives it one reminder in the same session and checkout. The reminder appears in activity and asks it to report the work already performed, including partial progress or a blocking question when appropriate. The worker keeps its existing tools and permissions; submitted code still requires your exact approval.
+
+The extra reporting turn has a 60-second limit; this is not a limit on the original task. Normal submissions need no extra model turn. When the reminder is needed, it uses additional model tokens; its cost depends on the session context, model and caching, not just the reminder's length. It keeps the worker slot occupied until the attempt ends and cleanup is confirmed. If it times out or still produces no submission or question, work is preserved and the attempt needs inspection and explicit retry. Cleanup can take additional time.
+
+**Stop worker** ends an active attempt, including one responding to a reminder, and preserves its unfinished work. **Retry worker** queues a fresh attempt; it respects pause, dependencies and capacity. Follow the displayed recovery action if native cleanup is uncertain. The reporting reminder does not restart stopped or interrupted attempts.
 
 ## Work through Inbox
 

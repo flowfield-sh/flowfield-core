@@ -23,7 +23,7 @@ Enter one shell command per line for setup and validation. Choose commands appro
 
 Setup and checks run in the worktree directory and must leave source files unchanged. Keep dependency outputs ignored; use `FLOWFIELD_RUNTIME_DIR` for temporary files and `FLOWFIELD_WORKSPACE` for the checkout path. Checks must finish and return a failing exit code on failure. A development server belongs in Run command, not validation.
 
-Read failed validation output, fix the scripts or configuration and validate again. Revalidate after changing setup, checks or the destination branch. Setup and validation commands have configured timeouts.
+Read failed validation output, fix the scripts or configuration and validate again. Revalidate after changing setup, checks or the destination branch. Setup and validation commands have configured timeouts. These apply to those commands; the worker's [reporting reminder and recovery](/tasks#follow-an-attempt) have separate behavior.
 
 ## Choose workers
 
