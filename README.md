@@ -15,8 +15,6 @@
 
 ![The workspace board and Coordinator, with work spanning several projects](https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/board-hero.png)
 
-## From conversation to finished work.
-
 The idea is in one conversation. The implementation is in another. An agent needs an answer, a task is waiting on another task, and the reason you chose this approach is buried twenty messages back.
 
 **Flowfield gives that work a home.** Delegate planning and coordination through one conversation while workers carry out focused tasks in your existing repositories. Shared knowledge stays in versioned documents, and questions and reviews come back to one Inbox. You decide what ships.
@@ -34,7 +32,7 @@ flowfield serve
 
 Open [localhost:8765](http://127.0.0.1:8765), create a workspace and add your existing repositories. See [Getting started](https://docs.flowfield.sh/getting-started) for the walkthrough or [Installation](https://docs.flowfield.sh/installation) for requirements and alternatives.
 
-## Keep the thinking with the work.
+## How does Flowfield work?
 
 Ask the Coordinator to organize the work, maintain shared context and follow up on results. Use the board, documents and task controls yourself whenever you prefer. Conversation and direct actions work on the same plan.
 
@@ -50,7 +48,7 @@ Ask the Coordinator to organize the work, maintain shared context and follow up 
 
 **🔎 Own the finish**<br>Ask the Coordinator to help review a result or request another pass. Inspect and try the code yourself when useful, then approve delivery through the conversation or task controls. Approval stays tied to the exact result.
 
-## A closer look
+## Screenshots
 
 <table>
   <tr>
@@ -64,14 +62,6 @@ Ask the Coordinator to organize the work, maintain shared context and follow up 
     <td align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/review.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/review.png" alt="Code result with its diff, checks and review actions"></a><br><strong>Code review</strong></td>
   </tr>
 </table>
-
-[Explore the product →](https://flowfield.sh/product/)
-
-## Go deeper
-
-[Workspaces](https://docs.flowfield.sh/workspaces) · [Coordinator](https://docs.flowfield.sh/coordinator) · [Documents](https://docs.flowfield.sh/documents) · [Workers and review](https://docs.flowfield.sh/tasks) · [CLI](https://docs.flowfield.sh/cli)
-
-Prefer planning from your own coding-agent session? [Connect a standalone agent](https://docs.flowfield.sh/agents/overview#standalone-conversations) through MCP.
 
 ## Contributing
 
