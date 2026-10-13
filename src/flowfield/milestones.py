@@ -12,7 +12,6 @@ from flowfield.application import (
     generated_id,
     now,
 )
-from flowfield.document_models import DocumentReference, DocumentSnapshot
 from flowfield.errors import ApplicationError
 from flowfield.milestone_models import MilestoneUpdate
 from flowfield.reads import page, validate_page
@@ -117,14 +116,6 @@ class Milestones:
             )
 
     @staticmethod
-    def freeze_documents(
-        db: sqlite3.Connection, workspace_id: str, references: list[DocumentReference]
-    ) -> list[DocumentSnapshot]:
-        from flowfield.worker_documents import select
-
-        return select(db, workspace_id, [], references)
-
-    @staticmethod
     def read_all(db: sqlite3.Connection, workspace_id: str) -> list[Milestone]:
         Workspaces.read(db, workspace_id)
         return [
@@ -166,8 +157,6 @@ class Milestones:
                 title=request.title,
                 body=request.body,
                 acceptance_criteria=request.acceptance_criteria,
-                source_url=request.source_url,
-                documents=self.freeze_documents(db, workspace_id, request.documents),
                 revision=1,
                 created_at=now(),
                 updated_at=now(),
@@ -187,27 +176,7 @@ class Milestones:
     def edit(self, workspace_id: str, identity: str, request: MilestoneEdit) -> Milestone:
         with self.store.connection(write=True) as db:
             current = self.read(db, workspace_id, identity)
-            self.store._current(current.revision, request.expected_revision)
-            changes = request.model_dump(
-                exclude_unset=True, exclude={"expected_revision", "author"}
-            )
-            if request.documents is not None:
-                changes["documents"] = [
-                    item.model_dump()
-                    for item in self.freeze_documents(db, workspace_id, request.documents)
-                ]
-            values = current.model_dump()
-            if all(values[key] == value for key, value in changes.items()):
-                return current
-            value = Milestone(
-                **{
-                    **values,
-                    **changes,
-                    "revision": current.revision + 1,
-                    "updated_at": now(),
-                    "updated_by": request.author,
-                }
-            )
+            value = Milestone(**self.store._patch(current, request))
             db.execute(
                 "UPDATE milestones SET data=? WHERE workspace_id=? AND id=?",
                 (value.model_dump_json(), workspace_id, value.id),

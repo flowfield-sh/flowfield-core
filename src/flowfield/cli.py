@@ -33,7 +33,9 @@ app.add_typer(workspace_app, name="workspace", help="Create workspaces and organ
 app.add_typer(task_app, name="task", help="Capture, prioritize and track tasks.")
 app.add_typer(inbox_app, name="inbox", help="Read questions, answer them, and apply decisions.")
 app.add_typer(
-    milestone_app, name="milestone", help="Capture shared outcomes and milestone agreements."
+    milestone_app,
+    name="milestone",
+    help="Capture shared outcomes and milestone acceptance criteria.",
 )
 app.add_typer(integration_app, name="integration", help="Connect and check coding harnesses.")
 app.add_typer(harness_app, name="harness", help="Configure and check native coding harnesses.")
@@ -632,8 +634,6 @@ def display(result: Any) -> None:
             typer.echo(result["body"])
         if result.get("acceptance_criteria"):
             typer.echo(f"\nAcceptance criteria\n{result['acceptance_criteria']}")
-        if result.get("source_url"):
-            typer.echo(f"Source: {result['source_url']}")
         if result.get("handoff"):
             handoff = result["handoff"]
             typer.echo(
@@ -676,16 +676,10 @@ def text_value(text: str | None, file: Path | None) -> str | None:
 
 
 def stages_value(file: Path) -> Any:
-    return json_file_value(file, "Stages")
-
-
-def json_file_value(file: Path, label: str) -> Any:
     try:
         return json.loads(file.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
-        raise ApplicationError(
-            "invalid_request", f"{label} file must contain valid JSON."
-        ) from error
+        raise ApplicationError("invalid_request", "Stages file must contain valid JSON.") from error
 
 
 def update(
@@ -1184,12 +1178,10 @@ def milestone_create(
     body_file: Path | None = None,
     acceptance_criteria: str | None = None,
     acceptance_file: Path | None = None,
-    source_url: str = "",
-    documents_file: Path | None = None,
     author: Author = "human",
     json_output: Json = False,
 ) -> None:
-    """Capture an outcome with optional criteria and sources. Tasks can stand alone."""
+    """Capture an outcome with optional acceptance criteria. Tasks can stand alone."""
     output(
         lambda: ctx.obj.request(
             "POST",
@@ -1200,8 +1192,6 @@ def milestone_create(
                 "body": text_value(body, body_file) or "",
                 "author": author,
                 "acceptance_criteria": text_value(acceptance_criteria, acceptance_file) or "",
-                "source_url": source_url,
-                "documents": json_file_value(documents_file, "Documents") if documents_file else [],
             },
         ),
         json_output,
@@ -1218,13 +1208,11 @@ def milestone_edit(
     body_file: Path | None = None,
     acceptance_criteria: str | None = None,
     acceptance_file: Path | None = None,
-    source_url: str | None = None,
-    documents_file: Path | None = None,
     expected_revision: Expected = None,
     author: Author = "human",
     json_output: Json = False,
 ) -> None:
-    """Revise a milestone agreement without changing its prepared tasks."""
+    """Revise milestone details without changing its prepared tasks."""
     output(
         lambda: update(
             ctx.obj,
@@ -1235,10 +1223,6 @@ def milestone_edit(
                     "title": title,
                     "body": text_value(body, body_file),
                     "acceptance_criteria": text_value(acceptance_criteria, acceptance_file),
-                    "source_url": source_url,
-                    "documents": json_file_value(documents_file, "Documents")
-                    if documents_file
-                    else None,
                 }.items()
                 if v is not None
             },
@@ -1289,7 +1273,7 @@ def milestone_history(
     limit: int = 20,
     json_output: Json = False,
 ) -> None:
-    """List retained agreement revisions."""
+    """List milestone revision history."""
 
     def human(value: dict[str, Any]) -> None:
         for item in value["items"]:
@@ -1322,7 +1306,7 @@ def milestone_impact(
     limit: int = 20,
     json_output: Json = False,
 ) -> None:
-    """Find unfinished tasks prepared against an older milestone agreement."""
+    """Find unfinished tasks prepared against an older milestone revision."""
     output(
         lambda: ctx.obj.request(
             "GET",

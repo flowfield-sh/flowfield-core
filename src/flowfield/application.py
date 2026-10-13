@@ -43,7 +43,7 @@ from flowfield.execution_models import SCHEMA as EXECUTION_SCHEMA
 from flowfield.inspection_models import SCHEMA as INSPECTION_SCHEMA
 from flowfield.integration_models import SCHEMA as INTEGRATION_SCHEMA
 from flowfield.migrations import current_version
-from flowfield.milestone_models import MilestoneBinding, MilestoneUpdate, SourceURL
+from flowfield.milestone_models import MilestoneBinding, MilestoneUpdate
 from flowfield.project_config import Identifier, ProjectConfig, Title, read_config, write_config
 from flowfield.publication import (
     Publication,
@@ -204,16 +204,12 @@ class WorkCreate(Input):
 
 class MilestoneCreate(WorkCreate):
     acceptance_criteria: Markdown = ""
-    source_url: SourceURL = ""
-    documents: DocumentReferences = Field(default_factory=list)
 
 
 class MilestoneEdit(Edit):
     title: Title | None = None
     body: Markdown | None = None
     acceptance_criteria: Markdown | None = None
-    source_url: SourceURL | None = None
-    documents: DocumentReferences | None = None
 
 
 class ContentRecord(BaseModel):
@@ -235,8 +231,6 @@ class Milestone(ContentRecord):
     workspace_id: str = Field(validation_alias=AliasChoices("workspace_id", "project_id"))
     key: str
     acceptance_criteria: Markdown = ""
-    source_url: SourceURL = ""
-    documents: list[DocumentSnapshot] = Field(default_factory=list)
 
 
 class TaskPreparation(Input):
@@ -1642,19 +1636,7 @@ class Workspace:
             select(
                 db,
                 self._project_workspace(db, current.project_id),
-                [
-                    *self._project(db, current.project_id).worker_documents,
-                    *(
-                        [
-                            DocumentReference(
-                                id=item.id, revision=item.revision, purpose=item.purpose
-                            )
-                            for item in milestone.documents
-                        ]
-                        if milestone
-                        else []
-                    ),
-                ],
+                self._project(db, current.project_id).worker_documents,
                 current.documents,
             )
             if self.schema_version >= 65

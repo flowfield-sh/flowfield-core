@@ -135,12 +135,13 @@ _WITH_DOCUMENTS = (
     + """
     UNION ALL
     SELECT project_id,task_id,'document',task_key,substr(task_title,1,500),
-        'newer_source',max(updated_at),NULL,'waiting',NULL,NULL
-    FROM (SELECT project_id,task_id,task_key,task_title,updated_at FROM ("""
+        CASE WHEN max(milestone_changed) THEN 'milestone_changed' ELSE 'newer_source' END,
+        max(updated_at),NULL,'waiting',NULL,NULL
+    FROM (SELECT project_id,task_id,task_key,task_title,updated_at,0 AS milestone_changed FROM ("""
     + UPDATED_SOURCES
-    + ") UNION ALL "
+    + ") UNION ALL SELECT *,1 AS milestone_changed FROM ("
     + UPDATED_MILESTONES
-    + """) WHERE project_id IN (SELECT id FROM scope_projects)
+    + """)) WHERE project_id IN (SELECT id FROM scope_projects)
     GROUP BY project_id,task_id
 )
 """
@@ -231,7 +232,9 @@ def attention_page(
             owner = item.project_id
             if item.kind == "document" and owner:
                 item.state = WorkState(
-                    label="Newer source revision available",
+                    label="Milestone details changed"
+                    if item.status == "milestone_changed"
+                    else "Newer source revision available",
                     tone="idle",
                     href=f"{project_href(owner)}/tasks/{item.task_key}",
                 )

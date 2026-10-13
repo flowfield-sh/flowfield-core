@@ -420,7 +420,7 @@ def create_mcp(
         after: str | None = None,
         limit: PageLimit = 20,
     ) -> CallToolResult:
-        """Find unfinished tasks using an older milestone agreement for explicit reconciliation."""
+        """Find unfinished tasks using an older milestone revision for explicit reconciliation."""
         return await invoke(
             lambda: Milestones(workspace()).impact(
                 workspace_id, milestone_id, after=after, limit=limit
@@ -431,7 +431,7 @@ def create_mcp(
     async def create_milestone(
         workspace_id: Identifier, milestone: MilestoneCreate
     ) -> CallToolResult:
-        """Capture outcome, optional acceptance criteria and sources; omit id to generate one."""
+        """Capture outcome and optional acceptance criteria; omit id to generate one."""
         return await mutate(
             lambda: Milestones(workspace()).create(workspace_id, attributed(milestone)).model_dump()
         )

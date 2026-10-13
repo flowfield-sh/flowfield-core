@@ -55,8 +55,8 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
         rules.append("Use the saved validation commands and report their observed results.")
     if present("milestone_criteria"):
         rules.append(
-            "Milestone criteria describe the whole outcome. Read them and the frozen milestone "
-            "agreement, implement this task's contribution and report gaps you discover. "
+            "Milestone criteria describe the whole outcome. Read them and the saved milestone "
+            "details, implement this task's contribution and report gaps you discover. "
             "Do not claim that completing your task accepts the whole milestone or authorizes "
             "work in another repository."
         )

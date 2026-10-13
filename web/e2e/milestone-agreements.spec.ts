@@ -3,13 +3,13 @@ import { join } from "node:path";
 import { expect } from "@playwright/test";
 import { test, state, fixtureStages } from "./support";
 
-test("milestone agreements retain sources and prepared work through edits", async ({
+test("milestone details retain history and prepared context through edits", async ({
   page,
   request,
 }, testInfo) => {
   const workspace = await (
     await request.post("/api/workspaces", {
-      data: { name: "Milestone agreements" },
+      data: { name: "Milestone walkthrough" },
     })
   ).json();
   const base = `/workspaces/${workspace.id}`;
@@ -18,14 +18,6 @@ test("milestone agreements retain sources and prepared work through edits", asyn
   const project = await (
     await request.post(`/api${base}/projects`, {
       data: { path, task_prefix: "AGR" },
-    })
-  ).json();
-  const document = await (
-    await request.post(`/api${base}/documents`, {
-      data: {
-        title: "Installation contract",
-        body: "Install without a checkout.",
-      },
     })
   ).json();
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -46,16 +38,6 @@ test("milestone agreements retain sources and prepared work through edits", asyn
   await editor
     .getByLabel("Acceptance criteria", { exact: true })
     .fill("Cold installation works without a checkout.");
-  await editor
-    .getByLabel("Source URL", { exact: true })
-    .fill("https://example.test/issues/20");
-  await editor
-    .locator("summary")
-    .filter({ hasText: /^Milestone sources/ })
-    .click();
-  await editor
-    .getByRole("checkbox", { name: "Installation contract", exact: true })
-    .check();
   await page.screenshot({
     path: testInfo.outputPath("milestone-editor-desktop-light.png"),
     animations: "disabled",
@@ -67,8 +49,6 @@ test("milestone agreements retain sources and prepared work through edits", asyn
   const milestone = (
     await (await request.get(`/api${base}/milestones`)).json()
   )[0];
-  expect(milestone.documents[0].revision).toBe(1);
-  expect(milestone.documents[0].id).toBe(document.id);
   const taskResponse = await request.post(`/api/projects/${project.id}/tasks`, {
     data: {
       title: "Check installed discovery",
@@ -93,7 +73,7 @@ test("milestone agreements retain sources and prepared work through edits", asyn
   await page.goto(`${base}/milestones/${milestone.key}`);
   await edit
     .locator("summary")
-    .filter({ hasText: /^Agreement history$/ })
+    .filter({ hasText: /^Milestone history$/ })
     .click();
   await edit
     .getByRole("button", { name: "View revision 1", exact: true })
@@ -103,12 +83,6 @@ test("milestone agreements retain sources and prepared work through edits", asyn
       exact: true,
     }),
   ).toBeVisible();
-  await expect(
-    edit.getByRole("link", {
-      name: "Installation contract · revision 1",
-      exact: true,
-    }),
-  ).not.toBeVisible();
   await edit.getByLabel("Title", { exact: true }).fill("Unsaved local title");
   const update = await request.put(`/api${base}/milestones/${milestone.id}`, {
     data: { expected_revision: 2, title: "Changed elsewhere" },
@@ -121,18 +95,20 @@ test("milestone agreements retain sources and prepared work through edits", asyn
   await edit.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.goto(`/projects/${project.id}/tasks/${task.key}`);
   await expect(
-    page.getByText("Newer source revision available", { exact: true }),
+    page.getByText("Milestone details changed", { exact: true }),
   ).toBeVisible();
   await page
     .locator("summary")
-    .filter({ hasText: /^Milestone agreement/ })
+    .filter({ hasText: /^Milestone at preparation/ })
     .click();
   await expect(
     page.getByText("Cold installation works without a checkout.", {
       exact: true,
     }),
   ).toBeVisible();
-  await expect(page.getByText(/Revision 3 is available/)).toBeVisible();
+  await expect(
+    page.getByText(/The milestone has changed to revision 3/),
+  ).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("milestone-task-desktop-light.png"),
     animations: "disabled",
@@ -142,7 +118,7 @@ test("milestone agreements retain sources and prepared work through edits", asyn
   await page.reload();
   await page
     .locator("summary")
-    .filter({ hasText: /^Milestone agreement/ })
+    .filter({ hasText: /^Milestone at preparation/ })
     .click();
   await page
     .getByText("Cold installation works without a checkout.", { exact: true })
@@ -159,36 +135,8 @@ test("milestone agreements retain sources and prepared work through edits", asyn
     path: testInfo.outputPath("milestone-editor-narrow-dark.png"),
     animations: "disabled",
   });
-  await request.put(`/api${base}/documents/${document.id}`, {
-    data: { expected_revision: 1, body: "Also check offline discovery." },
-  });
-  await page.reload();
-  await edit
-    .locator("summary")
-    .filter({ hasText: /^Milestone sources/ })
-    .click();
-  await edit
-    .getByRole("button", {
-      name: "Use revision 2 of Installation contract",
-      exact: true,
-    })
-    .click();
-  await edit.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(edit).not.toBeVisible();
-  const latest = await (
-    await request.get(`/api${base}/milestones/${milestone.id}`)
-  ).json();
-  expect(latest.documents[0].revision).toBe(2);
-  const stillPrepared = await (
-    await request.get(`/api/projects/${project.id}/tasks/${task.key}`)
-  ).json();
-  expect(
-    stillPrepared.publication.documents.find(
-      (item: { id: string }) => item.id === document.id,
-    ).revision,
-  ).toBe(1);
   await page.goto(`${base}/inbox`);
   await expect(
-    page.getByText("Newer source revision available", { exact: true }),
+    page.getByText("Milestone details changed", { exact: true }),
   ).toBeVisible();
 });

@@ -12,7 +12,6 @@ from test_worker_documents import prepare
 from flowfield import migrations
 from flowfield.agent_tools import workspace_scope
 from flowfield.application import (
-    Edit,
     MilestoneCreate,
     MilestoneEdit,
     TaskEdit,
@@ -21,7 +20,6 @@ from flowfield.application import (
 )
 from flowfield.attention import attention_page
 from flowfield.browser import BrowserReads
-from flowfield.documents import DocumentCreate, DocumentEdit, Documents
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.migrations import Migration
@@ -30,7 +28,6 @@ from flowfield.questions import Questions
 from flowfield.search import Search
 from flowfield.supervisor import Supervisor
 from flowfield.worker_tools import worker_tools
-from flowfield.workspaces import WorkspaceCreate, Workspaces
 
 
 def attach(store, milestone):
@@ -41,11 +38,9 @@ def attach(store, milestone):
     return prepare(store)
 
 
-def test_preparation_freezes_milestone_criteria_sources_and_worker_contribution(tmp_path):
+def test_preparation_freezes_milestone_criteria_and_worker_contribution(tmp_path):
     execution = fixture(tmp_path)
     store = execution.workspace
-    docs = Documents(store)
-    doc = docs.create("harbor", DocumentCreate(title="Design", body="Preserve the API"))
     milestones = Milestones(store)
     original = milestones.create(
         "harbor",
@@ -53,25 +48,18 @@ def test_preparation_freezes_milestone_criteria_sources_and_worker_contribution(
             title="Installed integration",
             body="A working installed experience",
             acceptance_criteria="Cold installation works without a source checkout.",
-            source_url="https://example.test/issues/20",
-            documents=[{"id": doc.id}],
         ),
     )
     first = attach(store, original)
     assert first.publication.milestone.revision == 1
-    assert original.documents[0].revision == 1
-    assert original.documents[0].title == "Design"
-    changed_doc = docs.edit("harbor", doc.id, DocumentEdit(expected_revision=1, body="New policy"))
     latest = milestones.edit(
         "harbor",
         original.id,
         MilestoneEdit(
             expected_revision=1,
             acceptance_criteria="Also works offline.",
-            documents=[{"id": doc.id}],
         ),
     )
-    assert latest.documents[0].revision == changed_doc.revision
     assert milestones.get("harbor", original.key, 1) == original
     assert (
         milestones.edit("harbor", original.id, MilestoneEdit(expected_revision=2, body=latest.body))
@@ -94,7 +82,6 @@ def test_preparation_freezes_milestone_criteria_sources_and_worker_contribution(
     assert assignment["milestone"] == original.body
     assert assignment["milestone_criteria"] == original.acceptance_criteria
     assert json.loads(assignment["milestone_agreement"])["revision"] == 1
-    assert assignment[f"document:{doc.id}"] == "Preserve the API"
     assert assignment["description"] == first.body
     assert Execution(Workspace(store.directory)).assignment("harbor", run.id) == assignment
 
@@ -141,38 +128,6 @@ def test_milestone_changes_preserve_question_continuations(tmp_path):
     continued = execution.assignment("harbor", successor.id)
     for section in ("milestone", "milestone_criteria", "milestone_agreement"):
         assert continued[section] == original[section]
-
-
-def test_sources_guard_scope_deletion_and_task_overrides(tmp_path):
-    store = fixture(tmp_path).workspace
-    other = Workspaces(store).create(WorkspaceCreate(name="Other"))
-    docs = Documents(store)
-    foreign = docs.create(other.id, DocumentCreate(title="Private", body="Unrelated"))
-    with pytest.raises(ApplicationError, match="not found"):
-        Milestones(store).create(
-            "harbor", MilestoneCreate(title="Bad", documents=[{"id": foreign.id}])
-        )
-    doc = docs.create("harbor", DocumentCreate(title="Rules", body="First"))
-    milestone = Milestones(store).create(
-        "harbor", MilestoneCreate(title="Outcome", documents=[{"id": doc.id}])
-    )
-    with pytest.raises(ApplicationError, match="milestone sources"):
-        docs.delete("harbor", doc.id, Edit(expected_revision=1))
-    docs.edit("harbor", doc.id, DocumentEdit(expected_revision=1, body="Second"))
-    attach(store, milestone)
-    task = store.task("harbor", "task-0")
-    store.edit_task(
-        "harbor",
-        task.id,
-        TaskEdit(
-            expected_revision=task.revision,
-            documents=[{"id": doc.id, "revision": 2, "purpose": "reference"}],
-        ),
-    )
-    prepared = prepare(store)
-    selected = next(item for item in prepared.publication.documents if item.id == doc.id)
-    assert selected.revision == 2 and selected.purpose == "reference"
-    assert Milestones(store).get("harbor", milestone.id).documents[0].revision == 1
 
 
 def test_tools_read_history_and_criteria_without_expanding_worker_authority(tmp_path):

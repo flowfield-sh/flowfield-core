@@ -3980,13 +3980,6 @@ export interface components {
        * @default
        */
       acceptance_criteria: string;
-      /**
-       * Source Url
-       * @default
-       */
-      source_url: string;
-      /** Documents */
-      documents: components["schemas"]["DocumentSnapshot"][];
     };
     /** MilestoneBinding */
     MilestoneBinding: {
@@ -4028,13 +4021,6 @@ export interface components {
        * @default
        */
       acceptance_criteria: string;
-      /**
-       * Source Url
-       * @default
-       */
-      source_url: string;
-      /** Documents */
-      documents?: components["schemas"]["DocumentReference-Input"][];
     };
     /** MilestoneEdit */
     MilestoneEdit: {
@@ -4051,10 +4037,6 @@ export interface components {
       body?: string | null;
       /** Acceptance Criteria */
       acceptance_criteria?: string | null;
-      /** Source Url */
-      source_url?: string | null;
-      /** Documents */
-      documents?: components["schemas"]["DocumentReference-Input"][] | null;
     };
     /** MilestoneUpdate */
     MilestoneUpdate: {

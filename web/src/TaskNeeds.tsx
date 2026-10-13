@@ -33,7 +33,11 @@ export function TaskState({
         ) : undefined}
       </WorkState>
       {(!!task.document_updates?.length || !!task.milestone_update) && (
-        <p className="detail-metadata">Newer source revision available</p>
+        <p className="detail-metadata">
+          {task.milestone_update
+            ? "Milestone details changed"
+            : "Newer source revision available"}
+        </p>
       )}
     </>
   );

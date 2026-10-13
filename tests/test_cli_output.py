@@ -90,19 +90,6 @@ def test_workspace_milestones_work_without_projects_and_page_exact_revisions(tmp
             app, [*prefix, "milestone", "history", "M-1", "--workspace", first["id"]]
         )
         assert history.exit_code == 0 and "Revision 1" in history.output
-        malformed = tmp_path / "documents.json"
-        malformed.write_text("not JSON")
-        invalid = invoke(
-            "milestone",
-            "edit",
-            "M-1",
-            "--workspace",
-            first["id"],
-            "--documents-file",
-            str(malformed),
-            failure=True,
-        )
-        assert invalid["error"]["code"] == "invalid_request"
         missing = runner.invoke(app, [*prefix, "milestone", "list"])
         assert missing.exit_code == 2 and "--workspace" in unstyle(missing.output)
 

@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, type ReactNode } from "react";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { TaskLabelEditor } from "./TaskLabelEditor";
 import { WorkerDocumentEvidence } from "./WorkerDocuments";
-import { PreparedMilestone } from "./MilestoneAgreement";
+import { PreparedMilestone } from "./MilestoneContext";
 import { TaskLabels } from "./TaskLabels";
 import { DetailHeader, DraftBadge } from "./Presentation";
 import { MilestoneBadge } from "./MilestoneBadge";

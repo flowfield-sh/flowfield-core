@@ -5,7 +5,6 @@ import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { Markdown } from "./Markdown";
 import { ResourceRetry } from "./ResourceRetry";
 import { Timestamp } from "./Timestamp";
-import { WorkerDocumentEvidence } from "./WorkerDocuments";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { useResource } from "./useResource";
 import { authorLabel, type Milestone } from "./workspace";
@@ -25,7 +24,7 @@ export function MilestoneRevision({ binding }: { binding: Binding }) {
   return (
     <ContentStack space="section">
       <ResourceRetry resources={[source]} />
-      {source.loading && <p>Loading agreement…</p>}
+      {source.loading && <p>Loading milestone…</p>}
       {source.data && (
         <>
           <p className="detail-metadata">
@@ -39,12 +38,6 @@ export function MilestoneRevision({ binding }: { binding: Binding }) {
               <Markdown>{source.data.acceptance_criteria}</Markdown>
             </DetailSection>
           )}
-          {!!source.data.source_url && (
-            <a href={source.data.source_url} target="_blank" rel="noreferrer">
-              Original source
-            </a>
-          )}
-          <WorkerDocumentEvidence documents={source.data.documents ?? []} />
         </>
       )}
     </ContentStack>
@@ -64,7 +57,7 @@ export function MilestoneHistory({ milestone }: { milestone: Milestone }) {
   );
   return (
     <Disclosure
-      summary="Agreement history"
+      summary="Milestone history"
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <ContentStack space="section">
@@ -142,23 +135,33 @@ export function PreparedMilestone({
   if (!binding) return null;
   return (
     <Disclosure
-      summary={`Milestone agreement · ${binding.key} · revision ${binding.revision}`}
+      summary={`Milestone at preparation · ${binding.key}`}
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <ContentStack space="content">
         {binding.origin === "upgrade" && (
-          <p>This agreement was retained when Flowfield was upgraded.</p>
+          <p>
+            These milestone details were retained when Flowfield was upgraded.
+          </p>
+        )}
+        {binding.origin !== "upgrade" && (
+          <p>
+            The milestone description and acceptance criteria below were saved
+            when this task was prepared. The task description defines this
+            worker’s contribution.
+          </p>
         )}
         {update && (
           <p>
-            Revision {update.latest_revision} is available. Discuss its
-            relevance with the coordinator before preparing this task again.
+            The milestone has changed to revision {update.latest_revision}. This
+            task still uses revision {binding.revision}; ask the coordinator to
+            review whether it needs updating.
           </p>
         )}
         <WorkspaceLink
           to={`/workspaces/${binding.workspace_id}/milestones/${binding.key}`}
         >
-          Current milestone agreement
+          View current milestone
         </WorkspaceLink>
         {open && <MilestoneRevision binding={binding} />}
       </ContentStack>
