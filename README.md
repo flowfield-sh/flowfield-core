@@ -15,11 +15,11 @@
 
 ![The workspace board and Coordinator, with work spanning several projects](docs/images/board-hero.png)
 
-## Fast code needs somewhere to go.
+## From conversation to finished work.
 
-The idea is in one conversation. The API work is in another. A worker needs an answer, the frontend is waiting on a change, and the reason you chose this approach is buried twenty messages back.
+The idea is in one conversation. The implementation is in another. An agent needs an answer, a task is waiting on another task, and the reason you chose this approach is buried twenty messages back.
 
-**Flowfield gives that work a home.** Plan with the Coordinator, keep shared knowledge in versioned documents, and let workers build focused tasks in your existing repositories. Questions and reviews come back to one Inbox. You decide what ships.
+**Flowfield gives that work a home.** Delegate planning and coordination through one conversation while workers carry out focused tasks in your existing repositories. Shared knowledge stays in versioned documents, and questions and reviews come back to one Inbox. You decide what ships.
 
 Flowfield works with **Codex, Claude Code and Pi**, with more harness support coming. Choose independently for the Coordinator and workers.
 
@@ -36,17 +36,19 @@ Open [localhost:8765](http://127.0.0.1:8765), create a workspace and add your ex
 
 ## Keep the thinking with the work.
 
-**💬 Shape the idea**<br>Talk through the problem with the Coordinator. Turn decisions into clear tasks and milestones while the work continues beside the conversation.
+Ask the Coordinator to organize the work, maintain shared context and follow up on results. Use the board, documents and task controls yourself whenever you prefer. Conversation and direct actions work on the same plan.
 
-**🗂️ Connect your projects**<br>Bring the API, frontend and tooling into one workspace. Share guidance, documents and priorities; link tasks across repositories when one outcome depends on another.
+**💬 Shape the idea**<br>Talk through the problem with the Coordinator. It turns agreed decisions into tasks and milestones while the work continues beside the conversation.
 
-**📚 Give workers the right context**<br>Select required sources and supporting references. Prepared tasks keep their exact document revisions, and newer source revisions stay visible for review.
+**🗂️ Connect your projects**<br>Work across your existing repositories in one workspace. The Coordinator can organize shared priorities and link dependent tasks across projects.
 
-**⚡ Build in parallel**<br>Run independent tasks in separate Git checkouts with your own tools and checks. Dependencies hold later work until its prerequisites are complete.
+**📚 Give workers the right context**<br>The Coordinator maintains shared documents and selects the sources each task needs. Prepared tasks keep their exact document revisions, and newer revisions stay visible for review.
 
-**📥 Know what needs you**<br>Find questions, blockers and results in Inbox. Keep each task’s progress, answers and evidence together in its feed.
+**⚡ Build in parallel**<br>Workers carry out independent tasks in separate Git checkouts using your tools and checks. Flowfield holds dependent work until its prerequisites are complete.
 
-**🔎 Own the finish**<br>Inspect the diff, try the exact result, ask for another pass, or approve delivery to your branch. Approval stays tied to the code you reviewed.
+**📥 Know what needs you**<br>Inbox brings together questions, blockers and results. Ask the Coordinator to sort through them, or respond directly. Task feeds preserve progress, answers and evidence.
+
+**🔎 Own the finish**<br>Ask the Coordinator to help review a result or request another pass. Inspect and try the code yourself when useful, then approve delivery through the conversation or task controls. Approval stays tied to the exact result.
 
 ## A closer look
 
@@ -71,8 +73,11 @@ Open [localhost:8765](http://127.0.0.1:8765), create a workspace and add your ex
 
 Prefer planning from your own coding-agent session? [Connect a standalone agent](https://docs.flowfield.sh/agents/overview#standalone-conversations) through MCP.
 
-<details>
-<summary><strong>Build from source</strong></summary>
+## Contributing
+
+Bug reports, feature requests and feedback are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for issue reporting and contribution policy. Report vulnerabilities through [private security reporting](https://github.com/flowfield-sh/flowfield-core/security/advisories/new).
+
+### Build from source
 
 Requires Python 3.12+, uv, Node 24+, pnpm 11.19.0 and Bun 1.3.11. Set `FLOWFIELD_BUILD_BUN` to the Bun executable before `make setup`.
 
@@ -81,11 +86,5 @@ make setup
 pnpm --dir web build
 uv run flowfield serve
 ```
-
-</details>
-
-## Contributing
-
-Bug reports, feature requests and feedback are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for issue reporting and contribution policy. Report vulnerabilities through [private security reporting](https://github.com/flowfield-sh/flowfield-core/security/advisories/new).
 
 Flowfield is licensed under the [Apache License 2.0](LICENSE).
