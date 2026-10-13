@@ -1,9 +1,11 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
+  "theme": "aspen",
   "name": "Flowfield Docs",
   "colors": {
-    "primary": "#2563eb"
+    "primary": "#9b4c2c",
+    "light": "#e8aa87",
+    "dark": "#7c3920"
   },
   "navigation": {
     "groups": [
@@ -44,12 +46,10 @@
     ]
   },
   "navbar": {
-    "links": [
-      {
-        "label": "GitHub",
-        "href": "https://github.com/flowfield-sh/flowfield-core"
-      }
-    ]
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/flowfield-sh/flowfield-core"
+    }
   },
   "redirects": [
     {
@@ -72,5 +72,11 @@
       "source": "/integrations/pi",
       "destination": "/agents/pi"
     }
-  ]
+  ],
+  "background": {
+    "color": {
+      "light": "#fffaf5",
+      "dark": "#241e1a"
+    }
+  }
 }
