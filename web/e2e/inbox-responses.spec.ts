@@ -189,6 +189,19 @@ test("task and project questions accept suggested or free answers inside Inbox",
   const card = page.getByRole("article", {
     name: "Question: Which records should be exported?",
   });
+  await expect(
+    card.getByRole("heading", {
+      name: "Which records should be exported?",
+      exact: true,
+    }),
+  ).toHaveCount(1);
+  await expect(
+    card.getByText("Choose the scope for the export.", { exact: true }),
+  ).not.toBeVisible();
+  await card.getByText("Context", { exact: true }).click();
+  await expect(
+    card.getByText("Choose the scope for the export.", { exact: true }),
+  ).toBeVisible();
   await card.getByRole("button", { name: "All records", exact: true }).click();
   await expect(
     card.getByRole("textbox", { name: "Your answer", exact: true }),
@@ -211,6 +224,15 @@ test("task and project questions accept suggested or free answers inside Inbox",
   const other = page.getByRole("article", {
     name: "Question: Which format should we prioritize?",
   });
+  await expect(
+    other.getByRole("heading", {
+      name: "Which format should we prioritize?",
+      exact: true,
+    }),
+  ).toHaveCount(1);
+  await expect(
+    other.getByText("Choose the scope for the export.", { exact: true }),
+  ).not.toBeVisible();
   await other
     .getByRole("textbox", { name: "Your answer", exact: true })
     .fill("CSV first.");

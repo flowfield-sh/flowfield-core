@@ -1,3 +1,6 @@
+import { ArrowUp } from "lucide-react";
+import { Composer } from "./Composer";
+import { QuestionPrompt } from "./QuestionPrompt";
 import { QuestionChoices } from "./QuestionChoices";
 import { ScopedAnchor } from "./WorkspaceLink";
 import { ResourceRetry } from "./ResourceRetry";
@@ -173,6 +176,7 @@ export function QuestionDetail({
   const [correcting, setCorrecting] = useState(false);
   const [correctionLink, setCorrectionLink] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const dirty =
@@ -182,13 +186,13 @@ export function QuestionDetail({
       : editing && draft !== loaded.answer);
   const dirtyRef = useRef(dirty);
   useEffect(() => {
-    dirtyRef.current = dirty;
-  }, [dirty]);
+    dirtyRef.current = dirty || busy || uploading;
+  }, [dirty, busy, uploading]);
   const generation = useRef(0);
   useLayoutEffect(() => {
-    onDirty(dirty);
+    onDirty(dirty || busy || uploading);
     return () => onDirty(false);
-  }, [dirty, onDirty]);
+  }, [dirty, busy, uploading, onDirty]);
   useEffect(() => {
     const current = ++generation.current;
     request<Question>(path)
@@ -213,7 +217,14 @@ export function QuestionDetail({
     };
   }, [path, refresh, retry]);
   async function answer() {
-    if (!loaded) return;
+    if (
+      !loaded ||
+      busy ||
+      uploading ||
+      !draft.trim() ||
+      (incoming && incoming.revision > loaded.revision)
+    )
+      return;
     setBusy(true);
     setError("");
     try {
@@ -295,45 +306,52 @@ export function QuestionDetail({
         !error && <p>Loading question…</p>
       ) : (
         <>
-          <OverlayHeading>
-            <header className="detail-heading-block overlay-heading">
-              <div className="question-meta">
-                <ScopedAnchor
-                  href={scopeHref}
-                  onClick={(e) => followLink(e, () => open(scopeHref))}
-                >
-                  {loaded.task_key ?? "Project"}
-                </ScopedAnchor>
-                <span role="status">
-                  {loaded.delivery?.state ?? states[loaded.status]}
-                </span>
-                {!inline && (
+          {!inline && (
+            <OverlayHeading>
+              <header className="detail-heading-block overlay-heading">
+                <div className="question-meta">
+                  <ScopedAnchor
+                    href={scopeHref}
+                    onClick={(e) => followLink(e, () => open(scopeHref))}
+                  >
+                    {loaded.task_key ?? "Project"}
+                  </ScopedAnchor>
+                  <span role="status">
+                    {loaded.delivery?.state ?? states[loaded.status]}
+                  </span>
                   <CloseControl
                     label="Close question"
                     close={
                       close ?? (() => open(projectHref(projectId) + "/inbox"))
                     }
                   />
-                )}
-              </div>
-              <h2>
-                <ScopedAnchor
-                  href={
-                    close
-                      ? location.pathname
-                      : questionHref(projectId, loaded.id)
-                  }
-                  onClick={(e) =>
-                    followLink(e, () => {
-                      if (!close) open(questionHref(projectId, loaded.id));
-                    })
-                  }
-                >
-                  {loaded.question}
-                </ScopedAnchor>
-              </h2>
-            </header>
-          </OverlayHeading>
+                </div>
+                <h2>
+                  <ScopedAnchor
+                    href={
+                      close
+                        ? location.pathname
+                        : questionHref(projectId, loaded.id)
+                    }
+                    onClick={(e) =>
+                      followLink(e, () => {
+                        if (!close) open(questionHref(projectId, loaded.id));
+                      })
+                    }
+                  >
+                    {loaded.question}
+                  </ScopedAnchor>
+                </h2>
+              </header>
+            </OverlayHeading>
+          )}
+          {inline && (
+            <QuestionPrompt
+              question={loaded.question}
+              context={loaded.context}
+              recommendation={loaded.recommendation}
+            />
+          )}
           {newer && (
             <div className="notice content-stack">
               <p>This question changed while you were answering.</p>
@@ -357,7 +375,7 @@ export function QuestionDetail({
               </Button>
             </div>
           )}
-          <Markdown>{loaded.context}</Markdown>
+          {!inline && <Markdown>{loaded.context}</Markdown>}
           {correctionLink && (
             <p>
               Correction saved.{" "}
@@ -408,12 +426,14 @@ export function QuestionDetail({
               </div>
             </DetailSection>
           )}
-          <DetailSection
-            className="question-section"
-            title={<>Recommendation</>}
-          >
-            <Markdown>{loaded.recommendation}</Markdown>
-          </DetailSection>
+          {!inline && (
+            <DetailSection
+              className="question-section"
+              title={<>Recommendation</>}
+            >
+              <Markdown>{loaded.recommendation}</Markdown>
+            </DetailSection>
+          )}
           {loaded.blocking_scope &&
             (loaded.status === "open" || loaded.status === "answered") && (
               <p className="question-scope">Blocks: {loaded.blocking_scope}</p>
@@ -423,7 +443,7 @@ export function QuestionDetail({
           (loaded.status === "answered" && editing) ? (
             <form
               className="answer-form content-stack"
-              data-space="section"
+              data-space={inline ? "content" : "section"}
               onSubmit={(e) => {
                 e.preventDefault();
                 void answer();
@@ -434,28 +454,62 @@ export function QuestionDetail({
                 choose={setDraft}
                 disabled={busy || !!newer}
               />
-              <div className="answer-field content-stack">
-                <Label className="field block" htmlFor={answerId}>
-                  Your answer
-                </Label>
-                <Textarea
-                  id={answerId}
-                  rows={5}
-                  maxLength={8000}
+              {inline ? (
+                <Composer
+                  projectId={projectId}
+                  draftKey={`${loaded.id}:${loaded.revision}`}
                   value={draft}
+                  onChange={setDraft}
+                  label="Your answer"
+                  maxLength={8000}
                   disabled={busy}
-                  onChange={(e) => setDraft(e.target.value)}
-                />
-              </div>
-              <div className="actions">
-                <Button
-                  size="sm"
-                  disabled={
-                    busy || !!newer || !draft.trim() || (editing && !dirty)
+                  onBusy={setUploading}
+                  onSend={() => void answer()}
+                  action={
+                    <Button
+                      type="submit"
+                      size="icon-sm"
+                      aria-label={
+                        correcting ? "Send correction" : "Send answer"
+                      }
+                      disabled={
+                        busy ||
+                        uploading ||
+                        !!newer ||
+                        !draft.trim() ||
+                        (editing && !dirty)
+                      }
+                    >
+                      <ArrowUp size={16} />
+                    </Button>
                   }
-                >
-                  {correcting ? "Send correction" : "Send answer"}
-                </Button>
+                />
+              ) : (
+                <div className="answer-field content-stack">
+                  <Label className="field block" htmlFor={answerId}>
+                    Your answer
+                  </Label>
+                  <Textarea
+                    id={answerId}
+                    rows={5}
+                    maxLength={8000}
+                    value={draft}
+                    disabled={busy}
+                    onChange={(e) => setDraft(e.target.value)}
+                  />
+                </div>
+              )}
+              <div className="actions">
+                {!inline && (
+                  <Button
+                    size="sm"
+                    disabled={
+                      busy || !!newer || !draft.trim() || (editing && !dirty)
+                    }
+                  >
+                    {correcting ? "Send correction" : "Send answer"}
+                  </Button>
+                )}
                 {editing && (
                   <Button
                     size="sm"

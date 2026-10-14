@@ -962,7 +962,13 @@ test("conversation capture prepares atomically while task defaults show only use
   );
   await expect(stages.getByRole("link")).toHaveCount(0);
   await page.getByText("Stages", { exact: true }).click();
-  // Stage details are optional evidence below the definition.
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  // Stage details belong to the fixed header, outside the task definition.
+  await expect(
+    page
+      .locator(".entity-overlay-title")
+      .getByRole("button", { name: "Stages", exact: true }),
+  ).toBeVisible();
   await stages.locator(".task-stage").first().focus();
   // Exercise keyboard focus after the disclosure pointer interaction.
   await page.keyboard.press("Tab");
@@ -999,6 +1005,7 @@ test("conversation capture prepares atomically while task defaults show only use
   await expect(changedStages).not.toContainText(
     "Investigate: Planned → Completed.",
   );
+  await page.getByRole("button", { name: "Stages", exact: true }).click();
   await expect(stages.locator('[aria-current="step"]')).toHaveText(
     "Report: Active",
   );

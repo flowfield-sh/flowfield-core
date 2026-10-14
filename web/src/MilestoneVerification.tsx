@@ -75,10 +75,6 @@ export function MilestoneReviewResponse({
     <ContentStack>
       {(value.status === "ready" || !!note.trim()) && (
         <ContentStack className="review-response" aria-label="Your review">
-          <p className="detail-metadata">
-            Acceptance records your review of these delivered versions. It does
-            not promote code.
-          </p>
           <label htmlFor={`review-${value.id}`}>Review note</label>
           <Textarea
             id={`review-${value.id}`}
@@ -135,70 +131,99 @@ export function MilestoneReport({ value }: { value: Verification }) {
   const findings = value.report?.findings ?? [];
   const passed = findings.filter((f) => f.verdict === "passed").length;
   return (
-    <ContentStack>
+    <ContentStack space="section" className="verification-report">
       {value.problem && <p role="status">{value.problem}</p>}
-      {value.report ? (
-        <>
-          <p>
+      <p className="verification-summary">
+        {value.report ? (
+          <>
             <strong>
-              {passed} of {value.checks.length} checks passed
-            </strong>{" "}
-            · Coverage: {label(value.report.coverage)}
-          </p>
-          <Markdown>{value.report.coverage_notes}</Markdown>
-        </>
-      ) : (
-        <p>The verifier is checking the combined outcome.</p>
-      )}
-      {value.limitations && (
-        <DetailSection title="Reported limitations">
-          <Markdown>{value.limitations}</Markdown>
-        </DetailSection>
-      )}
-      <Disclosure summary="Criteria and findings">
-        <ContentStack>
-          <Markdown>{value.criteria}</Markdown>
-          <WorkspaceLink
-            to={`/workspaces/${value.workspace_id}/milestones/${value.milestone_key}/revisions/${value.milestone_revision}`}
-          >
-            Milestone revision {value.milestone_revision}
-          </WorkspaceLink>
-          {value.checks.map((check, index) => {
-            const finding = findings.find((f) => f.check === index + 1);
-            return (
-              <ContentStack key={index}>
-                <strong>
-                  {check} · {finding ? label(finding.verdict) : "Pending"}
-                </strong>
-                {finding && <Markdown>{finding.evidence}</Markdown>}
-              </ContentStack>
-            );
-          })}
-        </ContentStack>
-      </Disclosure>
-      <Disclosure summary={`${value.tasks.length} delivered contributions`}>
-        <ContentStack>
-          {value.tasks.map((task) => (
-            <div key={`${task.project_id}/${task.task_id}`}>
-              <WorkspaceLink
-                to={`/projects/${task.project_id}/tasks/${task.task_key}/result/${task.result_id}`}
+              {passed} of {value.checks.length} criteria passed
+            </strong>
+            {value.report.coverage !== "complete" && (
+              <span>Coverage incomplete</span>
+            )}
+          </>
+        ) : (
+          "Verification in progress"
+        )}
+      </p>
+      <ul className="verification-checklist" aria-label="Acceptance checks">
+        {value.checks.map((check, index) => {
+          const finding = findings.find((f) => f.check === index + 1);
+          return (
+            <li key={index}>
+              <Disclosure
+                summary={
+                  <span className="verification-check">
+                    <span>{check}</span>
+                    <span
+                      className="verification-verdict"
+                      data-verdict={finding?.verdict}
+                    >
+                      {finding ? label(finding.verdict) : "Pending"}
+                    </span>
+                  </span>
+                }
               >
-                {task.project_id} / {task.task_key}
+                {finding ? (
+                  <Markdown>{finding.evidence}</Markdown>
+                ) : (
+                  <p>No finding yet.</p>
+                )}
+              </Disclosure>
+            </li>
+          );
+        })}
+      </ul>
+      <ContentStack space="flush">
+        {value.limitations && (
+          <Disclosure summary="Limitations reported">
+            <Markdown>{value.limitations}</Markdown>
+          </Disclosure>
+        )}
+        <Disclosure summary="Verification context">
+          <ContentStack space="section">
+            {value.report?.coverage_notes && (
+              <DetailSection title="Coverage">
+                <Markdown>{value.report.coverage_notes}</Markdown>
+              </DetailSection>
+            )}
+            <DetailSection title="Acceptance criteria">
+              <Markdown>{value.criteria}</Markdown>
+              <WorkspaceLink
+                to={`/workspaces/${value.workspace_id}/milestones/${value.milestone_key}/revisions/${value.milestone_revision}`}
+              >
+                Milestone revision {value.milestone_revision}
               </WorkspaceLink>
-              <span className="detail-metadata">
-                {" "}
-                · {task.commit.slice(0, 12)}
-                {task.target_branch ? ` → ${task.target_branch}` : " · Report"}
-              </span>
-            </div>
-          ))}
-          <WorkspaceLink
-            to={`/projects/${value.project_id}/tasks/${value.task_key}${value.result_id ? `/result/${value.result_id}` : ""}`}
-          >
-            View verifier task {value.task_key}
-          </WorkspaceLink>
-        </ContentStack>
-      </Disclosure>
+            </DetailSection>
+          </ContentStack>
+        </Disclosure>
+        <Disclosure summary="Delivered work">
+          <ContentStack>
+            {value.tasks.map((task) => (
+              <div key={`${task.project_id}/${task.task_id}`}>
+                <WorkspaceLink
+                  to={`/projects/${task.project_id}/tasks/${task.task_key}/result/${task.result_id}`}
+                >
+                  {task.project_id} / {task.task_key}
+                </WorkspaceLink>
+                <span className="detail-metadata">
+                  {" "}
+                  · {task.commit.slice(0, 12)}
+                  {task.target_branch
+                    ? ` → ${task.target_branch}`
+                    : " · Report"}
+                </span>
+              </div>
+            ))}
+            <WorkspaceLink
+              to={`/projects/${value.project_id}/tasks/${value.task_key}${value.result_id ? `/result/${value.result_id}` : ""}`}
+            >
+              View verifier task {value.task_key}
+            </WorkspaceLink>
+          </ContentStack>
+        </Disclosure>
+      </ContentStack>
     </ContentStack>
   );
 }

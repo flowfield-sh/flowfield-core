@@ -16,6 +16,7 @@ import { TaskConversation } from "./TaskConversation";
 import { MilestoneReviewRequest } from "./MilestoneVerification";
 import { useDirtyItems } from "./useDirtyItems";
 import { ResourceRetry } from "./ResourceRetry";
+import { RequestFrame } from "./RequestFrame";
 import { EntityOverlay } from "./EntityOverlay";
 
 type Item = components["schemas"]["AttentionItem"];
@@ -113,63 +114,63 @@ function RequestCard({
   const href = itemHref(item);
   const project = board.projects.find((p) => p.id === item.project_id);
   return (
-    <article className="request-card" aria-label={`${kind}: ${item.title}`}>
-      <ContentStack>
-        <div className="request-meta">
-          <span>{kind}</span>
-          <WorkspaceLink
-            to={href}
-            aria-label={`${item.task_key ?? (item.kind === "milestone" ? "Milestone" : "Question")}: ${item.title}`}
-          >
-            {item.kind === "milestone"
-              ? (item.task_key ?? item.title)
-              : item.task_key
-                ? `${project?.name ?? item.project_id} / ${item.task_key}`
-                : (project?.name ?? "Workspace")}
-          </WorkspaceLink>
-        </div>
-        {item.kind === "result" && (
-          <h3 className="detail-title">Review {item.title}</h3>
-        )}
-        {item.kind === "milestone" ? (
-          <MilestoneReviewRequest
-            path={`workspaces/${workspaceId}`}
-            id={item.id}
-            refresh={refresh}
-            onDirty={dirty}
-          />
-        ) : item.kind === "question" && !item.task_key ? (
-          <QuestionDetail
-            projectId={item.project_id!}
-            identity={item.id}
-            tasks={board.tasks}
-            refresh={refresh}
-            onDirty={dirty}
-            open={(path) => void navigate(path)}
-            inline
-          />
-        ) : ["question", "result", "review", "intervention"].includes(
-            item.kind,
-          ) && item.task_key ? (
-          <TaskRequest
-            item={item}
-            board={board}
-            refresh={refresh}
-            onDirty={dirty}
-          />
-        ) : (
-          <>
-            <strong>{item.title}</strong>
-            {item.state && <WorkState state={item.state} />}
-            <Button variant="outline" asChild>
-              <WorkspaceLink to={href}>
-                {item.next_action ?? "Inspect request"}
-              </WorkspaceLink>
-            </Button>
-          </>
-        )}
-      </ContentStack>
-    </article>
+    <RequestFrame
+      kind={kind}
+      label={`${kind}: ${item.title}`}
+      source={
+        <WorkspaceLink
+          to={href}
+          aria-label={`${item.task_key ?? (item.kind === "milestone" ? "Milestone" : "Question")}: ${item.title}`}
+        >
+          {item.kind === "milestone"
+            ? (item.task_key ?? item.title)
+            : item.task_key
+              ? `${project?.name ?? item.project_id} / ${item.task_key}`
+              : (project?.name ?? "Workspace")}
+        </WorkspaceLink>
+      }
+    >
+      {item.kind === "result" && (
+        <h3 className="detail-title">Review {item.title}</h3>
+      )}
+      {item.kind === "milestone" ? (
+        <MilestoneReviewRequest
+          path={`workspaces/${workspaceId}`}
+          id={item.id}
+          refresh={refresh}
+          onDirty={dirty}
+        />
+      ) : item.kind === "question" && !item.task_key ? (
+        <QuestionDetail
+          projectId={item.project_id!}
+          identity={item.id}
+          tasks={board.tasks}
+          refresh={refresh}
+          onDirty={dirty}
+          open={(path) => void navigate(path)}
+          inline
+        />
+      ) : ["question", "result", "review", "intervention"].includes(
+          item.kind,
+        ) && item.task_key ? (
+        <TaskRequest
+          item={item}
+          board={board}
+          refresh={refresh}
+          onDirty={dirty}
+        />
+      ) : (
+        <>
+          <strong>{item.title}</strong>
+          {item.state && <WorkState state={item.state} />}
+          <Button variant="outline" asChild>
+            <WorkspaceLink to={href}>
+              {item.next_action ?? "Inspect request"}
+            </WorkspaceLink>
+          </Button>
+        </>
+      )}
+    </RequestFrame>
   );
 }
 

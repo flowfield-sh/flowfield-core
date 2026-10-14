@@ -71,6 +71,11 @@ export function TaskDetail({
             />
             <DraftBadge publicationStatus={task.publication_status} />
             <TaskDocuments documents={task.publication?.documents ?? []} />
+            <StageHeader
+              projectId={board.project.id}
+              task={task}
+              refresh={board}
+            />
           </div>
           {!!task.labels.length && (
             <div className="entity-labels task-classifications">
@@ -93,7 +98,6 @@ export function TaskDetail({
             {task.body}
           </ExpandableMarkdown>
         </div>
-        <StageHeader projectId={board.project.id} task={task} refresh={board} />
         {hasTaskNeeds(task, board.pending_code[task.id], false) && (
           <DetailSection title="Waiting on">
             <TaskNeeds

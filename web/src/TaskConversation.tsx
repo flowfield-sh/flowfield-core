@@ -1,3 +1,5 @@
+import { Popover } from "radix-ui";
+import { QuestionPrompt } from "./QuestionPrompt";
 import { QuestionChoices } from "./QuestionChoices";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
@@ -17,7 +19,7 @@ import { Composer } from "./Composer";
 import { AgentSettingsControl } from "./AgentSettings";
 import { choiceLabel } from "./HarnessModels";
 import { ArrowUp } from "lucide-react";
-import { Disclosure, ContentStack, DetailHeading } from "./DetailLayout";
+import { ContentStack, DetailHeading } from "./DetailLayout";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
 import { request, type Task, type Board } from "./workspace";
@@ -72,6 +74,7 @@ export function StageHeader({
   task: Task;
   refresh: unknown;
 }) {
+  const content = useRef<HTMLDivElement>(null);
   const plan = useResource<components["schemas"]["StagePlan"]>(
     `projects/${projectId}/tasks/${task.id}/stages`,
     refresh,
@@ -80,12 +83,29 @@ export function StageHeader({
     <>
       <ResourceRetry resources={[plan]} />
       {!!plan.data?.stages.length && (
-        <Disclosure summary="Stages">
-          <StageSequence stages={plan.data.stages} label="Task stages" />
-          {plan.data.agreement_revision !== task.agreement_revision && (
-            <p className="muted">Update stages to match the task.</p>
-          )}
-        </Disclosure>
+        <Popover.Root>
+          <Popover.Trigger className="reference-link">Stages</Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Content
+              ref={content}
+              tabIndex={-1}
+              onOpenAutoFocus={(event) => {
+                event.preventDefault();
+                content.current?.focus({ preventScroll: true });
+              }}
+              align="start"
+              sideOffset={6}
+              collisionPadding={16}
+              className="composer-settings"
+              aria-label="Task stages"
+            >
+              <StageSequence stages={plan.data.stages} label="Task stages" />
+              {plan.data.agreement_revision !== task.agreement_revision && (
+                <p className="muted">Update stages to match the task.</p>
+              )}
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
       )}
     </>
   );
@@ -127,10 +147,12 @@ export function TaskConversation({
       : null,
     tick,
   );
+  const questionId =
+    requestTarget?.kind === "question"
+      ? requestTarget.id
+      : gate.data?.question_id;
   const currentQuestion = useResource<components["schemas"]["Question"]>(
-    gate.data?.question_id
-      ? "projects/" + projectId + "/questions/" + gate.data.question_id
-      : null,
+    questionId ? "projects/" + projectId + "/questions/" + questionId : null,
     tick,
   );
   const initial = useResource<Message>(`${path}/thread/definition:1`, task.id);
@@ -502,48 +524,58 @@ export function TaskConversation({
                     }
                     data-message-id={message.id}
                     data-kind={message.kind}
-                    className="conversation-message"
+                    className={
+                      requestTarget ? "request-content" : "conversation-message"
+                    }
                   >
-                    <DetailHeading
-                      entry
-                      inlineMetadata
-                      title={
-                        <span className="feed-event-title">
-                          <WorkState state={message.state} indicatorOnly />
-                          <span>
-                            {message.kind === "state" &&
-                            message.title.startsWith("Moved to ") ? (
-                              <>
-                                Moved to{" "}
-                                <Badge variant="outline">
-                                  {message.title.slice(9)}
-                                </Badge>
-                              </>
-                            ) : (
-                              message.title
-                            )}
+                    {!requestTarget && (
+                      <DetailHeading
+                        entry
+                        inlineMetadata
+                        title={
+                          <span className="feed-event-title">
+                            <WorkState state={message.state} indicatorOnly />
+                            <span>
+                              {message.kind === "state" &&
+                              message.title.startsWith("Moved to ") ? (
+                                <>
+                                  Moved to{" "}
+                                  <Badge variant="outline">
+                                    {message.title.slice(9)}
+                                  </Badge>
+                                </>
+                              ) : (
+                                message.title
+                              )}
+                            </span>
                           </span>
-                        </span>
-                      }
-                      metadata={
-                        <>
-                          {message.actor.label} ·{" "}
-                          <ExactTimeTooltip date={message.created_at}>
-                            <WorkspaceLink
-                              to={messageHref(projectId, task, message.id)}
-                              aria-label={`Permalink: ${message.title}`}
-                            >
-                              <Timestamp
-                                date={message.created_at}
-                                tooltip={false}
-                              />
-                            </WorkspaceLink>
-                          </ExactTimeTooltip>
-                        </>
-                      }
-                    />
+                        }
+                        metadata={
+                          <>
+                            {message.actor.label} ·{" "}
+                            <ExactTimeTooltip date={message.created_at}>
+                              <WorkspaceLink
+                                to={messageHref(projectId, task, message.id)}
+                                aria-label={`Permalink: ${message.title}`}
+                              >
+                                <Timestamp
+                                  date={message.created_at}
+                                  tooltip={false}
+                                />
+                              </WorkspaceLink>
+                            </ExactTimeTooltip>
+                          </>
+                        }
+                      />
+                    )}
                     {hasBody(message) && (
-                      <div className="conversation-message-body content-stack">
+                      <div
+                        className={
+                          requestTarget
+                            ? "content-stack"
+                            : "conversation-message-body content-stack"
+                        }
+                      >
                         {message.kind === "result" &&
                         (message.source_id === gate.data?.result_id ||
                           expanded[message.id] ||
@@ -563,9 +595,19 @@ export function TaskConversation({
                           />
                         ) : (
                           <>
-                            {message.kind !== "definition" && (
-                              <MessageBody message={message} path={path} />
-                            )}
+                            {requestTarget?.kind === "question"
+                              ? currentQuestion.data && (
+                                  <QuestionPrompt
+                                    question={currentQuestion.data.question}
+                                    context={currentQuestion.data.context}
+                                    recommendation={
+                                      currentQuestion.data.recommendation
+                                    }
+                                  />
+                                )
+                              : message.kind !== "definition" && (
+                                  <MessageBody message={message} path={path} />
+                                )}
                             {message.kind === "result" && (
                               <Button size="sm" variant="outline" asChild>
                                 <WorkspaceLink
@@ -684,38 +726,39 @@ export function TaskConversation({
               void send();
             }}
           >
-            {(showComposer ||
-              (matchesRequest && replyResult?.status === "ready")) && (
-              <div className="task-input-context">
-                <strong>
-                  {replyBinding?.question_id
-                    ? "Answer the question"
-                    : draft?.action === "changes"
-                      ? "Request changes"
-                      : draft?.action === "approve"
-                        ? "Approve and integrate"
-                        : replyResult
-                          ? (replyResult.status === "ready"
-                              ? "Review "
-                              : "Message about ") + replyResult.title
-                          : "Task response"}
-                </strong>
-                {replyBinding?.question_id && questionText && (
-                  <p>{questionText}</p>
-                )}
-                {!replyBinding?.question_id && replyResult && (
-                  <p className="detail-metadata">
-                    {draft?.action === "approve"
-                      ? "Approval"
+            {!(requestTarget?.kind === "question") &&
+              (showComposer ||
+                (matchesRequest && replyResult?.status === "ready")) && (
+                <div className="task-input-context">
+                  <strong>
+                    {replyBinding?.question_id
+                      ? "Answer the question"
                       : draft?.action === "changes"
-                        ? "Feedback"
-                        : "Review"}{" "}
-                    for {replyResult.title}
-                    {stale ? " (earlier context)" : ""}.
-                  </p>
-                )}
-              </div>
-            )}
+                        ? "Request changes"
+                        : draft?.action === "approve"
+                          ? "Approve and integrate"
+                          : replyResult
+                            ? (replyResult.status === "ready"
+                                ? "Review "
+                                : "Message about ") + replyResult.title
+                            : "Task response"}
+                  </strong>
+                  {replyBinding?.question_id && questionText && (
+                    <p>{questionText}</p>
+                  )}
+                  {!replyBinding?.question_id && replyResult && (
+                    <p className="detail-metadata">
+                      {draft?.action === "approve"
+                        ? "Approval"
+                        : draft?.action === "changes"
+                          ? "Feedback"
+                          : "Review"}{" "}
+                      for {replyResult.title}
+                      {stale ? " (earlier context)" : ""}.
+                    </p>
+                  )}
+                </div>
+              )}
             {requestTarget && !matchesRequest && (
               <p role="status">
                 This request is no longer awaiting a response. Your saved

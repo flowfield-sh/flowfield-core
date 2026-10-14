@@ -1,3 +1,4 @@
+import { RequestFrame } from "./RequestFrame";
 import { reportError } from "./requestFeedback";
 import { useEffect, useState } from "react";
 import type { components } from "./api-schema";
@@ -145,29 +146,29 @@ export function PermissionCard({
     refresh,
   );
   return (
-    <article className="request-card" aria-label="Tool permission">
-      <ContentStack>
-        {taskKey && projectId && (
+    <RequestFrame
+      kind="Tool permission"
+      label="Tool permission"
+      source={
+        taskKey &&
+        projectId && (
           <WorkspaceLink to={taskHref(projectId, { key: taskKey })}>
             {taskKey}
           </WorkspaceLink>
-        )}
-        {resource.error && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setRetry(retry + 1)}
-          >
-            Retry
-          </Button>
-        )}
-        {resource.data && (
-          <PermissionControl
-            record={resource.data}
-            answered={() => setRetry(retry + 1)}
-          />
-        )}
-      </ContentStack>
-    </article>
+        )
+      }
+    >
+      {resource.error && (
+        <Button variant="outline" size="sm" onClick={() => setRetry(retry + 1)}>
+          Retry
+        </Button>
+      )}
+      {resource.data && (
+        <PermissionControl
+          record={resource.data}
+          answered={() => setRetry(retry + 1)}
+        />
+      )}
+    </RequestFrame>
   );
 }

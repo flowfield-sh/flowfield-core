@@ -412,7 +412,9 @@ test("closing entity overlays returns through history without duplicate collecti
   const inbox = `${board}/inbox`;
   await page.goto(board);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
-  await page.locator(".request-meta a").first().click();
+  await page
+    .getByRole("link", { name: "HIS-1: Which scope?", exact: true })
+    .click();
   await page
     .getByRole("button", {
       name: /^(Close editor|Back to board)$/,

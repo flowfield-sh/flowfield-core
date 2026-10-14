@@ -514,45 +514,65 @@
   overflow-wrap: anywhere;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px;
   min-width: 0;
   background: var(--card);
+}
+.request-card > .detail-heading-block {
+  padding: 12px 16px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.request-body {
+  padding: 16px;
+}
+.request-body .actions:empty {
+  display: none;
 }
 .request-list > li {
   min-width: 0;
 }
-.request-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px 16px;
-  color: var(--muted-foreground);
-  font-size: 13px;
-}
-.request-meta a {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 .request-card .task-input {
-  padding: 12px 0 0;
+  padding: 0;
+  border: 0;
   background: transparent;
 }
-.request-card .conversation-message {
-  border: 0;
+.verification-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
 }
-.request-card .conversation-message > .detail-heading-block {
+.verification-checklist {
+  list-style: none;
   padding: 0;
-  background: none;
+  margin: 0;
 }
-.request-card .conversation-message-body {
-  padding: 0;
-  border: 0;
+.verification-checklist > li + li {
+  border-top: 1px solid var(--border);
 }
-.request-card
-  .conversation-message
-  > .detail-heading-block
-  + .conversation-message-body {
-  padding-top: 12px;
+.verification-checklist .disclosure > summary {
+  padding-block: 10px;
+}
+.verification-checklist .disclosure > summary > span {
+  flex: 1;
+  min-width: 0;
+}
+.verification-check {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.verification-verdict {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.verification-verdict[data-verdict="failed"] {
+  color: var(--destructive);
+}
+.verification-checklist .disclosure-body {
+  padding-bottom: 12px;
 }
 .review-response {
   padding: 12px 0;

@@ -35,7 +35,7 @@ test("Inbox review accepts exact milestone evidence and keeps history", async ({
   await expect(
     page
       .getByRole("tabpanel", { name: "Review", exact: true })
-      .getByText("Coverage: Complete"),
+      .getByText("2 of 2 criteria passed"),
   ).toBeVisible();
   for (const [width, height, theme] of [
     [1440, 1000, "light"],
