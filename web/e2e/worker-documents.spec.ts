@@ -101,33 +101,29 @@ test("project defaults prepare exact task documents and preserve revision links"
   await expect(
     page.getByText("Newer source revision available", { exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "2 documents", exact: true }).click();
   await expect(
-    page.getByRole("link", {
-      name: "Core conventions",
-      exact: true,
-    }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "2 documents", exact: true }),
+  ).toHaveCount(0);
   await expect(page.getByText(/bytes of source text/)).toHaveCount(0);
-  await expect(page.getByText(/^(reference|required)$/)).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => localStorage.setItem("flowfield.theme", "dark"));
   await page.reload();
-  await page.getByRole("button", { name: "2 documents", exact: true }).click();
   await page.screenshot({
     path: testInfo.outputPath("worker-documents-narrow-dark.png"),
     animations: "disabled",
   });
-  await page
-    .getByRole("link", { name: "Core conventions", exact: true })
-    .click();
+  // Removing the header control preserves frozen sources and their readable revision URLs.
+  const frozen = task.publication.documents.find(
+    (item: { id: string }) => item.id === doc.id,
+  );
+  await page.goto(
+    `/workspaces/${workspace.id}/documents/${doc.id}/revisions/${frozen.revision}`,
+  );
   await expect(page).toHaveURL(new RegExp(`/documents/${doc.id}/revisions/1$`));
   await expect(
     page.getByText("Keep the public API stable. 🦉", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Back", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/tasks/${task.key}$`));
-  await page.goto(`/workspaces/${workspace.id}/inbox?inbox=waiting`);
+  await page.goto(`/workspaces/${workspace.id}`);
   await expect(
     page.getByText("Newer source revision available", { exact: true }),
   ).toBeVisible();

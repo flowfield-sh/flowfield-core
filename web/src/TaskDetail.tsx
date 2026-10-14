@@ -1,17 +1,16 @@
 import { useEffect, useState } from "react";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { TaskLabels } from "./TaskLabels";
-import { TaskDocuments } from "./TaskDocuments";
 import { DetailHeader, DraftBadge } from "./Presentation";
 import { MilestoneBadge } from "./MilestoneBadge";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { projectHref } from "./navigation";
 import { ExpandableMarkdown } from "./ExpandableMarkdown";
 import { BlockedBy } from "./TaskLinks";
-import { TaskNeeds, TaskState, hasTaskNeeds } from "./TaskNeeds";
+import { TaskNeeds, hasTaskNeeds } from "./TaskNeeds";
 import { TaskConversation, StageHeader } from "./TaskConversation";
 import { AgentPermissions } from "./AgentPermissions";
-import { label, type Board, type Task } from "./workspace";
+import { type Board, type Task } from "./workspace";
 export function TaskDetail({
   task,
   board,
@@ -50,42 +49,17 @@ export function TaskDetail({
         closeLabel="Back to board"
       >
         <ContentStack className="task-conversation-header">
-          <div className="task-header-state" aria-label="Task state">
-            <TaskState
-              sourceUpdates={false}
-              projectId={board.project.id}
-              open={openTask}
-              task={{
-                ...task,
-                state: task.state ?? {
-                  label: label(task.status),
-                  tone: "idle",
-                  href: null,
-                },
-              }}
+          <div className="task-header-badges" aria-label="Task labels">
+            <MilestoneBadge
+              milestone={
+                task.publication?.milestone ??
+                board.milestones.find((m) => m.id === task.milestone_id)
+              }
+              preparedRevision={task.publication?.milestone?.revision}
+              changed={!!task.milestone_update}
             />
-          </div>
-          <div className="task-header-groups">
-            <div
-              className="actions task-references"
-              aria-label="Task references"
-            >
-              <MilestoneBadge
-                milestone={
-                  task.publication?.milestone ??
-                  board.milestones.find((m) => m.id === task.milestone_id)
-                }
-                preparedRevision={task.publication?.milestone?.revision}
-                changed={!!task.milestone_update}
-              />
-              <DraftBadge publicationStatus={task.publication_status} />
-              <TaskDocuments documents={task.publication?.documents ?? []} />
-            </div>
-            {!!task.labels.length && (
-              <div className="entity-labels task-classifications">
-                <TaskLabels ids={task.labels} />
-              </div>
-            )}
+            <DraftBadge publicationStatus={task.publication_status} />
+            <TaskLabels ids={task.labels} />
           </div>
           <StageHeader
             projectId={board.project.id}
@@ -108,7 +82,7 @@ export function TaskDetail({
             {task.body}
           </ExpandableMarkdown>
         </div>
-        {hasTaskNeeds(task, board.pending_code[task.id], false) && (
+        {hasTaskNeeds(task, board.pending_code[task.id], false, true) && (
           <DetailSection title="Waiting on">
             <TaskNeeds
               task={task}
@@ -116,6 +90,7 @@ export function TaskDetail({
               pendingCode={board.pending_code[task.id]}
               open={openTask}
               detailed
+              includeDependencies
               showQuestions={false}
             />
           </DetailSection>

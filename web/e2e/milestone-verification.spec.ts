@@ -40,6 +40,25 @@ test("Inbox review accepts exact milestone evidence and keeps history", async ({
         name: "Ready for milestone review · 2 of 2 checks passed",
       }),
   ).toBeVisible();
+  await page
+    .getByRole("tabpanel", { name: "Review", exact: true })
+    .getByText("Tasks", { exact: true })
+    .click();
+  const tasks = page.getByRole("list", { name: "Verification tasks" });
+  await expect(tasks.getByRole("link")).toHaveCount(2);
+  const record = await (
+    await request.get(`/api${base}/verifications/${value.verification_id}`)
+  ).json();
+  for (const task of record.tasks) {
+    await expect(
+      tasks.getByRole("link", { name: task.task_key, exact: true }),
+    ).toHaveAttribute(
+      "href",
+      `/projects/${task.project_id}/tasks/${task.task_key}/result/${task.result_id}`,
+    );
+  }
+  await expect(tasks).toContainText("Verification");
+  await expect(tasks).not.toContainText("aaaaaaaaaaaa");
   for (const [width, height, theme] of [
     [1440, 1000, "light"],
     [1440, 1000, "dark"],

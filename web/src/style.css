@@ -403,12 +403,6 @@
     display: none;
   }
 
-  .reference-link {
-    font-size: 12px;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    cursor: pointer;
-  }
   .markdown {
     font-size: 0.875rem;
     overflow-wrap: anywhere;
@@ -1066,21 +1060,6 @@
   .column-count {
     font-size: 12px;
     color: var(--muted-foreground);
-  }
-}
-
-@layer components {
-  .entity-labels {
-    margin-bottom: 12px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-  .entity-labels [data-slot="badge"] {
-    font-size: 12px;
-    line-height: 16px;
-    padding: 2px 8px;
   }
 }
 

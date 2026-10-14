@@ -14,34 +14,33 @@ export function TaskState({
   projectId,
   open,
   linked = false,
-  sourceUpdates = true,
 }: {
   task: TaskCard;
   projectId: string;
   open: (id: string) => void;
   linked?: boolean;
-  sourceUpdates?: boolean;
 }) {
   return (
     <>
-      <WorkState state={task.state} linked={linked}>
-        {combinedDependencies(task) ? (
-          <BlockedBy
-            prefix="Waiting on"
-            projectId={projectId}
-            tasks={task.blocked_by}
-            open={open}
-          />
-        ) : undefined}
-      </WorkState>
-      {sourceUpdates &&
-        (!!task.document_updates?.length || !!task.milestone_update) && (
-          <p className="detail-metadata">
-            {task.milestone_update
-              ? "Milestone details changed"
-              : "Newer source revision available"}
-          </p>
-        )}
+      {task.state?.tone !== "idle" && (
+        <WorkState state={task.state} linked={linked}>
+          {combinedDependencies(task) ? (
+            <BlockedBy
+              prefix="Waiting on"
+              projectId={projectId}
+              tasks={task.blocked_by}
+              open={open}
+            />
+          ) : undefined}
+        </WorkState>
+      )}
+      {(!!task.document_updates?.length || !!task.milestone_update) && (
+        <p className="detail-metadata">
+          {task.milestone_update
+            ? "Milestone details changed"
+            : "Newer source revision available"}
+        </p>
+      )}
     </>
   );
 }
@@ -50,12 +49,14 @@ export function hasTaskNeeds(
   task: TaskCard,
   pendingCode: TaskReference[] = [],
   showQuestions = true,
+  includeDependencies = false,
 ) {
   return !!(
     (task.preparation_issue &&
       (!task.blocking_questions.length ||
         task.readiness === "needs_reconciliation")) ||
-    (!combinedDependencies(task) && task.blocked_by.length) ||
+    ((includeDependencies || !combinedDependencies(task)) &&
+      task.blocked_by.length) ||
     task.blocking_questions.some((q) => showQuestions || !q.task_id) ||
     pendingCode.length
   );
@@ -68,6 +69,7 @@ export function TaskNeeds({
   open,
   detailed = false,
   showQuestions = true,
+  includeDependencies = false,
 }: {
   task: TaskCard;
   projectId: string;
@@ -75,6 +77,7 @@ export function TaskNeeds({
   open: (id: string) => void;
   detailed?: boolean;
   showQuestions?: boolean;
+  includeDependencies?: boolean;
 }) {
   return (
     <ul className="task-needs">
@@ -83,15 +86,16 @@ export function TaskNeeds({
           task.readiness === "needs_reconciliation") && (
           <li>{task.preparation_issue}</li>
         )}
-      {!combinedDependencies(task) && !!task.blocked_by.length && (
-        <li>
-          <BlockedBy
-            projectId={projectId}
-            tasks={task.blocked_by}
-            open={open}
-          />
-        </li>
-      )}
+      {(includeDependencies || !combinedDependencies(task)) &&
+        !!task.blocked_by.length && (
+          <li>
+            <BlockedBy
+              projectId={projectId}
+              tasks={task.blocked_by}
+              open={open}
+            />
+          </li>
+        )}
       {task.blocking_questions
         .filter((q) => showQuestions || !q.task_id)
         .map((q) => (

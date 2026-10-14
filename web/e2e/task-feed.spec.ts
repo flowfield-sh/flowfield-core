@@ -1169,8 +1169,13 @@ test("attempt activity updates without reloading the board and replays on reload
   );
   await expect(
     page.locator(".task-conversation-header .work-state"),
-  ).toContainText("Working");
-  const dot = page.locator(".task-conversation-header .work-state-dot");
+  ).toHaveCount(0);
+  await closeOverlay(page);
+  const activeCard = page
+    .locator(".task-card")
+    .filter({ hasText: "Observe live output" });
+  await expect(activeCard).toContainText("Working");
+  const dot = activeCard.locator(".work-state-dot");
   const pulse = await dot.evaluate((el) => {
     const animation = el.getAnimations()[0];
     animation.pause();
@@ -1187,6 +1192,8 @@ test("attempt activity updates without reloading the board and replays on reload
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(dot).toHaveCSS("animation-name", "none");
   await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/projects/stream-project/tasks/STR-1");
+  await expect(output).toContainText("later observed output");
   await fixture("long");
   await expect(output).toContainText("long observed output");
   const atEnd = () =>
@@ -1273,14 +1280,13 @@ test("attempt activity updates without reloading the board and replays on reload
     page.getByRole("button", { name: "Retry worker", exact: true }),
   ).toHaveCount(0);
   await page.reload();
-  await expect(page.locator(".task-conversation-header")).toContainText(
-    "Queue paused",
-  );
+
   await expect(
     page.getByRole("button", { name: "Retry worker", exact: true }),
   ).toHaveCount(0);
   await closeOverlay(page);
   await expect(page.locator(".up_next")).toContainText("Observe live output");
+  await expect(page.locator(".up_next")).toContainText("Queue paused");
 });
 
 test("task feed follows the live end but preserves reading position and timestamp targets", async ({

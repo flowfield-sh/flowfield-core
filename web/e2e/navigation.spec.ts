@@ -64,6 +64,17 @@ test("task keys link to persistent selections with history and draft protection"
   expect([one.key, two.key, old.key]).toEqual(["NAV-1", "NAV-2", "NAV-3"]);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto(`/projects/navigation/tasks/${two.key}`);
+  const waiting = page.getByRole("region", {
+    name: "Task details",
+    exact: true,
+  });
+  await expect(
+    waiting.getByRole("heading", { name: "Waiting on", exact: true }),
+  ).toBeVisible();
+  await expect(
+    waiting.getByRole("link", { name: one.key, exact: true }).first(),
+  ).toBeVisible();
   await page.goto(`/workspaces/${workspace}`);
   const blocker = page.getByRole("link", { name: "NAV-1", exact: true });
   await blocker.hover();

@@ -1135,7 +1135,9 @@ function WorkspaceBoard({
                                       </>
                                     }
                                   />
-                                  {task.state?.tone !== "idle" && (
+                                  {(task.state?.tone !== "idle" ||
+                                    !!task.document_updates?.length ||
+                                    !!task.milestone_update) && (
                                     <TaskState
                                       task={task}
                                       projectId={task.project_id}

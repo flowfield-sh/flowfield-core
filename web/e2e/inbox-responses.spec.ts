@@ -200,10 +200,6 @@ test("task and project questions accept suggested or free answers inside Inbox",
   ).toHaveCount(1);
   await expect(
     card.getByText("Choose the scope for the export.", { exact: true }),
-  ).not.toBeVisible();
-  await card.getByText("Context", { exact: true }).click();
-  await expect(
-    card.getByText("Choose the scope for the export.", { exact: true }),
   ).toBeVisible();
   await card.getByRole("button", { name: "All records", exact: true }).click();
   await expect(
@@ -235,7 +231,7 @@ test("task and project questions accept suggested or free answers inside Inbox",
   ).toHaveCount(1);
   await expect(
     other.getByText("Choose the scope for the export.", { exact: true }),
-  ).not.toBeVisible();
+  ).toBeVisible();
   await other
     .getByRole("textbox", { name: "Your answer", exact: true })
     .fill("CSV first.");

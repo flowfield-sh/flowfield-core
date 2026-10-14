@@ -38,7 +38,7 @@ test("coordinator labels update read-only task headers and preserve deletion his
   ).json();
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`/projects/${project.id}/tasks/${task.key}`);
-  const labels = page.locator(".task-classifications");
+  const labels = page.locator(".task-header-badges");
   await expect(labels).toContainText("Release candidate");
   await expect(
     page.getByRole("button", { name: /Edit labels|Choose labels|Save labels/ }),

@@ -104,7 +104,9 @@ test("milestone reading preserves prepared revisions and renders acceptance list
   await expect(
     taskPane.getByLabel("Current task definition", { exact: true }),
   ).toHaveText("DefinitionVerify installed executable discovery.");
-  await expect(taskPane.locator(".task-classifications")).toHaveText("Feature");
+  await expect(taskPane.locator(".task-header-badges")).toContainText(
+    "Feature",
+  );
   await expect(
     taskPane.getByRole("button", {
       name: /^(Edit|Archive|Restore|Edit labels|Choose for Up next)$/,
@@ -138,7 +140,7 @@ test("milestone reading preserves prepared revisions and renders acceptance list
   await page.screenshot({
     path: testInfo.outputPath("milestone-history-narrow-dark.png"),
   });
-  await page.goto(`${base}/inbox?inbox=waiting`);
+  await page.goto(base);
   await expect(
     page.getByText("Milestone details changed", { exact: true }),
   ).toBeVisible();
