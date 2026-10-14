@@ -467,6 +467,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   await expect(action.getByRole("button", { name: "Allow once" })).toHaveCount(
     0,
   );
+  await expect(action.getByRole("article")).toHaveCount(0);
   await page.getByRole("tab", { name: "History", exact: true }).click();
   const history = page.getByRole("tabpanel", { name: "History", exact: true });
   await expect(history.getByText(/Allow once · Answer recorded/)).toBeVisible();

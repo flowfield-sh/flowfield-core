@@ -188,6 +188,24 @@ export function App() {
     if (!connected) return;
     let events: EventSource;
     let opened = false;
+    function changed(change: { projects: string[] | null }) {
+      window.dispatchEvent(
+        new CustomEvent("flowfield:activity", { detail: change }),
+      );
+      if (change.projects === null) setRefresh((v) => v + 1);
+      else
+        setProjectRefresh((previous) => {
+          const next = { ...previous };
+          for (const id of change.projects!) next[id] = (next[id] ?? 0) + 1;
+          return next;
+        });
+    }
+    function saved(event: Event) {
+      const { path } = (event as CustomEvent<{ path: string }>).detail;
+      const project = /^projects\/([^/]+)\//.exec(path)?.[1];
+      // Confirmed local writes refresh cards and counts even while SSE reconnects.
+      changed({ projects: project ? [decodeURIComponent(project)] : null });
+    }
     function connect() {
       events?.close();
       events = new EventSource("/api/events");
@@ -198,17 +216,7 @@ export function App() {
       };
       events.onerror = () => setLive(false);
       events.addEventListener("change", (event) => {
-        const change = JSON.parse(event.data) as { projects: string[] | null };
-        window.dispatchEvent(
-          new CustomEvent("flowfield:activity", { detail: change }),
-        );
-        if (change.projects === null) setRefresh((v) => v + 1);
-        else
-          setProjectRefresh((previous) => {
-            const next = { ...previous };
-            for (const id of change.projects!) next[id] = (next[id] ?? 0) + 1;
-            return next;
-          });
+        changed(JSON.parse(event.data) as { projects: string[] | null });
       });
       events.addEventListener("activity", (event) =>
         window.dispatchEvent(
@@ -225,10 +233,12 @@ export function App() {
     if (navigator.onLine) connect();
     window.addEventListener("online", connect);
     window.addEventListener("offline", offline);
+    window.addEventListener("flowfield:mutation", saved);
     return () => {
       events?.close();
       window.removeEventListener("online", connect);
       window.removeEventListener("offline", offline);
+      window.removeEventListener("flowfield:mutation", saved);
     };
   }, [connected]);
   useEffect(() => {

@@ -217,7 +217,12 @@ test("external review refreshes the pane without losing an unsent note", async (
   );
   await expect(
     page.getByRole("button", { name: "Accept milestone", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
+  await expect(
+    page.getByText(
+      "This request no longer needs a response. Your unsent note is preserved.",
+    ),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Discard note", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Accept milestone", exact: true }),

@@ -25,12 +25,14 @@ function milestone(project: string) {
   );
 }
 
-test("milestone acceptance stays in Inbox and Review column reflects the decision", async ({
+test("milestone acceptance clears Inbox and Review column reflects the decision", async ({
   page,
   request,
 }, testInfo) => {
   const value = milestone("inline-milestone");
   const base = `/workspaces/${value.workspace_id}`;
+  // The HTTP receipt alone must clear the request, without relying on SSE.
+  await page.route("**/api/events", (route) => route.abort());
   await page.goto(`${base}/milestones`);
   await expect(
     page
@@ -85,18 +87,20 @@ test("milestone acceptance stays in Inbox and Review column reflects the decisio
   await page
     .getByRole("button", { name: "Accept milestone", exact: true })
     .click();
+  await expect(card).toHaveCount(0);
+  await expect(page.getByText("Nothing needs your attention.")).toBeVisible();
   await expect(
-    page.getByRole("img", {
-      name: "Milestone accepted · 2 of 2 checks passed",
-      exact: true,
-    }),
+    page.getByRole("tab", { name: "Inbox", exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("tabpanel", { name: "Needs me", exact: true }),
+  ).toBeFocused();
+  await page.screenshot({ path: testInfo.outputPath("inbox-cleared.png") });
   await expect(page).toHaveURL(new RegExp(`${base}/inbox$`));
   const saved = await (
     await request.get(`/api${base}/verifications/${value.verification_id}`)
   ).json();
   expect(saved.status).toBe("accepted");
-  await expect(card.getByLabel("Response")).toBeEmpty();
   await page.getByRole("tab", { name: "History", exact: true }).click();
   await page
     .getByRole("link", { name: /Verify installed harness discovery/ })
@@ -153,8 +157,22 @@ test("Inbox drafts survive external review and guard switching views", async ({
   );
   await expect(
     page.getByRole("button", { name: "Accept milestone", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
+  await expect(
+    page.getByText(
+      "This request no longer needs a response. Your unsent note is preserved.",
+    ),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({
+    path: test.info().outputPath("external-resolution-draft.png"),
+  });
   await page.getByRole("button", { name: "Discard note" }).click();
+  await expect(
+    page
+      .getByRole("tabpanel", { name: "Needs me", exact: true })
+      .getByRole("article"),
+  ).toHaveCount(0);
   await page.getByRole("tab", { name: "History", exact: true }).click();
   await expect(
     page.getByRole("tabpanel", { name: "History", exact: true }),
@@ -211,6 +229,12 @@ test("task and project questions accept suggested or free answers inside Inbox",
   const card = page.getByRole("article", {
     name: "Question: Which records should be exported?",
   });
+  const other = page.getByRole("article", {
+    name: "Question: Which format should we prioritize?",
+  });
+  await other
+    .getByRole("textbox", { name: "Your answer", exact: true })
+    .fill("CSV first.");
   await expect(
     card.getByRole("heading", {
       name: "Which records should be exported?",
@@ -241,9 +265,10 @@ test("task and project questions accept suggested or free answers inside Inbox",
     )
     .toBe("All records, excluding archived entries.");
   await expect(page).toHaveURL(new RegExp(`/workspaces/${workspace}/inbox$`));
-  const other = page.getByRole("article", {
-    name: "Question: Which format should we prioritize?",
-  });
+  await expect(card).toHaveCount(0);
+  await expect(
+    other.getByRole("textbox", { name: "Your answer", exact: true }),
+  ).toHaveValue("CSV first.");
   await expect(
     other.getByRole("heading", {
       name: "Which format should we prioritize?",
@@ -268,6 +293,8 @@ test("task and project questions accept suggested or free answers inside Inbox",
         ).answer,
     )
     .toBe("CSV first.");
+  await expect(other).toHaveCount(0);
+  await expect(page.getByText("Nothing needs your attention.")).toBeVisible();
   await page.getByRole("tab", { name: "History", exact: true }).click();
   await expect(
     page.getByRole("link", { name: /Which format should we prioritize/ }),
@@ -319,7 +346,9 @@ test("code review in Inbox approves the exact result and delivers without naviga
     )
     .toBe("done");
   await expect(page).toHaveURL(new RegExp(`/workspaces/${workspace}/inbox$`));
-  await expect(page.getByLabel("Response", { exact: true })).toBeEmpty();
+  await expect(
+    page.getByRole("article", { name: /^Code review:/ }),
+  ).toHaveCount(0);
   await page.goto(`/projects/${project}/tasks/INC-1`);
   await expect(page.getByText("Integrated", { exact: true })).toBeVisible();
   await expect(page.locator(".entity-overlay-footer")).toBeEmpty();
@@ -392,4 +421,87 @@ test("Needs me scrolls with wheel input and retains reading position during upda
     await page.mouse.wheel(0, -600);
     await expect.poll(() => pane.evaluate((n) => n.scrollTop)).toBeLessThan(5);
   }
+});
+
+test("resolved requests disappear without losing later-page drafts or failed answers", async ({
+  page,
+  request,
+}) => {
+  const project = "inbox-paged";
+  await fixtureProject(request, {
+    data: { path: existingDirectory(join(state, project)), task_prefix: "IPG" },
+  });
+  const workspace = await projectWorkspace(request, project);
+  for (let index = 0; index < 23; index++) {
+    const response = await request.post(`/api/projects/${project}/questions`, {
+      data: {
+        id: `q-${index}`,
+        question: `Paged decision ${index}`,
+        context: "Choose a format.",
+        recommendation: "CSV",
+      },
+    });
+    expect(response.ok(), await response.text()).toBe(true);
+  }
+  await page.goto(`/workspaces/${workspace}/inbox`);
+  await page.getByRole("button", { name: "Load more", exact: true }).click();
+  await expect(
+    page
+      .getByRole("tabpanel", { name: "Needs me", exact: true })
+      .getByRole("article"),
+  ).toHaveCount(23);
+  const later = page.getByRole("article", {
+    name: "Question: Paged decision 0",
+    exact: true,
+  });
+  await later
+    .getByRole("textbox", { name: "Your answer", exact: true })
+    .fill("Keep this later-page draft.");
+  const first = page.getByRole("article", {
+    name: "Question: Paged decision 22",
+    exact: true,
+  });
+  await first
+    .getByRole("textbox", { name: "Your answer", exact: true })
+    .fill("CSV first.");
+  await page.route(
+    `**/api/projects/${project}/questions/q-22/answer`,
+    async (route) => {
+      await route.fulfill({
+        status: 409,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: {
+            code: "revision_conflict",
+            message: "Question changed; review it again.",
+          },
+        }),
+      });
+    },
+  );
+  await first.getByRole("button", { name: "Send answer", exact: true }).click();
+  await expect(
+    page.getByText("Question changed; review it again.").first(),
+  ).toBeVisible();
+  await expect(
+    first.getByRole("textbox", { name: "Your answer", exact: true }),
+  ).toHaveValue("CSV first.");
+  await page.unroute(`**/api/projects/${project}/questions/q-22/answer`);
+  await first.getByRole("button", { name: "Send answer", exact: true }).click();
+  await expect(first).toHaveCount(0);
+  await expect(
+    page
+      .getByRole("tabpanel", { name: "Needs me", exact: true })
+      .getByRole("article"),
+  ).toHaveCount(22);
+  await expect(
+    later.getByRole("textbox", { name: "Your answer", exact: true }),
+  ).toHaveValue("Keep this later-page draft.");
+  await later.getByRole("button", { name: "Send answer", exact: true }).click();
+  await expect(later).toHaveCount(0);
+  await expect(
+    page
+      .getByRole("tabpanel", { name: "Needs me", exact: true })
+      .getByRole("article"),
+  ).toHaveCount(21);
 });

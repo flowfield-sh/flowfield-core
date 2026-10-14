@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, useSearchParams } from "react-router";
-import { useCallback, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { components } from "./api-schema";
 import { usePage, useResource } from "./useResource";
@@ -196,12 +196,24 @@ function InboxList({
   const page = usePage<Page>(
     `workspaces/${workspaceId}/view/attention?column=${columns[tab]}${tab === "history" ? "&include_answered=true" : ""}${projectId ? `&project_id=${encodeURIComponent(projectId)}` : ""}`,
     refresh,
+    tab === "needs_me",
   );
-  const markDirty = useDirtyItems(onDirty);
+  const mark = useDirtyItems(onDirty);
+  const [drafts, setDrafts] = useState<Record<string, boolean>>({});
+  const markDirty = useCallback(
+    (id: string, dirty: boolean) => {
+      mark(id, dirty);
+      setDrafts((previous) =>
+        previous[id] === dirty ? previous : { ...previous, [id]: dirty },
+      );
+    },
+    [mark],
+  );
   const [seen, setSeen] = useState<Page | null>(null);
   const [retained, setRetained] = useState<Item[]>([]);
-  // Do not remove a card under the person's cursor or discard a bound draft when
-  // an answer resolves the request. A fresh visit gets a fresh action list.
+  // Keep stable ordering and independent drafts while canonical resolution
+  // removes answered requests. An externally resolved draft stays bound to its
+  // original request until explicitly discarded.
   if (page.data && page.data !== seen) {
     setSeen(page.data);
     setRetained((previous) => {
@@ -209,7 +221,12 @@ function InboxList({
         page.data!.items.map((item) => [identityOf(item), item]),
       );
       return [
-        ...previous.map((item) => incoming.get(identityOf(item)) ?? item),
+        ...previous
+          .filter(
+            (item) =>
+              incoming.has(identityOf(item)) || drafts[identityOf(item)],
+          )
+          .map((item) => incoming.get(identityOf(item)) ?? item),
         ...page.data!.items.filter(
           (item) =>
             !previous.some((old) => identityOf(old) === identityOf(item)),
@@ -217,9 +234,35 @@ function InboxList({
       ];
     });
   }
-  const items = tab === "needs_me" ? retained : (page.data?.items ?? []);
+  const items = useMemo(() => {
+    const current = new Set(page.data?.items.map(identityOf));
+    return tab === "needs_me"
+      ? retained.filter(
+          (item) => current.has(identityOf(item)) || drafts[identityOf(item)],
+        )
+      : (page.data?.items ?? []);
+  }, [page.data, tab, retained, drafts]);
+  const list = useRef<HTMLDivElement>(null);
+  const focused = useRef<{ id: string; index: number } | null>(null);
+  useLayoutEffect(() => {
+    const previous = focused.current;
+    if (!previous || items.some((item) => identityOf(item) === previous.id))
+      return;
+    focused.current = null;
+    // Removing the submitted card must not strand keyboard focus on the page
+    // body or steal it from another request the person has already moved to.
+    if (document.activeElement !== document.body) return;
+    const remaining =
+      list.current?.querySelectorAll<HTMLElement>(".request-list > li");
+    const next = remaining?.[Math.min(previous.index, remaining.length - 1)];
+    (
+      next?.querySelector<HTMLElement>("header a, button, a") ?? list.current
+    )?.focus({ preventScroll: true });
+  }, [items]);
   return (
     <ContentStack
+      ref={list}
+      tabIndex={-1}
       space="section"
       role="tabpanel"
       aria-label={label(tab)}
@@ -235,8 +278,13 @@ function InboxList({
         </p>
       )}
       <ol className="request-list">
-        {items.map((item) => (
-          <li key={identityOf(item)}>
+        {items.map((item, index) => (
+          <li
+            key={identityOf(item)}
+            onFocusCapture={() => {
+              focused.current = { id: identityOf(item), index };
+            }}
+          >
             {item.kind === "permission" ? (
               <PermissionCard
                 projectId={item.project_id ?? undefined}

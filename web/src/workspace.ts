@@ -52,6 +52,13 @@ export async function request<T>(
       : " Try again once the service is available.";
   const failed = (message: string, code: string) =>
     new RequestError(message, code, path, method);
+  const saved = () => {
+    requestRecovered(path, startedAt);
+    if (method !== "GET")
+      window.dispatchEvent(
+        new CustomEvent("flowfield:mutation", { detail: { path } }),
+      );
+  };
   let response: Response;
   try {
     response = await fetch("/api/" + path, {
@@ -73,7 +80,7 @@ export async function request<T>(
     );
   }
   if (response.status === 204) {
-    requestRecovered(path, startedAt);
+    saved();
     return undefined as T;
   }
   let data;
@@ -106,7 +113,7 @@ export async function request<T>(
       path,
       method,
     );
-  requestRecovered(path, startedAt);
+  saved();
   return data as T;
 }
 

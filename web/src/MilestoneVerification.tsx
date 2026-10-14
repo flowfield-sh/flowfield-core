@@ -121,25 +121,31 @@ export function MilestoneReviewResponse({
           </ResponseInput>
           {stale && (
             <p role="alert">
-              This verification changed. Reopen it before reviewing.
+              {canReview
+                ? "This verification changed. Reopen it before reviewing."
+                : "This request no longer needs a response. Your unsent note is preserved."}
             </p>
           )}
           <div className="actions">
-            <Button
-              size="sm"
-              disabled={pending || stale || !canReview}
-              onClick={() => void review("accept")}
-            >
-              Accept milestone
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={pending || stale || !canReview || !note.trim()}
-              onClick={() => void review("request_changes")}
-            >
-              Request changes
-            </Button>
+            {canReview && (
+              <>
+                <Button
+                  size="sm"
+                  disabled={pending || stale}
+                  onClick={() => void review("accept")}
+                >
+                  Accept milestone
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={pending || stale || !note.trim()}
+                  onClick={() => void review("request_changes")}
+                >
+                  Request changes
+                </Button>
+              </>
+            )}
             {note && (
               <Button
                 size="sm"

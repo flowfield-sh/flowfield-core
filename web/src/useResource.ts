@@ -14,6 +14,7 @@ export function useResource<T>(
     attemptId?: string;
     isActive?: (data: T) => boolean;
   },
+  readData?: (path: string, signal: AbortSignal) => Promise<T>,
 ) {
   const [retryVersion, setRetryVersion] = useState(0);
   const retry = useCallback(() => setRetryVersion((value) => value + 1), []);
@@ -56,13 +57,9 @@ export function useResource<T>(
       do {
         again = false;
         try {
-          const result = await request<T>(
-            path!,
-            "GET",
-            undefined,
-            pending.signal,
-            timeoutMs,
-          );
+          const result = await (readData
+            ? readData(path!, pending.signal)
+            : request<T>(path!, "GET", undefined, pending.signal, timeoutMs));
           if (!pending.signal.aborted) {
             setData(result);
             setError("");
@@ -120,6 +117,7 @@ export function useResource<T>(
     workspaceId,
     attemptId,
     isActive,
+    readData,
   ]);
   return {
     data,
@@ -140,8 +138,31 @@ export function usePage<
     next_before?: number | null;
     next_offset?: number | null;
   },
->(path: string, refresh: unknown) {
-  const resource = useResource<P>(path, refresh);
+>(path: string, refresh: unknown, refreshLoaded = false) {
+  const loaded = useRef({ path, count: 0 });
+  const readLoaded = useCallback(async (url: string, signal: AbortSignal) => {
+    let page = await request<P>(url, "GET", undefined, signal);
+    const count = loaded.current.path === url ? loaded.current.count : 0;
+    // Publish the refreshed window together, so later-page editors never
+    // unmount briefly while the first page is being revalidated.
+    while (page.items.length < count && page.next_offset != null) {
+      const next = await request<P>(
+        `${url}${url.includes("?") ? "&" : "?"}offset=${page.next_offset}`,
+        "GET",
+        undefined,
+        signal,
+      );
+      page = { ...next, items: [...page.items, ...next.items] };
+    }
+    return page;
+  }, []);
+  const resource = useResource<P>(
+    path,
+    refresh,
+    10000,
+    undefined,
+    refreshLoaded ? readLoaded : undefined,
+  );
   const { data, setData, setError } = resource;
   const [loadingMore, setLoadingMore] = useState(false);
   const [key, setKey] = useState({ path, refresh });
@@ -173,6 +194,10 @@ export function usePage<
           ...page,
           items: [...(previous?.items ?? []), ...page.items],
         }));
+        loaded.current = {
+          path,
+          count: (data?.items.length ?? 0) + page.items.length,
+        };
         setError("");
       }
     } catch (error) {
