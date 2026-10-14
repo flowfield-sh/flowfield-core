@@ -9,7 +9,7 @@ from test_input_continuation import answer, question
 from test_storage_migrations import logical_data
 from test_worker_documents import prepare
 
-from flowfield import migrations
+from flowfield import migrations, milestone_delivery
 from flowfield.agent_tools import workspace_scope
 from flowfield.application import (
     MilestoneCreate,
@@ -175,6 +175,8 @@ def test_tools_read_history_and_criteria_without_expanding_worker_authority(tmp_
 
 def test_upgrade_freezes_effective_source_without_inventing_old_history(tmp_path, monkeypatch):
     with monkeypatch.context() as old:
+        # Reconstruct the older writer: milestone branch ownership did not exist.
+        old.setattr(milestone_delivery, "for_milestone", lambda *args: None)
         old.setattr(
             migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 68)
         )
@@ -204,6 +206,8 @@ def test_upgrade_freezes_effective_source_without_inventing_old_history(tmp_path
 
 def test_failed_agreement_upgrade_restores_original_state(tmp_path, monkeypatch):
     with monkeypatch.context() as old:
+        # Reconstruct the older writer: milestone branch ownership did not exist.
+        old.setattr(milestone_delivery, "for_milestone", lambda *args: None)
         old.setattr(
             migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 68)
         )

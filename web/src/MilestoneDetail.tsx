@@ -9,6 +9,8 @@ import { RevisionHistory } from "./RevisionHistory";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { boardHref } from "./navigation";
 import type { Milestone } from "./workspace";
+import type { components } from "./api-schema";
+import { useResource } from "./useResource";
 
 export function MilestoneDetail({
   milestone,
@@ -29,6 +31,9 @@ export function MilestoneDetail({
 }) {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
+  const delivery = useResource<
+    components["schemas"]["MilestoneDelivery"] | null
+  >(`${path}/milestones/${milestone.id}/delivery`, refresh);
   const tab =
     !historical &&
     (params.get("tab") === "review" || params.has("verification"))
@@ -62,7 +67,13 @@ export function MilestoneDetail({
             </Button>
           </div>
         }
-      />
+      >
+        {delivery.data && (
+          <p className="detail-metadata">
+            {delivery.data.project_id} → {delivery.data.destination_branch}
+          </p>
+        )}
+      </DetailHeader>
       {!historical && (
         <DetailTabs
           id="milestone"

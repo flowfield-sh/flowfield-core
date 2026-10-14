@@ -107,7 +107,9 @@ function RequestCard({
   );
   const kind =
     item.kind === "milestone"
-      ? "Milestone acceptance"
+      ? item.status === "delivery_blocked"
+        ? "Milestone promotion"
+        : "Milestone acceptance"
       : item.kind === "result"
         ? "Code review"
         : label(item.kind);

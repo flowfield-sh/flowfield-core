@@ -3,6 +3,8 @@ import {
   useEffect,
   useRef,
   useState,
+  lazy,
+  Suspense,
   type ReactNode,
 } from "react";
 import { useLocation, useSearchParams } from "react-router";
@@ -18,6 +20,9 @@ import {
 } from "./DetailLayout";
 import { Markdown } from "./Markdown";
 import { WorkState } from "./WorkState";
+import { Inspection } from "./Inspection";
+import type { DiffViewState } from "./CodeDiff";
+import { CheckEvidence } from "./Integration";
 import { OverlayFooter } from "./EntityOverlay";
 import { useFeedScroll } from "./useFeedScroll";
 import { useDirtyItems } from "./useDirtyItems";
@@ -28,6 +33,7 @@ import { usePage, useResource } from "./useResource";
 import { label, request } from "./workspace";
 
 export type Verification = components["schemas"]["MilestoneVerification"];
+const CodeDiff = lazy(() => import("./CodeDiff"));
 type History = {
   items: (Pick<Verification, "id" | "status" | "updated_at"> & {
     number: number;
@@ -35,6 +41,9 @@ type History = {
   next_cursor: number | null;
 };
 const statuses: Record<string, string> = {
+  preparing: "Preparing combined candidate",
+  promoting: "Promoting verified milestone",
+  delivery_blocked: "Promotion needs your attention",
   verifying: "Verification in progress",
   ready: "Ready for milestone review",
   failed: "Verification needs follow-up",
@@ -64,15 +73,19 @@ export function MilestoneReviewResponse({
     setRevision(value.revision);
   const stale = value.revision !== revision;
   const canReview = allowReview && value.current && value.status === "ready";
+  const canRetry =
+    allowReview && value.current && value.status === "delivery_blocked";
   useEffect(() => {
     onDirty(!!note.trim() || pending);
     return () => onDirty(false);
   }, [note, pending, onDirty]);
-  async function review(action: "accept" | "request_changes") {
+  async function review(
+    action: "accept" | "request_changes" | "retry_promotion",
+  ) {
     if (
       pending ||
       stale ||
-      !canReview ||
+      !(action === "retry_promotion" ? canRetry : canReview) ||
       (action === "request_changes" && !note.trim())
     )
       return;
@@ -101,12 +114,30 @@ export function MilestoneReviewResponse({
           ? "The work changed after this report. Ask the Coordinator to verify the updated milestone."
           : null))
     : null;
-  if (!canReview && !note.trim() && !hint && !error) return null;
+  if (!canReview && !canRetry && !note.trim() && !hint && !error) return null;
   return (
     <ContentStack className="task-input" aria-label="Milestone response">
       {hint && <p>{hint}</p>}
+      {canRetry && (
+        <div className="actions">
+          <Button
+            size="sm"
+            disabled={pending || stale}
+            onClick={() => void review("retry_promotion")}
+          >
+            Retry promotion
+          </Button>
+        </div>
+      )}
       {(canReview || !!note.trim()) && (
         <ContentStack aria-label="Your review">
+          {canReview && value.promotion && (
+            <p>
+              Deliver the verified result to{" "}
+              <code>{value.promotion.target_branch}</code> in the project
+              checkout.
+            </p>
+          )}
           <ResponseInput>
             <Textarea
               aria-label="Review note"
@@ -134,7 +165,9 @@ export function MilestoneReviewResponse({
                   disabled={pending || stale}
                   onClick={() => void review("accept")}
                 >
-                  Accept milestone
+                  {value.promotion_id
+                    ? "Accept and promote"
+                    : "Accept milestone"}
                 </Button>
                 <Button
                   size="sm"
@@ -180,16 +213,15 @@ function reportState(value: Verification): components["schemas"]["WorkState"] {
     ]
       .filter(Boolean)
       .join(" · "),
-    tone:
-      value.status === "verifying"
-        ? "active"
-        : value.status === "failed"
-          ? "attention"
-          : value.status === "accepted"
-            ? value.current
-              ? "complete"
-              : "idle"
-            : "waiting",
+    tone: ["preparing", "verifying", "promoting"].includes(value.status)
+      ? "active"
+      : ["failed", "delivery_blocked"].includes(value.status)
+        ? "attention"
+        : value.status === "accepted"
+          ? value.current
+            ? "complete"
+            : "idle"
+          : "waiting",
   };
 }
 
@@ -200,6 +232,11 @@ export function MilestoneReport({
   value: Verification;
   metadata?: ReactNode;
 }) {
+  const [diffView, setDiffView] = useState<DiffViewState>({
+    selected: 0,
+    mode: "unified",
+  });
+  const promotion = value.promotion;
   const findings = value.report?.findings ?? [];
   const checks = (
     <ol className="verification-checks" aria-label="Checks">
@@ -260,6 +297,53 @@ export function MilestoneReport({
       <ContentStack className="conversation-message-body" space="section">
         <DetailSection title="Details">
           <ContentStack space="flush">
+            {promotion?.candidate_commit && (
+              <>
+                <Inspection
+                  projectId={value.project_id}
+                  milestone={value}
+                  refresh={value.revision}
+                />
+                <Disclosure summary="Code changes">
+                  <Suspense fallback={<p>Loading changes…</p>}>
+                    <CodeDiff
+                      path={`workspaces/${value.workspace_id}/verifications/${value.id}`}
+                      result={promotion.candidate_commit}
+                      view={diffView}
+                      changeView={setDiffView}
+                    />
+                  </Suspense>
+                </Disclosure>
+              </>
+            )}
+            {promotion && (
+              <Disclosure summary="Delivery evidence">
+                <ContentStack>
+                  <p>
+                    Destination: <code>{promotion.target_branch}</code>
+                  </p>
+                  <p>
+                    Combined candidate:{" "}
+                    <code>{promotion.candidate_commit ?? "Preparing"}</code>
+                  </p>
+                  <p>
+                    Milestone source: <code>{promotion.source_commit}</code>
+                  </p>
+                  <p>
+                    Destination before promotion:{" "}
+                    <code>{promotion.target_before}</code>
+                  </p>
+                  <CheckEvidence
+                    checks={promotion.setup_checks}
+                    title="Runtime setup"
+                  />
+                  <CheckEvidence
+                    checks={promotion.checks}
+                    title="Project checks"
+                  />
+                </ContentStack>
+              </Disclosure>
+            )}
             {value.limitations && (
               <Disclosure summary="Limitations reported">
                 <Markdown>{value.limitations}</Markdown>
@@ -434,7 +518,9 @@ function ReviewEntry({
             title={
               value.status === "accepted"
                 ? "Milestone accepted"
-                : "Changes requested"
+                : value.promotion?.approved_at
+                  ? "Promotion approved"
+                  : "Changes requested"
             }
             metadata={
               <>

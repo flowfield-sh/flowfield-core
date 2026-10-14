@@ -457,10 +457,14 @@ def test_mcp_user_input_approval_requires_observed_scoped_call(tmp_path):
             assert seen[0].title == "Flowfield · Submit result"
             assert len(seen[0].options) == 2
             # Ordinary model questions and unoffered grants cannot reuse approval state.
-            assert await agent._request(
-                "item/tool/requestUserInput",
-                {**request, "questions": [{**request["questions"][0], "id": "ordinary-question"}]},
-            ) == {"answers": {}}
+            with pytest.raises(NativeError, match="no human answered"):
+                await agent._request(
+                    "item/tool/requestUserInput",
+                    {
+                        **request,
+                        "questions": [{**request["questions"][0], "id": "ordinary-question"}],
+                    },
+                )
 
             async def completed(_):
                 agent._event("item/completed", event)

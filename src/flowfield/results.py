@@ -328,7 +328,7 @@ class Results:
             allowed = {version.target_before}
             if record.apply_started_at:
                 allowed.add(version.candidate_commit)
-            if service.head(project_id) not in allowed:
+            if service.head(project_id, version.task_id) not in allowed:
                 version.status, version.problem_code = "stale", "target_changed"
                 version.problem = "Destination moved. Prepare and approve a new candidate."
                 self._save(db, version)
@@ -399,8 +399,8 @@ class Results:
         repository = Path(self.workspace.project(project_id).path)
         integrations = Integrations(self.workspace)
         with gitops.lock(repository):
-            settings = integrations.settings(project_id)
-            target = integrations.head(project_id)
+            settings = integrations.for_task(project_id, version.task_id)
+            target = integrations.head(project_id, version.task_id)
             with self.workspace.connection() as db:
                 run = self._current(db, version)
                 task = self.workspace._task(db, project_id, run.task_id)
@@ -459,7 +459,7 @@ class Results:
                 latest_task = self.workspace._task(db, project_id, run.task_id)
                 self.workspace._current(latest_task.revision, task.revision)
                 self.workspace._require_ready(latest_task)
-                if integrations.head(project_id) != target:
+                if integrations.head(project_id, version.task_id) != target:
                     raise ApplicationError(
                         "target_changed",
                         "Target moved during correction preparation. Inspect it and request again.",

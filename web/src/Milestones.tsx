@@ -4,12 +4,17 @@ import type { components } from "./api-schema";
 import { WorkCard } from "./WorkCard";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { boardHref, workspaceHref } from "./navigation";
-import type { Board } from "./workspace";
 
 export function MilestoneList({
   board,
 }: {
-  board: Pick<Board, "tasks" | "milestones" | "milestone_verifications">;
+  board: Pick<
+    components["schemas"]["BrowserWorkspaceBoard"],
+    | "tasks"
+    | "milestones"
+    | "milestone_verifications"
+    | "milestone_delivery_ids"
+  >;
 }) {
   const cards = board.milestones.map((milestone) => {
     const members = board.tasks.filter((t) => t.milestone_id === milestone.id);
@@ -20,10 +25,11 @@ export function MilestoneList({
     const column =
       state === "accepted" ||
       (!milestone.acceptance_criteria.trim() &&
+        !board.milestone_delivery_ids?.includes(milestone.id) &&
         tasks.length > 0 &&
         done === tasks.length)
         ? "Complete"
-        : state === "ready"
+        : ["ready", "promoting", "delivery_blocked"].includes(state)
           ? "Review"
           : state || (tasks.length && done === tasks.length)
             ? "In progress"
@@ -126,6 +132,12 @@ function milestoneState(
       ? null
       : `${value.checks_passed} of ${value.checks_total} checks passed`;
   switch (value.status) {
+    case "preparing":
+      return { label: "Preparing combined candidate", tone: "active" };
+    case "promoting":
+      return { label: "Promoting verified result", tone: "active" };
+    case "delivery_blocked":
+      return { label: "Promotion needs your attention", tone: "attention" };
     case "ready":
       return { label: counts ?? "Ready for review", tone: "waiting" };
     case "failed":

@@ -2,24 +2,18 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
-
-class VerificationInput(BaseModel):
-    model_config = ConfigDict(extra="forbid", json_schema_serialization_defaults_required=True)
-
-
-class CriterionFinding(VerificationInput):
-    check: int = Field(ge=1)
-    verdict: Literal["passed", "failed", "unverified"]
-    evidence: str = Field(min_length=1, max_length=8000)
-
-
-class VerificationReport(VerificationInput):
-    verification_id: str
-    findings: list[CriterionFinding] = Field(min_length=1, max_length=50)
-    coverage: Literal["complete", "incomplete"]
-    coverage_notes: str = Field(min_length=1, max_length=8000)
+from flowfield.promotion_models import MilestonePromotion
+from flowfield.verification_report import (
+    CriterionFinding as CriterionFinding,
+)
+from flowfield.verification_report import (
+    VerificationInput,
+)
+from flowfield.verification_report import (
+    VerificationReport as VerificationReport,
+)
 
 
 class VerificationPrepare(VerificationInput):
@@ -33,7 +27,7 @@ class VerificationPrepare(VerificationInput):
 
 class VerificationReview(VerificationInput):
     expected_revision: int = Field(ge=1)
-    action: Literal["accept", "request_changes"]
+    action: Literal["accept", "request_changes", "retry_promotion"]
     note: str = Field(default="", max_length=8000)
     author: str = Field(default="human", min_length=1, max_length=200)
 
@@ -52,7 +46,15 @@ class DeliveredTask(VerificationInput):
 
 
 VerificationStatus = Literal[
-    "verifying", "ready", "failed", "stale", "accepted", "changes_requested"
+    "preparing",
+    "verifying",
+    "ready",
+    "failed",
+    "stale",
+    "accepted",
+    "changes_requested",
+    "promoting",
+    "delivery_blocked",
 ]
 
 
@@ -90,3 +92,6 @@ class MilestoneVerification(VerificationInput):
     reviewed_at: str | None = None
     review_note: str = ""
     problem: str | None = None
+    promotion_id: str | None = None
+    # Read projection; the independent promotion record owns delivery authority.
+    promotion: MilestonePromotion | None = None

@@ -26,6 +26,7 @@ from flowfield.application import (
     Workspace,
 )
 from flowfield.conversation_api import add_conversation_tools
+from flowfield.delivery_models import DeliveryConfigure
 from flowfield.documents import DocumentCreate, DocumentEdit, DocumentRestore, Documents
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import QueueEdit, SettingsEdit
@@ -34,6 +35,7 @@ from flowfield.harness_models import HarnessKind
 from flowfield.inspection import Inspections
 from flowfield.inspection_models import Inspection, InspectionConfig, InspectionPrepare
 from flowfield.labels import LabelCreate, LabelEdit, Labels
+from flowfield.milestone_delivery import MilestoneDeliveries
 from flowfield.milestone_verification import MilestoneVerifications
 from flowfield.milestones import Milestones
 from flowfield.project_config import Identifier
@@ -398,7 +400,39 @@ def create_mcp(
         """Read a milestone by workspace-local key (M-1) or internal ID."""
         return await invoke(
             lambda: excerpt(
-                Milestones(workspace()).get(workspace_id, milestone_id, revision).model_dump()
+                {
+                    **Milestones(workspace())
+                    .get(workspace_id, milestone_id, revision)
+                    .model_dump(),
+                    "delivery": (
+                        delivery.model_dump()
+                        if (
+                            delivery := MilestoneDeliveries(workspace()).get(
+                                workspace_id, milestone_id
+                            )
+                        )
+                        else None
+                    ),
+                }
+            )
+        )
+
+    @mcp.tool(annotations=write)
+    async def configure_milestone_delivery(
+        workspace_id: Identifier,
+        milestone_id: MilestoneIdentifier,
+        delivery: DeliveryConfigure,
+    ) -> CallToolResult:
+        """Give a milestone an owned branch before preparing its tasks.
+        Task approvals integrate into this branch; final human promotion delivers to the
+        project destination. Supports one repository. Omit branch for a unique name.
+        Retry the same configuration after interrupted creation; never adopts existing branches.
+        """
+        return await mutate(
+            lambda: (
+                MilestoneDeliveries(workspace())
+                .configure(workspace_id, milestone_id, delivery)
+                .model_dump()
             )
         )
 

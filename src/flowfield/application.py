@@ -1625,12 +1625,14 @@ class Workspace:
                 "Provide current stages with this preparation; at least one stage is required.",
                 409,
             )
-        target_branch = None
+        from flowfield.milestone_delivery import effective_branch, for_milestone
+
+        target_branch = (
+            effective_branch(db, project_id, current.milestone_id)
+            if request.completion == "code" or for_milestone(db, project_id, current.milestone_id)
+            else None
+        )
         if request.completion == "code":
-            settings = db.execute(
-                "SELECT data FROM integration_settings WHERE project_id=?", (project_id,)
-            ).fetchone()
-            target_branch = json.loads(settings[0])["target_branch"] if settings else None
             if not target_branch:
                 raise ApplicationError(
                     "integration_target_required",
@@ -1941,20 +1943,20 @@ class Workspace:
             completion = request.completion or (
                 current.publication.completion if current.publication else None
             )
-            target_branch = current.publication.target_branch if current.publication else None
-            if request.completion == "code":
-                settings = db.execute(
-                    "SELECT data FROM integration_settings WHERE project_id=?", (project_id,)
-                ).fetchone()
-                target_branch = json.loads(settings[0])["target_branch"] if settings else None
+            from flowfield.milestone_delivery import effective_branch, for_milestone
+
+            target_branch = (
+                effective_branch(db, project_id, current.milestone_id)
+                if completion == "code" or for_milestone(db, project_id, current.milestone_id)
+                else None
+            )
+            if completion == "code":
                 if not target_branch:
                     raise ApplicationError(
                         "integration_target_required",
                         "Configure the delivery target before reconciling code completion.",
                         409,
                     )
-            elif request.completion == "report":
-                target_branch = None
             documents, milestone = self._prepare_sources(db, current, request.author)
             current = self._task(db, project_id, task_id)
             task = TaskRevision(

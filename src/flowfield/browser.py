@@ -95,6 +95,7 @@ class BrowserWorkspaceBoard(BaseModel):
     project_problems: dict[str, str]
     labels: list[WorkspaceLabel]
     milestone_verifications: dict[str, MilestoneVerificationSummary] = Field(default_factory=dict)
+    milestone_delivery_ids: list[str] = Field(default_factory=list)
     milestones: list[Milestone]
     tasks: list[TaskCard]
     needs_you_count: int
@@ -283,6 +284,13 @@ class BrowserReads:
                 labels=Labels.read_all(db, workspace_id),
                 milestones=Milestones.read_all(db, workspace_id),
                 milestone_verifications=board_verifications(db, workspace_id),
+                milestone_delivery_ids=[
+                    row[0]
+                    for row in db.execute(
+                        "SELECT milestone_id FROM milestone_deliveries WHERE workspace_id=?",
+                        (workspace_id,),
+                    )
+                ],
                 tasks=cards,
                 pending_code=pending,
                 needs_you_count=counts.get("action", 0),

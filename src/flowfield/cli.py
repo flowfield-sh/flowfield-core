@@ -2019,6 +2019,44 @@ def milestone_verify(
     )
 
 
+@milestone_app.command("delivery")
+def milestone_delivery(
+    ctx: typer.Context,
+    milestone: str,
+    workspace: WorkspaceOption,
+    project: str | None = None,
+    branch: str | None = None,
+    expected_revision: int | None = None,
+    json_output: Json = False,
+) -> None:
+    """Read delivery, or configure an owned branch before preparing milestone tasks."""
+
+    def operation() -> Any:
+        path = workspace_item_path(workspace, "milestones", milestone, "delivery")
+        if project is None:
+            if branch or expected_revision is not None:
+                raise ApplicationError(
+                    "project_required", "Provide --project to configure delivery."
+                )
+            return ctx.obj.request("GET", path)
+        if expected_revision is None:
+            raise ApplicationError(
+                "revision_required",
+                "Provide --expected-revision for milestone delivery configuration.",
+            )
+        return ctx.obj.request(
+            "PUT",
+            path,
+            {
+                "expected_revision": expected_revision,
+                "project_id": project,
+                "branch": branch,
+            },
+        )
+
+    output(operation, json_output)
+
+
 @milestone_app.command("review")
 def milestone_review(
     ctx: typer.Context,
@@ -2029,7 +2067,7 @@ def milestone_review(
     note: str = "",
     json_output: Json = False,
 ) -> None:
-    """Record human review of an exact passing verification; does not promote code."""
+    """Accept the exact verified outcome and authorize its configured local promotion."""
     output(
         lambda: ctx.obj.request(
             "POST",

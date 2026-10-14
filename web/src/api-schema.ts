@@ -611,6 +611,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/milestones/{identity}/delivery": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Milestone Delivery */
+    get: operations["milestone_delivery_api_workspaces__workspace_id__milestones__identity__delivery_get"];
+    /** Configure Milestone Delivery */
+    put: operations["configure_milestone_delivery_api_workspaces__workspace_id__milestones__identity__delivery_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/workspaces/{workspace_id}/milestones/{identity}/verifications": {
     parameters: {
       query?: never;
@@ -657,6 +675,57 @@ export interface paths {
     put?: never;
     /** Review Verification */
     post: operations["review_verification_api_workspaces__workspace_id__verifications__identity__review_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/verifications/{identity}/inspection": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Inspect Milestone */
+    post: operations["inspect_milestone_api_workspaces__workspace_id__verifications__identity__inspection_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/verifications/{identity}/diff": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Milestone Diff */
+    get: operations["milestone_diff_api_workspaces__workspace_id__verifications__identity__diff_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/verifications/{identity}/diff/{file_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Milestone Patch */
+    get: operations["milestone_patch_api_workspaces__workspace_id__verifications__identity__diff__file_id__get"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -2827,6 +2896,8 @@ export interface components {
       milestone_verifications?: {
         [key: string]: components["schemas"]["MilestoneVerificationSummary"];
       };
+      /** Milestone Delivery Ids */
+      milestone_delivery_ids?: string[];
       /** Milestones */
       milestones: components["schemas"]["Milestone"][];
       /** Tasks */
@@ -3264,6 +3335,15 @@ export interface components {
       system_allowed: boolean;
       /** Items */
       items?: components["schemas"]["Announcement"][];
+    };
+    /** DeliveryConfigure */
+    DeliveryConfigure: {
+      /** Expected Revision */
+      expected_revision: number;
+      /** Project Id */
+      project_id: string;
+      /** Branch */
+      branch?: string | null;
     };
     /** DirectorySelection */
     DirectorySelection: {
@@ -3728,7 +3808,9 @@ export interface components {
       /** Project Id */
       project_id: string;
       /** Result Id */
-      result_id: string;
+      result_id: string | null;
+      /** Promotion Id */
+      promotion_id: string | null;
       /** Task Key */
       task_key: string | null;
       /** Version */
@@ -4158,6 +4240,36 @@ export interface components {
        */
       acceptance_criteria: string;
     };
+    /** MilestoneDelivery */
+    MilestoneDelivery: {
+      /** Id */
+      id: string;
+      /** Workspace Id */
+      workspace_id: string;
+      /** Milestone Id */
+      milestone_id: string;
+      /** Project Id */
+      project_id: string;
+      /** Branch */
+      branch: string;
+      /** Destination Branch */
+      destination_branch: string;
+      /** Base Commit */
+      base_commit: string;
+      /** Path */
+      path: string;
+      checkout?: components["schemas"]["CheckoutBinding"] | null;
+      /**
+       * Status
+       * @default creating
+       * @enum {string}
+       */
+      status: "creating" | "ready" | "blocked";
+      /** Problem */
+      problem?: string | null;
+      /** Created At */
+      created_at: string;
+    };
     /** MilestoneEdit */
     MilestoneEdit: {
       /** Expected Revision */
@@ -4173,6 +4285,78 @@ export interface components {
       body?: string | null;
       /** Acceptance Criteria */
       acceptance_criteria?: string | null;
+    };
+    /** MilestoneInspectionPrepare */
+    MilestoneInspectionPrepare: {
+      /** Expected Revision */
+      expected_revision: number;
+      /**
+       * New Copy
+       * @default false
+       */
+      new_copy: boolean;
+    };
+    /** MilestonePromotion */
+    MilestonePromotion: {
+      /** Id */
+      id: string;
+      /** Workspace Id */
+      workspace_id: string;
+      /** Milestone Id */
+      milestone_id: string;
+      /** Verification Id */
+      verification_id: string;
+      /** Project Id */
+      project_id: string;
+      /** Source Branch */
+      source_branch: string;
+      /** Source Commit */
+      source_commit: string;
+      /** Target Branch */
+      target_branch: string;
+      /** Target Before */
+      target_before: string;
+      /** Settings Revision */
+      settings_revision: number;
+      checkout: components["schemas"]["CheckoutBinding"];
+      /**
+       * Status
+       * @default preparing
+       * @enum {string}
+       */
+      status:
+        | "preparing"
+        | "ready"
+        | "approved"
+        | "applying"
+        | "delivered"
+        | "blocked"
+        | "stale"
+        | "failed";
+      /** Candidate Commit */
+      candidate_commit: string | null;
+      /** Workspace */
+      workspace: string | null;
+      /** Setup Checks */
+      setup_checks: components["schemas"]["CheckResult"][];
+      /** Checks */
+      checks: components["schemas"]["CheckResult"][];
+      /** Problem */
+      problem: string | null;
+      /** Problem Code */
+      problem_code: string | null;
+      /** Created At */
+      created_at: string;
+      /** Validation Started At */
+      validation_started_at: string | null;
+      /** Approved At */
+      approved_at: string | null;
+      /** Approved By */
+      approved_by: string | null;
+      /** Apply Started At */
+      apply_started_at: string | null;
+      /** Delivered At */
+      delivered_at: string | null;
     };
     /** MilestoneUpdate */
     MilestoneUpdate: {
@@ -4228,12 +4412,15 @@ export interface components {
        * @enum {string}
        */
       status:
+        | "preparing"
         | "verifying"
         | "ready"
         | "failed"
         | "stale"
         | "accepted"
-        | "changes_requested";
+        | "changes_requested"
+        | "promoting"
+        | "delivery_blocked";
       /**
        * Current
        * @default true
@@ -4264,6 +4451,9 @@ export interface components {
       review_note: string;
       /** Problem */
       problem: string | null;
+      /** Promotion Id */
+      promotion_id: string | null;
+      promotion: components["schemas"]["MilestonePromotion"] | null;
     };
     /** MilestoneVerificationSummary */
     MilestoneVerificationSummary: {
@@ -4274,12 +4464,15 @@ export interface components {
        * @enum {string}
        */
       status:
+        | "preparing"
         | "verifying"
         | "ready"
         | "failed"
         | "stale"
         | "accepted"
-        | "changes_requested";
+        | "changes_requested"
+        | "promoting"
+        | "delivery_blocked";
       /** Checks Passed */
       checks_passed: number | null;
       /** Checks Total */
@@ -6000,7 +6193,7 @@ export interface components {
        * Action
        * @enum {string}
        */
-      action: "accept" | "request_changes";
+      action: "accept" | "request_changes" | "retry_promotion";
       /**
        * Note
        * @default
@@ -7685,6 +7878,74 @@ export interface operations {
       };
     };
   };
+  milestone_delivery_api_workspaces__workspace_id__milestones__identity__delivery_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MilestoneDelivery"] | null;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  configure_milestone_delivery_api_workspaces__workspace_id__milestones__identity__delivery_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeliveryConfigure"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MilestoneDelivery"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   verification_history_api_workspaces__workspace_id__milestones__identity__verifications_get: {
     parameters: {
       query?: {
@@ -7813,6 +8074,110 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["MilestoneVerification"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  inspect_milestone_api_workspaces__workspace_id__verifications__identity__inspection_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MilestoneInspectionPrepare"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Inspection"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  milestone_diff_api_workspaces__workspace_id__verifications__identity__diff_get: {
+    parameters: {
+      query?: {
+        offset?: number;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ChangedFiles"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  milestone_patch_api_workspaces__workspace_id__verifications__identity__diff__file_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+        file_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FilePatch"];
         };
       };
       /** @description Validation Error */

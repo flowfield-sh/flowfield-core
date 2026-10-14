@@ -1,10 +1,12 @@
 """Explicit workspace entry and shared settings; repository adoption creates no defaults."""
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, Query
 
+from flowfield.adapters.git_review import changed_files, file_patch
 from flowfield.agent_models import AgentSettingsEdit, AgentSettingsView
 from flowfield.application import (
     Edit,
@@ -21,6 +23,7 @@ from flowfield.attention import (
     workspace_attention_counts,
 )
 from flowfield.browser import BrowserReads, BrowserWorkspaceBoard
+from flowfield.delivery_models import DeliveryConfigure, MilestoneDelivery
 from flowfield.documents import (
     Document,
     DocumentCreate,
@@ -29,6 +32,7 @@ from flowfield.documents import (
     DocumentRestore,
     Documents,
 )
+from flowfield.errors import ApplicationError
 from flowfield.execution_models import (
     ModelOption,
     QueueEdit,
@@ -37,10 +41,14 @@ from flowfield.execution_models import (
     WorkspaceWorkerSettings,
 )
 from flowfield.harness_models import HarnessKind
+from flowfield.inspection import Inspections
+from flowfield.inspection_models import Inspection, MilestoneInspectionPrepare
 from flowfield.labels import LabelCreate, LabelEdit, Labels, WorkspaceLabel
+from flowfield.milestone_delivery import MilestoneDeliveries
 from flowfield.milestone_verification import MilestoneVerifications
 from flowfield.milestones import Milestones
 from flowfield.permission_models import PermissionAnswer, PermissionPage, PermissionRecord
+from flowfield.review_models import ChangedFiles, FilePatch
 from flowfield.supervisor import Supervisor
 from flowfield.verification_models import (
     MilestoneVerification,
@@ -197,6 +205,18 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
             workspace_id, identity, before=before, limit=limit
         )
 
+    @router.get("/{workspace_id}/milestones/{identity}/delivery")
+    def milestone_delivery(workspace_id: str, identity: str) -> MilestoneDelivery | None:
+        return MilestoneDeliveries(supervisor().workspace).get(workspace_id, identity)
+
+    @router.put("/{workspace_id}/milestones/{identity}/delivery")
+    def configure_milestone_delivery(
+        workspace_id: str, identity: str, request: DeliveryConfigure
+    ) -> MilestoneDelivery:
+        return MilestoneDeliveries(supervisor().workspace).configure(
+            workspace_id, identity, request
+        )
+
     @router.get("/{workspace_id}/milestones/{identity}/verifications")
     def verification_history(
         workspace_id: str, identity: str, before: int | None = None, limit: int = 20
@@ -224,6 +244,38 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
         return MilestoneVerifications(supervisor().workspace).review(
             workspace_id, identity, request
         )
+
+    @router.post("/{workspace_id}/verifications/{identity}/inspection")
+    def inspect_milestone(
+        workspace_id: str, identity: str, request: MilestoneInspectionPrepare
+    ) -> Inspection:
+        return Inspections(supervisor().workspace).prepare_milestone(
+            workspace_id, identity, request.expected_revision, request.new_copy
+        )
+
+    def comparison(workspace_id: str, identity: str) -> tuple[Path, str, str]:
+        value = MilestoneVerifications(supervisor().workspace).get(workspace_id, identity)
+        promotion = value.promotion
+        if not promotion or not promotion.candidate_commit:
+            raise ApplicationError("candidate_missing", "No combined milestone candidate.", 409)
+        return (
+            Path(supervisor().workspace.project(value.project_id).path),
+            promotion.target_before,
+            promotion.candidate_commit,
+        )
+
+    @router.get("/{workspace_id}/verifications/{identity}/diff")
+    def milestone_diff(
+        workspace_id: str,
+        identity: str,
+        offset: int = Query(default=0, ge=0),
+        limit: int = Query(default=50, ge=1, le=100),
+    ) -> ChangedFiles:
+        return changed_files(*comparison(workspace_id, identity), offset, limit)
+
+    @router.get("/{workspace_id}/verifications/{identity}/diff/{file_id}")
+    def milestone_patch(workspace_id: str, identity: str, file_id: int) -> FilePatch:
+        return file_patch(*comparison(workspace_id, identity), file_id)
 
     @router.get("/{workspace_id}/milestones/{identity}/impact")
     def milestone_impact(

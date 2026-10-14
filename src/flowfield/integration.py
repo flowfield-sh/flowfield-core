@@ -1,7 +1,6 @@
 """Explicit integration orchestration. Git and SQLite retain separate durable evidence."""
 
 import json
-import os
 import sqlite3
 from pathlib import Path
 from uuid import uuid4
@@ -9,7 +8,6 @@ from uuid import uuid4
 from flowfield.adapters import git_checkout
 from flowfield.adapters import git_integration as gitops
 from flowfield.adapters.git_workspace import contains, git
-from flowfield.adapters.local_execution import LocalHost
 from flowfield.application import Workspace, now
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
@@ -30,6 +28,46 @@ class Integrations:
     def __init__(self, workspace: Workspace):
         self.workspace = workspace
         self.execution = Execution(workspace)
+
+    def for_task(self, project_id: str, task_id: str | None = None) -> IntegrationSettings:
+        settings = self.settings(project_id)
+        if task_id is None:
+            return settings
+        from flowfield.milestone_delivery import effective_branch
+
+        with self.workspace.connection() as db:
+            task = self.workspace._task(db, project_id, task_id)
+            branch = effective_branch(db, project_id, task.milestone_id)
+        return settings.model_copy(update={"target_branch": branch})
+
+    def repository(self, project_id: str, branch: str) -> Path:
+        from flowfield.delivery_models import MilestoneDelivery
+
+        with self.workspace.connection() as db:
+            if self._settings(db, project_id).target_branch == branch:
+                return Path(self.workspace._project(db, project_id).path)
+            row = db.execute(
+                "SELECT data FROM milestone_deliveries WHERE project_id=? "
+                "AND json_extract(data,'$.branch')=?",
+                (project_id, branch),
+            ).fetchone()
+            if row:
+                delivery = MilestoneDelivery.model_validate_json(row[0])
+                if delivery.status != "ready" or not delivery.checkout:
+                    raise ApplicationError(
+                        "milestone_destination_unavailable",
+                        "Repair the milestone checkout before delivery.",
+                        409,
+                    )
+                path = Path(delivery.path)
+                if git_checkout.binding(path) != delivery.checkout:
+                    raise ApplicationError(
+                        "delivery_destination_changed",
+                        "The owned milestone checkout was replaced.",
+                        409,
+                    )
+                return path
+        return Path(self.workspace.project(project_id).path)
 
     def settings(self, project_id: str) -> IntegrationSettings:
         with self.workspace.connection() as db:
@@ -68,6 +106,21 @@ class Integrations:
             with self.workspace.connection(write=True, project_id=project_id) as db:
                 current = self._settings(db, project_id)
                 self.workspace._current(current.revision, request.expected_revision)
+                if (
+                    db.execute(
+                        "SELECT 1 FROM sqlite_master WHERE name='milestone_deliveries'"
+                    ).fetchone()
+                    and db.execute(
+                        "SELECT 1 FROM milestone_deliveries WHERE project_id=? "
+                        "AND json_extract(data,'$.branch')=?",
+                        (project_id, request.target_branch),
+                    ).fetchone()
+                ):
+                    raise ApplicationError(
+                        "milestone_destination_owned",
+                        "Choose a project destination separate from its milestone branches.",
+                        409,
+                    )
                 runtime = request.runtime or current.runtime
                 if request.create_from:
                     base = gitops.resolve(repository, request.create_from)
@@ -182,8 +235,28 @@ class Integrations:
             elif version.status == "delivering" and record.status == "integrated":
                 results.complete(db, record.project_id, record.id)
 
-    def head(self, project_id: str) -> str:
-        settings = self.settings(project_id)
+    def head(self, project_id: str, task_id: str | None = None) -> str:
+        if task_id:
+            with self.workspace.connection() as db:
+                task = self.workspace._task(db, project_id, task_id)
+                verification_id = task.publication.verification_id if task.publication else None
+                if verification_id:
+                    row = db.execute(
+                        "SELECT data FROM milestone_promotions WHERE verification_id=?",
+                        (verification_id,),
+                    ).fetchone()
+                    if row:
+                        from flowfield.promotion_models import MilestonePromotion
+
+                        promotion = MilestonePromotion.model_validate_json(row[0])
+                        if promotion.status != "ready" or not promotion.candidate_commit:
+                            raise ApplicationError(
+                                "candidate_not_ready",
+                                "The milestone candidate is not ready for verification.",
+                                409,
+                            )
+                        return promotion.candidate_commit
+        settings = self.for_task(project_id, task_id)
         if not settings.target_branch:
             raise ApplicationError(
                 "integration_target_required",
@@ -211,7 +284,10 @@ class Integrations:
             )
             # Reuse this read transaction: a nested connection can wait on a
             # writer whose commit is itself waiting for our existing reader.
-            if run.target_branch != self._settings(db, project_id).target_branch:
+            from flowfield.milestone_delivery import effective_branch
+
+            task = self.workspace._task(db, project_id, run.task_id)
+            if run.target_branch != effective_branch(db, project_id, task.milestone_id):
                 raise ApplicationError(
                     "delivery_target_changed",
                     "The published delivery target changed. "
@@ -228,11 +304,12 @@ class Integrations:
         *,
         availability_result: str | None = None,
     ) -> Integration:
-        repository = Path(self.workspace.project(project_id).path)
+        run = self._accepted(project_id, run_id)
+        assert run.target_branch
+        repository = self.repository(project_id, run.target_branch)
         with gitops.lock(repository):
-            settings = self.settings(project_id)
-            before = self.head(project_id)
-            run = self._accepted(project_id, run_id)
+            settings = self.for_task(project_id, run.task_id)
+            before = self.head(project_id, run.task_id)
             assert settings.target_branch and run.result_commit
             self.workspace._current(run.revision, request.expected_revision)
             from flowfield.results import Results
@@ -294,45 +371,24 @@ class Integrations:
                 record.candidate_commit = gitops.candidate(
                     repository, before, record.result_commit, record.id
                 )
-                environment = LocalHost(os.environ).prepare(
+                from flowfield.candidate_validation import validate
+
+                evidence = validate(
                     self.workspace.directory / "integration-work",
                     repository,
                     record.id,
                     record.candidate_commit,
+                    settings,
                 )
-                record.workspace = str(environment.checkout)
-                self._save(record)
-                record.setup_checks = gitops.run_checks(
-                    environment, settings.setup_commands, settings.setup_timeout_seconds
-                )
-                if any(check.exit_code for check in record.setup_checks):
-                    from flowfield.adapters.local_checks import command_problem
-
+                record.workspace = evidence.workspace
+                record.setup_checks, record.checks = evidence.setup_checks, evidence.checks
+                if evidence.problem:
                     raise ApplicationError(
-                        "runtime_setup_failed",
-                        command_problem(record.setup_checks, []),
-                        409,
-                    )
-                record.checks = gitops.run_checks(
-                    environment, settings.checks, settings.check_timeout_seconds
-                )
-                if not gitops.unchanged(environment, record.candidate_commit):
-                    raise ApplicationError(
-                        "candidate_changed",
-                        "Validation changed candidate code. Preserved changes need a new "
-                        "reviewed task result; they are not approved by the original acceptance.",
-                        409,
-                    )
-                if any(check.exit_code for check in record.checks):
-                    raise ApplicationError(
-                        "checks_failed",
-                        "Validation failed. Inspect the output and request a correction "
-                        "on this result; the target is unchanged.",
-                        409,
+                        evidence.problem_code or "validation_failed", evidence.problem, 409
                     )
                 self._accepted(project_id, run_id)
                 if (
-                    self.head(project_id) != before
+                    self.head(project_id, run.task_id) != before
                     or self.settings(project_id).revision != settings.revision
                 ):
                     record.status, record.problem = (
@@ -352,7 +408,8 @@ class Integrations:
             return self._save(record)
 
     def apply(self, project_id: str, identity: str, request: IntegrationApply) -> Integration:
-        repository = Path(self.workspace.project(project_id).path)
+        record = self.get(project_id, identity)
+        repository = self.repository(project_id, record.target_branch)
         with gitops.lock(repository):
             record = self.get(project_id, identity)
             self.workspace._current(record.revision, request.expected_revision)
@@ -379,11 +436,14 @@ class Integrations:
                         "Approve this exact result version before delivery.",
                         409,
                     )
-            if record.apply_started_at and self.head(project_id) == record.candidate_commit:
+            if (
+                record.apply_started_at
+                and gitops.target(repository, record.target_branch) == record.candidate_commit
+            ):
                 return self._recover_locked(record)
             if (
                 self.settings(project_id).revision != record.settings_revision
-                or self.head(project_id) != record.target_before
+                or gitops.target(repository, record.target_branch) != record.target_before
             ):
                 record.status, record.problem = (
                     "stale",
@@ -441,7 +501,7 @@ class Integrations:
             self.refresh_availability(project_id)
             return record
 
-    def available(self, project_id: str, head: str) -> set[str]:
+    def available(self, project_id: str, head: str, branch: str | None = None) -> set[str]:
         settings = self.settings(project_id)
         with self.workspace.connection() as db:
             valid = db.execute(
@@ -452,7 +512,7 @@ class Integrations:
                 "json_extract(data,'$.target_before'))=? "
                 "AND json_extract(data,'$.target_branch')=? "
                 "AND json_extract(data,'$.settings_revision')=? ORDER BY number DESC LIMIT 1",
-                (project_id, head, settings.target_branch, settings.revision),
+                (project_id, head, branch or settings.target_branch, settings.revision),
             ).fetchone()
             commits = [
                 json.loads(row[0]).get("result_commit")
@@ -461,25 +521,58 @@ class Integrations:
                     (project_id,),
                 )
             ]
-        if not valid or valid[0] != "integrated":
-            return set()
+            if not valid or valid[0] != "integrated":
+                # The verifier runs the checked combined candidate, which may
+                # include destination changes absent from the milestone branch.
+                valid_promotion = (
+                    db.execute(
+                        "SELECT 1 FROM milestone_promotions WHERE project_id=? AND status='ready' "
+                        "AND json_extract(data,'$.candidate_commit')=? "
+                        "AND json_extract(data,'$.source_branch')=? "
+                        "AND json_extract(data,'$.settings_revision')=?",
+                        (project_id, head, branch, settings.revision),
+                    ).fetchone()
+                    if self.workspace.schema_version >= 71
+                    else None
+                )
+                if not valid_promotion:
+                    return set()
         repository = Path(self.workspace.project(project_id).path)
         return {commit for commit in commits if commit and contains(repository, commit, head)}
 
     def refresh_availability(self, project_id: str) -> set[str]:
-        try:
-            head = self.head(project_id)
-            available = self.available(project_id, head)
-        except ApplicationError:
-            head = None
-            available = set()
         settings = self.settings(project_id)
+        repository = Path(self.workspace.project(project_id).path)
+        with self.workspace.connection() as db:
+            branches = {
+                row[0]
+                for row in db.execute(
+                    "SELECT DISTINCT json_extract(data,'$.target_branch') FROM integrations "
+                    "WHERE project_id=? AND status IN ('ready','integrated')",
+                    (project_id,),
+                )
+            }
+        branches.add(settings.target_branch)
+        heads: dict[str | None, str | None] = {}
+        available_by_branch: dict[str | None, set[str]] = {}
+        for branch in branches:
+            try:
+                head = gitops.target(repository, branch) if branch else None
+                heads[branch] = head
+                available_by_branch[branch] = (
+                    self.available(project_id, head, branch) if head else set()
+                )
+            except ApplicationError:
+                heads[branch], available_by_branch[branch] = None, set()
         with self.workspace.connection(write=True, project_id=project_id) as db:
             for row in db.execute(
                 "SELECT data FROM integrations WHERE project_id=? AND status='ready'", (project_id,)
             ).fetchall():
                 record = Integration.model_validate_json(row[0])
-                if record.target_before != head or record.settings_revision != settings.revision:
+                if (
+                    record.target_before != heads.get(record.target_branch)
+                    or record.settings_revision != settings.revision
+                ):
                     record.status, record.problem = (
                         "stale",
                         "Target or settings moved. Prepare and validate again.",
@@ -494,13 +587,16 @@ class Integrations:
                 "SELECT data FROM work_runs WHERE project_id=? AND status='accepted'", (project_id,)
             ).fetchall():
                 run = self.execution._run(db, project_id, json.loads(row[0])["id"])
-                value = run.result_commit in available
+                value = run.result_commit in available_by_branch.get(run.target_branch, set())
                 if run.code_available != value:
                     run.code_available = value
                     self.execution._save(db, run)
-        return available
+        return available_by_branch.get(settings.target_branch, set())
 
     def restart(self) -> None:
+        from flowfield.milestone_delivery import MilestoneDeliveries
+
+        MilestoneDeliveries(self.workspace).restart()
         with self.workspace.connection() as db:
             rows = db.execute(
                 "SELECT data FROM integrations WHERE status IN ('preparing','applying')"
@@ -509,12 +605,12 @@ class Integrations:
             self.recover(Integration.model_validate_json(row[0]))
 
     def recover(self, record: Integration) -> Integration:
-        repository = Path(self.workspace.project(record.project_id).path)
+        repository = self.repository(record.project_id, record.target_branch)
         with gitops.lock(repository):
             return self._recover_locked(record)
 
     def _recover_locked(self, record: Integration) -> Integration:
-        repository = Path(self.workspace.project(record.project_id).path)
+        repository = self.repository(record.project_id, record.target_branch)
         record = self.get(record.project_id, record.id)
         if record.status not in ("preparing", "applying", "stale"):
             return record

@@ -20,6 +20,8 @@ Repository instructions govern development conventions and permission to commit/
 - The adjacent browser view is captured when the human sends a message. It guides relevance,
   not authority. A task includes its project and exact optional result; a document includes its
   saved revision. Never carry an earlier view forward when the current message has none.
+- Ask planning clarifications in your conversation reply. For a retained Inbox decision, use
+  Flowfield's question tools. Native harness question forms are not a human input surface here.
 - Read main workspace guidance (document ID `guidance`) and relevant custom documents through
   `get_document`/`get_document_text`, following exact revisions and pagination. The built-in
   prompt supplies a bounded main-guidance excerpt frozen at send. Do not load the whole library.
@@ -96,11 +98,20 @@ Repository instructions govern development conventions and permission to commit/
 - Task Done means its contribution was delivered. To verify a milestone, first ensure every
   contributing task has a complete delivered result, including archived work. Keep optional
   lightweight groups distinct from milestones with acceptance criteria.
+- For a code milestone that should assemble before final delivery, configure project checks
+  and its destination, then use `configure_milestone_delivery` before preparing any member task.
+  This owns one repository branch/checkout; task approvals deliver only to that branch.
+  Keep other projects in separate milestones for this delivery mode. Existing prepared work
+  is never silently moved. Read `get_milestone` for destination ownership or creation recovery.
 - Create a report task in that milestone, with all contributing tasks as prerequisites and
   reviewed outcome stages. Leave it in Backlog while binding `prepare_milestone_verification` to exact milestone/task
   revisions and checks covering the complete acceptance criteria. Preparation freezes inputs
   and prepares report completion; then queue under human execution authority. Use concise observable
   outcome check headings; put test procedures and examples in the verifier description.
+  Owned delivery first prepares and checks the exact combination with the project destination.
+  The verifier waits for that candidate and runs from it, including concurrent destination work.
+  Failed preparation needs correction and new verification; source, destination, settings or
+  criteria changes invalidate the old candidate. Do not merge again after verification.
   Separate product outcomes from permissions and workflow obligations. Confirm the scoped
   worker can observe every required check; resolve inaccessible evidence or human judgment
   with the human before launching, without inventing a pass or dropping agreed requirements.
@@ -119,8 +130,12 @@ Repository instructions govern development conventions and permission to commit/
   criteria, contributions or verifier agreement invalidate pending evidence. Do not treat a
   historical acceptance receipt as acceptance of new work. Do not inject an unsolicited turn
   into the main Coordinator conversation.
-- Human milestone acceptance records review of already delivered versions. It does not integrate
-  code, promote branches, create PRs, release packages or close external issues.
+- For owned delivery, the human can Try milestone and inspect combined Code changes, then
+  Accept and promote that exact candidate. Completion follows verified local delivery.
+  Checkout-only blockers retain approval and offer Retry promotion; changed inputs require
+  fresh verification and approval. Other milestones record acceptance of delivered versions.
+  Neither action pushes, creates PRs, releases packages or closes external issues. Coordinators
+  and workers cannot grant milestone approval; never substitute task approvals for it.
 
 ## Adopt and validate
 

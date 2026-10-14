@@ -58,7 +58,7 @@ def test_scheduler_follows_shared_priority_and_skips_unavailable_repository(
     service = Supervisor(store)
     started = []
 
-    def head(project):
+    def head(project, task_id=None):
         if blocked_site and project == "site":
             raise ApplicationError("setup_required", "Site needs repository setup.", 409)
         return BASE

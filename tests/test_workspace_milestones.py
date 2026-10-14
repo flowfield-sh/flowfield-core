@@ -8,7 +8,7 @@ from project_fixtures import existing_directory, task_request
 from test_execution import BASE, fixture
 from test_storage_migrations import logical_data
 
-from flowfield import migrations
+from flowfield import migrations, milestone_delivery
 from flowfield.agent_tools import workspace_scope
 from flowfield.application import MilestoneCreate, MilestoneEdit, ProjectSetup, TaskEdit, Workspace
 from flowfield.errors import ApplicationError
@@ -99,6 +99,8 @@ def test_workspace_tools_work_before_adoption_and_guard_full_text(tmp_path):
 
 def test_upgrade_preserves_milestone_task_binding_and_frozen_assignment(tmp_path, monkeypatch):
     with monkeypatch.context() as old:
+        # Reconstruct the older writer: milestone branch ownership did not exist.
+        old.setattr(milestone_delivery, "for_milestone", lambda *args: None)
         old.setattr(
             migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 60)
         )
@@ -144,6 +146,8 @@ def test_upgrade_preserves_milestone_task_binding_and_frozen_assignment(tmp_path
 
 def test_failed_milestone_upgrade_restores_index_and_records(tmp_path, monkeypatch):
     with monkeypatch.context() as old:
+        # Reconstruct the older writer: milestone branch ownership did not exist.
+        old.setattr(milestone_delivery, "for_milestone", lambda *args: None)
         old.setattr(
             migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 60)
         )

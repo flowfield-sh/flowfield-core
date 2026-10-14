@@ -17,6 +17,10 @@ class NativeError(RuntimeError):
     pass
 
 
+class NativeRequestUnavailable(NativeError):
+    """An adapter-authored public explanation, safe to return to the native agent."""
+
+
 class JsonRpc:
     def __init__(
         self,
@@ -147,6 +151,11 @@ class JsonRpc:
         try:
             result = await self.request(method, params)
             await self.send(self.response_frame(identity, result))
+        except NativeRequestUnavailable as error:
+            frame = self.error_frame(identity)
+            frame["error"]["message"] = str(error)[:1000]
+            with contextlib.suppress(Exception):
+                await self.send(frame)
         except (Exception, asyncio.CancelledError):
             with contextlib.suppress(Exception):
                 await self.send(self.error_frame(identity))

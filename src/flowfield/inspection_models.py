@@ -25,11 +25,17 @@ class InspectionPrepare(Record):
     new_copy: bool = False
 
 
+class MilestoneInspectionPrepare(Record):
+    expected_revision: int = Field(ge=1)
+    new_copy: bool = False
+
+
 class Inspection(Record):
     model_config = ConfigDict(extra="ignore")
     id: str
     project_id: str
-    result_id: str
+    result_id: str | None = None
+    promotion_id: str | None = None
     task_key: str | None = None
     version: int | None = None
     target_branch: str

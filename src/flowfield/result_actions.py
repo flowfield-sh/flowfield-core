@@ -86,17 +86,15 @@ def result_action(
     except ApplicationError:
         # Reconciliation authorizes a revised assignment, never the old candidate.
         # A blocked code result can then use the existing correction operation.
-        destination = db.execute(
-            "SELECT json_extract(data, '$.target_branch') FROM integration_settings "
-            "WHERE project_id=?",
-            (value.project_id,),
-        ).fetchone()
+        from flowfield.milestone_delivery import effective_branch
+
+        destination = effective_branch(db, value.project_id, task.milestone_id)
         revised_assignment = (
             task.publication_status == "published"
             and task.publication is not None
             and task.publication.completion == "code"
             and destination is not None
-            and task.publication.target_branch == destination[0]
+            and task.publication.target_branch == destination
             and task.readiness == "ready"
             and value.completion == "code"
             and value.status in ("blocked", "stale")

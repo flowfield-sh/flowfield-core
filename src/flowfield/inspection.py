@@ -82,11 +82,29 @@ class Inspections:
             or settings.setup_commands != value.setup_commands
             or self.settings(value.project_id).run_command != value.run_command
         )
-        result = Results(self.workspace).get(value.project_id, value.result_id)
-        page = Results(self.workspace).page(value.project_id, result.task_id, limit=1)
-        value.source_changed = (
-            page.current_id != value.result_id or page.current_run_id != result.run_id
-        )
+        if value.promotion_id:
+            from flowfield.milestone_promotion import read
+
+            with self.workspace.connection() as db:
+                promotion = read(db, value.promotion_id)
+                verification = db.execute(
+                    "SELECT status,json_extract(data,'$.current') FROM milestone_verifications "
+                    "WHERE id=?",
+                    (promotion.verification_id,),
+                ).fetchone()
+            value.source_changed = (
+                promotion.status in ("stale", "failed")
+                or not verification
+                or not verification[1]
+                or verification[0] in ("stale", "failed", "changes_requested")
+            )
+        else:
+            assert value.result_id
+            result = Results(self.workspace).get(value.project_id, value.result_id)
+            page = Results(self.workspace).page(value.project_id, result.task_id, limit=1)
+            value.source_changed = (
+                page.current_id != value.result_id or page.current_run_id != result.run_id
+            )
         if value.status == "ready":
             try:
                 assert value.workspace
@@ -113,8 +131,9 @@ class Inspections:
         with self.workspace.connection(write=True, project_id=value.project_id) as db:
             if insert:
                 db.execute(
-                    "INSERT INTO inspections(id,project_id,result_id,data) VALUES (?,?,?,?)",
-                    (value.id, value.project_id, value.result_id, data),
+                    "INSERT INTO inspections(id,project_id,result_id,data,promotion_id) "
+                    "VALUES (?,?,?,?,?)",
+                    (value.id, value.project_id, value.result_id, data, value.promotion_id),
                 )
             else:
                 db.execute("UPDATE inspections SET data=? WHERE id=?", (data, value.id))
@@ -167,24 +186,75 @@ class Inspections:
                 setup_commands=settings.setup_commands,
                 run_command=instructions.run_command,
             )
-            self._save(value, insert=True)
-            try:
-                environment = LocalHost(os.environ).prepare(
-                    self.workspace.directory / "inspection-work", repository, value.id, commit
+            return self._copy(value, repository)
+
+    def _copy(self, value: Inspection, repository: Path) -> Inspection:
+        self._save(value, insert=True)
+        try:
+            environment = LocalHost(os.environ).prepare(
+                self.workspace.directory / "inspection-work", repository, value.id, value.commit
+            )
+            value.workspace = str(environment.checkout)
+            if value.run_command:
+                value.launcher = str(
+                    write_launcher(environment, value.setup_commands, value.run_command)
                 )
-                value.workspace = str(environment.checkout)
-                if value.run_command:
-                    value.launcher = str(
-                        write_launcher(environment, value.setup_commands, value.run_command)
-                    )
-                    value.command = f"/bin/sh {shlex.quote(value.launcher)}"
-                value.status = "ready"
-            except (ApplicationError, OSError) as error:
-                value.status = "failed"
-                value.problem = (
-                    error.message
-                    if isinstance(error, ApplicationError)
-                    else "Could not prepare inspection files. Check the directory and disk space."
-                )
-            self._save(value)
-            return self._observe(value)
+                value.command = f"/bin/sh {shlex.quote(value.launcher)}"
+            value.status = "ready"
+        except (ApplicationError, OSError) as error:
+            value.status = "failed"
+            value.problem = (
+                error.message
+                if isinstance(error, ApplicationError)
+                else "Could not prepare inspection files. Check the directory and disk space."
+            )
+        self._save(value)
+        return self._observe(value)
+
+    def prepare_milestone(
+        self, workspace_id: str, identity: str, expected_revision: int, new_copy: bool = False
+    ) -> Inspection:
+        from flowfield.milestone_verification import MilestoneVerifications
+
+        verification = MilestoneVerifications(self.workspace).get(workspace_id, identity)
+        self.workspace._current(verification.revision, expected_revision)
+        promotion = verification.promotion
+        if not promotion or not promotion.candidate_commit:
+            raise ApplicationError(
+                "candidate_missing", "This milestone has no prepared candidate.", 409
+            )
+        repository = Path(self.workspace.project(promotion.project_id).path)
+        with gitops.lock(repository):
+            settings = self.integrations.settings(promotion.project_id)
+            instructions = self.settings(promotion.project_id)
+            with self.workspace.connection() as db:
+                row = db.execute(
+                    "SELECT data FROM inspections WHERE promotion_id=? "
+                    "ORDER BY number DESC LIMIT 1",
+                    (promotion.id,),
+                ).fetchone()
+            previous = self._observe(Inspection.model_validate_json(row[0])) if row else None
+            if (
+                previous
+                and previous.status == "ready"
+                and not previous.problem
+                and not previous.instructions_changed
+                and not new_copy
+            ):
+                return previous
+            return self._copy(
+                Inspection(
+                    id=uuid4().hex,
+                    project_id=promotion.project_id,
+                    promotion_id=promotion.id,
+                    task_key=verification.milestone_key,
+                    version=verification.milestone_revision,
+                    target_branch=promotion.target_branch,
+                    commit=promotion.candidate_commit,
+                    created_at=now(),
+                    runtime=settings.runtime,
+                    setup_commands=settings.setup_commands,
+                    run_command=instructions.run_command,
+                ),
+                repository,
+            )

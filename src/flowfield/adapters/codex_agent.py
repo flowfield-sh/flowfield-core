@@ -20,7 +20,7 @@ from flowfield.adapters.agent_contract import (
 )
 from flowfield.adapters.codex_activity import describe
 from flowfield.adapters.harness_host import launch_environment, resolve
-from flowfield.adapters.json_rpc import MAX_INPUT, JsonRpc, NativeError
+from flowfield.adapters.json_rpc import MAX_INPUT, JsonRpc, NativeError, NativeRequestUnavailable
 from flowfield.agent_models import AgentChoice, AgentCommand
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import ModelOption, NativeMode
@@ -497,14 +497,14 @@ class CodexAgent(Agent):
             details = bounded_details(
                 "\n".join(
                     [
-                        self.tools.get(identity, ""),
+                        self.tools.get(identity, "") if not data.get("command") else "",
                         *[
                             str(data[key])
                             for key in ("command", "cwd", "reason", "grantRoot")
                             if data.get(key)
                         ],
                     ]
-                )
+                ).strip()
             )
             offered = data.get("availableDecisions")
             if offered is not None and (not isinstance(offered, list) or len(offered) > 16):
@@ -543,6 +543,21 @@ class CodexAgent(Agent):
             item = str(data.get("itemId", ""))
             tool = self._mcp_approvals.get(item)
             questions = data.get("questions")
+            if (
+                eligible()
+                and isinstance(questions, list)
+                and any(
+                    isinstance(question, dict)
+                    and isinstance(question.get("id"), str)
+                    and not question["id"].startswith("mcp_tool_call_approval_")
+                    for question in questions
+                )
+            ):
+                raise NativeRequestUnavailable(
+                    "Flowfield did not display these native questions and no human answered. "
+                    "Ask planning questions in your conversation reply, or use Flowfield's "
+                    "question tool for an Inbox response. Workers must use ask_question."
+                )
             if (
                 not eligible()
                 or tool is None

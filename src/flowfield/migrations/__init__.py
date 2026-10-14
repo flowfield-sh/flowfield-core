@@ -30,6 +30,8 @@ from flowfield.migrations import (
     v067_document_purposes,
     v068_milestone_agreements,
     v069_milestone_verification,
+    v070_milestone_delivery,
+    v071_milestone_promotion,
 )
 
 BASELINE_VERSION = 44
@@ -67,6 +69,8 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(67, v067_document_purposes.apply),
     Migration(68, v068_milestone_agreements.apply),
     Migration(69, v069_milestone_verification.apply),
+    Migration(70, v070_milestone_delivery.apply),
+    Migration(71, v071_milestone_promotion.apply),
 )
 
 

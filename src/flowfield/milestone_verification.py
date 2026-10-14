@@ -3,6 +3,8 @@
 import json
 import sqlite3
 import time
+from contextlib import nullcontext
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -99,7 +101,7 @@ def read(db: sqlite3.Connection, workspace_id: str, identity: str) -> MilestoneV
 def save(db: sqlite3.Connection, value: MilestoneVerification) -> None:
     db.execute(
         "UPDATE milestone_verifications SET status=?,data=? WHERE id=?",
-        (value.status, value.model_dump_json(), value.id),
+        (value.status, value.model_dump_json(exclude={"promotion"}), value.id),
     )
 
 
@@ -255,7 +257,12 @@ class MilestoneVerifications:
 
     def get(self, workspace_id: str, identity: str) -> MilestoneVerification:
         with self.store.connection() as db:
-            return read(db, workspace_id, identity)
+            value = read(db, workspace_id, identity)
+            if value.promotion_id:
+                from flowfield.milestone_promotion import read as promotion_read
+
+                value.promotion = promotion_read(db, value.promotion_id)
+            return value
 
     def context(
         self,
@@ -310,6 +317,21 @@ class MilestoneVerifications:
     def prepare(
         self, workspace_id: str, milestone_id: str, request: VerificationPrepare
     ) -> MilestoneVerification:
+        from flowfield.adapters import git_integration as gitops
+        from flowfield.milestone_delivery import MilestoneDeliveries
+
+        delivery = MilestoneDeliveries(self.store).get(workspace_id, milestone_id)
+        boundary = (
+            gitops.lock(Path(self.store.project(delivery.project_id).path))
+            if delivery
+            else nullcontext()
+        )
+        with boundary:
+            return self._prepare(workspace_id, milestone_id, request)
+
+    def _prepare(
+        self, workspace_id: str, milestone_id: str, request: VerificationPrepare
+    ) -> MilestoneVerification:
         with self.store.connection(write=True) as db:
             milestone = Milestones.read(db, workspace_id, milestone_id)
             self.store._current(milestone.revision, request.expected_revision)
@@ -344,7 +366,8 @@ class MilestoneVerifications:
                 )
             active = db.execute(
                 "SELECT id FROM milestone_verifications WHERE workspace_id=? AND "
-                "milestone_id=? AND status IN ('verifying','ready')",
+                "milestone_id=? AND status IN "
+                "('preparing','verifying','ready','promoting','delivery_blocked')",
                 (workspace_id, milestone.id),
             ).fetchone()
             if active:
@@ -386,6 +409,10 @@ class MilestoneVerifications:
                 "VALUES (?,?,?,?,?)",
                 (value.id, workspace_id, milestone.id, value.status, value.model_dump_json()),
             )
+            from flowfield.milestone_promotion import MilestonePromotions
+
+            MilestonePromotions(self.store).create(db, value)
+            save(db, value)
             bound = TaskRevision.model_validate(task.model_dump())
             assert bound.publication
             bound.publication.verification_id = value.id
@@ -397,11 +424,30 @@ class MilestoneVerifications:
     def review(
         self, workspace_id: str, identity: str, request: VerificationReview
     ) -> MilestoneVerification:
+        from flowfield.adapters import git_integration as gitops
+        from flowfield.milestone_promotion import MilestonePromotions
+
+        value = self.get(workspace_id, identity)
+        boundary = (
+            gitops.lock(Path(self.store.project(value.project_id).path))
+            if value.promotion_id
+            else nullcontext()
+        )
+        with boundary:
+            if value.promotion and request.action != "request_changes":
+                MilestonePromotions(self.store).inputs(value.promotion)
+            return self._review(workspace_id, identity, request)
+
+    def _review(
+        self, workspace_id: str, identity: str, request: VerificationReview
+    ) -> MilestoneVerification:
         with self.store.connection(write=True) as db:
             value = read(db, workspace_id, identity)
             self.store._current(value.revision, request.expected_revision)
             problem = current_problem(db, value)
-            if value.status != "ready" or not value.current or problem:
+            retry = request.action == "retry_promotion"
+            expected_status = "delivery_blocked" if retry else "ready"
+            if value.status != expected_status or not value.current or problem:
                 raise ApplicationError(
                     "verification_not_reviewable",
                     problem or "Only current passing evidence can be reviewed.",
@@ -409,10 +455,35 @@ class MilestoneVerifications:
                 )
             if request.action == "request_changes" and not request.note.strip():
                 raise ApplicationError("feedback_required", "Describe the required changes.")
-            value.status = "accepted" if request.action == "accept" else "changes_requested"
-            value.reviewed_by = request.author
-            value.reviewed_at = now()
-            value.review_note = request.note
+            if value.promotion_id and request.action != "request_changes":
+                from flowfield.milestone_promotion import read as promotion_read
+                from flowfield.milestone_promotion import save as promotion_save
+
+                promotion = promotion_read(db, value.promotion_id)
+                if promotion.status != ("blocked" if retry else "ready"):
+                    raise ApplicationError(
+                        "promotion_changed", "Read the current promotion before reviewing.", 409
+                    )
+                if retry and not promotion.approved_at:
+                    raise ApplicationError(
+                        "approval_required", "This candidate needs human approval.", 409
+                    )
+                promotion.status = "approved"
+                promotion.problem = promotion.problem_code = None
+                if not retry:
+                    promotion.approved_at, promotion.approved_by = now(), request.author
+                promotion_save(db, promotion)
+                value.status, value.problem = "promoting", None
+            elif retry:
+                raise ApplicationError(
+                    "promotion_missing", "This milestone has no promotion to retry.", 409
+                )
+            else:
+                value.status = "accepted" if request.action == "accept" else "changes_requested"
+            if not retry:
+                value.reviewed_by = request.author
+                value.reviewed_at = now()
+                value.review_note = request.note
             value.revision += 1
             value.updated_at = now()
             save(db, value)

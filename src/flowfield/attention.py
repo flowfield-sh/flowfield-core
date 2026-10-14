@@ -172,7 +172,9 @@ _WORKSPACE_PROJECTION = (
     SELECT NULL,v.id,'milestone',json_extract(v.data,'$.milestone_key'),
         substr(json_extract(v.data,'$.title'),1,500),v.status,
         json_extract(v.data,'$.updated_at'),NULL,
-        CASE v.status WHEN 'ready' THEN 'action' WHEN 'verifying' THEN 'waiting'
+        CASE v.status WHEN 'ready' THEN 'action' WHEN 'delivery_blocked' THEN 'action'
+        WHEN 'verifying' THEN 'waiting' WHEN 'preparing' THEN 'waiting'
+        WHEN 'promoting' THEN 'waiting'
         ELSE 'history' END,NULL,NULL
     FROM milestone_verifications v WHERE v.workspace_id=:workspace
         AND (:project IS NULL OR EXISTS (SELECT 1 FROM json_each(v.data,'$.tasks') t

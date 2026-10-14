@@ -257,6 +257,22 @@ class Execution:
                     not continuation and (task.status != "up_next" or task.readiness != "ready")
                 ) or task.publication_status != "published":
                     continue
+                if task.publication and task.publication.verification_id:
+                    row = db.execute(
+                        "SELECT v.status,p.data FROM milestone_verifications v "
+                        "LEFT JOIN milestone_promotions p ON p.verification_id=v.id "
+                        "WHERE v.id=?",
+                        (task.publication.verification_id,),
+                    ).fetchone()
+                    if not row or row[0] != "verifying":
+                        continue
+                    if row[1]:
+                        promotion = json.loads(row[1])
+                        if (
+                            promotion["status"] != "ready"
+                            or promotion["candidate_commit"] != baseline
+                        ):
+                            continue
                 if db.execute(
                     (
                         "SELECT 1 FROM runs WHERE project_id=? AND task_id=? AND status IN"
@@ -388,6 +404,16 @@ class Execution:
                     "SELECT data FROM integration_settings WHERE project_id=?", (project_id,)
                 ).fetchone()
                 runtime_settings = json.loads(runtime_row[0]) if runtime_row else {}
+                from flowfield.milestone_delivery import effective_branch
+
+                runtime_settings["target_branch"] = effective_branch(
+                    db, project_id, task.milestone_id
+                )
+                if (
+                    task.publication.target_branch
+                    and task.publication.target_branch != runtime_settings["target_branch"]
+                ):
+                    continue
                 if (
                     (continuation or retrying_input)
                     and predecessor

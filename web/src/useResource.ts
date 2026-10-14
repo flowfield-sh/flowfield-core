@@ -214,7 +214,7 @@ export function usePage<
   }
   return {
     ...resource,
-    loadingMore,
+    loadingMore: loadingMore || resource.loading,
     older,
     retry() {
       more.current?.abort();

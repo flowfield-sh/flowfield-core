@@ -172,7 +172,9 @@ class Supervisor:
                 409,
             )
 
-    def _available(self, project_id: str, repository: Path, head: str) -> dict[str, set[str]]:
+    def _available(
+        self, project_id: str, repository: Path, head: str, branch: str | None = None
+    ) -> dict[str, set[str]]:
         with self.workspace.connection() as db:
             followups = []
             for row in db.execute(
@@ -193,7 +195,7 @@ class Supervisor:
                         correction.base_commit if correction else previous.result_commit,
                     ]
                 )
-        commits = self.integrations.available(project_id, head)
+        commits = self.integrations.available(project_id, head, branch)
         return {
             base: {commit for commit in commits if commit and contains(repository, commit, base)}
             for base in {head, *followups}
@@ -208,23 +210,20 @@ class Supervisor:
     async def _schedule_once(self) -> None:
         # Repository preparation remains project-local. A failed repository cannot
         # consume the shared queue; fresh claims follow workspace board order.
-        ready: dict[str, tuple[Path, str, dict[str, set[str]]]] = {}
+        ready: dict[str, Path] = {}
         problems: dict[str, str | None] = {}
         for project in self.workspace.projects():
             try:
                 if project.id not in self.delivery_jobs:
                     delivery = asyncio.create_task(
-                        asyncio.to_thread(self.results.process, project.id)
+                        asyncio.to_thread(self._process_delivery, project.id)
                     )
                     self.delivery_jobs[project.id] = delivery
                     delivery.add_done_callback(partial(self._delivery_finished, project.id))
                 await asyncio.to_thread(self.integrations.refresh_availability, project.id)
                 if not self.execution.settings(project.id).enabled:
                     continue
-                repository = Path(project.path)
-                head = await asyncio.to_thread(self.integrations.head, project.id)
-                available = await asyncio.to_thread(self._available, project.id, repository, head)
-                ready[project.id] = (repository, head, available)
+                ready[project.id] = Path(project.path)
                 problems[project.id] = None
             except ApplicationError as error:
                 problems[project.id] = error.message
@@ -239,8 +238,13 @@ class Supervisor:
                 break
             if project_id not in ready:
                 continue
-            repository, head, available = ready[project_id]
+            repository = ready[project_id]
             try:
+                settings = self.integrations.for_task(project_id, task_id)
+                head = await asyncio.to_thread(self.integrations.head, project_id, task_id)
+                available = await asyncio.to_thread(
+                    self._available, project_id, repository, head, settings.target_branch
+                )
                 run = self.execution.claim(project_id, head, available, task_id=task_id)
                 if run:
                     task = asyncio.create_task(self._execute(run, repository))
@@ -259,6 +263,12 @@ class Supervisor:
 
     def _job_finished(self, identity: str, task: asyncio.Task[None]) -> None:
         self.jobs.pop(identity, None)
+
+    def _process_delivery(self, project_id: str) -> None:
+        from flowfield.milestone_promotion import MilestonePromotions
+
+        self.results.process(project_id)
+        MilestonePromotions(self.workspace).process(project_id)
 
     def _delivery_finished(self, identity: str, task: asyncio.Task[None]) -> None:
         self.delivery_jobs.pop(identity, None)
