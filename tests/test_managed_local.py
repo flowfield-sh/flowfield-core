@@ -538,6 +538,17 @@ def test_stopping_one_parallel_native_worker_keeps_the_other_permission_live(tmp
             async with asyncio.timeout(10):
                 while len(service.permissions.page("harbor").pending) < 2:
                     await asyncio.sleep(0.02)
+            from flowfield.agent_tools import workspace_scope
+
+            grant = await workspace_scope(service, "harbor")
+            observed = await grant.call("get_run", {"project_id": "harbor", "run_id": runs[0].id})
+            assert not observed.isError
+            pending_read = observed.structuredContent["pending_permissions"]
+            assert len(pending_read) == 1
+            assert pending_read[0]["id"] in {
+                p.id for p in service.permissions.page("harbor").pending if p.run_id == runs[0].id
+            }
+            assert pending_read[0]["options"] and pending_read[0]["url"]
             first = service.execution.get("harbor", runs[0].id)
             await service.stop("harbor", first.id, RunAction(expected_revision=first.revision))
             pending = service.permissions.page("harbor").pending
@@ -551,8 +562,44 @@ def test_stopping_one_parallel_native_worker_keeps_the_other_permission_live(tmp
             await asyncio.gather(*jobs)
             assert service.execution.get("harbor", runs[0].id).status == "stopped"
             assert service.execution.get("harbor", runs[1].id).status == "in_review"
+            observed = await grant.call("get_run", {"project_id": "harbor", "run_id": runs[0].id})
+            assert observed.structuredContent["pending_permissions"] == []
         finally:
             await service.close()
             service.jobs.clear()
+
+    asyncio.run(exercise())
+
+
+def test_worker_setup_failure_uses_same_recovery_as_validation(tmp_path, monkeypatch):
+    service, repo, settings = configured(tmp_path, monkeypatch)
+    settings = service.integrations.configure(
+        "harbor",
+        IntegrationConfig(
+            expected_revision=settings.revision,
+            target_branch="main",
+            checks=["test -f base.txt"],
+            setup_commands=["flowfield_nonexistent_test_tool_1736254"],
+        ),
+    )
+    base = baseline(repo)
+
+    async def exercise():
+        try:
+            check = await service.setup_validation.check(
+                "harbor", SetupCheckRequest(expected_revision=settings.revision)
+            )
+            run = service.execution.claim("harbor", base, {base: set()})
+            assert run
+            await service._execute(run, repo)
+            failed = service.execution.get("harbor", run.id)
+            assert failed.status == "failed"
+            assert failed.problem == check.problem
+            assert "Install the tool on the service host" in failed.problem
+            assert failed.setup_checks[0].exit_code == 127
+            assert failed.result_commit is None
+            assert service.execution.local(run.id)["native_cleanup_confirmed"]
+        finally:
+            await service.close()
 
     asyncio.run(exercise())

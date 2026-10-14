@@ -1579,6 +1579,9 @@ class Workspace:
             task.project_id,
             task.id,
             StageUpdate(**change.model_dump(), agreement_revision=task.agreement_revision),
+            # Editing the agreement can itself require reconciliation. Save its reviewed
+            # plan atomically; reconciliation still gates publication/continuation.
+            revising_agreement=True,
         )
 
     def publish_task(self, project_id: str, task_id: str, request: TaskPublish) -> Task:

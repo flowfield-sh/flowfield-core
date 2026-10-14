@@ -356,6 +356,33 @@ def test_coordinator_configures_and_validates_only_its_project(tmp_path, monkeyp
         )
         assert not checked.isError, checked
         assert service.setup_validation.get("project").status == "passed"
+        first = service.setup_validation.get("project")
+        await grant.call(
+            "validate_project_setup",
+            {"project_id": "project", "request": {"expected_revision": actual.revision}},
+        )
+        historical = await grant.call(
+            "get_setup_validation", {"project_id": "project", "check_id": first.id}
+        )
+        assert not historical.isError
+        assert historical.structuredContent["result"]["id"] == first.id
+        assert historical.structuredContent["result"]["settings"]["revision"] == actual.revision
+        changed = await grant.call(
+            "configure_integration",
+            {
+                "project_id": "project",
+                "settings": {
+                    "expected_revision": actual.revision,
+                    "target_branch": "delivery",
+                    "checks": ["printf new-check"],
+                },
+            },
+        )
+        assert not changed.isError
+        assert service.integrations.settings("project").setup_commands == actual.setup_commands
+        assert (
+            await grant.call("get_setup_validation", {"project_id": "other", "check_id": first.id})
+        ).isError
         assert not service.execution.settings("project").enabled
         assert not (
             await grant.call(

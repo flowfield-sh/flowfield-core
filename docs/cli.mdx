@@ -107,7 +107,7 @@ flowfield project integration show
 flowfield project integration configure --target main --check "make test"
 ```
 
-Repeat `--check` for multiple commands; `--setup` adds dependency setup. The Coordinator can configure and validate richer environment and run-command settings. See [worker setup](/worker-setup).
+Repeat `--check` for multiple commands; repeated `--setup` options replace the saved setup commands. Omitted setup and timeout options retain their saved values; `--clear-setup` explicitly removes setup commands. The Coordinator can configure and validate richer environment and run-command settings. See [worker setup](/worker-setup).
 
 ## Host harness settings
 

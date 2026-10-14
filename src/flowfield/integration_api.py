@@ -31,8 +31,8 @@ def integration_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
         return supervisor().integrations.configure(project_id, request)
 
     @router.get("/setup-validation")
-    def setup_validation(project_id: str) -> SetupCheck | None:
-        return supervisor().setup_validation.get(project_id)
+    def setup_validation(project_id: str, check_id: str | None = None) -> SetupCheck | None:
+        return supervisor().setup_validation.get(project_id, check_id)
 
     @router.post("/setup-validation")
     async def validate_setup(project_id: str, request: SetupCheckRequest) -> SetupCheck:

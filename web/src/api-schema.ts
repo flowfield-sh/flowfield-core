@@ -5209,6 +5209,9 @@ export interface components {
       setup: components["schemas"]["CheckResult"][];
       /** Checks */
       checks: components["schemas"]["CheckResult"][];
+      settings: components["schemas"]["IntegrationSettings"] | null;
+      /** Previous Check Id */
+      previous_check_id: string | null;
       /** Pid */
       pid: number | null;
     };
@@ -11177,7 +11180,9 @@ export interface operations {
   };
   setup_validation_api_projects__project_id__setup_validation_get: {
     parameters: {
-      query?: never;
+      query?: {
+        check_id?: string | null;
+      };
       header?: never;
       path: {
         project_id: string;

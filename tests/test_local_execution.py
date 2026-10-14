@@ -350,3 +350,68 @@ def test_group_receipt_does_not_claim_detached_process_containment(tmp_path):
             await owned.close(timeout=0.5)
 
     asyncio.run(exercise())
+
+
+def test_service_wrappers_isolate_ports_and_cleanup_without_stopping_borrowed_service(tmp_path):
+    import shlex
+    import socket
+
+    from flowfield.adapters.local_checks import run_checks
+
+    repo, _ = repository(tmp_path)
+    (repo / "check.py").write_text(
+        "import os, select, socket, subprocess, sys, time\n"
+        "from pathlib import Path\n"
+        "service = subprocess.Popen([sys.executable, '-u', '-c',\n"
+        '    \'import socket,time; s=socket.socket(); s.bind(("127.0.0.1",0)); '
+        "s.listen(); print(s.getsockname()[1],flush=True); time.sleep(60)'],\n"
+        "    stdout=subprocess.PIPE, text=True)\n"
+        "try:\n"
+        "    assert select.select([service.stdout], [], [], 5)[0], 'readiness timeout'\n"
+        "    port = int(service.stdout.readline())\n"
+        "    Path(os.environ['FLOWFIELD_RUNTIME_DIR'], 'port').write_text(str(port))\n"
+        "    with socket.create_connection(('127.0.0.1',port), timeout=1): pass\n"
+        "    print('service ready', flush=True)\n"
+        "    if sys.argv[1] == 'timeout': time.sleep(60)\n"
+        "    else: time.sleep(0.2)\n"
+        "    sys.exit(7 if sys.argv[1] == 'fail' else 0)\n"
+        "finally:\n"
+        "    service.terminate(); service.wait(timeout=2)\n"
+    )
+    git(repo, "add", "check.py")
+    git(repo, "-c", "user.name=Test", "-c", "user.email=test@invalid", "commit", "-m", "checks")
+    base = baseline(repo)
+    environments = [
+        LocalHost(os.environ).prepare(tmp_path / "state", repo, mode, base)
+        for mode in ("one", "two", "fail", "timeout")
+    ]
+    borrowed = socket.socket()
+    borrowed.bind(("127.0.0.1", 0))
+    borrowed.listen()
+
+    async def exercise():
+        commands = [
+            [f"{shlex.quote(sys.executable)} check.py {mode}"]
+            for mode in ("pass", "pass", "fail", "timeout")
+        ]
+        reports = await asyncio.gather(
+            *(
+                run_checks(env, command, 1)
+                for env, command in zip(environments, commands, strict=True)
+            )
+        )
+        assert [r[0].exit_code for r in reports] == [0, 0, 7, 124]
+        ports = [int((env.runtime / "port").read_text()) for env in environments]
+        assert len(set(ports)) == len(ports)
+        for port in ports:
+            with pytest.raises(OSError):
+                socket.create_connection(("127.0.0.1", port), timeout=0.2)
+        with socket.create_connection(borrowed.getsockname(), timeout=0.2):
+            pass
+        assert baseline(repo) == base
+        assert not (repo / "port").exists()
+
+    try:
+        asyncio.run(exercise())
+    finally:
+        borrowed.close()

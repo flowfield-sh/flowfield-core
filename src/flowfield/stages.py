@@ -53,11 +53,16 @@ class Stages:
         request: StageUpdate,
         *,
         run_id: str | None = None,
+        revising_agreement: bool = False,
     ) -> StagePlan:
         task = self._task(db, project_id, task_id)
         current = self._get(db, task)
         self.workspace._current(task.agreement_revision, request.agreement_revision)
-        if task.archived or task.status == "done" or task.reconciliation_reason:
+        if (
+            task.archived
+            or task.status == "done"
+            or (task.reconciliation_reason and not (revising_agreement and run_id is None))
+        ):
             raise ApplicationError(
                 "plan_closed", "Reconcile or reopen this task before planning.", 409
             )

@@ -133,6 +133,11 @@ Repository instructions govern development conventions and permission to commit/
   the registered checkout's current branch. Choose worker harness/model/controls only with human
   authorization; no implicit fallback or account changes. Capacity defaults to one; configure
   the agreed maximum for parallel work. Lowering it limits new starts without stopping active work.
+- Discover environment needs in this coordinating conversation and clarify data, services and
+  access with the human before preparing dependent work. Separate task change scope from extra
+  read/runtime needs; cross-project prerequisite evidence supplies neither checkouts nor services.
+  Reuse repository scripts/guidance and save agreed constraints in the handoff. Missing setup
+  implementation can be ordinary managed work once its outcome is clear; no exploration role is needed.
 - Read integration settings before configuring them. Flowfield uses Local automatically, with
   the service host’s installed tools, credentials and native harness configuration.
   Discover choices for this workspace and harness. Select supported controls with human
@@ -145,11 +150,17 @@ Repository instructions govern development conventions and permission to commit/
   databases, ports and service names for parallel work, or serialize affected work. Worktrees
   do not contain arbitrary daemons or isolate the host. Native tools stay with the harness;
   Flowfield owns scoped task operations and exact result delivery.
+- Each setup/check command exits and its ordinary children are stopped. Shell exports and
+  Coordinator processes do not transfer to workers. Prefer repository wrappers that start isolated
+  services, await readiness, run checks and clean up within one command. Never leave daemons in
+  setup, stop borrowed processes or assume unknown shared-data permissions.
 - Save agreed integration/inspection settings, then use `validate_project_setup` before the
   first worker. It runs saved setup/check commands in a separate worker environment without
   a model call, queue change or preview process. Inspect observed output, fix failures, and
   validate again when settings or the destination change. Include required tool probes in
   those commands; success in your own terminal is insufficient.
+  Prior checks remain accessible through `get_setup_validation(check_id=previous_check_id)`.
+  Evidence binds tested code/settings, not current service readiness or native agent permissions.
 - Discuss existing project guidance during adoption. Preserve its files and agree whether to
   reference them from workspace documents, incorporate useful material, or clarify conflicts.
   Do not guess instruction filenames, auto-import content or impose a precedence system.

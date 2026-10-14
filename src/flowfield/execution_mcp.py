@@ -169,13 +169,27 @@ def add_execution_tools(
     @mcp.tool(annotations=read)
     def get_run(project_id: str, run_id: str) -> dict[str, Any]:
         """Inspect one attempt, attributed usage and exact Git result/checks with local
-        inspection commands.
+        inspection commands. Pending native permissions require the human's offered
+        decision in Inbox; a running attempt can be waiting for that decision.
         """
         run = supervisor().execution.get(project_id, run_id)
         return {
             **run.model_dump(),
             "url": reads().url(project_id, "tasks", run.task_key, "runs", run.id),
             "location": supervisor().location(project_id, run_id).model_dump(),
+            "pending_permissions": [
+                {
+                    "id": permission.id,
+                    "title": permission.title,
+                    "details": permission.details,
+                    "options": [option.model_dump() for option in permission.options],
+                    "url": reads().url(project_id, "tasks", run.task_key),
+                }
+                for permission in supervisor()
+                .permissions.page(project_id, task_id=run.task_id, role="worker")
+                .pending
+                if permission.run_id == run.id
+            ],
         }
 
     @mcp.tool(annotations=write)
@@ -230,13 +244,19 @@ def add_execution_tools(
         require manual Git creation. Omit create_from for an existing branch. Never
         resets a branch or starts workers. settings.expected_revision comes from
         get_integration_settings, not the project revision.
+        Omitted setup commands/timeouts retain their saved values. Send setup_commands=[]
+        explicitly to clear setup; changing checks alone does not remove dependency setup.
         """
         return supervisor().integrations.configure(project_id, settings).model_dump()
 
     @mcp.tool(annotations=read)
-    def get_setup_validation(project_id: str) -> dict[str, Any] | None:
-        """Read observed setup evidence and whether its settings or destination changed."""
-        value = supervisor().setup_validation.get(project_id)
+    def get_setup_validation(project_id: str, check_id: str | None = None) -> dict[str, Any] | None:
+        """Read current setup evidence or an exact earlier check via previous_check_id.
+
+        Evidence binds the tested commit/settings, not current service readiness or native
+        agent permissions. No commands run. Changed settings/destination make evidence stale.
+        """
+        value = supervisor().setup_validation.get(project_id, check_id)
         return value.model_dump() if value else None
 
     @mcp.tool(annotations=write)

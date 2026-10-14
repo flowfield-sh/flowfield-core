@@ -88,9 +88,15 @@ class Integrations:
                     runtime=runtime,
                     target_branch=request.target_branch,
                     checks=request.checks,
-                    setup_commands=request.setup_commands,
-                    setup_timeout_seconds=request.setup_timeout_seconds,
-                    check_timeout_seconds=request.check_timeout_seconds,
+                    setup_commands=request.setup_commands
+                    if "setup_commands" in request.model_fields_set
+                    else current.setup_commands,
+                    setup_timeout_seconds=request.setup_timeout_seconds
+                    if "setup_timeout_seconds" in request.model_fields_set
+                    else current.setup_timeout_seconds,
+                    check_timeout_seconds=request.check_timeout_seconds
+                    if "check_timeout_seconds" in request.model_fields_set
+                    else current.check_timeout_seconds,
                 )
                 db.execute(
                     "INSERT INTO integration_settings VALUES (?,?) ON CONFLICT(project_id) "
@@ -300,9 +306,11 @@ class Integrations:
                     environment, settings.setup_commands, settings.setup_timeout_seconds
                 )
                 if any(check.exit_code for check in record.setup_checks):
+                    from flowfield.adapters.local_checks import command_problem
+
                     raise ApplicationError(
                         "runtime_setup_failed",
-                        "Runtime setup failed. Inspect output and update project setup commands.",
+                        command_problem(record.setup_checks, []),
                         409,
                     )
                 record.checks = gitops.run_checks(

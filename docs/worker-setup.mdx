@@ -25,6 +25,16 @@ Setup and checks run in the worktree directory and must leave source files uncha
 
 Read failed validation output, fix the scripts or configuration and validate again. Revalidate after changing setup, checks or the destination branch. Setup and validation commands have configured timeouts. Follow an active worker and use **Stop worker** from the [task conversation](/tasks#follow-an-attempt).
 
+The Coordinator can discover environment requirements from your repository and clarify data, service and access choices in the main conversation. Save reusable setup in repository scripts and project settings so a fresh worker can reproduce it. Setup evidence records the tested commit and settings; the Coordinator can retrieve earlier observations after revalidation. A passing check establishes what ran then, not whether an external service is still available or a worker's native permissions allow the same commands.
+
+## Checks that need services
+
+Use a repository-owned test wrapper that starts a disposable service, waits for readiness, runs the tests and stops its own resources before exiting. For example, a `test:isolated` script can choose an available loopback port and fresh test data, pass the endpoint to its tests, then clean up on success, failure or interruption. Keep the entire lifecycle within the command's timeout.
+
+Each setup or validation command runs in a separate shell. Its exports do not carry forward, and Flowfield stops ordinary child processes when it finishes. Starting a background database in setup does not leave it available to the worker. Never detach or daemonize these processes. Services needed throughout a worker session require an explicitly agreed external arrangement; Flowfield does not provision them automatically.
+
+For a shared service, agree the endpoint, data permissions, version assumptions and who owns startup and cleanup. A worker must not stop a borrowed service. Declare any unknown service version or inaccessible behavior as a verification limitation. References to work in another project supply evidence, not that project's checkout or running services.
+
 ## Choose workers
 
 Workspace defaults apply across member projects. Task **Agent settings** can override them; each attempt retains the harness, model and host registration it started with. Changes affect subsequent attempts, and unavailable choices fail explicitly rather than substituting a model.

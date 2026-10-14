@@ -37,8 +37,10 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
         "Install project dependencies in this checkout/runtime when needed; keep manifests and "
         "setup reproducible. Ask about missing machine-wide tools or access. Keep this detached "
         "checkout; do not switch branches or change shared refs. Local commits are allowed.",
-        "Verify the complete outcome with meaningful checks. Report actual evidence, limitations "
-        "and any remaining work; partial progress is not completion.",
+        "Verify the complete outcome with meaningful checks. Keep the result summary to a few "
+        "sentences about the outcome; put command output, paths, hashes and detailed evidence "
+        "in checks, with unresolved constraints in limitations. "
+        "Partial progress is not completion.",
     ]
     if completion == "code":
         rules.append(
@@ -52,7 +54,15 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
             "the repository tree. Report delivery does not imply human endorsement."
         )
     if present("validation"):
-        rules.append("Use the saved validation commands and report their observed results.")
+        rules.append(
+            "Read validation and use its frozen commands; report their observed results. "
+            "Setup commands have finished; their shell exports and background processes do not "
+            "carry into this turn. Use repository-owned wrappers for service-dependent checks, "
+            "with isolated data/ports, readiness and cleanup. A prior setup check does not prove "
+            "current service availability or native tool access. Diagnose routine failures within "
+            "scope; ask about new dependencies, shared data or missing access instead of silently "
+            "changing the environment contract. Do not stop borrowed or unrelated services."
+        )
     if present("milestone_verification"):
         rules.append(
             "Read milestone_verification and the saved milestone details in full. "

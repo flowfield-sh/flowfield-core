@@ -54,8 +54,9 @@ def register(project_app: typer.Typer) -> None:
             ..., help="Destination branch; created from current HEAD when missing."
         ),
         setup: Annotated[list[str] | None, typer.Option(help="Trusted setup commands.")] = None,
-        setup_timeout: int = typer.Option(120, min=1, max=900),
-        check_timeout: int = typer.Option(60, min=1, max=900),
+        clear_setup: bool = typer.Option(False, help="Remove the saved setup commands."),
+        setup_timeout: int | None = typer.Option(None, min=1, max=900),
+        check_timeout: int | None = typer.Option(None, min=1, max=900),
         local: bool = typer.Option(
             False,
             help="Use Local (the default environment).",
@@ -67,6 +68,9 @@ def register(project_app: typer.Typer) -> None:
         project: ProjectOption = None,
         json_output: Json = False,
     ) -> None:
+        if clear_setup and setup:
+            raise typer.BadParameter("Choose --setup or --clear-setup, not both.")
+
         def perform() -> Any:
             path = project_path(project) + "/integration"
             current = ctx.obj.request("GET", path)
@@ -79,9 +83,18 @@ def register(project_app: typer.Typer) -> None:
                     "runtime": "local" if local else None,
                     "create_from": create_from,
                     "checks": check,
-                    "setup_commands": setup or [],
-                    "setup_timeout_seconds": setup_timeout,
-                    "check_timeout_seconds": check_timeout,
+                    **({"setup_commands": []} if clear_setup else {}),
+                    **({"setup_commands": setup} if setup is not None else {}),
+                    **(
+                        {"setup_timeout_seconds": setup_timeout}
+                        if setup_timeout is not None
+                        else {}
+                    ),
+                    **(
+                        {"check_timeout_seconds": check_timeout}
+                        if check_timeout is not None
+                        else {}
+                    ),
                 },
             )
 

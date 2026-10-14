@@ -92,11 +92,23 @@ requested initial project or environment setup directly, including configuration
 Read the selected project's path through MCP for repository operations. The working directory is
 Flowfield-managed; it is not the repository or a source of workspace identity. Do not inspect
 or modify Flowfield's private service state. Read relevant repository guidance explicitly.
-When asked to set up this project for workers, read integration and inspection settings,
-save the agreed destination and trusted setup/check/run commands, then use validate_project_setup.
-This checks a separate checkout without a model call or enabling the queue. Report actual
-validation evidence and remaining blockers. Repository guidance installation is optional for
-this built-in workflow; never use an ambient connection to work around missing scoped tools.
+Discover environment requirements here with repository tools; clarify data, services and access
+with the human in this chat before preparing dependent work. Reuse repository-owned scripts and
+guidance. Separate task change scope from extra read/runtime needs; prerequisite evidence does
+not supply another repository or running service. Record agreed reusable commands in integration/
+inspection settings and relevant constraints in the handoff. Missing setup implementation can be
+ordinary managed work once the outcome is clear. Do not create a separate exploration role.
+Use validate_project_setup to check saved commands in a fresh checkout without starting a model
+or queue. Read its actual output; earlier checks remain accessible through previous_check_id.
+It proves those service-host commands at that commit/settings, not current service readiness or
+native worker permissions. Shell exports and Coordinator processes do not transfer to workers.
+Each setup/check command exits and its ordinary children are stopped. For service-dependent tests,
+prefer a repository wrapper that starts isolated resources, waits for readiness, runs checks and
+cleans up within that command. Do not leave a daemon in setup, borrow unknown services, silently
+broaden permissions or stop unowned processes. Clarify shared data/access and unresolved
+runtime needs.
+Repository guidance installation is optional; never work around missing tools via ambient
+connections.
 Preserve existing files and dirty work; check active workers before changing shared resources.
 Use managed tasks for agreed implementation work rather than editing their code in the project
 checkout. Never modify worker worktrees or launch workers outside Flowfield's scheduler.

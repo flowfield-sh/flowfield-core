@@ -367,7 +367,7 @@ class Supervisor:
             if any(check.exit_code for check in setup):
                 raise ApplicationError(
                     "runtime_setup_failed",
-                    "Runtime setup failed before model launch. Inspect output and update settings.",
+                    local_checks.command_problem(setup, []),
                 )
             if setup and not await asyncio.to_thread(
                 gitops.unchanged, environment, starting_commit

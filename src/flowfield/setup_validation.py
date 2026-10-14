@@ -3,6 +3,7 @@
 import asyncio
 import fcntl
 import os
+import re
 from functools import partial
 from pathlib import Path
 from typing import Literal
@@ -17,6 +18,7 @@ from flowfield.application import Workspace, now
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import CheckResult, Record
 from flowfield.integration import Integrations
+from flowfield.integration_models import IntegrationSettings
 
 
 class SetupCheckRequest(Record):
@@ -37,6 +39,8 @@ class SetupCheck(Record):
     workspace: str | None = None
     setup: list[CheckResult] = Field(default_factory=list)
     checks: list[CheckResult] = Field(default_factory=list)
+    settings: IntegrationSettings | None = None
+    previous_check_id: str | None = None
     # Process transport remains local diagnostic evidence; never passed to a model.
     pid: int | None = None
 
@@ -61,11 +65,20 @@ class SetupValidation:
             os.fsync(stream.fileno())
         temporary.replace(path)
 
-    def get(self, project_id: str) -> SetupCheck | None:
+    def get(self, project_id: str, check_id: str | None = None) -> SetupCheck | None:
         path = self._path(project_id)
+        if check_id is not None and not re.fullmatch(r"[a-f0-9]{32}", check_id):
+            raise ApplicationError("invalid_setup_check", "Invalid setup check identity.", 422)
         if not path.exists():
+            if check_id:
+                raise ApplicationError("setup_check_missing", "Setup check not found.", 404)
             return None
         value = SetupCheck.model_validate_json(path.read_text())
+        if check_id and value.id != check_id:
+            path = path.parent / "setup-history" / project_id / f"{check_id}.json"
+            if not path.exists():
+                raise ApplicationError("setup_check_missing", "Setup check not found.", 404)
+            value = SetupCheck.model_validate_json(path.read_text())
         settings = Integrations(self.workspace).settings(project_id)
         # Current checkout readiness is independent of historical command evidence.
         # Reuse delivery's read-only guards; this is not an authorization to deliver.
@@ -134,7 +147,21 @@ class SetupValidation:
                     settings_revision=settings.revision,
                     commit=commit,
                     created_at=now(),
+                    settings=settings,
+                    previous_check_id=previous.id if previous else None,
                 )
+                if previous:
+                    # Archive before replacing the current observation. Legacy single-file
+                    # evidence remains readable without inventing its missing settings.
+                    history = self._path(project_id).parent / "setup-history" / project_id
+                    history.mkdir(parents=True, exist_ok=True)
+                    archived = history / f"{previous.id}.json"
+                    temporary = archived.with_suffix(".pending")
+                    with temporary.open("w") as stream:
+                        stream.write(previous.model_dump_json())
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                    temporary.replace(archived)
                 self.active.add(project_id)
                 self._save(value)
                 try:
@@ -183,7 +210,7 @@ class SetupValidation:
                         else (
                             "Setup or validation changed source files; inspect the preserved copy."
                             if not clean
-                            else command_problem(value.setup, value.checks)
+                            else local_checks.command_problem(value.setup, value.checks)
                         )
                     )
                 except asyncio.CancelledError:
@@ -218,25 +245,3 @@ class SetupValidation:
         for task in jobs:
             task.cancel()
         await asyncio.gather(*jobs, return_exceptions=True)
-
-
-def command_problem(setup: list[CheckResult], checks: list[CheckResult]) -> str:
-    """Name the observed failure and give bounded, evidence-based next steps."""
-    phase, failed = next(
-        (phase, check)
-        for phase, reports in (("Setup", setup), ("Validation", checks))
-        for check in reports
-        if check.exit_code
-    )
-    output = failed.output.lower()
-    detail = f"{phase} command failed (exit {failed.exit_code}): {failed.command[:200]}. "
-    if "command not found" in output or failed.exit_code == 127:
-        return detail + (
-            "Install the tool on the service host or add reproducible project dependency "
-            "setup. Check the PATH used to start Flowfield, then validate again."
-        )
-    if "library not loaded" in output or "error while loading shared libraries" in output:
-        return detail + "Check the installed tool's library dependencies on the service host."
-    if "permission denied" in output or "operation not permitted" in output:
-        return detail + "Check the service user's access to the path named in the output."
-    return detail + "Review the command output, correct the command or project, and validate again."
