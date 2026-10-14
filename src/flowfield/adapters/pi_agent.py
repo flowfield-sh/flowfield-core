@@ -13,7 +13,7 @@ from typing import Any
 from urllib.parse import quote, unquote
 from uuid import uuid4
 
-from flowfield.activity_text import command_title, mcp_title
+from flowfield.activity_text import command_title, mcp_title, public_output
 from flowfield.adapters.agent_contract import (
     COMMANDS,
     Agent,
@@ -420,12 +420,9 @@ class PiAgent(Agent):
                 if data.get("isError")
                 else "completed"
             )
-            if data.get("isError"):
-                details += "\n" + "\n".join(
-                    item.get("text", "")
-                    for item in data.get("result", {}).get("content", [])
-                    if item.get("type") == "text"
-                )
+            output = public_output(data.get("result"))
+            if output:
+                details += "\nOutput:\n" + output
             self.activity(
                 ActivityUpdate(
                     key=identity[:100],

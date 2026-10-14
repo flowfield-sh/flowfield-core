@@ -86,6 +86,9 @@ def test_turn_waits_for_settled_and_never_replays(tmp_path, scenario):
                 assert any(update.text == "Settled answer" for update in updates)
                 assert any("Flowfield · Get task" in update.text for update in updates)
                 assert any("Task missing" in update.text for update in updates)
+                assert any(
+                    "Output:\nSaved project instructions" in update.text for update in updates
+                )
                 assert not any("private reasoning" in update.text for update in updates)
             elif scenario in {"error", "handled-error"}:
                 with pytest.raises(ApplicationError, match="provider sign-in"):

@@ -1325,6 +1325,26 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
     }),
   );
   const offsets: string[] = [];
+  const actionOutput = Array.from(
+    { length: 30 },
+    (_, i) => `Found task ${i + 1}`,
+  ).join("\n");
+  turn.activity.items.unshift({
+    key: "inspect",
+    kind: "tool",
+    text: "",
+    omitted: false,
+    preview: "",
+    abridged: false,
+    ...{
+      action: {
+        title: "Flowfield · Get board · completed",
+        details: 'Arguments: {"project_id":"demo"}',
+        output: actionOutput,
+        output_preview: "Found task 1\nFound task 2…",
+      },
+    },
+  });
   await page.route(`**/api/context/workspaces/${workspace}/text?*`, (route) => {
     const params = new URL(route.request().url()).searchParams;
     expect(params.get("revision")).toBe("7");
@@ -1346,6 +1366,34 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
     });
   });
   await page.goto(`/projects/${project}`);
+  const action = page.locator('.run-activity-entry[data-kind="tool"]');
+  await expect(action).toContainText("Found task 1");
+  await action
+    .getByText("Flowfield · Get board · completed", { exact: true })
+    .click();
+  await expect(
+    action.getByText('Arguments: {"project_id":"demo"}', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    action.getByText("Flowfield · Get board · completed", { exact: true }),
+  ).toHaveCount(1);
+  await action
+    .getByText("Found task 1\nFound task 2…", { exact: true })
+    .click();
+  await expect(action.locator("details[open] pre").last()).toContainText(
+    "Found task 30",
+  );
+  await action.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath("action-expanded.png") });
+  await action.locator(".activity-output-disclosure > summary").click();
+  await page.setViewportSize({ width: 430, height: 920 });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
+  await action.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: testInfo.outputPath("action-narrow-dark.png"),
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await expect(
     page.getByText("Read full reply", { exact: true }),
   ).toBeVisible();

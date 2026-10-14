@@ -1218,12 +1218,12 @@ test("attempt activity updates without reloading the board and replays on reload
   await fixture("compact");
   const script = output.locator('[data-kind="command"]');
   await expect(script).toContainText("Exit code: 17");
-  await expect(script.locator("pre").first()).not.toContainText(
+  await expect(script.locator("summary").first()).not.toContainText(
     "retained source",
   );
-  await script.getByText("Retained output", { exact: true }).click();
+  await script.locator("summary").first().click();
   await expect(script.locator("details pre")).toContainText("retained source");
-  await expect(output.locator('[data-kind="agent"] > div > pre')).toContainText(
+  await expect(output.locator('[data-kind="agent"] summary')).toContainText(
     "Code block collapsed",
   );
   await expect(page.getByLabel("Reported token usage").first()).toContainText(

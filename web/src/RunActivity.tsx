@@ -1,5 +1,5 @@
 import { ResourceRetry } from "./ResourceRetry";
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useResource } from "./useResource";
 import { label } from "./workspace";
 import type { components } from "./api-schema";
@@ -111,16 +111,48 @@ export function ActivityEntries({ items }: { items: Page["items"] }) {
             </Tooltip>
             <div>
               {item.omitted && <p className="muted">Some output omitted.</p>}
-              <pre>{item.preview || item.text}</pre>
-              {item.abridged && (
-                <Disclosure summary={<>Retained output</>}>
-                  <pre>{item.text}</pre>
-                </Disclosure>
+              {item.action ? (
+                <ActionEntry action={item.action} />
+              ) : (
+                <ActivityText text={item.text} preview={item.preview} />
               )}
             </div>
           </div>
         );
       })}
     </>
+  );
+}
+
+function ActionEntry({
+  action,
+}: {
+  action: NonNullable<Page["items"][number]["action"]>;
+}) {
+  return (
+    <>
+      <Disclosure summary={action.title}>
+        {action.details && <pre>{action.details}</pre>}
+        {!action.output && <p>No output was recorded for this event.</p>}
+      </Disclosure>
+      {action.output && (
+        <ActivityText text={action.output} preview={action.output_preview} />
+      )}
+    </>
+  );
+}
+
+function ActivityText({ text, preview }: { text: string; preview: string }) {
+  const [open, setOpen] = useState(false);
+  if (!preview || preview === text) return <pre>{text}</pre>;
+  return (
+    <Disclosure
+      className="activity-output-disclosure"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+      summary={open ? "Output" : <pre>{preview}</pre>}
+    >
+      <pre>{text}</pre>
+    </Disclosure>
   );
 }

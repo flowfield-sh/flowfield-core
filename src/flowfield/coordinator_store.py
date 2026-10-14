@@ -5,7 +5,7 @@ import sqlite3
 from typing import Any
 from uuid import uuid4
 
-from flowfield.activity_text import preview
+from flowfield.activity_text import action_presentation, preview
 from flowfield.adapters.coordinator_sessions import CoordinatorSessions
 from flowfield.agent_settings import AgentSettings
 from flowfield.application import Workspace, now
@@ -152,6 +152,7 @@ class CoordinatorStore:
                 for entry in turn.activity.items:
                     entry.preview = preview(entry.text, entry.kind)
                     entry.abridged = entry.preview != entry.text
+                    entry.action = action_presentation(entry.text, entry.kind)
             # Commands and failed/starting turns may not emit usage. Read the last
             # report independently of the visible history window, across restarts,
             # but never carry it across an explicitly started replacement session.

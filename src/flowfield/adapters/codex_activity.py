@@ -3,7 +3,7 @@
 import json
 from typing import Any
 
-from flowfield.activity_text import command_title, mcp_title
+from flowfield.activity_text import command_title, mcp_title, public_output
 from flowfield.adapters.agent_contract import bounded_details
 
 
@@ -15,6 +15,8 @@ def describe(item: dict[str, Any]) -> tuple[str, str]:
         title = command_title(str(item.get("command", "Run command")))
         if item.get("exitCode") is not None:
             details += f"\nExit code: {item['exitCode']}"
+        if item.get("aggregatedOutput"):
+            details += "\nOutput:\n" + str(item["aggregatedOutput"])
     elif kind == "fileChange":
         details = "\n".join(
             str(change.get("path", "")) + "\n" + str(change.get("diff", ""))
@@ -45,4 +47,9 @@ def describe(item: dict[str, Any]) -> tuple[str, str]:
             )
         if message:
             details = "Error: " + str(message) + "\n" + details
+        output = public_output(result) if result else ""
+        if output:
+            details += "\nOutput:\n" + output
+    elif kind == "webSearch":
+        details = public_output(item.get("action") or item.get("query"))
     return bounded_details(title).replace("\n", " ")[:200], bounded_details(details)

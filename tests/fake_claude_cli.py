@@ -215,6 +215,25 @@ def main() -> None:
                 snapshot()
         elif message.get("type") == "control_response":
             save({"permission": message["response"]})
+            if scenario == "complete":
+                emit(
+                    {
+                        "type": "user",
+                        "message": {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "tool_result",
+                                    "tool_use_id": "fixture-tool",
+                                    "content": "Synthetic tool result",
+                                }
+                            ],
+                        },
+                        "parent_tool_use_id": None,
+                        "uuid": str(uuid4()),
+                        "session_id": session_id,
+                    }
+                )
             finish()
             active_prompt = None
         elif message.get("type") == "user":
@@ -277,6 +296,18 @@ def main() -> None:
                                 "signature": "synthetic",
                             },
                             {"type": "text", "text": "Synthetic public answer"},
+                            *(
+                                [
+                                    {
+                                        "type": "tool_use",
+                                        "id": "fixture-tool",
+                                        "name": "Bash",
+                                        "input": {"command": "printf synthetic"},
+                                    },
+                                ]
+                                if scenario == "complete"
+                                else []
+                            ),
                         ],
                         "stop_reason": "end_turn",
                         "stop_sequence": None,
@@ -330,28 +361,6 @@ def main() -> None:
                     }
                 )
             elif scenario != "foreground":
-                finish()
-        elif message.get("type") == "control_response":
-            save({"permissionResponse": message["response"]})
-            if message["response"]["request_id"] == "fixture-permission":
-                emit(
-                    {
-                        "type": "user",
-                        "message": {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "tool_result",
-                                    "tool_use_id": "fixture-tool",
-                                    "content": "Synthetic tool result",
-                                }
-                            ],
-                        },
-                        "parent_tool_use_id": None,
-                        "uuid": str(uuid4()),
-                        "session_id": session_id,
-                    }
-                )
                 finish()
 
 

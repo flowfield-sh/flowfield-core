@@ -9,6 +9,45 @@ from flowfield.execution_models import Usage
 from flowfield.run_activity import ActivityUpdate, RunActivity
 
 
+def test_action_output_is_separate_bounded_and_does_not_repeat_its_header():
+    from flowfield.activity_text import action_presentation, public_output
+    from flowfield.adapters.codex_activity import describe
+
+    output = "\n".join(f"row {i}" for i in range(40))
+    title, details = describe(
+        {
+            "type": "mcpToolCall",
+            "server": "flowfield",
+            "tool": "get_workspace",
+            "arguments": {},
+            "result": {"content": [{"type": "text", "text": output}]},
+        }
+    )
+    action = action_presentation(title + " · completed\n" + details, "tool")
+    assert action and action.title == "Flowfield · Get workspace · completed"
+    assert action.details == "Arguments: {}" and action.output == output
+    assert action.output_preview.startswith("row 0\nrow 1")
+    assert "row 39" not in action.output_preview and len(action.output_preview) <= 501
+    assert action_presentation("Tool · completed\nArguments: {}", "tool").output == ""
+    assert (
+        public_output({"content": [{"type": "image", "data": "secret-binary"}]})
+        == "[image content]"
+    )
+    assert public_output({"content": [], "structuredContent": {"ok": True}}) == '{"ok": true}'
+    title, details = describe(
+        {
+            "type": "commandExecution",
+            "command": "npm test",
+            "exitCode": 1,
+            "aggregatedOutput": "a failing assertion",
+        }
+    )
+    action = action_presentation(title + " · completed\n" + details, "command")
+    assert action and action.details == "Exit code: 1"
+    assert action.title == "npm test · failed (exit 1)"
+    assert action.output == "a failing assertion"
+
+
 def test_display_collapses_source_and_keeps_command_failure():
     script = "python - <<'PY'\n" + "print('code')\n" * 1000 + "PY\nExit code: 17"
     kept = retain(script, 6000)

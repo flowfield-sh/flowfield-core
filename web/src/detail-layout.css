@@ -430,6 +430,10 @@
   .run-activity-entry .disclosure > summary {
     color: inherit;
   }
+  .activity-output-disclosure > .disclosure-body {
+    max-height: 16rem;
+    overflow: auto;
+  }
 
   @keyframes work-pulse {
     0%,

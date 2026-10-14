@@ -2520,6 +2520,17 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** ActionPresentation */
+    ActionPresentation: {
+      /** Title */
+      title: string;
+      /** Details */
+      details: string;
+      /** Output */
+      output: string;
+      /** Output Preview */
+      output_preview: string;
+    };
     /** ActivityCreate */
     ActivityCreate: {
       /** Id */
@@ -5113,6 +5124,7 @@ export interface components {
        * @default false
        */
       abridged: boolean;
+      action?: components["schemas"]["ActionPresentation"] | null;
     };
     /** RunActivityPage */
     RunActivityPage: {

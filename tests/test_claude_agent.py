@@ -100,6 +100,8 @@ def test_compiled_sdk_cleanup_tracks_actual_owned_work(tmp_path, scenario):
                     assert tool.process.returncode is None
             public = json.dumps([value.model_dump() for value in events])
             assert "Synthetic public answer" in public
+            if scenario == "complete":
+                assert "Synthetic tool result" in public
             assert "PRIVATE_FIXTURE_THOUGHT" not in public
             records = [
                 json.loads(line) for line in (tmp_path / "native.jsonl").read_text().splitlines()

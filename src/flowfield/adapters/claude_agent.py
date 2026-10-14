@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
-from flowfield.activity_text import command_title
+from flowfield.activity_text import command_title, public_output
 from flowfield.adapters.agent_contract import (
     COMMANDS,
     Agent,
@@ -329,6 +329,8 @@ class ClaudeAgent(Agent):
             details = bounded_details(
                 "\n".join(f"{key}: {value}" for key, value in tool.get("details", {}).items())
             )
+            if data.get("output") is not None:
+                details += "\nOutput:\n" + public_output(data["output"])
             label = (
                 command_title(str(tool.get("details", {}).get("command", "Run command")))
                 if title == "Bash"

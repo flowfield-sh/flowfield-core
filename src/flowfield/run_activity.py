@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Literal, Protocol
 
 from pydantic import BaseModel, Field
 
-from flowfield.activity_text import preview, retain
+from flowfield.activity_text import ActionPresentation, action_presentation, preview, retain
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import Usage
 
@@ -47,6 +47,7 @@ class RunActivityEntry(BaseModel):
     omitted: bool = False
     preview: str = ""
     abridged: bool = False
+    action: ActionPresentation | None = None
 
 
 class RunActivityPage(BaseModel):
@@ -135,6 +136,7 @@ class RunActivity:
             for entry in page.items:
                 entry.preview = preview(entry.text, entry.kind)
                 entry.abridged = entry.preview != entry.text
+                entry.action = action_presentation(entry.text, entry.kind)
             return page
 
 

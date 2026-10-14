@@ -135,6 +135,16 @@ for line in sys.stdin:
             result={"content": [{"type": "text", "text": "Task missing"}]},
         )
         event(
+            "tool_execution_start", toolCallId="tool-2", toolName="read", args={"path": "README.md"}
+        )
+        event(
+            "tool_execution_end",
+            toolCallId="tool-2",
+            toolName="read",
+            isError=False,
+            result={"content": [{"type": "text", "text": "Saved project instructions"}]},
+        )
+        event(
             "message_end",
             message={
                 "role": "assistant",
