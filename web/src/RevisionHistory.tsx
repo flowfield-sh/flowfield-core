@@ -74,7 +74,7 @@ export function RevisionHistory({
             </WorkspaceLink>
           ))}
         </nav>
-        <div className="actions justify-end">
+        <div className="actions">
           {before && (
             <Button size="sm" variant="outline" onClick={() => setBefore(null)}>
               Latest revisions

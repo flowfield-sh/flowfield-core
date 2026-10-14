@@ -36,7 +36,10 @@ export function TaskDetail({
       <DetailHeader
         title={
           <>
-            <WorkspaceLink to={projectHref(board.project.id)}>
+            <WorkspaceLink
+              className="task-project-breadcrumb"
+              to={projectHref(board.project.id)}
+            >
               {board.project.name}
             </WorkspaceLink>
             {" / "}
@@ -47,7 +50,7 @@ export function TaskDetail({
         closeLabel="Back to board"
       >
         <ContentStack className="task-conversation-header">
-          <div className="actions task-references" aria-label="Task references">
+          <div className="task-header-state" aria-label="Task state">
             <TaskState
               sourceUpdates={false}
               projectId={board.project.id}
@@ -61,27 +64,34 @@ export function TaskDetail({
                 },
               }}
             />
-            <MilestoneBadge
-              milestone={
-                task.publication?.milestone ??
-                board.milestones.find((m) => m.id === task.milestone_id)
-              }
-              preparedRevision={task.publication?.milestone?.revision}
-              changed={!!task.milestone_update}
-            />
-            <DraftBadge publicationStatus={task.publication_status} />
-            <TaskDocuments documents={task.publication?.documents ?? []} />
-            <StageHeader
-              projectId={board.project.id}
-              task={task}
-              refresh={board}
-            />
           </div>
-          {!!task.labels.length && (
-            <div className="entity-labels task-classifications">
-              <TaskLabels ids={task.labels} />
+          <div className="task-header-groups">
+            <div
+              className="actions task-references"
+              aria-label="Task references"
+            >
+              <MilestoneBadge
+                milestone={
+                  task.publication?.milestone ??
+                  board.milestones.find((m) => m.id === task.milestone_id)
+                }
+                preparedRevision={task.publication?.milestone?.revision}
+                changed={!!task.milestone_update}
+              />
+              <DraftBadge publicationStatus={task.publication_status} />
+              <TaskDocuments documents={task.publication?.documents ?? []} />
             </div>
-          )}
+            {!!task.labels.length && (
+              <div className="entity-labels task-classifications">
+                <TaskLabels ids={task.labels} />
+              </div>
+            )}
+          </div>
+          <StageHeader
+            projectId={board.project.id}
+            task={task}
+            refresh={board}
+          />
         </ContentStack>
       </DetailHeader>
       <ContentStack space="section" className="task-context">

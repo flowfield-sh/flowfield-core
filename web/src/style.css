@@ -857,20 +857,6 @@
     flex-wrap: wrap;
     gap: 12px;
   }
-  .review-actions {
-    position: sticky;
-    bottom: 0;
-    z-index: 4;
-    padding: 12px 0;
-    background: var(--background);
-    border-top: 1px solid var(--border);
-  }
-  .review-actions .actions {
-    justify-content: flex-end;
-  }
-  .review-actions textarea {
-    max-height: 160px;
-  }
   .segmented-control {
     display: inline-flex;
     padding: 2px;
@@ -1018,13 +1004,6 @@
     font-weight: 600;
   }
   @media (max-width: 700px) {
-    .review-actions {
-      bottom: 0;
-      padding: 12px 0;
-    }
-    .review-actions .actions {
-      gap: 6px;
-    }
     .diff-browser {
       grid-template-columns: 1fr;
       grid-template-rows: minmax(0, min(130px, 30%)) minmax(0, 1fr);

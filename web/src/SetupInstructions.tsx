@@ -77,7 +77,7 @@ export function SetupInstructions({
                   <Input aria-label="Project directory" value={path} readOnly />
                 </Label>
               )}
-              <div className="actions justify-end">
+              <div className="actions">
                 <Button
                   type="button"
                   variant={path ? "outline" : "default"}
@@ -175,7 +175,7 @@ export function SetupInstructions({
               </DetailSection>
             )}
             {path && (
-              <div className="actions justify-end">
+              <div className="actions">
                 <Button type="submit">
                   {busy === "adding" ? "Adding project…" : "Add project"}
                 </Button>

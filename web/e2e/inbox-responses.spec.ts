@@ -68,7 +68,7 @@ test("milestone acceptance stays in Inbox and Review column reflects the decisio
     .getByRole("button", { name: "Accept milestone", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Milestone accepted", exact: true }),
+    page.getByRole("status").filter({ hasText: "Milestone accepted" }),
   ).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`${base}/inbox$`));
   const saved = await (

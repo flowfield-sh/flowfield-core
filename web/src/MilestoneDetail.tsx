@@ -41,7 +41,7 @@ export function MilestoneDetail({
         close={close}
         closeLabel="Back"
         actions={
-          <div className="actions justify-end">
+          <div className="actions">
             {historical && (
               <Button size="sm" variant="outline" asChild>
                 <WorkspaceLink

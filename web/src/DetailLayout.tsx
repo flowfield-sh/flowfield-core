@@ -6,6 +6,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+/** Agent composers and review notes share one input frame. */
+export function ResponseInput({
+  className = "",
+  ...props
+}: ComponentProps<"div">) {
+  return <div {...props} className={`composer-input ${className}`} />;
+}
+
 /** Layout owns spacing. Its children never contribute outside margins. */
 export function ContentStack({
   children,

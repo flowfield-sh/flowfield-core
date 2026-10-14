@@ -221,7 +221,7 @@ function DocumentList({
             </WorkspaceLink>
           ))}
       </div>
-      <div className="actions justify-end">
+      <div className="actions">
         {after && (
           <Button size="sm" variant="outline" onClick={() => setAfter(null)}>
             First documents
@@ -298,7 +298,7 @@ function DocumentEditor({
         close={close}
         closeLabel="Back"
         actions={
-          <div className="actions justify-end">
+          <div className="actions">
             {historical || selected.deleted_at ? (
               <>
                 <Button size="sm" variant="outline" asChild>
@@ -407,7 +407,7 @@ function DocumentEditor({
                   value={values.body}
                   onChange={(value) => change("body", value)}
                 />
-                <div className="actions justify-end">
+                <div className="actions">
                   <Button size="sm" disabled={!values.title.trim() || !dirty}>
                     Save document
                   </Button>

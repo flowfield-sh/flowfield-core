@@ -104,7 +104,7 @@ export function NewWorkspace({
                 onChange={(event) => setName(event.target.value)}
               />
             </Label>
-            <div className="actions justify-end">
+            <div className="actions">
               <Button type="submit">
                 {busy ? "Creating workspace…" : "Create workspace"}
               </Button>

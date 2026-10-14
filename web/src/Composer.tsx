@@ -1,3 +1,4 @@
+import { ResponseInput } from "./DetailLayout";
 import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
 import {
@@ -204,8 +205,8 @@ export function Composer({
           className="composer-command"
         >
           <Popover.Anchor asChild>
-            <div
-              className={`composer-input${collapsed ? " composer-collapsed" : ""}`}
+            <ResponseInput
+              className={collapsed ? "composer-collapsed" : ""}
               onDragOver={(event) => {
                 if (event.dataTransfer.types.includes("Files"))
                   event.preventDefault();
@@ -339,7 +340,7 @@ export function Composer({
                 )}
                 {action}
               </div>
-            </div>
+            </ResponseInput>
           </Popover.Anchor>
           <Popover.Portal>
             <Popover.Content

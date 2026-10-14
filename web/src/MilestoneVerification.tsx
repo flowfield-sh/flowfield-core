@@ -1,11 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useLocation, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { components } from "./api-schema";
-import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
+import {
+  ContentStack,
+  DetailHeading,
+  DetailSection,
+  Disclosure,
+  ResponseInput,
+} from "./DetailLayout";
 import { Markdown } from "./Markdown";
-import { DetailHeading } from "./DetailLayout";
+import { WorkState } from "./WorkState";
 import { OverlayFooter } from "./EntityOverlay";
 import { useFeedScroll } from "./useFeedScroll";
 import { useDirtyItems } from "./useDirtyItems";
@@ -36,8 +48,10 @@ export function MilestoneReviewResponse({
   path,
   refresh,
   onDirty,
+  allowReview = true,
 }: {
   value: Verification;
+  allowReview?: boolean;
   path: string;
   refresh: () => void;
   onDirty: (dirty: boolean) => void;
@@ -49,11 +63,19 @@ export function MilestoneReviewResponse({
   if (!note && !pending && value.revision !== revision)
     setRevision(value.revision);
   const stale = value.revision !== revision;
+  const canReview = allowReview && value.current && value.status === "ready";
   useEffect(() => {
     onDirty(!!note.trim() || pending);
     return () => onDirty(false);
   }, [note, pending, onDirty]);
   async function review(action: "accept" | "request_changes") {
+    if (
+      pending ||
+      stale ||
+      !canReview ||
+      (action === "request_changes" && !note.trim())
+    )
+      return;
     setPending(true);
     setError(null);
     try {
@@ -72,46 +94,62 @@ export function MilestoneReviewResponse({
     }
   }
   return (
-    <ContentStack>
-      {(value.status === "ready" || !!note.trim()) && (
-        <ContentStack className="review-response" aria-label="Your review">
-          <label htmlFor={`review-${value.id}`}>Review note</label>
-          <Textarea
-            id={`review-${value.id}`}
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            disabled={pending}
-            placeholder="Required when requesting changes"
-          />
+    <ContentStack className="task-input" aria-label="Milestone response">
+      <p role="status">
+        {value.status === "accepted" && !value.current
+          ? "Previously accepted"
+          : statuses[value.status]}
+      </p>
+      {value.problem ? (
+        <p>{value.problem}</p>
+      ) : (
+        (value.status === "failed" ||
+          value.status === "stale" ||
+          value.status === "changes_requested") && (
+          <p>
+            Ask the Coordinator to address the findings and prepare verification
+            again.
+          </p>
+        )
+      )}
+      {(canReview || !!note.trim()) && (
+        <ContentStack aria-label="Your review">
+          <ResponseInput>
+            <Textarea
+              aria-label="Review note"
+              rows={2}
+              maxLength={8000}
+              id={`review-${value.id}`}
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              disabled={pending}
+              placeholder="Review note — required when requesting changes"
+            />
+          </ResponseInput>
           {stale && (
             <p role="alert">
               This verification changed. Reopen it before reviewing.
             </p>
           )}
-          <div className="actions justify-end">
+          <div className="actions">
             <Button
-              disabled={
-                pending || stale || value.status !== "ready" || !value.current
-              }
+              size="sm"
+              disabled={pending || stale || !canReview}
               onClick={() => void review("accept")}
             >
               Accept milestone
             </Button>
             <Button
+              size="sm"
               variant="outline"
-              disabled={
-                pending ||
-                stale ||
-                value.status !== "ready" ||
-                !value.current ||
-                !note.trim()
-              }
+              disabled={pending || stale || !canReview || !note.trim()}
               onClick={() => void review("request_changes")}
             >
               Request changes
             </Button>
             {note && (
               <Button
+                size="sm"
                 variant="ghost"
                 disabled={pending}
                 onClick={() => setNote("")}
@@ -127,103 +165,151 @@ export function MilestoneReviewResponse({
   );
 }
 
-export function MilestoneReport({ value }: { value: Verification }) {
+function reportState(value: Verification): components["schemas"]["WorkState"] {
+  const passed = value.report?.findings.filter(
+    (f) => f.verdict === "passed",
+  ).length;
+  return {
+    label: [
+      value.status === "accepted" && !value.current
+        ? "Previously accepted"
+        : statuses[value.status],
+      passed != null
+        ? `${passed} of ${value.checks.length} criteria passed`
+        : null,
+      value.report?.coverage === "incomplete" ? "Coverage incomplete" : null,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    tone:
+      value.status === "verifying"
+        ? "active"
+        : value.status === "failed"
+          ? "attention"
+          : value.status === "accepted"
+            ? value.current
+              ? "complete"
+              : "idle"
+            : "waiting",
+  };
+}
+
+export function MilestoneReport({
+  value,
+  metadata,
+}: {
+  value: Verification;
+  metadata?: ReactNode;
+}) {
   const findings = value.report?.findings ?? [];
-  const passed = findings.filter((f) => f.verdict === "passed").length;
-  return (
-    <ContentStack space="section" className="verification-report">
-      {value.problem && <p role="status">{value.problem}</p>}
-      <p className="verification-summary">
-        {value.report ? (
-          <>
-            <strong>
-              {passed} of {value.checks.length} criteria passed
-            </strong>
-            {value.report.coverage !== "complete" && (
-              <span>Coverage incomplete</span>
-            )}
-          </>
-        ) : (
-          "Verification in progress"
-        )}
-      </p>
-      <ul className="verification-checklist" aria-label="Acceptance checks">
-        {value.checks.map((check, index) => {
-          const finding = findings.find((f) => f.check === index + 1);
-          return (
-            <li key={index}>
-              <Disclosure
-                summary={
-                  <span className="verification-check">
-                    <span>{check}</span>
-                    <span
-                      className="verification-verdict"
-                      data-verdict={finding?.verdict}
-                    >
-                      {finding ? label(finding.verdict) : "Pending"}
-                    </span>
-                  </span>
-                }
-              >
-                {finding ? (
-                  <Markdown>{finding.evidence}</Markdown>
-                ) : (
-                  <p>No finding yet.</p>
-                )}
-              </Disclosure>
-            </li>
-          );
-        })}
-      </ul>
-      <ContentStack space="flush">
-        {value.limitations && (
-          <Disclosure summary="Limitations reported">
-            <Markdown>{value.limitations}</Markdown>
-          </Disclosure>
-        )}
-        <Disclosure summary="Verification context">
-          <ContentStack space="section">
-            {value.report?.coverage_notes && (
-              <DetailSection title="Coverage">
-                <Markdown>{value.report.coverage_notes}</Markdown>
-              </DetailSection>
-            )}
-            <DetailSection title="Acceptance criteria">
-              <Markdown>{value.criteria}</Markdown>
-              <WorkspaceLink
-                to={`/workspaces/${value.workspace_id}/milestones/${value.milestone_key}/revisions/${value.milestone_revision}`}
-              >
-                Milestone revision {value.milestone_revision}
-              </WorkspaceLink>
-            </DetailSection>
-          </ContentStack>
-        </Disclosure>
-        <Disclosure summary="Delivered work">
-          <ContentStack>
-            {value.tasks.map((task) => (
-              <div key={`${task.project_id}/${task.task_id}`}>
-                <WorkspaceLink
-                  to={`/projects/${task.project_id}/tasks/${task.task_key}/result/${task.result_id}`}
-                >
-                  {task.project_id} / {task.task_key}
-                </WorkspaceLink>
-                <span className="detail-metadata">
-                  {" "}
-                  · {task.commit.slice(0, 12)}
-                  {task.target_branch
-                    ? ` → ${task.target_branch}`
-                    : " · Report"}
+  const criteria = (
+    <ol className="conversation-messages" aria-label="Acceptance checks">
+      {value.checks.map((check, index) => {
+        const finding = findings.find((f) => f.check === index + 1);
+        const verdict = finding ? label(finding.verdict) : "Pending";
+        return (
+          <li className="conversation-message" key={index}>
+            <DetailHeading
+              entry
+              titleAs="h3"
+              title={
+                <span className="feed-event-title">
+                  <WorkState
+                    indicatorOnly
+                    state={{
+                      label: verdict,
+                      tone:
+                        finding?.verdict === "passed"
+                          ? "complete"
+                          : finding?.verdict === "failed"
+                            ? "attention"
+                            : "waiting",
+                    }}
+                  />
+                  <span>{check}</span>
                 </span>
-              </div>
-            ))}
-            <WorkspaceLink
-              to={`/projects/${value.project_id}/tasks/${value.task_key}${value.result_id ? `/result/${value.result_id}` : ""}`}
-            >
-              View verifier task {value.task_key}
-            </WorkspaceLink>
-          </ContentStack>
-        </Disclosure>
-      </ContentStack>
+              }
+            />
+            <div className="conversation-message-body">
+              {finding ? (
+                <Markdown>{finding.evidence}</Markdown>
+              ) : (
+                <p>No finding yet.</p>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+  return (
+    <ContentStack space="section">
+      <article className="conversation-message">
+        <DetailHeading
+          entry
+          inlineMetadata
+          titleAs="h3"
+          metadata={metadata}
+          title={
+            <span className="feed-event-title">
+              <WorkState indicatorOnly state={reportState(value)} />
+              <span>
+                {value.report ? "Verification report" : "Verification started"}
+              </span>
+            </span>
+          }
+        />
+        <ContentStack className="conversation-message-body" space="flush">
+          {value.limitations && (
+            <Disclosure summary="Limitations reported">
+              <Markdown>{value.limitations}</Markdown>
+            </Disclosure>
+          )}
+          <Disclosure summary="Verification context">
+            <ContentStack space="section">
+              {value.report?.coverage_notes && (
+                <DetailSection title="Coverage">
+                  <Markdown>{value.report.coverage_notes}</Markdown>
+                </DetailSection>
+              )}
+              <DetailSection title="Acceptance criteria">
+                <Markdown>{value.criteria}</Markdown>
+                <WorkspaceLink
+                  to={`/workspaces/${value.workspace_id}/milestones/${value.milestone_key}/revisions/${value.milestone_revision}`}
+                >
+                  Milestone revision {value.milestone_revision}
+                </WorkspaceLink>
+              </DetailSection>
+            </ContentStack>
+          </Disclosure>
+          <Disclosure summary="Delivered work">
+            <ContentStack>
+              {value.tasks.map((task) => (
+                <div key={`${task.project_id}/${task.task_id}`}>
+                  <WorkspaceLink
+                    to={`/projects/${task.project_id}/tasks/${task.task_key}/result/${task.result_id}`}
+                  >
+                    {task.project_id} / {task.task_key}
+                  </WorkspaceLink>
+                  <span className="detail-metadata">
+                    {" "}
+                    · {task.commit.slice(0, 12)}
+                    {task.target_branch
+                      ? ` → ${task.target_branch}`
+                      : " · Report"}
+                  </span>
+                </div>
+              ))}
+              <WorkspaceLink
+                to={`/projects/${value.project_id}/tasks/${value.task_key}${value.result_id ? `/result/${value.result_id}` : ""}`}
+              >
+                View verifier task {value.task_key}
+              </WorkspaceLink>
+            </ContentStack>
+          </Disclosure>
+        </ContentStack>
+      </article>
+      {criteria}
     </ContentStack>
   );
 }
@@ -281,7 +367,6 @@ function ReviewEntry({
   path,
   refresh,
   selected,
-  latest,
   markDirty,
   milestoneId,
   respond,
@@ -291,7 +376,6 @@ function ReviewEntry({
   path: string;
   refresh: unknown;
   selected: boolean;
-  latest: boolean;
   markDirty: (id: string, value: boolean) => void;
   milestoneId: string;
 }) {
@@ -329,35 +413,17 @@ function ReviewEntry({
       data-message-id={id}
       data-announcement-source={`workspace:${value.workspace_id}:milestone:${value.id}`}
     >
-      <article className="conversation-message">
-        <DetailHeading
-          entry
-          inlineMetadata
-          title={value.report ? "Verification report" : "Verification started"}
-          metadata={
-            <>
-              Worker ·{" "}
-              <WorkspaceLink to={href}>
-                <Timestamp date={value.created_at} />
-              </WorkspaceLink>
-            </>
-          }
-        />
-        <ContentStack className="conversation-message-body">
-          <strong>
-            {value.status === "accepted" && !value.current
-              ? "Previously accepted"
-              : statuses[value.status]}
-          </strong>
-          {latest || selected ? (
-            <MilestoneReport value={value} />
-          ) : (
-            <Disclosure summary="View report">
-              <MilestoneReport value={value} />
-            </Disclosure>
-          )}
-        </ContentStack>
-      </article>
+      <MilestoneReport
+        value={value}
+        metadata={
+          <>
+            Worker ·{" "}
+            <WorkspaceLink to={href}>
+              <Timestamp date={value.created_at} />
+            </WorkspaceLink>
+          </>
+        }
+      />
       {value.reviewed_by && (
         <article className="conversation-message review-decision">
           <DetailHeading
@@ -383,7 +449,7 @@ function ReviewEntry({
           )}
         </article>
       )}
-      {(respond || hasDraft) && (
+      {(selected || respond || hasDraft) && (
         <OverlayFooter>
           <MilestoneReviewResponse
             key={value.id}
@@ -391,6 +457,7 @@ function ReviewEntry({
             path={path}
             refresh={resource.retry}
             onDirty={onDirty}
+            allowReview={respond}
           />
         </OverlayFooter>
       )}
@@ -472,6 +539,7 @@ export function MilestoneVerification({
       )}
       {history.data?.next_cursor && (
         <Button
+          size="sm"
           variant="outline"
           disabled={history.loadingMore}
           onClick={() => {
@@ -490,7 +558,6 @@ export function MilestoneVerification({
             path={path}
             refresh={JSON.stringify([revision, refresh])}
             selected={selected === id}
-            latest={id === history.data?.items[0]?.id}
             respond={
               id === history.data?.items[0]?.id &&
               (!selected || selected === id)

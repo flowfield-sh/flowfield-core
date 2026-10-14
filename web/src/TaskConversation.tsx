@@ -1,4 +1,3 @@
-import { Popover } from "radix-ui";
 import { QuestionPrompt } from "./QuestionPrompt";
 import { QuestionChoices } from "./QuestionChoices";
 import { ResourceRetry } from "./ResourceRetry";
@@ -74,7 +73,6 @@ export function StageHeader({
   task: Task;
   refresh: unknown;
 }) {
-  const content = useRef<HTMLDivElement>(null);
   const plan = useResource<components["schemas"]["StagePlan"]>(
     `projects/${projectId}/tasks/${task.id}/stages`,
     refresh,
@@ -83,29 +81,14 @@ export function StageHeader({
     <>
       <ResourceRetry resources={[plan]} />
       {!!plan.data?.stages.length && (
-        <Popover.Root>
-          <Popover.Trigger className="reference-link">Stages</Popover.Trigger>
-          <Popover.Portal>
-            <Popover.Content
-              ref={content}
-              tabIndex={-1}
-              onOpenAutoFocus={(event) => {
-                event.preventDefault();
-                content.current?.focus({ preventScroll: true });
-              }}
-              align="start"
-              sideOffset={6}
-              collisionPadding={16}
-              className="composer-settings"
-              aria-label="Task stages"
-            >
-              <StageSequence stages={plan.data.stages} label="Task stages" />
-              {plan.data.agreement_revision !== task.agreement_revision && (
-                <p className="muted">Update stages to match the task.</p>
-              )}
-            </Popover.Content>
-          </Popover.Portal>
-        </Popover.Root>
+        <ContentStack className="task-header-stages">
+          <StageSequence stages={plan.data.stages} label="Task stages" />
+          {plan.data.agreement_revision !== task.agreement_revision && (
+            <p className="detail-metadata">
+              Stages reflect an earlier task revision.
+            </p>
+          )}
+        </ContentStack>
       )}
     </>
   );
