@@ -13,6 +13,7 @@ import { type ReactNode } from "react";
 import { label, type TaskRevision } from "./workspace";
 import { useOverlayClose, OverlayHeading } from "./EntityOverlay";
 import { Timestamp } from "./Timestamp";
+import { ContentStack } from "./DetailLayout";
 
 export function CloseControl({
   label,
@@ -57,12 +58,14 @@ export function DetailHeader({
   close,
   closeLabel = "Close editor",
   actions,
+  metadata,
   children,
 }: {
   title: ReactNode;
   close: () => void;
   closeLabel?: string;
   actions?: ReactNode;
+  metadata?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -71,7 +74,10 @@ export function DetailHeader({
         {closeLabel.startsWith("Back") && (
           <CloseControl label={closeLabel} close={close} />
         )}
-        <h2 className="min-w-0 flex-1 basis-44">{title}</h2>
+        <ContentStack space="tight" className="min-w-0 flex-1 basis-44">
+          <h2>{title}</h2>
+          {metadata && <p className="detail-metadata">{metadata}</p>}
+        </ContentStack>
         {actions && <div className="editor-heading-actions">{actions}</div>}
         {!closeLabel.startsWith("Back") && (
           <CloseControl label={closeLabel} close={close} />

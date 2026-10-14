@@ -68,7 +68,7 @@ export function Inspection({
   }
   return (
     <Disclosure
-      group
+      group={!milestone}
       summary={title}
       role="region"
       aria-label={title}

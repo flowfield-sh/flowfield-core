@@ -102,16 +102,15 @@ def question_delivery(
             (project_id, row["task_id"]),
         ).fetchone()[0]
     )
-    settings_row = db.execute(
-        "SELECT data FROM integration_settings WHERE project_id=?", (project_id,)
-    ).fetchone()
-    target = json.loads(settings_row[0])["target_branch"] if settings_row else None
+    from flowfield.milestone_delivery import effective_branch
+
+    target = effective_branch(db, project_id, task.get("milestone_id"))
     if (
         latest != run.id
         or task["archived"]
         or task["reconciliation_reason"]
         or task["agreement_revision"] != run.agreement_revision
-        or (run.completion == "code" and target != run.target_branch)
+        or (run.target_branch is not None and target != run.target_branch)
     ):
         return state(
             "Needs update",

@@ -350,6 +350,7 @@ export function QuestionDetail({
               question={loaded.question}
               context={loaded.context}
               recommendation={loaded.recommendation}
+              verificationUrl={loaded.verification_url}
             />
           )}
           {newer && (
@@ -663,10 +664,10 @@ export function QuestionOverlay({
   }
   return (
     <EntityOverlay title="Question" close={close}>
-      {question.error ? (
-        <ResourceRetry resources={[question]} />
-      ) : question.data ? (
+      {question.data ? (
         <QuestionDetail key={props.identity} {...props} close={close} />
+      ) : question.error ? (
+        <ResourceRetry resources={[question]} />
       ) : (
         <p>Loading question…</p>
       )}

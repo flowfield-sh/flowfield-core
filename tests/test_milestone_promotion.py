@@ -109,13 +109,20 @@ def test_exact_combination_verified_then_promoted(tmp_path):
 
 
 def test_dirty_destination_preserves_approval_for_retry(tmp_path):
+    from flowfield.attention import attention_page
+
     records, promotions, repo, destination, verification = prepared(tmp_path)
     (repo / "README.md").write_text("Unfinished human work\n")
     accept(records, verification)
+    assert not attention_page(records.store, None, workspace_id="harbor", column="action").items
+    waiting = attention_page(records.store, None, workspace_id="harbor", column="waiting").items
+    assert any(item.next_action == "Promoting verified milestone" for item in waiting)
     promotions.process("harbor")
     blocked = records.get("harbor", verification.id)
     assert blocked.status == "delivery_blocked", blocked.problem
     assert baseline(repo) == destination
+    inbox = attention_page(records.store, None, workspace_id="harbor", column="action").items
+    assert len(inbox) == 1 and inbox[0].next_action == "Retry milestone promotion"
     approval = blocked.promotion.approved_at
     (repo / "README.md").write_text("Existing project\n")
     records.review(
@@ -127,6 +134,7 @@ def test_dirty_destination_preserves_approval_for_retry(tmp_path):
     delivered = records.get("harbor", verification.id)
     assert delivered.status == "accepted", delivered.problem
     assert delivered.promotion.approved_at == approval
+    assert not attention_page(records.store, None, workspace_id="harbor", column="action").items
 
 
 def test_destination_movement_requires_new_verification(tmp_path):
@@ -137,6 +145,36 @@ def test_destination_movement_requires_new_verification(tmp_path):
     promotions.process("harbor")
     assert records.get("harbor", verification.id).status == "stale"
     assert baseline(repo) == moved
+
+
+@pytest.mark.parametrize("changed", ["source", "settings"])
+def test_changed_source_or_checks_cannot_reuse_whole_outcome_approval(tmp_path, changed):
+    from pathlib import Path
+
+    from flowfield.integration_models import IntegrationConfig
+    from flowfield.milestone_delivery import MilestoneDeliveries
+
+    records, promotions, repo, destination, verification = prepared(tmp_path)
+    accept(records, verification)
+    if changed == "source":
+        delivery = MilestoneDeliveries(records.store).get("harbor", verification.milestone_id)
+        commit(Path(delivery.path), "unverified.txt", "Later milestone work\n")
+    else:
+        settings = promotions.integrations.settings("harbor")
+        promotions.integrations.configure(
+            "harbor",
+            IntegrationConfig(
+                expected_revision=settings.revision,
+                target_branch=settings.target_branch,
+                checks=["false"],
+            ),
+        )
+    promotions.process("harbor")
+    stale = records.get("harbor", verification.id)
+    assert stale.status == "stale" and not stale.current
+    assert stale.promotion.approved_at and not stale.promotion.delivered_at
+    assert baseline(repo) == destination
+    assert not (repo / "feature.txt").exists()
 
 
 def test_restart_after_git_update_recovers_receipt_without_second_delivery(tmp_path, monkeypatch):

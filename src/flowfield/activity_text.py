@@ -49,7 +49,7 @@ def action_presentation(text: str, kind: str) -> ActionPresentation | None:
     if kind == "command":
         exit_code = re.search(r"(?m)^Exit code: (-?\d+)$", details)
         if exit_code and int(exit_code[1]) != 0:
-            title = title.removesuffix(" · completed") + f" · failed (exit {exit_code[1]})"
+            title = command + f" · failed (exit {exit_code[1]})"
     if not separator and details.startswith("Error: "):
         output, _, details = details.partition("\n")
         separator = "Error"

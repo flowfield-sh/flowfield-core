@@ -118,7 +118,7 @@ class MilestoneDeliveries:
                             409,
                         )
                     if request.branch and value.branch != request.branch:
-                        marker = git(
+                        existing_marker = git(
                             repository,
                             "rev-parse",
                             "--verify",
@@ -126,7 +126,7 @@ class MilestoneDeliveries:
                             f"refs/flowfield/milestones/{value.id}",
                             allowed_returncodes=(0, 1),
                         ).strip()
-                        if value.status == "ready" or marker or Path(value.path).exists():
+                        if value.status == "ready" or existing_marker or Path(value.path).exists():
                             raise ApplicationError(
                                 "delivery_exists", "This milestone already owns a destination.", 409
                             )

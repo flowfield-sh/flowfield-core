@@ -1,5 +1,6 @@
 """Canonical project/task questions and atomic application of saved answers."""
 
+import json
 import sqlite3
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
@@ -105,6 +106,7 @@ class Question(QuestionCreate):
     consumed_answer_revision: int | None = None
     correction_question_id: str | None = None
     delivery: InputDelivery | None = None
+    verification_url: str | None = None
     decision: str | None = None
     applied_task_revision: int | None = None
     applied_project_revision: int | None = None
@@ -174,6 +176,18 @@ class Questions:
             result = self._get(db, project_id, identity, revision)
             if revision is None:
                 result.delivery = question_delivery(db, project_id, identity)
+            if result.origin_run_id:
+                row = db.execute(
+                    "SELECT assignment FROM runs WHERE project_id=? AND id=?",
+                    (project_id, result.origin_run_id),
+                ).fetchone()
+                frozen = json.loads(row[0]).get("milestone_verification") if row else None
+                if frozen:
+                    verification = json.loads(frozen)
+                    result.verification_url = (
+                        f"/workspaces/{verification['workspace_id']}/milestones/"
+                        f"{verification['milestone_key']}?verification={verification['id']}"
+                    )
             return result
 
     def counts(self, db: sqlite3.Connection, project_id: str) -> dict[str, int]:
@@ -291,7 +305,7 @@ class Questions:
             )
 
     def _save(self, db: sqlite3.Connection, question: Question, event: str) -> Question:
-        data = question.model_dump_json(exclude={"delivery"})
+        data = question.model_dump_json(exclude={"delivery", "verification_url"})
         db.execute(
             "UPDATE questions SET status=?, data=? WHERE project_id=? AND id=?",
             (question.status, data, question.project_id, question.id),

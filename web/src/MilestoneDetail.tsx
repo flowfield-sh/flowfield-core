@@ -45,6 +45,10 @@ export function MilestoneDetail({
         title={`${milestone.key} · ${milestone.title}`}
         close={close}
         closeLabel="Back"
+        metadata={
+          delivery.data &&
+          `${delivery.data.project_id} → ${delivery.data.destination_branch}`
+        }
         actions={
           <div className="actions">
             {historical && (
@@ -67,13 +71,7 @@ export function MilestoneDetail({
             </Button>
           </div>
         }
-      >
-        {delivery.data && (
-          <p className="detail-metadata">
-            {delivery.data.project_id} → {delivery.data.destination_branch}
-          </p>
-        )}
-      </DetailHeader>
+      />
       {!historical && (
         <DetailTabs
           id="milestone"

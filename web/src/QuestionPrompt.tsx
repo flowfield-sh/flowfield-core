@@ -1,15 +1,18 @@
 import { ContentStack } from "./DetailLayout";
 import { Markdown } from "./Markdown";
+import { WorkspaceLink } from "./WorkspaceLink";
 
 /** The same question hierarchy wherever a human is asked to answer. */
 export function QuestionPrompt({
   question,
   context,
   recommendation,
+  verificationUrl,
 }: {
   question: string;
   context: string;
   recommendation?: string;
+  verificationUrl?: string | null;
 }) {
   return (
     <ContentStack space="section" className="question-prompt">
@@ -24,6 +27,13 @@ export function QuestionPrompt({
             </ContentStack>
           )}
         </ContentStack>
+      )}
+      {verificationUrl && (
+        <p>
+          <WorkspaceLink to={verificationUrl}>
+            View milestone verification
+          </WorkspaceLink>
+        </p>
       )}
     </ContentStack>
   );

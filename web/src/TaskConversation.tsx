@@ -583,6 +583,9 @@ export function TaskConversation({
                                   <QuestionPrompt
                                     question={currentQuestion.data.question}
                                     context={currentQuestion.data.context}
+                                    verificationUrl={
+                                      currentQuestion.data.verification_url
+                                    }
                                     recommendation={
                                       currentQuestion.data.recommendation
                                     }
@@ -686,6 +689,7 @@ export function TaskConversation({
         </ContentStack>
         <OverlayFooter>
           {(task.status !== "done" ||
+            task.state?.tone === "attention" ||
             !!task.reconciliation_reason ||
             showComposer ||
             stale ||
@@ -841,6 +845,11 @@ export function TaskConversation({
                   question or result.{" "}
                 </p>
               )}
+              {!showComposer &&
+                currentQuestion.data?.status !== "open" &&
+                currentQuestion.data?.delivery && (
+                  <p>{currentQuestion.data.delivery.message}</p>
+                )}
               <div
                 ref={setActionContext}
                 className="task-action-context content-stack"

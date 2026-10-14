@@ -53,9 +53,14 @@ flowfield milestone list --workspace WORKSPACE_ID
 flowfield milestone show M-1 --workspace WORKSPACE_ID
 flowfield milestone verifications M-1 --workspace WORKSPACE_ID
 flowfield milestone verification VERIFICATION_ID --workspace WORKSPACE_ID
+flowfield milestone delivery M-1 --workspace WORKSPACE_ID
 ```
 
-`milestone verify` prepares an upcoming staged report task with repeated `--check` values and exact milestone/task revisions. The task must depend on every delivered contribution. `milestone review VERIFICATION_ID --workspace WORKSPACE_ID --action accept --expected-revision REVISION` records human acceptance of current passing evidence. Use `--action request_changes --note "Required change"` to return feedback. These actions do not promote code.
+Before preparing its tasks, configure a milestone's owned branch with `milestone delivery M-1 --workspace WORKSPACE_ID --project PROJECT_ID --expected-revision REVISION`. Add `--branch BRANCH` to choose the name; the service otherwise generates one. The project's configured destination remains unchanged.
+
+`milestone verify` prepares an upcoming staged report task with repeated `--check` values and exact milestone/task revisions. The task must depend on every delivered contribution. For [owned milestone delivery](/tasks#assemble-and-review-a-milestone), Flowfield checks the combined candidate before starting the verifier.
+
+`milestone review VERIFICATION_ID --workspace WORKSPACE_ID --action accept --expected-revision REVISION` records human acceptance of current passing evidence. When the milestone owns a delivery branch, it also authorizes promotion of that exact verified candidate to the configured local destination. Use `--action retry_promotion` after resolving a checkout blocker, or `--action request_changes --note "Required change"` to return feedback. These actions do not push, deploy or publish a release.
 
 Task and milestone keys accept either case; internal IDs remain exact. `task create` and `edit` accept repeated `--depends-on` keys for same-workspace prerequisites, including other projects. Repeated `--label LABEL_ID` selects labels; edits replace that set. Use `--no-labels` to clear it.
 

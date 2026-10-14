@@ -46,6 +46,8 @@ def test_action_output_is_separate_bounded_and_does_not_repeat_its_header():
     assert action and action.details == "Exit code: 1"
     assert action.title == "npm test · failed (exit 1)"
     assert action.output == "a failing assertion"
+    failed = action_presentation(title + " · failed\n" + details, "command")
+    assert failed and failed.title == "npm test · failed (exit 1)"
 
 
 def test_display_collapses_source_and_keeps_command_failure():

@@ -264,8 +264,11 @@ def attention_page(
             owner = item.project_id
             if item.kind == "milestone":
                 item.next_action = {
+                    "preparing": "Preparing combined candidate",
                     "ready": "Review milestone",
                     "verifying": "Verifying milestone",
+                    "promoting": "Promoting verified milestone",
+                    "delivery_blocked": "Retry milestone promotion",
                     "failed": "Verification needs follow-up",
                     "stale": "Verification out of date",
                     "accepted": "Milestone accepted",
@@ -274,7 +277,11 @@ def attention_page(
                 item.state = WorkState(
                     label=item.next_action,
                     tone="attention"
+                    if item.status in {"failed", "delivery_blocked"}
+                    else "waiting"
                     if item.status == "ready"
+                    else "active"
+                    if item.status in {"preparing", "verifying", "promoting"}
                     else "complete"
                     if item.status == "accepted"
                     else "idle",

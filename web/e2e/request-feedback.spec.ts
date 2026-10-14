@@ -176,12 +176,13 @@ test("an outage is reported once across settings reads and polling, recovers, an
     .click();
   await expect(errors(page)).toContainText("Could not save project settings");
   await expect(errors(page)).not.toContainText("preserved");
-  offline = false;
   await errors(page).getByRole("button", { name: "Close toast" }).click();
+  await expect(errors(page)).toHaveCount(0);
   await editor.getByRole("tab", { name: "Integration", exact: true }).click();
-  // The tab transition can briefly hide both controls. Wait for the failed
-  // resources before recovery so an immediate count cannot skip the clicks.
+  // Keep the outage until both failed resources are visible. Returning to the
+  // tab can remount validation and start another read.
   await expect(retries).toHaveCount(2);
+  offline = false;
   // Wait for each recovery to settle before clicking the next resource's Retry.
   // Otherwise both clicks can hit the same still-visible first button.
   for (let attempt = 0; attempt < 2; attempt++) {

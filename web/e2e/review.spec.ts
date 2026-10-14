@@ -633,9 +633,9 @@ test("managed answers show durable pause, safe edits and immutable correction in
     name: "Task details",
     exact: true,
   });
-  await expect(
-    detail.locator(".task-conversation-header .work-state"),
-  ).toHaveText("Paused");
+  await expect(inputArea).toContainText(
+    "Enable the queue when ready to continue.",
+  );
   await expect(
     detail.getByRole("button", { name: "Retract", exact: true }),
   ).toHaveCount(0);
@@ -670,9 +670,9 @@ test("managed answers show durable pause, safe edits and immutable correction in
   await expect(
     detail.getByText("Only favourites", { exact: true }),
   ).toBeVisible();
-  await expect(
-    detail.locator(".task-conversation-header .work-state"),
-  ).toHaveText("Paused");
+  await expect(inputArea).toContainText(
+    "Enable the queue when ready to continue.",
+  );
   const counts = await request.get(
     "/api/projects/input-browser/view/attention?column=action",
   );
@@ -680,8 +680,8 @@ test("managed answers show durable pause, safe edits and immutable correction in
   fixture("consume");
   await page.reload();
   await expect(
-    detail.locator(".task-conversation-header .work-state"),
-  ).toHaveText("Preparing worker");
+    detail.getByRole("button", { name: "Stop worker", exact: true }),
+  ).toBeVisible();
   await expect(
     detail.getByRole("button", { name: "Edit answer", exact: true }),
   ).toHaveCount(0);
@@ -926,7 +926,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     preview().getByText("excluding edits in this copy.", { exact: false }),
   ).toBeVisible();
   await expect(
-    preview().getByText("A newer result or run exists.", { exact: false }),
+    preview().getByText("The source has changed.", { exact: false }),
   ).toBeVisible();
   await preview().getByRole("button", { name: "Prepare another copy" }).click();
   await expect(

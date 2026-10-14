@@ -605,3 +605,32 @@ def test_verification_context_pages_are_complete_bounded_and_revision_checked(tm
     )
     with pytest.raises(ApplicationError):
         records.context("harbor", value.id, revision=value.revision, offset=first["next_offset"])
+
+
+def test_verifier_question_links_its_frozen_review_even_after_intent_changes(tmp_path):
+    from flowfield.questions import QuestionCreate, Questions
+
+    execution, _, verification = setup(tmp_path)
+    run = execution.claim("harbor", BASE, {BASE: set()})
+    execution.started("harbor", run.id)
+    question = execution.ask_question(
+        "harbor",
+        run.id,
+        QuestionCreate(
+            task_id=run.task_id,
+            question="Does the browser outcome work?",
+            context="Inspect this exact candidate.",
+            recommendation="Report observed behavior.",
+        ),
+    )
+    questions = Questions(execution.workspace)
+    href = (
+        f"/workspaces/harbor/milestones/{verification.milestone_key}?verification={verification.id}"
+    )
+    assert questions.get("harbor", question.id).verification_url == href
+    Milestones(execution.workspace).edit(
+        "harbor",
+        verification.milestone_id,
+        MilestoneEdit(expected_revision=1, acceptance_criteria="Changed intent"),
+    )
+    assert questions.get("harbor", question.id, revision=1).verification_url == href

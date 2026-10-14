@@ -4796,6 +4796,8 @@ export interface components {
       /** Correction Question Id */
       correction_question_id: string | null;
       delivery: components["schemas"]["InputDelivery"] | null;
+      /** Verification Url */
+      verification_url: string | null;
       /** Decision */
       decision: string | null;
       /** Applied Task Revision */

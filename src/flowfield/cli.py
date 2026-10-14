@@ -2062,7 +2062,7 @@ def milestone_review(
     ctx: typer.Context,
     verification: str,
     workspace: WorkspaceOption,
-    action: Annotated[str, typer.Option(help="accept or request_changes")],
+    action: Annotated[str, typer.Option(help="accept, request_changes or retry_promotion")],
     expected_revision: int = typer.Option(...),
     note: str = "",
     json_output: Json = False,

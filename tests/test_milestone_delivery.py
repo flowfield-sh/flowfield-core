@@ -44,6 +44,52 @@ def setup(tmp_path):
     return execution, integrations, repo, base, milestone, delivery
 
 
+def test_owned_task_question_uses_its_milestone_destination(tmp_path):
+    from flowfield.questions import QuestionAnswer, QuestionCreate, Questions
+
+    execution, integrations, _, base, milestone, delivery = setup(tmp_path)
+    store = execution.workspace
+    task = store.create_task(
+        "harbor",
+        task_request(
+            title="Ask for copy",
+            body="Ask for the success text, then implement it.",
+            milestone_id=milestone.id,
+            status="up_next",
+        ),
+    )
+    store.publish_task(
+        "harbor",
+        task.id,
+        TaskPublish(
+            expected_revision=task.revision,
+            completion="code",
+            stages=fixture_stage_change(store, "harbor", task.id),
+        ),
+    )
+    run = execution.claim("harbor", base, {base: set()}, task_id=task.id)
+    assert run and run.target_branch == delivery.branch
+    execution.started("harbor", run.id)
+    question = execution.ask_question(
+        "harbor",
+        run.id,
+        QuestionCreate(
+            task_id=task.id,
+            question="Which text?",
+            context="Choose copy.",
+            recommendation="Brief text.",
+        ),
+    )
+    questions = Questions(store)
+    assert questions.get("harbor", question.id).delivery.state == "Needs your answer"
+    execution.finish("harbor", run.id, "waiting_for_input", input_checkpoint=base)
+    questions.answer("harbor", question.id, QuestionAnswer(expected_revision=1, answer="Saved."))
+    assert questions.get("harbor", question.id).delivery.state == "Resuming"
+    continued = execution.claim("harbor", base, {base: set()}, task_id=task.id)
+    assert continued and continued.target_branch == delivery.branch
+    assert integrations.settings("harbor").target_branch == "main"
+
+
 def contribute(execution, integrations, repo, milestone, name, dependencies=()):
     store = execution.workspace
     task = store.create_task(

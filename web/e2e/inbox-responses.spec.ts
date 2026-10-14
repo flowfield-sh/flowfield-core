@@ -379,6 +379,12 @@ test("Needs me scrolls with wheel input and retains reading position during upda
     await page.goto(`${base}/inbox`);
     await expect(page.getByRole("article").first()).toBeVisible();
     await expect(
+      page.getByRole("button", { name: "Accept milestone", exact: true }),
+    ).toBeEnabled();
+    await expect(page.getByLabel("Your answer", { exact: true })).toHaveCount(
+      width === 1440 ? 8 : 9,
+    );
+    await expect(
       page.getByRole("tab", { name: "Waiting", exact: true }),
     ).toHaveCount(0);
     const pane = page
@@ -389,10 +395,13 @@ test("Needs me scrolls with wheel input and retains reading position during upda
       bounds.x + bounds.width / 2,
       bounds.y + bounds.height / 2,
     );
+    // Start after all cards load; late layout/scroll restoration is not a wheel
+    // gesture. Both directions below still use actual browser input.
+    await pane.evaluate((n) => {
+      n.scrollTop = 0;
+    });
     await page.mouse.wheel(0, 600);
-    await expect
-      .poll(() => pane.evaluate((n) => n.scrollTop))
-      .toBeGreaterThan(300);
+    await expect.poll(() => pane.evaluate((n) => n.scrollTop)).toBe(600);
     const before = await pane.evaluate((n) => n.scrollTop);
     const question = await request.post(
       `/api/projects/${value.project_id}/questions`,
