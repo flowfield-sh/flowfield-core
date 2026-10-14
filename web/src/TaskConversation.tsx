@@ -1,3 +1,4 @@
+import { QuestionChoices } from "./QuestionChoices";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
 import {
@@ -97,10 +98,15 @@ export function TaskConversation({
   refresh,
   onDirty,
   onSettingsDirty,
+  requestTarget,
 }: {
   projectId: string;
   task: Task;
-  board: Board;
+  board: Pick<Board, "milestones" | "tasks">;
+  requestTarget?: {
+    kind: "question" | "result" | "intervention" | "review";
+    id: string;
+  };
   refresh: unknown;
   onDirty: (dirty: boolean) => void;
   onSettingsDirty: (dirty: boolean) => void;
@@ -140,8 +146,9 @@ export function TaskConversation({
     executionId ? `${path}/executions/${executionId}` : null,
     tick,
   );
-  const target =
-    route.tab === "conversation"
+  const target = requestTarget
+    ? `${requestTarget.kind === "intervention" || requestTarget.kind === "review" ? "attempt" : requestTarget.kind}:${requestTarget.id}`
+    : route.tab === "conversation"
       ? route.runId
       : ["result", "changes"].includes(route.tab ?? "") && route.runId
         ? `result:${route.runId}`
@@ -165,12 +172,23 @@ export function TaskConversation({
   const currentBinding = gate.data ? binding(gate.data) : null;
   const key = chosen ?? (currentBinding ? contextKey(currentBinding) : "task");
   const draft = drafts[key];
+  const matchesRequest =
+    !requestTarget ||
+    (requestTarget.kind === "question"
+      ? gate.data?.question_id === requestTarget.id
+      : requestTarget.kind === "result"
+        ? gate.data?.result_id === requestTarget.id && !gate.data?.question_id
+        : gate.data?.run_id === requestTarget.id);
   const inputEnabled =
-    !!gate.data?.enabled && (gate.data.reason !== "answer_editable" || !!draft);
+    matchesRequest &&
+    !!gate.data?.enabled &&
+    (gate.data.reason !== "answer_editable" || !!draft);
   // A selected draft stays open even when empty; eligibility controls delivery.
   const composerAction =
     draft?.action ??
-    (gate.data?.question_id && gate.data.reason !== "answer_editable"
+    (matchesRequest &&
+    gate.data?.question_id &&
+    gate.data.reason !== "answer_editable"
       ? "answer"
       : null);
   const showComposer = composerAction !== null;
@@ -222,9 +240,13 @@ export function TaskConversation({
       focused?.classList.contains("entity-overlay-body");
     // Late eligibility reads must not steal focus from evidence or other controls.
     // Choosing a reply/draft explicitly still moves into its composer.
-    if (composerAction && inputEnabled && (chosen || initialFocus))
+    if (
+      composerAction &&
+      inputEnabled &&
+      (chosen || (initialFocus && !requestTarget?.id))
+    )
       input.current?.focus({ preventScroll: true });
-  }, [composerAction, inputEnabled, key, chosen]);
+  }, [composerAction, inputEnabled, key, chosen, requestTarget?.id]);
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -233,9 +255,9 @@ export function TaskConversation({
     };
   }, []);
   useEffect(() => {
-    onDirty(Object.values(drafts).some((d) => !!d.body));
+    onDirty(busy || uploading || Object.values(drafts).some((d) => !!d.body));
     return () => onDirty(false);
-  }, [drafts, onDirty]);
+  }, [drafts, busy, uploading, onDirty]);
   const chronological = merge(
     merge(
       merge(
@@ -289,7 +311,8 @@ export function TaskConversation({
       : (selected.data?.id ?? target);
   const scrolling = useFeedScroll(
     root,
-    !!page.data &&
+    !requestTarget &&
+      !!page.data &&
       !!initial.data &&
       !!gate.data &&
       (!executionId || !!execution.data),
@@ -374,6 +397,7 @@ export function TaskConversation({
       !draft ||
       (draft.action !== "approve" && !draft.body.trim()) ||
       !gate.data?.enabled ||
+      !matchesRequest ||
       stale
     )
       return;
@@ -426,6 +450,7 @@ export function TaskConversation({
     }
   }
   async function cancelPending() {
+    if (!matchesRequest || !gate.data?.pending_reply_id) return;
     try {
       await request(
         `${path}/replies/${gate.data!.pending_reply_id}/cancel`,
@@ -442,191 +467,199 @@ export function TaskConversation({
     >
       <ContentStack ref={root} space="section" className="task-conversation">
         <ContentStack>
-          <strong>Activity</strong>
+          {!requestTarget && <strong>Activity</strong>}
           <ResourceRetry resources={[page, selected, gate, execution]} />
           {page.loading && !page.data && <p>Loading activity…</p>}
           <ol className="conversation-messages" aria-label="Task feed">
-            {messages.map((message, index) => (
-              <Fragment key={message.id}>
-                {index === 1 && cursor && (
-                  <li>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={olderBusy}
-                      onClick={() => void older()}
-                    >
-                      Load earlier activity
-                    </Button>
-                  </li>
-                )}
-                <li
-                  data-announcement-source={
-                    message.source_id
-                      ? message.kind === "attempt"
-                        ? `${projectId}:intervention:${message.source_id} ${projectId}:review:${message.source_id}`
-                        : `${projectId}:${message.kind}:${message.source_id}`
-                      : undefined
-                  }
-                  data-message-id={message.id}
-                  data-kind={message.kind}
-                  className="conversation-message"
-                >
-                  <DetailHeading
-                    entry
-                    inlineMetadata
-                    title={
-                      <span className="feed-event-title">
-                        <WorkState state={message.state} indicatorOnly />
-                        <span>
-                          {message.kind === "state" &&
-                          message.title.startsWith("Moved to ") ? (
-                            <>
-                              Moved to{" "}
-                              <Badge variant="outline">
-                                {message.title.slice(9)}
-                              </Badge>
-                            </>
-                          ) : (
-                            message.title
-                          )}
+            {messages
+              .filter(
+                (message) =>
+                  !requestTarget ||
+                  message.id === target ||
+                  message.id === selected.data?.id,
+              )
+              .map((message, index) => (
+                <Fragment key={message.id}>
+                  {!requestTarget && index === 1 && cursor && (
+                    <li>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={olderBusy}
+                        onClick={() => void older()}
+                      >
+                        Load earlier activity
+                      </Button>
+                    </li>
+                  )}
+                  <li
+                    data-announcement-source={
+                      message.source_id
+                        ? message.kind === "attempt"
+                          ? `${projectId}:intervention:${message.source_id} ${projectId}:review:${message.source_id}`
+                          : `${projectId}:${message.kind}:${message.source_id}`
+                        : undefined
+                    }
+                    data-message-id={message.id}
+                    data-kind={message.kind}
+                    className="conversation-message"
+                  >
+                    <DetailHeading
+                      entry
+                      inlineMetadata
+                      title={
+                        <span className="feed-event-title">
+                          <WorkState state={message.state} indicatorOnly />
+                          <span>
+                            {message.kind === "state" &&
+                            message.title.startsWith("Moved to ") ? (
+                              <>
+                                Moved to{" "}
+                                <Badge variant="outline">
+                                  {message.title.slice(9)}
+                                </Badge>
+                              </>
+                            ) : (
+                              message.title
+                            )}
+                          </span>
                         </span>
-                      </span>
-                    }
-                    metadata={
-                      <>
-                        {message.actor.label} ·{" "}
-                        <ExactTimeTooltip date={message.created_at}>
-                          <WorkspaceLink
-                            to={messageHref(projectId, task, message.id)}
-                            aria-label={`Permalink: ${message.title}`}
-                          >
-                            <Timestamp
-                              date={message.created_at}
-                              tooltip={false}
-                            />
-                          </WorkspaceLink>
-                        </ExactTimeTooltip>
-                      </>
-                    }
-                  />
-                  {hasBody(message) && (
-                    <div className="conversation-message-body content-stack">
-                      {message.kind === "result" &&
-                      (message.source_id === gate.data?.result_id ||
-                        expanded[message.id] ||
-                        target === message.id) ? (
-                        <Result
-                          projectId={projectId}
-                          taskId={task.id}
-                          taskKey={task.key}
-                          versionId={message.source_id}
-                          refresh={tick}
-                          onReply={requestChanges}
-                          onApprove={approve}
-                          inputEnabled={
-                            !!gate.data?.enabled && !gate.data.question_id
-                          }
-                        />
-                      ) : (
+                      }
+                      metadata={
                         <>
-                          {message.kind !== "definition" && (
-                            <MessageBody message={message} path={path} />
-                          )}
-                          {message.kind === "result" && (
-                            <Button size="sm" variant="outline" asChild>
-                              <WorkspaceLink
-                                onClick={() =>
-                                  setExpanded((values) => ({
-                                    ...values,
-                                    [message.id]: true,
-                                  }))
-                                }
-                                to={messageHref(projectId, task, message.id)}
-                              >
-                                Inspect earlier result
-                              </WorkspaceLink>
-                            </Button>
-                          )}
+                          {message.actor.label} ·{" "}
+                          <ExactTimeTooltip date={message.created_at}>
+                            <WorkspaceLink
+                              to={messageHref(projectId, task, message.id)}
+                              aria-label={`Permalink: ${message.title}`}
+                            >
+                              <Timestamp
+                                date={message.created_at}
+                                tooltip={false}
+                              />
+                            </WorkspaceLink>
+                          </ExactTimeTooltip>
                         </>
-                      )}
-                      {message.question_id && (
-                        <WorkspaceLink
-                          to={messageHref(
-                            projectId,
-                            task,
-                            `question:${message.question_id}:1`,
-                          )}
-                        >
-                          Related question
-                        </WorkspaceLink>
-                      )}
-                      {message.kind === "reply" && message.result_id && (
-                        <WorkspaceLink
-                          to={messageHref(
-                            projectId,
-                            task,
-                            `result:${message.result_id}`,
-                          )}
-                        >
-                          Tested result
-                        </WorkspaceLink>
-                      )}
-                      {message.earlier_id && (
-                        <WorkspaceLink
-                          to={messageHref(
-                            projectId,
-                            task,
-                            `activity:${message.earlier_id}`,
-                          )}
-                        >
-                          Earlier {message.title.toLowerCase()}
-                        </WorkspaceLink>
-                      )}
-                      {message.successor_id && (
-                        <WorkspaceLink
-                          to={messageHref(
-                            projectId,
-                            task,
-                            `activity:${message.successor_id}`,
-                          )}
-                        >
-                          Replacement {message.title.toLowerCase()}
-                        </WorkspaceLink>
-                      )}
-                      {message.kind === "attempt" && (
-                        <RunActivity
-                          projectId={projectId}
-                          runId={message.source_id}
-                        />
-                      )}
-                      {message.kind === "attempt" &&
-                        executionId &&
-                        execution.data?.run_id === message.source_id && (
-                          <ExecutionDetails
-                            key={executionId}
+                      }
+                    />
+                    {hasBody(message) && (
+                      <div className="conversation-message-body content-stack">
+                        {message.kind === "result" &&
+                        (message.source_id === gate.data?.result_id ||
+                          expanded[message.id] ||
+                          target === message.id) ? (
+                          <Result
+                            compact={!!requestTarget}
                             projectId={projectId}
+                            taskId={task.id}
                             taskKey={task.key}
-                            item={execution.data}
+                            versionId={message.source_id}
                             refresh={tick}
+                            onReply={requestChanges}
+                            onApprove={approve}
+                            inputEnabled={
+                              inputEnabled && !gate.data?.question_id
+                            }
+                          />
+                        ) : (
+                          <>
+                            {message.kind !== "definition" && (
+                              <MessageBody message={message} path={path} />
+                            )}
+                            {message.kind === "result" && (
+                              <Button size="sm" variant="outline" asChild>
+                                <WorkspaceLink
+                                  onClick={() =>
+                                    setExpanded((values) => ({
+                                      ...values,
+                                      [message.id]: true,
+                                    }))
+                                  }
+                                  to={messageHref(projectId, task, message.id)}
+                                >
+                                  Inspect earlier result
+                                </WorkspaceLink>
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        {message.question_id && (
+                          <WorkspaceLink
+                            to={messageHref(
+                              projectId,
+                              task,
+                              `question:${message.question_id}:1`,
+                            )}
+                          >
+                            Related question
+                          </WorkspaceLink>
+                        )}
+                        {message.kind === "reply" && message.result_id && (
+                          <WorkspaceLink
+                            to={messageHref(
+                              projectId,
+                              task,
+                              `result:${message.result_id}`,
+                            )}
+                          >
+                            Tested result
+                          </WorkspaceLink>
+                        )}
+                        {message.earlier_id && (
+                          <WorkspaceLink
+                            to={messageHref(
+                              projectId,
+                              task,
+                              `activity:${message.earlier_id}`,
+                            )}
+                          >
+                            Earlier {message.title.toLowerCase()}
+                          </WorkspaceLink>
+                        )}
+                        {message.successor_id && (
+                          <WorkspaceLink
+                            to={messageHref(
+                              projectId,
+                              task,
+                              `activity:${message.successor_id}`,
+                            )}
+                          >
+                            Replacement {message.title.toLowerCase()}
+                          </WorkspaceLink>
+                        )}
+                        {message.kind === "attempt" && (
+                          <RunActivity
+                            projectId={projectId}
+                            runId={message.source_id}
                           />
                         )}
-                      {message.kind === "definition" && (
-                        <TaskChanges
-                          revision={message.revision!}
-                          path={`projects/${projectId}/view/tasks/${task.id}`}
-                          milestones={board.milestones}
-                          tasks={board.tasks}
-                        />
-                      )}
-                    </div>
-                  )}
-                </li>
-              </Fragment>
-            ))}
+                        {message.kind === "attempt" &&
+                          executionId &&
+                          execution.data?.run_id === message.source_id && (
+                            <ExecutionDetails
+                              key={executionId}
+                              projectId={projectId}
+                              taskKey={task.key}
+                              item={execution.data}
+                              refresh={tick}
+                            />
+                          )}
+                        {message.kind === "definition" && (
+                          <TaskChanges
+                            revision={message.revision!}
+                            path={`projects/${projectId}/view/tasks/${task.id}`}
+                            milestones={board.milestones}
+                            tasks={board.tasks}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </li>
+                </Fragment>
+              ))}
           </ol>
         </ContentStack>
-        <OverlayFooter>
+        <OverlayFooter inline={!!requestTarget}>
           <form
             className="task-input content-stack"
             aria-label="Task input"
@@ -651,7 +684,8 @@ export function TaskConversation({
               void send();
             }}
           >
-            {(showComposer || replyResult?.status === "ready") && (
+            {(showComposer ||
+              (matchesRequest && replyResult?.status === "ready")) && (
               <div className="task-input-context">
                 <strong>
                   {replyBinding?.question_id
@@ -682,7 +716,20 @@ export function TaskConversation({
                 )}
               </div>
             )}
+            {requestTarget && !matchesRequest && (
+              <p role="status">
+                This request is no longer awaiting a response. Your saved
+                response is available in its history.
+              </p>
+            )}
             <ResourceRetry resources={[currentQuestion]} />
+            {composerAction === "answer" && currentQuestion.data && (
+              <QuestionChoices
+                choices={currentQuestion.data.choices}
+                choose={updateBody}
+                disabled={busy || !inputEnabled || stale}
+              />
+            )}
             <Composer
               draftKey={key}
               collapsed={!showComposer}
@@ -705,7 +752,11 @@ export function TaskConversation({
               onBusy={setUploading}
               onSend={() => void send()}
 
-              controls={coordinatorQuestion ? undefined : settingsControl}
+              controls={
+                coordinatorQuestion || requestTarget
+                  ? undefined
+                  : settingsControl
+              }
               action={
                 showComposer && (
                   <Button
@@ -773,24 +824,26 @@ export function TaskConversation({
                 }
               />
 
-              {gate.data?.reason === "answer_editable" && !draft && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!currentQuestion.data}
-                  onClick={() => {
-                    if (!currentBinding || !currentQuestion.data) return;
-                    beginDraft(
-                      "answer",
-                      currentBinding,
-                      currentQuestion.data.answer ?? "",
-                    );
-                  }}
-                >
-                  Edit answer
-                </Button>
-              )}
+              {matchesRequest &&
+                gate.data?.reason === "answer_editable" &&
+                !draft && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!currentQuestion.data}
+                    onClick={() => {
+                      if (!currentBinding || !currentQuestion.data) return;
+                      beginDraft(
+                        "answer",
+                        currentBinding,
+                        currentQuestion.data.answer ?? "",
+                      );
+                    }}
+                  >
+                    Edit answer
+                  </Button>
+                )}
               {Object.entries(drafts)
                 .filter(([id, d]) => id !== key && d.body)
                 .map(([id]) => (
@@ -809,7 +862,7 @@ export function TaskConversation({
                   </Button>
                 ))}
 
-              {stale && draft?.action !== "approve" && (
+              {!requestTarget && stale && draft?.action !== "approve" && (
                 <Button
                   type="button"
                   variant="outline"
@@ -852,7 +905,7 @@ export function TaskConversation({
                         : "Cancel message"}
                 </Button>
               )}
-              {gate.data?.pending_reply_id && (
+              {matchesRequest && gate.data?.pending_reply_id && (
                 <Button
                   type="button"
                   variant="outline"
@@ -862,18 +915,20 @@ export function TaskConversation({
                   Cancel pending message
                 </Button>
               )}
-              <WorkerActions
-                projectId={projectId}
-                task={task}
-                runId={
-                  gate.data?.run_id ??
-                  messages.filter((m) => m.kind === "attempt").at(-1)
-                    ?.source_id ??
-                  null
-                }
-                refresh={tick}
-                changed={() => setRevision((n) => n + 1)}
-              />
+              {(!requestTarget || matchesRequest) && (
+                <WorkerActions
+                  projectId={projectId}
+                  task={task}
+                  runId={
+                    gate.data?.run_id ??
+                    messages.filter((m) => m.kind === "attempt").at(-1)
+                      ?.source_id ??
+                    null
+                  }
+                  refresh={tick}
+                  changed={() => setRevision((n) => n + 1)}
+                />
+              )}
             </div>
           </form>
         </OverlayFooter>

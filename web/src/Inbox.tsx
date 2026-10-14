@@ -1,3 +1,4 @@
+import { QuestionChoices } from "./QuestionChoices";
 import { ScopedAnchor } from "./WorkspaceLink";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
@@ -143,7 +144,7 @@ function PreviousAnswers({
   );
 }
 
-function QuestionDetail({
+export function QuestionDetail({
   tasks,
   projectId,
   identity,
@@ -151,6 +152,7 @@ function QuestionDetail({
   onDirty,
   open,
   close,
+  inline = false,
 }: {
   projectId: string;
   identity: string;
@@ -159,6 +161,7 @@ function QuestionDetail({
   onDirty: (dirty: boolean) => void;
   open: (path: string) => void;
   close?: () => void;
+  inline?: boolean;
 }) {
   const answerId = useId();
   const location = useLocation();
@@ -274,6 +277,7 @@ function QuestionDetail({
         loaded ? `${projectId}:question:${loaded.id}` : undefined
       }
       className="question-detail content-stack"
+      data-inline={inline || undefined}
       data-space="section"
       aria-label="Question"
     >
@@ -303,12 +307,14 @@ function QuestionDetail({
                 <span role="status">
                   {loaded.delivery?.state ?? states[loaded.status]}
                 </span>
-                <CloseControl
-                  label="Close question"
-                  close={
-                    close ?? (() => open(projectHref(projectId) + "/inbox"))
-                  }
-                />
+                {!inline && (
+                  <CloseControl
+                    label="Close question"
+                    close={
+                      close ?? (() => open(projectHref(projectId) + "/inbox"))
+                    }
+                  />
+                )}
               </div>
               <h2>
                 <ScopedAnchor
@@ -423,6 +429,11 @@ function QuestionDetail({
                 void answer();
               }}
             >
+              <QuestionChoices
+                choices={loaded.choices}
+                choose={setDraft}
+                disabled={busy || !!newer}
+              />
               <div className="answer-field content-stack">
                 <Label className="field block" htmlFor={answerId}>
                   Your answer
@@ -439,7 +450,9 @@ function QuestionDetail({
               <div className="actions">
                 <Button
                   size="sm"
-                  disabled={busy || !draft.trim() || (editing && !dirty)}
+                  disabled={
+                    busy || !!newer || !draft.trim() || (editing && !dirty)
+                  }
                 >
                   {correcting ? "Send correction" : "Send answer"}
                 </Button>

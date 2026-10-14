@@ -370,7 +370,7 @@ test("shared panes preserve the workspace and related return paths on mobile", a
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(`/workspaces/${workspace}?milestone=group`);
   await page.getByRole("tab", { name: /^Milestones(?: \d+)?$/ }).click();
-  await expect(page.locator(".three-column-board")).toBeVisible();
+  await expect(page.locator(".milestone-board")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "New milestone", exact: true }),
   ).toHaveCount(0);
@@ -412,7 +412,7 @@ test("closing entity overlays returns through history without duplicate collecti
   const inbox = `${board}/inbox`;
   await page.goto(board);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
-  await page.locator(".attention-card").first().click();
+  await page.locator(".request-meta a").first().click();
   await page
     .getByRole("button", {
       name: /^(Close editor|Back to board)$/,
@@ -432,7 +432,10 @@ test("closing entity overlays returns through history without duplicate collecti
   await expect(
     page.getByRole("region", { name: "Task details", exact: true }),
   ).toBeVisible();
-  const answer = page.getByLabel("Your answer", { exact: true });
+  const answer = page.getByRole("textbox", {
+    name: "Your answer",
+    exact: true,
+  });
   await expect(answer).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(answer).not.toBeFocused();

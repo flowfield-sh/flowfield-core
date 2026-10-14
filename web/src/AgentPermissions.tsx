@@ -8,7 +8,6 @@ import { ContentStack, DetailSection } from "./DetailLayout";
 import { Timestamp } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { taskHref } from "./navigation";
-import { WorkCard } from "./WorkCard";
 
 type Permission = components["schemas"]["PermissionRecord"];
 
@@ -146,7 +145,7 @@ export function PermissionCard({
     refresh,
   );
   return (
-    <WorkCard>
+    <article className="request-card" aria-label="Tool permission">
       <ContentStack>
         {taskKey && projectId && (
           <WorkspaceLink to={taskHref(projectId, { key: taskKey })}>
@@ -169,6 +168,6 @@ export function PermissionCard({
           />
         )}
       </ContentStack>
-    </WorkCard>
+    </article>
   );
 }

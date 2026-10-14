@@ -33,6 +33,7 @@ export function Result({
   onReply,
   onApprove,
   inputEnabled,
+  compact = false,
 }: {
   projectId: string;
   taskId: string;
@@ -42,6 +43,7 @@ export function Result({
   onReply: (version: Version) => void;
   onApprove: (version: Version) => void;
   inputEnabled: boolean;
+  compact?: boolean;
 }) {
   const path = `projects/${projectId}`;
   const page = usePage<components["schemas"]["ResultPage"]>(
@@ -136,6 +138,36 @@ export function Result({
       )}
       {version && version.task_id === taskId && (
         <>
+          <DetailGroup title="Worker report">
+            <Markdown>{version.report.summary}</Markdown>
+            {version.report.outcome === "partial" && (
+              <DetailSection title="Work remaining">
+                <Markdown>{version.report.remaining_work}</Markdown>
+              </DetailSection>
+            )}
+
+            {version.report.limitations && (
+              <DetailSection title="Limitations">
+                <Markdown>{version.report.limitations}</Markdown>
+              </DetailSection>
+            )}
+            {version.feedback && (
+              <DetailSection title="Review request">
+                <Markdown>{version.feedback}</Markdown>
+              </DetailSection>
+            )}
+            {worker.data?.feedback && !version.feedback && (
+              <Disclosure
+                summary={<>Requested in the previous review</>}
+                className="review-disclosure"
+              >
+                <p className="muted">
+                  This revision responds to the request below.
+                </p>
+                <Markdown>{worker.data.feedback}</Markdown>
+              </Disclosure>
+            )}
+          </DetailGroup>
           <DetailGroup
             title={version.completion === "code" ? "Delivery" : "Report"}
           >
@@ -301,37 +333,13 @@ export function Result({
                 )}
               </ResultActions>
             )}
-          <DetailGroup title="Worker report">
-            <Markdown>{version.report.summary}</Markdown>
-            {version.report.outcome === "partial" && (
-              <DetailSection title="Work remaining">
-                <Markdown>{version.report.remaining_work}</Markdown>
-              </DetailSection>
-            )}
-
-            {version.report.limitations && (
-              <DetailSection title="Limitations">
-                <Markdown>{version.report.limitations}</Markdown>
-              </DetailSection>
-            )}
-            {version.feedback && (
-              <DetailSection title="Review request">
-                <Markdown>{version.feedback}</Markdown>
-              </DetailSection>
-            )}
-            {worker.data?.feedback && !version.feedback && (
-              <Disclosure
-                summary={<>Requested in the previous review</>}
-                className="review-disclosure"
-              >
-                <p className="muted">
-                  This revision responds to the request below.
-                </p>
-                <Markdown>{worker.data.feedback}</Markdown>
-              </Disclosure>
-            )}
-          </DetailGroup>
-          <DetailGroup title="Checks">
+          <Disclosure
+            group
+            summary="Checks"
+            role="region"
+            aria-label="Checks"
+            open={compact ? undefined : true}
+          >
             <ReviewChecks
               preparation={evidence.data}
               availability={availability.data}
@@ -340,7 +348,7 @@ export function Result({
               branch={version.target_branch}
               historyHref={taskHref(projectId, { key: taskKey }, "history")}
             />
-          </DetailGroup>
+          </Disclosure>
           {version.completion === "code" && version.candidate_commit && (
             <>
               <Inspection

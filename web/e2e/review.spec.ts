@@ -395,7 +395,7 @@ test("validated result approval delivers real Git code with the worker queue pau
       .candidate_commit,
   ).toBe(seed.candidate);
   await page.goto(`/projects/${seed.project}/inbox`);
-  await page.getByRole("link", { name: /INT-1.*Review changes/ }).click();
+  await page.getByRole("link", { name: /INT-1:/ }).click();
   await expect(page).toHaveURL(
     new RegExp(`/conversation/result:${seed.result}$`),
   );
@@ -1042,10 +1042,10 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     );
   for (const delay of [0, 250]) {
     resultDelay = delay;
-    await page.goto("/projects/outcome-report/inbox");
+    await page.goto("/projects/outcome-report/inbox?inbox=history");
     // Use the real history card and its versioned result URL.
     await page
-      .getByRole("region", { name: "History", exact: true })
+      .getByRole("tabpanel", { name: "History", exact: true })
       .getByRole("link", { name: /Report outcome/ })
       .click();
     await expect(

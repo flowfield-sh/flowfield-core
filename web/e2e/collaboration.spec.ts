@@ -610,24 +610,22 @@ test("Inbox carries a free-text answer from browser to coordinator application",
 
   await expect(
     page
-      .getByRole("region", {
-        name: "Needs your action",
+      .getByRole("tabpanel", {
+        name: "Needs me",
         exact: true,
         includeHidden: true,
       })
-      .locator(".attention-card"),
+      .locator(".request-card"),
   ).toHaveCount(1);
   await expect(
-    page
-      .getByRole("region", {
-        name: "Waiting",
-        exact: true,
-        includeHidden: true,
-      })
-      .locator(".attention-card"),
-  ).toHaveCount(0);
+    page.getByRole("tab", {
+      name: "Waiting",
+      exact: true,
+      includeHidden: true,
+    }),
+  ).toHaveCount(1);
   await expect(
-    page.getByRole("region", {
+    page.getByRole("tab", {
       name: "History",
       exact: true,
       includeHidden: true,
@@ -648,7 +646,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   );
   await expect(
     detail.getByRole("button", { name: "All filtered rows", exact: true }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await detail
     .getByLabel("Your answer", { exact: true })
     .fill(
@@ -675,24 +673,6 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   await expect(detail.getByText("Answer sent.", { exact: true })).toHaveCount(
     0,
   );
-  await expect(
-    page
-      .getByRole("region", {
-        name: "Needs your action",
-        exact: true,
-        includeHidden: true,
-      })
-      .locator(".attention-card"),
-  ).toHaveCount(0);
-  await expect(
-    page
-      .getByRole("region", {
-        name: "Waiting",
-        exact: true,
-        includeHidden: true,
-      })
-      .locator(".attention-card"),
-  ).toHaveCount(1);
   const answered = await call("get_question", {
     project_id,
     question_id: question.id,
@@ -728,7 +708,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   expect(applied.blocked_by[0].key).toBe("ASK-1");
   expect(applied.status).toBe("up_next");
   await expect(page.getByLabel("Show resolved")).toHaveCount(0);
-  await expect(page.locator(".attention-card")).toHaveCount(1);
+  await expect(page.locator(".request-card")).toHaveCount(1);
   await page.setViewportSize({ width: 390, height: 844 });
   await detail.scrollIntoViewIfNeeded();
 
@@ -796,12 +776,9 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
   await expect(detail.getByLabel("Your answer", { exact: true })).toHaveValue(
     "My unsaved custom answer",
   );
-  await detail
-    .getByRole("button", { name: "Send answer", exact: true })
-    .click();
   await expect(
-    page.locator("[data-sonner-toast][data-type=error]"),
-  ).toContainText("stale");
+    detail.getByRole("button", { name: "Send answer", exact: true }),
+  ).toBeDisabled();
   page.once("dialog", (d) => d.accept());
   await detail
     .getByRole("button", { name: "Load latest", exact: true })
@@ -829,7 +806,7 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
   await expect(detail.locator(".answer-history")).toContainText(
     "Cap it at 10,000.",
   );
-  await expect(page.locator(".attention-card")).toHaveCount(1);
+  await expect(page.locator(".request-card")).toHaveCount(1);
   await detail
     .getByLabel("Your answer", { exact: true })
     .fill("Reject, explain the cap, and suggest narrowing filters.");
@@ -905,12 +882,12 @@ test("retracting answers reopens questions and preserves earlier responses", asy
   await expect(detail.getByRole("status")).toHaveText("Needs your answer");
   await expect(
     page
-      .getByRole("region", {
-        name: "Needs your action",
+      .getByRole("tabpanel", {
+        name: "Needs me",
         exact: true,
         includeHidden: true,
       })
-      .locator(".attention-card"),
+      .locator(".request-card"),
   ).toHaveCount(1);
   await detail.getByText("Earlier responses", { exact: true }).click();
   await expect(detail).toContainText("Visible page");
@@ -1204,6 +1181,17 @@ test("related questions preserve the page, drafts, focus and router history", as
       blocking_scope: "Export scope",
     },
   });
+  let releaseFeed!: () => void;
+  const feedReady = new Promise<void>((resolve) => {
+    releaseFeed = resolve;
+  });
+  await page.route(
+    `**/api/projects/${project_id}/tasks/export/thread**`,
+    async (route) => {
+      await feedReady;
+      await route.continue();
+    },
+  );
   await page.goto(`/projects/${project_id}/tasks/OVR-1`);
   const boot = await page.evaluate(() => performance.timeOrigin);
   const editor = page.getByRole("region", {
@@ -1237,6 +1225,7 @@ test("related questions preserve the page, drafts, focus and router history", as
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Question", exact: true });
   await expect(dialog).toBeVisible();
+  releaseFeed();
   expect(await page.evaluate(() => scrollY)).toBe(scroll);
   await expect(page).toHaveURL(`${origin}/related/questions/${question.id}`);
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(boot);
@@ -1290,8 +1279,12 @@ test("related questions preserve the page, drafts, focus and router history", as
   ).toBeVisible();
   await closeOverlay(page);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
-  for (const name of ["Needs your action", "Waiting", "History"])
-    await expect(page.getByRole("region", { name, exact: true })).toBeVisible();
+  for (const name of ["Needs me", "Waiting", "History"]) {
+    await page.getByRole("tab", { name, exact: true }).click();
+    await expect(
+      page.getByRole("tabpanel", { name, exact: true }),
+    ).toBeVisible();
+  }
   await expect(page.getByLabel("Show resolved")).toHaveCount(0);
 });
 
@@ -1495,6 +1488,18 @@ test("review journey preserves feedback, navigates complete files and reviews a 
           next_cursor: null,
         },
       });
+    if (url.pathname.includes("/thread/attempt"))
+      return route.fulfill({
+        json: {
+          ...resultMessage(version(failure)),
+          id: `attempt:${failure.id}`,
+          kind: "attempt",
+          source_id: failure.id,
+          title: "Worker failed",
+          body: failure.problem ?? "Worker needs recovery",
+          status: "failed",
+        },
+      });
     if (url.pathname.includes("/thread/result")) {
       const key = decodeURIComponent(segments.at(-1)!).split(":")[1];
       return route.fulfill({
@@ -1666,21 +1671,21 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   const boot = await page.evaluate(() => performance.timeOrigin);
   await expect(
     page.getByRole("link", {
-      name: /Changes RFL-1 Validate CSV records Review changes/,
+      name: /RFL-1: Validate CSV records/,
     }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", {
-      name: /Intervention RFL-2 Document import options/,
+      name: /RFL-2: Document import options/,
     }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: /Question RFL-2 Which import options/ }),
+    page.getByRole("link", { name: /RFL-2: Which import options/ }),
   ).toBeVisible();
 
   await page
     .getByRole("link", {
-      name: /Changes RFL-1 Validate CSV records Review changes/,
+      name: /RFL-1: Validate CSV records/,
     })
     .click();
   await expect(page).toHaveURL(/changes\/first$/);
@@ -1709,7 +1714,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   );
   await page.keyboard.press("Escape");
   await expect(checks).toBeVisible();
-  await expect(page.getByText("Ready for review", { exact: true })).toHaveCount(
+  await expect(runs.getByText("Ready for review", { exact: true })).toHaveCount(
     1,
   );
   await expect(
@@ -1810,9 +1815,9 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   await page
     .getByRole("button", { name: "Send feedback", exact: true })
     .click();
-  await expect(page.locator('[data-message-id="result:first"]')).toContainText(
-    "Review request",
-  );
+  await expect(
+    dialog.locator('[data-message-id="result:first"]'),
+  ).toContainText("Review request");
   await page.reload();
   await runs
     .getByText("Requested in the previous review", { exact: true })
@@ -1842,7 +1847,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();
   await expect(
-    page.locator('[data-message-id="result:successor"]'),
+    dialog.locator('[data-message-id="result:successor"]'),
   ).toContainText("Task complete.");
   await dialog
     .getByRole("button", {
@@ -1854,7 +1859,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     `/workspaces/${await projectWorkspace(request, project_id)}/inbox?project=${project_id}`,
   );
   await expect(
-    page.getByRole("region", { name: "Needs your action", exact: true }),
+    page.getByRole("tabpanel", { name: "Needs me", exact: true }),
   ).toBeVisible();
   expect(await page.evaluate(() => performance.timeOrigin)).not.toBe(boot); // Only the explicit refresh navigated the document.
   await page.unrouteAll({ behavior: "wait" });

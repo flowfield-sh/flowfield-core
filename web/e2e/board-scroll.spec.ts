@@ -147,7 +147,7 @@ test("board columns scroll independently with fixed headings and reachable cards
   });
 });
 
-test("Inbox shares board scrolling and wraps long cards", async ({
+test("Inbox response lists paginate and wrap long cards without horizontal scrolling", async ({
   page,
   request,
 }, testInfo) => {
@@ -225,95 +225,57 @@ test("Inbox shares board scrolling and wraps long cards", async ({
         },
       }),
   );
+  await page.route(`**/api/projects/${project}/questions/*`, (route) =>
+    route.fulfill({
+      json: {
+        id: new URL(route.request().url()).pathname.split("/").at(-1),
+        revision: 1,
+        question: "Choose " + "long-unbroken-title".repeat(15),
+        context: "Explain the required choice.",
+        recommendation: "Choose the first option.",
+        choices: ["First option", "Second option"],
+        status: "open",
+        task_id: null,
+        task_key: null,
+        affected_task_keys: [],
+        answer_count: 0,
+      },
+    }),
+  );
   await page.setViewportSize({ width: 1800, height: 800 });
   await page.goto(`/projects/${project}/inbox`);
-  const board = page.locator(".attention-board");
-  const action = page.getByRole("region", {
-    name: "Needs your action items",
-    exact: true,
-  });
-  const waiting = page.getByRole("region", {
-    name: "Waiting items",
-    exact: true,
-  });
-  await expect(action.getByRole("link")).toHaveCount(14);
-  await page.addStyleTag({
-    content: `* { scrollbar-width: auto; } ::-webkit-scrollbar { width: 14px; height: 14px; }`,
-  });
-  const positions = () =>
-    board
-      .locator(".column > h2")
-      .evaluateAll((nodes) => nodes.map((n) => n.getBoundingClientRect().top));
-  const initial = await positions();
+  const action = page.getByRole("tabpanel", { name: "Needs me", exact: true });
+  await expect(action.locator(".request-card")).toHaveCount(14);
+  await action.getByRole("button", { name: "Load more", exact: true }).click();
+  await expect(action.locator(".request-card")).toHaveCount(15);
+  await action.locator(".request-card").last().scrollIntoViewIfNeeded();
+  await expect(action.locator(".request-card").last()).toBeInViewport();
+  await page.getByRole("tab", { name: "Waiting", exact: true }).click();
+  const waiting = page.getByRole("tabpanel", { name: "Waiting", exact: true });
   await expect(
     waiting.getByRole("button", { name: "Allow_".repeat(80), exact: true }),
   ).toBeVisible();
-  await action.focus();
-  await page.keyboard.press("End");
-  await expect
-    .poll(() => action.evaluate((node) => node.scrollTop))
-    .toBeGreaterThan(0);
-  expect(await waiting.evaluate((node) => node.scrollTop)).toBe(0);
-  expect(await positions()).toEqual(initial);
-  await action.getByRole("button", { name: "Load more" }).click();
-  await expect(action.getByRole("link")).toHaveCount(15);
-  await action.evaluate((node) => {
-    node.scrollTop = node.scrollHeight;
-  });
-  await expect(action.getByRole("link").last()).toBeInViewport();
-  await waiting.hover();
-  await page.mouse.wheel(0, 500);
-  await expect
-    .poll(() => waiting.evaluate((node) => node.scrollTop))
-    .toBeGreaterThan(0);
-  expect(await positions()).toEqual(initial);
   for (const width of [1800, 390]) {
     await page.setViewportSize({ width, height: 800 });
-    expect(
-      await board
-        .locator(".column-cards")
-        .evaluateAll((nodes) =>
-          nodes.every((n) => n.scrollWidth <= n.clientWidth),
-        ),
-    ).toBe(true);
-    expect(
-      await board
-        .locator("li")
-        .evaluateAll((nodes) =>
-          nodes.every((n) => n.scrollWidth <= n.clientWidth),
-        ),
-    ).toBe(true);
-    for (const selector of [
-      ".attention-board",
-      ".workspace-work-content",
-      "html",
-    ]) {
-      expect(
-        await page
-          .locator(selector)
-          .evaluate((node) => node.scrollHeight <= node.clientHeight),
-      ).toBe(true);
-    }
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
-    if (width === 390) {
-      expect(
-        await board.evaluate((node) => node.scrollWidth > node.clientWidth),
-      ).toBe(true);
-      await board.evaluate((node) => {
-        node.scrollLeft = node.scrollWidth;
-      });
-      await expect(
-        board.getByRole("heading", { name: "History" }),
-      ).toBeInViewport();
-    }
+    expect(
+      await waiting.evaluate((node) => node.scrollWidth <= node.clientWidth),
+    ).toBe(true);
     await page.screenshot({
-      path: testInfo.outputPath(`attention-columns-${width}.png`),
+      path: testInfo.outputPath(`inbox-list-${width}.png`),
     });
   }
+  await page.getByRole("tab", { name: "Needs me", exact: true }).click();
+  await expect(
+    page.getByRole("group", { name: "Suggested answers" }).first(),
+  ).toBeVisible();
+  expect(
+    await action.evaluate((node) => node.scrollWidth <= node.clientWidth),
+  ).toBe(true);
 });
 
 test("milestones share board scrolling, compact controls and URL views", async ({

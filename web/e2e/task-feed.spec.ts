@@ -289,7 +289,7 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
   await page.getByLabel("Filter by milestone").selectOption("csv");
   await expect(page.locator(".task-card")).toHaveCount(2);
   await page.getByRole("tab", { name: /^Milestones/ }).click();
-  await page.locator(".three-column-board .task-card-link").first().click();
+  await page.locator(".milestone-board .task-card-link").first().click();
   await call("edit_milestone", {
     workspace_id: workspace,
     milestone_id: "csv",
@@ -1401,7 +1401,10 @@ test("legacy task-question links resolve into the feed and preserve answers", as
   await expect(
     page.getByRole("heading", { name: "Waiting on", exact: true }),
   ).toHaveCount(0);
-  const answer = page.getByLabel("Your answer", { exact: true });
+  const answer = page.getByRole("textbox", {
+    name: "Your answer",
+    exact: true,
+  });
   await expect(answer).toHaveAttribute("placeholder", "Your answer…");
   const input = page.getByRole("form", { name: "Task input", exact: true });
   await expect(input).toContainText("Answer the question");
@@ -1421,18 +1424,26 @@ test("legacy task-question links resolve into the feed and preserve answers", as
   });
   await expect(
     page.getByRole("button", { name: "JSON", exact: true }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "CSV", exact: true }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await answer.fill("JSON");
   await page.getByRole("button", { name: "Send answer", exact: true }).click();
-  await expect(page.locator('[data-kind="answer"]')).toContainText("JSON");
+  await expect(
+    page
+      .getByRole("region", { name: "Task details", exact: true })
+      .locator('[data-kind="answer"]'),
+  ).toContainText("JSON");
   const question = await (await request.get(`${path}/questions/choice`)).json();
   expect(question.answer).toBe("JSON");
   await page.goto(
     "/projects/feed-question/tasks/FQN-1/related/questions/choice",
   );
   await expect(page).toHaveURL(/conversation\/question%3Achoice$/);
-  await expect(page.locator('[data-kind="answer"]')).toContainText("JSON");
+  await expect(
+    page
+      .getByRole("region", { name: "Task details", exact: true })
+      .locator('[data-kind="answer"]'),
+  ).toContainText("JSON");
 });

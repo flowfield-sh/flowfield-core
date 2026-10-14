@@ -17,6 +17,7 @@ export function useFeedScroll(
     ready: false,
     following: true,
     initialized: false,
+    interacted: false,
     target: "",
     anchor: null as { id: string; offset: number } | null,
     top: 0,
@@ -96,11 +97,28 @@ export function useFeedScroll(
     const observer = new ResizeObserver(settle);
     observer.observe(content.closest(".task-detail") ?? content);
     observer.observe(pane);
+    const interact = () => {
+      if (!state.initialized) {
+        state.interacted = true;
+        state.following = false;
+        remember();
+      }
+    };
+    const intentEvents = [
+      "wheel",
+      "touchstart",
+      "pointerdown",
+      "keydown",
+    ] as const;
+    for (const event of intentEvents)
+      pane.addEventListener(event, interact, { passive: true });
     pane.addEventListener("scroll", scroll);
     settle();
     return () => {
       observer.disconnect();
       pane.removeEventListener("scroll", scroll);
+      for (const event of intentEvents)
+        pane.removeEventListener(event, interact);
     };
   }, [root, pane]);
   useLayoutEffect(() => {
@@ -109,17 +127,19 @@ export function useFeedScroll(
     if (!pane || !state.ready) return;
     const nextTarget = target ?? "";
     if (state.initialized && state.target === nextTarget) return;
+    if (state.initialized) state.interacted = false;
     state.initialized = false;
     state.target = nextTarget;
-    state.following = !target;
+    state.following = !target && !state.interacted;
     // The overlay resets its body in a parent layout effect. Ignore its queued
     // scroll events until our own initial positioning has run after that reset.
     const frame = requestAnimationFrame(() => {
-      const entry = target
-        ? root.current?.querySelector<HTMLElement>(
-            `[data-message-id="${CSS.escape(target)}"]`,
-          )
-        : null;
+      const entry =
+        target && !state.interacted
+          ? root.current?.querySelector<HTMLElement>(
+              `[data-message-id="${CSS.escape(target)}"]`,
+            )
+          : null;
       if (entry) {
         state.anchor = {
           id: target!,

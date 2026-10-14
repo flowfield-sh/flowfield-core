@@ -32,7 +32,11 @@ test("Inbox review accepts exact milestone evidence and keeps history", async ({
   await expect(
     page.getByRole("button", { name: "Accept milestone", exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Coverage: Complete")).toBeVisible();
+  await expect(
+    page
+      .getByRole("tabpanel", { name: "Review", exact: true })
+      .getByText("Coverage: Complete"),
+  ).toBeVisible();
   for (const [width, height, theme] of [
     [1440, 1000, "light"],
     [1440, 1000, "dark"],
@@ -114,10 +118,7 @@ test("request changes preserves feedback and stale evidence cannot be accepted",
     },
   });
   await expect(
-    page.getByRole("heading", {
-      name: "Verification out of date",
-      exact: true,
-    }),
+    page.getByText("Verification out of date", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Accept milestone", exact: true }),
@@ -132,10 +133,9 @@ test("a completed verifier with a failed criterion never offers acceptance", asy
     `/workspaces/${value.workspace_id}/milestones/${value.milestone_key}?verification=${value.verification_id}`,
   );
   await expect(
-    page.getByRole("heading", {
-      name: "Verification needs follow-up",
-      exact: true,
-    }),
+    page
+      .getByRole("tabpanel", { name: "Review", exact: true })
+      .getByText("Verification needs follow-up", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Accept milestone", exact: true }),

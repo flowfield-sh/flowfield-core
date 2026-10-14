@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/button";
+import { useLocation, useSearchParams } from "react-router";
+import { DetailTabs } from "./Presentation";
 import { DetailHeader } from "./Presentation";
 import { MilestoneVerification } from "./MilestoneVerification";
 import { Markdown } from "./Markdown";
@@ -25,6 +27,13 @@ export function MilestoneDetail({
   path: string;
   close: () => void;
 }) {
+  const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const tab =
+    !historical &&
+    (params.get("tab") === "review" || params.has("verification"))
+      ? "review"
+      : "details";
   return (
     <section className="editor documents-page" aria-label="Milestone">
       <DetailHeader
@@ -54,37 +63,52 @@ export function MilestoneDetail({
           </div>
         }
       />
-      <div className="document-layout">
-        <ContentStack space="section" className="document-content">
-          <DetailSection title="Description">
-            <Markdown>{milestone.body || "No description yet."}</Markdown>
-          </DetailSection>
-          <DetailSection title="Acceptance criteria">
-            <Markdown>
-              {milestone.acceptance_criteria || "No acceptance criteria yet."}
-            </Markdown>
-          </DetailSection>
-          {!historical && (
-            <MilestoneVerification
-              key={milestone.id}
-              refresh={refresh}
-              onDirty={onDirty}
-              path={path}
-              milestoneId={milestone.id}
-              milestoneKey={milestone.key}
-              revision={milestone.revision}
-            />
-          )}
-        </ContentStack>
-        <RevisionHistory
-          key={milestone.id}
-          kind="Milestone"
-          path={`${path}/milestones/${milestone.id}`}
-          href={`/workspaces/${milestone.workspace_id}/milestones/${milestone.key}`}
-          revision={latest?.revision ?? milestone.revision}
-          selected={milestone.revision}
+      {!historical && (
+        <DetailTabs
+          id="milestone"
+          title="Milestone views"
+          tabs={["details", "review"]}
+          active={tab}
+          change={(value) => {
+            const next = new URLSearchParams(params);
+            next.delete("verification");
+            next.set("tab", value);
+            setParams(next, { state: location.state });
+          }}
         />
-      </div>
+      )}
+      {tab === "review" ? (
+        <MilestoneVerification
+          key={milestone.id}
+          refresh={refresh}
+          onDirty={onDirty}
+          path={path}
+          milestoneId={milestone.id}
+          milestoneKey={milestone.key}
+          revision={milestone.revision}
+        />
+      ) : (
+        <div className="document-layout">
+          <ContentStack space="section" className="document-content">
+            <DetailSection title="Description">
+              <Markdown>{milestone.body || "No description yet."}</Markdown>
+            </DetailSection>
+            <DetailSection title="Acceptance criteria">
+              <Markdown>
+                {milestone.acceptance_criteria || "No acceptance criteria yet."}
+              </Markdown>
+            </DetailSection>
+          </ContentStack>
+          <RevisionHistory
+            key={milestone.id}
+            kind="Milestone"
+            path={`${path}/milestones/${milestone.id}`}
+            href={`/workspaces/${milestone.workspace_id}/milestones/${milestone.key}`}
+            revision={latest?.revision ?? milestone.revision}
+            selected={milestone.revision}
+          />
+        </div>
+      )}
     </section>
   );
 }

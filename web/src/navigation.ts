@@ -227,6 +227,21 @@ export function useWorkspaceNavigation(
         ? (projectOwners[identity] ?? `project:${identity}`)
         : null;
   }
+  function responseIdentity(location: { pathname: string; search: string }) {
+    const path = canonicalHref(location.pathname, projectOwners);
+    const params = new URLSearchParams(location.search);
+    const pane = /\/inbox$/.test(path)
+      ? [params.get("inbox") ?? "needs_me", params.get("project") ?? ""]
+      : /\/milestones\/[^/]+$/.test(path)
+        ? [
+            params.has("verification")
+              ? "review"
+              : (params.get("tab") ?? "details"),
+            params.get("verification") ?? "",
+          ]
+        : [];
+    return JSON.stringify([editorIdentity(path), ...pane]);
+  }
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       !bypass.current &&
@@ -235,12 +250,8 @@ export function useWorkspaceNavigation(
           workspaceOwner(nextLocation.pathname)) ||
         (overlayDirty && currentLocation.pathname !== nextLocation.pathname) ||
         (unsaved &&
-          editorIdentity(
-            canonicalHref(currentLocation.pathname, projectOwners),
-          ) !==
-            editorIdentity(
-              canonicalHref(nextLocation.pathname, projectOwners),
-            ))),
+          responseIdentity(currentLocation) !==
+            responseIdentity(nextLocation))),
   );
   useEffect(() => {
     const target = canonicalHref(
@@ -285,10 +296,7 @@ export function useWorkspaceNavigation(
       },
       discard: () => {
         if (blocker.state !== "blocked") return;
-        if (
-          editorIdentity(location.pathname) !==
-          editorIdentity(blocker.location.pathname)
-        )
+        if (responseIdentity(location) !== responseIdentity(blocker.location))
           setUnsaved(false);
         setOverlayDirty(false);
         blocker.proceed();

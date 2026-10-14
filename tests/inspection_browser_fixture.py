@@ -19,10 +19,13 @@ from flowfield.supervisor import Supervisor
 
 workspace = Workspace(Path(sys.argv[1]))
 service = Supervisor(workspace)
-project = "inspection-browser"
+project = sys.argv[3] if len(sys.argv) > 3 else "inspection-browser"
 repo = workspace.directory / project
 if sys.argv[2] == "create":
-    adopt(workspace, ProjectSetup(path=str(repo), task_prefix="IPV"))
+    adopt(
+        workspace,
+        ProjectSetup(path=str(repo), task_prefix=sys.argv[4] if len(sys.argv) > 4 else "IPV"),
+    )
     git(repo, "init", "-b", "main")
     (repo / "README.md").write_text("Inspection toy")
     git(repo, "add", ".")

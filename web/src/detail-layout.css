@@ -491,3 +491,85 @@
     }
   }
 }
+
+/* Inbox requests have room for a decision; supporting evidence stays inside it. */
+.inbox-view {
+  padding: 0 0 20px;
+  min-width: 0;
+}
+.inbox-list {
+  min-width: 0;
+  max-width: 880px;
+  width: 100%;
+  margin-inline: auto;
+}
+.request-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 16px;
+}
+.request-card {
+  overflow-wrap: anywhere;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  min-width: 0;
+  background: var(--card);
+}
+.request-list > li {
+  min-width: 0;
+}
+.request-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.request-meta a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.request-card .task-input {
+  padding: 12px 0 0;
+  background: transparent;
+}
+.request-card .conversation-message {
+  border: 0;
+}
+.request-card .conversation-message > .detail-heading-block {
+  padding: 0;
+  background: none;
+}
+.request-card .conversation-message-body {
+  padding: 0;
+  border: 0;
+}
+.request-card
+  .conversation-message
+  > .detail-heading-block
+  + .conversation-message-body {
+  padding-top: 12px;
+}
+.review-response {
+  padding: 12px 0;
+}
+.entity-overlay-footer .review-response {
+  padding: 16px 24px;
+  background: var(--chrome);
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 600px) {
+  .entity-overlay-footer .review-response {
+    padding: 12px 16px;
+  }
+}
+.review-decision {
+  margin-top: 12px;
+}
+.board.milestone-board {
+  grid-template-columns: repeat(4, minmax(240px, 1fr));
+}

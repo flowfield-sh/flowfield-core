@@ -19,11 +19,13 @@ export function MilestoneList({
         tasks.length > 0 &&
         done === tasks.length)
         ? "Complete"
-        : state || (tasks.length && done === tasks.length)
-          ? "In progress"
-          : tasks.some((t) => !["backlog", "up_next"].includes(t.status))
+        : state === "ready"
+          ? "Review"
+          : state || (tasks.length && done === tasks.length)
             ? "In progress"
-            : "Planned";
+            : tasks.some((t) => !["backlog", "up_next"].includes(t.status))
+              ? "In progress"
+              : "Planned";
     return {
       milestone,
       tasks,
@@ -34,8 +36,8 @@ export function MilestoneList({
     };
   });
   return (
-    <div className="board three-column-board" aria-label="Milestones">
-      {["Planned", "In progress", "Complete"].map((column) => (
+    <div className="board milestone-board" aria-label="Milestones">
+      {["Planned", "In progress", "Review", "Complete"].map((column) => (
         <section key={column} className="column" aria-label={column}>
           <h2>
             {column}
@@ -60,7 +62,7 @@ export function MilestoneList({
                     <strong>
                       <WorkspaceLink
                         className="task-card-link"
-                        to={`${workspaceHref(milestone.workspace_id)}/milestones/${milestone.key}`}
+                        to={`${workspaceHref(milestone.workspace_id)}/milestones/${milestone.key}${state === "ready" ? "?tab=review" : ""}`}
                       >
                         {milestone.title}
                       </WorkspaceLink>
@@ -70,14 +72,16 @@ export function MilestoneList({
                     {(
                       {
                         verifying: "Verifying",
-                        ready: "Ready for review",
+                        ready: "",
                         failed: "Verification needs follow-up",
                         stale: "Verification out of date",
                         changes_requested: "Changes requested",
-                        accepted: "Accepted",
+                        accepted: "",
                       } as Record<string, string>
                     )[state] ??
-                      (tasks.length && done === tasks.length
+                      (milestone.acceptance_criteria.trim() &&
+                      tasks.length &&
+                      done === tasks.length
                         ? "Tasks complete · Not yet verified"
                         : "")}
                   </span>

@@ -1010,6 +1010,8 @@ function WorkspaceBoard({
             <MilestoneList board={board} />
           ) : showInbox ? (
             <AttentionBoard
+              board={board}
+              onDirty={setUnsaved}
               workspaceId={workspaceId}
               projectId={projectFilter || undefined}
               identity={params.questionId}

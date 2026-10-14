@@ -1,208 +1,314 @@
-import { useLocation, useNavigate } from "react-router";
-import { EntityOverlay } from "./EntityOverlay";
-import { useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { components } from "./api-schema";
-import { usePage } from "./useResource";
+import { usePage, useResource } from "./useResource";
 import { AttentionCard } from "./AttentionCard";
 import { taskHref } from "./navigation";
-import { questionHref } from "./Inbox";
-import { label } from "./workspace";
+import { QuestionDetail, questionHref } from "./Inbox";
+import { label, type Task, type WorkspaceBoard } from "./workspace";
 import { WorkState } from "./WorkState";
 import { PermissionCard } from "./AgentPermissions";
 import { ContentStack } from "./DetailLayout";
+import { DetailTabs } from "./Presentation";
+import { WorkspaceLink } from "./WorkspaceLink";
+import { TaskConversation } from "./TaskConversation";
+import { MilestoneReviewRequest } from "./MilestoneVerification";
+import { useDirtyItems } from "./useDirtyItems";
+import { ResourceRetry } from "./ResourceRetry";
+import { EntityOverlay } from "./EntityOverlay";
 
 type Item = components["schemas"]["AttentionItem"];
 type Page = components["schemas"]["AttentionPage"];
-const columns = {
-  action: "Needs your action",
-  waiting: "Waiting",
-  history: "History",
-} as const;
-function action(item: Item) {
-  if (item.next_action) return item.next_action;
-  if (item.kind === "result")
-    return (
-      (
-        {
-          preparing: "Checking changes",
-          ready: "Review changes",
-          delivering: "Delivering changes",
-          delivered:
-            item.code_available === false
-              ? "Check code on the branch"
-              : "Completed",
-          cancelled: "Recheck changes",
-          blocked: "Inspect problem",
-          stale: "Delivery needs attention",
-          changes_requested: "Changes requested",
-        } as Record<string, string>
-      )[item.status] ?? label(item.status)
-    );
-  if (item.kind === "integration")
-    return (
-      (
-        {
-          preparing: "Validating integration",
-          ready: "Ready to integrate",
-          applying: "Applying integration",
-          integrated: "Integrated",
-          failed: "Inspect integration failure",
-          stale: "Revalidate integration",
-        } as Record<string, string>
-      )[item.status] ?? label(item.status)
-    );
-  const questionActions: Record<string, string> = {
-    open: "Answer question",
-    answered: "Resume coordinator",
-    assigned: "Answer sent",
-    applied: "Answered",
-    withdrawn: "Withdrawn",
-  };
-  if (item.kind === "question")
-    return questionActions[item.status] ?? label(item.status);
-  const runActions: Record<string, string> = {
-    in_review: "Review result",
-    failed: "Inspect failure",
-    uncertain: "Reconcile worker",
-    changes_requested: "Changes requested",
-    preparing: "Preparing follow-up",
-    running: "Working on follow-up",
-    stopping: "Stopping worker",
-    stopped: "Stopped",
-    waiting_for_input: "Question raised",
-    accepted: item.code_available
-      ? "Accepted · code available"
-      : "Accepted · awaiting integration",
-  };
-  return runActions[item.status] ?? label(item.status);
+type Tab = "needs_me" | "waiting" | "history";
+const columns = { needs_me: "action", waiting: "waiting", history: "history" };
+const identityOf = (item: Item) => `${item.project_id}:${item.kind}:${item.id}`;
+function itemHref(item: Item) {
+  return (
+    item.state?.href ??
+    (item.kind === "question"
+      ? questionHref(item.project_id!, item.id)
+      : item.kind === "result"
+        ? `${taskHref(item.project_id!, { key: item.task_key! }, "result")}/${item.id}`
+        : `${taskHref(item.project_id!, { key: item.task_key! }, "runs")}/${item.run_id ?? item.id}${item.kind === "integration" ? `/integrations/${item.id}` : ""}`)
+  );
 }
 
-function Column({
-  projectId,
-  workspaceId,
-  identity,
+function TaskRequest({
+  item,
+  board,
   refresh,
-  column,
+  onDirty,
 }: {
-  projectId?: string;
-  workspaceId?: string;
-  identity?: string;
+  item: Item;
+  board: WorkspaceBoard;
   refresh: unknown;
-  column: keyof typeof columns;
+  onDirty: (dirty: boolean) => void;
 }) {
-  const [retry, setRetry] = useState(0);
-  const page = usePage<Page>(
-    `${workspaceId ? `workspaces/${workspaceId}` : `projects/${projectId}`}/view/attention?column=${column}&retry=${retry}${workspaceId && projectId ? `&project_id=${encodeURIComponent(projectId)}` : ""}`,
+  const task = useResource<Task>(
+    `projects/${item.project_id}/view/tasks/${item.task_key}`,
     refresh,
   );
+  const mark = useDirtyItems(onDirty);
+  // The shared controller retains its exact request and response binding.
+  const response = useCallback(
+    (value: boolean) => {
+      mark("response", value);
+    },
+    [mark],
+  );
+  const settings = useCallback(
+    (value: boolean) => {
+      mark("settings", value);
+    },
+    [mark],
+  );
   return (
-    <section className="column attention-column" aria-label={columns[column]}>
-      <h2>
-        {columns[column]}{" "}
-        {page.data && <span className="column-count">{page.data.total}</span>}
-      </h2>
-      <div
-        className="column-cards"
-        role="region"
-        aria-label={`${columns[column]} items`}
-        tabIndex={0}
-      >
-        <ContentStack>
-          {page.error && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setRetry((value) => value + 1)}
-            >
-              Retry
-            </Button>
-          )}
-          {page.loading && !page.data && <p>Loading…</p>}
-          {page.data && !page.data.items.length && (
-            <p className="empty-column">
-              {column === "action"
-                ? "Nothing needs your attention."
-                : column === "waiting"
-                  ? "Nothing waiting on a worker, coordinator or service."
-                  : "No past items yet."}
-            </p>
-          )}
-          <ul>
-            {page.data?.items.map((item) => (
-              <li key={`${item.project_id}:${item.kind}:${item.id}`}>
-                {item.kind === "permission" ? (
-                  <PermissionCard
-                    projectId={item.project_id ?? undefined}
-                    workspaceId={item.project_id ? undefined : workspaceId}
-                    id={item.id}
-                    taskKey={item.task_key}
-                    refresh={refresh}
-                  />
-                ) : (
-                  <AttentionCard
-                    href={
-                      item.state?.href ??
-                      (item.kind === "question"
-                        ? questionHref(item.project_id!, item.id)
-                        : item.kind === "result"
-                          ? `${taskHref(item.project_id!, { key: item.task_key! }, "result")}/${item.id}`
-                          : `${taskHref(item.project_id!, { key: item.task_key! }, "runs")}/${item.run_id ?? item.id}${item.kind === "integration" ? `/integrations/${item.id}` : ""}`)
-                    }
-                    kind={item.kind === "result" ? "Changes" : label(item.kind)}
-                    reference={item.task_key ?? "Project"}
-                    title={item.title}
-                    selected={identity === item.id}
-                    action={
-                      item.state ? (
-                        <WorkState state={item.state} />
-                      ) : column === "history" ? (
-                        label(item.status)
-                      ) : (
-                        action(item)
-                      )
-                    }
-                  />
-                )}
-              </li>
-            ))}
-          </ul>
-          {page.data?.next_offset != null && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="quiet"
-              disabled={page.loadingMore || page.loading}
-              onClick={() => void page.older()}
-            >
-              Load more
-            </Button>
-          )}
-        </ContentStack>
-      </div>
-    </section>
+    <ContentStack>
+      <ResourceRetry resources={[task]} />
+      {task.data && (
+        <TaskConversation
+          projectId={item.project_id!}
+          task={task.data}
+          board={board}
+          refresh={refresh}
+          onDirty={response}
+          onSettingsDirty={settings}
+          requestTarget={{
+            kind: item.kind as
+              "question" | "result" | "intervention" | "review",
+            id: item.id,
+          }}
+        />
+      )}
+    </ContentStack>
   );
 }
-export function AttentionBoard(props: {
+
+function RequestCard({
+  item,
+  workspaceId,
+  board,
+  refresh,
+  markDirty,
+}: {
+  item: Item;
+  workspaceId: string;
+  board: WorkspaceBoard;
+  refresh: unknown;
+  markDirty: (id: string, dirty: boolean) => void;
+}) {
+  const navigate = useNavigate();
+  const id = identityOf(item);
+  const dirty = useCallback(
+    (value: boolean) => markDirty(id, value),
+    [id, markDirty],
+  );
+  const kind =
+    item.kind === "milestone"
+      ? "Milestone acceptance"
+      : item.kind === "result"
+        ? "Code review"
+        : label(item.kind);
+  const href = itemHref(item);
+  const project = board.projects.find((p) => p.id === item.project_id);
+  return (
+    <article className="request-card" aria-label={`${kind}: ${item.title}`}>
+      <ContentStack>
+        <div className="request-meta">
+          <span>{kind}</span>
+          <WorkspaceLink
+            to={href}
+            aria-label={`${item.task_key ?? (item.kind === "milestone" ? "Milestone" : "Question")}: ${item.title}`}
+          >
+            {item.kind === "milestone"
+              ? (item.task_key ?? item.title)
+              : item.task_key
+                ? `${project?.name ?? item.project_id} / ${item.task_key}`
+                : (project?.name ?? "Workspace")}
+          </WorkspaceLink>
+        </div>
+        {item.kind === "result" && (
+          <h3 className="detail-title">Review {item.title}</h3>
+        )}
+        {item.kind === "milestone" ? (
+          <MilestoneReviewRequest
+            path={`workspaces/${workspaceId}`}
+            id={item.id}
+            refresh={refresh}
+            onDirty={dirty}
+          />
+        ) : item.kind === "question" && !item.task_key ? (
+          <QuestionDetail
+            projectId={item.project_id!}
+            identity={item.id}
+            tasks={board.tasks}
+            refresh={refresh}
+            onDirty={dirty}
+            open={(path) => void navigate(path)}
+            inline
+          />
+        ) : ["question", "result", "review", "intervention"].includes(
+            item.kind,
+          ) && item.task_key ? (
+          <TaskRequest
+            item={item}
+            board={board}
+            refresh={refresh}
+            onDirty={dirty}
+          />
+        ) : (
+          <>
+            <strong>{item.title}</strong>
+            {item.state && <WorkState state={item.state} />}
+            <Button variant="outline" asChild>
+              <WorkspaceLink to={href}>
+                {item.next_action ?? "Inspect request"}
+              </WorkspaceLink>
+            </Button>
+          </>
+        )}
+      </ContentStack>
+    </article>
+  );
+}
+
+function InboxList({
+  workspaceId,
+  projectId,
+  board,
+  refresh,
+  tab,
+  onDirty,
+}: {
+  workspaceId: string;
   projectId?: string;
-  workspaceId?: string;
+  board: WorkspaceBoard;
+  refresh: unknown;
+  tab: Tab;
+  onDirty: (dirty: boolean) => void;
+}) {
+  const page = usePage<Page>(
+    `workspaces/${workspaceId}/view/attention?column=${columns[tab]}${projectId ? `&project_id=${encodeURIComponent(projectId)}` : ""}`,
+    refresh,
+  );
+  const markDirty = useDirtyItems(onDirty);
+  const [seen, setSeen] = useState<Page | null>(null);
+  const [retained, setRetained] = useState<Item[]>([]);
+  // Do not remove a card under the person's cursor or discard a bound draft when
+  // an answer moves it to Waiting/History. A fresh visit gets a fresh action list.
+  if (page.data && page.data !== seen) {
+    setSeen(page.data);
+    setRetained((previous) => {
+      const incoming = new Map(
+        page.data!.items.map((item) => [identityOf(item), item]),
+      );
+      return [
+        ...previous.map((item) => incoming.get(identityOf(item)) ?? item),
+        ...page.data!.items.filter(
+          (item) =>
+            !previous.some((old) => identityOf(old) === identityOf(item)),
+        ),
+      ];
+    });
+  }
+  const items = tab === "needs_me" ? retained : (page.data?.items ?? []);
+  return (
+    <ContentStack
+      space="section"
+      role="tabpanel"
+      aria-label={label(tab)}
+      className="inbox-list"
+    >
+      <ResourceRetry resources={[page]} />
+      {page.loading && !page.data && <p>Loading requests…</p>}
+      {page.data && !items.length && (
+        <p className="empty-column">
+          {tab === "needs_me"
+            ? "Nothing needs your attention."
+            : tab === "waiting"
+              ? "Nothing waiting on a worker, coordinator or service."
+              : "No past items yet."}
+        </p>
+      )}
+      <ol className="request-list">
+        {items.map((item) => (
+          <li key={identityOf(item)}>
+            {item.kind === "permission" ? (
+              <PermissionCard
+                projectId={item.project_id ?? undefined}
+                workspaceId={item.project_id ? undefined : workspaceId}
+                id={item.id}
+                taskKey={item.task_key}
+                refresh={refresh}
+              />
+            ) : tab === "needs_me" ? (
+              <RequestCard
+                item={item}
+                workspaceId={workspaceId}
+                board={board}
+                refresh={refresh}
+                markDirty={markDirty}
+              />
+            ) : (
+              <AttentionCard
+                href={itemHref(item)}
+                kind={item.kind === "result" ? "Changes" : label(item.kind)}
+                reference={item.task_key ?? "Workspace"}
+                title={item.title}
+                action={
+                  item.state ? (
+                    <WorkState state={item.state} />
+                  ) : (
+                    (item.next_action ?? label(item.status))
+                  )
+                }
+              />
+            )}
+          </li>
+        ))}
+      </ol>
+      {page.data?.next_offset != null && (
+        <Button
+          variant="outline"
+          disabled={page.loadingMore || page.loading}
+          onClick={() => void page.older()}
+        >
+          Load more
+        </Button>
+      )}
+    </ContentStack>
+  );
+}
+
+export function AttentionBoard(props: {
+  workspaceId: string;
+  projectId?: string;
   identity?: string;
   refresh: unknown;
+  board: WorkspaceBoard;
+  onDirty: (dirty: boolean) => void;
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const permission = new URLSearchParams(location.search).get("permission");
+  const [params, setParams] = useSearchParams();
+  const requested = params.get("inbox");
+  const tab: Tab =
+    requested === "waiting" || requested === "history" ? requested : "needs_me";
+  const permission = params.get("permission");
   return (
-    <>
+    <ContentStack className="inbox-view" space="section">
       {permission && (
         <EntityOverlay
           title="Tool permission"
-          close={() =>
-            void navigate(location.pathname, {
+          close={() => {
+            const next = new URLSearchParams(params);
+            next.delete("permission");
+            void navigate(`${location.pathname}?${next}`, {
               replace: true,
               state: location.state,
-            })
-          }
+            });
+          }}
         >
           <PermissionCard
             projectId={props.projectId}
@@ -213,11 +319,22 @@ export function AttentionBoard(props: {
           />
         </EntityOverlay>
       )}
-      <div className="board three-column-board attention-board">
-        <Column {...props} column="action" />
-        <Column {...props} column="waiting" />
-        <Column {...props} column="history" />
-      </div>
-    </>
+      <DetailTabs
+        id="inbox"
+        title="Inbox views"
+        tabs={["needs_me", "waiting", "history"]}
+        active={tab}
+        change={(value) => {
+          const next = new URLSearchParams(params);
+          next.set("inbox", value);
+          setParams(next, { state: location.state });
+        }}
+      />
+      <InboxList
+        key={`${props.workspaceId}:${props.projectId}:${tab}`}
+        {...props}
+        tab={tab}
+      />
+    </ContentStack>
   );
 }

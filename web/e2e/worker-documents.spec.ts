@@ -127,7 +127,7 @@ test("project defaults prepare exact task documents and preserve revision links"
   ).toBeVisible();
   await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/tasks/${task.key}$`));
-  await page.goto(`/workspaces/${workspace.id}/inbox`);
+  await page.goto(`/workspaces/${workspace.id}/inbox?inbox=waiting`);
   await expect(
     page.getByText("Newer source revision available", { exact: true }),
   ).toBeVisible();

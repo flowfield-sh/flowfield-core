@@ -16,9 +16,15 @@ const OverlayTitleHost = createContext<HTMLElement | null>(null);
 const OverlayBody = createContext<HTMLElement | null>(null);
 const OverlayFooterHost = createContext<HTMLElement | null>(null);
 export const useOverlayBody = () => useContext(OverlayBody);
-export function OverlayFooter({ children }: { children: ReactNode }) {
+export function OverlayFooter({
+  children,
+  inline = false,
+}: {
+  children: ReactNode;
+  inline?: boolean;
+}) {
   const host = useContext(OverlayFooterHost);
-  return host ? createPortal(children, host) : null;
+  return inline ? children : host ? createPortal(children, host) : null;
 }
 export function OverlayHeading({ children }: { children: ReactNode }) {
   const host = useContext(OverlayTitleHost);

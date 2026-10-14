@@ -553,12 +553,14 @@
     color: var(--muted-foreground);
   }
   .question-detail {
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+  .question-detail:not([data-inline]) {
     background: var(--background);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 24px;
-    overflow-wrap: anywhere;
-    min-width: 0;
   }
   .question-detail > .detail-heading-block > h2 {
     font-size: 20px;
@@ -616,7 +618,7 @@
     color: var(--warning-foreground);
   }
   @media (max-width: 760px) {
-    .question-detail {
+    .question-detail:not([data-inline]) {
       padding: 16px;
     }
   }
