@@ -11,7 +11,7 @@ from flowfield.application import MilestoneCreate, MilestoneEdit, TaskEdit, Work
 from flowfield.attention import attention_page, workspace_attention_counts
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import WorkerResult
-from flowfield.milestone_verification import MilestoneVerifications
+from flowfield.milestone_verification import MilestoneVerifications, board_verifications
 from flowfield.milestones import Milestones
 from flowfield.verification_models import (
     VerificationPrepare,
@@ -90,8 +90,16 @@ def complete(execution, verification, *, verdict="passed", coverage="complete", 
 
 def test_passing_report_opens_one_review_and_acceptance_survives_restart(tmp_path):
     execution, records, verification = setup(tmp_path)
+    with execution.workspace.connection() as db:
+        pending = board_verifications(db, "harbor")[verification.milestone_id]
+        assert pending.status == "verifying" and pending.checks_passed is None
     complete(execution, verification)
     value = records.get("harbor", verification.id)
+    with execution.workspace.connection() as db:
+        summary = board_verifications(db, "harbor")[verification.milestone_id]
+        assert summary.id == value.id and summary.status == "ready"
+        assert summary.checks_passed == summary.checks_total == 2
+        assert "evidence" not in summary.model_dump_json()
     assert value.status == "ready"
     assert value.limitations == "Synthetic fixtures only"
     assert execution.workspace.task("harbor", verification.task_id).status == "done"
@@ -165,6 +173,10 @@ def test_changed_criteria_invalidates_current_evidence_but_preserves_receipt(tmp
     assert not changed.current
     assert changed.status == ("accepted" if accepted else "stale")
     assert changed.criteria == value.criteria and changed.report == value.report
+    with execution.workspace.connection() as db:
+        summary = board_verifications(db, "harbor")[value.milestone_id]
+        assert summary.status == "stale" and summary.checks_passed == 2
+    assert "revision 1; revision 2 is now current" in changed.problem
     with pytest.raises(ApplicationError):
         records.review(
             "harbor",

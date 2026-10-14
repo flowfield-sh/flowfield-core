@@ -570,3 +570,17 @@
 .task-header-groups > :empty {
   display: none;
 }
+
+.verification-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.verification-checks > li {
+  padding-left: 14px;
+}
+.verification-checks .feed-event-title {
+  margin-left: -14px;
+}

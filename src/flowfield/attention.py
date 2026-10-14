@@ -219,6 +219,7 @@ def attention_page(
     limit: int = 20,
     *,
     workspace_id: str | None = None,
+    include_answered: bool = False,
 ) -> AttentionPage:
     with workspace.connection() as db:
         if workspace_id is not None:
@@ -236,17 +237,21 @@ def attention_page(
             "project": project_id,
             "workspace": workspace_id,
             "column": column,
+            "include_answered": include_answered and column == "history",
             "offset": offset,
             "limit": limit,
         }
+        selection = (
+            "(bucket=:column OR (:include_answered AND kind='question' AND status='answered'))"
+        )
         total = db.execute(
-            projection + "SELECT count(*) FROM items WHERE bucket=:column", args
+            projection + "SELECT count(*) FROM items WHERE " + selection, args
         ).fetchone()[0]
         rows = db.execute(
             projection
             + "SELECT project_id,id,kind,task_key,title,status,updated_at,code_available,run_id,"
             "result_version FROM items "
-            "WHERE bucket=:column ORDER BY updated_at DESC,kind,project_id,id "
+            "WHERE " + selection + " ORDER BY updated_at DESC,kind,project_id,id "
             "LIMIT :limit OFFSET :offset",
             args,
         ).fetchall()

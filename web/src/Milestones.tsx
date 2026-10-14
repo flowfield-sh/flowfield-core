@@ -1,3 +1,6 @@
+import { MilestoneBadge } from "./MilestoneBadge";
+import { WorkState } from "./WorkState";
+import type { components } from "./api-schema";
 import { WorkCard } from "./WorkCard";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { boardHref, workspaceHref } from "./navigation";
@@ -6,13 +9,14 @@ import type { Board } from "./workspace";
 export function MilestoneList({
   board,
 }: {
-  board: Pick<Board, "tasks" | "milestones" | "milestone_states">;
+  board: Pick<Board, "tasks" | "milestones" | "milestone_verifications">;
 }) {
   const cards = board.milestones.map((milestone) => {
     const members = board.tasks.filter((t) => t.milestone_id === milestone.id);
     const tasks = members.filter((t) => !t.archived || t.status === "done");
     const done = tasks.filter((t) => t.status === "done").length;
-    const state = board.milestone_states?.[milestone.id] ?? "";
+    const verification = board.milestone_verifications?.[milestone.id];
+    const state = verification?.status ?? "";
     const column =
       state === "accepted" ||
       (!milestone.acceptance_criteria.trim() &&
@@ -31,7 +35,7 @@ export function MilestoneList({
       tasks,
       done,
       column,
-      state,
+      verification,
       archived: !!members.length && members.every((t) => t.archived),
     };
   });
@@ -53,50 +57,52 @@ export function MilestoneList({
           >
             {cards
               .filter((card) => card.column === column)
-              .map(({ milestone, tasks, done, archived, state }) => (
-                <WorkCard key={milestone.id}>
-                  <div className="work-card-heading">
-                    <span className="task-key">{milestone.key}</span>
-                  </div>
-                  <span className="task-identity">
-                    <strong>
-                      <WorkspaceLink
-                        className="task-card-link"
-                        to={`${workspaceHref(milestone.workspace_id)}/milestones/${milestone.key}${state === "ready" ? "?tab=review" : ""}`}
-                      >
-                        {milestone.title}
-                      </WorkspaceLink>
-                    </strong>
-                  </span>
-                  <span className="detail-metadata">
-                    {(
-                      {
-                        verifying: "Verifying",
-                        ready: "",
-                        failed: "Verification needs follow-up",
-                        stale: "Verification out of date",
-                        changes_requested: "Changes requested",
-                        accepted: "",
-                      } as Record<string, string>
-                    )[state] ??
-                      (milestone.acceptance_criteria.trim() &&
-                      tasks.length &&
-                      done === tasks.length
-                        ? "Tasks complete · Not yet verified"
-                        : "")}
-                  </span>
-                  <WorkspaceLink
-                    className="detail-metadata"
-                    to={boardHref(
-                      milestone.workspace_id,
-                      { milestone: milestone.id },
-                      archived,
+              .map(
+                ({
+                  milestone,
+                  tasks,
+                  done,
+                  archived,
+                  verification,
+                  column,
+                }) => (
+                  <WorkCard key={milestone.id}>
+                    <div className="work-card-heading">
+                      <MilestoneBadge milestone={milestone} linked={false} />
+                    </div>
+                    <span className="task-identity">
+                      <strong>
+                        <WorkspaceLink
+                          className="task-card-link"
+                          to={`${workspaceHref(milestone.workspace_id)}/milestones/${milestone.key}${verification ? `?tab=review&verification=${verification.id}` : ""}`}
+                        >
+                          {milestone.title}
+                        </WorkspaceLink>
+                      </strong>
+                    </span>
+                    {column !== "Planned" && column !== "Complete" && (
+                      <WorkState
+                        state={milestoneState(
+                          verification,
+                          !!milestone.acceptance_criteria.trim() &&
+                            tasks.length > 0 &&
+                            done === tasks.length,
+                        )}
+                      />
                     )}
-                  >
-                    {done} of {tasks.length} tasks done
-                  </WorkspaceLink>
-                </WorkCard>
-              ))}
+                    <WorkspaceLink
+                      className="detail-metadata"
+                      to={boardHref(
+                        milestone.workspace_id,
+                        { milestone: milestone.id },
+                        archived,
+                      )}
+                    >
+                      {done} of {tasks.length} tasks done
+                    </WorkspaceLink>
+                  </WorkCard>
+                ),
+              )}
             {!cards.some((card) => card.column === column) && (
               <p className="empty-column">No milestones yet</p>
             )}
@@ -105,4 +111,38 @@ export function MilestoneList({
       ))}
     </div>
   );
+}
+
+function milestoneState(
+  value: components["schemas"]["MilestoneVerificationSummary"] | undefined,
+  tasksComplete: boolean,
+): components["schemas"]["WorkState"] | null {
+  if (!value)
+    return tasksComplete
+      ? { label: "Ready for verification", tone: "waiting" }
+      : null;
+  const counts =
+    value.checks_passed == null
+      ? null
+      : `${value.checks_passed} of ${value.checks_total} checks passed`;
+  switch (value.status) {
+    case "ready":
+      return { label: counts ?? "Ready for review", tone: "waiting" };
+    case "failed":
+      return {
+        label:
+          value.checks_passed === value.checks_total
+            ? "Verification needs follow-up"
+            : (counts ?? "Checks need follow-up"),
+        tone: "attention",
+      };
+    case "verifying":
+      return { label: "Verifying", tone: "active" };
+    case "stale":
+      return { label: "Checks out of date", tone: "waiting" };
+    case "changes_requested":
+      return { label: "Changes requested", tone: "attention" };
+    default:
+      return null;
+  }
 }

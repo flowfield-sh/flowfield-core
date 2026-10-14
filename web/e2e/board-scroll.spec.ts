@@ -174,9 +174,9 @@ test("Inbox response lists paginate and wrap long cards without horizontal scrol
           items: Array.from({ length: offset ? 1 : 14 }, (_, i) => ({
             id: `${column}-${offset + i}`,
             project_id:
-              column === "waiting" && offset + i === 0 ? null : project,
+              column === "action" && offset + i === 0 ? null : project,
             kind:
-              column === "waiting" && offset + i === 0
+              column === "action" && offset + i === 0
                 ? "permission"
                 : "question",
             task_key: null,
@@ -196,11 +196,11 @@ test("Inbox response lists paginate and wrap long cards without horizontal scrol
     },
   );
   await page.route(
-    `**/api/workspaces/${workspace}/permissions/waiting-0?*`,
+    `**/api/workspaces/${workspace}/permissions/action-0?*`,
     (route) =>
       route.fulfill({
         json: {
-          id: "waiting-0",
+          id: "action-0",
           project_id: null,
           workspace_id: workspace,
           role: "coordinator",
@@ -250,10 +250,13 @@ test("Inbox response lists paginate and wrap long cards without horizontal scrol
   await expect(action.locator(".request-card")).toHaveCount(15);
   await action.locator(".request-card").last().scrollIntoViewIfNeeded();
   await expect(action.locator(".request-card").last()).toBeInViewport();
-  await page.getByRole("tab", { name: "Waiting", exact: true }).click();
-  const waiting = page.getByRole("tabpanel", { name: "Waiting", exact: true });
+  await page.getByRole("tab", { name: "History", exact: true }).click();
   await expect(
-    waiting.getByRole("button", { name: "Allow_".repeat(80), exact: true }),
+    page.getByRole("tabpanel", { name: "History", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Needs me", exact: true }).click();
+  await expect(
+    action.getByRole("button", { name: "Allow_".repeat(80), exact: true }),
   ).toBeVisible();
   for (const width of [1800, 390]) {
     await page.setViewportSize({ width, height: 800 });
@@ -263,7 +266,7 @@ test("Inbox response lists paginate and wrap long cards without horizontal scrol
       ),
     ).toBe(true);
     expect(
-      await waiting.evaluate((node) => node.scrollWidth <= node.clientWidth),
+      await action.evaluate((node) => node.scrollWidth <= node.clientWidth),
     ).toBe(true);
     await page.screenshot({
       path: testInfo.outputPath(`inbox-list-${width}.png`),

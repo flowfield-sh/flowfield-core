@@ -14,7 +14,11 @@ from flowfield.execution_models import SettingsEdit, WorkerResult
 from flowfield.milestone_verification import MilestoneVerifications
 from flowfield.milestones import Milestones
 from flowfield.results import Results
-from flowfield.verification_models import VerificationPrepare, VerificationReport
+from flowfield.verification_models import (
+    VerificationPrepare,
+    VerificationReport,
+    VerificationReview,
+)
 
 
 def seed(
@@ -22,6 +26,7 @@ def seed(
     project: str,
     verdict: str = "passed",
     title: str = "Verify installed harness discovery",
+    rounds: int = 1,
 ) -> dict[str, str]:
     store = Workspace(directory)
     adopt(store, ProjectSetup(path=str(directory.parent / project), id=project))
@@ -72,60 +77,76 @@ def seed(
             checks="Synthetic fixture evidence; no live harness",
         )
     )
-    verifier = store.create_task(
-        project,
-        task_request(
-            title="Verify the complete discovery journey",
-            body="Evaluate both acceptance criteria and identify omitted requirements.",
-            milestone_id=milestone.id,
-            dependencies=[task.key],
-            status="up_next",
-        ),
-    )
-    verification = MilestoneVerifications(store).prepare(
-        project,
-        milestone.id,
-        VerificationPrepare(
-            expected_revision=milestone.revision,
-            project_id=project,
-            task_id=verifier.id,
-            expected_task_revision=verifier.revision,
-            checks=["Discover an installed harness", "Explain missing executable and setup errors"],
-        ),
-    )
-    report = VerificationReport.model_validate(
-        {
-            "verification_id": verification.id,
-            "findings": [
-                {
-                    "check": 1,
-                    "verdict": "passed",
-                    "evidence": "Fixture: discovery returned the configured executable.",
-                },
-                {
-                    "check": 2,
-                    "verdict": verdict,
-                    "evidence": "The error names the executable and explains configuration."
-                    if verdict == "passed"
-                    else "Fixture: the missing executable error has no recovery instructions.",
-                },
-            ],
-            "coverage": "complete",
-            "coverage_notes": (
-                "Both criteria were evaluated using synthetic fixtures. "
-                "This walkthrough exercises Flowfield review; it is not evidence "
-                "of actual fx integration."
+    records = MilestoneVerifications(store)
+    for cycle in range(rounds):
+        verifier = store.create_task(
+            project,
+            task_request(
+                title="Verify the complete discovery journey",
+                body="Evaluate both acceptance criteria and identify omitted requirements.",
+                milestone_id=milestone.id,
+                dependencies=[task.key],
+                status="up_next",
             ),
-        }
-    )
-    deliver(
-        WorkerResult(
-            summary="Whole-outcome verification completed",
-            limitations="No live harness was invoked; these are synthetic walkthrough findings.",
-            checks="Two synthetic fixture checks",
-            verification=report,
         )
-    )
+        verification = MilestoneVerifications(store).prepare(
+            project,
+            milestone.id,
+            VerificationPrepare(
+                expected_revision=milestone.revision,
+                project_id=project,
+                task_id=verifier.id,
+                expected_task_revision=verifier.revision,
+                checks=[
+                    "Discover an installed harness",
+                    "Explain missing executable and setup errors",
+                ],
+            ),
+        )
+        report = VerificationReport.model_validate(
+            {
+                "verification_id": verification.id,
+                "findings": [
+                    {
+                        "check": 1,
+                        "verdict": "passed",
+                        "evidence": "Fixture: discovery returned the configured executable.",
+                    },
+                    {
+                        "check": 2,
+                        "verdict": verdict,
+                        "evidence": "The error names the executable and explains configuration."
+                        if verdict == "passed"
+                        else "Fixture: the missing executable error has no recovery instructions.",
+                    },
+                ],
+                "coverage": "complete",
+                "coverage_notes": (
+                    "Both criteria were evaluated using synthetic fixtures. "
+                    "This walkthrough exercises Flowfield review; it is not evidence "
+                    "of actual fx integration."
+                ),
+            }
+        )
+        deliver(
+            WorkerResult(
+                summary="Whole-outcome verification completed",
+                limitations="Synthetic walkthrough findings; no live harness was invoked.",
+                checks="Two synthetic fixture checks",
+                verification=report,
+            )
+        )
+        if cycle < rounds - 1:
+            current = records.get(project, verification.id)
+            records.review(
+                project,
+                current.id,
+                VerificationReview(
+                    expected_revision=current.revision,
+                    action="request_changes",
+                    note=f"Review round {cycle + 1}: include the recovery walkthrough.",
+                ),
+            )
     return {
         "workspace_id": project,
         "project_id": project,
@@ -138,6 +159,11 @@ def seed(
 if __name__ == "__main__":
     print(
         json.dumps(
-            seed(Path(sys.argv[1]), sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else "passed")
+            seed(
+                Path(sys.argv[1]),
+                sys.argv[2],
+                sys.argv[3] if len(sys.argv) > 3 else "passed",
+                rounds=int(sys.argv[4]) if len(sys.argv) > 4 else 1,
+            )
         )
     )

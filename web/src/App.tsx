@@ -909,7 +909,7 @@ function WorkspaceBoard({
         </div>
         <TabsContent
           value={view}
-          className={`${documentsView && params.documentId ? "workspace-detail-content " : ""}workspace-work-content ${!projectsView && !documentsView && !archive ? "workspace-task-board" : ""}`}
+          className={`${documentsView && params.documentId ? "workspace-detail-content " : ""}workspace-work-content ${!projectsView && !documentsView && !showInbox && !archive ? "workspace-task-board" : ""}`}
           hidden={!!taskRef || !!params.milestoneId}
         >
           {!projectsView && !documentsView && (

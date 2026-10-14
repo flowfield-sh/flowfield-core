@@ -93,25 +93,18 @@ export function MilestoneReviewResponse({
       setPending(false);
     }
   }
+  const hint = allowReview
+    ? (value.problem ??
+      (value.status === "failed" || value.status === "changes_requested"
+        ? "Ask the Coordinator to address the findings and verify the milestone again."
+        : value.status === "stale"
+          ? "The work changed after this report. Ask the Coordinator to verify the updated milestone."
+          : null))
+    : null;
+  if (!canReview && !note.trim() && !hint && !error) return null;
   return (
     <ContentStack className="task-input" aria-label="Milestone response">
-      <p role="status">
-        {value.status === "accepted" && !value.current
-          ? "Previously accepted"
-          : statuses[value.status]}
-      </p>
-      {value.problem ? (
-        <p>{value.problem}</p>
-      ) : (
-        (value.status === "failed" ||
-          value.status === "stale" ||
-          value.status === "changes_requested") && (
-          <p>
-            Ask the Coordinator to address the findings and prepare verification
-            again.
-          </p>
-        )
-      )}
+      {hint && <p>{hint}</p>}
       {(canReview || !!note.trim()) && (
         <ContentStack aria-label="Your review">
           <ResponseInput>
@@ -175,7 +168,7 @@ function reportState(value: Verification): components["schemas"]["WorkState"] {
         ? "Previously accepted"
         : statuses[value.status],
       passed != null
-        ? `${passed} of ${value.checks.length} criteria passed`
+        ? `${passed} of ${value.checks.length} checks passed`
         : null,
       value.report?.coverage === "incomplete" ? "Coverage incomplete" : null,
     ]
@@ -202,13 +195,13 @@ export function MilestoneReport({
   metadata?: ReactNode;
 }) {
   const findings = value.report?.findings ?? [];
-  const criteria = (
-    <ol className="conversation-messages" aria-label="Acceptance checks">
+  const checks = (
+    <ol className="verification-checks" aria-label="Checks">
       {value.checks.map((check, index) => {
         const finding = findings.find((f) => f.check === index + 1);
         const verdict = finding ? label(finding.verdict) : "Pending";
         return (
-          <li className="conversation-message" key={index}>
+          <li className="content-stack" key={index} data-space="tight">
             <DetailHeading
               entry
               titleAs="h3"
@@ -230,7 +223,7 @@ export function MilestoneReport({
                 </span>
               }
             />
-            <div className="conversation-message-body">
+            <div>
               {finding ? (
                 <Markdown>{finding.evidence}</Markdown>
               ) : (
@@ -243,23 +236,24 @@ export function MilestoneReport({
     </ol>
   );
   return (
-    <ContentStack space="section">
-      <article className="conversation-message">
-        <DetailHeading
-          entry
-          inlineMetadata
-          titleAs="h3"
-          metadata={metadata}
-          title={
-            <span className="feed-event-title">
-              <WorkState indicatorOnly state={reportState(value)} />
-              <span>
-                {value.report ? "Verification report" : "Verification started"}
-              </span>
+    <article className="conversation-message">
+      <DetailHeading
+        entry
+        inlineMetadata
+        titleAs="h3"
+        metadata={metadata}
+        title={
+          <span className="feed-event-title">
+            <WorkState indicatorOnly state={reportState(value)} />
+            <span>
+              {value.report ? "Verification report" : "Verification started"}
             </span>
-          }
-        />
-        <ContentStack className="conversation-message-body" space="flush">
+          </span>
+        }
+      />
+      <ContentStack className="conversation-message-body" space="section">
+        {checks}
+        <ContentStack space="flush">
           {value.limitations && (
             <Disclosure summary="Limitations reported">
               <Markdown>{value.limitations}</Markdown>
@@ -308,9 +302,8 @@ export function MilestoneReport({
             </ContentStack>
           </Disclosure>
         </ContentStack>
-      </article>
-      {criteria}
-    </ContentStack>
+      </ContentStack>
+    </article>
   );
 }
 

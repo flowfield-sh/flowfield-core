@@ -13,6 +13,7 @@ from flowfield.reads import page, validate_page
 from flowfield.verification_models import (
     DeliveredTask,
     MilestoneVerification,
+    MilestoneVerificationSummary,
     VerificationPrepare,
     VerificationReport,
     VerificationReview,
@@ -134,7 +135,11 @@ def assignment(
 def current_problem(db: sqlite3.Connection, value: MilestoneVerification) -> str | None:
     milestone = Milestones.read(db, value.workspace_id, value.milestone_id)
     if milestone.revision != value.milestone_revision:
-        return "Milestone details changed. Prepare a new verification."
+        return (
+            f"This report checked milestone revision {value.milestone_revision}; "
+            f"revision {milestone.revision} is now current. "
+            "Ask the Coordinator to review the changes and verify the updated milestone."
+        )
     try:
         tasks = delivered_tasks(
             db, value.workspace_id, value.milestone_id, (value.project_id, value.task_id)
@@ -384,12 +389,23 @@ class MilestoneVerifications:
             return value
 
 
-def board_states(db: sqlite3.Connection, workspace_id: str) -> dict[str, str]:
-    """Latest verification state, without worker evidence in collection responses."""
+def board_verifications(
+    db: sqlite3.Connection, workspace_id: str
+) -> dict[str, MilestoneVerificationSummary]:
+    """Latest verification identity and counts, without loading report evidence."""
     return {
-        row[0]: row[1] if row[2] else "stale"
+        row[0]: MilestoneVerificationSummary(
+            id=row[1],
+            status=row[2] if row[3] else "stale",
+            checks_total=row[4],
+            checks_passed=row[5],
+        )
         for row in db.execute(
-            "SELECT milestone_id,status,json_extract(data,'$.current') "
+            "SELECT milestone_id,id,status,json_extract(data,'$.current'), "
+            "json_array_length(data,'$.checks'), "
+            "CASE WHEN json_type(data,'$.report')='object' THEN "
+            "(SELECT count(*) FROM json_each(v.data,'$.report.findings') "
+            "WHERE json_extract(value,'$.verdict')='passed') END "
             "FROM milestone_verifications v WHERE workspace_id=? AND NOT EXISTS "
             "(SELECT 1 FROM milestone_verifications n WHERE n.workspace_id=v.workspace_id "
             "AND n.milestone_id=v.milestone_id AND n.number>v.number)",

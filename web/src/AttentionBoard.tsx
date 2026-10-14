@@ -21,8 +21,8 @@ import { EntityOverlay } from "./EntityOverlay";
 
 type Item = components["schemas"]["AttentionItem"];
 type Page = components["schemas"]["AttentionPage"];
-type Tab = "needs_me" | "waiting" | "history";
-const columns = { needs_me: "action", waiting: "waiting", history: "history" };
+type Tab = "needs_me" | "history";
+const columns = { needs_me: "action", history: "history" };
 const identityOf = (item: Item) => `${item.project_id}:${item.kind}:${item.id}`;
 function itemHref(item: Item) {
   return (
@@ -190,14 +190,14 @@ function InboxList({
   onDirty: (dirty: boolean) => void;
 }) {
   const page = usePage<Page>(
-    `workspaces/${workspaceId}/view/attention?column=${columns[tab]}${projectId ? `&project_id=${encodeURIComponent(projectId)}` : ""}`,
+    `workspaces/${workspaceId}/view/attention?column=${columns[tab]}${tab === "history" ? "&include_answered=true" : ""}${projectId ? `&project_id=${encodeURIComponent(projectId)}` : ""}`,
     refresh,
   );
   const markDirty = useDirtyItems(onDirty);
   const [seen, setSeen] = useState<Page | null>(null);
   const [retained, setRetained] = useState<Item[]>([]);
   // Do not remove a card under the person's cursor or discard a bound draft when
-  // an answer moves it to Waiting/History. A fresh visit gets a fresh action list.
+  // an answer resolves the request. A fresh visit gets a fresh action list.
   if (page.data && page.data !== seen) {
     setSeen(page.data);
     setRetained((previous) => {
@@ -227,9 +227,7 @@ function InboxList({
         <p className="empty-column">
           {tab === "needs_me"
             ? "Nothing needs your attention."
-            : tab === "waiting"
-              ? "Nothing waiting on a worker, coordinator or service."
-              : "No past items yet."}
+            : "No past items yet."}
         </p>
       )}
       <ol className="request-list">
@@ -294,8 +292,7 @@ export function AttentionBoard(props: {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const requested = params.get("inbox");
-  const tab: Tab =
-    requested === "waiting" || requested === "history" ? requested : "needs_me";
+  const tab: Tab = requested === "history" ? requested : "needs_me";
   const permission = params.get("permission");
   return (
     <ContentStack className="inbox-view" space="section">
@@ -323,7 +320,7 @@ export function AttentionBoard(props: {
       <DetailTabs
         id="inbox"
         title="Inbox views"
-        tabs={["needs_me", "waiting", "history"]}
+        tabs={["needs_me", "history"]}
         active={tab}
         change={(value) => {
           const next = new URLSearchParams(params);

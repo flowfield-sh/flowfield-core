@@ -2765,9 +2765,9 @@ export interface components {
       /** Labels */
       labels: components["schemas"]["WorkspaceLabel"][];
       project: components["schemas"]["Project"];
-      /** Milestone States */
-      milestone_states?: {
-        [key: string]: string;
+      /** Milestone Verifications */
+      milestone_verifications?: {
+        [key: string]: components["schemas"]["MilestoneVerificationSummary"];
       };
       /** Milestones */
       milestones: components["schemas"]["Milestone"][];
@@ -2795,9 +2795,9 @@ export interface components {
       };
       /** Labels */
       labels: components["schemas"]["WorkspaceLabel"][];
-      /** Milestone States */
-      milestone_states?: {
-        [key: string]: string;
+      /** Milestone Verifications */
+      milestone_verifications?: {
+        [key: string]: components["schemas"]["MilestoneVerificationSummary"];
       };
       /** Milestones */
       milestones: components["schemas"]["Milestone"][];
@@ -4236,6 +4236,26 @@ export interface components {
       review_note: string;
       /** Problem */
       problem: string | null;
+    };
+    /** MilestoneVerificationSummary */
+    MilestoneVerificationSummary: {
+      /** Id */
+      id: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status:
+        | "verifying"
+        | "ready"
+        | "failed"
+        | "stale"
+        | "accepted"
+        | "changes_requested";
+      /** Checks Passed */
+      checks_passed: number | null;
+      /** Checks Total */
+      checks_total: number;
     };
     /** ModelOption */
     ModelOption: {
@@ -6914,6 +6934,7 @@ export interface operations {
       query?: {
         column?: "action" | "waiting" | "history";
         project_id?: string | null;
+        include_answered?: boolean;
         offset?: number;
         limit?: number;
       };

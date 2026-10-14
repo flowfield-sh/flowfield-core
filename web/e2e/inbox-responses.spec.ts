@@ -68,7 +68,10 @@ test("milestone acceptance stays in Inbox and Review column reflects the decisio
     .getByRole("button", { name: "Accept milestone", exact: true })
     .click();
   await expect(
-    page.getByRole("status").filter({ hasText: "Milestone accepted" }),
+    page.getByRole("img", {
+      name: "Milestone accepted · 2 of 2 checks passed",
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`${base}/inbox$`));
   const saved = await (
@@ -110,7 +113,7 @@ test("Inbox drafts survive external review and guard switching views", async ({
   await page
     .getByRole("textbox", { name: "Review note" })
     .fill("Keep my observation");
-  await page.getByRole("tab", { name: "Waiting", exact: true }).click();
+  await page.getByRole("tab", { name: "History", exact: true }).click();
   await expect(
     page.getByRole("alertdialog", { name: "Discard your unsaved edits?" }),
   ).toBeVisible();
@@ -133,9 +136,9 @@ test("Inbox drafts survive external review and guard switching views", async ({
     page.getByRole("button", { name: "Accept milestone", exact: true }),
   ).toBeDisabled();
   await page.getByRole("button", { name: "Discard note" }).click();
-  await page.getByRole("tab", { name: "Waiting", exact: true }).click();
+  await page.getByRole("tab", { name: "History", exact: true }).click();
   await expect(
-    page.getByRole("tabpanel", { name: "Waiting", exact: true }),
+    page.getByRole("tabpanel", { name: "History", exact: true }),
   ).toBeVisible();
 });
 
@@ -247,6 +250,14 @@ test("task and project questions accept suggested or free answers inside Inbox",
         ).answer,
     )
     .toBe("CSV first.");
+  await page.getByRole("tab", { name: "History", exact: true }).click();
+  await expect(
+    page.getByRole("link", { name: /Which format should we prioritize/ }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("link", { name: /Which format should we prioritize/ }),
+  ).toBeVisible();
 });
 
 test("code review in Inbox approves the exact result and delivers without navigation", async ({
@@ -290,4 +301,73 @@ test("code review in Inbox approves the exact result and delivers without naviga
     )
     .toBe("done");
   await expect(page).toHaveURL(new RegExp(`/workspaces/${workspace}/inbox$`));
+});
+
+test("Needs me scrolls with wheel input and retains reading position during updates", async ({
+  page,
+  request,
+}) => {
+  const value = milestone("inbox-wheel");
+  const base = `/workspaces/${value.workspace_id}`;
+  for (let index = 0; index < 8; index++) {
+    const response = await request.post(
+      `/api/projects/${value.project_id}/questions`,
+      {
+        data: {
+          question: `Decision ${index + 1}: choose the walkthrough scope`,
+          context: "Confirm which setup path to cover.",
+          recommendation: "Begin with a clean installation.",
+          author: "coordinator",
+        },
+      },
+    );
+    expect(response.ok(), await response.text()).toBe(true);
+  }
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(`${base}/inbox`);
+    await expect(page.getByRole("article").first()).toBeVisible();
+    await expect(
+      page.getByRole("tab", { name: "Waiting", exact: true }),
+    ).toHaveCount(0);
+    const pane = page
+      .locator(".workspace-work-content")
+      .filter({ visible: true });
+    const bounds = (await pane.boundingBox())!;
+    await page.mouse.move(
+      bounds.x + bounds.width / 2,
+      bounds.y + bounds.height / 2,
+    );
+    await page.mouse.wheel(0, 600);
+    await expect
+      .poll(() => pane.evaluate((n) => n.scrollTop))
+      .toBeGreaterThan(300);
+    const before = await pane.evaluate((n) => n.scrollTop);
+    const question = await request.post(
+      `/api/projects/${value.project_id}/questions`,
+      {
+        data: {
+          question: `Additional decision at ${width}`,
+          context: "A newly discovered setup choice.",
+          recommendation: "Keep the existing setup.",
+          author: "coordinator",
+        },
+      },
+    );
+    expect(question.ok(), await question.text()).toBe(true);
+    await expect(
+      page.getByRole("heading", {
+        name: `Additional decision at ${width}`,
+        exact: true,
+      }),
+    ).toBeAttached();
+    await expect
+      .poll(() => pane.evaluate((n) => n.scrollTop))
+      .toBeLessThan(before + 5);
+    await expect
+      .poll(() => pane.evaluate((n) => n.scrollTop))
+      .toBeGreaterThan(before - 5);
+    await page.mouse.wheel(0, -600);
+    await expect.poll(() => pane.evaluate((n) => n.scrollTop)).toBeLessThan(5);
+  }
 });

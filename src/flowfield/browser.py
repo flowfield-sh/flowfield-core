@@ -27,7 +27,7 @@ from flowfield.document_models import DocumentUpdate
 from flowfield.errors import ApplicationError
 from flowfield.labels import Labels, WorkspaceLabel
 from flowfield.milestone_models import MilestoneUpdate
-from flowfield.milestone_verification import board_states
+from flowfield.milestone_verification import board_verifications
 from flowfield.milestones import Milestones, milestone_update
 from flowfield.publication import (
     Publication,
@@ -41,6 +41,7 @@ from flowfield.publication import (
 )
 from flowfield.questions import QuestionReference, Questions, blocking_questions
 from flowfield.reads import task_metadata
+from flowfield.verification_models import MilestoneVerificationSummary
 from flowfield.work_state import WorkState, task_state
 from flowfield.workspaces import WorkspaceRecord, Workspaces
 
@@ -79,7 +80,7 @@ class TaskDetail(TaskRevision, TaskCard):
 class BrowserBoard(BaseModel):
     labels: list[WorkspaceLabel]
     project: Project
-    milestone_states: dict[str, str] = Field(default_factory=dict)
+    milestone_verifications: dict[str, MilestoneVerificationSummary] = Field(default_factory=dict)
     milestones: list[Milestone]
     tasks: list[TaskCard]
     needs_you_count: int
@@ -93,7 +94,7 @@ class BrowserWorkspaceBoard(BaseModel):
     projects: list[Project]
     project_problems: dict[str, str]
     labels: list[WorkspaceLabel]
-    milestone_states: dict[str, str] = Field(default_factory=dict)
+    milestone_verifications: dict[str, MilestoneVerificationSummary] = Field(default_factory=dict)
     milestones: list[Milestone]
     tasks: list[TaskCard]
     needs_you_count: int
@@ -234,7 +235,7 @@ class BrowserReads:
                 project=project,
                 milestones=self.workspace._milestones(db, project_id),
                 tasks=cards,
-                milestone_states=board_states(
+                milestone_verifications=board_verifications(
                     db, self.workspace._project_workspace(db, project_id)
                 ),
                 needs_you_count=counts["needs_you_count"],
@@ -281,7 +282,7 @@ class BrowserReads:
                 ),
                 labels=Labels.read_all(db, workspace_id),
                 milestones=Milestones.read_all(db, workspace_id),
-                milestone_states=board_states(db, workspace_id),
+                milestone_verifications=board_verifications(db, workspace_id),
                 tasks=cards,
                 pending_code=pending,
                 needs_you_count=counts.get("action", 0),

@@ -51,6 +51,18 @@ class DeliveredTask(VerificationInput):
     target_branch: str | None
 
 
+VerificationStatus = Literal[
+    "verifying", "ready", "failed", "stale", "accepted", "changes_requested"
+]
+
+
+class MilestoneVerificationSummary(BaseModel):
+    id: str
+    status: VerificationStatus
+    checks_passed: int | None
+    checks_total: int
+
+
 class MilestoneVerification(VerificationInput):
     id: str
     workspace_id: str
@@ -66,9 +78,7 @@ class MilestoneVerification(VerificationInput):
     task_key: str
     agreement_revision: int
     revision: int = 1
-    status: Literal["verifying", "ready", "failed", "stale", "accepted", "changes_requested"] = (
-        "verifying"
-    )
+    status: VerificationStatus = "verifying"
     current: bool = True
     report: VerificationReport | None = None
     limitations: str = ""

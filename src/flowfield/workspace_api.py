@@ -87,11 +87,18 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
         workspace_id: str,
         column: AttentionColumn = "action",
         project_id: str | None = None,
+        include_answered: bool = False,
         offset: int = Query(0, ge=0),
         limit: int = Query(20, ge=1, le=100),
     ) -> AttentionPage:
         return attention_page(
-            supervisor().workspace, project_id, column, offset, limit, workspace_id=workspace_id
+            supervisor().workspace,
+            project_id,
+            column,
+            offset,
+            limit,
+            workspace_id=workspace_id,
+            include_answered=include_answered,
         )
 
     @router.get("/{workspace_id}")

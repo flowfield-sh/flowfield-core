@@ -623,7 +623,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
       exact: true,
       includeHidden: true,
     }),
-  ).toHaveCount(1);
+  ).toHaveCount(0);
   await expect(
     page.getByRole("tab", {
       name: "History",
@@ -1279,7 +1279,7 @@ test("related questions preserve the page, drafts, focus and router history", as
   ).toBeVisible();
   await closeOverlay(page);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
-  for (const name of ["Needs me", "Waiting", "History"]) {
+  for (const name of ["Needs me", "History"]) {
     await page.getByRole("tab", { name, exact: true }).click();
     await expect(
       page.getByRole("tabpanel", { name, exact: true }),

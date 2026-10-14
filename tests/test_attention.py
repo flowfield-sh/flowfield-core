@@ -38,6 +38,10 @@ def test_mixed_attention_lifecycle_and_bounded_history(tmp_path: Path) -> None:
     )
     assert [item.id for item in page("waiting").items] == [question.id]
     assert page("action").total == 1
+    history = attention_page(workspace, "harbor", "history", limit=1, include_answered=True)
+    assert question.id in {item.id for item in history.items}
+    assert history.total == 1
+    assert page("history").total == 0
     results = Results(execution.workspace)
     version = results.page("harbor", first.task_id).items[0]
     results.review(
