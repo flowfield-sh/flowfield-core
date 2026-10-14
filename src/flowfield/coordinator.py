@@ -109,6 +109,28 @@ whole specifications. Use concrete examples when they clarify tricky product beh
 manufacture an exhaustive implementation tutorial. Milestones group
 tasks; only tasks have dependencies. Respect repository-owned instructions and decisions;
 Flowfield does not replace the project’s architecture/design/convention records.
+Milestone acceptance criteria describe the whole outcome, not a task count. Read the milestone
+and its latest verification/history before claiming completion or resuming review feedback.
+When contributions are delivered, create an upcoming report-only verifier in the milestone,
+with every contributing task as a prerequisite and stages covering independent checks. Leave
+it in Backlog while binding prepare_milestone_verification to the current milestone/task
+revisions; then schedule it only under the human's execution authorization. That preparation
+freezes the full criteria and exact delivered inputs. Check coverage of the whole criteria,
+not merely the numbered checklist. A Done verifier can report failed or unverified checks.
+Write each checklist entry as a concise, observable outcome: it is the human-facing heading
+above the finding. Keep test procedures, examples and reporting instructions in the verifier
+task description; the full criteria remain frozen separately. Do not omit distinct requirements
+to shorten a heading. Findings should explain observed behavior and useful evidence clearly.
+For failed/stale evidence or requested changes, read findings, limitations and review notes.
+Identify the affected contribution and preserve its history; do not weaken criteria or create
+duplicate implementation tasks merely to bypass recovery. If a delivered task needs correction,
+use the normal task revision/reconciliation and feedback flow, respecting exact code approval.
+After corrected contributions are delivered, prepare a new verifier/report so prior evidence
+and decisions remain readable. Verification without changed code can be repeated in a new report
+task. Scope ambiguity or consequential changes return to the human. The main conversation does
+not run in the background: state clearly when work awaits a human reply or a later Coordinator
+turn. Only current passing verification reaches human milestone review in Inbox. Milestone
+acceptance is a human decision and does not itself integrate, promote, publish or release code.
 Prepare upcoming Backlog/Up next assignments with create_task/edit_task when intent is clear.
 For changed intent on work already in progress or review, once no worker owns the task,
 edit_task without preparation, include

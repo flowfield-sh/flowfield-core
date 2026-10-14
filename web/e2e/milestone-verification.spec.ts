@@ -44,7 +44,9 @@ test("Inbox review accepts exact milestone evidence and keeps history", async ({
     .getByRole("tabpanel", { name: "Review", exact: true })
     .getByText("Tasks", { exact: true })
     .click();
-  const tasks = page.getByRole("list", { name: "Verification tasks" });
+  const tasks = page
+    .getByRole("tabpanel", { name: "Review", exact: true })
+    .getByLabel("Verification tasks", { exact: true });
   await expect(tasks.getByRole("link")).toHaveCount(2);
   const record = await (
     await request.get(`/api${base}/verifications/${value.verification_id}`)

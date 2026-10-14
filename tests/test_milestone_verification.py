@@ -449,3 +449,64 @@ def test_adjacent_coordinator_context_keeps_the_exact_verification(tmp_path):
     )
     assert frozen.verification_id == value.id
     assert frozen.verification_revision == value.revision and frozen.verification_status == "ready"
+
+
+def test_failed_verification_and_human_feedback_keep_history_through_new_reviews(tmp_path):
+    execution, records, first = setup(tmp_path)
+    complete(execution, first, verdict="failed")
+    store = execution.workspace
+
+    def followup():
+        task = store.create_task(
+            "harbor",
+            task_request(
+                title="Verify the corrected outcome",
+                body="Independently check the full criteria and earlier findings",
+                milestone_id=first.milestone_id,
+                dependencies=["task-0"],
+                status="up_next",
+            ),
+        )
+        return records.prepare(
+            "harbor",
+            first.milestone_id,
+            VerificationPrepare(
+                expected_revision=1,
+                project_id="harbor",
+                task_id=task.id,
+                expected_task_revision=task.revision,
+                checks=first.checks,
+            ),
+        )
+
+    second = followup()
+    complete(execution, second)
+    ready = records.get("harbor", second.id)
+    records.review(
+        "harbor",
+        ready.id,
+        VerificationReview(
+            expected_revision=ready.revision,
+            action="request_changes",
+            note="Include the observed recovery behavior in the evidence.",
+        ),
+    )
+    third = followup()
+    complete(execution, third)
+    current = records.get("harbor", third.id)
+    assert [
+        i.id
+        for i in attention_page(store, None, "action", workspace_id="harbor").items
+        if i.kind == "milestone"
+    ] == [third.id]
+    records.review(
+        "harbor", third.id, VerificationReview(expected_revision=current.revision, action="accept")
+    )
+    reopened = MilestoneVerifications(Workspace(store.directory))
+    history = reopened.history("harbor", first.milestone_id)["items"]
+    assert [v["status"] for v in history] == ["accepted", "changes_requested", "failed"]
+    assert reopened.get("harbor", second.id).review_note.startswith("Include the observed")
+    assert all(
+        v["tasks"] == first.model_dump()["tasks"]
+        for v in [reopened.get("harbor", item.id).model_dump() for item in (first, second, third)]
+    )

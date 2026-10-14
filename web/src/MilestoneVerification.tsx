@@ -252,52 +252,58 @@ export function MilestoneReport({
         }
       />
       <ContentStack className="conversation-message-body" space="section">
-        {checks}
-        <ContentStack space="flush">
-          {value.limitations && (
-            <Disclosure summary="Limitations reported">
-              <Markdown>{value.limitations}</Markdown>
-            </Disclosure>
-          )}
-          <Disclosure summary="Verification context">
-            <ContentStack space="section">
-              {value.report?.coverage_notes && (
-                <DetailSection title="Coverage">
-                  <Markdown>{value.report.coverage_notes}</Markdown>
-                </DetailSection>
-              )}
-              <DetailSection title="Acceptance criteria">
-                <Markdown>{value.criteria}</Markdown>
-                <WorkspaceLink
-                  to={`/workspaces/${value.workspace_id}/milestones/${value.milestone_key}/revisions/${value.milestone_revision}`}
-                >
-                  Milestone revision {value.milestone_revision}
-                </WorkspaceLink>
-              </DetailSection>
-            </ContentStack>
-          </Disclosure>
-          <Disclosure summary="Tasks">
-            <ul className="content-stack" aria-label="Verification tasks">
-              {value.tasks.map((task) => (
-                <li key={`${task.project_id}/${task.task_id}`}>
+        <DetailSection title="Checks">{checks}</DetailSection>
+        <DetailSection title="Details">
+          <ContentStack space="flush">
+            {value.limitations && (
+              <Disclosure summary="Limitations reported">
+                <Markdown>{value.limitations}</Markdown>
+              </Disclosure>
+            )}
+            <Disclosure summary="Verification context">
+              <ContentStack space="section">
+                {value.report?.coverage_notes && (
+                  <DetailSection title="Coverage">
+                    <Markdown>{value.report.coverage_notes}</Markdown>
+                  </DetailSection>
+                )}
+                <DetailSection title="Acceptance criteria">
+                  <Markdown>{value.criteria}</Markdown>
                   <WorkspaceLink
-                    to={`/projects/${task.project_id}/tasks/${task.task_key}/result/${task.result_id}`}
+                    to={`/workspaces/${value.workspace_id}/milestones/${value.milestone_key}/revisions/${value.milestone_revision}`}
                   >
-                    {task.task_key}
+                    Criteria checked: revision {value.milestone_revision}
                   </WorkspaceLink>
-                </li>
-              ))}
-              <li>
-                <WorkspaceLink
-                  to={`/projects/${value.project_id}/tasks/${value.task_key}${value.result_id ? `/result/${value.result_id}` : ""}`}
-                >
-                  {value.task_key}
-                </WorkspaceLink>{" "}
-                <span className="detail-metadata">Verification</span>
-              </li>
-            </ul>
-          </Disclosure>
-        </ContentStack>
+                </DetailSection>
+              </ContentStack>
+            </Disclosure>
+            <Disclosure summary="Tasks">
+              <ContentStack aria-label="Verification tasks">
+                <p>
+                  Contributions:{" "}
+                  {value.tasks.map((task, index) => (
+                    <span key={`${task.project_id}/${task.task_id}`}>
+                      {index > 0 && ", "}
+                      <WorkspaceLink
+                        to={`/projects/${task.project_id}/tasks/${task.task_key}/result/${task.result_id}`}
+                      >
+                        {task.task_key}
+                      </WorkspaceLink>
+                    </span>
+                  ))}
+                </p>
+                <p>
+                  Verification:{" "}
+                  <WorkspaceLink
+                    to={`/projects/${value.project_id}/tasks/${value.task_key}${value.result_id ? `/result/${value.result_id}` : ""}`}
+                  >
+                    {value.task_key}
+                  </WorkspaceLink>
+                </p>
+              </ContentStack>
+            </Disclosure>
+          </ContentStack>
+        </DetailSection>
       </ContentStack>
     </article>
   );
