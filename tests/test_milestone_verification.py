@@ -510,3 +510,26 @@ def test_failed_verification_and_human_feedback_keep_history_through_new_reviews
         v["tasks"] == first.model_dump()["tasks"]
         for v in [reopened.get("harbor", item.id).model_dump() for item in (first, second, third)]
     )
+
+
+def test_reopened_contribution_invalidates_pending_acceptance_and_keeps_evidence(tmp_path):
+    from flowfield.application import TaskReopen
+
+    execution, records, verification = setup(tmp_path)
+    complete(execution, verification)
+    ready = records.get("harbor", verification.id)
+    task = execution.workspace.task("harbor", "task-0")
+    execution.workspace.reopen_task(
+        "harbor",
+        task.id,
+        TaskReopen(expected_revision=task.revision, note="Correct a milestone finding"),
+    )
+    stale = records.get("harbor", ready.id)
+    assert stale.status == "stale" and not stale.current
+    assert stale.report == ready.report and stale.tasks == ready.tasks
+    with pytest.raises(ApplicationError):
+        records.review(
+            "harbor",
+            ready.id,
+            VerificationReview(expected_revision=ready.revision, action="accept"),
+        )

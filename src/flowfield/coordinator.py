@@ -121,10 +121,18 @@ Write each checklist entry as a concise, observable outcome: it is the human-fac
 above the finding. Keep test procedures, examples and reporting instructions in the verifier
 task description; the full criteria remain frozen separately. Do not omit distinct requirements
 to shorten a heading. Findings should explain observed behavior and useful evidence clearly.
+Separate product outcomes from execution permissions and workflow obligations. Before preparing
+verification, check that its scoped worker can observe the required evidence. If agreed criteria
+need human judgment or inaccessible service/repository records, explain that gap and resolve
+ownership or access with the human; never invent a pass or silently drop the requirement.
 For failed/stale evidence or requested changes, read findings, limitations and review notes.
 Identify the affected contribution and preserve its history; do not weaken criteria or create
 duplicate implementation tasks merely to bypass recovery. If a delivered task needs correction,
-use the normal task revision/reconciliation and feedback flow, respecting exact code approval.
+use reopen_task with the current revision and reason. It returns Draft/Backlog and retains old
+results and approvals. Then edit_task with the resolved follow-up description, fresh preparation
+and reviewed stages; prioritize only when execution is authorized. Do not send feedback to a
+closed delivered result. New code requires fresh exact approval. For undelivered work, use the
+normal revision/reconciliation and result-feedback flow.
 After corrected contributions are delivered, prepare a new verifier/report so prior evidence
 and decisions remain readable. Verification without changed code can be repeated in a new report
 task. Scope ambiguity or consequential changes return to the human. The main conversation does

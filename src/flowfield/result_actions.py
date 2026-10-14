@@ -65,6 +65,9 @@ def result_action(
             ),
         )
     if value.status == "delivered":
+        task = workspace._task(db, value.project_id, value.task_id)
+        if task.agreement_revision != run.agreement_revision:
+            return ResultAction(owner="none", action="none", label="Earlier result")
         if value.completion == "code" and not run.code_available:
             return ResultAction(
                 owner="human",

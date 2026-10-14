@@ -77,6 +77,8 @@ Task and milestone keys accept either case; internal IDs remain exact. `task cre
 
 Read the current stages first. Task and stage changes save together; a stale revision rejects the change. The Coordinator can prepare the same agreement through its tools.
 
+Use `task reopen APP-1 --note "Correction needed" --expected-revision REVISION` for authorized follow-up to completed work. It returns the same task to Draft/Backlog and retains delivered results and approvals. Prepare the revised task and stages before scheduling it; reopening starts no worker and grants no approval to new code.
+
 ## Execution, questions and results
 
 ```sh

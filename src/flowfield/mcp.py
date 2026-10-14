@@ -22,6 +22,7 @@ from flowfield.application import (
     TaskIdentifier,
     TaskPriority,
     TaskReconcile,
+    TaskReopen,
     Workspace,
 )
 from flowfield.conversation_api import add_conversation_tools
@@ -824,6 +825,7 @@ def create_mcp(
         unchanged. Preparation applies only to Backlog/Up next. For work in progress or review,
         once no worker owns the task, omit preparation, include reviewed stages, then reconcile_task
         before requesting feedback continuation through get_task_input/reply_to_task.
+        For delivered work, first use reopen_task, then edit with fresh preparation/stages.
         Preserves priority/queue.
         Cross-project dependencies use task keys (for example API-1), not bare task IDs.
         Read get_task_stages and include stages (expected_revision, stages, reason) here
@@ -864,6 +866,21 @@ def create_mcp(
                 .reconcile_task(project_id, task_id, attributed(reconciliation))
                 .model_dump()
             )
+        )
+
+    @mcp.tool(annotations=write)
+    async def reopen_task(
+        project_id: Identifier, task_id: TaskIdentifier, reopening: TaskReopen
+    ) -> CallToolResult:
+        """Return completed work to Draft/Backlog for an authorized follow-up on the same task.
+
+        Preserve delivered results, approvals and history. Read current task/result first and
+        explain the new work in note. Then edit_task with fresh preparation and reviewed stages;
+        prioritize only when execution is authorized. Reopening does not start a worker or
+        transfer approval. Use result feedback for work that has not yet been delivered.
+        """
+        return await mutate(
+            lambda: workspace().reopen_task(project_id, task_id, attributed(reopening)).model_dump()
         )
 
     @mcp.tool(annotations=read)

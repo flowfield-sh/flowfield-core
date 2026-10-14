@@ -97,9 +97,13 @@ Repository instructions govern development conventions and permission to commit/
   contributing task has a complete delivered result, including archived work. Keep optional
   lightweight groups distinct from milestones with acceptance criteria.
 - Create a report task in that milestone, with all contributing tasks as prerequisites and
-  reviewed outcome stages. Use `prepare_milestone_verification` with exact milestone/task
+  reviewed outcome stages. Leave it in Backlog while binding `prepare_milestone_verification` to exact milestone/task
   revisions and checks covering the complete acceptance criteria. Preparation freezes inputs
-  and prepares report completion; queue it through the normal task priority and worker controls.
+  and prepares report completion; then queue under human execution authority. Use concise observable
+  outcome check headings; put test procedures and examples in the verifier description.
+  Separate product outcomes from permissions and workflow obligations. Confirm the scoped
+  worker can observe every required check; resolve inaccessible evidence or human judgment
+  with the human before launching, without inventing a pass or dropping agreed requirements.
   The verifier is excluded from its own contributing-task readiness. Earlier verifier reports
   remain evidence, not new implementation prerequisites.
 - The worker receives exact delivered-result references and prerequisite reports. Its checkout
@@ -108,7 +112,9 @@ Repository instructions govern development conventions and permission to commit/
   coverage. The service validates recorded check coverage and versions, not semantic correctness.
 - Read `get_milestone_verifications` and `get_milestone_verification` after delivery. Current
   passing findings open one human Inbox review. Address failed checks, unverified outcomes or
-  human change requests within the agreed scope, then prepare fresh verification. Changed
+  human change requests within the agreed scope, preserving the affected task and earlier reports.
+  Reopen delivered contributions for correction; prepare a new verifier after they are delivered.
+  Return consequential ambiguity to the human. Explain when a later Coordinator turn is needed. Changed
   criteria, contributions or verifier agreement invalidate pending evidence. Do not treat a
   historical acceptance receipt as acceptance of new work. Do not inject an unsolicited turn
   into the main Coordinator conversation.
@@ -232,6 +238,11 @@ Repository instructions govern development conventions and permission to commit/
   agreed outcome, not just an attempt. Partial work stays unfinished or has explicitly revised
   scope. Complete report-only findings need no code approval and do not endorse recommendations;
   even a Markdown repository file is a code-changing result, regardless of its labels.
+- For follow-up to delivered work, read the current task/result and use `reopen_task` with
+  its revision and a reason. It preserves the delivered version and approval and returns
+  the task to Draft/Backlog. Use `edit_task` with fresh preparation and reviewed stages,
+  then prioritize only under human execution authority. Do not send change requests to a
+  closed delivered result. Follow-up code needs a new exact approval.
 
 On stale writes, reread and reconcile. After uncertain effects, inspect recorded state before
 retrying. Unknown processes retain ownership until reconciled. Queue choices persist across restart;

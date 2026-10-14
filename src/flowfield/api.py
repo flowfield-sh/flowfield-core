@@ -33,6 +33,7 @@ from flowfield.application import (
     TaskProgress,
     TaskPublish,
     TaskReconcile,
+    TaskReopen,
     Workspace,
     health,
 )
@@ -235,6 +236,10 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
         project_id: str, task_id: str, request: TaskReconcile, service: Service
     ) -> Task:
         return service.reconcile_task(project_id, task_id, request)
+
+    @router.post("/{project_id}/tasks/{task_id}/reopen")
+    def reopen_task(project_id: str, task_id: str, request: TaskReopen, service: Service) -> Task:
+        return service.reopen_task(project_id, task_id, request)
 
     app.get("/api/health", response_model=Health)(health)
     app.include_router(router)

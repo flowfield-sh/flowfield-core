@@ -299,6 +299,10 @@ class TaskReconcile(Edit):
     note: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200_000)]
 
 
+class TaskReopen(Edit):
+    note: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=8000)]
+
+
 class TaskPublish(Edit):
     stages: StageChange | None = None
     completion: Literal["code", "report"]
@@ -1829,6 +1833,55 @@ class Workspace:
                 "before recording progress.",
                 409,
             )
+
+    def reopen_task(self, project_id: str, task_id: str, request: TaskReopen) -> Task:
+        """Prepare a new assignment without rewriting delivered evidence or starting work."""
+        with self.connection(write=True, project_id=project_id) as db:
+            current = self._task(db, project_id, task_id)
+            self._current(current.revision, request.expected_revision)
+            if current.archived or current.status != "done":
+                raise ApplicationError(
+                    "task_not_completed", "Reopen an unarchived completed task for follow-up.", 409
+                )
+            if (
+                db.execute(
+                    "SELECT 1 FROM runs WHERE project_id=? AND task_id=? "
+                    "AND status IN ('preparing','running','stopping','uncertain')",
+                    (project_id, current.id),
+                ).fetchone()
+                or db.execute(
+                    "SELECT 1 FROM result_versions WHERE project_id=? AND task_id=? "
+                    "AND status IN ('preparing','delivering')",
+                    (project_id, current.id),
+                ).fetchone()
+                or db.execute(
+                    "SELECT 1 FROM task_replies WHERE project_id=? AND task_id=? "
+                    "AND json_extract(data,'$.status')='pending'",
+                    (project_id, current.id),
+                ).fetchone()
+            ):
+                raise ApplicationError(
+                    "task_busy", "Wait for the current execution or delivery before reopening.", 409
+                )
+            task = TaskRevision(
+                **{
+                    **current.model_dump(),
+                    "status": "backlog",
+                    "revision": current.revision + 1,
+                    "agreement_revision": current.agreement_revision + 1,
+                    "reconciliation_reason": None,
+                    "report_completion_revision": None,
+                    "updated_at": now(),
+                    "updated_by": request.author,
+                    "change_note": f"Reopened for follow-up: {request.note}",
+                }
+            )
+            self._apply_task(db, task)
+            db.execute(
+                "UPDATE tasks SET position=? WHERE project_id=? AND id=?",
+                (self._append_position(db, project_id), project_id, current.id),
+            )
+            return self._task(db, project_id, current.id)
 
     def reconcile_task(self, project_id: str, task_id: str, request: TaskReconcile) -> Task:
         with self.connection(write=True, project_id=project_id) as db:

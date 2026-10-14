@@ -1056,6 +1056,30 @@ def task_reconcile(
     )
 
 
+@task_app.command("reopen")
+def task_reopen(
+    ctx: typer.Context,
+    task: str,
+    note: Annotated[str, typer.Option(help="Explain the authorized follow-up work.")],
+    project: ProjectOption = None,
+    expected_revision: Expected = None,
+    author: Author = "human",
+    json_output: Json = False,
+) -> None:
+    """Return completed work to Draft/Backlog, preserving delivered results and approval."""
+    output(
+        lambda: update(
+            ctx.obj,
+            item_path(project, "tasks", task),
+            {"note": note},
+            expected_revision,
+            author,
+            operation="reopen",
+        ),
+        json_output,
+    )
+
+
 @task_app.command("progress")
 def task_progress(
     ctx: typer.Context,
