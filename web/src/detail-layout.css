@@ -311,7 +311,7 @@
   .task-input {
     background: var(--chrome);
     border-top: 1px solid var(--border);
-    padding: 16px 24px;
+    padding: var(--response-padding, 16px 24px);
   }
   .task-input-context p {
     margin: 0;
@@ -511,6 +511,7 @@
   gap: 16px;
 }
 .request-card {
+  --response-padding: 16px;
   overflow-wrap: anywhere;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -532,10 +533,12 @@
 .request-list > li {
   min-width: 0;
 }
-.request-card .task-input {
-  padding: 0;
-  border: 0;
-  background: transparent;
+.request-footer {
+  border-radius: 0 0 var(--radius) var(--radius);
+  overflow: hidden;
+}
+.request-footer:empty {
+  display: none;
 }
 .review-decision {
   margin-top: 12px;

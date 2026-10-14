@@ -14,7 +14,7 @@ const OverlayClose = createContext<(() => void) | null>(null);
 export const useOverlayClose = () => useContext(OverlayClose);
 const OverlayTitleHost = createContext<HTMLElement | null>(null);
 const OverlayBody = createContext<HTMLElement | null>(null);
-const OverlayFooterHost = createContext<HTMLElement | null>(null);
+export const ResponseFooterHost = createContext<HTMLElement | null>(null);
 export const useOverlayBody = () => useContext(OverlayBody);
 export function OverlayFooter({
   children,
@@ -23,7 +23,7 @@ export function OverlayFooter({
   children: ReactNode;
   inline?: boolean;
 }) {
-  const host = useContext(OverlayFooterHost);
+  const host = useContext(ResponseFooterHost);
   return inline ? children : host ? createPortal(children, host) : null;
 }
 export function OverlayHeading({ children }: { children: ReactNode }) {
@@ -89,9 +89,9 @@ export function EntityOverlay({
     <OverlayClose.Provider value={close}>
       <OverlayTitleHost.Provider value={titleHost}>
         <OverlayBody.Provider value={body}>
-          <OverlayFooterHost.Provider value={footer}>
+          <ResponseFooterHost.Provider value={footer}>
             {createPortal(children, host)}
-          </OverlayFooterHost.Provider>
+          </ResponseFooterHost.Provider>
         </OverlayBody.Provider>
       </OverlayTitleHost.Provider>
       <Dialog
@@ -178,7 +178,7 @@ export function EntityPane({
     <OverlayClose.Provider value={close}>
       <OverlayTitleHost.Provider value={title}>
         <OverlayBody.Provider value={body}>
-          <OverlayFooterHost.Provider value={footer}>
+          <ResponseFooterHost.Provider value={footer}>
             <section
               className="entity-pane"
               aria-label={label}
@@ -195,7 +195,7 @@ export function EntityPane({
               </div>
               <div className="entity-overlay-footer" ref={setFooter} />
             </section>
-          </OverlayFooterHost.Provider>
+          </ResponseFooterHost.Provider>
         </OverlayBody.Provider>
       </OverlayTitleHost.Provider>
     </OverlayClose.Provider>

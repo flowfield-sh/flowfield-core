@@ -25,7 +25,7 @@ import {
   taskHref,
 } from "./navigation";
 import { request } from "./workspace";
-import { EntityOverlay, OverlayHeading } from "./EntityOverlay";
+import { EntityOverlay, OverlayHeading, OverlayFooter } from "./EntityOverlay";
 import { useResource } from "./useResource";
 
 export type Question = components["schemas"]["Question"] & {
@@ -438,166 +438,184 @@ export function QuestionDetail({
             (loaded.status === "open" || loaded.status === "answered") && (
               <p className="question-scope">Blocks: {loaded.blocking_scope}</p>
             )}
-          {correcting ||
-          loaded.status === "open" ||
-          (loaded.status === "answered" && editing) ? (
-            <form
-              className="answer-form content-stack"
-              data-space={inline ? "content" : "section"}
-              onSubmit={(e) => {
-                e.preventDefault();
-                void answer();
-              }}
+          {loaded.answer && (
+            <DetailSection
+              className="question-section"
+              title={<>Your answer</>}
             >
-              <QuestionChoices
-                choices={loaded.choices}
-                choose={setDraft}
-                disabled={busy || !!newer}
-              />
-              {inline ? (
-                <Composer
-                  projectId={projectId}
-                  draftKey={`${loaded.id}:${loaded.revision}`}
-                  value={draft}
-                  onChange={setDraft}
-                  label="Your answer"
-                  maxLength={8000}
-                  disabled={busy}
-                  onBusy={setUploading}
-                  onSend={() => void answer()}
-                  action={
-                    <Button
-                      type="submit"
-                      size="icon-sm"
-                      aria-label={
-                        correcting ? "Send correction" : "Send answer"
-                      }
-                      disabled={
-                        busy ||
-                        uploading ||
-                        !!newer ||
-                        !draft.trim() ||
-                        (editing && !dirty)
-                      }
-                    >
-                      <ArrowUp size={16} />
-                    </Button>
-                  }
-                />
-              ) : (
-                <div className="answer-field content-stack">
-                  <Label className="field block" htmlFor={answerId}>
-                    Your answer
-                  </Label>
-                  <Textarea
-                    id={answerId}
-                    rows={5}
-                    maxLength={8000}
-                    value={draft}
-                    disabled={busy}
-                    onChange={(e) => setDraft(e.target.value)}
-                  />
-                </div>
-              )}
-              <div className="actions">
-                {!inline && (
-                  <Button
-                    size="sm"
-                    disabled={
-                      busy || !!newer || !draft.trim() || (editing && !dirty)
-                    }
-                  >
-                    {correcting ? "Send correction" : "Send answer"}
-                  </Button>
-                )}
-                {editing && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    type="button"
-                    className="quiet"
-                    disabled={busy}
-                    onClick={() => {
-                      if (
-                        !dirty ||
-                        window.confirm("Discard your unsaved answer?")
-                      ) {
-                        setEditing(false);
-                        setCorrecting(false);
-                        setDraft("");
-                      }
+              <Markdown>{loaded.answer}</Markdown>
+            </DetailSection>
+          )}
+          {loaded.decision && (
+            <DetailSection
+              className="question-section"
+              title={
+                <>
+                  {loaded.status === "applied"
+                    ? "Applied decision"
+                    : "Reason withdrawn"}
+                </>
+              }
+            >
+              <Markdown>{loaded.decision}</Markdown>
+            </DetailSection>
+          )}
+          <OverlayFooter inline={!inline}>
+            {(correcting ||
+              loaded.status === "open" ||
+              (loaded.status === "answered" &&
+                (editing || !loaded.delivery || loaded.delivery.can_edit)) ||
+              loaded.continuation_run_id ||
+              loaded.delivery?.can_stop) && (
+              <div
+                className={
+                  inline ? "task-input content-stack" : "content-stack"
+                }
+              >
+                {correcting ||
+                loaded.status === "open" ||
+                (loaded.status === "answered" && editing) ? (
+                  <form
+                    className="answer-form content-stack"
+                    data-space={inline ? "content" : "section"}
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void answer();
                     }}
                   >
-                    Cancel
-                  </Button>
+                    <QuestionChoices
+                      choices={loaded.choices}
+                      choose={setDraft}
+                      disabled={busy || !!newer}
+                    />
+                    {inline ? (
+                      <Composer
+                        projectId={projectId}
+                        draftKey={`${loaded.id}:${loaded.revision}`}
+                        value={draft}
+                        onChange={setDraft}
+                        label="Your answer"
+                        maxLength={8000}
+                        disabled={busy}
+                        onBusy={setUploading}
+                        onSend={() => void answer()}
+                        action={
+                          <Button
+                            type="submit"
+                            size="icon-sm"
+                            aria-label={
+                              correcting ? "Send correction" : "Send answer"
+                            }
+                            disabled={
+                              busy ||
+                              uploading ||
+                              !!newer ||
+                              !draft.trim() ||
+                              (editing && !dirty)
+                            }
+                          >
+                            <ArrowUp size={16} />
+                          </Button>
+                        }
+                      />
+                    ) : (
+                      <div className="answer-field content-stack">
+                        <Label className="field block" htmlFor={answerId}>
+                          Your answer
+                        </Label>
+                        <Textarea
+                          id={answerId}
+                          rows={5}
+                          maxLength={8000}
+                          value={draft}
+                          disabled={busy}
+                          onChange={(e) => setDraft(e.target.value)}
+                        />
+                      </div>
+                    )}
+                    <div className="actions">
+                      {!inline && (
+                        <Button
+                          size="sm"
+                          disabled={
+                            busy ||
+                            !!newer ||
+                            !draft.trim() ||
+                            (editing && !dirty)
+                          }
+                        >
+                          {correcting ? "Send correction" : "Send answer"}
+                        </Button>
+                      )}
+                      {editing && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          type="button"
+                          className="quiet"
+                          disabled={busy}
+                          onClick={() => {
+                            if (
+                              !dirty ||
+                              window.confirm("Discard your unsaved answer?")
+                            ) {
+                              setEditing(false);
+                              setCorrecting(false);
+                              setDraft("");
+                            }
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    {loaded.status === "answered" &&
+                      (!loaded.delivery || loaded.delivery.can_edit) && (
+                        <div className="actions">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="quiet"
+                            onClick={() => {
+                              setDraft(loaded.answer ?? "");
+                              setEditing(true);
+                            }}
+                          >
+                            Edit answer
+                          </Button>
+                        </div>
+                      )}
+                    {loaded.continuation_run_id && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditing(true);
+                          setCorrecting(true);
+                          setDraft("");
+                        }}
+                      >
+                        Send correction
+                      </Button>
+                    )}
+                    {loaded.delivery?.can_stop && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => void stopContinuation()}
+                      >
+                        Stop continuation
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
-            </form>
-          ) : (
-            <>
-              {loaded.answer && (
-                <DetailSection
-                  className="question-section"
-                  title={<>Your answer</>}
-                >
-                  <Markdown>{loaded.answer}</Markdown>
-                </DetailSection>
-              )}
-              {loaded.status === "answered" &&
-                (!loaded.delivery || loaded.delivery.can_edit) && (
-                  <div className="actions">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="quiet"
-                      onClick={() => {
-                        setDraft(loaded.answer ?? "");
-                        setEditing(true);
-                      }}
-                    >
-                      Edit answer
-                    </Button>
-                  </div>
-                )}
-              {loaded.continuation_run_id && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setEditing(true);
-                    setCorrecting(true);
-                    setDraft("");
-                  }}
-                >
-                  Send correction
-                </Button>
-              )}
-              {loaded.delivery?.can_stop && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => void stopContinuation()}
-                >
-                  Stop continuation
-                </Button>
-              )}
-              {loaded.decision && (
-                <DetailSection
-                  className="question-section"
-                  title={
-                    <>
-                      {loaded.status === "applied"
-                        ? "Applied decision"
-                        : "Reason withdrawn"}
-                    </>
-                  }
-                >
-                  <Markdown>{loaded.decision}</Markdown>
-                </DetailSection>
-              )}
-            </>
-          )}
+            )}
+          </OverlayFooter>
           {loaded.answer_count > (loaded.answer ? 1 : 0) && (
             <PreviousAnswers
               key={loaded.revision}

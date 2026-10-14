@@ -35,6 +35,7 @@ the verifier description. Confirm the scoped worker can observe each required ou
 workflow obligations distinct; resolve inaccessible evidence or human judgment with the human
 before verification, without inventing a pass or silently dropping agreed requirements.
 Read get_milestone_verifications/get_milestone_verification for findings and human feedback.
+Follow next_offset with the returned revision until the complete JSON evidence has been read.
 Resolve failed findings on the affected task, preserve earlier reports and
 prepare a new verifier after corrected contributions are delivered. This conversation resumes
 only when invoked; explain when another Coordinator turn is needed.

@@ -110,7 +110,8 @@ Repository instructions govern development conventions and permission to commit/
   contains only its repository; missing cross-project access must produce unverified findings,
   not an invented pass. A completed verifier may correctly report failed criteria or incomplete
   coverage. The service validates recorded check coverage and versions, not semantic correctness.
-- Read `get_milestone_verifications` and `get_milestone_verification` after delivery. Current
+- Read `get_milestone_verifications` and `get_milestone_verification` after delivery; follow
+  `next_offset` with the returned revision until all JSON evidence pages are read. Current
   passing findings open one human Inbox review. Address failed checks, unverified outcomes or
   human change requests within the agreed scope, preserving the affected task and earlier reports.
   Reopen delivered contributions for correction; prepare a new verifier after they are delivered.

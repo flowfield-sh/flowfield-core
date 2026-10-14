@@ -17,7 +17,7 @@ import { MilestoneReviewRequest } from "./MilestoneVerification";
 import { useDirtyItems } from "./useDirtyItems";
 import { ResourceRetry } from "./ResourceRetry";
 import { RequestFrame } from "./RequestFrame";
-import { EntityOverlay } from "./EntityOverlay";
+import { EntityOverlay, OverlayFooter } from "./EntityOverlay";
 
 type Item = components["schemas"]["AttentionItem"];
 type Page = components["schemas"]["AttentionPage"];
@@ -163,11 +163,15 @@ function RequestCard({
         <>
           <strong>{item.title}</strong>
           {item.state && <WorkState state={item.state} />}
-          <Button variant="outline" asChild>
-            <WorkspaceLink to={href}>
-              {item.next_action ?? "Inspect request"}
-            </WorkspaceLink>
-          </Button>
+          <OverlayFooter>
+            <div className="task-input actions">
+              <Button variant="outline" asChild>
+                <WorkspaceLink to={href}>
+                  {item.next_action ?? "Inspect request"}
+                </WorkspaceLink>
+              </Button>
+            </div>
+          </OverlayFooter>
         </>
       )}
     </RequestFrame>

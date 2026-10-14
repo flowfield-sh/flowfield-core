@@ -512,12 +512,31 @@ def test_failed_verification_and_human_feedback_keep_history_through_new_reviews
     )
 
 
-def test_reopened_contribution_invalidates_pending_acceptance_and_keeps_evidence(tmp_path):
+@pytest.mark.parametrize("legacy_flag", [False, True])
+def test_reopened_contribution_invalidates_pending_acceptance_and_keeps_evidence(
+    tmp_path, legacy_flag
+):
     from flowfield.application import TaskReopen
 
     execution, records, verification = setup(tmp_path)
     complete(execution, verification)
     ready = records.get("harbor", verification.id)
+    verifier = execution.workspace.task("harbor", verification.task_id)
+    if legacy_flag:
+        # Represent a report previously marked by ordinary dependency invalidation.
+        from flowfield.application import TaskRevision
+
+        previous = TaskRevision.model_validate(verifier.model_dump()).model_copy(
+            update={
+                "revision": verifier.revision + 1,
+                "reconciliation_reason": (
+                    "Prerequisites changed. Review recorded work with the coordinator."
+                ),
+            }
+        )
+        with execution.workspace.connection(write=True) as db:
+            execution.workspace._save_task(db, previous)
+        verifier = execution.workspace.task("harbor", verifier.id)
     task = execution.workspace.task("harbor", "task-0")
     execution.workspace.reopen_task(
         "harbor",
@@ -527,9 +546,62 @@ def test_reopened_contribution_invalidates_pending_acceptance_and_keeps_evidence
     stale = records.get("harbor", ready.id)
     assert stale.status == "stale" and not stale.current
     assert stale.report == ready.report and stale.tasks == ready.tasks
+    retained = execution.workspace.task("harbor", verification.task_id)
+    assert retained.revision == verifier.revision + int(legacy_flag)
+    if legacy_flag:
+        assert next(
+            r for r in retained.revisions if r.revision == verifier.revision
+        ).reconciliation_reason
+    assert retained.reconciliation_reason is None
+    assert retained.status == "done"
+    from flowfield.work_state import task_state
+
+    with execution.workspace.connection() as db:
+        state = task_state(execution.workspace, db, "harbor", retained.id)
+        assert state.label == "Completed"
+        # The report stays readable, but its outdated prerequisite chain cannot
+        # satisfy a new task's execution prerequisites.
+        tasks = execution.workspace._records(db, "harbor")
+        assert retained.key not in execution.workspace._completed(tasks, db)
     with pytest.raises(ApplicationError):
         records.review(
             "harbor",
             ready.id,
             VerificationReview(expected_revision=ready.revision, action="accept"),
         )
+
+
+def test_verification_context_pages_are_complete_bounded_and_revision_checked(tmp_path):
+    from flowfield.reads import PAGE_BYTES, size
+
+    execution, records, verification = setup(tmp_path)
+    complete(execution, verification)
+    with execution.workspace.connection(write=True) as db:
+        value = records.get("harbor", verification.id)
+        value.limitations = "Long evidence 🧭\n" * 4000
+        value.review_note = "Human observation " * 400
+        from flowfield.milestone_verification import save
+
+        save(db, value)
+    first = records.context("harbor", value.id)
+    parts = [first["text"]]
+    current = first
+    while current["next_offset"] is not None:
+        current = records.context(
+            "harbor", value.id, revision=first["revision"], offset=current["next_offset"]
+        )
+        assert size(current) <= PAGE_BYTES
+        parts.append(current["text"])
+    assert json.loads("".join(parts)) == value.model_dump()
+    history = records.history("harbor", value.milestone_id)
+    assert size(history) <= PAGE_BYTES
+    assert "limitations" in history["items"][0]["truncated_fields"]
+    with pytest.raises(ApplicationError, match="revision"):
+        records.context("harbor", value.id, offset=10)
+    with pytest.raises(ApplicationError, match="not found"):
+        records.context("other-workspace", value.id)
+    records.review(
+        "harbor", value.id, VerificationReview(expected_revision=value.revision, action="accept")
+    )
+    with pytest.raises(ApplicationError):
+        records.context("harbor", value.id, revision=value.revision, offset=first["next_offset"])

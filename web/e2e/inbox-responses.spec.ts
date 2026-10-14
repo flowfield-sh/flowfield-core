@@ -45,7 +45,25 @@ test("milestone acceptance stays in Inbox and Review column reflects the decisio
     page.getByRole("heading", {
       name: "Accept Verify installed harness discovery?",
     }),
+  ).toHaveCount(0);
+  const card = page.getByRole("article", {
+    name: "Milestone acceptance: Verify installed harness discovery",
+  });
+  await expect(
+    card.getByLabel("Response").getByRole("textbox", { name: "Review note" }),
   ).toBeVisible();
+  const headings = await card.getByRole("heading").allTextContents();
+  expect(headings.indexOf("Details")).toBeLessThan(headings.indexOf("Checks"));
+  await card.getByText("Verification context", { exact: true }).click();
+  const revision = card.getByRole("link", { name: "revision 1", exact: true });
+  await expect(revision).toHaveAttribute(
+    "href",
+    `${base}/milestones/${value.milestone_key}/revisions/1`,
+  );
+  await expect(
+    card.getByRole("link", { name: /Criteria checked/ }),
+  ).toHaveCount(0);
+  await card.getByText("Verification context", { exact: true }).click();
   for (const [width, height, theme] of [
     [1440, 1000, "light"],
     [1440, 1000, "dark"],
@@ -78,6 +96,7 @@ test("milestone acceptance stays in Inbox and Review column reflects the decisio
     await request.get(`/api${base}/verifications/${value.verification_id}`)
   ).json();
   expect(saved.status).toBe("accepted");
+  await expect(card.getByLabel("Response")).toBeEmpty();
   await page.getByRole("tab", { name: "History", exact: true }).click();
   await page
     .getByRole("link", { name: /Verify installed harness discovery/ })
@@ -203,7 +222,9 @@ test("task and project questions accept suggested or free answers inside Inbox",
   ).toBeVisible();
   await card.getByRole("button", { name: "All records", exact: true }).click();
   await expect(
-    card.getByRole("textbox", { name: "Your answer", exact: true }),
+    card
+      .getByLabel("Response")
+      .getByRole("textbox", { name: "Your answer", exact: true }),
   ).toHaveValue("All records");
   await card
     .getByRole("textbox", { name: "Your answer", exact: true })
@@ -233,6 +254,7 @@ test("task and project questions accept suggested or free answers inside Inbox",
     other.getByText("Choose the scope for the export.", { exact: true }),
   ).toBeVisible();
   await other
+    .getByLabel("Response")
     .getByRole("textbox", { name: "Your answer", exact: true })
     .fill("CSV first.");
   await other.getByRole("button", { name: "Send answer", exact: true }).click();
@@ -297,6 +319,10 @@ test("code review in Inbox approves the exact result and delivers without naviga
     )
     .toBe("done");
   await expect(page).toHaveURL(new RegExp(`/workspaces/${workspace}/inbox$`));
+  await expect(page.getByLabel("Response", { exact: true })).toBeEmpty();
+  await page.goto(`/projects/${project}/tasks/INC-1`);
+  await expect(page.getByText("Integrated", { exact: true })).toBeVisible();
+  await expect(page.locator(".entity-overlay-footer")).toBeEmpty();
 });
 
 test("Needs me scrolls with wheel input and retains reading position during updates", async ({

@@ -423,9 +423,11 @@ def create_mcp(
         preparation: VerificationPrepare,
     ) -> CallToolResult:
         """Freeze delivered contributions and checks; prepare an upcoming staged report task.
-        All contributing tasks must have complete delivered results. The verifier belongs to
-        the milestone but is excluded from its own readiness. Cover the entire criteria in
-        checks. Queue the task normally. Passing evidence requests human Inbox acceptance.
+        All contributions need complete delivered results. Use a Backlog verifier in the
+        milestone, depending on those contributions; earlier verifiers are historical evidence.
+        This operation prepares report completion and freezes full criteria and exact inputs.
+        Use concise observable check headings, with procedures in the task description.
+        Schedule only after binding succeeds. Passing evidence requests human Inbox acceptance.
         """
         return await mutate(
             lambda: (
@@ -437,12 +439,19 @@ def create_mcp(
 
     @mcp.tool(annotations=read)
     async def get_milestone_verification(
-        workspace_id: Identifier, verification_id: Identifier
+        workspace_id: Identifier,
+        verification_id: Identifier,
+        revision: Annotated[int, Field(ge=1)] | None = None,
+        offset: Annotated[int, Field(ge=0)] = 0,
+        limit: Annotated[int, Field(ge=1, le=4000)] = 4000,
     ) -> CallToolResult:
-        """Read exact verification inputs, findings and human review feedback."""
+        """Read verification inputs, findings and feedback as paged JSON text.
+        Follow next_offset with the returned revision until null. Status is not the evidence;
+        read all pages before judging coverage or responding to findings/review notes.
+        """
         return await invoke(
-            lambda: (
-                MilestoneVerifications(workspace()).get(workspace_id, verification_id).model_dump()
+            lambda: MilestoneVerifications(workspace()).context(
+                workspace_id, verification_id, revision=revision, offset=offset, limit=limit
             )
         )
 

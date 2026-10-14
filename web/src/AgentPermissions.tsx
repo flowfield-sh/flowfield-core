@@ -1,3 +1,4 @@
+import { OverlayFooter } from "./EntityOverlay";
 import { RequestFrame } from "./RequestFrame";
 import { reportError } from "./requestFeedback";
 import { useEffect, useState } from "react";
@@ -15,7 +16,9 @@ type Permission = components["schemas"]["PermissionRecord"];
 export function PermissionControl({
   record,
   answered,
+  inRequest = false,
 }: {
+  inRequest?: boolean;
   record: Permission;
   answered: () => void;
 }) {
@@ -33,8 +36,8 @@ export function PermissionControl({
         <pre className="evidence-output">{record.details}</pre>
       )}
       {record.status === "pending" ? (
-        <>
-          <div className="actions">
+        <OverlayFooter inline={!inRequest}>
+          <div className={inRequest ? "task-input actions" : "actions"}>
             {record.options.map((option) => (
               <Button
                 key={option.id}
@@ -66,7 +69,7 @@ export function PermissionControl({
               </Button>
             ))}
           </div>
-        </>
+        </OverlayFooter>
       ) : (
         <p>
           {record.status === "answered"
@@ -166,6 +169,7 @@ export function PermissionCard({
       {resource.data && (
         <PermissionControl
           record={resource.data}
+          inRequest
           answered={() => setRetry(retry + 1)}
         />
       )}

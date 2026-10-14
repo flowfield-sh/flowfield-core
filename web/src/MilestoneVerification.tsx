@@ -252,7 +252,6 @@ export function MilestoneReport({
         }
       />
       <ContentStack className="conversation-message-body" space="section">
-        <DetailSection title="Checks">{checks}</DetailSection>
         <DetailSection title="Details">
           <ContentStack space="flush">
             {value.limitations && (
@@ -262,6 +261,14 @@ export function MilestoneReport({
             )}
             <Disclosure summary="Verification context">
               <ContentStack space="section">
+                <p>
+                  Criteria checked:{" "}
+                  <WorkspaceLink
+                    to={`/workspaces/${value.workspace_id}/milestones/${value.milestone_key}/revisions/${value.milestone_revision}`}
+                  >
+                    revision {value.milestone_revision}
+                  </WorkspaceLink>
+                </p>
                 {value.report?.coverage_notes && (
                   <DetailSection title="Coverage">
                     <Markdown>{value.report.coverage_notes}</Markdown>
@@ -269,11 +276,6 @@ export function MilestoneReport({
                 )}
                 <DetailSection title="Acceptance criteria">
                   <Markdown>{value.criteria}</Markdown>
-                  <WorkspaceLink
-                    to={`/workspaces/${value.workspace_id}/milestones/${value.milestone_key}/revisions/${value.milestone_revision}`}
-                  >
-                    Criteria checked: revision {value.milestone_revision}
-                  </WorkspaceLink>
                 </DetailSection>
               </ContentStack>
             </Disclosure>
@@ -304,6 +306,7 @@ export function MilestoneReport({
             </Disclosure>
           </ContentStack>
         </DetailSection>
+        <DetailSection title="Checks">{checks}</DetailSection>
       </ContentStack>
     </article>
   );
@@ -337,20 +340,17 @@ export function MilestoneReviewRequest({
       {!value && !resource.error && <p>Loading review…</p>}
       {value && (
         <>
-          <h3 className="detail-title">
-            {value.status === "ready" && value.current
-              ? `Accept ${value.title}?`
-              : statuses[value.status]}
-          </h3>
           <MilestoneReport value={value} />
           {value.review_note && <Markdown>{value.review_note}</Markdown>}
-          <MilestoneReviewResponse
-            key={value.id}
-            value={value}
-            path={path}
-            refresh={resource.retry}
-            onDirty={onDirty}
-          />
+          <OverlayFooter>
+            <MilestoneReviewResponse
+              key={value.id}
+              value={value}
+              path={path}
+              refresh={resource.retry}
+              onDirty={onDirty}
+            />
+          </OverlayFooter>
         </>
       )}
     </ContentStack>

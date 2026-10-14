@@ -55,7 +55,8 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
         rules.append("Use the saved validation commands and report their observed results.")
     if present("milestone_verification"):
         rules.append(
-            "Read milestone_verification in full. Assess every numbered check (1-based) and "
+            "Read milestone_verification and the saved milestone details in full. "
+            "Assess every numbered check (1-based) and "
             "the complete frozen acceptance criteria against the exact delivered task results. "
             "Submit verification with verification_id, one finding per check (check, verdict: "
             "passed/failed/unverified, evidence), coverage: complete/incomplete, "
@@ -65,7 +66,7 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
             "omitted requirements as incomplete coverage. Do not access sibling repositories "
             "without explicitly prepared access or claim evidence for unavailable code."
         )
-    if present("milestone_criteria"):
+    elif present("milestone_criteria"):
         rules.append(
             "Milestone criteria describe the whole outcome. Read them and the saved milestone "
             "details, implement this task's contribution and report gaps you discover. "

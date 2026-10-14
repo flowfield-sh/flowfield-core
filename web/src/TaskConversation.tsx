@@ -684,279 +684,286 @@ export function TaskConversation({
               ))}
           </ol>
         </ContentStack>
-        <OverlayFooter inline={!!requestTarget}>
-          <form
-            className="task-input content-stack"
-            aria-label="Task input"
-            onKeyDown={(event) => {
-              if (
-                event.key !== "Escape" ||
-                event.defaultPrevented ||
-                modelOpen ||
-                !showComposer
-              )
-                return;
-              event.preventDefault();
-              event.stopPropagation();
-              if (busy || uploading) return;
-              discardDraft();
-              requestAnimationFrame(() =>
-                overlayBody?.focus({ preventScroll: true }),
-              );
-            }}
-            onSubmit={(event) => {
-              event.preventDefault();
-              void send();
-            }}
-          >
-            {!(requestTarget?.kind === "question") &&
-              (showComposer ||
-                (matchesRequest && replyResult?.status === "ready")) && (
-                <div className="task-input-context">
-                  <strong>
-                    {replyBinding?.question_id
-                      ? "Answer the question"
-                      : draft?.action === "changes"
-                        ? "Request changes"
-                        : draft?.action === "approve"
-                          ? "Approve and integrate"
-                          : replyResult
-                            ? (replyResult.status === "ready"
-                                ? "Review "
-                                : "Message about ") + replyResult.title
-                            : "Task response"}
-                  </strong>
-                  {replyBinding?.question_id && questionText && (
-                    <p>{questionText}</p>
-                  )}
-                  {!replyBinding?.question_id && replyResult && (
-                    <p className="detail-metadata">
-                      {draft?.action === "approve"
-                        ? "Approval"
-                        : draft?.action === "changes"
-                          ? "Feedback"
-                          : "Review"}{" "}
-                      for {replyResult.title}
-                      {stale ? " (earlier context)" : ""}.
-                    </p>
-                  )}
-                </div>
-              )}
-            {requestTarget && !matchesRequest && (
-              <p role="status">
-                This request is no longer awaiting a response. Your saved
-                response is available in its history.
-              </p>
-            )}
-            <ResourceRetry resources={[currentQuestion]} />
-            {composerAction === "answer" && currentQuestion.data && (
-              <QuestionChoices
-                choices={currentQuestion.data.choices}
-                choose={updateBody}
-                disabled={busy || !inputEnabled || stale}
-              />
-            )}
-            <Composer
-              draftKey={key}
-              collapsed={!showComposer}
-              projectId={projectId}
-              taskId={task.id}
-              inputRef={input}
-              value={draft?.body ?? ""}
-              onChange={updateBody}
-              maxLength={8000}
-              label={
-                draft?.action === "changes"
-                  ? "Feedback for this result"
-                  : draft?.action === "approve"
-                    ? "Testing notes or approval comment (optional)"
-                    : composerAction === "answer"
-                      ? "Your answer"
-                      : "Task response"
-              }
-              disabled={busy || !inputEnabled}
-              onBusy={setUploading}
-              onSend={() => void send()}
-
-              controls={
-                coordinatorQuestion || requestTarget
-                  ? undefined
-                  : settingsControl
-              }
-              action={
-                showComposer && (
-                  <Button
-                    type="submit"
-                    size={composerAction === "approve" ? "sm" : "icon-sm"}
-                    aria-label={
-                      draft?.action === "changes"
-                        ? "Send feedback"
-                        : composerAction === "approve"
-                          ? "Approve and integrate"
-                          : composerAction === "answer"
-                            ? "Send answer"
-                            : "Send message"
-                    }
-                    disabled={
-                      busy ||
-                      uploading ||
-                      settingsDirty ||
-                      !inputEnabled ||
-                      !draft ||
-                      (draft.action !== "approve" && !draft.body.trim()) ||
-                      stale
-                    }
-                  >
-                    {composerAction === "approve" ? (
-                      "Approve and integrate"
-                    ) : (
-                      <ArrowUp size={16} />
-                    )}
-                  </Button>
+        <OverlayFooter>
+          {(task.status !== "done" ||
+            !!task.reconciliation_reason ||
+            showComposer ||
+            stale ||
+            Object.values(drafts).some((saved) => !!saved.body) ||
+            !!gate.data?.pending_reply_id) && (
+            <form
+              className="task-input content-stack"
+              aria-label="Task input"
+              onKeyDown={(event) => {
+                if (
+                  event.key !== "Escape" ||
+                  event.defaultPrevented ||
+                  modelOpen ||
+                  !showComposer
                 )
-              }
-            />
-            {!gate.data?.enabled &&
-              gate.data &&
-              (showComposer || !!gate.data.pending_reply_id) && (
-                <p className="muted">
-                  {gate.data.pending_reply_id
-                    ? "Reply waiting for the queue or a task update. Cancel to revise it."
-                    : gate.data.reason === "reconcile_task"
-                      ? "Ask the coordinator to update this task before continuing."
-                      : gate.data.reason === "answer_pending"
-                        ? "Answer saved. Waiting for the worker or coordinator to continue."
-                        : "Task busy. Reply when processing finishes."}
+                  return;
+                event.preventDefault();
+                event.stopPropagation();
+                if (busy || uploading) return;
+                discardDraft();
+                requestAnimationFrame(() =>
+                  overlayBody?.focus({ preventScroll: true }),
+                );
+              }}
+              onSubmit={(event) => {
+                event.preventDefault();
+                void send();
+              }}
+            >
+              {!(requestTarget?.kind === "question") &&
+                (showComposer ||
+                  (matchesRequest && replyResult?.status === "ready")) && (
+                  <div className="task-input-context">
+                    <strong>
+                      {replyBinding?.question_id
+                        ? "Answer the question"
+                        : draft?.action === "changes"
+                          ? "Request changes"
+                          : draft?.action === "approve"
+                            ? "Approve and integrate"
+                            : replyResult
+                              ? (replyResult.status === "ready"
+                                  ? "Review "
+                                  : "Message about ") + replyResult.title
+                              : "Task response"}
+                    </strong>
+                    {replyBinding?.question_id && questionText && (
+                      <p>{questionText}</p>
+                    )}
+                    {!replyBinding?.question_id && replyResult && (
+                      <p className="detail-metadata">
+                        {draft?.action === "approve"
+                          ? "Approval"
+                          : draft?.action === "changes"
+                            ? "Feedback"
+                            : "Review"}{" "}
+                        for {replyResult.title}
+                        {stale ? " (earlier context)" : ""}.
+                      </p>
+                    )}
+                  </div>
+                )}
+              {requestTarget && !matchesRequest && (
+                <p role="status">
+                  This request is no longer awaiting a response. Your saved
+                  response is available in its history.
                 </p>
               )}
-            {stale && (
-              <p role="status">
-                The context changed. Your draft still refers to the earlier
-                question or result.{" "}
-              </p>
-            )}
-            <div
-              ref={setActionContext}
-              className="task-action-context content-stack"
-            />
-            <div className="actions" role="group" aria-label="Task actions">
-              <div
-                ref={setActionHost}
-                className="task-result-actions"
-                hidden={
-                  draft?.action === "changes" ||
-                  draft?.action === "approve" ||
-                  !!gate.data?.question_id
-                }
-              />
-
-              {matchesRequest &&
-                gate.data?.reason === "answer_editable" &&
-                !draft && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={!currentQuestion.data}
-                    onClick={() => {
-                      if (!currentBinding || !currentQuestion.data) return;
-                      beginDraft(
-                        "answer",
-                        currentBinding,
-                        currentQuestion.data.answer ?? "",
-                      );
-                    }}
-                  >
-                    Edit answer
-                  </Button>
-                )}
-              {Object.entries(drafts)
-                .filter(([id, d]) => id !== key && d.body)
-                .map(([id]) => (
-                  <Button
-                    key={id}
-                    size="sm"
-                    variant="outline"
-                    type="button"
-                    onClick={() => setChosen(id)}
-                  >
-                    Resume saved draft (
-                    {id.startsWith("result:")
-                      ? "earlier result"
-                      : "earlier context"}
-                    )
-                  </Button>
-                ))}
-
-              {!requestTarget && stale && draft?.action !== "approve" && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!gate.data?.enabled}
-                  onClick={() => {
-                    if (!currentBinding) return;
-                    setDrafts((values) => ({
-                      ...values,
-                      [key]: {
-                        ...draft!,
-                        id: crypto.randomUUID(),
-                        binding: currentBinding,
-                        action: gate.data?.question_id
-                          ? "answer"
-                          : draft!.action,
-                      },
-                    }));
-                  }}
-                >
-                  Use current context
-                </Button>
-              )}
-              {draft && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={busy || uploading}
-                  onClick={discardDraft}
-                >
-                  {composerAction === "answer"
-                    ? gate.data?.reason === "answer_editable"
-                      ? "Cancel edit"
-                      : "Discard answer"
-                    : composerAction === "changes"
-                      ? "Cancel feedback"
-                      : composerAction === "approve"
-                        ? "Cancel approval"
-                        : "Cancel message"}
-                </Button>
-              )}
-              {matchesRequest && gate.data?.pending_reply_id && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void cancelPending()}
-                >
-                  Cancel pending message
-                </Button>
-              )}
-              {(!requestTarget || matchesRequest) && (
-                <WorkerActions
-                  projectId={projectId}
-                  task={task}
-                  runId={
-                    gate.data?.run_id ??
-                    messages.filter((m) => m.kind === "attempt").at(-1)
-                      ?.source_id ??
-                    null
-                  }
-                  refresh={tick}
-                  changed={() => setRevision((n) => n + 1)}
+              <ResourceRetry resources={[currentQuestion]} />
+              {composerAction === "answer" && currentQuestion.data && (
+                <QuestionChoices
+                  choices={currentQuestion.data.choices}
+                  choose={updateBody}
+                  disabled={busy || !inputEnabled || stale}
                 />
               )}
-            </div>
-          </form>
+              <Composer
+                draftKey={key}
+                collapsed={!showComposer}
+                projectId={projectId}
+                taskId={task.id}
+                inputRef={input}
+                value={draft?.body ?? ""}
+                onChange={updateBody}
+                maxLength={8000}
+                label={
+                  draft?.action === "changes"
+                    ? "Feedback for this result"
+                    : draft?.action === "approve"
+                      ? "Testing notes or approval comment (optional)"
+                      : composerAction === "answer"
+                        ? "Your answer"
+                        : "Task response"
+                }
+                disabled={busy || !inputEnabled}
+                onBusy={setUploading}
+                onSend={() => void send()}
+
+                controls={
+                  coordinatorQuestion || requestTarget
+                    ? undefined
+                    : settingsControl
+                }
+                action={
+                  showComposer && (
+                    <Button
+                      type="submit"
+                      size={composerAction === "approve" ? "sm" : "icon-sm"}
+                      aria-label={
+                        draft?.action === "changes"
+                          ? "Send feedback"
+                          : composerAction === "approve"
+                            ? "Approve and integrate"
+                            : composerAction === "answer"
+                              ? "Send answer"
+                              : "Send message"
+                      }
+                      disabled={
+                        busy ||
+                        uploading ||
+                        settingsDirty ||
+                        !inputEnabled ||
+                        !draft ||
+                        (draft.action !== "approve" && !draft.body.trim()) ||
+                        stale
+                      }
+                    >
+                      {composerAction === "approve" ? (
+                        "Approve and integrate"
+                      ) : (
+                        <ArrowUp size={16} />
+                      )}
+                    </Button>
+                  )
+                }
+              />
+              {!gate.data?.enabled &&
+                gate.data &&
+                (showComposer || !!gate.data.pending_reply_id) && (
+                  <p className="muted">
+                    {gate.data.pending_reply_id
+                      ? "Reply waiting for the queue or a task update. Cancel to revise it."
+                      : gate.data.reason === "reconcile_task"
+                        ? "Ask the coordinator to update this task before continuing."
+                        : gate.data.reason === "answer_pending"
+                          ? "Answer saved. Waiting for the worker or coordinator to continue."
+                          : "Task busy. Reply when processing finishes."}
+                  </p>
+                )}
+              {stale && (
+                <p role="status">
+                  The context changed. Your draft still refers to the earlier
+                  question or result.{" "}
+                </p>
+              )}
+              <div
+                ref={setActionContext}
+                className="task-action-context content-stack"
+              />
+              <div className="actions" role="group" aria-label="Task actions">
+                <div
+                  ref={setActionHost}
+                  className="task-result-actions"
+                  hidden={
+                    draft?.action === "changes" ||
+                    draft?.action === "approve" ||
+                    !!gate.data?.question_id
+                  }
+                />
+
+                {matchesRequest &&
+                  gate.data?.reason === "answer_editable" &&
+                  !draft && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!currentQuestion.data}
+                      onClick={() => {
+                        if (!currentBinding || !currentQuestion.data) return;
+                        beginDraft(
+                          "answer",
+                          currentBinding,
+                          currentQuestion.data.answer ?? "",
+                        );
+                      }}
+                    >
+                      Edit answer
+                    </Button>
+                  )}
+                {Object.entries(drafts)
+                  .filter(([id, d]) => id !== key && d.body)
+                  .map(([id]) => (
+                    <Button
+                      key={id}
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      onClick={() => setChosen(id)}
+                    >
+                      Resume saved draft (
+                      {id.startsWith("result:")
+                        ? "earlier result"
+                        : "earlier context"}
+                      )
+                    </Button>
+                  ))}
+
+                {!requestTarget && stale && draft?.action !== "approve" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!gate.data?.enabled}
+                    onClick={() => {
+                      if (!currentBinding) return;
+                      setDrafts((values) => ({
+                        ...values,
+                        [key]: {
+                          ...draft!,
+                          id: crypto.randomUUID(),
+                          binding: currentBinding,
+                          action: gate.data?.question_id
+                            ? "answer"
+                            : draft!.action,
+                        },
+                      }));
+                    }}
+                  >
+                    Use current context
+                  </Button>
+                )}
+                {draft && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={busy || uploading}
+                    onClick={discardDraft}
+                  >
+                    {composerAction === "answer"
+                      ? gate.data?.reason === "answer_editable"
+                        ? "Cancel edit"
+                        : "Discard answer"
+                      : composerAction === "changes"
+                        ? "Cancel feedback"
+                        : composerAction === "approve"
+                          ? "Cancel approval"
+                          : "Cancel message"}
+                  </Button>
+                )}
+                {matchesRequest && gate.data?.pending_reply_id && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void cancelPending()}
+                  >
+                    Cancel pending message
+                  </Button>
+                )}
+                {(!requestTarget || matchesRequest) && (
+                  <WorkerActions
+                    projectId={projectId}
+                    task={task}
+                    runId={
+                      gate.data?.run_id ??
+                      messages.filter((m) => m.kind === "attempt").at(-1)
+                        ?.source_id ??
+                      null
+                    }
+                    refresh={tick}
+                    changed={() => setRevision((n) => n + 1)}
+                  />
+                )}
+              </div>
+            </form>
+          )}
         </OverlayFooter>
       </ContentStack>
     </TaskActionHost.Provider>

@@ -9,7 +9,7 @@ from uuid import uuid4
 from flowfield.application import TaskPublish, TaskRevision, Workspace, now
 from flowfield.errors import ApplicationError
 from flowfield.milestones import Milestones
-from flowfield.reads import page, validate_page
+from flowfield.reads import PAGE_BYTES, clip, excerpt, page, validate_page
 from flowfield.verification_models import (
     DeliveredTask,
     MilestoneVerification,
@@ -257,6 +257,39 @@ class MilestoneVerifications:
         with self.store.connection() as db:
             return read(db, workspace_id, identity)
 
+    def context(
+        self,
+        workspace_id: str,
+        identity: str,
+        *,
+        revision: int | None = None,
+        offset: int = 0,
+        limit: int = 4000,
+    ) -> dict[str, Any]:
+        """Read the complete evidence in bounded, revision-bound JSON text pages."""
+        if offset < 0 or not 1 <= limit <= 4000 or (offset and revision is None):
+            raise ApplicationError(
+                "invalid_request",
+                "Use a nonnegative offset, limit 1–4000 and revision for later pages.",
+            )
+        value = self.get(workspace_id, identity)
+        if revision is not None:
+            self.store._current(value.revision, revision)
+        body = value.model_dump_json()
+        if offset > len(body):
+            raise ApplicationError("invalid_offset", "Choose an offset within the verification.")
+        text = clip(body[offset : offset + limit], PAGE_BYTES - 1000)
+        return {
+            "id": value.id,
+            "revision": value.revision,
+            "status": value.status,
+            "current": value.current,
+            "text": text,
+            "offset": offset,
+            "total_characters": len(body),
+            "next_offset": offset + len(text) if offset + len(text) < len(body) else None,
+        }
+
     def history(
         self, workspace_id: str, milestone_id: str, *, before: int | None = None, limit: int = 20
     ) -> dict[str, Any]:
@@ -270,7 +303,9 @@ class MilestoneVerifications:
                 "ORDER BY number DESC LIMIT ?",
                 (workspace_id, milestone.id, before, before, limit + 1),
             )
-            return page([{**json.loads(row[1]), "number": row[0]} for row in rows], limit, "number")
+            return page(
+                [excerpt({**json.loads(row[1]), "number": row[0]}) for row in rows], limit, "number"
+            )
 
     def prepare(
         self, workspace_id: str, milestone_id: str, request: VerificationPrepare

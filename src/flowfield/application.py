@@ -1133,8 +1133,43 @@ class Workspace:
             if any(prerequisite in affected for prerequisite in item.dependencies):
                 affected.add(key)
             blocked = [p for p in item.dependencies if p not in completed]
-            if blocked and item.status not in PLANNING and not item.reconciliation_reason:
-                reason = "Prerequisites changed. Review recorded work with the coordinator."
+            # A delivered verifier is evidence about frozen inputs. Its milestone
+            # record becomes stale; the completed report is not an assignment to
+            # rewrite. Explicit changes/reopening still require preparation, and
+            # blocked ancestry still prevents downstream work using it as current.
+            frozen_report = (
+                item.status == "done"
+                and item.publication is not None
+                and item.publication.completion == "report"
+                and item.publication.verification_id is not None
+                and item.publication.agreement_revision == item.agreement_revision
+            )
+            dependency_reason = "Prerequisites changed. Review recorded work with the coordinator."
+            if frozen_report and item.reconciliation_reason == dependency_reason:
+                # Repair an earlier derived flag through the ordinary revision
+                # owner. Retain the prior revision and report; never clear an
+                # authored requirement change or mark its ancestry current.
+                item = item.model_copy(
+                    update={
+                        "reconciliation_reason": None,
+                        "change_note": (
+                            "Retained completed verification; verify changed inputs separately."
+                        ),
+                        "revision": item.revision + (key not in changed),
+                        "updated_at": first.updated_at,
+                        "updated_by": first.updated_by,
+                    }
+                )
+                records[key] = item
+                changed.add(key)
+                affected.add(key)
+            if (
+                blocked
+                and item.status not in PLANNING
+                and not item.reconciliation_reason
+                and not frozen_report
+            ):
+                reason = dependency_reason
                 if key not in changed:
                     item = TaskRevision.model_validate_json(
                         db.execute(
