@@ -400,14 +400,14 @@
     border-radius: 6px;
     padding: 12px;
   }
-  .run-activity-entry + .run-activity-entry {
-    margin-top: 12px;
-  }
   .run-activity-entry {
     display: grid;
     grid-template-columns: 14px minmax(0, 1fr);
     gap: 8px;
     align-items: start;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 12px;
+    line-height: 1.6;
   }
   .run-activity-entry:not([data-kind="agent"]) {
     color: var(--muted-foreground);
@@ -421,8 +421,14 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     margin: 0;
-    font-size: 12px;
-    line-height: 1.6;
+    font: inherit;
+  }
+  .run-activity-entry .disclosure,
+  .run-activity-entry .disclosure-body {
+    font: inherit;
+  }
+  .run-activity-entry .disclosure > summary {
+    color: inherit;
   }
 
   @keyframes work-pulse {

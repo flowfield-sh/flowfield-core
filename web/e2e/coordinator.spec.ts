@@ -522,7 +522,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   await page.keyboard.press("Escape");
   await expect(page.getByLabel("Tool", { exact: true })).toBeVisible();
   const timeline = page.locator(
-    ".coordinator-message:not(.coordinator-human) > [data-kind]",
+    ".coordinator-message:not(.coordinator-human) [data-kind]",
   );
   await expect(timeline).toHaveText([
     "I’ll read the project first.",

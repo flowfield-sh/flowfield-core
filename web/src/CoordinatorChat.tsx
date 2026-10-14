@@ -15,6 +15,7 @@ import { ContextRing } from "./ContextRing";
 import { CoordinatorFullReply } from "./CoordinatorFullReply";
 import { AgentPermissions } from "./AgentPermissions";
 import { ActivityEntries } from "./RunActivity";
+import { ContentStack } from "./DetailLayout";
 import { useFeedScroll } from "./useFeedScroll";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -33,6 +34,19 @@ type ChatDraft = {
   context?: AdjacentContext;
 };
 export type ChatDrafts = Map<string, ChatDraft>;
+
+function activityGroups(items: Turn["activity"]["items"]) {
+  const groups: (typeof items)[] = [];
+  for (const item of items) {
+    const previous = groups.at(-1);
+    if (previous && item.kind !== "agent" && previous[0].kind !== "agent") {
+      previous.push(item);
+    } else {
+      groups.push([item]);
+    }
+  }
+  return groups;
+}
 
 function mergeTurns(previous: Turn[], updates: Turn[]) {
   return [
@@ -352,7 +366,7 @@ export function CoordinatorChat({
                 <Markdown>{turn.text}</Markdown>
               </div>
               <div className="coordinator-message">
-                {turn.activity.items.map((entry) =>
+                {activityGroups(turn.activity.items).map(([entry, ...rest]) =>
                   entry.kind === "agent" ? (
                     <div key={entry.key} data-kind="agent">
                       <Markdown>{entry.text}</Markdown>
@@ -361,7 +375,9 @@ export function CoordinatorChat({
                       )}
                     </div>
                   ) : (
-                    <ActivityEntries key={entry.key} items={[entry]} />
+                    <ContentStack key={entry.key} space="flush">
+                      <ActivityEntries items={[entry, ...rest]} />
+                    </ContentStack>
                   ),
                 )}
                 {turn.activity.omitted && (
