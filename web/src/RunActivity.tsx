@@ -136,7 +136,9 @@ function ActionEntry({
         {!action.output && <p>No output was recorded for this event.</p>}
       </Disclosure>
       {action.output && (
-        <ActivityText text={action.output} preview={action.output_preview} />
+        <div className="activity-result">
+          <ActivityText text={action.output} preview={action.output_preview} />
+        </div>
       )}
     </>
   );

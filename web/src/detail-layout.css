@@ -160,7 +160,8 @@
     width: 12px;
     height: 12px;
     flex-shrink: 0;
-    align-self: center;
+    align-self: flex-start;
+    margin-top: calc((1lh - 12px) / 2);
   }
   .disclosure[open] > summary > .disclosure-chevron {
     transform: rotate(90deg);
@@ -429,6 +430,12 @@
   }
   .run-activity-entry .disclosure > summary {
     color: inherit;
+  }
+  .run-activity-entry .disclosure-body {
+    padding-left: 30px;
+  }
+  .activity-result {
+    padding-left: 18px;
   }
   .activity-output-disclosure > .disclosure-body {
     max-height: 16rem;
