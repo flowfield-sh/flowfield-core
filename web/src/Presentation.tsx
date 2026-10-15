@@ -143,7 +143,7 @@ export function DetailTabs<T extends string>({
       onValueChange={(value) => change(value as T)}
     >
       <TabsList
-        variant="pill"
+        variant="line"
         className="card-tabs w-full justify-start"
         aria-label={title}
       >

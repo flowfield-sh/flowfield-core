@@ -14,8 +14,7 @@
   text-overflow: ellipsis;
 }
 .harness-settings-content {
-  width: min(100%, 680px);
-  margin-inline: auto;
+  width: 100%;
 }
 .harness-logo {
   width: 18px;

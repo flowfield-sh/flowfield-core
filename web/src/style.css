@@ -280,11 +280,6 @@
   }
   .pane-form {
     width: 100%;
-    max-width: 720px;
-    margin-inline: auto;
-  }
-  .pane-form .detail-title {
-    font-size: 20px;
   }
   .welcome h1 {
     font-size: 36px;
@@ -968,6 +963,7 @@
     width: 100%;
   }
   .card-tabs {
+    border-bottom: 1px solid var(--border);
     width: 100%;
     justify-content: flex-start;
   }

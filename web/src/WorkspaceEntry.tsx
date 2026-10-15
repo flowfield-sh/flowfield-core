@@ -40,7 +40,7 @@ export function WorkspaceList({
             <WorkspaceLink
               key={workspace.id}
               to={workspaceHref(workspace.id)}
-              className="project-list-row"
+              className="project-list-row workspace-list-row"
             >
               <ProjectBadge id={workspace.id} name={workspace.name} />
               <strong>{workspace.name}</strong>

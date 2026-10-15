@@ -371,7 +371,9 @@ function ResourceTab({
     index,
     disabled: index === 0,
   });
-  const name = title(tab.root, board, controller.titles);
+  const currentRoot = canonicalResourceRoot(tab.history[tab.index], board);
+  const name =
+    index === 0 ? "Inbox" : title(currentRoot, board, controller.titles);
   const label = useRef<HTMLSpanElement>(null);
   const [overflowing, setOverflowing] = useState(false);
   useLayoutEffect(() => {
@@ -435,7 +437,7 @@ function ResourceTab({
                 {board.needs_you_count > 99 ? "+" : ""}
               </span>
             )}
-            {tab.root.endsWith("/documents") && board && (
+            {currentRoot.endsWith("/documents") && board && (
               <span className="nav-count">{board.document_count}</span>
             )}
           </TabsTrigger>

@@ -162,8 +162,7 @@ test("member projects share coordinator history and a draft", async ({
   });
   await expect(
     page.getByRole("heading", {
-      name: "Revised site task",
-      exact: true,
+      name: /Revised site task$/,
     }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Send", exact: true }).click();

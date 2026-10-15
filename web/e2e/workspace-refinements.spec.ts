@@ -99,8 +99,10 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
   await expect(page).toHaveURL(`${base}?project=${project}`);
   await expect(page.getByLabel("Filter by project")).toHaveValue(project);
   await expect(
-    page.getByRole("tab", { name: "Projects", exact: true }),
-  ).toHaveAttribute("aria-selected", "true");
+    page
+      .getByRole("tablist", { name: "Open resources" })
+      .locator('[role="tab"][aria-selected="true"]'),
+  ).toHaveAccessibleName("Board");
   await page.screenshot({
     path: testInfo.outputPath("project-actions-desktop-light.png"),
   });
@@ -138,15 +140,14 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
     other.getByRole("region", { name: "Task details", exact: true }),
   ).toBeVisible();
   const heading = other.getByRole("heading", {
-    name: "Inspect delivery",
-    exact: true,
+    name: /RFC-1 Inspect delivery$/,
   });
   await expect(heading).toBeVisible();
   await expect(
     other
       .locator(".task-view-navigation")
       .getByRole("link", { name: "Core service" }),
-  ).toHaveAttribute("href", `${base}?project=${project}`);
+  ).toHaveCount(0);
   await other.setViewportSize({ width: 1440, height: 1000 });
   await other.screenshot({
     path: testInfo.outputPath("task-identity-desktop-light.png"),
@@ -158,11 +159,7 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
   await other.screenshot({
     path: testInfo.outputPath("task-identity-narrow-dark.png"),
   });
-  await other
-    .locator(".task-view-navigation")
-    .getByRole("link", { name: "Core service" })
-    .click();
-  await expect(other).toHaveURL(`${base}?project=${project}`);
+
   await other.evaluate(() => localStorage.setItem("flowfield.theme", "light"));
   await other.close();
   await page
@@ -239,9 +236,9 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
   ).json();
   const docUrl = `${base}/documents/${doc.id}`;
   await page.goto(docUrl);
-  await expect(page.getByRole("tab", { name: /^Documents/ })).toHaveText(
-    "Documents 2",
-  );
+  await expect(
+    page.getByRole("tab", { name: "Architecture", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   await expect(page.getByText(/This is revision/)).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Delete document", exact: true }),
@@ -261,12 +258,10 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
     ),
   ).toContainText("This document was deleted.");
   await page.getByRole("link", { name: "Revision 1", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Restore this revision", exact: true })
-    .click();
-  await expect(page.getByRole("tab", { name: /^Documents/ })).toHaveText(
-    "Documents 2",
-  );
+  await page.getByRole("button", { name: "Restore", exact: true }).click();
+  await expect(
+    page.getByRole("tab", { name: "Architecture", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => localStorage.setItem("flowfield.theme", "dark"));
   await page.reload();

@@ -78,9 +78,7 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
   expect(await work.evaluate((node) => node.scrollTop)).toBe(workScroll);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("link", { name: /Workspace guidance/ }).click();
-  await page
-    .getByRole("button", { name: "Edit document", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Content", exact: true })
     .fill("Retain this exact document draft.");
@@ -111,12 +109,14 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
   await expect(page).toHaveURL(/SHL-2$/);
   await page.goBack();
   await expect(page).toHaveURL(/SHL-2\/history$/);
-  await page.getByRole("tab", { name: /^Documents/ }).click();
+  await page
+    .getByRole("tab", { name: "Workspace guidance", exact: true })
+    .click();
   await expect(
     page.getByRole("textbox", { name: "Content", exact: true }),
   ).toHaveValue("Retain this exact document draft.");
   await page
-    .getByRole("button", { name: "Close Documents", exact: true })
+    .getByRole("button", { name: "Close Workspace guidance", exact: true })
     .click();
   await resources.getByRole("link", { name: "Documents", exact: true }).click();
   await page.getByRole("link", { name: /Workspace guidance/ }).click();
@@ -126,28 +126,33 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
   await page.getByLabel("Workspace", { exact: true }).selectOption(other.id);
   await expect(page.getByRole("tab", { name: /SHL-2 / })).toHaveCount(0);
   await page.getByLabel("Workspace", { exact: true }).selectOption(workspace);
-  await page.getByRole("tab", { name: /^Documents/ }).click();
+  await page
+    .getByRole("tab", { name: "Workspace guidance", exact: true })
+    .click();
   await expect(
     page.getByRole("textbox", { name: "Content", exact: true }),
   ).toHaveValue("Retain this exact document draft.");
   await page
     .getByRole("button", { name: "Save document", exact: true })
     .click();
+  await expect(
+    page.getByRole("button", { name: "Edit", exact: true }),
+  ).toBeVisible();
   await page
     .getByLabel("Message coordinator", { exact: true })
     .fill("Keep my original thought.");
-  await page.getByRole("button", { name: "Discuss impact" }).click();
+  await expect(
+    page.getByRole("button", { name: "Discuss impact" }),
+  ).toHaveCount(0);
+  await resources.getByRole("link", { name: "Documents", exact: true }).click();
   await expect(
     page.getByLabel("Message coordinator", { exact: true }),
   ).toHaveValue("Keep my original thought.");
-  await page.getByRole("button", { name: "Add to message" }).click();
-  await expect(
-    page.getByLabel("Message coordinator", { exact: true }),
-  ).toHaveValue(/Keep my original thought\.[\s\S]*revision 2/);
+  await page.getByRole("link", { name: /Workspace guidance/ }).click();
   await page.getByLabel("Message coordinator", { exact: true }).fill("");
   await page.reload();
   await expect(
-    page.getByRole("button", { name: "Edit document", exact: true }),
+    page.getByRole("button", { name: "Edit", exact: true }),
   ).toBeVisible();
   await expect(taskTab).toBeVisible();
   await page.getByRole("tab", { name: /Inbox/ }).click();

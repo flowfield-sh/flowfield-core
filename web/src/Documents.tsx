@@ -110,13 +110,16 @@ export function Documents({
           key={`${identity}:${revision ?? "current"}`}
           incoming={document}
           latest={latest.data}
-          historical={!!revision}
+          historical={document.revision !== latest.data.revision}
           workspaceId={workspaceId}
           projects={projects}
           path={path}
           base={base}
           onDirty={onDirty}
           close={close}
+          editCurrent={
+            revision ? () => navigate(`${base}/${identity}`) : undefined
+          }
           read={async () => {
             const fresh = await request<Document>(`${path}/${identity}`);
             latest.invalidate();
@@ -260,6 +263,7 @@ function DocumentEditor({
   saved,
   read,
   close,
+  editCurrent,
 }: {
   incoming: Document;
   latest: Document;
@@ -272,6 +276,7 @@ function DocumentEditor({
   saved: (record: Document, method: string) => void;
   read: () => Promise<Document>;
   close: () => void;
+  editCurrent?: () => void;
 }) {
   const state = useRecordEditor({
     incoming,
@@ -307,24 +312,6 @@ function DocumentEditor({
         closeLabel="Back"
         actions={
           <div className="actions">
-            {!editing && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() =>
-                  window.dispatchEvent(
-                    new CustomEvent("flowfield:discuss-document", {
-                      detail: {
-                        workspaceId,
-                        text: `Discuss the impact of ${selected.title}, revision ${selected.revision}: ${base}/${selected.id}/revisions/${selected.revision}. Which current work should adopt this version, and what evidence needs refreshing?`,
-                      },
-                    }),
-                  )
-                }
-              >
-                Discuss impact
-              </Button>
-            )}
             {historical || selected.deleted_at ? (
               <>
                 <Button size="sm" variant="outline" asChild>
@@ -351,7 +338,7 @@ function DocumentEditor({
                     )
                   }
                 >
-                  Restore this revision
+                  Restore
                 </Button>
               </>
             ) : (
@@ -359,9 +346,12 @@ function DocumentEditor({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setEditing(true)}
+                  onClick={() => {
+                    setEditing(true);
+                    editCurrent?.();
+                  }}
                 >
-                  Edit document
+                  Edit
                 </Button>
               )
             )}

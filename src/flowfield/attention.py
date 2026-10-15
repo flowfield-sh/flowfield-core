@@ -85,7 +85,12 @@ WITH scope_projects AS (SELECT id FROM projects WHERE id=:project), run_items AS
         coalesce(json_extract(r.data, '$.accepted_at'), json_extract(r.data, '$.ended_at'),
                  json_extract(r.data, '$.started_at'), json_extract(r.data, '$.created_at')),
         json_extract(r.data, '$.code_available'),
-        CASE WHEN latest AND r.status IN ('in_review','failed','uncertain') THEN 'action'
+        CASE WHEN r.status='failed' AND
+                  (json_extract(t.data,'$.archived') OR
+                   json_extract(t.data,'$.status')='done') THEN 'history'
+             WHEN latest AND r.status='failed' AND
+                  json_extract(t.data,'$.status')='up_next' THEN 'history'
+             WHEN latest AND r.status IN ('in_review','failed','uncertain') THEN 'action'
              WHEN latest AND (r.status='changes_requested' OR
                  (continuation AND r.status IN ('preparing','running','stopping'))) THEN 'waiting'
              WHEN r.status IN ('accepted','stopped','failed','changes_requested')

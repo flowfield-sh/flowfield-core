@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 import {
   test,
   fixtureProject,
@@ -7,6 +8,7 @@ import {
   state,
   projectWorkspace,
   fixtureStages,
+  checkout,
 } from "./support";
 
 test("attention leads Work and Home; resource tabs reorder and host settings", async ({
@@ -126,4 +128,42 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   await expect(
     page.locator(".project-list").getByRole("link", { name: /Feedback shell/ }),
   ).toContainText(/1\s*in Inbox/);
+});
+
+test("failed intervention offers recovery and leaves Needs me immediately after queued retry", async ({
+  page,
+  request,
+}) => {
+  const seed = JSON.parse(
+    execFileSync(
+      join(checkout, ".venv/bin/python"),
+      [join(checkout, "tests/inbox_retry_browser_fixture.py"), state],
+      { encoding: "utf8" },
+    ),
+  );
+  const workspace = await projectWorkspace(request, seed.project);
+  await page.goto(`/workspaces/${workspace}/inbox`);
+  const card = page.getByRole("article", {
+    name: "Intervention: Recover the import",
+    exact: true,
+  });
+  await expect(card).toBeVisible();
+  await expect(card).not.toContainText("no longer awaiting a response");
+  await card.getByRole("button", { name: "Retry worker", exact: true }).click();
+  await expect(card).toHaveCount(0);
+  await expect(page.getByText("Nothing needs your attention.")).toBeVisible();
+  const action = await (
+    await request.get(
+      `/api/workspaces/${workspace}/view/attention?column=action`,
+    )
+  ).json();
+  expect(action.total).toBe(0);
+  await page.getByRole("tab", { name: "History", exact: true }).click();
+  await expect(page.locator(".inbox-history")).toContainText(
+    "Recover the import",
+  );
+  await page.reload();
+  await expect(page.locator(".inbox-history")).toContainText(
+    "Recover the import",
+  );
 });

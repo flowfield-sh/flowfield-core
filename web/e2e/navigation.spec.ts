@@ -100,13 +100,13 @@ test("task keys link to persistent selections with history and draft protection"
   await expect(
     page
       .getByRole("region", { name: "Task details", exact: true })
-      .getByRole("heading", { name: "Prepare the export", exact: true }),
+      .getByRole("heading", { name: /Prepare the export$/ }),
   ).toContainText("Prepare the export");
   await page.reload();
   await expect(
     page
       .getByRole("region", { name: "Task details", exact: true })
-      .getByRole("heading", { name: "Prepare the export", exact: true }),
+      .getByRole("heading", { name: /Prepare the export$/ }),
   ).toBeVisible();
   await page
     .getByLabel("Message coordinator", { exact: true })
@@ -125,7 +125,7 @@ test("task keys link to persistent selections with history and draft protection"
   await expect(
     page
       .getByRole("region", { name: "Task details", exact: true })
-      .getByRole("heading", { name: "Prepare the export", exact: true }),
+      .getByRole("heading", { name: /Prepare the export$/ }),
   ).toBeVisible();
   await closeOverlay(page);
   await page
@@ -143,7 +143,7 @@ test("task keys link to persistent selections with history and draft protection"
   await expect(
     page
       .getByRole("region", { name: "Task details", exact: true })
-      .getByRole("heading", { name: "Download the export", exact: true }),
+      .getByRole("heading", { name: /Download the export$/ }),
   ).toBeVisible();
   await closeOverlay(page);
   await page
@@ -161,7 +161,7 @@ test("task keys link to persistent selections with history and draft protection"
   await expect(
     page
       .getByRole("region", { name: "Task details", exact: true })
-      .getByRole("heading", { name: "Download the export", exact: true }),
+      .getByRole("heading", { name: /Download the export$/ }),
   ).toBeVisible();
   const renamed = await call("edit_task", {
     project_id: "navigation",
@@ -188,7 +188,7 @@ test("task keys link to persistent selections with history and draft protection"
   await expect(
     page
       .getByRole("region", { name: "Task details", exact: true })
-      .getByRole("heading", { name: "Earlier experiment", exact: true }),
+      .getByRole("heading", { name: /Earlier experiment$/ }),
   ).toBeVisible();
   await page.reload();
   await expect(
@@ -529,8 +529,7 @@ test("entity identity and drafts persist across task and workspace tabs", async 
     exact: true,
   });
   const title = editor.getByRole("heading", {
-    name: "First task",
-    exact: true,
+    name: /IDN-1 First task$/,
   });
 
   await page.getByRole("tab", { name: "Activity", exact: true }).click();

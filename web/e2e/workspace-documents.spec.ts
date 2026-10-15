@@ -16,9 +16,7 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   await page.goto(base);
   await openResource(page, "Documents");
   await page.getByRole("link", { name: /Workspace guidance/ }).click();
-  await page
-    .getByRole("button", { name: "Edit document", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Content", exact: true })
     .fill(
@@ -45,21 +43,21 @@ test("workspace documents preserve drafts, exact history and restore as a new re
     .getByRole("button", { name: "Save document", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "Edit document", exact: true }),
+    page.getByRole("button", { name: "Edit", exact: true }),
   ).toBeVisible();
   const guidance = await (
     await request.get(`/api${base}/documents/guidance`)
   ).json();
   expect(guidance.revision).toBe(2);
-  await page
-    .getByRole("button", { name: "Edit document", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Content", exact: true })
     .fill("My unsaved guidance");
   await page.getByRole("tab", { name: "Board", exact: true }).click();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
-  await page.getByRole("tab", { name: /^Documents/ }).click();
+  await page
+    .getByRole("tab", { name: "Workspace guidance", exact: true })
+    .click();
   await request.put(`/api${base}/documents/guidance`, {
     data: {
       expected_revision: 2,
@@ -81,13 +79,38 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   await expect(
     page.getByRole("heading", { name: "Working together", exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Edit", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Restore", exact: true }),
+  ).toBeEnabled();
+  await page.getByRole("link", { name: "Revision 3", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Edit", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Restore", exact: true }),
+  ).toHaveCount(0);
+  await page.goto(base + "/documents/guidance/revisions/3");
+  await expect(
+    page.getByRole("button", { name: "Edit", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Restore", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(page).toHaveURL(base + "/documents/guidance");
+  await expect(
+    page.getByRole("textbox", { name: "Content", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("link", { name: "Revision 2", exact: true }).click();
   await page.screenshot({
     path: testInfo.outputPath("document-history-desktop-light.png"),
     animations: "disabled",
   });
-  await page
-    .getByRole("button", { name: "Restore this revision", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Restore", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`${base}/documents/guidance$`));
   const restored = await (
     await request.get(`/api${base}/documents/guidance`)

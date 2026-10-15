@@ -94,8 +94,7 @@ test("milestone reading preserves prepared revisions and renders acceptance list
   });
   await expect(
     taskPane.getByRole("heading", {
-      name: "Verify fx discovery and setup errors",
-      exact: true,
+      name: /Verify fx discovery and setup errors$/,
     }),
   ).toBeVisible();
   await expect(

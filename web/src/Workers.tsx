@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { AgentModelFields } from "./AgentSettings";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Pause, Play, Settings2 } from "lucide-react";
+import { ListTodo, Pause, Play, Settings2 } from "lucide-react";
 import { ActionTooltip } from "./ActionTooltip";
 import { useEffect, useState } from "react";
 import { WorkspaceLink as Link } from "./WorkspaceLink";
@@ -67,6 +67,11 @@ export function QueueControls({
       {data && (
         <>
           <div className="queue-status-row">
+            <ListTodo
+              size={16}
+              className="queue-status-icon"
+              aria-hidden="true"
+            />
             <div className="queue-status">
               <span>Queue {data.enabled ? "running" : "paused"}</span>
               <span className="detail-metadata">

@@ -194,7 +194,7 @@ export function TaskConversation({
       ? gate.data?.question_id === requestTarget.id
       : requestTarget.kind === "result"
         ? gate.data?.result_id === requestTarget.id && !gate.data?.question_id
-        : gate.data?.run_id === requestTarget.id);
+        : currentAttemptId === requestTarget.id);
   const inputEnabled =
     matchesRequest &&
     !!gate.data?.enabled &&

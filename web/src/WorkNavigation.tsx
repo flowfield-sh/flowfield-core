@@ -117,7 +117,7 @@ export function WorkList({
               <div className={all ? "work-resource-list" : undefined}>
                 {members.map((item) => (
                   <div key={item.key}>
-                    <Tooltip>
+                    <Tooltip open={all ? false : undefined}>
                       <TooltipTrigger asChild>
                         <WorkspaceLink
                           to={item.href}
@@ -139,7 +139,7 @@ export function WorkList({
                           <WorkState
                             state={item.state}
                             indicatorOnly
-                            decorative
+                            decorative={!all}
                           />
                           <span className="work-navigation-key">
                             {item.key}

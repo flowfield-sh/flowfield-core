@@ -170,6 +170,7 @@
   overflow-wrap: anywhere;
 }
 .coordinator-human {
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px;
   background: var(--background);
@@ -312,6 +313,10 @@
 .queue-status-row {
   padding: 4px 4px 4px 8px;
 }
+.queue-status-icon {
+  flex-shrink: 0;
+  margin-right: 4px;
+}
 .queue-status {
   display: grid;
   gap: 2px;
@@ -327,6 +332,12 @@
   color: inherit;
   text-decoration: none;
   flex: 1;
+}
+.workspace-list-row {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+.workspace-list-row > strong {
+  overflow-wrap: anywhere;
 }
 .workspace-inbox-count {
   display: inline-flex;
@@ -360,7 +371,7 @@
   height: 32px;
   display: flex;
   align-items: center;
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   border-radius: 999px;
   max-width: 240px;
   padding-right: 4px;
@@ -406,6 +417,10 @@
   align-items: center;
 }
 .workspace-resource-content {
+  margin: 4px 8px 8px 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--background);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -422,9 +437,6 @@
 .source-reference-list a {
   text-decoration: underline;
   text-underline-offset: 3px;
-}
-.impact-draft {
-  margin-bottom: 8px;
 }
 .workspace-resource-scroll {
   display: flex;

@@ -5,7 +5,7 @@ from pathlib import Path
 from test_execution import BASE, RESULT, fixture, result, validate_report
 
 from flowfield.attention import attention_page
-from flowfield.execution_models import WorkerResult
+from flowfield.execution_models import RunAction, WorkerResult
 from flowfield.questions import QuestionAnswer, QuestionCreate, Questions, QuestionWithdraw
 from flowfield.result_models import ResultReview
 from flowfield.results import Results
@@ -87,8 +87,14 @@ def test_mixed_attention_lifecycle_and_bounded_history(tmp_path: Path) -> None:
     initial = execution.claim("harbor", BASE, {BASE: set()})
     assert initial and initial.predecessor_id is None
     assert page("waiting").total == 0
-    execution.finish("harbor", initial.id, "failed", problem="Fixture failure")
+    failed = execution.finish("harbor", initial.id, "failed", problem="Fixture failure")
     assert page("action").items[0].kind == "intervention"
+    execution.retry("harbor", failed.id, RunAction(expected_revision=failed.revision))
+    assert page("action").total == 0
+    assert page("waiting").total == 0
+    assert failed.id in {item.id for item in page("history").items}
+    # Paused scheduling leaves the failed evidence intact without a stale callout.
+    assert execution.get("harbor", failed.id).status == "failed"
 
 
 def test_attention_http_limits_and_project_scope(tmp_path: Path, monkeypatch) -> None:

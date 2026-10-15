@@ -9,8 +9,8 @@ import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { TaskLabels } from "./TaskLabels";
 import { DetailHeader, DetailTabs, DraftBadge } from "./Presentation";
 import { MilestoneBadge } from "./MilestoneBadge";
-import { WorkspaceLink } from "./WorkspaceLink";
-import { projectHref, taskHref } from "./navigation";
+import { Badge } from "@/components/ui/badge";
+import { taskHref } from "./navigation";
 import { ExpandableMarkdown } from "./ExpandableMarkdown";
 import { BlockedBy } from "./TaskLinks";
 import { TaskNeeds, hasTaskNeeds } from "./TaskNeeds";
@@ -47,20 +47,18 @@ export function TaskDetail({
   return (
     <section className="editor task-detail">
       <DetailHeader
-        title={task.title}
-        actions={<WorkState state={task.state} indicatorOnly />}
+        title={
+          <span className="task-heading-identity">
+            <WorkState state={task.state} indicatorOnly />
+            <Badge variant="outline">{task.key}</Badge>
+            <span>{task.title}</span>
+          </span>
+        }
         close={close}
         closeLabel="Back"
       />
       <ContentStack space="section" className="task-view-navigation">
         <div className="task-header-badges" aria-label="Task labels">
-          <WorkspaceLink
-            className="task-project-breadcrumb"
-            to={projectHref(board.project.id)}
-          >
-            {board.project.name}
-          </WorkspaceLink>
-          <span className="task-heading-key">{task.key}</span>
           <MilestoneBadge
             milestone={
               task.publication?.milestone ??
