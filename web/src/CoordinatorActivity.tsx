@@ -5,9 +5,18 @@ import { ActivityEntries } from "./RunActivity";
 
 type Items = components["schemas"]["CoordinatorTurn"]["activity"]["items"];
 
-function Reply({ item }: { item: Items[number] }) {
+function Reply({
+  item,
+  intermediate = false,
+}: {
+  item: Items[number];
+  intermediate?: boolean;
+}) {
   return (
-    <div data-kind="agent">
+    <div
+      data-kind="agent"
+      className={intermediate ? "activity-prose" : undefined}
+    >
       <Markdown>{item.text}</Markdown>
       {item.omitted && <p className="muted">Reply preview shortened.</p>}
     </div>
@@ -26,7 +35,7 @@ function Timeline({ items }: { items: Items }) {
     <ContentStack>
       {groups.map(([entry, ...rest]) =>
         entry.kind === "agent" ? (
-          <Reply key={entry.key} item={entry} />
+          <Reply key={entry.key} item={entry} intermediate />
         ) : (
           <ContentStack
             key={entry.key}

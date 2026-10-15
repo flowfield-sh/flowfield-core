@@ -11,7 +11,6 @@ from pydantic import Field, model_validator
 from flowfield.application import Workspace, now
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
-from flowfield.execution_limits import ensure as ensure_limits
 from flowfield.execution_models import Record
 from flowfield.integration import Integrations
 from flowfield.milestones import Milestones
@@ -237,10 +236,6 @@ class TaskReviews:
                     "review_waiting",
                     "Review is waiting for the queue and shared worker capacity.",
                     409,
-                )
-            if ensure_limits(db, project, review.task_id).blocked:
-                raise ApplicationError(
-                    "execution_limit", "Extend the task allowance before continuing review.", 409
                 )
             if db.execute(
                 "SELECT 1 FROM task_reviews WHERE project_id=? AND task_id=? "

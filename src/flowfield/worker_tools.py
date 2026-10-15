@@ -51,7 +51,7 @@ def worker_tools() -> list[dict[str, Any]]:
             (
                 "read_context",
                 (
-                    "Read a 6000-character page of an assignment section. execution_limits and "
+                    "Read a 6000-character page of an assignment section. "
                     "project_checks return current retained evidence; other sections are frozen. "
                     "Available sections are listed in the initial brief."
                 ),

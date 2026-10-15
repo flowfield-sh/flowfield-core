@@ -34,6 +34,7 @@ from flowfield.migrations import (
     v071_milestone_promotion,
     v072_execution_limits,
     v073_reviewer_jobs,
+    v074_remove_execution_limits,
 )
 
 BASELINE_VERSION = 44
@@ -75,6 +76,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(71, v071_milestone_promotion.apply),
     Migration(72, v072_execution_limits.apply),
     Migration(73, v073_reviewer_jobs.apply),
+    Migration(74, v074_remove_execution_limits.apply),
 )
 
 

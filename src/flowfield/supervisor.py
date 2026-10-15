@@ -296,10 +296,6 @@ class Supervisor:
         result: WorkerResult | None = None
         commit: str | None = None
         input_checkpoint: str | None = None
-        from flowfield.execution_limits import ExecutionLimits
-        from flowfield.execution_runtime import ActiveExecution
-
-        active = ActiveExecution(ExecutionLimits(self.workspace), run)
         starting_commit = run.input_base_commit or run.base_commit
         try:
             sections = self.execution.assignment(run.project_id, run.id)
@@ -347,7 +343,7 @@ class Supervisor:
                 registration=run.agent_settings.registration if run.agent_settings else None,
             )
             self.clients[run.id] = client
-            checks = WorkerChecks(self.execution, run, environment, active)
+            checks = WorkerChecks(self.execution, run, environment)
             self.check_jobs[run.id] = checks
             bridge = WorkerBridge(self.execution, run, client, checks.call)
             server = await scope_stack.enter_async_context(serve_scope(worker_scope(bridge)))
@@ -428,11 +424,10 @@ class Supervisor:
                     turn_id=run.id,
                     run_id=run.id,
                 ) as turn,
-                active,
             ):
                 outcome = await client.prompt(
                     json.dumps(brief, ensure_ascii=False),
-                    active.permission(checks.permission(server.name, permission_handler(turn))),
+                    checks.permission(server.name, permission_handler(turn)),
                     attachments=Attachments(self.workspace).inputs(
                         run.project_id,
                         run.task_id,
@@ -458,7 +453,7 @@ class Supervisor:
                         )
                     outcome = await client.prompt(
                         completion_reminder(server.name),
-                        active.permission(checks.permission(server.name, permission_handler(turn))),
+                        checks.permission(server.name, permission_handler(turn)),
                     )
             confirmed = await client.stop()
             if not confirmed:
@@ -514,8 +509,6 @@ class Supervisor:
                     "Work is preserved."
                 )
             )
-            if isinstance(error, ApplicationError) and error.code == "execution_limit":
-                terminal = "stopped"
             if isinstance(error, ApplicationError) and error.code == "command_cleanup_uncertain":
                 terminal = "uncertain"
             elif self.execution.get(run.project_id, run.id).status == "stopping":
@@ -536,14 +529,6 @@ class Supervisor:
                         "Project check cleanup could not be confirmed. Inspect retained processes.",
                     )
             self.check_jobs.pop(run.id, None)
-            try:
-                active.clock(False)
-            except Exception:
-                terminal, problem = (
-                    "uncertain",
-                    "Execution accounting could not be recorded. "
-                    "Inspect the service and preserved work before recovery.",
-                )
             if client:
                 await client.close()
                 self.execution.save_local(

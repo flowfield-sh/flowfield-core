@@ -452,12 +452,17 @@
     border-left: 1px solid var(--border);
     padding-left: 8px;
   }
-  .coordinator-activity-summary > .disclosure-body {
-    padding-left: 0;
-  }
+  .activity-prose,
   .coordinator-activity-summary > summary {
     color: var(--muted-foreground);
     font: 12px/1.6 var(--font-mono, ui-monospace, monospace);
+  }
+  .activity-prose .markdown {
+    font: inherit;
+  }
+  .coordinator-activity-summary > summary > .disclosure-chevron {
+    align-self: center;
+    margin-top: 0;
   }
   .activity-action > summary:hover,
   .activity-evidence > summary:hover {

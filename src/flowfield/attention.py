@@ -28,7 +28,6 @@ class AttentionItem(BaseModel):
         "permission",
         "document",
         "milestone",
-        "execution_limit",
     ]
     task_key: str | None
     title: str
@@ -186,40 +185,10 @@ _WORKSPACE_PROJECTION = (
 )
 
 
-def _with_limits(db: sqlite3.Connection, projection: str) -> str:
-    # Supported historical schemas are used while exercising upgrades. Their
-    # existing attention stays available until the allowance migration commits.
-    if db.execute("PRAGMA user_version").fetchone()[0] < 72:
-        return projection
-    return (
-        projection.replace("), items AS (", "), unlimited_items AS (")
-        + """
-, items AS (
-    SELECT * FROM unlimited_items i WHERE NOT (
-        ((i.kind IN ('review','intervention') AND i.status='failed')
-          OR (i.kind='result' AND i.status IN ('blocked','stale')))
-        AND EXISTS (SELECT 1 FROM task_execution_limits l JOIN tasks t
-            ON t.project_id=l.project_id AND t.id=l.task_id
-            WHERE l.project_id=i.project_id AND t.key=i.task_key AND l.blocked IS NOT NULL)
-    )
-    UNION ALL
-    SELECT l.project_id,l.task_id,'execution_limit',t.key,
-        substr(json_extract(t.data,'$.title'),1,500),l.blocked,
-        json_extract(l.data,'$.updated_at'),NULL,'action',NULL,NULL
-    FROM task_execution_limits l JOIN tasks t ON t.project_id=l.project_id AND t.id=l.task_id
-    WHERE l.project_id IN (SELECT id FROM scope_projects) AND l.blocked IS NOT NULL
-        AND NOT json_extract(t.data,'$.archived') AND json_extract(t.data,'$.status')!='done'
-        AND NOT EXISTS (SELECT 1 FROM runs a WHERE a.project_id=l.project_id AND a.task_id=l.task_id
-            AND a.status IN ('preparing','running','stopping','uncertain'))
-)
-"""
-    )
-
-
 def workspace_attention_counts(db: sqlite3.Connection, workspace_id: str) -> dict[str, int]:
     return dict(
         db.execute(
-            _with_limits(db, _WORKSPACE_PROJECTION)
+            _WORKSPACE_PROJECTION
             + "SELECT bucket,count(*) FROM items WHERE bucket IS NOT NULL GROUP BY bucket",
             {"workspace": workspace_id, "project": None},
         ).fetchall()
@@ -229,7 +198,7 @@ def workspace_attention_counts(db: sqlite3.Connection, workspace_id: str) -> dic
 def actionable_attention(db: sqlite3.Connection, project_id: str) -> Iterator[sqlite3.Row]:
     """Stream the complete actionable projection for transactional event observation."""
     yield from db.execute(
-        _with_limits(db, _PROJECTION) + "SELECT * FROM items WHERE bucket='action'",
+        _PROJECTION + "SELECT * FROM items WHERE bucket='action'",
         {"project": project_id},
     )
 
@@ -238,7 +207,7 @@ def attention_counts(db: sqlite3.Connection, project_id: str) -> dict[str, int]:
     """The board badge and inbox use exactly the same current-work projection."""
     return dict(
         db.execute(
-            _with_limits(db, _WITH_DOCUMENTS)
+            _WITH_DOCUMENTS
             + "SELECT bucket,count(*) FROM items WHERE bucket IS NOT NULL GROUP BY bucket",
             {"project": project_id},
         ).fetchall()
@@ -266,9 +235,7 @@ def attention_page(
             workspace._project(db, project_id)
         else:
             raise ValueError("An attention scope is required")
-        projection = _with_limits(
-            db, _WORKSPACE_PROJECTION if workspace_id is not None else _WITH_DOCUMENTS
-        )
+        projection = _WORKSPACE_PROJECTION if workspace_id is not None else _WITH_DOCUMENTS
         args = {
             "project": project_id,
             "workspace": workspace_id,

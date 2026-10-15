@@ -8,13 +8,6 @@ from fastapi import APIRouter, Query
 
 from flowfield.adapters.git_review import changed_files, file_patch
 from flowfield.errors import ApplicationError
-from flowfield.execution_limits import (
-    ExecutionLimits,
-    LimitExtension,
-    LimitPolicy,
-    PolicyEdit,
-    TaskLimits,
-)
 from flowfield.execution_models import (
     ModelOption,
     Run,
@@ -31,18 +24,6 @@ from flowfield.worker_checks import CheckPermission, CheckPermissionEdit, CheckP
 
 def execution_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     router = APIRouter(prefix="/api")
-
-    @router.get("/workspaces/{workspace_id}/execution-limits")
-    def limits(workspace_id: str) -> LimitPolicy:
-        return ExecutionLimits(supervisor().workspace).defaults(workspace_id)
-
-    @router.put("/workspaces/{workspace_id}/execution-limits")
-    def configure_limits(workspace_id: str, request: PolicyEdit) -> LimitPolicy:
-        return ExecutionLimits(supervisor().workspace).configure(workspace_id, request)
-
-    @router.post("/projects/{project_id}/tasks/{task_id}/execution-limits")
-    def extend_limits(project_id: str, task_id: str, request: LimitExtension) -> TaskLimits:
-        return ExecutionLimits(supervisor().workspace).extend(project_id, task_id, request)
 
     @router.get("/projects/{project_id}/check-permission")
     def check_permission(project_id: str) -> CheckPermission:

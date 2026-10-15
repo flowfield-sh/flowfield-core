@@ -1,4 +1,3 @@
-import { ExecutionLimitResponse } from "./ExecutionLimits";
 import { QuestionPrompt } from "./QuestionPrompt";
 import { QuestionChoices } from "./QuestionChoices";
 import { ResourceRetry } from "./ResourceRetry";
@@ -200,7 +199,6 @@ export function TaskConversation({
   const showComposer = composerAction !== null;
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [allowanceDirty, setAllowanceDirty] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [choice, setChoice] = useState<
@@ -262,14 +260,9 @@ export function TaskConversation({
     };
   }, []);
   useEffect(() => {
-    onDirty(
-      busy ||
-        uploading ||
-        allowanceDirty ||
-        Object.values(drafts).some((d) => !!d.body),
-    );
+    onDirty(busy || uploading || Object.values(drafts).some((d) => !!d.body));
     return () => onDirty(false);
-  }, [drafts, busy, uploading, allowanceDirty, onDirty]);
+  }, [drafts, busy, uploading, onDirty]);
   const chronological = merge(
     merge(
       merge(
@@ -473,18 +466,14 @@ export function TaskConversation({
       reportError(e, "Could not cancel reply");
     }
   }
-  const limitResponse =
-    !!task.execution_limits?.blocked && task.execution_limit_actionable;
   const showInputFooter =
-    !limitResponse &&
-    !allowanceDirty &&
-    (task.status !== "done" ||
-      task.state?.tone === "attention" ||
-      !!task.reconciliation_reason ||
-      showComposer ||
-      stale ||
-      Object.values(drafts).some((saved) => !!saved.body) ||
-      !!gate.data?.pending_reply_id);
+    task.status !== "done" ||
+    task.state?.tone === "attention" ||
+    !!task.reconciliation_reason ||
+    showComposer ||
+    stale ||
+    Object.values(drafts).some((saved) => !!saved.body) ||
+    !!gate.data?.pending_reply_id;
   return (
     <TaskActionHost.Provider
       value={{ actions: actionHost, context: actionContext }}
@@ -706,11 +695,6 @@ export function TaskConversation({
               ))}
           </ol>
         </ContentStack>
-        <ExecutionLimitResponse
-          projectId={projectId}
-          task={task}
-          onDirty={setAllowanceDirty}
-        />
         <OverlayFooter>
           {showInputFooter && (
             <form

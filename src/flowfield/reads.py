@@ -699,10 +699,6 @@ class ContextReads:
             latest = self.workspace._latest_update(db, project_id, item.id)
             result["latest_update"] = excerpt(latest.model_dump(), 1000) if latest else None
             result["handoff"] = self._handoff(db, project_id, item)
-            from flowfield.execution_limits import read as read_limits
-
-            allowance = read_limits(db, project_id, item.id)
-            result["execution_limits"] = allowance.model_dump() if allowance else None
             proposed = result_brief(self.workspace, db, project_id, item.id, 1)["items"]
             if proposed:
                 result["proposed_result"] = proposed[0]

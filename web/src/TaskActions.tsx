@@ -123,7 +123,6 @@ export function WorkerActions({
       )}
       {run &&
         !task.archived &&
-        !task.execution_limits?.blocked &&
         task.status !== "up_next" &&
         queuedRevision !== task.revision &&
         ["stopped", "failed"].includes(run.status) && (

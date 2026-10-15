@@ -434,12 +434,6 @@ class Execution:
                     )
                 ):
                     continue
-                from flowfield.execution_limits import claim as claim_allowance
-
-                if self.workspace.schema_version >= 72 and not claim_allowance(
-                    db, project_id, task.id, followup=bool(predecessor and not continuation)
-                ):
-                    continue
                 effective = (
                     AgentSettings(self.workspace)
                     .resolve(db, project_id, "worker", task.id)
@@ -606,17 +600,13 @@ class Execution:
                             question,
                             "Answer assigned to a continuation; model use is not yet confirmed.",
                         )
-                from flowfield.execution_limits import read as read_limits
                 from flowfield.worker_context import enrich
 
-                allowance = read_limits(db, project_id, task.id)
-                if allowance:
-                    assignment["execution_limits"] = allowance.model_dump_json()
-                    assignment["project_checks"] = (
-                        "Use run_project_checks for human-authorized saved commands. "
-                        "This section retains the latest output; "
-                        "read_context retrieves current pages."
-                    )
+                assignment["project_checks"] = (
+                    "Use run_project_checks for human-authorized saved commands. "
+                    "This section retains the latest output; "
+                    "read_context retrieves current pages."
+                )
                 enrich(db, run, assignment)
                 db.execute(
                     (
@@ -675,11 +665,6 @@ class Execution:
             )
             if section == "project_checks":
                 return json.dumps([item.model_dump() for item in run.project_check_results])
-            if section == "execution_limits":
-                from flowfield.execution_limits import read as read_limits
-
-                allowance = read_limits(db, project_id, run.task_id)
-                return allowance.model_dump_json() if allowance else "{}"
             if section.startswith("attempt:"):
                 return attempt_source(db, run, sections, section.removeprefix("attempt:"))
             if section not in sections:
@@ -917,23 +902,6 @@ class Execution:
                 "SELECT data FROM runs WHERE status IN ('preparing','running','stopping')"
             ).fetchall():
                 run = Run.model_validate_json(row[0])
-                if run.active_since is not None:
-                    from flowfield.execution_limits import ensure, save
-
-                    allowance = ensure(db, run.project_id, run.task_id)
-                    import time
-
-                    unobserved = min(
-                        max(0, time.time() - run.active_since),
-                        max(0, allowance.active_seconds_allowed - allowance.active_seconds_used),
-                    )
-                    run.active_seconds += unobserved
-                    allowance.active_seconds_used += unobserved
-                    if allowance.active_seconds_used >= allowance.active_seconds_allowed:
-                        allowance.blocked = "active_time"
-                    allowance.earlier_usage_unknown = True
-                    save(db, allowance)
-                    run.active_since = None
                 run.status, run.problem = (
                     "uncertain",
                     (

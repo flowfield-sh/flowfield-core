@@ -178,16 +178,7 @@ def create_mcp(
     async def get_workspace_workers(workspace_id: Identifier) -> CallToolResult:
         """Read shared worker choice, queue controls and capacity across this workspace."""
 
-        def read_workers() -> dict[str, Any]:
-            from flowfield.execution_limits import ExecutionLimits
-
-            store = workspace()
-            return {
-                **Workspaces(store).workers(workspace_id).model_dump(),
-                "execution_limits": ExecutionLimits(store).defaults(workspace_id).model_dump(),
-            }
-
-        return await invoke(read_workers)
+        return await invoke(lambda: Workspaces(workspace()).workers(workspace_id).model_dump())
 
     @mcp.tool(annotations=write)
     async def list_workspace_models(

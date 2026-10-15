@@ -1607,41 +1607,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/workspaces/{workspace_id}/execution-limits": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Limits */
-    get: operations["limits_api_workspaces__workspace_id__execution_limits_get"];
-    /** Configure Limits */
-    put: operations["configure_limits_api_workspaces__workspace_id__execution_limits_put"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/projects/{project_id}/tasks/{task_id}/execution-limits": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Extend Limits */
-    post: operations["extend_limits_api_projects__project_id__tasks__task_id__execution_limits_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/projects/{project_id}/check-permission": {
     parameters: {
       query?: never;
@@ -2864,8 +2829,7 @@ export interface components {
         | "result"
         | "permission"
         | "document"
-        | "milestone"
-        | "execution_limit";
+        | "milestone";
       /** Task Key */
       task_key: string | null;
       /** Title */
@@ -4255,41 +4219,6 @@ export interface components {
       /** Guidance */
       guidance?: string | null;
     };
-    /** LimitExtension */
-    LimitExtension: {
-      /** Expected Revision */
-      expected_revision: number;
-      /**
-       * Active Seconds
-       * @default 0
-       */
-      active_seconds: number;
-      /**
-       * Corrections
-       * @default 0
-       */
-      corrections: number;
-      /** Note */
-      note: string;
-    };
-    /** LimitPolicy */
-    LimitPolicy: {
-      /**
-       * Revision
-       * @default 1
-       */
-      revision: number;
-      /**
-       * Active Seconds
-       * @default 1800
-       */
-      active_seconds: number;
-      /**
-       * Corrections
-       * @default 2
-       */
-      corrections: number;
-    };
     /** Milestone */
     Milestone: {
       /** Id */
@@ -4711,15 +4640,6 @@ export interface components {
       expires_at: string;
       /** Released At */
       released_at: string | null;
-    };
-    /** PolicyEdit */
-    PolicyEdit: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Active Seconds */
-      active_seconds: number;
-      /** Corrections */
-      corrections: number;
     };
     /** Presence */
     Presence: {
@@ -5398,13 +5318,6 @@ export interface components {
        * @default false
        */
       code_available: boolean;
-      /**
-       * Active Seconds
-       * @default 0
-       */
-      active_seconds: number;
-      /** Active Since */
-      active_since: number | null;
       /** Checkpoint Commit */
       checkpoint_commit: string | null;
       /** Check Settings Revision */
@@ -5933,12 +5846,6 @@ export interface components {
       change_note: string;
       /** Report Completion Revision */
       report_completion_revision: number | null;
-      execution_limits: components["schemas"]["TaskLimits"] | null;
-      /**
-       * Execution Limit Actionable
-       * @default false
-       */
-      execution_limit_actionable: boolean;
       /** Archive Blocker */
       archive_blocker: string | null;
       /** Prerequisites */
@@ -5981,47 +5888,6 @@ export interface components {
       )[];
       /** Next Offset */
       next_offset: number | null;
-    };
-    /** TaskLimits */
-    TaskLimits: {
-      /** Project Id */
-      project_id: string;
-      /** Task Id */
-      task_id: string;
-      /**
-       * Revision
-       * @default 1
-       */
-      revision: number;
-      /**
-       * Active Seconds Allowed
-       * @default 1800
-       */
-      active_seconds_allowed: number;
-      /**
-       * Active Seconds Used
-       * @default 0
-       */
-      active_seconds_used: number;
-      /**
-       * Corrections Allowed
-       * @default 2
-       */
-      corrections_allowed: number;
-      /**
-       * Corrections Used
-       * @default 0
-       */
-      corrections_used: number;
-      /** Blocked */
-      blocked: ("active_time" | "corrections") | null;
-      /**
-       * Earlier Usage Unknown
-       * @default false
-       */
-      earlier_usage_unknown: boolean;
-      /** Updated At */
-      updated_at: string;
     };
     /** TaskPreparation */
     TaskPreparation: {
@@ -10490,108 +10356,6 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Question"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  limits_api_workspaces__workspace_id__execution_limits_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["LimitPolicy"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  configure_limits_api_workspaces__workspace_id__execution_limits_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PolicyEdit"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["LimitPolicy"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  extend_limits_api_projects__project_id__tasks__task_id__execution_limits_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
-        task_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["LimitExtension"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["TaskLimits"];
         };
       };
       /** @description Validation Error */

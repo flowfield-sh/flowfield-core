@@ -12,7 +12,6 @@ from flowfield.adapters.local_execution import LocalAttempt
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.execution_models import CheckResult, Record, Run
-from flowfield.execution_runtime import ActiveExecution
 from flowfield.integration import Integrations
 
 if TYPE_CHECKING:
@@ -105,15 +104,8 @@ class CheckPermissions:
 
 
 class WorkerChecks:
-    def __init__(
-        self, execution: Execution, run: Run, environment: LocalAttempt, active: ActiveExecution
-    ):
-        self.execution, self.run, self.environment, self.active = (
-            execution,
-            run,
-            environment,
-            active,
-        )
+    def __init__(self, execution: Execution, run: Run, environment: LocalAttempt):
+        self.execution, self.run, self.environment = execution, run, environment
         self.job: asyncio.Task[list[CheckResult]] | None = None
         self.cleanup_uncertain = False
 
@@ -151,13 +143,6 @@ class WorkerChecks:
             raise ApplicationError(
                 "checks_missing", "This attempt has no configured project checks.", 409
             )
-        if not self.active.clock(True):
-            raise ApplicationError(
-                "execution_limit",
-                "This task needs more active allowance before checks can start.",
-                409,
-            )
-        self.active.checks += 1
         self.job = asyncio.create_task(
             local_checks.run_checks(
                 self.environment,
@@ -199,8 +184,6 @@ class WorkerChecks:
             raise
         finally:
             self.job = None
-            self.active.checks -= 1
-            self.active.clock(not self.active.waiters)
 
     async def close(self) -> None:
         if self.job:

@@ -253,20 +253,6 @@ def test_restart_retains_uncertain_slot_and_frozen_reviewer(tmp_path):
     assert reopened.get("harbor", queued.id) == saved
 
 
-def test_review_claim_respects_task_wide_allowance(tmp_path):
-    service, _, run, _, reviews = configured(tmp_path)
-    from flowfield.execution_limits import read, save
-
-    with service.workspace.connection(write=True) as db:
-        limits = read(db, "harbor", run.task_id)
-        limits.blocked = "active_time"
-        save(db, limits)
-    queued = reviews.prepare("harbor", current(service).id)
-    with pytest.raises(ApplicationError, match="allowance"):
-        reviews.claim("harbor", queued.id, queued.revision)
-    assert reviews.get("harbor", queued.id).status == "queued"
-
-
 def test_review_and_worker_share_capacity(tmp_path):
     from project_fixtures import task_request
 

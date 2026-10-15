@@ -105,7 +105,7 @@ def test_conflict_correction_retains_both_inputs_and_requires_new_approval(tmp_p
     assert any(item.purpose == "Correct result" for item in history.items)
 
 
-def test_failed_checks_correction_cap_and_no_automatic_model_loop(tmp_path):
+def test_failed_checks_allow_repeated_explicit_corrections(tmp_path):
     service, repo, _ = fixture(tmp_path, checks=["exit 7"])
     service.results.process("harbor")
     for number in (1, 2):
@@ -122,12 +122,8 @@ def test_failed_checks_correction_cap_and_no_automatic_model_loop(tmp_path):
         assert len(service.execution.page("harbor").items) == before
     service.results.correct("harbor", blocked.id, action(blocked))
     head = git(repo, "rev-parse", "HEAD").decode().strip()
-    assert service.execution.claim("harbor", head, service._available("harbor", repo, head)) is None
-    from flowfield.execution_limits import ExecutionLimits
-
-    assert (
-        ExecutionLimits(service.workspace).get("harbor", blocked.task_id).blocked == "corrections"
-    )
+    third = service.execution.claim("harbor", head, service._available("harbor", repo, head))
+    assert third and third.correction.number == 3
 
 
 def test_cancel_during_validation_retains_evidence_and_ignores_late_ready(tmp_path, monkeypatch):
@@ -312,7 +308,7 @@ def test_setup_failure_does_not_launch_model_and_retains_location(tmp_path, monk
     assert service.location("harbor", failed.id).workspace
 
 
-def test_failed_correction_retry_consumes_remaining_attempt(tmp_path):
+def test_failed_correction_retry_keeps_numbering_without_a_budget(tmp_path):
     service, repo, _ = fixture(tmp_path, checks=["exit 7"])
     service.results.process("harbor")
     version = current(service)
@@ -325,13 +321,11 @@ def test_failed_correction_retry_consumes_remaining_attempt(tmp_path):
     failed = service.execution.finish("harbor", second.id, "failed", problem="Fixture failure")
     service.execution.retry("harbor", failed.id, action(failed))
     head = git(repo, "rev-parse", "HEAD").decode().strip()
-    assert service.execution.claim("harbor", head, service._available("harbor", repo, head)) is None
-    from flowfield.execution_limits import ExecutionLimits
-
-    assert ExecutionLimits(service.workspace).get("harbor", failed.task_id).blocked == "corrections"
+    third = service.execution.claim("harbor", head, service._available("harbor", repo, head))
+    assert third and third.correction.number == 3
 
 
-def test_answer_continuation_preserves_correction_budget_but_retry_consumes_it(tmp_path):
+def test_answer_continuation_preserves_correction_number_and_retry_increments_it(tmp_path):
     from flowfield.questions import QuestionAnswer, QuestionCreate, Questions
 
     service, repo, _ = fixture(tmp_path, checks=["exit 7"])
@@ -371,7 +365,5 @@ def test_answer_continuation_preserves_correction_budget_but_retry_consumes_it(t
     failed = service.execution.finish("harbor", retry.id, "failed", problem="Worker failed again")
     service.execution.retry("harbor", failed.id, action(failed))
     head = git(repo, "rev-parse", "HEAD").decode().strip()
-    assert service.execution.claim("harbor", head, service._available("harbor", repo, head)) is None
-    from flowfield.execution_limits import ExecutionLimits
-
-    assert ExecutionLimits(service.workspace).get("harbor", failed.task_id).blocked == "corrections"
+    third = service.execution.claim("harbor", head, service._available("harbor", repo, head))
+    assert third and third.correction.number == 3

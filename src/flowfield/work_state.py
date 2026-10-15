@@ -118,11 +118,6 @@ def task_state(
             tone="attention" if status == "uncertain" else "active",
             href=href + "/conversation/attempt:" + owner["id"],
         )
-    from flowfield.execution_limits import read as read_limits
-
-    allowance = read_limits(db, project, task_id)
-    if allowance and allowance.blocked and not task["archived"] and task["status"] != "done":
-        return WorkState(label="Execution limit reached", tone="attention", href=href)
     question = db.execute(
         "SELECT id,data,status FROM questions WHERE project_id=? AND task_id=? "
         "AND status IN ('open','answered') ORDER BY number LIMIT 1",

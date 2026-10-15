@@ -534,7 +534,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     "Read project · completed\n/project/README.md",
     "Let’s plan the work. Open CHT-1.",
   ]);
-  await expect(timeline.nth(1)).not.toHaveCSS(
+  await expect(timeline.nth(1)).toHaveCSS(
     "color",
     await timeline.nth(0).evaluate((el) => getComputedStyle(el).color),
   );
@@ -1434,11 +1434,25 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
             },
     });
   });
+  turn.activity.items.unshift({
+    key: "thinking",
+    kind: "agent",
+    text: "I’ll check the current task and queue state.",
+    omitted: false,
+    preview: "",
+    abridged: false,
+  });
   await page.goto(`/projects/${project}`);
   await expect(
     page.getByText("Opening … middle omitted … conclusion", { exact: true }),
   ).toBeVisible();
   await page.locator(".coordinator-activity-summary > summary").click();
+  await expect(page.locator(".activity-prose")).toContainText(
+    "I’ll check the current task and queue state.",
+  );
+  await expect(page.locator(".activity-prose")).not.toContainText(
+    "Opening … middle omitted … conclusion",
+  );
   const action = page
     .locator('.run-activity-entry[data-kind="tool"]')
     .filter({ hasText: "Flowfield · Get board" });
