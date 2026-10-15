@@ -240,7 +240,7 @@ test("milestone acceptance clears Inbox and Review column reflects the decision"
   ).toBeVisible();
 });
 
-test("Inbox drafts survive external review and guard switching views", async ({
+test("Inbox drafts survive external review across view switches", async ({
   page,
   request,
 }) => {
@@ -251,10 +251,7 @@ test("Inbox drafts survive external review and guard switching views", async ({
     .getByRole("textbox", { name: "Review note" })
     .fill("Keep my observation");
   await page.getByRole("tab", { name: "History", exact: true }).click();
-  await expect(
-    page.getByRole("alertdialog", { name: "Discard your unsaved edits?" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Keep editing" }).click();
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
   const current = await (
     await request.get(`/api${base}/verifications/${value.verification_id}`)
   ).json();
@@ -266,6 +263,7 @@ test("Inbox drafts survive external review and guard switching views", async ({
       )
     ).ok(),
   ).toBe(true);
+  await page.getByRole("tab", { name: "Needs me", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Review note" })).toHaveValue(
     "Keep my observation",
   );

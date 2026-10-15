@@ -1,3 +1,4 @@
+import { openResource } from "./shell-navigation";
 import {
   fixtureCliProject,
   projectWorkspace,
@@ -34,9 +35,8 @@ test("CLI adoption updates the browser, task creation and initial connection rec
     existingDirectory(join(state, "browser")),
   ]);
   await page
-    .locator("[data-slot=sidebar]")
-    .getByRole("link", { name: adopted.name, exact: true })
-    .click();
+    .getByLabel("Workspace", { exact: true })
+    .selectOption({ label: adopted.name });
   const workspace = await projectWorkspace(request, adopted.id);
   await expect(page).toHaveURL(`/workspaces/${workspace}`);
   expect(
@@ -65,9 +65,9 @@ test("CLI adoption updates the browser, task creation and initial connection rec
   expect(tasks[0].id).toMatch(/^investigate-large-exports-/);
   await page.reload();
   await expect(
-    page.getByRole("link", {
-      name: /Investigate large exports/,
-    }),
+    page
+      .locator(".workspace-resource-content")
+      .getByRole("link", { name: /Investigate large exports/ }),
   ).toBeVisible();
 });
 
@@ -174,7 +174,7 @@ test("milestones group tasks with linked details and long project intent stays o
     editor.getByText("Preserved milestone draft", { exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
-  await page.getByRole("tab", { name: /^Milestones/ }).click();
+  await openResource(page, "Milestones");
   await page.getByRole("link", { name: "CSV export", exact: true }).click();
   await page.getByRole("link", { name: "View tasks", exact: true }).click();
   await expect(page).toHaveURL(`/workspaces/${workspace_id}?milestone=export`);
@@ -195,7 +195,7 @@ test("milestones group tasks with linked details and long project intent stays o
   );
   await page
     .getByRole("button", {
-      name: /^(Close editor|Back to board)$/,
+      name: /^(Close editor|Back)$/,
       exact: true,
     })
     .click();

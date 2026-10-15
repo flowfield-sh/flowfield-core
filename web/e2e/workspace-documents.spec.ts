@@ -1,3 +1,4 @@
+import { openResource } from "./shell-navigation";
 import { expect } from "@playwright/test";
 import { test } from "./support";
 
@@ -13,7 +14,7 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   const base = `/workspaces/${workspace.id}`;
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(base);
-  await page.getByRole("tab", { name: /^Documents/ }).click();
+  await openResource(page, "Documents");
   await page.getByRole("link", { name: /Workspace guidance/ }).click();
   await page
     .getByRole("button", { name: "Edit document", exact: true })
@@ -57,8 +58,8 @@ test("workspace documents preserve drafts, exact history and restore as a new re
     .getByRole("textbox", { name: "Content", exact: true })
     .fill("My unsaved guidance");
   await page.getByRole("tab", { name: "Board", exact: true }).click();
-  await expect(page.getByRole("alertdialog")).toContainText("unsaved");
-  await page.getByRole("button", { name: /Keep editing/ }).click();
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  await page.getByRole("tab", { name: /^Documents/ }).click();
   await request.put(`/api${base}/documents/guidance`, {
     data: {
       expected_revision: 2,
@@ -94,7 +95,7 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   expect(restored.revision).toBe(4);
   expect(restored.restored_from).toBe(2);
   expect(restored.body).toBe(guidance.body);
-  await page.getByRole("tab", { name: /^Documents/ }).click();
+  await openResource(page, "Documents");
   await expect(page).toHaveURL(`${base}/documents`);
   await expect(
     page.getByRole("link", { name: "New document", exact: true }),
@@ -117,7 +118,9 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   await expect(
     page.getByRole("heading", { name: "Architecture", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("tab", { name: /^Documents/ })).toBeInViewport();
+  await expect(
+    page.getByRole("tab", { name: "Architecture", exact: true }),
+  ).toBeInViewport();
   await page.screenshot({
     path: testInfo.outputPath("document-narrow-dark.png"),
     animations: "disabled",

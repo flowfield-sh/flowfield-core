@@ -1,5 +1,20 @@
-import { useLayoutEffect, useRef, type RefObject } from "react";
+import { useContext, useLayoutEffect, useRef, type RefObject } from "react";
 import { useOverlayBody } from "./EntityOverlay";
+import { ResourceScrollKey } from "./ResourceScroll";
+
+const initialPosition = () => ({
+  ready: false,
+  following: true,
+  initialized: false,
+  interacted: false,
+  restored: false,
+  target: "",
+  anchor: null as { id: string; offset: number } | null,
+  top: 0,
+  height: 0,
+  viewport: 0,
+});
+const positions = new Map<string, ReturnType<typeof initialPosition>>();
 
 /** Follow the live end, or preserve the first visible entry while reading history.
  * Observe layout as well as records: output, checks and Markdown load independently.
@@ -13,21 +28,27 @@ export function useFeedScroll(
 ) {
   const overlayPane = useOverlayBody();
   const pane = scrollPane ?? overlayPane;
-  const control = useRef({
-    ready: false,
-    following: true,
-    initialized: false,
-    interacted: false,
-    target: "",
-    anchor: null as { id: string; offset: number } | null,
-    top: 0,
-    height: 0,
-    viewport: 0,
-  });
+  const key = useContext(ResourceScrollKey);
+  const scope = useRef<string | null | undefined>(undefined);
+  const control = useRef(initialPosition());
+  useLayoutEffect(() => {
+    if (scope.current === key) return;
+    scope.current = key;
+    const saved = key ? positions.get(key) : undefined;
+    control.current = saved
+      ? {
+          ...saved,
+          ready: false,
+          initialized: false,
+          interacted: false,
+          restored: true,
+        }
+      : initialPosition();
+  }, [key]);
   const update = useRef<() => void>(() => {});
   useLayoutEffect(() => {
     const content = root.current;
-    if (!content || !pane) return;
+    if (!content || !pane || !ready) return;
     const state = control.current;
     function remember(captureAnchor = true) {
       state.top = pane!.scrollTop;
@@ -125,23 +146,31 @@ export function useFeedScroll(
     pane.addEventListener("click", inspect, true);
     settle();
     return () => {
+      if (key && state.initialized) {
+        positions.delete(key);
+        positions.set(key, { ...state });
+        while (positions.size > 160)
+          positions.delete(positions.keys().next().value!);
+      }
       observer.disconnect();
       pane.removeEventListener("scroll", scroll);
       pane.removeEventListener("click", inspect, true);
       for (const event of intentEvents)
         pane.removeEventListener(event, interact);
     };
-  }, [root, pane]);
+  }, [root, pane, ready, key]);
   useLayoutEffect(() => {
     const state = control.current;
     state.ready = ready && (!target || targetReady);
     if (!pane || !state.ready) return;
     const nextTarget = target ?? "";
     if (state.initialized && state.target === nextTarget) return;
+    const restored = state.restored && state.target === nextTarget;
+    state.restored = false;
     if (state.initialized) state.interacted = false;
     state.initialized = false;
     state.target = nextTarget;
-    state.following = !target && !state.interacted;
+    if (!restored) state.following = !target && !state.interacted;
     // The overlay resets its body in a parent layout effect. Ignore its queued
     // scroll events until our own initial positioning has run after that reset.
     const frame = requestAnimationFrame(() => {
@@ -151,7 +180,9 @@ export function useFeedScroll(
               `[data-message-id="${CSS.escape(target)}"]`,
             )
           : null;
-      if (entry) {
+      if (restored) {
+        pane.scrollTo({ top: state.top });
+      } else if (entry) {
         state.anchor = {
           id: target!,
           // Keep the intended inset, not a position clamped by a short loading
@@ -168,7 +199,7 @@ export function useFeedScroll(
       update.current();
     });
     return () => cancelAnimationFrame(frame);
-  }, [pane, ready, root, target, targetReady]);
+  }, [pane, ready, root, target, targetReady, key]);
   return {
     readingEarlier: () => {
       control.current.following = false;

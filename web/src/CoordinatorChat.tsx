@@ -173,6 +173,25 @@ export function CoordinatorChat({
   const [draft, setDraft] = useState<ChatDraft>(
     () => drafts.get(key) ?? { id: crypto.randomUUID(), text: "" },
   );
+  const [impact, setImpact] = useState<string | null>(null);
+  useEffect(() => {
+    function discuss(event: Event) {
+      const detail = (
+        event as CustomEvent<{ workspaceId: string; text: string }>
+      ).detail;
+      if (detail.workspaceId !== workspaceId) return;
+      if (drafts.get(key)?.text.trim()) setImpact(detail.text);
+      else {
+        const next = { id: crypto.randomUUID(), text: detail.text };
+        drafts.set(key, next);
+        setDraft(next);
+      }
+      window.dispatchEvent(new Event("flowfield:show-coordinator"));
+    }
+    window.addEventListener("flowfield:discuss-document", discuss);
+    return () =>
+      window.removeEventListener("flowfield:discuss-document", discuss);
+  }, [workspaceId, key, drafts]);
   const [pane, setPane] = useState<HTMLDivElement | null>(null);
   const content = useRef<HTMLDivElement>(null);
   const page = resource.data ?? history.page;
@@ -458,6 +477,38 @@ export function CoordinatorChat({
           </Alert>
         )}
 
+        {impact && (
+          <div className="content-stack impact-draft">
+            <p>
+              Keep your current message and add the document discussion, or
+              replace it.
+            </p>
+            <div className="actions">
+              <Button
+                size="sm"
+                onClick={() => {
+                  update(draft.text + "\n\n" + impact);
+                  setImpact(null);
+                }}
+              >
+                Add to message
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  update(impact);
+                  setImpact(null);
+                }}
+              >
+                Replace message
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setImpact(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
         <Composer
           workspaceId={workspaceId}
           nativeCommands={{

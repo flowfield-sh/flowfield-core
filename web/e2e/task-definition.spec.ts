@@ -36,13 +36,6 @@ test("long definitions collapse with a fade and history loads only when expanded
   await expect(preview).toHaveAttribute("data-collapsed", "true");
   expect((await preview.boundingBox())!.height).toBeLessThan(240);
   await expect(preview).not.toHaveCSS("mask-image", "none");
-  const initial = page.locator('[data-message-id="definition:1"]');
-  await expect(initial.locator(".markdown")).toHaveCount(0);
-  await initial.getByText("View definition", { exact: true }).click();
-  await expect(
-    initial.getByText("Paragraph 24:", { exact: false }),
-  ).toBeVisible();
-  await initial.getByText("View definition", { exact: true }).click();
   await expand.click();
   const collapse = definition.getByRole("button", {
     name: "Collapse definition",
@@ -83,6 +76,15 @@ test("long definitions collapse with a fade and history loads only when expanded
   });
   await expect(definition).toContainText("A short replacement.");
   await expect(expand).toHaveCount(0);
+  await page.getByText("Work details", { exact: true }).click();
+  await page.getByRole("link", { name: "Activity and history" }).click();
+  const initial = page.locator('[data-message-id="definition:1"]');
+  await expect(initial.locator(".markdown")).toHaveCount(0);
+  await initial.getByText("View definition", { exact: true }).click();
+  await expect(
+    initial.getByText("Paragraph 24:", { exact: false }),
+  ).toBeVisible();
+  await initial.getByText("View definition", { exact: true }).click();
   const updated = page.locator('[data-message-id="definition:2"]');
   await expect(updated.locator(".markdown")).toHaveCount(0);
   await updated.getByText("View definition changes", { exact: true }).click();
@@ -191,7 +193,7 @@ test("definition revisions show focused word diffs and compact field values", as
       labels: ["bug"],
     },
   });
-  await page.goto(`/projects/${project}/tasks/${task.key}`);
+  await page.goto(`/projects/${project}/tasks/${task.key}/history`);
   const revision = page.locator('[data-message-id="definition:2"]');
   await revision.getByText("View definition changes", { exact: true }).click();
   await expect(revision.locator("del")).toHaveText("all");

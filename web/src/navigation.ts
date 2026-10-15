@@ -9,6 +9,7 @@ const pagePaths = [
   "new-workspace",
   "workspaces/:workspaceId",
   "workspaces/:workspaceId/documents",
+  "workspaces/:workspaceId/work",
   "workspaces/:workspaceId/documents/:documentId",
   "workspaces/:workspaceId/documents/:documentId/revisions/:documentRevision",
   "workspaces/:workspaceId/projects",
@@ -121,91 +122,6 @@ function editorIdentity(path: string) {
       "",
     );
 }
-export function entityPage(path: string) {
-  return (
-    /\/projects\/new$/.test(withoutQuestionOverlay(path)) ||
-    /^\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+)\/(?:tasks\/[^/]+|milestones\/[^/]+|documents\/[^/]+|inbox\/[^/]+|edit)(?:\/.*)?$/.test(
-      withoutQuestionOverlay(path.split("?")[0]),
-    )
-  );
-}
-export function collectionPath(path: string) {
-  const [pathname, query] = path.split("?");
-  const base = withoutQuestionOverlay(pathname);
-  return (
-    base
-      .replace(/\/(projects)\/new$/, "/$1")
-      .replace(
-        /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+))\/(tasks\/.*|edit(?:\/.*)?)$/,
-        "$1",
-      )
-      .replace(
-        /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+))\/(milestones|documents|inbox)\/.*$/,
-        "$1/$2",
-      ) + (query ? "?" + query : "")
-  );
-}
-type EntityNavigationState = {
-  backgroundPath?: string;
-  returnTo?: { path: string; index: number };
-};
-export function entityNavigationState(
-  pathname: string,
-  state: EntityNavigationState | null,
-  target: string,
-  replace = false,
-  projectOwners: Record<string, string> = {},
-) {
-  if (!entityPage(target)) return null;
-  const current = withoutQuestionOverlay(pathname.split("?")[0]);
-  const sameEditor =
-    entityPage(current) && editorIdentity(current) === editorIdentity(target);
-  const sameProject = current.split("/")[2] === target.split("/")[2];
-  const workspaceOrigin =
-    current.startsWith("/workspaces/") ||
-    state?.backgroundPath?.startsWith("/workspaces/");
-  const owner = (path: string) => {
-    const [, kind, id] = path.split("/");
-    return kind === "workspaces"
-      ? id
-      : kind === "projects"
-        ? projectOwners[id]
-        : undefined;
-  };
-  const sameWorkspace = !!owner(current) && owner(current) === owner(target);
-  const retainOrigin =
-    sameProject ||
-    sameWorkspace ||
-    (workspaceOrigin && target.startsWith("/projects/"));
-  const milestonePath = (path: string) =>
-    path.match(
-      /^(\/workspaces\/[^/]+\/milestones\/[^/]+)(?:\/revisions\/[^/]+)?$/,
-    )?.[1];
-  const sameMilestone =
-    !!milestonePath(current) &&
-    milestonePath(current) === milestonePath(target);
-  const betweenTasks =
-    retainOrigin &&
-    /^\/(?:workspaces\/[^/]+\/)?projects\/[^/]+\/tasks\/[^/]+/.test(current) &&
-    /^\/(?:workspaces\/[^/]+\/)?projects\/[^/]+\/tasks\/[^/]+/.test(target);
-  const index = window.history.state?.idx;
-  return {
-    backgroundPath: retainOrigin
-      ? (state?.backgroundPath ?? collectionPath(pathname))
-      : collectionPath(target),
-    returnTo: !retainOrigin
-      ? undefined
-      : replace ||
-          sameEditor ||
-          sameMilestone ||
-          betweenTasks ||
-          current.endsWith("/new")
-        ? state?.returnTo
-        : typeof index === "number"
-          ? { path: pathname, index }
-          : undefined,
-  };
-}
 export function useWorkspaceNavigation(
   unsaved: boolean,
   setUnsaved: (value: boolean) => void,
@@ -265,10 +181,11 @@ export function useWorkspaceNavigation(
       });
   }, [location, navigate, projectOwners]);
   const changeLocation = useCallback(
-    (url: string, replace = false) => {
+    (url: string, replace = false, extraState?: Record<string, unknown>) => {
       url = canonicalHref(url, projectOwners);
       if (
         !replace &&
+        !extraState &&
         url === location.pathname + location.search + location.hash
       )
         return;
@@ -276,13 +193,9 @@ export function useWorkspaceNavigation(
       void navigate(url, {
         flushSync: !replace,
         replace,
-        state: entityNavigationState(
-          location.pathname + location.search,
-          location.state,
-          url,
-          replace,
-          projectOwners,
-        ),
+        state: {
+          ...extraState,
+        },
       });
       bypass.current = false;
     },
@@ -304,23 +217,6 @@ export function useWorkspaceNavigation(
     },
     params,
     pathname: withoutQuestionOverlay(location.pathname),
-    backgroundPath: location.state?.backgroundPath as string | undefined,
-    closeEntity: (fallback: string) => {
-      const origin = location.state?.returnTo;
-      const index = window.history.state?.idx;
-      if (origin && typeof index === "number" && origin.index < index) {
-        void navigate(origin.index - index);
-        return;
-      }
-      const target = canonicalHref(
-        location.state?.backgroundPath ?? fallback,
-        projectOwners,
-      );
-      void navigate(target === "/new-workspace" ? "/" : target, {
-        replace: true,
-        state: null,
-      });
-    },
     closeQuestion: () => {
       if (
         location.state?.overlayFrom ===

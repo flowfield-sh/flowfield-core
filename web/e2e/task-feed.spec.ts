@@ -1,3 +1,4 @@
+import { openResource } from "./shell-navigation";
 import {
   fixtureCliProject,
   projectWorkspace,
@@ -61,7 +62,9 @@ test("board failures use toasts and keep recovery beside retained work", async (
   await expect(alert).toContainText("Temporary board failure");
   await expect(page.getByRole("button", { name: "Retry board" })).toBeVisible();
   fail = false;
-  const card = page.getByRole("link", { name: /Preserved board work/ });
+  const card = page
+    .locator(".workspace-resource-content")
+    .getByRole("link", { name: /Preserved board work/ });
   // A live project event can restore the board before the retry click lands.
   await expect(async () => {
     if (!(await card.isVisible()))
@@ -90,7 +93,9 @@ test("board failures use toasts and keep recovery beside retained work", async (
   ).toBeVisible();
   await expect(card).toBeVisible();
   fail = false;
-  const recovered = page.getByRole("link", { name: /New work after recovery/ });
+  const recovered = page
+    .locator(".workspace-resource-content")
+    .getByRole("link", { name: /New work after recovery/ });
   // Another live project event can recover the read before the retry click.
   // Both paths must restore the new work, without losing the existing card.
   await expect(async () => {
@@ -156,9 +161,7 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
     ]);
   }
   await page.goto("/projects/harbor");
-  await expect(
-    page.getByRole("heading", { name: "Harbor", level: 1, exact: true }),
-  ).toBeVisible();
+  await expect(page.getByLabel("Workspace", { exact: true })).toBeVisible();
   await expect(page.getByText("Ship CSV export", { exact: true })).toHaveCount(
     0,
   );
@@ -210,7 +213,10 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
     }),
   ).toContainText("Fix total rounding");
   await expect(rounding).not.toHaveAttribute("draggable", "true");
-  await page.getByRole("link", { name: /Fix total rounding/ }).click();
+  await page
+    .locator(".workspace-resource-content")
+    .getByRole("link", { name: /Fix total rounding/ })
+    .click();
   await expect(
     page
       .getByRole("region", { name: "Task details", exact: true })
@@ -219,9 +225,7 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
   await expect(
     page.getByRole("button", { name: "Move task", exact: true }),
   ).toHaveCount(0);
-  await page
-    .getByRole("button", { name: /^(Close editor|Back to board)$/ })
-    .click();
+  await page.getByRole("button", { name: /^(Close editor|Back)$/ }).click();
   const button = await call("get_task", {
     project_id: "harbor",
     task_id: "button",
@@ -263,13 +267,14 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
         includeHidden: true,
       })
       .locator(".task-card"),
-  ).toHaveCount(1);
+  ).toHaveCount(0);
   expect(cli(["task", "show", "button", "--project", "harbor"]).status).toBe(
     "up_next",
   );
   await closeOverlay(page);
+  await expect(page.locator(".up_next .task-card")).toHaveCount(1);
   await expect(page.getByLabel("Filter by project")).toHaveValue("harbor");
-  await page.getByRole("tab", { name: /^Archive \d/ }).click();
+  await openResource(page, "Archive");
   await expect(
     page.getByRole("link", { name: /Add download button/ }),
   ).toBeVisible();
@@ -285,10 +290,10 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
     changes: { expected_revision: archived.revision, archived: false },
   });
   await closeOverlay(page);
-  await page.getByRole("tab", { name: /^Board \d/ }).click();
+  await openResource(page, "Board");
   await page.getByLabel("Filter by milestone").selectOption("csv");
   await expect(page.locator(".task-card")).toHaveCount(2);
-  await page.getByRole("tab", { name: /^Milestones/ }).click();
+  await openResource(page, "Milestones");
   await page.locator(".milestone-board .task-card-link").first().click();
   await call("edit_milestone", {
     workspace_id: workspace,
@@ -303,7 +308,7 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
       exact: true,
     }),
   ).toBeVisible();
-  await page.getByRole("tab", { name: /^Board / }).click();
+  await openResource(page, "Board");
   await page.getByLabel("Filter by milestone").selectOption("");
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -338,7 +343,10 @@ test("coordinator updates refresh the agreement while project editing retains co
     },
   });
   await page.goto("/projects/live");
-  await page.getByRole("link", { name: /First task/ }).click();
+  await page
+    .locator(".workspace-resource-content")
+    .getByRole("link", { name: /First task/ })
+    .click();
   await expect(page.locator(".task-definition")).toContainText(
     "First description",
   );
@@ -370,7 +378,7 @@ test("coordinator updates refresh the agreement while project editing retains co
   ).toHaveValue("Unsaved focus");
   await page
     .getByRole("button", {
-      name: /^(Close editor|Back to board)$/,
+      name: /^(Close editor|Back)$/,
       exact: true,
     })
     .click();
@@ -420,13 +428,18 @@ test("Conversation permalinks preserve message drafts while coordinator revision
     },
   });
   await page.goto("/projects/tabs");
-  await page.getByRole("link", { name: /Tabbed task/ }).click();
+  await page
+    .locator(".workspace-resource-content")
+    .getByRole("link", { name: /Tabbed task/ })
+    .click();
   await expect(
     page.getByRole("tab", { name: "Task", exact: true }),
   ).toHaveCount(0);
   await page
     .getByLabel("Message coordinator", { exact: true })
     .fill("Unsaved draft");
+  await page.getByText("Work details", { exact: true }).click();
+  await page.getByRole("link", { name: "Activity and history" }).click();
   const history = page.getByRole("list", { name: "Task feed" });
   await history
     .getByRole("link", { name: "Permalink: Task defined", exact: true })
@@ -457,6 +470,7 @@ test("Conversation permalinks preserve message drafts while coordinator revision
   await expect(
     page.getByLabel("Message coordinator", { exact: true }),
   ).toHaveValue("Unsaved draft");
+  await page.getByRole("link", { name: "Overview", exact: true }).click();
   await expect(page.locator(".task-definition")).toContainText(
     "New saved context",
   );
@@ -522,7 +536,7 @@ test("archive preserves dated records and supports restore and mobile archiving"
     page.getByRole("button", { name: "New task", exact: true }),
   ).toHaveCount(0);
   await closeOverlay(page);
-  await page.getByRole("tab", { name: /^Archive \d/ }).click();
+  await openResource(page, "Archive");
   const archive = page.getByRole("region", {
     name: "Archived tasks",
     exact: true,
@@ -565,7 +579,7 @@ test("archive preserves dated records and supports restore and mobile archiving"
       .status,
   ).toBe("up_next");
   await closeOverlay(page);
-  await page.getByRole("tab", { name: /^Board \d/ }).click();
+  await openResource(page, "Board");
   await page.getByRole("link", { name: /older task/ }).click();
   await page.setViewportSize({ width: 390, height: 844 });
 
@@ -578,7 +592,7 @@ test("archive preserves dated records and supports restore and mobile archiving"
     changes: { expected_revision: 4, archived: true },
   });
   await closeOverlay(page);
-  await page.getByRole("tab", { name: /^Archive \d/ }).click();
+  await openResource(page, "Archive");
   await expect(archive.getByRole("listitem").first()).toContainText(
     "older task",
   );
@@ -607,12 +621,6 @@ test("readable conversation preserves message drafts, revision links and legacy 
     exact: true,
   });
   const thread = editor.getByRole("list", { name: "Task feed" });
-  await expect(
-    thread
-      .locator('[data-kind="definition"]')
-      .getByRole("img", { name: "Recorded", exact: true }),
-  ).toBeVisible();
-  await expect(thread).toContainText("You");
   await expect(page.locator(".task-definition .markdown strong")).toHaveText(
     "all columns",
   );
@@ -624,6 +632,14 @@ test("readable conversation preserves message drafts, revision links and legacy 
   await page
     .getByLabel("Message coordinator", { exact: true })
     .fill("Export **selected columns**.");
+  await page.getByText("Work details", { exact: true }).click();
+  await page.getByRole("link", { name: "Activity and history" }).click();
+  await expect(
+    thread
+      .locator('[data-kind="definition"]')
+      .getByRole("img", { name: "Recorded", exact: true }),
+  ).toBeVisible();
+  await expect(thread).toContainText("You");
   await thread
     .getByRole("link", { name: "Permalink: Task defined", exact: true })
     .click();
@@ -713,7 +729,11 @@ test("task changes refresh their workspace without reloading the workspace catal
   }
   const workspace = await projectWorkspace(request, "scope-one");
   await page.goto(`/workspaces/${workspace}`);
-  await expect(page.getByRole("link", { name: /Original/ })).toBeVisible();
+  await expect(
+    page
+      .locator(".workspace-resource-content")
+      .getByRole("link", { name: /Original/ }),
+  ).toBeVisible();
   await expect(
     page.getByRole("status", { name: "Connected", exact: true }),
   ).toBeVisible();
@@ -762,7 +782,9 @@ test("task changes refresh their workspace without reloading the workspace catal
     ).ok(),
   ).toBe(true);
   await expect(
-    page.getByRole("link", { name: /Relevant change/ }),
+    page
+      .locator(".workspace-resource-content")
+      .getByRole("link", { name: /Relevant change/ }),
   ).toBeVisible();
   expect(reads).toHaveLength(1);
   expect(reads[0]).toContain(`${workspace}/view/board`);
@@ -957,15 +979,15 @@ test("conversation capture prepares atomically while task defaults show only use
     name: "Task stages",
     exact: true,
   });
-  await expect(page.locator('[data-message-id="plan:1"]')).toContainText(
-    "Initial task plan",
-  );
+  await expect(page.getByRole("list", { name: "Task feed" })).toHaveCount(0);
+  await expect(stages).not.toBeVisible();
+  await page.getByText("Work details", { exact: true }).click();
   await expect(stages.getByRole("link")).toHaveCount(0);
   await expect(page.getByRole("tooltip")).toHaveCount(0);
-  // Stage details belong to the fixed header, outside the task definition.
+  // Stage details are disclosed independently from the default outcome.
   await expect(
     page
-      .locator(".entity-overlay-title")
+      .locator(".task-context")
       .getByRole("group", { name: "Task stages", exact: true }),
   ).toBeVisible();
   await stages.locator(".task-stage").first().focus();
@@ -975,6 +997,7 @@ test("conversation capture prepares atomically while task defaults show only use
   await expect(page.getByRole("tooltip")).toContainText(
     "Compare available formats",
   );
+  await page.getByRole("link", { name: "Activity and history" }).click();
   await page
     .getByRole("link", { name: "Permalink: Stages defined", exact: true })
     .click();
@@ -1004,9 +1027,6 @@ test("conversation capture prepares atomically while task defaults show only use
   await expect(changedStages).not.toContainText(
     "Investigate: Planned → Completed.",
   );
-  await expect(stages.locator('[aria-current="step"]')).toHaveText(
-    "Report: Active",
-  );
   await expect(changedStages.locator('[aria-current="step"]')).toHaveText(
     "Report: Active",
   );
@@ -1017,7 +1037,7 @@ test("conversation capture prepares atomically while task defaults show only use
     "Investigate: Planned",
   );
   await page.reload();
-  await expect(stages.locator('[aria-current="step"]')).toHaveText(
+  await expect(changedStages.locator('[aria-current="step"]')).toHaveText(
     "Report: Active",
   );
   await expect(page.locator('[data-message-id="plan:1"]')).toContainText(
@@ -1041,6 +1061,7 @@ test("conversation capture prepares atomically while task defaults show only use
     },
   });
   expect(updated.publication_status).toBe("published");
+  await page.getByRole("link", { name: "Overview", exact: true }).click();
   await expect(
     editor
       .getByLabel("Current task definition")
@@ -1127,7 +1148,7 @@ test("attempt activity updates without reloading the board and replays on reload
     return value;
   };
   const seeded = await fixture("create");
-  await page.goto("/projects/stream-project/tasks/STR-1");
+  await page.goto("/projects/stream-project/tasks/STR-1/history");
   const output = page.getByRole("region", {
     name: "Worker activity",
     exact: true,
@@ -1169,7 +1190,7 @@ test("attempt activity updates without reloading the board and replays on reload
   );
   await expect(
     page.locator(".task-conversation-header .work-state"),
-  ).toHaveCount(0);
+  ).toHaveCount(1);
   await closeOverlay(page);
   const activeCard = page
     .locator(".task-card")
@@ -1192,7 +1213,7 @@ test("attempt activity updates without reloading the board and replays on reload
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(dot).toHaveCSS("animation-name", "none");
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.goto("/projects/stream-project/tasks/STR-1");
+  await page.goto("/projects/stream-project/tasks/STR-1/history");
   await expect(output).toContainText("later observed output");
   await fixture("long");
   await expect(output).toContainText("long observed output");
@@ -1236,7 +1257,7 @@ test("attempt activity updates without reloading the board and replays on reload
   await expect(
     attempt.getByRole("region", { name: "Execution details", exact: true }),
   ).toHaveCount(0);
-  await expect(page).toHaveURL(/STR-1$/);
+  await expect(page).toHaveURL(/STR-1\/history$/);
   await page.goto(
     "/projects/stream-project/tasks/STR-1/history/worker:" + seeded.run_id,
   );
@@ -1285,6 +1306,7 @@ test("attempt activity updates without reloading the board and replays on reload
     page.getByRole("button", { name: "Retry worker", exact: true }),
   ).toHaveCount(0);
   await closeOverlay(page);
+  await openResource(page, "Board");
   await expect(page.locator(".up_next")).toContainText("Observe live output");
   await expect(page.locator(".up_next")).toContainText("Queue paused");
 });
@@ -1316,7 +1338,7 @@ test("task feed follows the live end but preserves reading position and timestam
       },
     });
   }
-  await page.goto("/projects/feed-reading/tasks/FED-1");
+  await page.goto("/projects/feed-reading/tasks/FED-1/history");
   const pane = page.locator(".entity-overlay-body");
   const feed = page.getByRole("list", { name: "Task feed" });
   const atBottom = () =>
@@ -1347,6 +1369,13 @@ test("task feed follows the live end but preserves reading position and timestam
     .poll(async () => Math.abs((await position()) - before) < 2)
     .toBe(true);
   await expect.poll(atBottom).toBe(false);
+  await openResource(page, "Documents");
+  await page.getByRole("tab", { name: /FED-1 Read a growing feed/ }).click();
+  await expect(feed).toContainText("Newest while reading earlier work");
+  await expect
+    .poll(async () => Math.abs((await position()) - before) < 2)
+    .toBe(true);
+  await expect.poll(atBottom).toBe(false);
   await pane.evaluate((el) => {
     el.scrollTop = el.scrollHeight;
   });
@@ -1365,7 +1394,7 @@ test("task feed follows the live end but preserves reading position and timestam
   await expect(anchor).toBeInViewport();
   await expect(
     page.getByRole("button", {
-      name: /^(Close editor|Back to board)$/,
+      name: /^(Close editor|Back)$/,
       exact: true,
     }),
   ).toBeInViewport();

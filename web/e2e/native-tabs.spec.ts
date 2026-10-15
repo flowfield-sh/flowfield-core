@@ -46,9 +46,7 @@ test("task links open native tabs without losing the original selection or draft
     name: "Task details",
     exact: true,
   });
-  await expect(
-    details.getByText("Task defined", { exact: true }),
-  ).toBeVisible();
+  await expect(details.getByLabel("Current task definition")).toBeVisible();
   const draft = page.getByLabel("Message coordinator", { exact: true });
   await draft.fill("Keep this requirement while inspecting the prerequisite");
   const link = details.getByRole("link", {

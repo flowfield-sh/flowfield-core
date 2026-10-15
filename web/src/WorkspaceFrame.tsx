@@ -1,7 +1,6 @@
 import {
   useState,
   useEffect,
-  useRef,
   useSyncExternalStore,
   type CSSProperties,
   type ReactNode,
@@ -11,9 +10,6 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
   useSidebar,
@@ -24,15 +20,11 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CountBadge } from "./CountBadge";
-import { ProjectBadge } from "./ProjectBadge";
-import { Plus } from "lucide-react";
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip";
+import { Plus, Home } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
 import "./workspace-frame.css";
+import { followLink } from "./navigation";
 
 export type WorkspaceEntry = {
   id: string;
@@ -47,67 +39,6 @@ function subscribeCompact(callback: () => void) {
   return () => query.removeEventListener("change", callback);
 }
 
-function WorkspaceItem({
-  workspace,
-  active,
-  select,
-}: {
-  workspace: WorkspaceEntry;
-  active: boolean;
-  select: () => void;
-}) {
-  const text = useRef<HTMLSpanElement>(null);
-  const [truncated, setTruncated] = useState(false);
-  const { state, isMobile } = useSidebar();
-  useEffect(() => {
-    const node = text.current;
-    if (!node) return;
-    const measure = () => setTruncated(node.scrollWidth > node.clientWidth);
-    const observer = new ResizeObserver(measure);
-    observer.observe(node);
-    measure();
-    return () => observer.disconnect();
-  }, [workspace.name]);
-  return (
-    <SidebarMenuItem>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <SidebarMenuButton asChild size="lg" isActive={active}>
-            <a
-              href={workspace.href}
-              aria-label={workspace.name}
-              aria-current={active ? "page" : undefined}
-              onClick={(event) => {
-                if (
-                  event.button !== 0 ||
-                  event.metaKey ||
-                  event.ctrlKey ||
-                  event.shiftKey ||
-                  event.altKey
-                )
-                  return;
-                event.preventDefault();
-                select();
-              }}
-            >
-              <ProjectBadge id={workspace.id} name={workspace.name} />
-              <CountBadge count={workspace.inboxCount} label="Inbox" />
-              <span ref={text} data-sidebar="label">
-                {workspace.name}
-              </span>
-            </a>
-          </SidebarMenuButton>
-        </TooltipTrigger>
-        {(truncated || (state === "collapsed" && !isMobile)) && (
-          <TooltipContent side="right" className="max-w-xs">
-            {workspace.name}
-          </TooltipContent>
-        )}
-      </Tooltip>
-    </SidebarMenuItem>
-  );
-}
-
 function WorkspaceNavigation({
   workspaces,
   activeWorkspaceId,
@@ -115,6 +46,8 @@ function WorkspaceNavigation({
   footer,
   onHome,
   onAddWorkspace,
+  navigation,
+  queue,
 }: {
   workspaces: WorkspaceEntry[];
   activeWorkspaceId: string;
@@ -122,70 +55,71 @@ function WorkspaceNavigation({
   footer?: ReactNode;
   onHome?: () => void;
   onAddWorkspace?: () => void;
+  navigation?: ReactNode;
+  queue?: ReactNode;
 }) {
   const { setOpenMobile, isMobile } = useSidebar();
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="offcanvas">
       <SidebarHeader className="workspace-sidebar-header">
-        <a
-          href="/"
-          onClick={(event) => {
-            if (
-              !onHome ||
-              event.button !== 0 ||
-              event.metaKey ||
-              event.ctrlKey ||
-              event.shiftKey ||
-              event.altKey
-            )
-              return;
-            event.preventDefault();
-            onHome();
+        <Button asChild size="icon-sm" variant="ghost" aria-label="Flowfield">
+          <a
+            href="/"
+            onClick={(event) =>
+              followLink(event, () => {
+                onHome?.();
+                setOpenMobile(false);
+              })
+            }
+          >
+            <Home />
+          </a>
+        </Button>
+        <NativeSelect
+          size="sm"
+          aria-label="Workspace"
+          value={activeWorkspaceId}
+          onChange={(event) => {
+            const workspace = workspaces.find(
+              (w) => w.id === event.target.value,
+            );
+            if (workspace) onWorkspaceSelect(workspace);
             setOpenMobile(false);
           }}
-          aria-label="Flowfield"
-          className="workspace-logo"
         >
-          <img src="/assets/flowfield.svg" alt="" width={32} height={32} />
-        </a>
-        {isMobile && <SidebarTrigger aria-label="Close workspaces" />}
+          {!activeWorkspaceId && <option value="">Workspaces</option>}
+          {workspaces.map((w) => (
+            <option key={w.id} value={w.id}>
+              {w.name}
+              {w.inboxCount ? " (" + w.inboxCount + ")" : ""}
+            </option>
+          ))}
+        </NativeSelect>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label="New workspace"
+          onClick={() => {
+            onAddWorkspace?.();
+            setOpenMobile(false);
+          }}
+        >
+          <Plus />
+        </Button>
+        {isMobile && <SidebarTrigger aria-label="Close navigation" />}
       </SidebarHeader>
-      <SidebarContent className="group-data-[collapsible=icon]:overflow-y-auto">
-        <nav aria-label="Workspaces" className="workspace-projects">
-          <p className="workspace-projects-label group-data-[collapsible=icon]:hidden">
-            Workspaces
-          </p>
-          <SidebarMenu className="gap-2">
-            {onAddWorkspace && (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  tooltip="New workspace"
-                  aria-label="New workspace"
-                  onClick={() => {
-                    onAddWorkspace();
-                    setOpenMobile(false);
-                  }}
-                >
-                  <Plus />
-                  <span data-sidebar="label">New workspace</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            )}
-            {workspaces.map((workspace) => (
-              <WorkspaceItem
-                key={workspace.id}
-                workspace={workspace}
-                active={workspace.id === activeWorkspaceId}
-                select={() => {
-                  onWorkspaceSelect(workspace);
-                  setOpenMobile(false);
-                }}
-              />
-            ))}
-          </SidebarMenu>
-        </nav>
+      <SidebarContent
+        className="workspace-sidebar-content"
+        onClick={(event) => {
+          if ((event.target as HTMLElement).closest("a")) setOpenMobile(false);
+        }}
+      >
+        {navigation}
       </SidebarContent>
-      {footer && <SidebarFooter>{footer}</SidebarFooter>}
+      <SidebarFooter>
+        {queue}
+        {footer}
+      </SidebarFooter>
     </Sidebar>
   );
 }
@@ -201,11 +135,15 @@ export function WorkspaceFrame({
   onHome,
   onAddWorkspace,
   workLocation,
+  navigation,
+  queue,
 }: {
   workspaces: WorkspaceEntry[];
   activeWorkspaceId: string;
   onWorkspaceSelect: (workspace: WorkspaceEntry) => void;
   workLocation?: string;
+  navigation?: ReactNode;
+  queue?: ReactNode;
   coordinator?: ReactNode | ((visible: boolean) => ReactNode);
   work: ReactNode;
   footer?: ReactNode;
@@ -217,7 +155,25 @@ export function WorkspaceFrame({
     () => window.matchMedia(compactQuery).matches,
     () => false,
   );
+  const [width, setWidth] = useState(() => {
+    try {
+      return Math.max(
+        360,
+        Math.min(
+          800,
+          Number(localStorage.getItem("flowfield:coordinator-width")) || 440,
+        ),
+      );
+    } catch {
+      return 440;
+    }
+  });
   const [surface, setSurface] = useState("work");
+  useEffect(() => {
+    const show = () => setSurface("coordinator");
+    window.addEventListener("flowfield:show-coordinator", show);
+    return () => window.removeEventListener("flowfield:show-coordinator", show);
+  }, []);
   const [location, setLocation] = useState(workLocation);
   if (location !== workLocation) {
     setLocation(workLocation);
@@ -225,11 +181,11 @@ export function WorkspaceFrame({
   }
   return (
     <SidebarProvider
-      open={false}
+      defaultOpen
       className="workspace-frame"
       style={
         {
-          "--sidebar-width": "14rem",
+          "--sidebar-width": "260px",
           "--sidebar-width-icon": "3.5rem",
         } as CSSProperties
       }
@@ -239,6 +195,8 @@ export function WorkspaceFrame({
         activeWorkspaceId={activeWorkspaceId}
         onWorkspaceSelect={onWorkspaceSelect}
         footer={footer}
+        navigation={navigation}
+        queue={queue}
         onHome={onHome}
         onAddWorkspace={onAddWorkspace}
       />
@@ -276,7 +234,20 @@ export function WorkspaceFrame({
             >
               <ResizablePanel
                 id="coordinator"
-                defaultSize="440px"
+                defaultSize={`${width}px`}
+                onResize={(size) => {
+                  if (!compact) {
+                    setWidth(size.inPixels);
+                    try {
+                      localStorage.setItem(
+                        "flowfield:coordinator-width",
+                        String(size.inPixels),
+                      );
+                    } catch {
+                      /* Optional preference. */
+                    }
+                  }
+                }}
                 minSize={
                   compact
                     ? surface === "coordinator"

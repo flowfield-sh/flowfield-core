@@ -1,3 +1,4 @@
+import { openResource } from "./shell-navigation";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
@@ -108,9 +109,7 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
     .getByRole("link", { name: "BST-1 Site release", exact: true })
     .click();
   await expect(page).toHaveURL(/\/projects\/board-site\/tasks\/BST-1$/);
-  await page
-    .getByRole("button", { name: "Back to board", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page).toHaveURL(`${base}?project=board-site`);
   await expect(page.getByLabel("Filter by project")).toHaveValue("board-site");
   await expect(
@@ -129,9 +128,11 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
     ).ok(),
   ).toBeTruthy();
   await expect(
-    page.getByRole("link", { name: "BST-2 New site work", exact: true }),
+    page
+      .locator(".workspace-resource-content")
+      .getByRole("link", { name: "BST-2 New site work", exact: true }),
   ).toBeVisible();
-  await page.getByRole("tab", { name: /^Milestones/ }).click();
+  await openResource(page, "Milestones");
   await expect(
     page.getByText("0 of 2 tasks done", { exact: true }),
   ).toBeVisible();
@@ -161,11 +162,9 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
   await expect(
     page.getByText("Site release scope?", { exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("tab", { name: /^Projects/ }).click();
+  await openResource(page, "Projects");
   await expect(page.getByRole("link", { name: /board-site/ })).toBeVisible();
-  await page
-    .getByRole("button", { name: "Workspace settings", exact: true })
-    .click();
+  await openResource(page, "Workspace settings");
   await page.getByLabel("Name", { exact: true }).fill("Delivery workspace");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(
@@ -190,7 +189,7 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
   });
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.getByRole("tab", { name: /^Board/ }).click();
+  await openResource(page, "Board");
   await expect(page.getByRole("tab", { name: /^Board/ })).toHaveAttribute(
     "aria-selected",
     "true",

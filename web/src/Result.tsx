@@ -86,6 +86,7 @@ export function Result({
     version?.id === page.data?.current_id &&
     version?.run_id === page.data?.current_run_id;
   const href = taskHref(projectId, { key: taskKey }, "result");
+  const Section = compact ? DetailSection : DetailGroup;
   async function recover(
     action: "prepare" | "correct" | "cancel" | "revalidate" | "retry-delivery",
   ) {
@@ -138,7 +139,7 @@ export function Result({
       )}
       {version && version.task_id === taskId && (
         <>
-          <DetailGroup title="Worker report">
+          <Section title="Worker report">
             <Markdown>{version.report.summary}</Markdown>
             {version.report.outcome === "partial" && (
               <DetailSection title="Work remaining">
@@ -167,8 +168,8 @@ export function Result({
                 <Markdown>{worker.data.feedback}</Markdown>
               </Disclosure>
             )}
-          </DetailGroup>
-          <DetailGroup
+          </Section>
+          <Section
             title={version.completion === "code" ? "Delivery" : "Report"}
           >
             <p>
@@ -267,7 +268,7 @@ export function Result({
                 <FailureEvidence problem={version.problem} />
               )
             )}
-          </DetailGroup>
+          </Section>
           {current &&
             version.next_action &&
             !["none", "wait", "review_result"].includes(

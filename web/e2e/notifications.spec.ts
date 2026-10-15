@@ -146,7 +146,7 @@ test("queue failures have contextual recovery and no notification center", async
   );
   await ready(page, "/projects/notify-que");
   await page.keyboard.press("Escape");
-  const problem = page.getByTestId("work").getByRole("alert");
+  const problem = page.locator(".queue-controls").getByRole("alert");
   await expect(problem).toContainText(
     "The selected worker harness is unavailable.",
   );

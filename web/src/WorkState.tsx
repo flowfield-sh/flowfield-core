@@ -12,11 +12,13 @@ export function WorkState({
   state,
   linked = false,
   indicatorOnly = false,
+  decorative = false,
   children,
 }: {
   state: State | null | undefined;
   linked?: boolean;
   indicatorOnly?: boolean;
+  decorative?: boolean;
   children?: ReactNode;
 }) {
   if (!state) return null;
@@ -25,15 +27,16 @@ export function WorkState({
       className="work-state"
       data-tone={state.tone}
       data-indicator-only={indicatorOnly || undefined}
-      role={indicatorOnly ? "img" : undefined}
-      aria-label={indicatorOnly ? state.label : undefined}
-      tabIndex={indicatorOnly ? 0 : undefined}
+      role={indicatorOnly && !decorative ? "img" : undefined}
+      aria-label={indicatorOnly && !decorative ? state.label : undefined}
+      aria-hidden={decorative || undefined}
+      tabIndex={indicatorOnly && !decorative ? 0 : undefined}
     >
       <span className="work-state-dot" aria-hidden="true" />
       {!indicatorOnly && (children ?? state.label)}
     </span>
   );
-  if (indicatorOnly)
+  if (indicatorOnly && !decorative)
     return (
       <Tooltip>
         <TooltipTrigger asChild>{content}</TooltipTrigger>

@@ -1,3 +1,4 @@
+import { openResource } from "./shell-navigation";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
 import {
@@ -97,10 +98,9 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
   await projectLink.click();
   await expect(page).toHaveURL(`${base}?project=${project}`);
   await expect(page.getByLabel("Filter by project")).toHaveValue(project);
-  await expect(page.getByRole("tab", { name: /^Board/ })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  await expect(
+    page.getByRole("tab", { name: "Projects", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   await page.screenshot({
     path: testInfo.outputPath("project-actions-desktop-light.png"),
   });
@@ -174,7 +174,7 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
   );
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: /Discard/ }).click();
-  await page.getByRole("tab", { name: /^Milestones/ }).click();
+  await openResource(page, "Milestones");
   await expect(
     page.getByRole("region", { name: "In progress", exact: true }),
   ).toContainText("Ongoing release");
@@ -215,7 +215,7 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
   await expect(page.getByLabel("Filter by milestone")).toHaveValue(
     milestone.id,
   );
-  await page.getByRole("tab", { name: /^Documents/ }).click();
+  await openResource(page, "Documents");
   await expect(page.getByRole("tab", { name: /^Documents/ })).toHaveText(
     "Documents 1",
   );
@@ -226,7 +226,7 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
   await page.screenshot({
     path: testInfo.outputPath("document-projects-desktop-light.png"),
   });
-  await page.getByRole("tab", { name: /^Documents/ }).click();
+  await openResource(page, "Documents");
   const doc = await (
     await request.post(`/api${base}/documents`, {
       data: { title: "Architecture", body: "# Overview\nCore owns the API." },

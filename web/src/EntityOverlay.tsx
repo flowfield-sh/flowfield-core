@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -149,6 +150,22 @@ export function EntityPane({
   const [body, setBody] = useState<HTMLDivElement | null>(null);
   const [footer, setFooter] = useState<HTMLDivElement | null>(null);
   const opener = useRef(document.activeElement as HTMLElement | null);
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => {
+      // Saving can remove a focused control. Preserve Escape when focus falls
+      // back to the document, without intercepting the Coordinator's keys.
+      if (
+        event.key === "Escape" &&
+        !event.defaultPrevented &&
+        event.target === document.body
+      ) {
+        event.preventDefault();
+        close();
+      }
+    };
+    document.addEventListener("keydown", escape);
+    return () => document.removeEventListener("keydown", escape);
+  }, [close]);
   useLayoutEffect(() => {
     body?.scrollTo({ top: 0 });
     body?.focus({ preventScroll: true });

@@ -27,6 +27,7 @@ test("Inbox review accepts exact milestone evidence and keeps history", async ({
   const base = `/workspaces/${value.workspace_id}`;
   await page.goto(`${base}/inbox`);
   await page
+    .locator(".request-card")
     .getByRole("link", { name: /Verify installed harness discovery/ })
     .first()
     .click();
@@ -258,6 +259,11 @@ test("long milestone history scrolls by wheel and preserves reading through refr
     const before = await pane.evaluate((n) => n.scrollTop);
     // A harmless metadata refresh must not pull the reader back to the selected report.
     const current = await (await request.get(`/api${base}`)).json();
+    const refreshed = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/workspaces") &&
+        response.request().method() === "GET",
+    );
     const response = await request.put(`/api${base}`, {
       data: {
         expected_revision: current.revision,
@@ -265,9 +271,7 @@ test("long milestone history scrolls by wheel and preserves reading through refr
       },
     });
     expect(response.ok(), await response.text()).toBe(true);
-    await expect(page.locator(".workspace-pane-header h1")).toHaveText(
-      `History at ${width}`,
-    );
+    await refreshed;
     await expect
       .poll(() => pane.evaluate((n) => n.scrollTop))
       .toBeGreaterThan(before - 5);

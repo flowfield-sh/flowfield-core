@@ -447,6 +447,14 @@ test("validated result approval delivers real Git code with the worker queue pau
   await page
     .getByRole("button", { name: "Retry integration", exact: true })
     .click();
+  // Delivery is asynchronous: the service scheduler also handles other journeys.
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get(`${base}/tasks/INT-1`)).json()).status,
+      { timeout: 15000 },
+    )
+    .toBe("done");
   await expect(result).toContainText("Delivered to integration.");
   const task = await (await request.get(`${base}/tasks/INT-1`)).json();
   expect(task.status).toBe("done");
@@ -576,7 +584,7 @@ test("adoption preserves repository guidance and standalone installation stays e
   ).toBe(false);
   await page.reload();
   await expect(
-    page.getByRole("tablist", { name: "Workspace views" }),
+    page.getByRole("tablist", { name: "Open resources" }),
   ).toBeVisible();
   expect(
     await (
@@ -617,6 +625,8 @@ test("managed answers show durable pause, safe edits and immutable correction in
   ).toHaveCount(0);
   await page.getByLabel("Your answer", { exact: true }).fill("All records");
   await page.getByRole("button", { name: "Send answer", exact: true }).click();
+  await page.getByText("Work details", { exact: true }).click();
+  await page.getByRole("link", { name: "Activity and history" }).click();
   await expect(page.getByRole("list", { name: "Task feed" })).toContainText(
     "All records",
   );
@@ -746,22 +756,21 @@ test("inspection preserves exact versions, preview edits and direct approval", a
       await route.continue();
     },
   );
-  const atBottom = () =>
-    page
-      .locator(".entity-overlay-body")
-      .evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight < 3);
+  const atTop = () =>
+    page.locator(".entity-overlay-body").evaluate((el) => el.scrollTop < 3);
   for (let i = 0; i < 3; i++) {
     await page.goto(`/projects/${project}/tasks/IPV-1`);
     await expect(
       page.getByRole("region", { name: "Proposed result" }),
     ).toContainText("Ready for review");
-    await expect.poll(atBottom).toBe(true);
+    await expect(page.getByLabel("Current task definition")).toBeVisible();
+    await expect.poll(atTop).toBe(true);
     await expect(page.getByRole("form", { name: "Task input" })).toContainText(
       "Review Result 1",
     );
     await page
       .getByRole("button", {
-        name: /^(Close editor|Back to board)$/,
+        name: /^(Close editor|Back)$/,
         exact: true,
       })
       .click();
@@ -925,11 +934,22 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await page
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();
-  // Delivery includes asynchronous scheduling and real Git checkout verification.
-  // The full suite's many projects can exceed the default five-second UI budget.
+  // Wait for the exact candidate's real Git delivery before testing presentation.
+  // The full suite's shared scheduler can take longer than a UI assertion budget.
+  await expect(async () => {
+    const versions = await (
+      await request.get(`${path}/tasks/try/results`)
+    ).json();
+    expect(
+      versions.items.find((item: { id: string }) => item.id === second.id),
+    ).toMatchObject({
+      status: "delivered",
+      candidate_commit: second.candidate_commit,
+    });
+  }).toPass({ timeout: 30000 });
   await expect(
     page.getByText("Delivered to delivery.", { exact: false }),
-  ).toBeVisible({ timeout: 15000 });
+  ).toBeVisible();
   await page.goto(`/projects/${project}`);
   await expect(
     page.getByRole("button", { name: "Try project", exact: true }),
@@ -1067,12 +1087,12 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
       .getByRole("link", { name: /Report outcome/ })
       .click();
     await expect(
-      page.getByRole("region", { name: "Worker report", exact: true }),
+      page.getByRole("region", { name: "Proposed result", exact: true }),
     ).toContainText("A detailed finding.");
     await expect.poll(reportAtBottom).toBe(true);
     await page
       .getByRole("button", {
-        name: /^(Close editor|Back to board)$/,
+        name: /^(Close editor|Back)$/,
         exact: true,
       })
       .click();
@@ -1083,8 +1103,10 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     .getByRole("link", { name: "ORP-1 Report outcome", exact: true })
     .click();
   await expect(
-    page.getByRole("region", { name: "Worker report", exact: true }),
+    page.getByRole("region", { name: "Proposed result", exact: true }),
   ).toContainText("A detailed finding.");
+  await page.getByText("Work details", { exact: true }).click();
+  await page.getByRole("link", { name: "Activity and history" }).click();
   await expect.poll(reportAtBottom).toBe(true);
   const reportStamp = page
     .locator('[data-kind="result"]')
@@ -1109,7 +1131,7 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   releaseReport();
   heldReport = null;
   await expect(
-    page.getByRole("region", { name: "Worker report", exact: true }),
+    page.getByRole("region", { name: "Proposed result", exact: true }),
   ).toContainText("A detailed finding.");
   await expect(reportStamp).toBeInViewport();
   await expect.poll(reportAtBottom).toBe(false);

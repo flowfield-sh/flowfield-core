@@ -1,3 +1,4 @@
+import { openResource } from "./shell-navigation";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
@@ -8,7 +9,7 @@ test("member projects share coordinator history and a draft", async ({
   request,
 }) => {
   async function openProject(name: string) {
-    await page.getByRole("tab", { name: /^Projects/ }).click();
+    await openResource(page, "Projects");
     await page
       .locator(".project-list-row")
       .filter({ has: page.getByText(name, { exact: true }) })
@@ -168,9 +169,7 @@ test("member projects share coordinator history and a draft", async ({
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(() => messages.length).toBe(3);
   expect(messages[2]).toEqual(messages[1]);
-  await page
-    .getByRole("button", { name: "Back to board", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
   await page.getByLabel("Filter by project").selectOption("");
   await page.getByLabel("Filter by label").selectOption("bug");
   await page.getByRole("button", { name: "Send", exact: true }).click();
@@ -182,7 +181,7 @@ test("member projects share coordinator history and a draft", async ({
   });
   expect(messages[3].task_context).toBeNull();
   expect(messages[3].id).not.toBe(messages[2].id);
-  await page.getByRole("tab", { name: /^Projects/ }).click();
+  await openResource(page, "Projects");
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(() => messages.length).toBe(5);
   expect(messages[4].view_context).toMatchObject({

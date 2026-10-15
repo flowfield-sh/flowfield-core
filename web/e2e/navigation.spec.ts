@@ -1,3 +1,4 @@
+import { openResource } from "./shell-navigation";
 import {
   fixtureCliProject,
   projectWorkspace,
@@ -128,12 +129,13 @@ test("task keys link to persistent selections with history and draft protection"
   ).toBeVisible();
   await closeOverlay(page);
   await page
+    .locator(".workspace-resource-content")
     .getByRole("link", {
       name: /NAV-2 (?:Feature (?:DRAFT )?)?Download the export/,
     })
     .click();
   const prerequisite = editor.getByRole("link", { name: "NAV-1", exact: true });
-  await expect(editor.getByText("Task defined", { exact: true })).toBeVisible();
+  await expect(editor.getByLabel("Current task definition")).toBeVisible();
   await prerequisite.click();
   await expect(page).toHaveURL(/tasks\/NAV-1$/);
   await page.goBack();
@@ -145,12 +147,13 @@ test("task keys link to persistent selections with history and draft protection"
   ).toBeVisible();
   await closeOverlay(page);
   await page
-    .getByRole("link", { name: "Other navigation", exact: true })
-    .click();
+    .getByLabel("Workspace", { exact: true })
+    .selectOption(otherWorkspace);
   await expect(page).toHaveURL(`/workspaces/${otherWorkspace}`);
   await page.goBack();
   await expect(page).toHaveURL(`/workspaces/${workspace}`);
   await page
+    .locator(".workspace-resource-content")
     .getByRole("link", {
       name: /NAV-2 (?:Feature (?:DRAFT )?)?Download the export/,
     })
@@ -289,7 +292,7 @@ test("task metadata and internal Markdown links stay inside the router", async (
   await expect(page).toHaveURL(`/workspaces/${workspace}/milestones/M-1`);
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(boot);
   await page.keyboard.press("Escape");
-  await page.getByRole("tab", { name: /^Milestones/ }).click();
+  await openResource(page, "Milestones");
   await page.locator(".task-card-link").first().click();
   await page.getByRole("link", { name: "View tasks", exact: true }).click();
   await expect(page).toHaveURL(`/workspaces/${workspace}?milestone=questions`);
@@ -325,12 +328,12 @@ test("shared panes preserve the workspace and related return paths on mobile", a
   await expect(board).toBeVisible();
 
   await expect(
-    page.getByRole("tablist", { name: "Workspace views", exact: true }),
+    page.getByRole("tablist", { name: "Open resources", exact: true }),
   ).toContainText("Inbox");
-  await expect(page.locator(".up_next .queue-controls")).toContainText(
+  await expect(page.locator(".workspace-frame .queue-controls")).toContainText(
     "Run queue",
   );
-  await expect(page.locator(".up_next .queue-controls")).toContainText(
+  await expect(page.locator(".workspace-frame .queue-controls")).toContainText(
     "0/1 active",
   );
   await expect(page.getByText("Local workspace · Preview")).toHaveCount(0);
@@ -353,24 +356,20 @@ test("shared panes preserve the workspace and related return paths on mobile", a
   await expect(dialog).toHaveCount(0);
   await expect(card).toBeFocused();
   await expect(page.getByLabel("Filter by milestone")).toHaveValue("group");
-  await page.getByRole("tab", { name: /^Milestones(?: \d+)?$/ }).click();
+  await openResource(page, "Milestones");
   const row = page.locator(".task-card");
   await expect(row).toBeVisible();
   await expect(
-    page.getByRole("tablist", { name: "Workspace views" }),
+    page.getByRole("tablist", { name: "Open resources" }),
   ).toBeVisible();
   await page.locator(".task-card-link").first().click();
   await page.getByRole("link", { name: "View tasks", exact: true }).click();
   await expect(page.getByLabel("Filter by milestone")).toHaveValue("group");
   await card.click();
   await expect(dialog).toBeVisible();
-  await dialog
-    .getByRole("button", { name: /^(Close editor|Back to board)$/ })
-    .click();
+  await dialog.getByRole("button", { name: /^(Close editor|Back)$/ }).click();
   await expect(page).toHaveURL(`/workspaces/${workspace}?milestone=group`);
-  await page
-    .getByRole("button", { name: "Workspace settings", exact: true })
-    .click();
+  await openResource(page, "Workspace settings");
   await expect(
     page.getByRole("dialog", { name: "Workspace settings", exact: true }),
   ).toBeVisible();
@@ -379,14 +378,14 @@ test("shared panes preserve the workspace and related return paths on mobile", a
     page.getByRole("dialog", { name: "Workspace settings", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page).toHaveURL(`/workspaces/${workspace}?milestone=group`);
-  await page.getByRole("tab", { name: /^Milestones(?: \d+)?$/ }).click();
+  await expect(page).toHaveURL(`/workspaces/${workspace}`);
+  await openResource(page, "Milestones");
   await expect(page.locator(".milestone-board")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "New milestone", exact: true }),
   ).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("tab", { name: /^Board / }).click();
+  await openResource(page, "Board");
   await expect(
     page.getByRole("button", { name: "New task", exact: true }),
   ).toHaveCount(0);
@@ -436,10 +435,14 @@ test("closing entity overlays returns through history without duplicate collecti
     .click();
   await page
     .getByRole("button", {
-      name: /^(Close editor|Back to board)$/,
+      name: /^(Close editor|Back)$/,
       exact: true,
     })
     .click();
+  await expect(page).toHaveURL(inbox);
+  await page.goBack();
+  await expect(page).toHaveURL(/conversation\/question:scope:1$/);
+  await page.goBack();
   await expect(page).toHaveURL(inbox);
   await page.goBack();
   await expect(page).toHaveURL(board);
@@ -465,12 +468,14 @@ test("closing entity overlays returns through history without duplicate collecti
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(inbox);
-  await page.goBack();
-  await expect(page).toHaveURL(board);
-  await page.getByRole("link", { name: /HRT-1/ }).first().click();
+  await openResource(page, "Board");
+  await page
+    .locator(".workspace-resource-content")
+    .getByRole("link", { name: /HRT-1/ })
+    .click();
   await page
     .getByRole("button", {
-      name: /^(Close editor|Back to board)$/,
+      name: /^(Close editor|Back)$/,
       exact: true,
     })
     .click();
@@ -479,7 +484,7 @@ test("closing entity overlays returns through history without duplicate collecti
   await page.goto(`/projects/${id}/tasks/HRT-1`);
   await page
     .getByRole("button", {
-      name: /^(Close editor|Back to board)$/,
+      name: /^(Close editor|Back)$/,
       exact: true,
     })
     .click();
@@ -509,7 +514,7 @@ test("entity identity and drafts persist across task and workspace tabs", async 
   await page.goto("/");
   const sidebar = page.locator('[data-slot="sidebar"]');
   const logo = sidebar.getByRole("link", { name: "Flowfield", exact: true });
-  const projectLink = sidebar.getByRole("link", { name: project, exact: true });
+  const projectLink = sidebar.getByLabel("Workspace", { exact: true });
   await expect(projectLink).toBeVisible();
   await expect(
     sidebar.getByRole("button", { name: "Board", exact: true }),
@@ -517,8 +522,11 @@ test("entity identity and drafts persist across task and workspace tabs", async 
 
   await expect(logo).toHaveAttribute("href", "/");
 
-  await projectLink.click();
-  await page.getByRole("link", { name: /IDN-1/ }).click();
+  await projectLink.selectOption(workspace);
+  await page
+    .locator(".workspace-resource-content")
+    .getByRole("link", { name: /IDN-1/ })
+    .click();
   const editor = page.getByRole("region", {
     name: "Task details",
     exact: true,
@@ -528,6 +536,8 @@ test("entity identity and drafts persist across task and workspace tabs", async 
     exact: true,
   });
 
+  await page.getByText("Work details", { exact: true }).click();
+  await page.getByRole("link", { name: "Activity and history" }).click();
   await editor
     .getByRole("link", { name: "Permalink: Task defined", exact: true })
     .click();
@@ -552,9 +562,7 @@ test("entity identity and drafts persist across task and workspace tabs", async 
     await settingsReady;
     await route.continue();
   });
-  await page
-    .getByRole("button", { name: "Workspace settings", exact: true })
-    .click();
+  await openResource(page, "Workspace settings");
   await page.getByRole("tab", { name: "Workers", exact: true }).click();
   await expect(page).toHaveURL(
     new RegExp(`/workspaces/${workspace}/edit/workers$`),
@@ -606,7 +614,7 @@ test.describe("relative timestamps", () => {
     const created = Date.parse(task.updated_at);
     await page.clock.install({ time: new Date(created) });
     await page.clock.pauseAt(new Date(created + 10000));
-    await page.goto(`/projects/${project}/tasks/TIM-1`);
+    await page.goto(`/projects/${project}/tasks/TIM-1/history`);
     const card = page.locator(".conversation-message").first();
     const time = card.locator("time").first();
     await expect(time).toHaveText("just now");
@@ -642,7 +650,7 @@ test.describe("relative timestamps", () => {
   });
 });
 
-test("sidebar rail names remain accessible and idle input opens deliberately", async ({
+test("workspace selector names remain accessible and idle input opens deliberately", async ({
   page,
   request,
 }) => {
@@ -677,8 +685,8 @@ test("sidebar rail names remain accessible and idle input opens deliberately", a
     },
   });
   expect(question.ok()).toBe(true);
-  // Other journeys adopt projects concurrently. Keep this rail's actual records
-  // scoped so a new sibling project cannot scroll the focused trigger away.
+  // Other journeys adopt projects concurrently. Scope the selector's records
+  // so its keyboard choices stay deterministic.
   await page.route("**/api/workspaces", async (route) => {
     const response = await route.fetch();
     const projects = await response.json();
@@ -695,43 +703,27 @@ test("sidebar rail names remain accessible and idle input opens deliberately", a
   });
   await settings.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(settings).not.toBeVisible();
-  const sidebar = page.getByRole("navigation", {
-    name: "Workspaces",
-    exact: true,
-  });
-  const short = sidebar.getByRole("link", { name: "Short", exact: true });
-  await short.scrollIntoViewIfNeeded();
-  await page.evaluate(() => new Promise(requestAnimationFrame));
-  await short.hover();
-  await expect(page.getByRole("tooltip")).toHaveText("Short");
-  await page.keyboard.press("Escape");
-  const long = sidebar.getByRole("link", { name, exact: true });
-  await long.scrollIntoViewIfNeeded();
-  await page.evaluate(() => new Promise(requestAnimationFrame));
-  await long.hover();
-  await expect(page.getByRole("tooltip")).toHaveText(name);
-  await page.keyboard.press("Escape");
-  await page.mouse.move(0, 0);
-  await short.focus();
-  await expect(page.getByRole("tooltip")).toHaveText("Short");
-  await page.keyboard.press("Shift+Tab");
-  await expect(long).toBeFocused();
-  await expect(page.getByRole("tooltip")).toHaveText(name);
-  await page.keyboard.press("Escape");
-  // Mobile uses a conventional project drawer; project views remain above work.
+  const selector = page.getByLabel("Workspace", { exact: true });
+  await expect(selector.locator("option:checked")).toContainText(name);
+  await selector.selectOption(shortWorkspace);
+  await expect(selector.locator("option:checked")).toHaveText("Short");
   await page.setViewportSize({ width: 650, height: 844 });
   await page
     .getByRole("button", { name: "Open workspaces", exact: true })
     .click();
-  await expect(long).toBeVisible();
-  await expect(long.getByLabel("Inbox: 1")).toHaveText("1");
-  await long.click();
+  await expect(
+    selector.locator('option[value="' + workspace + '"]'),
+  ).toHaveText(name + " (1)");
+  await selector.selectOption(workspace);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("tab", { name: /^Inbox 1$/ })).toBeVisible();
   await expect(
     page.getByRole("link", { name: /item needs your attention/ }),
   ).toHaveCount(0);
-  await page.getByRole("link", { name: /Read the current agreement/ }).click();
+  await page
+    .locator(".workspace-resource-content")
+    .getByRole("link", { name: /Read the current agreement/ })
+    .click();
   await expect(page.getByLabel("Current task definition")).toContainText(
     "Definition",
   );
@@ -775,16 +767,15 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/projects/workspace-frame");
   await expect(page.locator("html")).toHaveClass("dark");
-  await expect(
-    page.getByRole("heading", { name: "Workspace frame", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByLabel("Workspace", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("separator", { name: "Resize coordinator and work" }),
   ).toBeVisible();
   await expect(
     page.getByRole("tab", { name: "Coordinator", exact: true }),
   ).toHaveCount(0);
-  const headers = page.locator(".workspace-pane-header");
+  const headers = page.locator(".workspace-pane-header, .workspace-tab-strip");
+  await expect(headers).toHaveCount(2);
   const headerBounds = await headers.evaluateAll((nodes) =>
     nodes.map((node) => ({
       top: node.getBoundingClientRect().top,
@@ -802,13 +793,15 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await expect
     .poll(async () => (await pane.boundingBox())!.width)
     .toBeGreaterThan(before!.width);
-  const projectTabs = page.locator(".workspace-project-tabs");
+  const projectTabs = page.locator(".workspace-tab-strip");
   expect(
     await projectTabs.evaluate(
       (node) => node.scrollHeight === node.clientHeight,
     ),
   ).toBe(true);
-  const card = page.getByRole("link", { name: /Review the workspace layout/ });
+  const card = page
+    .locator(".workspace-resource-content")
+    .getByRole("link", { name: /Review the workspace layout/ });
   await card.click();
   const detail = page.getByRole("region", {
     name: "Task details",
@@ -816,9 +809,9 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   });
   await expect(detail).toBeVisible();
   await expect(
-    page.getByRole("tablist", { name: "Workspace views" }),
+    page.getByRole("tablist", { name: "Open resources" }),
   ).toBeVisible();
-  const back = detail.getByRole("button", { name: "Back to board" });
+  const back = detail.getByRole("button", { name: "Back" });
   const heading = detail.getByRole("heading", { name: /WSF-1/ });
   expect((await back.boundingBox())!.x).toBeLessThan(
     (await heading.boundingBox())!.x,
@@ -826,7 +819,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await page.screenshot({
     path: testInfo.outputPath("task-navigation-desktop.png"),
   });
-  await page.getByRole("tab", { name: /^Board/ }).click();
+  await openResource(page, "Board");
   await expect(detail).not.toBeVisible();
   await expect(card).toBeVisible();
   await page.goBack();
@@ -838,7 +831,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   for (let visit = 0; visit < 2; visit++) {
     await card.click();
     await expect(detail).toBeVisible();
-    await page.getByRole("tab", { name: /^Board/ }).click();
+    await openResource(page, "Board");
     await expect(detail).not.toBeVisible();
     await page.goBack();
     await expect(detail).toBeVisible();
@@ -851,9 +844,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("tab", { name: "Appearance", exact: true }).click();
   await choose(page.getByLabel("Theme", { exact: true }), "light");
-  await page
-    .getByRole("link", { name: "Workspace frame", exact: true })
-    .click();
+  await page.getByLabel("Workspace", { exact: true }).selectOption(workspace);
   await expect(page.locator("html")).not.toHaveClass("dark");
   expect(
     await page
@@ -874,20 +865,18 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("tab", { name: "Appearance", exact: true }).click();
   await choose(page.getByLabel("Theme", { exact: true }), "system");
-  await page
-    .getByRole("link", { name: "Workspace frame", exact: true })
-    .click();
+  await page.getByLabel("Workspace", { exact: true }).selectOption(workspace);
   await expect(page.locator("html")).toHaveClass("dark");
   await page.emulateMedia({ colorScheme: "light" });
   await expect(page.locator("html")).not.toHaveClass("dark");
   await page.getByRole("tab", { name: /^Board/ }).focus();
-  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowLeft");
   await expect(page.getByRole("tab", { name: /^Inbox/ })).toBeFocused();
   await expect(page).toHaveURL(`/workspaces/${workspace}`);
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/inbox$/);
   await page.goBack();
-  await page.getByRole("tab", { name: /^Milestones/ }).click();
+  await openResource(page, "Milestones");
   await expect(page).toHaveURL(/\/milestones$/);
   await page.goBack();
   await expect(page.getByRole("tab", { name: /^Board/ })).toHaveAttribute(
@@ -898,9 +887,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await page
     .getByRole("button", { name: "Open workspaces", exact: true })
     .click();
-  await page
-    .getByRole("link", { name: "Workspace frame", exact: true })
-    .click();
+  await page.getByLabel("Workspace", { exact: true }).selectOption(workspace);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const board = page.locator(".board");
   expect(
@@ -917,12 +904,15 @@ test("workspace navigation, mobile board and appearance work beside the coordina
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await page.getByRole("link", { name: /Review the workspace layout/ }).click();
+  await page
+    .locator(".workspace-resource-content")
+    .getByRole("link", { name: /Review the workspace layout/ })
+    .click();
   await expect(
     page.getByRole("region", { name: "Task details", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("tablist", { name: "Workspace views" }),
+    page.getByRole("tablist", { name: "Open resources" }),
   ).toBeVisible();
   expect(
     await projectTabs.evaluate(
@@ -973,16 +963,13 @@ test("long task tooltips never expand the workspace scroll owners", async ({
     },
   );
   expect(changed.ok()).toBe(true);
-  await page.goto("/projects/tooltip-overflow/tasks/TOV-1");
+  await page.goto("/projects/tooltip-overflow/tasks/TOV-1/history");
   const detail = page.getByRole("region", {
     name: "Task details",
     exact: true,
   });
   await expect(detail).toBeVisible();
-  await detail
-    .getByRole("button", { name: /Expand/ })
-    .first()
-    .click();
+
   await expect(detail.locator(".task-changes summary")).toHaveCount(2);
   for (const summary of await detail.locator(".task-changes summary").all()) {
     await summary.click();

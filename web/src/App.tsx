@@ -1,3 +1,10 @@
+import { hasRetainedDrafts, type DirtyCallback } from "./retainedState";
+import {
+  ResourceNavigation,
+  WorkspaceTabs,
+  useWorkspaceTabs,
+} from "./WorkspaceTabs";
+import { WorkNavigation, WorkList } from "./WorkNavigation";
 import { useLocation } from "react-router";
 import { ProjectOwners, ScopedAnchor } from "./WorkspaceLink";
 import { reportError } from "./requestFeedback";
@@ -21,18 +28,8 @@ import {
 import { WorkspaceFrame } from "./WorkspaceFrame";
 import { useTheme } from "./AppearanceSettings";
 import { FlowfieldSettings, SettingsLink } from "./FlowfieldSettings";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ContentStack } from "./DetailLayout";
 import { WorkCard } from "./WorkCard";
-import {
-  Settings,
-  Columns3,
-  Inbox,
-  Flag,
-  Archive,
-  Folder,
-  FileText,
-} from "lucide-react";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
 import { EntityOverlay, EntityPane } from "./EntityOverlay";
@@ -46,7 +43,7 @@ import { AttentionBoard } from "./AttentionBoard";
 import { MilestoneDetail } from "./MilestoneDetail";
 import { MilestoneList } from "./Milestones";
 import { ArchiveAttribution, TaskIdentity, DraftBadge } from "./Presentation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Board,
   WorkspaceBoard as SharedBoard,
@@ -65,7 +62,6 @@ import { DiscardChangesDialog } from "./DiscardChangesDialog";
 import {
   boardHref,
   followLink,
-  entityPage,
   projectHref,
   workspaceHref,
   taskHref,
@@ -88,16 +84,18 @@ export function App() {
     {},
   );
   const [unsaved, setUnsaved] = useState(false);
+  const navigationDirty = useCallback<DirtyCallback>(
+    (value, retained) => setUnsaved(value && !retained),
+    [],
+  );
   const [overlayDirty, setOverlayDirty] = useState(false);
   const [knownOwners, setKnownOwners] = useState<Record<string, string>>({});
   const {
     params,
     pathname,
-    changeLocation,
+    changeLocation: rawChangeLocation,
     notFound,
     closeQuestion,
-    closeEntity,
-    backgroundPath,
     discardChanges,
   } = useWorkspaceNavigation(
     unsaved,
@@ -106,21 +104,6 @@ export function App() {
     setOverlayDirty,
     chatSettingsDirty,
     knownOwners,
-  );
-  const registerProjects = useCallback(
-    (workspaceId: string, projects: Project[]) => {
-      setKnownOwners((previous) =>
-        projects.every((project) => previous[project.id] === workspaceId)
-          ? previous
-          : {
-              ...previous,
-              ...Object.fromEntries(
-                projects.map((project) => [project.id, workspaceId]),
-              ),
-            },
-      );
-    },
-    [],
   );
   const projectId = params.projectId;
   const {
@@ -156,6 +139,45 @@ export function App() {
     "workspaces/attention-counts",
     `${refresh}:${JSON.stringify(projectRefresh)}`,
   );
+  const tabOwners = useMemo(
+    () =>
+      projectId && workspaceId
+        ? { ...knownOwners, [projectId]: workspaceId }
+        : knownOwners,
+    [knownOwners, projectId, workspaceId],
+  );
+  const boardResource = useResource<SharedBoard>(
+    workspaceId ? `workspaces/${workspaceId}/view/board` : null,
+    workspaceRefresh,
+  );
+  const board = boardResource.data;
+  const tabs = useWorkspaceTabs(
+    workspaceId,
+    rawChangeLocation,
+    tabOwners,
+    board,
+  );
+  const tabGo = tabs.go;
+  const changeLocation = useCallback(
+    (url: string, replace = false) => tabGo(url, "within", replace),
+    [tabGo],
+  );
+  const openResource = useCallback(
+    (url: string) => tabGo(url, "open"),
+    [tabGo],
+  );
+  if (
+    board &&
+    board.projects.some(
+      (project) => knownOwners[project.id] !== board.workspace.id,
+    )
+  )
+    setKnownOwners((previous) => ({
+      ...previous,
+      ...Object.fromEntries(
+        board.projects.map((project) => [project.id, board.workspace.id]),
+      ),
+    }));
   const connectionStatus = connected
     ? live
       ? "Connected"
@@ -244,6 +266,7 @@ export function App() {
   useEffect(() => {
     function guard(e: BeforeUnloadEvent) {
       if (
+        hasRetainedDrafts() ||
         unsaved ||
         overlayDirty ||
         chatSettingsDirty ||
@@ -259,180 +282,248 @@ export function App() {
   }
   return (
     <ProjectOwners.Provider value={knownOwners}>
-      <AnnouncementProvider navigate={changeLocation}>
-        <Toaster theme={appearance.theme} />
-        <WorkspaceFrame
-          workLocation={workLocation}
-          workspaces={workspaces.map((workspace) => ({
-            id: workspace.id,
-            name: workspace.name,
-            href: workspaceHref(workspace.id),
-            inboxCount: attentionCounts?.[workspace.id] ?? 0,
-          }))}
-          activeWorkspaceId={workspaceId ?? ""}
-          onWorkspaceSelect={(workspace) => changeLocation(workspace.href)}
-          onHome={() => changeLocation("/")}
-          onAddWorkspace={() => changeLocation("/new-workspace")}
-          footer={
-            <>
-              <SettingsLink active={pathname.startsWith("/settings/")} />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <p
-                    className="connection"
-                    role="status"
-                    tabIndex={0}
-                    aria-label={connectionStatus}
-                  >
-                    <span className={live ? "live-dot" : "live-dot offline"} />
-                    <span data-sidebar="label">{connectionStatus}</span>
-                  </p>
-                </TooltipTrigger>
-                <TooltipContent side="right">{connectionStatus}</TooltipContent>
-              </Tooltip>
-            </>
-          }
-          coordinator={
-            connected &&
-            workspaceId &&
-            workspace &&
-            !notFound &&
-            !wrongWorkspace &&
-            (!projectId ||
-              (projectWorkspace?.id ?? knownOwners[projectId]) === workspaceId)
-              ? (visible) => (
-                  <CoordinatorChat
-                    key={workspaceId}
-                    workspaceId={workspaceId}
-                    viewPath={pathname}
-                    adjacent={
-                      adjacent?.workspaceId === workspaceId &&
-                      adjacent.pathname === pathname
-                        ? adjacent.context
-                        : null
-                    }
-                    refresh={workspaceRefresh}
-                    drafts={chatDrafts}
-                    onSettingsDirty={setChatSettingsDirty}
-                    controlsActive={
-                      visible &&
-                      (!entityPage(pathname) || !!params.taskKey) &&
-                      !params.overlayQuestionId
-                    }
-                  />
-                )
-              : undefined
-          }
-          work={
-            <>
-              {!connected ? (
-                <section className="welcome">
-                  <h1>
-                    {loading ? "Opening your workspace" : "Service unavailable"}
-                  </h1>
-                  {!loading && (
-                    <>
-                      <p>Check that Flowfield is running, then try again.</p>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setLoading(true);
-                          setRefresh((v) => v + 1);
-                        }}
-                      >
-                        Retry connection
-                      </Button>
-                    </>
-                  )}
-                </section>
-              ) : notFound || wrongWorkspace ? (
-                <section className="welcome">
-                  <h1>Page not found</h1>
-                  <p>Choose a workspace to continue.</p>
-                </section>
-              ) : pathname.startsWith("/settings/") ? (
-                <FlowfieldSettings
-                  onDirty={setUnsaved}
-                  appearance={appearance}
-                  tab={
-                    pathname === "/settings/appearance"
-                      ? "appearance"
-                      : pathname === "/settings/notifications"
-                        ? "notifications"
-                        : pathname === "/settings/updates"
-                          ? "updates"
-                          : "harnesses"
+      <ResourceNavigation.Provider value={openResource}>
+        <AnnouncementProvider navigate={openResource}>
+          <Toaster theme={appearance.theme} />
+          <WorkspaceFrame
+            workLocation={workLocation}
+            workspaces={workspaces.map((workspace) => ({
+              id: workspace.id,
+              name: workspace.name,
+              href: workspaceHref(workspace.id),
+              inboxCount: attentionCounts?.[workspace.id] ?? 0,
+            }))}
+            activeWorkspaceId={workspaceId ?? ""}
+            onWorkspaceSelect={(workspace) => rawChangeLocation(workspace.href)}
+            onHome={() => changeLocation("/")}
+            onAddWorkspace={() => changeLocation("/new-workspace")}
+            navigation={
+              board && workspaceId ? (
+                <WorkNavigation
+                  key={workspaceId}
+                  board={board}
+                  open={openResource}
+                  current={
+                    tabs.state?.tabs.find((t) => t.id === tabs.state?.active)
+                      ?.root ?? pathname
                   }
                 />
-              ) : workspaceId &&
-                workspace &&
-                (!projectId ||
-                  (projectWorkspace?.id ?? knownOwners[projectId]) ===
-                    workspaceId) ? (
-                <WorkspaceBoard
-                  publishView={setAdjacent}
-                  registerProjects={registerProjects}
-                  key={workspaceId}
+              ) : undefined
+            }
+            queue={
+              board && workspaceId ? (
+                <QueueControls
                   workspaceId={workspaceId}
-                  projectId={projectId}
                   refresh={workspaceRefresh}
-                  params={params}
-                  pathname={pathname}
-                  backgroundPath={backgroundPath}
-                  closeEntity={closeEntity}
-                  changeLocation={changeLocation}
-                  navigate={navigate}
-                  setUnsaved={setUnsaved}
-                  setOverlayDirty={setOverlayDirty}
-                  closeQuestion={closeQuestion}
+                  problems={board.projects
+                    .filter((p) => board.project_problems[p.id])
+                    .map((p) => ({
+                      projectId: p.id,
+                      name: p.name,
+                      message: board.project_problems[p.id],
+                    }))}
                 />
-              ) : projectId || workspaceId ? (
-                <section className="welcome">
-                  <h1>
-                    {params.workspaceId || projectWorkspace
-                      ? "Workspace not found"
-                      : projectWorkspaceError
-                        ? "Could not open project"
-                        : "Opening workspace…"}
-                  </h1>
-                  {projectWorkspaceError && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={retryProjectWorkspace}
+              ) : undefined
+            }
+            footer={
+              <>
+                <SettingsLink active={pathname.startsWith("/settings/")} />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <p
+                      className="connection"
+                      role="status"
+                      tabIndex={0}
+                      aria-label={connectionStatus}
                     >
-                      Retry project
-                    </Button>
-                  )}
-                </section>
-              ) : pathname === "/new-workspace" ? (
-                <NewWorkspace
-                  onDirty={setUnsaved}
-                  created={(workspace) => {
-                    setWorkspaces((items) => [
-                      ...items.filter((item) => item.id !== workspace.id),
-                      workspace,
-                    ]);
-                    setRefresh((value) => value + 1);
-                    changeLocation(workspaceHref(workspace.id), true);
-                  }}
-                />
-              ) : (
-                <WorkspaceList workspaces={workspaces} />
-              )}
-            </>
-          }
-        />
-        <DiscardChangesDialog {...discardChanges} />
-      </AnnouncementProvider>
+                      <span
+                        className={live ? "live-dot" : "live-dot offline"}
+                      />
+                      <span data-sidebar="label">{connectionStatus}</span>
+                    </p>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    {connectionStatus}
+                  </TooltipContent>
+                </Tooltip>
+              </>
+            }
+            coordinator={
+              connected &&
+              workspaceId &&
+              workspace &&
+              !notFound &&
+              !wrongWorkspace &&
+              (!projectId ||
+                (projectWorkspace?.id ?? knownOwners[projectId]) ===
+                  workspaceId)
+                ? (visible) => (
+                    <CoordinatorChat
+                      key={workspaceId}
+                      workspaceId={workspaceId}
+                      viewPath={pathname}
+                      adjacent={
+                        adjacent?.workspaceId === workspaceId &&
+                        adjacent.pathname === pathname
+                          ? adjacent.context
+                          : null
+                      }
+                      refresh={workspaceRefresh}
+                      drafts={chatDrafts}
+                      onSettingsDirty={setChatSettingsDirty}
+                      controlsActive={
+                        visible &&
+                        !params.overlayQuestionId &&
+                        !/^\/(?:workspaces|projects)\/[^/]+\/edit(?:\/|$)/.test(
+                          pathname,
+                        )
+                      }
+                    />
+                  )
+                : undefined
+            }
+            work={
+              <>
+                {!connected ? (
+                  <section className="welcome">
+                    <h1>
+                      {loading
+                        ? "Opening your workspace"
+                        : "Service unavailable"}
+                    </h1>
+                    {!loading && (
+                      <>
+                        <p>Check that Flowfield is running, then try again.</p>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setLoading(true);
+                            setRefresh((v) => v + 1);
+                          }}
+                        >
+                          Retry connection
+                        </Button>
+                      </>
+                    )}
+                  </section>
+                ) : notFound || wrongWorkspace ? (
+                  <section className="welcome">
+                    <h1>Page not found</h1>
+                    <p>Choose a workspace to continue.</p>
+                  </section>
+                ) : pathname.startsWith("/settings/") ? (
+                  <FlowfieldSettings
+                    onDirty={setUnsaved}
+                    appearance={appearance}
+                    tab={
+                      pathname === "/settings/appearance"
+                        ? "appearance"
+                        : pathname === "/settings/notifications"
+                          ? "notifications"
+                          : pathname === "/settings/updates"
+                            ? "updates"
+                            : "harnesses"
+                    }
+                  />
+                ) : workspaceId &&
+                  workspace &&
+                  (!projectId ||
+                    (projectWorkspace?.id ?? knownOwners[projectId]) ===
+                      workspaceId) ? (
+                  <WorkspaceTabs controller={tabs} board={board}>
+                    <ResourceNavigation.Provider value={tabs.go}>
+                      <WorkspaceResource
+                        boardResource={boardResource}
+                        publishView={setAdjacent}
+                        key={workspaceId}
+                        workspaceId={workspaceId}
+                        projectId={projectId}
+                        refresh={workspaceRefresh}
+                        params={params}
+                        pathname={pathname}
+                        closeEntity={(fallback) => {
+                          const tab = tabs.state?.tabs.find(
+                            (t) => t.id === tabs.state?.active,
+                          );
+                          if (
+                            /^\/(?:workspaces|projects)\/[^/]+\/edit(?:\/|$)/.test(
+                              pathname,
+                            )
+                          ) {
+                            const origin =
+                              tab?.history
+                                .slice(0, tab.index)
+                                .reduce(
+                                  (previous, url, index) =>
+                                    /^\/(?:workspaces|projects)\/[^/]+\/edit(?:\/|$)/.test(
+                                      url,
+                                    )
+                                      ? previous
+                                      : index,
+                                  -1,
+                                ) ?? -1;
+                            if (tab && origin >= 0)
+                              tabs.step(origin - tab.index);
+                            else changeLocation(fallback);
+                          } else if (tab && tab.index > 0) tabs.step(-1);
+                          else changeLocation(fallback);
+                        }}
+                        changeLocation={changeLocation}
+                        navigate={navigate}
+                        setUnsaved={navigationDirty}
+                        setOverlayDirty={setOverlayDirty}
+                        closeQuestion={closeQuestion}
+                      />
+                    </ResourceNavigation.Provider>
+                  </WorkspaceTabs>
+                ) : projectId || workspaceId ? (
+                  <section className="welcome">
+                    <h1>
+                      {params.workspaceId || projectWorkspace
+                        ? "Workspace not found"
+                        : projectWorkspaceError
+                          ? "Could not open project"
+                          : "Opening workspace…"}
+                    </h1>
+                    {projectWorkspaceError && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={retryProjectWorkspace}
+                      >
+                        Retry project
+                      </Button>
+                    )}
+                  </section>
+                ) : pathname === "/new-workspace" ? (
+                  <NewWorkspace
+                    onDirty={setUnsaved}
+                    created={(workspace) => {
+                      setWorkspaces((items) => [
+                        ...items.filter((item) => item.id !== workspace.id),
+                        workspace,
+                      ]);
+                      setRefresh((value) => value + 1);
+                      changeLocation(workspaceHref(workspace.id), true);
+                    }}
+                  />
+                ) : (
+                  <WorkspaceList workspaces={workspaces} />
+                )}
+              </>
+            }
+          />
+          <DiscardChangesDialog {...discardChanges} />
+        </AnnouncementProvider>
+      </ResourceNavigation.Provider>
     </ProjectOwners.Provider>
   );
 }
 
-function WorkspaceBoard({
+function WorkspaceResource({
   publishView,
   workspaceId,
-  registerProjects,
+  boardResource,
   projectId,
   refresh,
   params,
@@ -443,22 +534,20 @@ function WorkspaceBoard({
   setOverlayDirty,
   closeQuestion,
   closeEntity,
-  backgroundPath,
 }: {
   workspaceId: string;
   publishView: (snapshot: AdjacentSnapshot) => void;
-  registerProjects: (workspaceId: string, projects: Project[]) => void;
+  boardResource: ReturnType<typeof useResource<SharedBoard>>;
   projectId?: string;
   refresh: string;
   params: Record<string, string | undefined>;
   pathname: string;
   changeLocation: (url: string, replace?: boolean) => void;
   navigate: (action: () => void) => void;
-  setUnsaved: (v: boolean) => void;
+  setUnsaved: DirtyCallback;
   setOverlayDirty: (v: boolean) => void;
   closeQuestion: () => void;
   closeEntity: (fallback: string) => void;
-  backgroundPath?: string;
 }) {
   const [retry, setRetry] = useState(0);
   const path = `workspaces/${workspaceId}`;
@@ -466,28 +555,7 @@ function WorkspaceBoard({
     ? `projects/${encodeURIComponent(projectId)}`
     : "";
   const base = workspaceHref(workspaceId);
-  const {
-    data: board,
-    setData: setBoard,
-    error,
-    invalidate,
-  } = useResource<SharedBoard>(`${path}/view/board`, `${refresh}:${retry}`);
-  useEffect(() => {
-    if (board) registerProjects(workspaceId, board.projects);
-  }, [board, workspaceId, registerProjects]);
-  const viewTabs = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const strip = viewTabs.current;
-    if (!strip) return;
-    const reveal = () =>
-      strip
-        .querySelector<HTMLElement>('[data-state="active"]')
-        ?.scrollIntoView({ block: "nearest", inline: "nearest" });
-    reveal();
-    const observer = new ResizeObserver(reveal);
-    observer.observe(strip);
-    return () => observer.disconnect();
-  }, [pathname, board?.workspace.id]);
+  const { data: board, setData: setBoard, error, invalidate } = boardResource;
   const questionSelected = params.questionId !== undefined;
   const taskRef = params.taskKey;
   const {
@@ -534,7 +602,7 @@ function WorkspaceBoard({
                 pathname.startsWith(`${projectHref(projectId)}/edit/`))
             ? { kind: "project", id: projectId }
             : null;
-  const background = (backgroundPath ?? pathname).split("?")[0];
+  const background = pathname;
   const inView = (view: string) =>
     background === `${base}/${view}` ||
     background.startsWith(`${base}/${view}/`) ||
@@ -543,15 +611,14 @@ function WorkspaceBoard({
         background.startsWith(`${projectHref(projectId)}/${view}/`)));
   const projectsView =
     background === `${base}/projects` || background === `${base}/projects/new`;
+  const allWorkView = pathname === `${base}/work`;
   const documentsView = pathname.startsWith(`${base}/documents`);
   const addingProject = pathname.endsWith("/projects/new");
   const selectedProject = board?.projects.find(
     (project) => project.id === projectId,
   );
   const location = useLocation();
-  const query = new URLSearchParams(
-    backgroundPath?.split("?")[1] ?? location.search,
-  );
+  const query = new URLSearchParams(location.search);
   const projectFilter = query.get("project") ?? "";
   const labelFilter = query.get("label") ?? "";
   const filter = query.get("milestone") ?? "";
@@ -563,8 +630,7 @@ function WorkspaceBoard({
   }
   const milestonesView = inView("milestones");
   const showInbox = inView("inbox");
-  const archive =
-    inView("archive") || (!backgroundPath && !!selectedTask?.archived);
+  const archive = inView("archive");
   const surface = params.milestoneId
     ? "milestone"
     : taskRef
@@ -701,7 +767,10 @@ function WorkspaceBoard({
           <Button
             size="sm"
             variant="outline"
-            onClick={() => setRetry((v) => v + 1)}
+            onClick={() => {
+              boardResource.retry();
+              setRetry((v) => v + 1);
+            }}
           >
             Retry board
           </Button>
@@ -716,44 +785,12 @@ function WorkspaceBoard({
       (!filter ||
         (filter === "none" ? !t.milestone_id : t.milestone_id === filter)),
   );
-  const activeTasks = board.tasks.filter((t) => !t.archived);
   const incoming =
     selection?.kind === "project"
       ? selectedProject
       : selection?.kind === "task"
         ? (taskDetail ?? undefined)
         : viewedMilestone;
-  const view = documentsView
-    ? "documents"
-    : projectsView
-      ? "projects"
-      : showInbox
-        ? "inbox"
-        : milestonesView
-          ? "milestones"
-          : archive
-            ? "archive"
-            : "board";
-  function openView(value: string) {
-    navigate(() =>
-      changeLocation(
-        base +
-          (value === "board" ? "" : "/" + value) +
-          (["board", "inbox", "archive"].includes(value) && query.size
-            ? "?" + query
-            : ""),
-      ),
-    );
-  }
-  function viewTrigger(value: string) {
-    return {
-      value,
-      // Radix does not emit a value change for the already selected tab.
-      onClick: () => {
-        if (value === view) openView(value);
-      },
-    };
-  }
   const editorPanel = (
     <>
       {selection?.id &&
@@ -821,6 +858,7 @@ function WorkspaceBoard({
           />
         ) : selection.kind === "milestone" ? (
           <MilestoneDetail
+            board={board}
             key={`${selection.id}:${params.milestoneRevision ?? "latest"}`}
             milestone={incoming as Milestone}
             refresh={refresh}
@@ -860,389 +898,315 @@ function WorkspaceBoard({
   );
   return (
     <LabelCatalog value={board.labels}>
-      <header className="workspace-pane-header">
-        <h1>{board.workspace.name}</h1>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label="Workspace settings"
-          onClick={() => changeLocation(`${base}/edit`)}
-        >
-          <Settings />
-        </Button>
-      </header>
-      <Tabs
-        className="workspace-project-view"
-        activationMode="manual"
-        value={view}
-        onValueChange={openView}
-      >
-        <div className="workspace-project-tabs" ref={viewTabs}>
-          <TabsList variant="line" aria-label="Workspace views">
-            <TabsTrigger {...viewTrigger("board")}>
-              <Columns3 /> Board
-              {activeTasks.length > 0 && (
-                <span className="nav-count">{activeTasks.length}</span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger {...viewTrigger("inbox")}>
-              <Inbox /> Inbox
-              {board.needs_you_count > 0 && (
-                <span className="nav-count needs-attention">
-                  {board.needs_you_count}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger {...viewTrigger("projects")}>
-              <Folder /> Projects
-              <span className="nav-count">{board.projects.length}</span>
-            </TabsTrigger>
-            <TabsTrigger {...viewTrigger("milestones")}>
-              <Flag /> Milestones
-              {board.milestones.length > 0 && (
-                <span className="nav-count">{board.milestones.length}</span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger {...viewTrigger("documents")}>
-              <FileText /> Documents{" "}
-              <span className="nav-count">{board.document_count}</span>
-            </TabsTrigger>
-            <TabsTrigger {...viewTrigger("archive")}>
-              <Archive /> Archive
-              {board.tasks.length > activeTasks.length && (
-                <span className="nav-count">
-                  {board.tasks.length - activeTasks.length}
-                </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
-        </div>
-        <TabsContent
-          value={view}
-          className={`${documentsView && params.documentId ? "workspace-detail-content " : ""}workspace-work-content ${!projectsView && !documentsView && !showInbox && !archive ? "workspace-task-board" : ""}`}
-          hidden={!!taskRef || !!params.milestoneId}
-        >
-          {!projectsView && !documentsView && (
-            <div className="board-toolbar">
-              {!milestonesView && (
-                <div className="actions board-filters">
-                  <NativeSelect
-                    size="sm"
-                    aria-label="Filter by project"
-                    value={projectFilter}
-                    onChange={(event) =>
-                      changeFilter("project", event.target.value)
-                    }
-                  >
-                    <option value="">All projects</option>
-                    {board.projects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.name}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                  {!showInbox && (
+      {!selection &&
+        !workspaceSettings &&
+        !addingProject &&
+        !questionSelected && (
+          <div
+            className={`${documentsView && params.documentId ? "workspace-detail-content " : ""}workspace-work-content ${!allWorkView && !projectsView && !documentsView && !showInbox && !archive ? "workspace-task-board" : ""}`}
+          >
+            {!allWorkView && !projectsView && !documentsView && (
+              <div className="board-toolbar">
+                {!milestonesView && (
+                  <div className="actions board-filters">
                     <NativeSelect
                       size="sm"
-                      aria-label="Filter by milestone"
-                      value={filter}
-                      onChange={(e) =>
-                        changeFilter("milestone", e.target.value)
+                      aria-label="Filter by project"
+                      value={projectFilter}
+                      onChange={(event) =>
+                        changeFilter("project", event.target.value)
                       }
                     >
-                      <option value="">All work</option>
-                      <option value="none">Without a milestone</option>
-                      {board.milestones.map((milestone) => (
-                        <option key={milestone.id} value={milestone.id}>
-                          {milestone.key} · {milestone.title}
+                      <option value="">All projects</option>
+                      {board.projects.map((project) => (
+                        <option key={project.id} value={project.id}>
+                          {project.name}
                         </option>
                       ))}
                     </NativeSelect>
-                  )}
-                  {!showInbox && (
-                    <NativeSelect
-                      size="sm"
-                      aria-label="Filter by label"
-                      value={labelFilter}
-                      onChange={(event) =>
-                        changeFilter("label", event.target.value)
-                      }
-                    >
-                      <option value="">All labels</option>
-                      {board.labels
-                        .filter((item) => !item.deleted_at)
-                        .map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.name}
+                    {!showInbox && (
+                      <NativeSelect
+                        size="sm"
+                        aria-label="Filter by milestone"
+                        value={filter}
+                        onChange={(e) =>
+                          changeFilter("milestone", e.target.value)
+                        }
+                      >
+                        <option value="">All work</option>
+                        <option value="none">Without a milestone</option>
+                        {board.milestones.map((milestone) => (
+                          <option key={milestone.id} value={milestone.id}>
+                            {milestone.key} · {milestone.title}
                           </option>
                         ))}
-                    </NativeSelect>
+                      </NativeSelect>
+                    )}
+                    {!showInbox && (
+                      <NativeSelect
+                        size="sm"
+                        aria-label="Filter by label"
+                        value={labelFilter}
+                        onChange={(event) =>
+                          changeFilter("label", event.target.value)
+                        }
+                      >
+                        <option value="">All labels</option>
+                        {board.labels
+                          .filter((item) => !item.deleted_at)
+                          .map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name}
+                            </option>
+                          ))}
+                      </NativeSelect>
+                    )}
+                  </div>
+                )}
+
+                <div className="actions">
+                  {projectFilter && !milestonesView && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        choose({ kind: "project", id: projectFilter })
+                      }
+                    >
+                      Project settings
+                    </Button>
                   )}
                 </div>
-              )}
-
-              <div className="actions">
-                {projectFilter && !milestonesView && (
+              </div>
+            )}
+            {allWorkView ? (
+              <WorkList board={board} all />
+            ) : projectsView ? (
+              <ProjectList
+                projects={board.projects}
+                problems={board.project_problems}
+                workspaceId={workspaceId}
+              />
+            ) : documentsView ? (
+              <Documents
+                key={workspaceId}
+                workspaceId={workspaceId}
+                close={() => closeEntity(`${base}/documents`)}
+                identity={params.documentId}
+                revision={params.documentRevision}
+                pathname={pathname}
+                projects={board.projects}
+                refresh={refresh}
+                onDirty={setUnsaved}
+                navigate={changeLocation}
+                publishView={publishView}
+              />
+            ) : milestonesView ? (
+              <MilestoneList board={board} />
+            ) : showInbox ? (
+              <AttentionBoard
+                board={board}
+                onDirty={setUnsaved}
+                workspaceId={workspaceId}
+                projectId={projectFilter || undefined}
+                identity={params.questionId}
+                refresh={refresh}
+              />
+            ) : (
+              <ContentStack
+                space="section"
+                className={archive ? undefined : "board-content"}
+              >
+                {error && (
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() =>
-                      choose({ kind: "project", id: projectFilter })
-                    }
+                    onClick={() => setRetry((v) => v + 1)}
                   >
-                    Project settings
+                    Refresh board
                   </Button>
                 )}
-              </div>
-            </div>
-          )}
-          {projectsView ? (
-            <ProjectList
-              projects={board.projects}
-              problems={board.project_problems}
-              workspaceId={workspaceId}
-            />
-          ) : documentsView ? (
-            <Documents
-              key={workspaceId}
-              workspaceId={workspaceId}
-              close={() => closeEntity(`${base}/documents`)}
-              identity={params.documentId}
-              revision={params.documentRevision}
-              pathname={pathname}
-              projects={board.projects}
-              refresh={refresh}
-              onDirty={setUnsaved}
-              navigate={changeLocation}
-              publishView={publishView}
-            />
-          ) : milestonesView ? (
-            <MilestoneList board={board} />
-          ) : showInbox ? (
-            <AttentionBoard
-              board={board}
-              onDirty={setUnsaved}
-              workspaceId={workspaceId}
-              projectId={projectFilter || undefined}
-              identity={params.questionId}
-              refresh={refresh}
-            />
-          ) : (
-            <ContentStack
-              space="section"
-              className={archive ? undefined : "board-content"}
-            >
-              {error && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setRetry((v) => v + 1)}
-                >
-                  Refresh board
-                </Button>
-              )}
-              {!board.projects.length && !archive && (
-                <div className="actions px-4">
-                  <p>Add a project to start creating tasks.</p>
-                  <Button
-                    size="sm"
-                    onClick={() => changeLocation(`${base}/projects/new`)}
-                  >
-                    Add project
-                  </Button>
-                </div>
-              )}
-              <div className={archive ? "collection-layout" : "board-layout"}>
-                {archive ? (
-                  <ArchiveList
-                    tasks={visible}
-                    milestones={board.milestones}
-                    selection={selection}
-                    filtered={!!filter}
-                    choose={choose}
-                  />
-                ) : (
-                  <div className="board" aria-label="Task board">
-                    {columns.map((column) => {
-                      const tasks = visible
-                        .filter((t) => t.status === column)
-                        .sort(compareTasks);
-                      return (
-                        <section
-                          className={`column ${column}`}
-                          aria-label={label(column)}
-                          key={column}
-                        >
-                          <h2>
-                            {label(column)}
-                            <span className="count">{tasks.length}</span>
-                          </h2>
-                          {column === "up_next" && (
-                            <QueueControls
-                              workspaceId={workspaceId}
-                              problems={board.projects
-                                .filter(
-                                  (project) =>
-                                    (!projectFilter ||
-                                      project.id === projectFilter) &&
-                                    board.project_problems[project.id],
-                                )
-                                .map((project) => ({
-                                  projectId: project.id,
-                                  name: project.name,
-                                  message: board.project_problems[project.id],
-                                }))}
-                              refresh={refresh}
-                            />
-                          )}
-                          <div
-                            className="column-cards"
-                            tabIndex={0}
-                            role="region"
-                            aria-label={`${label(column)} tasks`}
-                          >
-                            {tasks.map((task) => (
-                              <div className="card-shell" key={task.key}>
-                                <WorkCard
-                                  selected={
-                                    selection?.id === task.key &&
-                                    selection.kind === "task"
-                                  }
-                                >
-                                  <TaskIdentity
-                                    task={task}
-                                    title={
-                                      <ScopedAnchor
-                                        className="task-card-link"
-                                        aria-label={`${task.key} ${task.title}`}
-                                        href={taskHref(task.project_id, task)}
-                                        draggable={false}
-                                        onClick={(event) =>
-                                          followLink(event, () =>
-                                            choose({
-                                              kind: "task",
-                                              id: task.key,
-                                            }),
-                                          )
-                                        }
-                                      >
-                                        {task.title}
-                                      </ScopedAnchor>
-                                    }
-                                    metadata={
-                                      <>
-                                        <MilestoneBadge
-                                          projectId={task.project_id}
-                                          milestone={board.milestones.find(
-                                            (m) => m.id === task.milestone_id,
-                                          )}
-                                        />
-                                        <DraftBadge
-                                          publicationStatus={
-                                            task.publication_status
-                                          }
-                                        />
-                                      </>
-                                    }
-                                  />
-                                  {(task.state?.tone !== "idle" ||
-                                    !!task.document_updates?.length ||
-                                    !!task.milestone_update) && (
-                                    <TaskState
-                                      task={task}
-                                      projectId={task.project_id}
-                                      open={(id) =>
-                                        choose({
-                                          kind: "task",
-                                          id:
-                                            board.tasks.find(
-                                              (item) =>
-                                                item.project_id ===
-                                                  task.project_id &&
-                                                (item.id === id ||
-                                                  item.key === id),
-                                            )?.key ?? id,
-                                        })
-                                      }
-                                      linked
-                                    />
-                                  )}
-                                  {hasTaskNeeds(
-                                    task,
-                                    board.pending_code[task.key],
-                                    !task.state,
-                                  ) && (
-                                    <TaskNeeds
-                                      task={task}
-                                      projectId={task.project_id}
-                                      pendingCode={board.pending_code[task.key]}
-                                      showQuestions={!task.state}
-                                      open={(id) =>
-                                        choose({
-                                          kind: "task",
-                                          id:
-                                            board.tasks.find(
-                                              (item) =>
-                                                item.project_id ===
-                                                  task.project_id &&
-                                                (item.id === id ||
-                                                  item.key === id),
-                                            )?.key ?? id,
-                                        })
-                                      }
-                                    />
-                                  )}
-                                </WorkCard>
-                              </div>
-                            ))}
-                            {!tasks.length && (
-                              <p className="empty-column">
-                                {column === "backlog"
-                                  ? "Ideas and future work"
-                                  : column === "up_next"
-                                    ? "Choose what matters next"
-                                    : column === "done"
-                                      ? "Finished outcomes"
-                                      : "No work here yet"}
-                              </p>
-                            )}
-                          </div>
-                        </section>
-                      );
-                    })}
+                {!board.projects.length && !archive && (
+                  <div className="actions px-4">
+                    <p>Add a project to start creating tasks.</p>
+                    <Button
+                      size="sm"
+                      onClick={() => changeLocation(`${base}/projects/new`)}
+                    >
+                      Add project
+                    </Button>
                   </div>
                 )}
-              </div>
-            </ContentStack>
-          )}
-        </TabsContent>
-        {(selection?.kind === "task" || selection?.kind === "milestone") &&
-        selection.id ? (
+                <div className={archive ? "collection-layout" : "board-layout"}>
+                  {archive ? (
+                    <ArchiveList
+                      tasks={visible}
+                      milestones={board.milestones}
+                      selection={selection}
+                      filtered={!!filter}
+                      choose={choose}
+                    />
+                  ) : (
+                    <div className="board" aria-label="Task board">
+                      {columns.map((column) => {
+                        const tasks = visible
+                          .filter((t) => t.status === column)
+                          .sort(compareTasks);
+                        return (
+                          <section
+                            className={`column ${column}`}
+                            aria-label={label(column)}
+                            key={column}
+                          >
+                            <h2>
+                              {label(column)}
+                              <span className="count">{tasks.length}</span>
+                            </h2>
+                            <div
+                              className="column-cards"
+                              tabIndex={0}
+                              role="region"
+                              aria-label={`${label(column)} tasks`}
+                            >
+                              {tasks.map((task) => (
+                                <div className="card-shell" key={task.key}>
+                                  <WorkCard>
+                                    <TaskIdentity
+                                      task={task}
+                                      title={
+                                        <ScopedAnchor
+                                          className="task-card-link"
+                                          aria-label={`${task.key} ${task.title}`}
+                                          href={taskHref(task.project_id, task)}
+                                          draggable={false}
+                                          onClick={(event) =>
+                                            followLink(event, () =>
+                                              choose({
+                                                kind: "task",
+                                                id: task.key,
+                                              }),
+                                            )
+                                          }
+                                        >
+                                          {task.title}
+                                        </ScopedAnchor>
+                                      }
+                                      metadata={
+                                        <>
+                                          <MilestoneBadge
+                                            projectId={task.project_id}
+                                            milestone={board.milestones.find(
+                                              (m) => m.id === task.milestone_id,
+                                            )}
+                                          />
+                                          <DraftBadge
+                                            publicationStatus={
+                                              task.publication_status
+                                            }
+                                          />
+                                        </>
+                                      }
+                                    />
+                                    {(task.state?.tone !== "idle" ||
+                                      !!task.document_updates?.length ||
+                                      !!task.milestone_update) && (
+                                      <TaskState
+                                        task={task}
+                                        projectId={task.project_id}
+                                        open={(id) =>
+                                          choose({
+                                            kind: "task",
+                                            id:
+                                              board.tasks.find(
+                                                (item) =>
+                                                  item.project_id ===
+                                                    task.project_id &&
+                                                  (item.id === id ||
+                                                    item.key === id),
+                                              )?.key ?? id,
+                                          })
+                                        }
+                                        linked
+                                      />
+                                    )}
+                                    {hasTaskNeeds(
+                                      task,
+                                      board.pending_code[task.key],
+                                      !task.state,
+                                    ) && (
+                                      <TaskNeeds
+                                        task={task}
+                                        projectId={task.project_id}
+                                        pendingCode={
+                                          board.pending_code[task.key]
+                                        }
+                                        showQuestions={!task.state}
+                                        open={(id) =>
+                                          choose({
+                                            kind: "task",
+                                            id:
+                                              board.tasks.find(
+                                                (item) =>
+                                                  item.project_id ===
+                                                    task.project_id &&
+                                                  (item.id === id ||
+                                                    item.key === id),
+                                              )?.key ?? id,
+                                          })
+                                        }
+                                      />
+                                    )}
+                                  </WorkCard>
+                                </div>
+                              ))}
+                              {!tasks.length && (
+                                <p className="empty-column">
+                                  {column === "backlog"
+                                    ? "Ideas and future work"
+                                    : column === "up_next"
+                                      ? "Choose what matters next"
+                                      : column === "done"
+                                        ? "Finished outcomes"
+                                        : "No work here yet"}
+                                </p>
+                              )}
+                            </div>
+                          </section>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </ContentStack>
+            )}
+          </div>
+        )}
+      {(selection?.kind === "task" || selection?.kind === "milestone") &&
+      selection.id ? (
+        <EntityPane
+          label={
+            selection.kind === "milestone"
+              ? "Milestone details"
+              : "Task details"
+          }
+          identity={`${selection.id}:${params.milestoneRevision ?? "latest"}`}
+          close={() => choose(null)}
+          returnFocusHref={selectionUrl(selection)}
+        >
+          {editorPanel}
+        </EntityPane>
+      ) : (
+        selection && (
           <EntityPane
-            label={
-              selection.kind === "milestone"
-                ? "Milestone details"
-                : "Task details"
-            }
-            identity={`${selection.id}:${params.milestoneRevision ?? "latest"}`}
-            close={() => choose(null)}
+            identity={`${selection.kind}:${selection.id}`}
+            label="Project details"
             returnFocusHref={selectionUrl(selection)}
+            close={() => choose(null)}
           >
             {editorPanel}
           </EntityPane>
-        ) : (
-          selection && (
-            <EntityOverlay
-              identity={`${selection.kind}:${selection.id}`}
-              title="Project details"
-              suspended={!!params.overlayQuestionId}
-              close={() => choose(null)}
-            >
-              {editorPanel}
-            </EntityOverlay>
-          )
-        )}
-      </Tabs>
+        )
+      )}
       {addingProject && (
         <EntityOverlay
           title="Add a project"

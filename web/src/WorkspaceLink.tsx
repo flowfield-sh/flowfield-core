@@ -1,6 +1,7 @@
 import { Link, useLocation, type LinkProps } from "react-router";
 import { createContext, useContext, type ComponentProps } from "react";
-import { canonicalHref, entityNavigationState } from "./navigation";
+import { ResourceNavigation } from "./WorkspaceTabs";
+import { canonicalHref, followLink } from "./navigation";
 
 export const ProjectOwners = createContext<Record<string, string>>({});
 export function ScopedAnchor({ href, ...props }: ComponentProps<"a">) {
@@ -15,18 +16,25 @@ export function WorkspaceLink({
 }: Omit<LinkProps, "to" | "state"> & { to: string }) {
   const location = useLocation();
   const owners = useContext(ProjectOwners);
-  to = canonicalHref(to, owners);
+  const navigate = useContext(ResourceNavigation);
+  const resolved = new URL(
+    to,
+    window.location.origin + location.pathname + location.search,
+  );
+  const target = canonicalHref(
+    resolved.pathname + resolved.search + resolved.hash,
+    owners,
+  );
   return (
     <Link
       {...props}
-      to={to}
-      state={entityNavigationState(
-        location.pathname + location.search,
-        location.state,
-        to,
-        false,
-        owners,
-      )}
+      to={target}
+      onClick={(event) => {
+        props.onClick?.(event);
+        if (!event.defaultPrevented && navigate)
+          followLink(event, () => navigate(target));
+      }}
+      state={location.state}
     />
   );
 }

@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import type { DirtyCallback } from "./retainedState";
+import { useContext, useEffect, useState } from "react";
+import { ResourceTitles } from "./WorkspaceTabs";
 import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +44,7 @@ export function Documents({
   revision?: string;
   pathname: string;
   refresh: string;
-  onDirty: (value: boolean) => void;
+  onDirty: DirtyCallback;
   navigate: (path: string, replace?: boolean) => void;
   publishView: (value: AdjacentSnapshot) => void;
   close: () => void;
@@ -58,6 +60,11 @@ export function Documents({
     refresh,
   );
   const document = revision ? historical.data : latest.data;
+  const labelResource = useContext(ResourceTitles);
+  useEffect(() => {
+    if (latest.data)
+      labelResource?.(`${base}/${latest.data.id}`, latest.data.title);
+  }, [latest.data, base, labelResource]);
   const view = identity
     ? document
       ? {
@@ -261,7 +268,7 @@ function DocumentEditor({
   projects: Project[];
   path: string;
   base: string;
-  onDirty: (value: boolean) => void;
+  onDirty: DirtyCallback;
   saved: (record: Document, method: string) => void;
   read: () => Promise<Document>;
   close: () => void;
@@ -273,6 +280,7 @@ function DocumentEditor({
     saved,
     read,
     recordName: "document",
+    retainedKey: `${path}/${incoming.id}:${historical ? incoming.revision : "latest"}`,
     path: (record) => `${path}/${record!.id}`,
   });
   const {
@@ -299,6 +307,24 @@ function DocumentEditor({
         closeLabel="Back"
         actions={
           <div className="actions">
+            {!editing && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  window.dispatchEvent(
+                    new CustomEvent("flowfield:discuss-document", {
+                      detail: {
+                        workspaceId,
+                        text: `Discuss the impact of ${selected.title}, revision ${selected.revision}: ${base}/${selected.id}/revisions/${selected.revision}. Which current work should adopt this version, and what evidence needs refreshing?`,
+                      },
+                    }),
+                  )
+                }
+              >
+                Discuss impact
+              </Button>
+            )}
             {historical || selected.deleted_at ? (
               <>
                 <Button size="sm" variant="outline" asChild>

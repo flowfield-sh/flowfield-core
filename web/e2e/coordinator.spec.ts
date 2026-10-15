@@ -265,7 +265,9 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     page.getByRole("heading", { name: "Coordinator" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: /CHT-1.*Plan the chat experience/ }),
+    page
+      .locator(".workspace-resource-content")
+      .getByRole("link", { name: /CHT-1.*Plan the chat experience/ }),
   ).toBeVisible();
   const input = page.getByRole("textbox", { name: "Message coordinator" });
   expect(discoveries).toBe(0);
@@ -298,7 +300,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   ).toBeVisible();
   await expect(page.getByLabel("Harness", { exact: true })).toBeEnabled();
   await page.keyboard.press("Escape");
-  await input.click();
+  await input.click({ position: { x: 8, y: 8 } });
   await input.fill("/unknown");
   await page
     .getByRole("combobox", { name: "Message coordinator" })
@@ -326,8 +328,12 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     page.getByRole("button", { name: "Send", exact: true }),
   ).toBeEnabled();
   await input.fill("Keep my project draft");
-  await page.getByRole("link", { name: "Chat Other", exact: true }).click();
-  await page.getByRole("link", { name: "Chat Browser", exact: true }).click();
+  await page
+    .getByLabel("Workspace", { exact: true })
+    .selectOption({ label: "Chat Other" });
+  await page
+    .getByLabel("Workspace", { exact: true })
+    .selectOption({ label: "Chat Browser" });
   await expect(input).toHaveValue("Keep my project draft");
   await expect(
     page.getByRole("button", { name: "Remove notes.txt" }),
@@ -541,46 +547,15 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   await expect(
     page.getByRole("button", { name: "Collapse projects" }),
   ).toHaveCount(0);
-  const rail = page.locator('[data-sidebar="sidebar"]').first();
   for (const control of [
     page.getByRole("link", { name: "Flowfield", exact: true }),
     page.getByRole("link", { name: "Settings", exact: true }),
     page.getByRole("button", { name: "New workspace", exact: true }),
-    page.getByRole("link", { name: "Chat Browser", exact: true }),
+    page.getByLabel("Workspace", { exact: true }),
     page.locator(".connection"),
-  ]) {
-    await expect
-      .poll(
-        async () => {
-          const bounds = await rail.boundingBox();
-          const icon = await control
-            .locator("svg, img, .project-badge, .live-dot")
-            .first()
-            .boundingBox();
-          return Math.abs(
-            bounds!.x + bounds!.width / 2 - icon!.x - icon!.width / 2,
-          );
-        },
-        {
-          message: `Centered ${(await control.getAttribute("aria-label")) ?? "connection"}`,
-        },
-      )
-      .toBeLessThan(1);
-  }
-  await page.screenshot({ path: testInfo.outputPath("collapsed-sidebar.png") });
-  const connection = page.locator(".connection");
-  await expect(connection.locator(".live-dot")).toBeVisible();
-  await expect
-    .poll(async () =>
-      connection.evaluate((el) => {
-        const frame = el.getBoundingClientRect();
-        const dot = el.querySelector(".live-dot")!.getBoundingClientRect();
-        return Math.abs(
-          (frame.left + frame.right) / 2 - (dot.left + dot.right) / 2,
-        );
-      }),
-    )
-    .toBeLessThan(1);
+  ])
+    await expect(control).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("workspace-sidebar.png") });
   await expect(
     page.getByRole("button", { name: "Expand projects" }),
   ).toHaveCount(0);
@@ -828,7 +803,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   await expect(effort).toBeDisabled();
   await expect(page.getByRole("listbox")).toHaveCount(0);
   await expect(effort).toHaveText("Loading efforts…");
-  await input.click();
+  await input.click({ position: { x: 8, y: 8 } });
   await expect(model).not.toBeVisible();
   await input.fill("Plan something useful");
   await page.getByLabel("Attach files", { exact: true }).setInputFiles({
@@ -855,7 +830,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   await choose(effort, "high");
   await choose(page.getByRole("combobox", { name: "Access mode" }), "agent");
   await expect(send).toBeDisabled();
-  await input.click();
+  await input.click({ position: { x: 8, y: 8 } });
   await expect(model).not.toBeVisible();
   await expect(input).toBeEditable();
   await page
@@ -928,7 +903,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
     .click();
   await expect(model).toHaveAttribute("data-value", "second");
   await expect(effort).toHaveAttribute("data-value", "high");
-  await input.click();
+  await input.click({ position: { x: 8, y: 8 } });
   await send.click();
   await expect(
     page.locator("[data-sonner-toast][data-type=error]"),
@@ -1167,7 +1142,10 @@ test("automatic task context preserves one coordinator and immutable retry recei
   await page.goto(`/projects/${project}`);
   const input = page.getByLabel("Message coordinator", { exact: true });
   await input.fill("Explain this scope");
-  await page.getByRole("link", { name: /FOC-1.*Define the search/ }).click();
+  await page
+    .locator(".workspace-resource-content")
+    .getByRole("link", { name: /FOC-1.*Define the search/ })
+    .click();
   const detail = page.getByRole("region", {
     name: "Task details",
     exact: true,
@@ -1212,20 +1190,26 @@ test("automatic task context preserves one coordinator and immutable retry recei
     animations: "disabled",
     path: testInfo.outputPath("task-beside-coordinator.png"),
   });
-  await detail.getByRole("button", { name: "Back to board" }).click();
-  await page.getByRole("link", { name: /FOC-2.*Review the index/ }).click();
+  await detail.getByRole("button", { name: "Back" }).click();
+  await page
+    .locator(".workspace-resource-content")
+    .getByRole("link", { name: /FOC-2.*Review the index/ })
+    .click();
   await expect(
     page.getByRole("group", { name: "Message task context" }),
   ).toHaveCount(0);
   await expect(
     page.getByRole("region", { name: "Coordinator conversation" }),
   ).toContainText("FOC-1");
-  await detail.getByRole("button", { name: "Back to board" }).click();
+  await detail.getByRole("button", { name: "Back" }).click();
   await input.fill("Discuss the whole project");
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(() => messages.length).toBe(2);
   expect(messages[1].task_context).toBeNull();
-  await page.getByRole("link", { name: /FOC-2.*Review the index/ }).click();
+  await page
+    .locator(".workspace-resource-content")
+    .getByRole("link", { name: /FOC-2.*Review the index/ })
+    .click();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(detail).toBeVisible();
   await page.getByRole("tab", { name: "Coordinator", exact: true }).click();

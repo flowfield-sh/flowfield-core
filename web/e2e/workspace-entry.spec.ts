@@ -1,3 +1,4 @@
+import { openResource } from "./shell-navigation";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
@@ -25,8 +26,8 @@ test("explicit workspace creation, project adoption and shared draft navigation"
     .getByRole("button", { name: "Create workspace", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Product development", exact: true }),
-  ).toBeVisible();
+    page.locator('select[aria-label="Workspace"] option:checked'),
+  ).toHaveText("Product development");
   await expect(
     page.getByRole("heading", { name: "Coordinator", exact: true }),
   ).toBeVisible();
@@ -52,7 +53,7 @@ test("explicit workspace creation, project adoption and shared draft navigation"
     page.getByRole("dialog", { name: "Add a project", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
-  await page.getByRole("tab", { name: /^Projects/ }).click();
+  await openResource(page, "Projects");
   await expect(page).toHaveURL(`/workspaces/${workspace.id}/projects`);
   await page.getByRole("link", { name: "Add project", exact: true }).click();
   let path: string | null = null;
@@ -93,15 +94,15 @@ test("explicit workspace creation, project adoption and shared draft navigation"
     exact: true,
   });
   await composer.fill("Plan the shared release");
-  await page.getByRole("tab", { name: /^Projects/ }).click();
+  await openResource(page, "Projects");
   await expect(composer).toHaveValue("Plan the shared release");
   await expect(page.getByRole("link", { name: /entry-core/ })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => localStorage.setItem("flowfield.theme", "dark"));
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "Product development", exact: true }),
-  ).toBeVisible();
+    page.getByRole("tab", { name: "Projects", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   await page.screenshot({
     path: testInfo.outputPath("workspace-projects-narrow-dark.png"),
   });

@@ -2,6 +2,8 @@ import { reportError } from "./requestFeedback";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RequestError, request } from "./workspace";
 
+const loadedWindows = new Map<string, number>();
+
 // Every read owns an abort signal. Navigation, refresh and a successful local
 // mutation invalidate stale replies; writes are never silently cancelled.
 export function useResource<T>(
@@ -139,7 +141,10 @@ export function usePage<
     next_offset?: number | null;
   },
 >(path: string, refresh: unknown, refreshLoaded = false) {
-  const loaded = useRef({ path, count: 0 });
+  const loaded = useRef({
+    path,
+    count: refreshLoaded ? (loadedWindows.get(path) ?? 0) : 0,
+  });
   const readLoaded = useCallback(async (url: string, signal: AbortSignal) => {
     let page = await request<P>(url, "GET", undefined, signal);
     const count = loaded.current.path === url ? loaded.current.count : 0;
@@ -198,6 +203,12 @@ export function usePage<
           path,
           count: (data?.items.length ?? 0) + page.items.length,
         };
+        if (refreshLoaded) {
+          loadedWindows.delete(path);
+          loadedWindows.set(path, loaded.current.count);
+          while (loadedWindows.size > 100)
+            loadedWindows.delete(loadedWindows.keys().next().value!);
+        }
         setError("");
       }
     } catch (error) {

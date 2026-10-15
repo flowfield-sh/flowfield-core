@@ -81,10 +81,10 @@ test("coordinator dependencies update blockers, links and reconciliation without
   );
   await expect(
     detail.getByText("Waiting on prerequisites", { exact: true }),
-  ).toHaveCount(0);
+  ).toHaveCount(1);
   await expect(
     detail.locator(".task-conversation-header .work-state"),
-  ).toHaveCount(0);
+  ).toHaveCount(1);
   await detail.getByRole("link", { name: "DEP-3", exact: true }).hover();
   await expect(page.getByRole("tooltip")).toHaveText("Prepare export settings");
   await expect(detail.getByLabel("Add prerequisite")).toHaveCount(0);
@@ -106,10 +106,11 @@ test("coordinator dependencies update blockers, links and reconciliation without
   await expect(dependencyState).toContainText("Blocked by DEP-3");
   await page
     .getByRole("button", {
-      name: /^(Close editor|Back to board)$/,
+      name: /^(Close editor|Back)$/,
       exact: true,
     })
     .click();
+  await openResource(page, "Board");
   const card = page.locator(".task-card").filter({ hasText: "Download CSV" });
   await expect(card.locator(".work-state")).toHaveText("Waiting on DEP-3");
   await expect(
@@ -160,11 +161,11 @@ test("three-letter prefix setup, coordinator dependencies and immediate accessib
   await expect(page.getByLabel("Prefix", { exact: true })).toBeDisabled();
   await page
     .getByRole("button", {
-      name: /^(Close editor|Back to board)$/,
+      name: /^(Close editor|Back)$/,
       exact: true,
     })
     .click();
-  const card = page.getByRole("link", {
+  const card = page.locator(".workspace-resource-content").getByRole("link", {
     name: /UIT-1 (?:Feature (?:DRAFT )?)?Build a reliable/,
   });
   await expect(card).not.toHaveAttribute("title");
@@ -282,6 +283,8 @@ test("task activity, Markdown and independently retrievable handoffs preserve th
   await expect(
     page.locator(".task-definition").getByRole("checkbox"),
   ).toHaveCount(2);
+  await page.getByText("Work details", { exact: true }).click();
+  await page.getByRole("link", { name: "Activity and history" }).click();
   await expect(
     editor.getByRole("button", { name: "Add note", exact: true }),
   ).toHaveCount(0);
@@ -345,7 +348,7 @@ test("task activity, Markdown and independently retrievable handoffs preserve th
     cli(["task", "activity", "ACT-1", "--project", identity.project_id])
       .items[0].id,
   ).toBe(note.id);
-  await page.goto("/projects/activity-trial/tasks/ACT-1");
+  await page.goto("/projects/activity-trial/tasks/ACT-1/history");
   await expect(activity).toContainText(
     "Serializer verified; download integration remains.",
   );
@@ -621,7 +624,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
       exact: true,
       includeHidden: true,
     }),
-  ).toHaveCount(1);
+  ).toHaveCount(0);
   await page.reload();
   const detail = page.getByRole("region", {
     name: "Task details",
@@ -643,10 +646,8 @@ test("Inbox carries a free-text answer from browser to coordinator application",
     .fill(
       "All filtered rows, capped at 10,000. Explain when the limit is exceeded.",
     );
-  await detail
-    .getByRole("button", { name: "Back to board", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Keep editing", exact: true }).click();
+  await detail.getByRole("button", { name: "Back", exact: true }).click();
+  await page.goBack();
   await expect(detail.getByLabel("Your answer", { exact: true })).toHaveValue(
     /Explain/,
   );
@@ -798,7 +799,7 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
   await expect(detail.locator(".answer-history")).toContainText(
     "Cap it at 10,000.",
   );
-  await expect(page.locator(".request-card")).toHaveCount(1);
+  await expect(page.locator(".request-card")).toHaveCount(0);
   await detail
     .getByLabel("Your answer", { exact: true })
     .fill("Reject, explain the cap, and suggest narrowing filters.");
@@ -880,7 +881,7 @@ test("retracting answers reopens questions and preserves earlier responses", asy
         includeHidden: true,
       })
       .locator(".request-card"),
-  ).toHaveCount(1);
+  ).toHaveCount(0);
   await detail.getByText("Earlier responses", { exact: true }).click();
   await expect(detail).toContainText("Visible page");
   const question = await call("get_question", {
@@ -1843,12 +1844,14 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   ).toContainText("Task complete.");
   await dialog
     .getByRole("button", {
-      name: /^(Close editor|Back to board)$/,
+      name: /^(Close editor|Back)$/,
       exact: true,
     })
     .click();
+  await expect(page).toHaveURL(/changes\/first$/);
+  await page.getByRole("tab", { name: /^Inbox/ }).click();
   await expect(page).toHaveURL(
-    `/workspaces/${await projectWorkspace(request, project_id)}/inbox?project=${project_id}`,
+    `/workspaces/${await projectWorkspace(request, project_id)}/inbox`,
   );
   await expect(
     page.getByRole("tabpanel", { name: "Needs me", exact: true }),
@@ -1857,3 +1860,4 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   await page.unrouteAll({ behavior: "wait" });
   expect(errors).toEqual([]);
 });
+import { openResource } from "./shell-navigation";

@@ -59,13 +59,17 @@ test("cross-project prerequisites link to their owner and refresh dependent view
   ).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(/\/projects\/dependency-site\/tasks\/DPS-1$/);
-  await expect(task.getByText("Waiting on", { exact: false })).toBeVisible();
+  await expect(
+    task.getByRole("heading", { name: "Waiting on", exact: true }),
+  ).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("dependency-desktop.png"),
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ colorScheme: "dark" });
-  await expect(task.getByText("Waiting on", { exact: false })).toBeVisible();
+  await expect(
+    task.getByRole("heading", { name: "Waiting on", exact: true }),
+  ).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("dependency-mobile.png") });
   const refreshed = page.waitForResponse(
     (response) =>
@@ -81,5 +85,7 @@ test("cross-project prerequisites link to their owner and refresh dependent view
     ).ok(),
   ).toBeTruthy();
   await refreshed;
-  await expect(task.getByText("Waiting on", { exact: false })).toHaveCount(0);
+  await expect(
+    task.getByRole("heading", { name: "Waiting on", exact: true }),
+  ).toHaveCount(0);
 });

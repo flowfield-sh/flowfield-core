@@ -1,3 +1,5 @@
+import { useRetainedState, retainDirty } from "./retainedState";
+import type { DirtyCallback } from "./retainedState";
 import { ArrowUp } from "lucide-react";
 import { Composer } from "./Composer";
 import { QuestionPrompt } from "./QuestionPrompt";
@@ -18,12 +20,7 @@ import type { TaskReference } from "./workspace";
 import { CloseControl } from "./Presentation";
 import { useEffect, useLayoutEffect, useId, useRef, useState } from "react";
 import { Markdown } from "./Markdown";
-import {
-  entityNavigationState,
-  followLink,
-  projectHref,
-  taskHref,
-} from "./navigation";
+import { followLink, projectHref, taskHref } from "./navigation";
 import { request } from "./workspace";
 import { EntityOverlay, OverlayHeading, OverlayFooter } from "./EntityOverlay";
 import { useResource } from "./useResource";
@@ -161,7 +158,7 @@ export function QuestionDetail({
   identity: string;
   tasks: TaskReference[];
   refresh: unknown;
-  onDirty: (dirty: boolean) => void;
+  onDirty: DirtyCallback;
   open: (path: string) => void;
   close?: () => void;
   inline?: boolean;
@@ -169,11 +166,17 @@ export function QuestionDetail({
   const answerId = useId();
   const location = useLocation();
   const path = `projects/${encodeURIComponent(projectId)}/questions/${encodeURIComponent(identity)}`;
-  const [loaded, setLoaded] = useState<Question | null>(null);
+  const [loaded, setLoaded] = useRetainedState<Question | null>(
+    `${path}:loaded`,
+    null,
+  );
   const [incoming, setIncoming] = useState<Question | null>(null);
-  const [draft, setDraft] = useState("");
-  const [editing, setEditing] = useState(false);
-  const [correcting, setCorrecting] = useState(false);
+  const [draft, setDraft] = useRetainedState(`${path}:draft`, "");
+  const [editing, setEditing] = useRetainedState(`${path}:editing`, false);
+  const [correcting, setCorrecting] = useRetainedState(
+    `${path}:correcting`,
+    false,
+  );
   const [correctionLink, setCorrectionLink] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -190,9 +193,10 @@ export function QuestionDetail({
   }, [dirty, busy, uploading]);
   const generation = useRef(0);
   useLayoutEffect(() => {
-    onDirty(dirty || busy || uploading);
+    retainDirty(`${path}:draft`, dirty);
+    onDirty(dirty || busy || uploading, !busy && !uploading);
     return () => onDirty(false);
-  }, [dirty, busy, uploading, onDirty]);
+  }, [dirty, busy, uploading, onDirty, path]);
   useEffect(() => {
     const current = ++generation.current;
     request<Question>(path)
@@ -215,7 +219,7 @@ export function QuestionDetail({
     return () => {
       generation.current += 1;
     };
-  }, [path, refresh, retry]);
+  }, [path, refresh, retry, setDraft, setEditing, setLoaded]);
   async function answer() {
     if (
       !loaded ||
@@ -638,7 +642,7 @@ export function QuestionOverlay({
   identity: string;
   tasks: TaskReference[];
   refresh: unknown;
-  onDirty: (dirty: boolean) => void;
+  onDirty: DirtyCallback;
   open: (path: string) => void;
   close: () => void;
 }) {
@@ -649,18 +653,7 @@ export function QuestionOverlay({
   );
   if (question.data?.task_id) {
     const target = `${taskHref(props.projectId, { key: question.data.task_key ?? question.data.task_id })}/conversation/${encodeURIComponent(`question:${question.data.id}`)}`;
-    return (
-      <Navigate
-        to={target}
-        replace
-        state={entityNavigationState(
-          location.pathname,
-          location.state,
-          target,
-          true,
-        )}
-      />
-    );
+    return <Navigate to={target} replace state={location.state} />;
   }
   return (
     <EntityOverlay title="Question" close={close}>

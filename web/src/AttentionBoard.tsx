@@ -1,5 +1,15 @@
+import { useRetainedState } from "./retainedState";
+import { ResourceNavigation } from "./WorkspaceTabs";
+import type { DirtyCallback } from "./retainedState";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import type { components } from "./api-schema";
 import { usePage, useResource } from "./useResource";
@@ -45,7 +55,7 @@ function TaskRequest({
   item: Item;
   board: WorkspaceBoard;
   refresh: unknown;
-  onDirty: (dirty: boolean) => void;
+  onDirty: DirtyCallback;
 }) {
   const task = useResource<Task>(
     `projects/${item.project_id}/view/tasks/${item.task_key}`,
@@ -54,8 +64,8 @@ function TaskRequest({
   const mark = useDirtyItems(onDirty);
   // The shared controller retains its exact request and response binding.
   const response = useCallback(
-    (value: boolean) => {
-      mark("response", value);
+    (value: boolean, retained?: boolean) => {
+      mark("response", value, retained);
     },
     [mark],
   );
@@ -98,12 +108,13 @@ function RequestCard({
   workspaceId: string;
   board: WorkspaceBoard;
   refresh: unknown;
-  markDirty: (id: string, dirty: boolean) => void;
+  markDirty: (id: string, dirty: boolean, retained?: boolean) => void;
 }) {
   const navigate = useNavigate();
+  const resourceNavigate = useContext(ResourceNavigation);
   const id = identityOf(item);
   const dirty = useCallback(
-    (value: boolean) => markDirty(id, value),
+    (value: boolean, retained?: boolean) => markDirty(id, value, retained),
     [id, markDirty],
   );
   const kind =
@@ -150,7 +161,9 @@ function RequestCard({
           tasks={board.tasks}
           refresh={refresh}
           onDirty={dirty}
-          open={(path) => void navigate(path)}
+          open={(path) =>
+            resourceNavigate ? resourceNavigate(path) : void navigate(path)
+          }
           inline
         />
       ) : ["question", "result", "review", "intervention"].includes(
@@ -194,7 +207,7 @@ function InboxList({
   board: WorkspaceBoard;
   refresh: unknown;
   tab: Tab;
-  onDirty: (dirty: boolean) => void;
+  onDirty: DirtyCallback;
 }) {
   const page = usePage<Page>(
     `workspaces/${workspaceId}/view/attention?column=${columns[tab]}${tab === "history" ? "&include_answered=true" : ""}${projectId ? `&project_id=${encodeURIComponent(projectId)}` : ""}`,
@@ -202,18 +215,26 @@ function InboxList({
     tab === "needs_me",
   );
   const mark = useDirtyItems(onDirty);
-  const [drafts, setDrafts] = useState<Record<string, boolean>>({});
+  const [drafts, setDrafts] = useRetainedState<Record<string, boolean>>(
+    `inbox:${workspaceId}:${projectId}:${tab}:drafts`,
+    {},
+  );
   const markDirty = useCallback(
-    (id: string, dirty: boolean) => {
-      mark(id, dirty);
+    (id: string, dirty: boolean, retained?: boolean) => {
+      mark(id, dirty, retained);
+      // Cleanup clears mounted navigation guards, not the retained response.
+      if (retained === undefined) return;
       setDrafts((previous) =>
         previous[id] === dirty ? previous : { ...previous, [id]: dirty },
       );
     },
-    [mark],
+    [mark, setDrafts],
   );
   const [seen, setSeen] = useState<Page | null>(null);
-  const [retained, setRetained] = useState<Item[]>([]);
+  const [retained, setRetained] = useRetainedState<Item[]>(
+    `inbox:${workspaceId}:${projectId}:${tab}:items`,
+    [],
+  );
   // Keep stable ordering and independent drafts while canonical resolution
   // removes answered requests. An externally resolved draft stays bound to its
   // original request until explicitly discarded.
@@ -342,7 +363,7 @@ export function AttentionBoard(props: {
   identity?: string;
   refresh: unknown;
   board: WorkspaceBoard;
-  onDirty: (dirty: boolean) => void;
+  onDirty: DirtyCallback;
 }) {
   const location = useLocation();
   const navigate = useNavigate();

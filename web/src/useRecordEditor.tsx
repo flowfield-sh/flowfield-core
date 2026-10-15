@@ -1,3 +1,8 @@
+import {
+  useRetainedState,
+  retainDirty,
+  type DirtyCallback,
+} from "./retainedState";
 import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,13 +18,15 @@ export function useRecordEditor<R extends { revision: number }, V>({
   onDirty,
   otherDirty = false,
   read,
+  retainedKey,
 }: {
   incoming?: R;
   recordName?: string;
   fields: (record?: R) => V;
   path: (record?: R) => string;
   saved: (record: R, method: string) => void | Promise<void>;
-  onDirty: (dirty: boolean) => void;
+  onDirty: DirtyCallback;
+  retainedKey?: string;
   otherDirty?: boolean;
   read?: () => Promise<R>;
 }) {
@@ -31,15 +38,25 @@ export function useRecordEditor<R extends { revision: number }, V>({
       mounted.current = false;
     };
   }, []);
-  const [loaded, setLoaded] = useState(incoming);
-  const [values, setValues] = useState(() => fields(incoming));
-  const [editing, setEditing] = useState(!incoming);
+  const [loaded, setLoaded] = useRetainedState(
+    retainedKey ? `${retainedKey}:loaded` : undefined,
+    incoming,
+  );
+  const [values, setValues] = useRetainedState(
+    retainedKey ? `${retainedKey}:values` : undefined,
+    () => fields(incoming),
+  );
+  const [editing, setEditing] = useRetainedState(
+    retainedKey ? `${retainedKey}:editing` : undefined,
+    !incoming,
+  );
   const [busy, setBusy] = useState(false);
   const [conflict, setConflict] = useState(false);
   const dirty = JSON.stringify(values) !== JSON.stringify(fields(loaded));
   useEffect(() => {
-    onDirty(dirty || otherDirty);
-  }, [dirty, otherDirty, onDirty]);
+    if (retainedKey) retainDirty(retainedKey, dirty);
+    onDirty(dirty || otherDirty || busy, !!retainedKey && !otherDirty && !busy);
+  }, [dirty, otherDirty, onDirty, retainedKey, busy]);
   const newer = !!(incoming && loaded && incoming.revision > loaded.revision);
   function adopt(record: R) {
     setLoaded(record);
@@ -52,6 +69,7 @@ export function useRecordEditor<R extends { revision: number }, V>({
     setValues(next);
     onDirty(
       JSON.stringify(next) !== JSON.stringify(fields(loaded)) || otherDirty,
+      !!retainedKey && !otherDirty,
     );
   }
   async function run(method: string, payload?: unknown, suffix = "") {

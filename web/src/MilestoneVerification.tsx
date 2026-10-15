@@ -1,3 +1,5 @@
+import { useRetainedState, retainDirty } from "./retainedState";
+import type { DirtyCallback } from "./retainedState";
 import {
   useCallback,
   useEffect,
@@ -63,10 +65,16 @@ export function MilestoneReviewResponse({
   allowReview?: boolean;
   path: string;
   refresh: () => void;
-  onDirty: (dirty: boolean) => void;
+  onDirty: DirtyCallback;
 }) {
-  const [revision, setRevision] = useState(value.revision);
-  const [note, setNote] = useState("");
+  const [revision, setRevision] = useRetainedState(
+    `${path}:verification:${value.id}:revision`,
+    value.revision,
+  );
+  const [note, setNote] = useRetainedState(
+    `${path}:verification:${value.id}:note`,
+    "",
+  );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   if (!note && !pending && value.revision !== revision)
@@ -76,9 +84,10 @@ export function MilestoneReviewResponse({
   const canRetry =
     allowReview && value.current && value.status === "delivery_blocked";
   useEffect(() => {
-    onDirty(!!note.trim() || pending);
+    retainDirty(`${path}:verification:${value.id}`, !!note.trim());
+    onDirty(!!note.trim() || pending, !pending);
     return () => onDirty(false);
-  }, [note, pending, onDirty]);
+  }, [note, pending, onDirty, path, value.id]);
   async function review(
     action: "accept" | "request_changes" | "retry_promotion",
   ) {
@@ -411,7 +420,7 @@ export function MilestoneReviewRequest({
   path: string;
   id: string;
   refresh: unknown;
-  onDirty: (dirty: boolean) => void;
+  onDirty: DirtyCallback;
 }) {
   const resource = useResource<Verification>(
     `${path}/verifications/${id}`,
@@ -461,7 +470,7 @@ function ReviewEntry({
   path: string;
   refresh: unknown;
   selected: boolean;
-  markDirty: (id: string, value: boolean) => void;
+  markDirty: (id: string, value: boolean, retained?: boolean) => void;
   milestoneId: string;
 }) {
   const resource = useResource<Verification>(
@@ -470,14 +479,14 @@ function ReviewEntry({
   );
   const value = resource.data;
   const dirty = useCallback(
-    (value: boolean) => markDirty(id, value),
+    (value: boolean, retained?: boolean) => markDirty(id, value, retained),
     [id, markDirty],
   );
   const [hasDraft, setHasDraft] = useState(false);
   const onDirty = useCallback(
-    (value: boolean) => {
+    (value: boolean, retained?: boolean) => {
       setHasDraft(value);
-      dirty(value);
+      dirty(value, retained);
     },
     [dirty],
   );
@@ -564,7 +573,7 @@ export function MilestoneVerification({
   milestoneKey: string;
   revision: number;
   refresh: unknown;
-  onDirty: (dirty: boolean) => void;
+  onDirty: DirtyCallback;
 }) {
   const [params, setParams] = useSearchParams();
   const location = useLocation();

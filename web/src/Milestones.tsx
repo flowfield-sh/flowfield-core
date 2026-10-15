@@ -5,18 +5,16 @@ import { WorkCard } from "./WorkCard";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { boardHref, workspaceHref } from "./navigation";
 
-export function MilestoneList({
-  board,
-}: {
+export function milestoneCards(
   board: Pick<
     components["schemas"]["BrowserWorkspaceBoard"],
     | "tasks"
     | "milestones"
     | "milestone_verifications"
     | "milestone_delivery_ids"
-  >;
-}) {
-  const cards = board.milestones.map((milestone) => {
+  >,
+) {
+  return board.milestones.map((milestone) => {
     const members = board.tasks.filter((t) => t.milestone_id === milestone.id);
     const tasks = members.filter((t) => !t.archived || t.status === "done");
     const done = tasks.filter((t) => t.status === "done").length;
@@ -45,6 +43,20 @@ export function MilestoneList({
       archived: !!members.length && members.every((t) => t.archived),
     };
   });
+}
+
+export function MilestoneList({
+  board,
+}: {
+  board: Pick<
+    components["schemas"]["BrowserWorkspaceBoard"],
+    | "tasks"
+    | "milestones"
+    | "milestone_verifications"
+    | "milestone_delivery_ids"
+  >;
+}) {
+  const cards = milestoneCards(board);
   return (
     <div className="board milestone-board" aria-label="Milestones">
       {["Planned", "In progress", "Review", "Complete"].map((column) => (
@@ -119,7 +131,7 @@ export function MilestoneList({
   );
 }
 
-function milestoneState(
+export function milestoneState(
   value: components["schemas"]["MilestoneVerificationSummary"] | undefined,
   tasksComplete: boolean,
 ): components["schemas"]["WorkState"] | null {

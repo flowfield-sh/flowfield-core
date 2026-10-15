@@ -2,7 +2,7 @@ import { useContext } from "react";
 import { ProjectOwners } from "./WorkspaceLink";
 import { canonicalHref } from "./navigation";
 import { useLocation, useNavigate } from "react-router";
-import { entityNavigationState } from "./navigation";
+import { ResourceNavigation } from "./WorkspaceTabs";
 import { TooltipLink } from "./TooltipLink";
 import { followLink, taskHref } from "./navigation";
 import type { TaskReference } from "./workspace";
@@ -17,6 +17,7 @@ export function TaskLink({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const resourceNavigate = useContext(ResourceNavigation);
   const href = canonicalHref(
     taskHref(task.project_id, task),
     useContext(ProjectOwners),
@@ -29,14 +30,8 @@ export function TaskLink({
       onClick={(event) =>
         followLink(event, () => {
           if (task.project_id === projectId) open(task.id);
-          else
-            void navigate(href, {
-              state: entityNavigationState(
-                location.pathname,
-                location.state,
-                href,
-              ),
-            });
+          else if (resourceNavigate) resourceNavigate(href);
+          else void navigate(href, { state: location.state });
         })
       }
     >

@@ -1,3 +1,4 @@
+import { openResource } from "./shell-navigation";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
@@ -142,7 +143,7 @@ test("registration conflicts retain the selected directory and allow identity co
     `/workspaces/${workspace}?project=picked-unique`,
   );
   expect(existsSync(join(selected, "AGENTS.md"))).toBe(false);
-  await page.getByRole("tab", { name: /^Projects/ }).click();
+  await openResource(page, "Projects");
   await expect(
     page.locator(`a[href="/workspaces/${workspace}?project=picked-unique"]`),
   ).toBeVisible();
