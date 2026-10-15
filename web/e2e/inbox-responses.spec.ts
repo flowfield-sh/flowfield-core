@@ -25,6 +25,120 @@ function milestone(project: string) {
   );
 }
 
+test("mixed Inbox history opens exact permission records without response controls", async ({
+  page,
+  request,
+}, info) => {
+  const project = "history-records";
+  const adopted = await fixtureProject(request, {
+    data: {
+      id: project,
+      path: existingDirectory(join(state, project)),
+      task_prefix: "HIS",
+    },
+  });
+  expect(adopted.ok(), await adopted.text()).toBeTruthy();
+  const workspace = await projectWorkspace(request, project);
+  const now = new Date().toISOString();
+  const items = [
+    {
+      id: "saved-permission",
+      kind: "permission",
+      title: "Run isolated checks",
+      status: "answered",
+    },
+    {
+      id: "expired-permission",
+      kind: "permission",
+      title: "Earlier tool request",
+      status: "expired",
+    },
+    {
+      id: "saved-result",
+      kind: "result",
+      title: "Implement CSV export",
+      status: "delivered",
+    },
+    {
+      id: "saved-question",
+      kind: "question",
+      title: "Which filename should the export use?",
+      status: "closed",
+    },
+  ].map((item) => ({
+    ...item,
+    project_id: project,
+    task_key: "HIS-1",
+    updated_at: now,
+    state: null,
+    next_action: null,
+  }));
+  await page.route(`**/api/workspaces/${workspace}/view/attention?*`, (route) =>
+    route.fulfill({ json: { items, total: items.length, next_offset: null } }),
+  );
+  await page.route(`**/api/projects/${project}/permissions/*?*`, (route) => {
+    const expired = route.request().url().includes("expired-permission");
+    return route.fulfill({
+      json: {
+        id: expired ? "expired-permission" : "saved-permission",
+        project_id: project,
+        workspace_id: null,
+        role: "worker",
+        task_id: "task",
+        run_id: "run",
+        conversation_id: null,
+        binding: "test",
+        turn_id: "run",
+        tool_id: "tool",
+        title: expired ? "Earlier tool request" : "Run isolated checks",
+        details: "npm run test:isolated",
+        options: [{ id: "allow", label: "Allow once", kind: "allow_once" }],
+        revision: 2,
+        status: expired ? "expired" : "answered",
+        answer: expired ? null : "allow",
+        created_at: now,
+        updated_at: now,
+        expires_at: now,
+        released_at: expired ? null : now,
+      },
+    });
+  });
+  await page.goto(`/workspaces/${workspace}/inbox?inbox=history`);
+  const history = page.getByRole("tabpanel", { name: "History", exact: true });
+  for (const item of items)
+    await expect(
+      history.getByRole("link", {
+        name: new RegExp(item.title.replace(/[?]/g, "\\?")),
+      }),
+    ).toBeVisible();
+  await expect(
+    history.getByText("npm run test:isolated", { exact: true }),
+  ).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath("history-light.png") });
+  await history.getByRole("link", { name: /Run isolated checks/ }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByText("Allow once · Answer recorded", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "Allow once", exact: true }),
+  ).toHaveCount(0);
+  await page.reload();
+  await expect(
+    dialog.getByText("npm run test:isolated", { exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page).not.toHaveURL(/permission=/);
+  await history.getByRole("link", { name: /Earlier tool request/ }).click();
+  await expect(
+    dialog.getByText("Expired. No permission was delivered.", { exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.screenshot({ path: info.outputPath("history-narrow-dark.png") });
+});
+
 test("milestone acceptance clears Inbox and Review column reflects the decision", async ({
   page,
   request,

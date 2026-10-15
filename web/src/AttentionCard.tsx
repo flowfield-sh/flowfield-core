@@ -17,7 +17,7 @@ export function AttentionCard({
   kind: string;
   reference: string;
   title: string;
-  detail?: string;
+  detail?: ReactNode;
   action: ReactNode;
   selected?: boolean;
 }) {

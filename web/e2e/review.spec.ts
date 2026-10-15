@@ -797,10 +797,6 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   ).toHaveCount(0);
   await expect(
     preview().getByRole("button", { name: "Copy commands", exact: true }),
-  ).toBeHidden();
-  await preview().getByText("Terminal commands", { exact: true }).click();
-  await expect(
-    preview().getByRole("button", { name: "Copy commands", exact: true }),
   ).toBeVisible();
   const copy = await (
     await request.get(`${path}/inspection?result_id=${first!.id}`)
@@ -808,6 +804,28 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   expect(copy.commit).toBe(first!.candidate_commit);
   expect(copy.command).toMatch(/^\/bin\/sh /);
   await expect(preview().locator("pre")).toHaveText(copy.command);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const copyButton = preview().getByRole("button", {
+    name: "Copy commands",
+    exact: true,
+  });
+  await expect
+    .poll(async () => {
+      const box = (await copyButton.boundingBox())!;
+      return box.x >= 0 && box.x + box.width <= 390;
+    })
+    .toBe(true);
+  await expect
+    .poll(async () => (await preview().locator("pre").boundingBox())!.height)
+    .toBeLessThanOrEqual(128);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await preview()
+    .getByRole("button", { name: "Copy commands", exact: true })
+    .click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    copy.command,
+  );
   expect(
     execFileSync("/bin/sh", ["-c", copy.command], { encoding: "utf8" }),
   ).toContain("First greeting");

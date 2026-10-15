@@ -46,6 +46,8 @@ Inventory commands send no model prompt. See the [agent pages](/agents/overview)
 
 One Coordinator turn runs per workspace, independently of worker slots. Replies and tool activity stream as it works; you can draft your next message while it runs. **Stop** ends that turn, preserving saved work changes. Task workers continue independently.
 
+Finished turns fold their activity into one expandable summary while leaving the final reply visible. Open the summary to inspect individual events, then expand their **Input** or **Output** previews for the retained details.
+
 The service saves your messages, public output and turn settings. Older messages load on demand; **Read full reply** and **Retained output** expose shortened replies and tool details. A compatible session resumes native context across messages and service restarts.
 
 Switching harness, adding a project or changing a member repository path starts a fresh native session on the next message. Other settings changes follow the harness's continuation rules. Saved Flowfield conversation stays available; fresh sessions receive recent exchanges and can retrieve older history. Native tool history stays with its original session.

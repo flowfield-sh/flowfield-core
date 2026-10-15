@@ -520,6 +520,11 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     .click();
   await expect(page.getByLabel("Harness", { exact: true })).toBeEnabled();
   await page.keyboard.press("Escape");
+  await expect(page.getByLabel("Tool", { exact: true })).toBeHidden();
+  await expect(
+    page.getByRole("link", { name: "CHT-1", exact: true }).first(),
+  ).toBeVisible();
+  await page.locator(".coordinator-activity-summary > summary").click();
   await expect(page.getByLabel("Tool", { exact: true })).toBeVisible();
   const timeline = page.locator(
     ".coordinator-message:not(.coordinator-human) [data-kind]",
@@ -1366,26 +1371,48 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
     });
   });
   await page.goto(`/projects/${project}`);
+  await expect(
+    page.getByText("Opening … middle omitted … conclusion", { exact: true }),
+  ).toBeVisible();
+  await page.locator(".coordinator-activity-summary > summary").click();
   const action = page.locator('.run-activity-entry[data-kind="tool"]');
-  await expect(action).toContainText("Found task 1");
   await action
     .getByText("Flowfield · Get board · completed", { exact: true })
     .click();
   await expect(
-    action.getByText('Arguments: {"project_id":"demo"}', { exact: true }),
+    action
+      .locator(".activity-evidence > summary")
+      .filter({ hasText: /^Output:/ }),
+  ).toHaveText("Output: Found task 1");
+  await action
+    .locator(".activity-evidence > summary")
+    .filter({ hasText: /^Input:/ })
+    .click();
+  await expect(
+    action.getByText('{"project_id":"demo"}', { exact: true }),
   ).toBeVisible();
   await expect(
     action.getByText("Flowfield · Get board · completed", { exact: true }),
   ).toHaveCount(1);
-  await action
-    .getByText("Found task 1\nFound task 2…", { exact: true })
-    .click();
+  const outputSummary = action
+    .locator(".activity-evidence > summary")
+    .filter({ hasText: /^Output:/ });
+  const readingTop = (await outputSummary.boundingBox())!.y;
+  await outputSummary.click();
+  await expect
+    .poll(async () =>
+      Math.abs((await outputSummary.boundingBox())!.y - readingTop),
+    )
+    .toBeLessThan(2);
   await expect(action.locator("details[open] pre").last()).toContainText(
     "Found task 30",
   );
   await action.scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath("action-expanded.png") });
-  await action.locator(".activity-output-disclosure > summary").click();
+  await action
+    .locator(".activity-evidence > summary")
+    .filter({ hasText: /^Output:/ })
+    .click();
   await page.setViewportSize({ width: 430, height: 920 });
   await page.emulateMedia({ colorScheme: "dark" });
   await page.getByRole("tab", { name: "Coordinator", exact: true }).click();

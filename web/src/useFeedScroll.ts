@@ -104,6 +104,15 @@ export function useFeedScroll(
         remember();
       }
     };
+    const inspect = (event: Event) => {
+      if (event.target instanceof Element && event.target.closest("summary")) {
+        // Disclosure clicks (including keyboard activation) are explicit reading
+        // intent. Capture the anchor before native details changes the layout.
+        state.following = false;
+        state.interacted = true;
+        remember();
+      }
+    };
     const intentEvents = [
       "wheel",
       "touchstart",
@@ -113,10 +122,12 @@ export function useFeedScroll(
     for (const event of intentEvents)
       pane.addEventListener(event, interact, { passive: true });
     pane.addEventListener("scroll", scroll);
+    pane.addEventListener("click", inspect, true);
     settle();
     return () => {
       observer.disconnect();
       pane.removeEventListener("scroll", scroll);
+      pane.removeEventListener("click", inspect, true);
       for (const event of intentEvents)
         pane.removeEventListener(event, interact);
     };

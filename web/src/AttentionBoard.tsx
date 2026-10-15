@@ -18,6 +18,7 @@ import { useDirtyItems } from "./useDirtyItems";
 import { ResourceRetry } from "./ResourceRetry";
 import { ExecutionLimitRequest } from "./ExecutionLimits";
 import { RequestFrame } from "./RequestFrame";
+import { Timestamp } from "./Timestamp";
 import { EntityOverlay, OverlayFooter } from "./EntityOverlay";
 
 type Item = components["schemas"]["AttentionItem"];
@@ -295,7 +296,7 @@ function InboxList({
               focused.current = { id: identityOf(item), index };
             }}
           >
-            {item.kind === "permission" ? (
+            {tab === "needs_me" && item.kind === "permission" ? (
               <PermissionCard
                 projectId={item.project_id ?? undefined}
                 workspaceId={item.project_id ? undefined : workspaceId}
@@ -313,16 +314,17 @@ function InboxList({
               />
             ) : (
               <AttentionCard
-                href={itemHref(item)}
+                href={
+                  item.kind === "permission"
+                    ? `/workspaces/${workspaceId}/inbox?inbox=history&permission=${encodeURIComponent(item.id)}${item.project_id ? `&permission_project=${encodeURIComponent(item.project_id)}` : ""}${projectId ? `&project_id=${encodeURIComponent(projectId)}` : ""}`
+                    : itemHref(item)
+                }
                 kind={item.kind === "result" ? "Changes" : label(item.kind)}
                 reference={item.task_key ?? "Workspace"}
                 title={item.title}
+                detail={<Timestamp date={item.updated_at} />}
                 action={
-                  item.state ? (
-                    <WorkState state={item.state} />
-                  ) : (
-                    (item.next_action ?? label(item.status))
-                  )
+                  item.next_action ?? item.state?.label ?? label(item.status)
                 }
               />
             )}
@@ -364,6 +366,7 @@ export function AttentionBoard(props: {
           close={() => {
             const next = new URLSearchParams(params);
             next.delete("permission");
+            next.delete("permission_project");
             void navigate(`${location.pathname}?${next}`, {
               replace: true,
               state: location.state,
@@ -371,8 +374,12 @@ export function AttentionBoard(props: {
           }}
         >
           <PermissionCard
-            projectId={props.projectId}
-            workspaceId={props.projectId ? undefined : props.workspaceId}
+            projectId={params.get("permission_project") ?? props.projectId}
+            workspaceId={
+              (params.get("permission_project") ?? props.projectId)
+                ? undefined
+                : props.workspaceId
+            }
             id={permission}
             taskKey={null}
             refresh={props.refresh}

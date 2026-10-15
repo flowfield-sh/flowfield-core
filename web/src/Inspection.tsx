@@ -3,6 +3,8 @@ import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Copy } from "lucide-react";
+import { ActionTooltip } from "./ActionTooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DetailSection, Disclosure } from "./DetailLayout";
 import { Timestamp } from "./Timestamp";
@@ -122,7 +124,8 @@ export function Inspection({
           )}
           {value.workspace && (
             <p>
-              Directory: <code>{value.workspace}</code>
+              Directory:{" "}
+              <code className="wrap-anywhere">{value.workspace}</code>
             </p>
           )}
           {value.status === "ready" &&
@@ -134,26 +137,36 @@ export function Inspection({
                   stop a running application with Ctrl+C.
                 </p>
                 <p>
-                  Run: <code>{value.run_command}</code>
+                  Run:{" "}
+                  <code className="wrap-anywhere">{value.run_command}</code>
                 </p>
-                <Disclosure summary={<>Terminal commands</>}>
-                  <pre className="evidence-output">{value.command}</pre>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      void navigator.clipboard.writeText(value.command).then(
-                        () => toast.info("Commands copied."),
-                        () =>
-                          toast.error(
-                            "Could not copy. Open Terminal commands and copy them manually.",
-                          ),
-                      );
-                    }}
+                <div className="inspection-command">
+                  <pre
+                    className="evidence-output"
+                    aria-label="Terminal commands"
+                    tabIndex={0}
                   >
-                    Copy commands
-                  </Button>
-                </Disclosure>
+                    {value.command}
+                  </pre>
+                  <ActionTooltip label="Copy commands">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      aria-label="Copy commands"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(value.command).then(
+                          () => toast.info("Commands copied."),
+                          () =>
+                            toast.error(
+                              "Could not copy. Select the commands and copy them manually.",
+                            ),
+                        );
+                      }}
+                    >
+                      <Copy size={16} aria-hidden="true" />
+                    </Button>
+                  </ActionTooltip>
+                </div>
               </>
             ) : (
               <p>

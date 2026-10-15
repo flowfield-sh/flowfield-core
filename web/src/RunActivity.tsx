@@ -130,26 +130,45 @@ function ActionEntry({
   action: NonNullable<Page["items"][number]["action"]>;
 }) {
   return (
-    <>
-      <Disclosure summary={action.title}>
-        {action.details && <pre>{action.details}</pre>}
-        {!action.output && <p>No output was recorded for this event.</p>}
-      </Disclosure>
-      {action.output && (
-        <div className="activity-result">
-          <ActivityText text={action.output} preview={action.output_preview} />
-        </div>
+    <Disclosure summary={action.title}>
+      {action.details && (
+        <ActivityEvidence
+          title="Input"
+          text={action.details.replace(/^Arguments:\s*/, "")}
+        />
       )}
-    </>
+      {action.output ? (
+        <ActivityEvidence title="Output" text={action.output} />
+      ) : (
+        <p>No output was recorded for this event.</p>
+      )}
+    </Disclosure>
+  );
+}
+
+function ActivityEvidence({ title, text }: { title: string; text: string }) {
+  const firstLine = text.split("\n", 1)[0];
+  return (
+    <Disclosure
+      className="activity-evidence"
+      summary={
+        <span className="activity-evidence-preview">
+          {title}: {firstLine || "…"}
+        </span>
+      }
+    >
+      <pre>{text}</pre>
+    </Disclosure>
   );
 }
 
 function ActivityText({ text, preview }: { text: string; preview: string }) {
   const [open, setOpen] = useState(false);
   if (!preview || preview === text) return <pre>{text}</pre>;
+  // Older unstructured entries carry semantic omission/exit facts in their preview.
   return (
     <Disclosure
-      className="activity-output-disclosure"
+      className="activity-evidence"
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
       summary={open ? "Output" : <pre>{preview}</pre>}
