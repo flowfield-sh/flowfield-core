@@ -262,7 +262,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   );
   await page.goto("/projects/chat-browser");
   await expect(
-    page.getByRole("heading", { name: "Coordinator" }),
+    page.getByRole("region", { name: "Coordinator conversation", exact: true }),
   ).toBeVisible();
   await expect(
     page

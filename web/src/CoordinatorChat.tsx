@@ -313,9 +313,6 @@ export function CoordinatorChat({
   }
   return (
     <>
-      <header className="workspace-pane-header">
-        <h2>Coordinator</h2>
-      </header>
       <div
         ref={setPane}
         className="coordinator-scroll"

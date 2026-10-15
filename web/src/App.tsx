@@ -283,6 +283,7 @@ export function App() {
   }
   function backFromGlobal() {
     const tab = tabs.state?.tabs.find((item) => item.id === tabs.state?.active);
+    if (tab?.fresh && tab.index === 0) return;
     if (tab && tab.index > 0) {
       let index = tab.index - 1;
       while (
@@ -496,6 +497,7 @@ export function App() {
                             const tab = tabs.state?.tabs.find(
                               (t) => t.id === tabs.state?.active,
                             );
+                            if (tab?.fresh && tab.index === 0) return;
                             if (
                               /^\/(?:workspaces|projects)\/[^/]+\/edit(?:\/|$)/.test(
                                 pathname,

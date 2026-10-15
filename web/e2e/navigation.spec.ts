@@ -100,13 +100,13 @@ test("task keys link to persistent selections with history and draft protection"
   await expect(
     page
       .getByRole("region", { name: "Task details", exact: true })
-      .getByRole("heading", { name: /NAV-1/ }),
-  ).toContainText("NAV-1");
+      .getByRole("heading", { name: "Prepare the export", exact: true }),
+  ).toContainText("Prepare the export");
   await page.reload();
   await expect(
     page
       .getByRole("region", { name: "Task details", exact: true })
-      .getByRole("heading", { name: / Prepare the export$/ }),
+      .getByRole("heading", { name: "Prepare the export", exact: true }),
   ).toBeVisible();
   await page
     .getByLabel("Message coordinator", { exact: true })
@@ -125,7 +125,7 @@ test("task keys link to persistent selections with history and draft protection"
   await expect(
     page
       .getByRole("region", { name: "Task details", exact: true })
-      .getByRole("heading", { name: / Prepare the export$/ }),
+      .getByRole("heading", { name: "Prepare the export", exact: true }),
   ).toBeVisible();
   await closeOverlay(page);
   await page
@@ -143,7 +143,7 @@ test("task keys link to persistent selections with history and draft protection"
   await expect(
     page
       .getByRole("region", { name: "Task details", exact: true })
-      .getByRole("heading", { name: / Download the export$/ }),
+      .getByRole("heading", { name: "Download the export", exact: true }),
   ).toBeVisible();
   await closeOverlay(page);
   await page
@@ -161,7 +161,7 @@ test("task keys link to persistent selections with history and draft protection"
   await expect(
     page
       .getByRole("region", { name: "Task details", exact: true })
-      .getByRole("heading", { name: / Download the export$/ }),
+      .getByRole("heading", { name: "Download the export", exact: true }),
   ).toBeVisible();
   const renamed = await call("edit_task", {
     project_id: "navigation",
@@ -188,7 +188,7 @@ test("task keys link to persistent selections with history and draft protection"
   await expect(
     page
       .getByRole("region", { name: "Task details", exact: true })
-      .getByRole("heading", { name: / Earlier experiment$/ }),
+      .getByRole("heading", { name: "Earlier experiment", exact: true }),
   ).toBeVisible();
   await page.reload();
   await expect(
@@ -482,14 +482,9 @@ test("closing entity panes returns through history without duplicate collections
     })
     .click();
   await expect(page).toHaveURL(board);
-  // Direct task links return to their workspace's board.
+  // Direct links retain the collection fallback; explicit new tabs start fresh.
   await page.goto(`/projects/${id}/tasks/HRT-1`);
-  await page
-    .getByRole("button", {
-      name: /^(Close editor|Back)$/,
-      exact: true,
-    })
-    .click();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page).toHaveURL(board);
 });
 
@@ -534,7 +529,7 @@ test("entity identity and drafts persist across task and workspace tabs", async 
     exact: true,
   });
   const title = editor.getByRole("heading", {
-    name: "identity-layout / IDN-1 First task",
+    name: "First task",
     exact: true,
   });
 
@@ -777,15 +772,12 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await expect(
     page.getByRole("tab", { name: "Coordinator", exact: true }),
   ).toHaveCount(0);
-  const headers = page.locator(".workspace-pane-header, .workspace-tab-strip");
-  await expect(headers).toHaveCount(2);
-  const headerBounds = await headers.evaluateAll((nodes) =>
-    nodes.map((node) => ({
-      top: node.getBoundingClientRect().top,
-      height: node.getBoundingClientRect().height,
-    })),
-  );
-  expect(headerBounds[0]).toEqual(headerBounds[1]);
+  await expect(
+    page.getByRole("heading", { name: "Coordinator", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("region", { name: "Coordinator conversation", exact: true }),
+  ).toBeVisible();
   const divider = page.getByRole("separator", {
     name: "Resize coordinator and work",
   });
@@ -815,7 +807,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
     page.getByRole("tablist", { name: "Open resources" }),
   ).toBeVisible();
   const back = detail.getByRole("button", { name: "Back" });
-  const heading = detail.getByRole("heading", { name: /WSF-1/ });
+  const heading = detail.locator(".entity-overlay-title h2");
   expect((await back.boundingBox())!.x).toBeLessThan(
     (await heading.boundingBox())!.x,
   );

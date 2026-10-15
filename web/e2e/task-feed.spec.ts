@@ -1191,9 +1191,9 @@ test("attempt activity updates without reloading the board and replays on reload
     "data-message-id",
     `attempt:${seeded.run_id}`,
   );
-  await expect(
-    page.locator(".task-conversation-header .work-state"),
-  ).toHaveCount(1);
+  await expect(page.locator(".entity-overlay-title .work-state")).toHaveCount(
+    1,
+  );
   await closeOverlay(page);
   const activeCard = page
     .locator(".task-card")

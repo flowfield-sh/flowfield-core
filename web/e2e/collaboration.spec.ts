@@ -80,11 +80,11 @@ test("coordinator dependencies update blockers, links and reconciliation without
     /Blocked by DEP-1, DEP-3|Blocked by DEP-3, DEP-1/,
   );
   await expect(
-    detail.getByText("Waiting on prerequisites", { exact: true }),
+    detail.getByRole("img", { name: "Waiting on prerequisites", exact: true }),
   ).toHaveCount(1);
-  await expect(
-    detail.locator(".task-conversation-header .work-state"),
-  ).toHaveCount(1);
+  await expect(detail.locator(".entity-overlay-title .work-state")).toHaveCount(
+    1,
+  );
   await detail.getByRole("link", { name: "DEP-3", exact: true }).hover();
   await expect(page.getByRole("tooltip")).toHaveText("Prepare export settings");
   await expect(detail.getByLabel("Add prerequisite")).toHaveCount(0);

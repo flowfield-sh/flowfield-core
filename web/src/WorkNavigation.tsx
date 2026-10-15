@@ -105,41 +105,61 @@ export function WorkList({
   );
   return (
     <>
-      <div className={all ? "work-resource-list" : "work-navigation-list"}>
-        {items.slice(0, count).map((item, index) => (
-          <div key={item.key}>
-            {(index === 0 || group(items[index - 1]) !== group(item)) && (
-              <div className="work-group-label">{groups[group(item)]}</div>
-            )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <WorkspaceLink
-                  to={item.href}
-                  className="work-navigation-row"
-                  aria-current={
-                    canonicalResourceRoot(current ?? "", board) === item.href
-                      ? "page"
-                      : undefined
-                  }
-                  aria-label={`${item.key} ${item.title}`}
-                  onClick={
-                    open
-                      ? (event) => followLink(event, () => open(item.href))
-                      : undefined
-                  }
-                >
-                  <WorkState state={item.state} indicatorOnly decorative />
-                  <span className="work-navigation-key">{item.key}</span>
-                  <span className="work-navigation-title">{item.title}</span>
-                </WorkspaceLink>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                {item.key} {item.title} · {item.state.label}
-                {item.archived ? " · Archived" : ""}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        ))}
+      <div className={all ? "work-resource-groups" : "work-navigation-list"}>
+        {groups.map((name, index) => {
+          const members = items
+            .slice(0, count)
+            .filter((item) => group(item) === index);
+          if (!members.length) return null;
+          return (
+            <section key={name} aria-label={all ? name : undefined}>
+              <h3 className="work-group-label">{name}</h3>
+              <div className={all ? "work-resource-list" : undefined}>
+                {members.map((item) => (
+                  <div key={item.key}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <WorkspaceLink
+                          to={item.href}
+                          className="work-navigation-row"
+                          aria-current={
+                            canonicalResourceRoot(current ?? "", board) ===
+                            item.href
+                              ? "page"
+                              : undefined
+                          }
+                          aria-label={`${item.key} ${item.title}`}
+                          onClick={
+                            open
+                              ? (event) =>
+                                  followLink(event, () => open(item.href))
+                              : undefined
+                          }
+                        >
+                          <WorkState
+                            state={item.state}
+                            indicatorOnly
+                            decorative
+                          />
+                          <span className="work-navigation-key">
+                            {item.key}
+                          </span>
+                          <span className="work-navigation-title">
+                            {item.title}
+                          </span>
+                        </WorkspaceLink>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        {item.key} {item.title} · {item.state.label}
+                        {item.archived ? " · Archived" : ""}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+        })}
         {!items.length && (
           <p className="empty-column">
             {all ? "No work yet" : "No active work"}

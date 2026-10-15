@@ -31,7 +31,9 @@ export function ActivityEntry({
   if (inline) return children;
   const heading = (
     <span className="activity-entry-heading">
-      <WorkState state={state} indicatorOnly />
+      <span className="activity-entry-state">
+        <WorkState state={state} indicatorOnly />
+      </span>
       <span className="activity-entry-title">{title}</span>
       <span className="activity-entry-meta">{metadata}</span>
     </span>
@@ -39,6 +41,7 @@ export function ActivityEntry({
   return hasBody ? (
     <Disclosure
       className="activity-entry"
+      chevron={false}
       summary={heading}
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}

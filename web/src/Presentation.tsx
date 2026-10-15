@@ -9,12 +9,12 @@ import {
 } from "@/components/ui/tooltip";
 import { ArrowLeft, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { type ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
 import { label, type TaskRevision } from "./workspace";
 import { useOverlayClose, OverlayHeading } from "./EntityOverlay";
 import { Timestamp } from "./Timestamp";
 import { ContentStack } from "./DetailLayout";
-import { OpenInWorkTab } from "./WorkspaceTabs";
+import { OpenInWorkTab, ResourceBackAvailable } from "./WorkspaceTabs";
 
 export function CloseControl({
   label,
@@ -24,6 +24,7 @@ export function CloseControl({
   close: () => void;
 }) {
   const overlayClose = useOverlayClose();
+  const backAvailable = useContext(ResourceBackAvailable);
   const dismiss = overlayClose ?? close;
   return (
     <Button
@@ -33,6 +34,7 @@ export function CloseControl({
       className={`close-control ${label.startsWith("Back") ? "-ms-2" : "-me-2"}`}
       aria-label={label}
       title={label}
+      disabled={label.startsWith("Back") && !backAvailable}
       onClick={dismiss}
     >
       {label.startsWith("Back") ? <ArrowLeft /> : <X />}
@@ -141,7 +143,7 @@ export function DetailTabs<T extends string>({
       onValueChange={(value) => change(value as T)}
     >
       <TabsList
-        variant="line"
+        variant="pill"
         className="card-tabs w-full justify-start"
         aria-label={title}
       >

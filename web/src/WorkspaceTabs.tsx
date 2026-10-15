@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -16,17 +17,29 @@ import { useSortable, isSortable } from "@dnd-kit/react/sortable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ActionTooltip } from "./ActionTooltip";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { canonicalHref, followLink, workspaceHref } from "./navigation";
 import type { WorkspaceBoard } from "./workspace";
 
-export type NavigationIntent = "within" | "open";
+export type NavigationIntent = "within" | "open" | "new";
 export const ResourceNavigation = createContext<
   ((url: string, intent?: NavigationIntent) => void) | null
 >(null);
 export const ResourceTitles = createContext<
   ((url: string, title: string) => void) | null
 >(null);
-type Tab = { id: string; root: string; history: string[]; index: number };
+export const ResourceBackAvailable = createContext(true);
+type Tab = {
+  id: string;
+  root: string;
+  history: string[];
+  index: number;
+  fresh?: boolean;
+};
 type TabState = { workspace: string; active: string; tabs: Tab[] };
 const limit = 24;
 export function resourceRoot(url: string) {
@@ -120,15 +133,24 @@ function visit(
 ): TabState {
   const root = canonicalResourceRoot(url, board);
   let tab =
-    intent === "open"
-      ? state.tabs.find((t) => canonicalResourceRoot(t.root, board) === root)
-      : state.tabs.find((t) => t.id === state.active);
-  if (!tab) tab = { id: root, root, history: [url], index: 0 };
+    intent === "new"
+      ? undefined
+      : intent === "open"
+        ? state.tabs.find((t) => canonicalResourceRoot(t.root, board) === root)
+        : state.tabs.find((t) => t.id === state.active);
+  if (!tab)
+    tab = {
+      id: intent === "new" ? crypto.randomUUID() : root,
+      root,
+      history: [url],
+      index: 0,
+      fresh: intent === "new",
+    };
   else if (intent === "open")
     tab = {
       ...tab,
-      history: root === url ? [root] : [root, url],
-      index: root === url ? 0 : 1,
+      history: [url],
+      index: 0,
     };
   else if (tab.history[tab.index] !== url) {
     const history = [
@@ -282,7 +304,7 @@ export function OpenInWorkTab() {
         <a
           href={href}
           aria-label="Open in work tab"
-          onClick={(event) => followLink(event, () => open(href, "open"))}
+          onClick={(event) => followLink(event, () => open(href, "new"))}
         >
           <ExternalLink />
         </a>
@@ -350,6 +372,17 @@ function ResourceTab({
     disabled: index === 0,
   });
   const name = title(tab.root, board, controller.titles);
+  const label = useRef<HTMLSpanElement>(null);
+  const [overflowing, setOverflowing] = useState(false);
+  useLayoutEffect(() => {
+    const node = label.current;
+    if (!node) return;
+    const measure = () => setOverflowing(node.scrollWidth > node.clientWidth);
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    measure();
+    return () => observer.disconnect();
+  }, [name]);
   const active = tab.id === controller.state?.active;
   return (
     <div
@@ -358,68 +391,69 @@ function ResourceTab({
       data-active={active}
       data-dragging={isDragging}
     >
-      <ActionTooltip label={name}>
-        <TabsTrigger
-          ref={index > 0 ? handleRef : undefined}
-          value={tab.id}
-          aria-label={
-            index === 0 && board?.needs_you_count
-              ? "Inbox " + board.needs_you_count
-              : name
-          }
-          data-state={active ? "active" : "inactive"}
-          data-slot="tabs-trigger"
-          onClick={() => {
-            if (!active) controller.select(tab.id);
-            else if (index === 0 && tab.history[tab.index] !== tab.root)
-              controller.go(tab.root, "open");
-          }}
-          onKeyDown={(event) => {
-            if (
-              index > 0 &&
-              event.altKey &&
-              ["ArrowLeft", "ArrowRight"].includes(event.key)
-            ) {
-              event.preventDefault();
-              event.stopPropagation();
-              controller.reorder(
-                index,
-                index + (event.key === "ArrowLeft" ? -1 : 1),
-              );
+      <Tooltip open={overflowing ? undefined : false} disableHoverableContent>
+        <TooltipTrigger asChild>
+          <TabsTrigger
+            ref={index > 0 ? handleRef : undefined}
+            value={tab.id}
+            aria-label={
+              index === 0 && board?.needs_you_count
+                ? "Inbox " + board.needs_you_count
+                : name
             }
-            if (index > 0 && event.key === "Delete") {
-              event.preventDefault();
-              controller.close(tab.id);
-              restoreFocus();
-            }
-          }}
-        >
-          <span>{name}</span>{" "}
-          {index === 0 && !!board?.needs_you_count && (
-            <span className="nav-count needs-attention">
-              {Math.min(99, board.needs_you_count)}
-              {board.needs_you_count > 99 ? "+" : ""}
-            </span>
-          )}
-          {tab.root.endsWith("/documents") && board && (
-            <span className="nav-count">{board.document_count}</span>
-          )}
-        </TabsTrigger>
-      </ActionTooltip>
-      {index > 0 && (
-        <ActionTooltip label={"Close " + name}>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label={"Close " + name}
+            data-state={active ? "active" : "inactive"}
+            data-slot="tabs-trigger"
             onClick={() => {
-              controller.close(tab.id);
-              restoreFocus();
+              if (!active) controller.select(tab.id);
+              else if (index === 0 && tab.history[tab.index] !== tab.root)
+                controller.go(tab.root, "open");
+            }}
+            onKeyDown={(event) => {
+              if (
+                index > 0 &&
+                event.altKey &&
+                ["ArrowLeft", "ArrowRight"].includes(event.key)
+              ) {
+                event.preventDefault();
+                event.stopPropagation();
+                controller.reorder(
+                  index,
+                  index + (event.key === "ArrowLeft" ? -1 : 1),
+                );
+              }
+              if (index > 0 && event.key === "Delete") {
+                event.preventDefault();
+                controller.close(tab.id);
+                restoreFocus();
+              }
             }}
           >
-            <X />
-          </Button>
-        </ActionTooltip>
+            <span ref={label}>{name}</span>{" "}
+            {index === 0 && !!board?.needs_you_count && (
+              <span className="nav-count needs-attention">
+                {Math.min(99, board.needs_you_count)}
+                {board.needs_you_count > 99 ? "+" : ""}
+              </span>
+            )}
+            {tab.root.endsWith("/documents") && board && (
+              <span className="nav-count">{board.document_count}</span>
+            )}
+          </TabsTrigger>
+        </TooltipTrigger>
+        <TooltipContent>{name}</TooltipContent>
+      </Tooltip>
+      {index > 0 && (
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label={"Close " + name}
+          onClick={() => {
+            controller.close(tab.id);
+            restoreFocus();
+          }}
+        >
+          <X />
+        </Button>
       )}
     </div>
   );
@@ -441,69 +475,85 @@ export function WorkspaceTabs({
         ?.querySelector<HTMLElement>('[role="tab"][data-state="active"]')
         ?.focus(),
     );
-  useEffect(() => {
-    strip.current
-      ?.querySelector<HTMLElement>('[role="tab"][data-state="active"]')
-      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  useLayoutEffect(() => {
+    const host = strip.current;
+    const active = host?.querySelector<HTMLElement>(
+      '.workspace-tab[data-active="true"]',
+    );
+    if (!host || !active) return;
+    const reveal = () =>
+      active.scrollIntoView({ block: "nearest", inline: "nearest" });
+    const observer = new ResizeObserver(reveal);
+    observer.observe(host);
+    observer.observe(active);
+    reveal();
+    return () => observer.disconnect();
   }, [state?.active]);
   if (!state) return children;
   return (
     <ResourceTitles.Provider value={controller.labelResource}>
-      <Tabs
-        className="workspace-resource-tabs"
-        value={state.active}
-        onValueChange={controller.select}
-        activationMode="manual"
+      <ResourceBackAvailable.Provider
+        value={
+          state.tabs.find((tab) => tab.id === state.active)!.index > 0 ||
+          !state.tabs.find((tab) => tab.id === state.active)!.fresh
+        }
       >
-        <DragDropProvider
-          sensors={[
-            PointerSensor.configure({
-              activationConstraints: [
-                new PointerActivationConstraints.Distance({ value: 6 }),
-              ],
-            }),
-          ]}
-          plugins={(defaults) =>
-            defaults.map((plugin) =>
-              plugin === Accessibility
-                ? Accessibility.configure({
-                    screenReaderInstructions: {
-                      draggable:
-                        "Use Enter to select, Alt+Left or Alt+Right to reorder, and Delete to close this tab.",
-                    },
-                  })
-                : plugin,
-            )
-          }
-          onDragEnd={(event) => {
-            if (event.canceled) return;
-            const { source } = event.operation;
-            if (isSortable(source))
-              controller.reorder(source.initialIndex, source.index);
-          }}
-        >
-          <div className="workspace-tab-strip" ref={strip}>
-            <TabsList variant="line" aria-label="Open resources">
-              {state.tabs.map((tab, index) => (
-                <ResourceTab
-                  key={tab.id}
-                  tab={tab}
-                  index={index}
-                  controller={controller}
-                  board={board}
-                  restoreFocus={restoreFocus}
-                />
-              ))}
-            </TabsList>
-          </div>
-        </DragDropProvider>
-        <TabsContent
+        <Tabs
+          className="workspace-resource-tabs"
           value={state.active}
-          className="workspace-resource-content"
+          onValueChange={controller.select}
+          activationMode="manual"
         >
-          <ResourceScroll tab={state.active}>{children}</ResourceScroll>
-        </TabsContent>
-      </Tabs>
+          <DragDropProvider
+            sensors={[
+              PointerSensor.configure({
+                activationConstraints: [
+                  new PointerActivationConstraints.Distance({ value: 6 }),
+                ],
+              }),
+            ]}
+            plugins={(defaults) =>
+              defaults.map((plugin) =>
+                plugin === Accessibility
+                  ? Accessibility.configure({
+                      screenReaderInstructions: {
+                        draggable:
+                          "Use Enter to select, Alt+Left or Alt+Right to reorder, and Delete to close this tab.",
+                      },
+                    })
+                  : plugin,
+              )
+            }
+            onDragEnd={(event) => {
+              if (event.canceled) return;
+              const { source } = event.operation;
+              if (isSortable(source))
+                controller.reorder(source.initialIndex, source.index);
+            }}
+          >
+            <div className="workspace-tab-strip" ref={strip}>
+              <TabsList variant="line" aria-label="Open resources">
+                {state.tabs.map((tab, index) => (
+                  <ResourceTab
+                    key={tab.id}
+                    tab={tab}
+                    index={index}
+                    controller={controller}
+                    board={board}
+                    restoreFocus={restoreFocus}
+                  />
+                ))}
+              </TabsList>
+            </div>
+          </DragDropProvider>
+          <TabsContent
+            value={state.active}
+            className="workspace-resource-content"
+          >
+            <ResourceScroll tab={state.active}>{children}</ResourceScroll>
+          </TabsContent>
+        </Tabs>
+      </ResourceBackAvailable.Provider>
     </ResourceTitles.Provider>
   );
 }

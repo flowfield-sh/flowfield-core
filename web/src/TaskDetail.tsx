@@ -47,52 +47,47 @@ export function TaskDetail({
   return (
     <section className="editor task-detail">
       <DetailHeader
-        title={
-          <>
-            <WorkspaceLink
-              className="task-project-breadcrumb"
-              to={projectHref(board.project.id)}
-            >
-              {board.project.name}
-            </WorkspaceLink>
-            {" / "}
-            <span className="task-heading-key">{task.key}</span> {task.title}
-          </>
-        }
+        title={task.title}
+        actions={<WorkState state={task.state} indicatorOnly />}
         close={close}
         closeLabel="Back"
-      >
-        <ContentStack className="task-conversation-header">
-          <div className="task-header-badges" aria-label="Task labels">
-            <MilestoneBadge
-              milestone={
-                task.publication?.milestone ??
-                board.milestones.find((m) => m.id === task.milestone_id)
-              }
-              preparedRevision={task.publication?.milestone?.revision}
-              changed={!!task.milestone_update}
-            />
-            <DraftBadge publicationStatus={task.publication_status} />
-            <TaskLabels ids={task.labels} />
-          </div>
-          <WorkState state={task.state} />
-          <DetailTabs
-            id="task"
-            title="Task views"
-            tabs={["overview", "activity"] as const}
-            active={overview ? "overview" : "activity"}
-            change={(tab) =>
-              navigate?.(
-                taskHref(
-                  board.project.id,
-                  task,
-                  tab === "overview" ? "task" : "history",
-                ),
-              )
+      />
+      <ContentStack space="section" className="task-view-navigation">
+        <div className="task-header-badges" aria-label="Task labels">
+          <WorkspaceLink
+            className="task-project-breadcrumb"
+            to={projectHref(board.project.id)}
+          >
+            {board.project.name}
+          </WorkspaceLink>
+          <span className="task-heading-key">{task.key}</span>
+          <MilestoneBadge
+            milestone={
+              task.publication?.milestone ??
+              board.milestones.find((m) => m.id === task.milestone_id)
             }
+            preparedRevision={task.publication?.milestone?.revision}
+            changed={!!task.milestone_update}
           />
-        </ContentStack>
-      </DetailHeader>
+          <DraftBadge publicationStatus={task.publication_status} />
+          <TaskLabels ids={task.labels} />
+        </div>
+        <DetailTabs
+          id="task"
+          title="Task views"
+          tabs={["overview", "activity"] as const}
+          active={overview ? "overview" : "activity"}
+          change={(tab) =>
+            navigate?.(
+              taskHref(
+                board.project.id,
+                task,
+                tab === "overview" ? "task" : "history",
+              ),
+            )
+          }
+        />
+      </ContentStack>
       {overview && (
         <ContentStack space="section" className="task-context">
           <AgentPermissions

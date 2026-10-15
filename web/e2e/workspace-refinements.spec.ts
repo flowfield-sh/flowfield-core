@@ -138,12 +138,14 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
     other.getByRole("region", { name: "Task details", exact: true }),
   ).toBeVisible();
   const heading = other.getByRole("heading", {
-    name: `Core service / ${task.key} Inspect delivery`,
+    name: "Inspect delivery",
     exact: true,
   });
   await expect(heading).toBeVisible();
   await expect(
-    heading.getByRole("link", { name: "Core service" }),
+    other
+      .locator(".task-view-navigation")
+      .getByRole("link", { name: "Core service" }),
   ).toHaveAttribute("href", `${base}?project=${project}`);
   await other.setViewportSize({ width: 1440, height: 1000 });
   await other.screenshot({
@@ -156,7 +158,10 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
   await other.screenshot({
     path: testInfo.outputPath("task-identity-narrow-dark.png"),
   });
-  await heading.getByRole("link", { name: "Core service" }).click();
+  await other
+    .locator(".task-view-navigation")
+    .getByRole("link", { name: "Core service" })
+    .click();
   await expect(other).toHaveURL(`${base}?project=${project}`);
   await other.evaluate(() => localStorage.setItem("flowfield.theme", "light"));
   await other.close();
