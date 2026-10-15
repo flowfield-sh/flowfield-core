@@ -13,14 +13,13 @@ import {
 import { Button } from "@/components/ui/button";
 import type { components } from "./api-schema";
 import { usePage, useResource } from "./useResource";
-import { AttentionCard } from "./AttentionCard";
 import { taskHref } from "./navigation";
 import { QuestionDetail, questionHref } from "./Inbox";
 import { label, type Task, type WorkspaceBoard } from "./workspace";
 import { WorkState } from "./WorkState";
 import { PermissionCard } from "./AgentPermissions";
-import { ContentStack } from "./DetailLayout";
-import { DetailTabs } from "./Presentation";
+import { ContentStack, Disclosure } from "./DetailLayout";
+import { DetailHeader, DetailTabs } from "./Presentation";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { TaskConversation } from "./TaskConversation";
 import { MilestoneReviewRequest } from "./MilestoneVerification";
@@ -28,7 +27,7 @@ import { useDirtyItems } from "./useDirtyItems";
 import { ResourceRetry } from "./ResourceRetry";
 import { RequestFrame } from "./RequestFrame";
 import { Timestamp } from "./Timestamp";
-import { EntityOverlay, OverlayFooter } from "./EntityOverlay";
+import { EntityPane, OverlayFooter } from "./EntityOverlay";
 
 type Item = components["schemas"]["AttentionItem"];
 type Page = components["schemas"]["AttentionPage"];
@@ -123,7 +122,9 @@ function RequestCard({
         ? "Milestone promotion"
         : "Milestone acceptance"
       : item.kind === "result"
-        ? "Code review"
+        ? ["blocked", "stale"].includes(item.status)
+          ? "Result recovery"
+          : "Code review"
         : label(item.kind);
   const href = itemHref(item);
   const project = board.projects.find((p) => p.id === item.project_id);
@@ -145,7 +146,10 @@ function RequestCard({
       }
     >
       {item.kind === "result" && (
-        <h3 className="detail-title">Review {item.title}</h3>
+        <h3 className="detail-title">
+          {kind === "Code review" ? "Review " : ""}
+          {item.title}
+        </h3>
       )}
       {item.kind === "milestone" ? (
         <MilestoneReviewRequest
@@ -216,7 +220,7 @@ function InboxList({
   );
   const mark = useDirtyItems(onDirty);
   const [drafts, setDrafts] = useRetainedState<Record<string, boolean>>(
-    `inbox:${workspaceId}:${projectId}:${tab}:drafts`,
+    `inbox:${workspaceId}:${projectId}:drafts`,
     {},
   );
   const markDirty = useCallback(
@@ -232,14 +236,18 @@ function InboxList({
   );
   const [seen, setSeen] = useState<Page | null>(null);
   const [retained, setRetained] = useRetainedState<Item[]>(
-    `inbox:${workspaceId}:${projectId}:${tab}:items`,
+    `inbox:${workspaceId}:${projectId}:items`,
+    [],
+  );
+  const [currentIds, setCurrentIds] = useRetainedState<string[]>(
+    `inbox:${workspaceId}:${projectId}:current`,
     [],
   );
   // Keep stable ordering and independent drafts while canonical resolution
-  // removes answered requests. An externally resolved draft stays bound to its
-  // original request until explicitly discarded.
-  if (page.data && page.data !== seen) {
+  // removes answered requests. Resolved drafts remain reachable in History.
+  if (tab === "needs_me" && page.data && page.data !== seen) {
     setSeen(page.data);
+    setCurrentIds(page.data.items.map(identityOf));
     setRetained((previous) => {
       const incoming = new Map(
         page.data!.items.map((item) => [identityOf(item), item]),
@@ -261,11 +269,17 @@ function InboxList({
   const items = useMemo(() => {
     const current = new Set(page.data?.items.map(identityOf));
     return tab === "needs_me"
-      ? retained.filter(
-          (item) => current.has(identityOf(item)) || drafts[identityOf(item)],
-        )
-      : (page.data?.items ?? []);
-  }, [page.data, tab, retained, drafts]);
+      ? retained.filter((item) => current.has(identityOf(item)))
+      : [
+          ...retained.filter(
+            (item) =>
+              drafts[identityOf(item)] &&
+              !currentIds.includes(identityOf(item)) &&
+              !current.has(identityOf(item)),
+          ),
+          ...(page.data?.items ?? []),
+        ];
+  }, [page.data, tab, retained, drafts, currentIds]);
   const list = useRef<HTMLDivElement>(null);
   const focused = useRef<{ id: string; index: number } | null>(null);
   useLayoutEffect(() => {
@@ -301,7 +315,21 @@ function InboxList({
             : "No past items yet."}
         </p>
       )}
-      <ol className="request-list">
+      {tab === "needs_me" &&
+        retained.some(
+          (item) =>
+            drafts[identityOf(item)] && !currentIds.includes(identityOf(item)),
+        ) && (
+          <p>
+            Unsent responses to resolved requests are saved in{" "}
+            <WorkspaceLink to="?inbox=history">History</WorkspaceLink>.
+          </p>
+        )}
+      <ol
+        className={
+          tab === "needs_me" ? "request-list" : "request-list inbox-history"
+        }
+      >
         {items.map((item, index) => (
           <li
             key={identityOf(item)}
@@ -326,20 +354,43 @@ function InboxList({
                 markDirty={markDirty}
               />
             ) : (
-              <AttentionCard
-                href={
-                  item.kind === "permission"
-                    ? `/workspaces/${workspaceId}/inbox?inbox=history&permission=${encodeURIComponent(item.id)}${item.project_id ? `&permission_project=${encodeURIComponent(item.project_id)}` : ""}${projectId ? `&project_id=${encodeURIComponent(projectId)}` : ""}`
-                    : itemHref(item)
-                }
-                kind={item.kind === "result" ? "Changes" : label(item.kind)}
-                reference={item.task_key ?? "Workspace"}
-                title={item.title}
-                detail={<Timestamp date={item.updated_at} />}
-                action={
-                  item.next_action ?? item.state?.label ?? label(item.status)
-                }
-              />
+              <ContentStack>
+                <WorkspaceLink
+                  className="inbox-history-row"
+                  to={
+                    item.kind === "permission"
+                      ? `/workspaces/${workspaceId}/inbox?inbox=history&permission=${encodeURIComponent(item.id)}${item.project_id ? `&permission_project=${encodeURIComponent(item.project_id)}` : ""}${projectId ? `&project_id=${encodeURIComponent(projectId)}` : ""}`
+                      : itemHref(item)
+                  }
+                >
+                  <span>
+                    <WorkState state={item.state} indicatorOnly decorative />
+                  </span>
+                  <span className="work-navigation-key">
+                    {item.task_key ?? label(item.kind)}
+                  </span>
+                  <span className="inbox-history-title">{item.title}</span>
+                  <span className="inbox-history-outcome">
+                    {item.next_action ??
+                      item.state?.label ??
+                      label(item.status)}
+                  </span>
+                  <span className="detail-metadata">
+                    <Timestamp date={item.updated_at} />
+                  </span>
+                </WorkspaceLink>
+                {drafts[identityOf(item)] && (
+                  <Disclosure summary="Unsent response" open>
+                    <RequestCard
+                      item={item}
+                      workspaceId={workspaceId}
+                      board={board}
+                      refresh={refresh}
+                      markDirty={markDirty}
+                    />
+                  </Disclosure>
+                )}
+              </ContentStack>
             )}
           </li>
         ))}
@@ -371,34 +422,39 @@ export function AttentionBoard(props: {
   const requested = params.get("inbox");
   const tab: Tab = requested === "history" ? requested : "needs_me";
   const permission = params.get("permission");
+  const closePermission = () => {
+    const next = new URLSearchParams(params);
+    next.delete("permission");
+    next.delete("permission_project");
+    void navigate(`${location.pathname}?${next}`, {
+      replace: true,
+      state: location.state,
+    });
+  };
+  if (permission)
+    return (
+      <EntityPane
+        label="Tool permission"
+        identity={permission}
+        returnFocusHref={location.pathname}
+        close={closePermission}
+      >
+        <DetailHeader title="Tool permission" close={closePermission} />
+        <PermissionCard
+          projectId={params.get("permission_project") ?? props.projectId}
+          workspaceId={
+            (params.get("permission_project") ?? props.projectId)
+              ? undefined
+              : props.workspaceId
+          }
+          id={permission}
+          taskKey={null}
+          refresh={props.refresh}
+        />
+      </EntityPane>
+    );
   return (
     <ContentStack className="inbox-view" space="section">
-      {permission && (
-        <EntityOverlay
-          title="Tool permission"
-          close={() => {
-            const next = new URLSearchParams(params);
-            next.delete("permission");
-            next.delete("permission_project");
-            void navigate(`${location.pathname}?${next}`, {
-              replace: true,
-              state: location.state,
-            });
-          }}
-        >
-          <PermissionCard
-            projectId={params.get("permission_project") ?? props.projectId}
-            workspaceId={
-              (params.get("permission_project") ?? props.projectId)
-                ? undefined
-                : props.workspaceId
-            }
-            id={permission}
-            taskKey={null}
-            refresh={props.refresh}
-          />
-        </EntityOverlay>
-      )}
       <DetailTabs
         id="inbox"
         title="Inbox views"

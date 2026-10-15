@@ -283,8 +283,7 @@ test("task activity, Markdown and independently retrievable handoffs preserve th
   await expect(
     page.locator(".task-definition").getByRole("checkbox"),
   ).toHaveCount(2);
-  await page.getByText("Work details", { exact: true }).click();
-  await page.getByRole("link", { name: "Activity and history" }).click();
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
   await expect(
     editor.getByRole("button", { name: "Add note", exact: true }),
   ).toHaveCount(0);
@@ -298,6 +297,9 @@ test("task activity, Markdown and independently retrievable handoffs preserve th
       body: "## Finding\n\nReuse **serializer**.\n\n[Unsafe](javascript:alert(1))\n<script>window.evil = true</script>",
     },
   });
+  await activity
+    .locator('[data-kind="activity"] .activity-entry > summary')
+    .click();
   await expect(
     activity.getByRole("heading", { name: "Finding", exact: true }),
   ).toBeVisible();
@@ -424,6 +426,7 @@ test("conversation pages exact revisions without hiding notes or superseded hand
     page.getByRole("button", { name: "Load earlier activity", exact: true }),
   ).toHaveCount(0);
   const second = activity.locator('[data-message-id="definition:2"]');
+  await second.locator(".activity-entry > summary").click();
   await second.locator(".task-changes summary").click();
   await expect
     .poll(() =>
@@ -572,9 +575,11 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   await expect(page).toHaveURL(/conversation\/question:export-scope:1$/);
   await expect(page.getByRole("list", { name: "Task feed" })).toBeVisible();
   const questionEntry = page.locator(
-    '.conversation-message[data-kind="question"]',
+    '.task-activity-item[data-kind="question"]',
   );
-  await expect(questionEntry.locator(".detail-title")).toHaveText("Question");
+  await expect(questionEntry.locator(".activity-entry-title")).toHaveText(
+    "Question",
+  );
   await expect(
     questionEntry.locator(".conversation-message-body strong"),
   ).toHaveText("What should the export include?");
@@ -654,6 +659,9 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   await detail
     .getByRole("button", { name: "Send answer", exact: true })
     .click();
+  await detail
+    .locator('[data-kind="answer"] .activity-entry > summary')
+    .click();
   await expect(
     detail
       .locator(".conversation-message-body")
@@ -706,6 +714,9 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   await expect(page.locator('[data-kind="activity"]')).toContainText(
     "10,000-row cap",
   );
+  await page
+    .locator('[data-kind="activity"] .activity-entry > summary')
+    .click();
   await expect(
     page
       .locator('[data-kind="activity"]')
@@ -750,7 +761,7 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
     "Export limit",
   ]);
   await page.goto(`/projects/${project_id}/inbox/${q.id}`);
-  const detail = page.getByRole("dialog", { name: "Question", exact: true });
+  const detail = page.getByRole("region", { name: "Question", exact: true });
   await detail
     .getByLabel("Your answer", { exact: true })
     .fill("My unsaved custom answer");
@@ -857,9 +868,9 @@ test("retracting answers reopens questions and preserves earlier responses", asy
     response: { expected_revision: 1, answer: "Visible page" },
   });
   await page.goto(`/projects/${project_id}/inbox/scope`);
-  const detail = page.getByRole("dialog", { name: "Question", exact: true });
+  const detail = page.getByRole("region", { name: "Question", exact: true });
   await expect(
-    detail.getByRole("link", { name: "Which rows?", exact: true }),
+    detail.getByRole("link", { name: "Open in work tab", exact: true }),
   ).toHaveAttribute("href", `/projects/${project_id}/inbox/scope`);
   await expect(
     detail.getByRole("button", { name: "Retract", exact: true }),
@@ -894,9 +905,7 @@ test("retracting answers reopens questions and preserves earlier responses", asy
     (await call("get_task", { project_id, task_id: "REV-1" }))
       .blocking_question_count,
   ).toBe(1);
-  await detail
-    .getByRole("button", { name: "Close question", exact: true })
-    .click();
+  await detail.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page).toHaveURL(
     `/workspaces/${await projectWorkspace(request, project_id)}/inbox?project=${project_id}`,
   );
@@ -954,7 +963,7 @@ test("project questions link affected tasks and reconcile through CLI and MCP", 
       .id,
   ).toBe(q.id);
   await page.goto(`/projects/${project_id}/inbox/${q.id}`);
-  const detail = page.getByRole("dialog", { name: "Question", exact: true });
+  const detail = page.getByRole("region", { name: "Question", exact: true });
   await expect(
     detail.getByRole("link", { name: "Project", exact: true }),
   ).toHaveAttribute(
@@ -1127,6 +1136,10 @@ test("selected handoff survives a fresh MCP connection and shows stale context",
   await expect(
     page.getByRole("img", { name: "Superseded", exact: true }),
   ).toBeVisible();
+  for (const row of await page
+    .locator('[data-kind="activity"] .activity-entry > summary')
+    .all())
+    await row.click();
   await expect(
     page.getByText("Earlier handoff", { exact: true }),
   ).toBeVisible();
@@ -1134,6 +1147,11 @@ test("selected handoff survives a fresh MCP connection and shows stale context",
     page.getByText("Replacement handoff", { exact: true }),
   ).toBeVisible();
   await page.reload();
+  await page
+    .locator('[data-kind="activity"]')
+    .filter({ hasText: "Rechecked duplicate IDs; next run the full suite." })
+    .locator(".activity-entry > summary")
+    .click();
   await expect(
     page.getByText("Rechecked duplicate IDs; next run the full suite.", {
       exact: true,
@@ -1216,24 +1234,21 @@ test("related questions preserve the page, drafts, focus and router history", as
   expect(overlayScroll).toBeGreaterThan(0);
   const scroll = await page.evaluate(() => scrollY);
   await trigger.click();
-  const dialog = page.getByRole("dialog", { name: "Question", exact: true });
+  const dialog = page.getByRole("region", { name: "Question", exact: true });
   await expect(dialog).toBeVisible();
   releaseFeed();
   expect(await page.evaluate(() => scrollY)).toBe(scroll);
-  await expect(page).toHaveURL(`${origin}/related/questions/${question.id}`);
+  await expect(page).toHaveURL(`/projects/${project_id}/inbox/${question.id}`);
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(boot);
   const answer = dialog.getByLabel("Your answer", { exact: true });
   await answer.fill("My unsaved answer");
   await page.goBack();
-  await page.getByRole("button", { name: "Keep editing", exact: true }).click();
-  await expect(dialog).toBeVisible();
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  await expect(page).toHaveURL(origin);
+  await trigger.click();
   await expect(answer).toHaveValue("My unsaved answer");
-  await dialog
-    .getByRole("button", { name: "Close question", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Discard changes", exact: true })
-    .click();
+  await answer.fill("");
+  await dialog.getByRole("button", { name: "Back", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page).toHaveURL(origin);
   await expect(trigger).toBeFocused();
@@ -1249,7 +1264,17 @@ test("related questions preserve the page, drafts, focus and router history", as
   await expect(dialog).toBeVisible();
   await page.reload();
   await expect(dialog).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({
+    path: test.info().outputPath("question-pane-desktop.png"),
+  });
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await page.screenshot({
+    path: test.info().outputPath("question-pane-narrow-dark.png"),
+    animations: "disabled",
+  });
 
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(origin);
@@ -1260,9 +1285,7 @@ test("related questions preserve the page, drafts, focus and router history", as
     .getByRole("button", { name: "Send answer", exact: true })
     .click();
   await expect(dialog.getByRole("status")).toHaveText("Resume coordinator");
-  await dialog
-    .getByRole("button", { name: "Close question", exact: true })
-    .click();
+  await dialog.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page).toHaveURL(origin);
   await expect(dialog).toHaveCount(0);
   await expect(
@@ -1787,6 +1810,9 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     .getByRole("button", { name: "Use current context", exact: true })
     .click();
   await page
+    .locator('[data-message-id="result:older"] .activity-entry > summary')
+    .click();
+  await page
     .locator('[data-message-id="result:older"]')
     .getByRole("link", { name: "Inspect earlier result", exact: true })
     .click();
@@ -1812,6 +1838,9 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     dialog.locator('[data-message-id="result:first"]'),
   ).toContainText("Review request");
   await page.reload();
+  await page
+    .locator('[data-message-id="result:successor"] .activity-entry > summary')
+    .click();
   await runs
     .getByText("Requested in the previous review", { exact: true })
     .click();

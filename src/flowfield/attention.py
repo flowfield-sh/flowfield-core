@@ -195,6 +195,18 @@ def workspace_attention_counts(db: sqlite3.Connection, workspace_id: str) -> dic
     )
 
 
+def workspace_attention_work(db: sqlite3.Connection, workspace_id: str) -> list[str]:
+    """Complete work identities requiring attention, from the same Inbox projection."""
+    return [
+        row[0]
+        for row in db.execute(
+            _WORKSPACE_PROJECTION + "SELECT DISTINCT task_key FROM items WHERE bucket='action' "
+            "AND task_key IS NOT NULL ORDER BY task_key",
+            {"workspace": workspace_id, "project": None},
+        )
+    ]
+
+
 def actionable_attention(db: sqlite3.Connection, project_id: str) -> Iterator[sqlite3.Row]:
     """Stream the complete actionable projection for transactional event observation."""
     yield from db.execute(

@@ -438,8 +438,7 @@ test("Conversation permalinks preserve message drafts while coordinator revision
   await page
     .getByLabel("Message coordinator", { exact: true })
     .fill("Unsaved draft");
-  await page.getByText("Work details", { exact: true }).click();
-  await page.getByRole("link", { name: "Activity and history" }).click();
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
   const history = page.getByRole("list", { name: "Task feed" });
   await history
     .getByRole("link", { name: "Permalink: Task defined", exact: true })
@@ -453,6 +452,9 @@ test("Conversation permalinks preserve message drafts while coordinator revision
   });
   await expect(history).toContainText("Task definition updated");
   expect(revisionReads).toHaveLength(0);
+  await history
+    .locator('[data-message-id="definition:2"] .activity-entry > summary')
+    .click();
   await history
     .locator('[data-message-id="definition:2"] .task-changes summary')
     .click();
@@ -470,7 +472,7 @@ test("Conversation permalinks preserve message drafts while coordinator revision
   await expect(
     page.getByLabel("Message coordinator", { exact: true }),
   ).toHaveValue("Unsaved draft");
-  await page.getByRole("link", { name: "Overview", exact: true }).click();
+  await page.getByRole("tab", { name: "Overview", exact: true }).click();
   await expect(page.locator(".task-definition")).toContainText(
     "New saved context",
   );
@@ -632,8 +634,7 @@ test("readable conversation preserves message drafts, revision links and legacy 
   await page
     .getByLabel("Message coordinator", { exact: true })
     .fill("Export **selected columns**.");
-  await page.getByText("Work details", { exact: true }).click();
-  await page.getByRole("link", { name: "Activity and history" }).click();
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
   await expect(
     thread
       .locator('[data-kind="definition"]')
@@ -700,7 +701,9 @@ test("readable conversation preserves message drafts, revision links and legacy 
   await other.close();
   await page.goto("/projects/readable/tasks/REA-1/history");
   await expect(thread).toBeVisible();
-  await expect(editor.getByRole("tab")).toHaveCount(0);
+  await expect(
+    editor.getByRole("tab", { name: "Activity", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
 });
 
 test("task changes refresh their workspace without reloading the workspace catalog", async ({
@@ -997,7 +1000,7 @@ test("conversation capture prepares atomically while task defaults show only use
   await expect(page.getByRole("tooltip")).toContainText(
     "Compare available formats",
   );
-  await page.getByRole("link", { name: "Activity and history" }).click();
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
   await page
     .getByRole("link", { name: "Permalink: Stages defined", exact: true })
     .click();
@@ -1061,7 +1064,7 @@ test("conversation capture prepares atomically while task defaults show only use
     },
   });
   expect(updated.publication_status).toBe("published");
-  await page.getByRole("link", { name: "Overview", exact: true }).click();
+  await page.getByRole("tab", { name: "Overview", exact: true }).click();
   await expect(
     editor
       .getByLabel("Current task definition")
@@ -1184,7 +1187,7 @@ test("attempt activity updates without reloading the board and replays on reload
   await page.reload();
   await expect(output).toContainText("create observed output");
   await expect(output).toContainText("later observed output");
-  await expect(page.locator(".conversation-message").last()).toHaveAttribute(
+  await expect(page.locator(".task-activity-item").last()).toHaveAttribute(
     "data-message-id",
     `attempt:${seeded.run_id}`,
   );
@@ -1350,6 +1353,11 @@ test("task feed follows the live end but preserves reading position and timestam
   });
   await expect(feed).toContainText("Newest while following");
   await expect.poll(atBottom).toBe(true);
+  // Expand retained notes so this still exercises reading long evidence.
+  for (const row of await feed
+    .locator('[data-kind="activity"] .activity-entry > summary')
+    .all())
+    await row.click();
   const anchor = feed.locator('[data-kind="activity"]').nth(5);
   await anchor.evaluate((el) => el.scrollIntoView({ block: "start" }));
   await expect.poll(atBottom).toBe(false);

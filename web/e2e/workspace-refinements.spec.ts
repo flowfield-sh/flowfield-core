@@ -273,7 +273,7 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
   });
   await page.goto(`${base}/projects/new`);
   await expect(
-    page.getByRole("dialog", { name: "Add a project", exact: true }),
+    page.getByRole("region", { name: "Add a project", exact: true }),
   ).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("project-overlay-narrow-dark.png"),

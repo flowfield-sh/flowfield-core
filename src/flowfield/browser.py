@@ -22,6 +22,7 @@ from flowfield.attention import (
     AttentionPage,
     attention_page,
     workspace_attention_counts,
+    workspace_attention_work,
 )
 from flowfield.document_models import DocumentUpdate
 from flowfield.errors import ApplicationError
@@ -99,6 +100,7 @@ class BrowserWorkspaceBoard(BaseModel):
     milestones: list[Milestone]
     tasks: list[TaskCard]
     needs_you_count: int
+    attention_work_keys: list[str] = Field(default_factory=list)
     awaiting_application_count: int
     pending_code: dict[str, list[TaskReference]]
 
@@ -294,6 +296,7 @@ class BrowserReads:
                 tasks=cards,
                 pending_code=pending,
                 needs_you_count=counts.get("action", 0),
+                attention_work_keys=workspace_attention_work(db, workspace_id),
                 awaiting_application_count=counts.get("waiting", 0),
             )
 

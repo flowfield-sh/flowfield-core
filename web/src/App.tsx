@@ -32,7 +32,7 @@ import { ContentStack } from "./DetailLayout";
 import { WorkCard } from "./WorkCard";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
-import { EntityOverlay, EntityPane } from "./EntityOverlay";
+import { EntityPane } from "./EntityOverlay";
 import { DetailHeader } from "./Presentation";
 import { useResource } from "./useResource";
 import { TaskDetail } from "./TaskDetail";
@@ -57,7 +57,7 @@ import {
   Task,
   TaskCard,
 } from "./workspace";
-import { QuestionOverlay } from "./Inbox";
+import { QuestionPage } from "./Inbox";
 import { DiscardChangesDialog } from "./DiscardChangesDialog";
 import {
   boardHref,
@@ -71,6 +71,7 @@ import {
 type Selection = { kind: "task" | "milestone" | "project"; id: string };
 
 export function App() {
+  const contextLocation = useLocation();
   const appearance = useTheme();
   const [chatDrafts] = useState<ChatDrafts>(() => new Map());
   const [adjacent, setAdjacent] = useState<AdjacentSnapshot | null>(null);
@@ -88,20 +89,16 @@ export function App() {
     (value, retained) => setUnsaved(value && !retained),
     [],
   );
-  const [overlayDirty, setOverlayDirty] = useState(false);
   const [knownOwners, setKnownOwners] = useState<Record<string, string>>({});
   const {
     params,
     pathname,
     changeLocation: rawChangeLocation,
     notFound,
-    closeQuestion,
     discardChanges,
   } = useWorkspaceNavigation(
     unsaved,
     setUnsaved,
-    overlayDirty,
-    setOverlayDirty,
     chatSettingsDirty,
     knownOwners,
   );
@@ -115,7 +112,12 @@ export function App() {
     refresh,
   );
   const workspaceId =
-    params.workspaceId ?? knownOwners[projectId ?? ""] ?? projectWorkspace?.id;
+    params.workspaceId ??
+    knownOwners[projectId ?? ""] ??
+    projectWorkspace?.id ??
+    (pathname.startsWith("/settings/") || pathname === "/new-workspace"
+      ? (contextLocation.state?.workspaceTabs?.workspace as string | undefined)
+      : undefined);
   // Resolving a project alias changes the URL, not the work the human opened.
   // Use its known workspace before board loading registers all member projects.
   const workLocation = canonicalHref(
@@ -268,7 +270,6 @@ export function App() {
       if (
         hasRetainedDrafts() ||
         unsaved ||
-        overlayDirty ||
         chatSettingsDirty ||
         [...chatDrafts.values()].some((value) => value.text)
       )
@@ -276,10 +277,67 @@ export function App() {
     }
     window.addEventListener("beforeunload", guard);
     return () => window.removeEventListener("beforeunload", guard);
-  }, [unsaved, overlayDirty, chatSettingsDirty, chatDrafts]);
+  }, [unsaved, chatSettingsDirty, chatDrafts]);
   function navigate(action: () => void) {
     action();
   }
+  function backFromGlobal() {
+    const tab = tabs.state?.tabs.find((item) => item.id === tabs.state?.active);
+    if (tab && tab.index > 0) {
+      let index = tab.index - 1;
+      while (
+        index > 0 &&
+        pathname.startsWith("/settings/") &&
+        tab.history[index].startsWith("/settings/")
+      )
+        index--;
+      tabs.step(index - tab.index);
+    } else changeLocation(workspaceId ? workspaceHref(workspaceId) : "/");
+  }
+  const settingsPage = (
+    <EntityPane
+      label="Flowfield settings"
+      identity="settings"
+      returnFocusHref={workspaceId ? workspaceHref(workspaceId) : "/"}
+      close={backFromGlobal}
+    >
+      <DetailHeader title="Settings" close={backFromGlobal} />
+      <FlowfieldSettings
+        onDirty={setUnsaved}
+        appearance={appearance}
+        tab={
+          pathname === "/settings/appearance"
+            ? "appearance"
+            : pathname === "/settings/notifications"
+              ? "notifications"
+              : pathname === "/settings/updates"
+                ? "updates"
+                : "harnesses"
+        }
+      />
+    </EntityPane>
+  );
+  const newWorkspacePage = (
+    <EntityPane
+      label="New workspace"
+      identity="new-workspace"
+      returnFocusHref="/"
+      close={backFromGlobal}
+    >
+      <DetailHeader title="New workspace" close={backFromGlobal} />
+      <NewWorkspace
+        onDirty={setUnsaved}
+        created={(workspace) => {
+          setWorkspaces((items) => [
+            ...items.filter((item) => item.id !== workspace.id),
+            workspace,
+          ]);
+          setRefresh((value) => value + 1);
+          rawChangeLocation(workspaceHref(workspace.id), true);
+        }}
+      />
+    </EntityPane>
+  );
   return (
     <ProjectOwners.Provider value={knownOwners}>
       <ResourceNavigation.Provider value={openResource}>
@@ -296,7 +354,7 @@ export function App() {
             activeWorkspaceId={workspaceId ?? ""}
             onWorkspaceSelect={(workspace) => rawChangeLocation(workspace.href)}
             onHome={() => changeLocation("/")}
-            onAddWorkspace={() => changeLocation("/new-workspace")}
+            onAddWorkspace={() => openResource("/new-workspace")}
             navigation={
               board && workspaceId ? (
                 <WorkNavigation
@@ -326,7 +384,7 @@ export function App() {
               ) : undefined
             }
             footer={
-              <>
+              <div className="workspace-utilities">
                 <SettingsLink active={pathname.startsWith("/settings/")} />
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -346,7 +404,7 @@ export function App() {
                     {connectionStatus}
                   </TooltipContent>
                 </Tooltip>
-              </>
+              </div>
             }
             coordinator={
               connected &&
@@ -363,20 +421,20 @@ export function App() {
                       workspaceId={workspaceId}
                       viewPath={pathname}
                       adjacent={
-                        adjacent?.workspaceId === workspaceId &&
-                        adjacent.pathname === pathname
-                          ? adjacent.context
-                          : null
+                        pathname.startsWith("/settings/") ||
+                        pathname === "/new-workspace"
+                          ? { view: null, task: null }
+                          : adjacent?.workspaceId === workspaceId &&
+                              adjacent.pathname === pathname
+                            ? adjacent.context
+                            : null
                       }
                       refresh={workspaceRefresh}
                       drafts={chatDrafts}
                       onSettingsDirty={setChatSettingsDirty}
-                      controlsActive={
-                        visible &&
-                        !params.overlayQuestionId &&
-                        !/^\/(?:workspaces|projects)\/[^/]+\/edit(?:\/|$)/.test(
-                          pathname,
-                        )
+                      controlsActive={visible}
+                      offerInitialSetup={
+                        pathname === workspaceHref(workspaceId)
                       }
                     />
                   )
@@ -411,20 +469,8 @@ export function App() {
                     <h1>Page not found</h1>
                     <p>Choose a workspace to continue.</p>
                   </section>
-                ) : pathname.startsWith("/settings/") ? (
-                  <FlowfieldSettings
-                    onDirty={setUnsaved}
-                    appearance={appearance}
-                    tab={
-                      pathname === "/settings/appearance"
-                        ? "appearance"
-                        : pathname === "/settings/notifications"
-                          ? "notifications"
-                          : pathname === "/settings/updates"
-                            ? "updates"
-                            : "harnesses"
-                    }
-                  />
+                ) : pathname.startsWith("/settings/") && !workspaceId ? (
+                  settingsPage
                 ) : workspaceId &&
                   workspace &&
                   (!projectId ||
@@ -432,48 +478,52 @@ export function App() {
                       workspaceId) ? (
                   <WorkspaceTabs controller={tabs} board={board}>
                     <ResourceNavigation.Provider value={tabs.go}>
-                      <WorkspaceResource
-                        boardResource={boardResource}
-                        publishView={setAdjacent}
-                        key={workspaceId}
-                        workspaceId={workspaceId}
-                        projectId={projectId}
-                        refresh={workspaceRefresh}
-                        params={params}
-                        pathname={pathname}
-                        closeEntity={(fallback) => {
-                          const tab = tabs.state?.tabs.find(
-                            (t) => t.id === tabs.state?.active,
-                          );
-                          if (
-                            /^\/(?:workspaces|projects)\/[^/]+\/edit(?:\/|$)/.test(
-                              pathname,
-                            )
-                          ) {
-                            const origin =
-                              tab?.history
-                                .slice(0, tab.index)
-                                .reduce(
-                                  (previous, url, index) =>
-                                    /^\/(?:workspaces|projects)\/[^/]+\/edit(?:\/|$)/.test(
-                                      url,
-                                    )
-                                      ? previous
-                                      : index,
-                                  -1,
-                                ) ?? -1;
-                            if (tab && origin >= 0)
-                              tabs.step(origin - tab.index);
+                      {pathname.startsWith("/settings/") ? (
+                        settingsPage
+                      ) : pathname === "/new-workspace" ? (
+                        newWorkspacePage
+                      ) : (
+                        <WorkspaceResource
+                          boardResource={boardResource}
+                          publishView={setAdjacent}
+                          key={workspaceId}
+                          workspaceId={workspaceId}
+                          projectId={projectId}
+                          refresh={workspaceRefresh}
+                          params={params}
+                          pathname={pathname}
+                          closeEntity={(fallback) => {
+                            const tab = tabs.state?.tabs.find(
+                              (t) => t.id === tabs.state?.active,
+                            );
+                            if (
+                              /^\/(?:workspaces|projects)\/[^/]+\/edit(?:\/|$)/.test(
+                                pathname,
+                              )
+                            ) {
+                              const origin =
+                                tab?.history
+                                  .slice(0, tab.index)
+                                  .reduce(
+                                    (previous, url, index) =>
+                                      /^\/(?:workspaces|projects)\/[^/]+\/edit(?:\/|$)/.test(
+                                        url,
+                                      )
+                                        ? previous
+                                        : index,
+                                    -1,
+                                  ) ?? -1;
+                              if (tab && origin >= 0)
+                                tabs.step(origin - tab.index);
+                              else changeLocation(fallback);
+                            } else if (tab && tab.index > 0) tabs.step(-1);
                             else changeLocation(fallback);
-                          } else if (tab && tab.index > 0) tabs.step(-1);
-                          else changeLocation(fallback);
-                        }}
-                        changeLocation={changeLocation}
-                        navigate={navigate}
-                        setUnsaved={navigationDirty}
-                        setOverlayDirty={setOverlayDirty}
-                        closeQuestion={closeQuestion}
-                      />
+                          }}
+                          changeLocation={changeLocation}
+                          navigate={navigate}
+                          setUnsaved={navigationDirty}
+                        />
+                      )}
                     </ResourceNavigation.Provider>
                   </WorkspaceTabs>
                 ) : projectId || workspaceId ? (
@@ -496,19 +546,12 @@ export function App() {
                     )}
                   </section>
                 ) : pathname === "/new-workspace" ? (
-                  <NewWorkspace
-                    onDirty={setUnsaved}
-                    created={(workspace) => {
-                      setWorkspaces((items) => [
-                        ...items.filter((item) => item.id !== workspace.id),
-                        workspace,
-                      ]);
-                      setRefresh((value) => value + 1);
-                      changeLocation(workspaceHref(workspace.id), true);
-                    }}
-                  />
+                  newWorkspacePage
                 ) : (
-                  <WorkspaceList workspaces={workspaces} />
+                  <WorkspaceList
+                    workspaces={workspaces}
+                    attentionCounts={attentionCounts}
+                  />
                 )}
               </>
             }
@@ -531,8 +574,6 @@ function WorkspaceResource({
   changeLocation,
   navigate,
   setUnsaved,
-  setOverlayDirty,
-  closeQuestion,
   closeEntity,
 }: {
   workspaceId: string;
@@ -545,8 +586,6 @@ function WorkspaceResource({
   changeLocation: (url: string, replace?: boolean) => void;
   navigate: (action: () => void) => void;
   setUnsaved: DirtyCallback;
-  setOverlayDirty: (v: boolean) => void;
-  closeQuestion: () => void;
   closeEntity: (fallback: string) => void;
 }) {
   const [retry, setRetry] = useState(0);
@@ -556,7 +595,8 @@ function WorkspaceResource({
     : "";
   const base = workspaceHref(workspaceId);
   const { data: board, setData: setBoard, error, invalidate } = boardResource;
-  const questionSelected = params.questionId !== undefined;
+  const questionId = params.questionId ?? params.overlayQuestionId;
+  const questionSelected = questionId !== undefined;
   const taskRef = params.taskKey;
   const {
     data: taskDetail,
@@ -1208,9 +1248,10 @@ function WorkspaceResource({
         )
       )}
       {addingProject && (
-        <EntityOverlay
-          title="Add a project"
+        <EntityPane
+          label="Add a project"
           identity="new-project"
+          returnFocusHref={base + "/projects"}
           close={() => closeEntity(base + "/projects")}
         >
           <SetupInstructions
@@ -1226,12 +1267,13 @@ function WorkspaceResource({
               );
             }}
           />
-        </EntityOverlay>
+        </EntityPane>
       )}
       {workspaceSettings && (
-        <EntityOverlay
-          title="Workspace settings"
+        <EntityPane
+          label="Workspace settings"
           identity={workspaceId}
+          returnFocusHref={base}
           close={() => closeEntity(base)}
         >
           <WorkspaceEditor
@@ -1247,28 +1289,23 @@ function WorkspaceResource({
             }}
             close={() => closeEntity(base)}
           />
-        </EntityOverlay>
+        </EntityPane>
       )}
-      {params.questionId && projectId && (
-        <QuestionOverlay
+      {questionId && projectId && (
+        <QuestionPage
           projectId={projectId}
-          identity={params.questionId}
+          identity={questionId}
           tasks={board.tasks.filter((task) => task.project_id === projectId)}
           refresh={refresh}
           onDirty={setUnsaved}
           open={changeLocation}
-          close={() => closeEntity(projectHref(projectId) + "/inbox")}
-        />
-      )}
-      {params.overlayQuestionId && projectId && (
-        <QuestionOverlay
-          projectId={projectId}
-          identity={params.overlayQuestionId}
-          tasks={board.tasks.filter((task) => task.project_id === projectId)}
-          refresh={refresh}
-          onDirty={setOverlayDirty}
-          open={changeLocation}
-          close={closeQuestion}
+          close={() =>
+            closeEntity(
+              params.overlayQuestionId
+                ? pathname
+                : projectHref(projectId) + "/inbox",
+            )
+          }
         />
       )}
     </LabelCatalog>

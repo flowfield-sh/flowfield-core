@@ -116,7 +116,10 @@ test("mixed Inbox history opens exact permission records without response contro
   ).toHaveCount(0);
   await page.screenshot({ path: info.outputPath("history-light.png") });
   await history.getByRole("link", { name: /Run isolated checks/ }).click();
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("region", {
+    name: "Tool permission",
+    exact: true,
+  });
   await expect(
     dialog.getByText("Allow once · Answer recorded", { exact: true }),
   ).toBeVisible();
@@ -264,6 +267,15 @@ test("Inbox drafts survive external review across view switches", async ({
     ).ok(),
   ).toBe(true);
   await page.getByRole("tab", { name: "Needs me", exact: true }).click();
+  await expect(
+    page
+      .getByRole("tabpanel", { name: "Needs me", exact: true })
+      .getByRole("article"),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Unsent responses to resolved requests are saved in"),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "History", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Review note" })).toHaveValue(
     "Keep my observation",
   );
@@ -280,6 +292,7 @@ test("Inbox drafts survive external review across view switches", async ({
     path: test.info().outputPath("external-resolution-draft.png"),
   });
   await page.getByRole("button", { name: "Discard note" }).click();
+  await page.getByRole("tab", { name: "Needs me", exact: true }).click();
   await expect(
     page
       .getByRole("tabpanel", { name: "Needs me", exact: true })

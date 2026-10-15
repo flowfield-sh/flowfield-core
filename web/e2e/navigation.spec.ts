@@ -330,11 +330,13 @@ test("shared panes preserve the workspace and related return paths on mobile", a
   await expect(
     page.getByRole("tablist", { name: "Open resources", exact: true }),
   ).toContainText("Inbox");
+  await expect(
+    page
+      .locator(".workspace-frame .queue-controls")
+      .getByRole("button", { name: "Run queue" }),
+  ).toBeVisible();
   await expect(page.locator(".workspace-frame .queue-controls")).toContainText(
-    "Run queue",
-  );
-  await expect(page.locator(".workspace-frame .queue-controls")).toContainText(
-    "0/1 active",
+    "0 of 1 workers active",
   );
   await expect(page.getByText("Local workspace · Preview")).toHaveCount(0);
   await page.getByLabel("Filter by milestone").selectOption("group");
@@ -371,11 +373,11 @@ test("shared panes preserve the workspace and related return paths on mobile", a
   await expect(page).toHaveURL(`/workspaces/${workspace}?milestone=group`);
   await openResource(page, "Workspace settings");
   await expect(
-    page.getByRole("dialog", { name: "Workspace settings", exact: true }),
+    page.getByRole("region", { name: "Workspace settings", exact: true }),
   ).toBeVisible();
   await page.reload();
   await expect(
-    page.getByRole("dialog", { name: "Workspace settings", exact: true }),
+    page.getByRole("region", { name: "Workspace settings", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(`/workspaces/${workspace}`);
@@ -395,7 +397,7 @@ test("shared panes preserve the workspace and related return paths on mobile", a
   );
 });
 
-test("closing entity overlays returns through history without duplicate collections", async ({
+test("closing entity panes returns through history without duplicate collections", async ({
   page,
   request,
 }) => {
@@ -536,13 +538,14 @@ test("entity identity and drafts persist across task and workspace tabs", async 
     exact: true,
   });
 
-  await page.getByText("Work details", { exact: true }).click();
-  await page.getByRole("link", { name: "Activity and history" }).click();
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
   await editor
     .getByRole("link", { name: "Permalink: Task defined", exact: true })
     .click();
   await expect(title).toBeVisible();
-  await expect(editor.getByRole("tab")).toHaveCount(0);
+  await expect(
+    editor.getByRole("tab", { name: "Activity", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   await expect(
     editor.getByText("Loading execution…", { exact: true }),
   ).toHaveCount(0);
@@ -615,7 +618,7 @@ test.describe("relative timestamps", () => {
     await page.clock.install({ time: new Date(created) });
     await page.clock.pauseAt(new Date(created + 10000));
     await page.goto(`/projects/${project}/tasks/TIM-1/history`);
-    const card = page.locator(".conversation-message").first();
+    const card = page.locator(".task-activity-item").first();
     const time = card.locator("time").first();
     await expect(time).toHaveText("just now");
     await expect(time).toHaveAttribute("datetime", task.updated_at);
@@ -970,6 +973,9 @@ test("long task tooltips never expand the workspace scroll owners", async ({
   });
   await expect(detail).toBeVisible();
 
+  await expect(detail.locator(".activity-entry > summary")).toHaveCount(3);
+  for (const row of await detail.locator(".activity-entry > summary").all())
+    await row.click();
   await expect(detail.locator(".task-changes summary")).toHaveCount(2);
   for (const summary of await detail.locator(".task-changes summary").all()) {
     await summary.click();

@@ -1,13 +1,12 @@
 import type { ReactNode } from "react";
-import { Link, useLocation, useNavigate } from "react-router";
+import { useLocation } from "react-router";
+import { useContext } from "react";
+import { WorkspaceLink } from "./WorkspaceLink";
+import { ResourceNavigation } from "./WorkspaceTabs";
 import { TooltipLink } from "./TooltipLink";
-import {
-  followLink,
-  questionOverlayHref,
-  withoutQuestionOverlay,
-} from "./navigation";
+import { followLink, questionOverlayHref } from "./navigation";
 
-/** Related input opens over the current page; the inbox itself remains a full view. */
+/** Related input uses the current resource tab and preserves native link behavior. */
 export function QuestionLink({
   id,
   children,
@@ -20,28 +19,20 @@ export function QuestionLink({
   className?: string;
 }) {
   const location = useLocation();
-  const navigate = useNavigate();
+  const navigate = useContext(ResourceNavigation);
   const href = questionOverlayHref(location.pathname, id);
-  const state = {
-    ...location.state,
-    overlayFrom: withoutQuestionOverlay(location.pathname),
-  };
   return tooltip ? (
     <TooltipLink
       className={className}
       href={href}
       tooltip={tooltip}
-      onClick={(event) =>
-        followLink(event, () => {
-          void navigate(href, { state });
-        })
-      }
+      onClick={(event) => navigate && followLink(event, () => navigate(href))}
     >
       {children}
     </TooltipLink>
   ) : (
-    <Link className={className} to={href} state={state}>
+    <WorkspaceLink className={className} to={href}>
       {children}
-    </Link>
+    </WorkspaceLink>
   );
 }

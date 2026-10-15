@@ -9,7 +9,7 @@ export function ScopedAnchor({ href, ...props }: ComponentProps<"a">) {
   return <a {...props} href={href ? canonicalHref(href, owners) : href} />;
 }
 
-/** Native link semantics with the same overlay return path as button navigation. */
+/** Native link semantics with the same resource history as button navigation. */
 export function WorkspaceLink({
   to,
   ...props

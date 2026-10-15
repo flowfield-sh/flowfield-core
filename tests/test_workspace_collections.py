@@ -19,7 +19,7 @@ from flowfield.errors import ApplicationError
 from flowfield.milestones import Milestones
 from flowfield.permission_models import PermissionAnswer
 from flowfield.permissions import Permissions
-from flowfield.questions import QuestionCreate, Questions
+from flowfield.questions import QuestionAnswer, QuestionCreate, Questions
 from flowfield.workspaces import WorkspaceCreate, Workspaces
 
 
@@ -47,6 +47,7 @@ def test_shared_board_and_attention_keep_owner_scope_and_same_local_ids(tmp_path
     assert set(board.pending_code) == {"COR-1", "SIT-1"}
     assert board.milestones == [milestone]
     assert board.needs_you_count == 2
+    assert board.attention_work_keys == ["COR-1", "SIT-1"]
     assert "private body" not in board.model_dump_json()
     first = attention_page(store, None, "action", limit=1, workspace_id=space)
     second = attention_page(
@@ -69,6 +70,10 @@ def test_shared_board_and_attention_keep_owner_scope_and_same_local_ids(tmp_path
         assert response.status_code == 200 and len(response.json()["tasks"]) == 2
         assert client.get(f"/api/workspaces/{space}/view/attention?limit=1").json()["total"] == 2
         assert client.get(f"/api/workspaces/{space}/view/attention?limit=101").status_code == 422
+    Questions(store).answer(
+        "core", "same", QuestionAnswer(expected_revision=1, answer="Use the local scope")
+    )
+    assert BrowserReads(store).workspace_board(space).attention_work_keys == ["SIT-1"]
 
 
 def test_workspace_inbox_includes_coordinator_permissions_without_project_duplication(tmp_path):

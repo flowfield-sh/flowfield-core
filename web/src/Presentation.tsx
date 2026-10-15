@@ -14,6 +14,7 @@ import { label, type TaskRevision } from "./workspace";
 import { useOverlayClose, OverlayHeading } from "./EntityOverlay";
 import { Timestamp } from "./Timestamp";
 import { ContentStack } from "./DetailLayout";
+import { OpenInWorkTab } from "./WorkspaceTabs";
 
 export function CloseControl({
   label,
@@ -56,7 +57,7 @@ export function ArchiveAttribution({
 export function DetailHeader({
   title,
   close,
-  closeLabel = "Close editor",
+  closeLabel = "Back",
   actions,
   metadata,
   children,
@@ -72,7 +73,10 @@ export function DetailHeader({
     <OverlayHeading>
       <div className="editor-heading">
         {closeLabel.startsWith("Back") && (
-          <CloseControl label={closeLabel} close={close} />
+          <div className="detail-navigation">
+            <CloseControl label={closeLabel} close={close} />
+            <OpenInWorkTab />
+          </div>
         )}
         <ContentStack space="tight" className="min-w-0 flex-1 basis-44">
           <h2>{title}</h2>

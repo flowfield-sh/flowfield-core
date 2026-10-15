@@ -17,12 +17,12 @@ import type { components } from "./api-schema";
 import { TooltipLink } from "./TooltipLink";
 import { Navigate, useLocation } from "react-router";
 import type { TaskReference } from "./workspace";
-import { CloseControl } from "./Presentation";
+import { DetailHeader } from "./Presentation";
 import { useEffect, useLayoutEffect, useId, useRef, useState } from "react";
 import { Markdown } from "./Markdown";
 import { followLink, projectHref, taskHref } from "./navigation";
 import { request } from "./workspace";
-import { EntityOverlay, OverlayHeading, OverlayFooter } from "./EntityOverlay";
+import { EntityPane, OverlayFooter } from "./EntityOverlay";
 import { useResource } from "./useResource";
 
 export type Question = components["schemas"]["Question"] & {
@@ -164,7 +164,6 @@ export function QuestionDetail({
   inline?: boolean;
 }) {
   const answerId = useId();
-  const location = useLocation();
   const path = `projects/${encodeURIComponent(projectId)}/questions/${encodeURIComponent(identity)}`;
   const [loaded, setLoaded] = useRetainedState<Question | null>(
     `${path}:loaded`,
@@ -294,7 +293,7 @@ export function QuestionDetail({
       className="question-detail content-stack"
       data-inline={inline || undefined}
       data-space="section"
-      aria-label="Question"
+      aria-label="Question content"
     >
       {error && (
         <Button
@@ -311,43 +310,24 @@ export function QuestionDetail({
       ) : (
         <>
           {!inline && (
-            <OverlayHeading>
-              <header className="detail-heading-block overlay-heading">
-                <div className="question-meta">
+            <DetailHeader
+              title={loaded.question}
+              close={close ?? (() => open(projectHref(projectId) + "/inbox"))}
+              metadata={
+                <>
                   <ScopedAnchor
                     href={scopeHref}
                     onClick={(e) => followLink(e, () => open(scopeHref))}
                   >
                     {loaded.task_key ?? "Project"}
                   </ScopedAnchor>
+                  {" · "}
                   <span role="status">
                     {loaded.delivery?.state ?? states[loaded.status]}
                   </span>
-                  <CloseControl
-                    label="Close question"
-                    close={
-                      close ?? (() => open(projectHref(projectId) + "/inbox"))
-                    }
-                  />
-                </div>
-                <h2>
-                  <ScopedAnchor
-                    href={
-                      close
-                        ? location.pathname
-                        : questionHref(projectId, loaded.id)
-                    }
-                    onClick={(e) =>
-                      followLink(e, () => {
-                        if (!close) open(questionHref(projectId, loaded.id));
-                      })
-                    }
-                  >
-                    {loaded.question}
-                  </ScopedAnchor>
-                </h2>
-              </header>
-            </OverlayHeading>
+                </>
+              }
+            />
           )}
           {inline && (
             <QuestionPrompt
@@ -634,7 +614,7 @@ export function QuestionDetail({
   );
 }
 
-export function QuestionOverlay({
+export function QuestionPage({
   close,
   ...props
 }: {
@@ -656,7 +636,13 @@ export function QuestionOverlay({
     return <Navigate to={target} replace state={location.state} />;
   }
   return (
-    <EntityOverlay title="Question" close={close}>
+    <EntityPane
+      label="Question"
+      identity={props.identity}
+      returnFocusHref={questionHref(props.projectId, props.identity)}
+      close={close}
+    >
+      {!question.data && <DetailHeader title="Question" close={close} />}
       {question.data ? (
         <QuestionDetail key={props.identity} {...props} close={close} />
       ) : question.error ? (
@@ -664,6 +650,6 @@ export function QuestionOverlay({
       ) : (
         <p>Loading question…</p>
       )}
-    </EntityOverlay>
+    </EntityPane>
   );
 }

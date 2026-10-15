@@ -21,6 +21,7 @@ import { canonicalResourceRoot } from "./WorkspaceTabs";
 import type { WorkspaceBoard } from "./workspace";
 
 export function workItems(board: WorkspaceBoard) {
+  const attention = new Set(board.attention_work_keys ?? []);
   return [
     ...milestoneCards(board).map(
       ({ milestone, column, verification, tasks, done, archived }) => ({
@@ -30,14 +31,18 @@ export function workItems(board: WorkspaceBoard) {
         complete: column === "Complete",
         archived,
         planned: column === "Planned",
-        state: milestoneState(
-          verification,
-          tasks.length > 0 && done === tasks.length,
-        ) ?? {
-          label: column,
-          tone:
-            column === "Complete" ? ("complete" as const) : ("idle" as const),
-        },
+        attention:
+          attention.has(milestone.key) ||
+          tasks.some((t) => attention.has(t.key)),
+        state: tasks.find((t) => attention.has(t.key))?.state ??
+          milestoneState(
+            verification,
+            tasks.length > 0 && done === tasks.length,
+          ) ?? {
+            label: column,
+            tone:
+              column === "Complete" ? ("complete" as const) : ("idle" as const),
+          },
       }),
     ),
     ...board.tasks
@@ -49,10 +54,12 @@ export function workItems(board: WorkspaceBoard) {
         complete: t.status === "done",
         archived: t.archived,
         planned: t.status === "backlog" || t.status === "up_next",
+        attention: attention.has(t.key),
         state: t.state ?? { label: t.status, tone: "idle" as const },
       })),
   ].sort(
     (a, b) =>
+      Number(b.attention) - Number(a.attention) ||
       Number(a.planned) - Number(b.planned) ||
       a.key.localeCompare(b.key, undefined, { numeric: true }),
   );
@@ -71,45 +78,67 @@ export function WorkList({
   const [order, setOrder] = useState<string[]>([]);
   const [count, setCount] = useState(40);
   const items = workItems(board).filter(
-    (item) => all || (!item.complete && !item.archived),
+    (item) => all || ((!item.complete || item.attention) && !item.archived),
   );
   const added = items
     .filter((item) => !order.includes(item.key))
     .map((item) => item.key);
   const ordering = added.length ? [...order, ...added] : order;
   if (added.length) setOrder(ordering);
-  items.sort((a, b) => ordering.indexOf(a.key) - ordering.indexOf(b.key));
+  const group = (item: (typeof items)[number]) =>
+    item.attention && !item.archived
+      ? 0
+      : item.complete || item.archived
+        ? 3
+        : item.planned
+          ? 2
+          : 1;
+  const groups = [
+    "Needs attention",
+    "In progress",
+    "Planned",
+    "Completed and archived",
+  ];
+  items.sort(
+    (a, b) =>
+      group(a) - group(b) || ordering.indexOf(a.key) - ordering.indexOf(b.key),
+  );
   return (
     <>
       <div className={all ? "work-resource-list" : "work-navigation-list"}>
-        {items.slice(0, count).map((item) => (
-          <Tooltip key={item.key}>
-            <TooltipTrigger asChild>
-              <WorkspaceLink
-                to={item.href}
-                className="work-navigation-row"
-                aria-current={
-                  canonicalResourceRoot(current ?? "", board) === item.href
-                    ? "page"
-                    : undefined
-                }
-                aria-label={`${item.key} ${item.title}`}
-                onClick={
-                  open
-                    ? (event) => followLink(event, () => open(item.href))
-                    : undefined
-                }
-              >
-                <WorkState state={item.state} indicatorOnly decorative />
-                <span className="work-navigation-key">{item.key}</span>
-                <span className="work-navigation-title">{item.title}</span>
-              </WorkspaceLink>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              {item.key} {item.title} · {item.state.label}
-              {item.archived ? " · Archived" : ""}
-            </TooltipContent>
-          </Tooltip>
+        {items.slice(0, count).map((item, index) => (
+          <div key={item.key}>
+            {(index === 0 || group(items[index - 1]) !== group(item)) && (
+              <div className="work-group-label">{groups[group(item)]}</div>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <WorkspaceLink
+                  to={item.href}
+                  className="work-navigation-row"
+                  aria-current={
+                    canonicalResourceRoot(current ?? "", board) === item.href
+                      ? "page"
+                      : undefined
+                  }
+                  aria-label={`${item.key} ${item.title}`}
+                  onClick={
+                    open
+                      ? (event) => followLink(event, () => open(item.href))
+                      : undefined
+                  }
+                >
+                  <WorkState state={item.state} indicatorOnly decorative />
+                  <span className="work-navigation-key">{item.key}</span>
+                  <span className="work-navigation-title">{item.title}</span>
+                </WorkspaceLink>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                {item.key} {item.title} · {item.state.label}
+                {item.archived ? " · Archived" : ""}
+              </TooltipContent>
+            </Tooltip>
+          </div>
         ))}
         {!items.length && (
           <p className="empty-column">

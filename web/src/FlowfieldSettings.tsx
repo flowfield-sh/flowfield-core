@@ -4,8 +4,9 @@ import { UpdateSettings } from "./UpdateSettings";
 import { useAnnouncements } from "./Announcements";
 import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
-import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useCallback, useContext, useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
+import { ResourceNavigation } from "./WorkspaceTabs";
 import { DetailTabs } from "./Presentation";
 import { AppearanceSettings, type useTheme } from "./AppearanceSettings";
 import { Settings } from "lucide-react";
@@ -36,6 +37,7 @@ export function SettingsLink({ active }: { active: boolean }) {
     <SidebarMenuButton asChild tooltip="Settings" isActive={active}>
       <WorkspaceLink
         to="/settings/harnesses"
+        className="workspace-settings-link"
         aria-label="Settings"
         aria-current={active ? "page" : undefined}
         onClick={() => setOpenMobile(false)}
@@ -467,6 +469,8 @@ export function FlowfieldSettings({
   tab: "harnesses" | "appearance" | "notifications" | "updates";
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const resourceNavigate = useContext(ResourceNavigation);
   const [dirty, setDirty] = useState<Record<string, boolean>>({});
   const changed = useCallback(
     (kind: Kind, value: boolean) =>
@@ -480,9 +484,8 @@ export function FlowfieldSettings({
     return () => onDirty(false);
   }, [dirty, onDirty]);
   return (
-    <section className="harness-settings-page" aria-label="Flowfield settings">
+    <section className="editor" aria-label="Settings content">
       <ContentStack space="section" className="harness-settings-content">
-        <h1>Settings</h1>
         <DetailTabs
           id="flowfield-settings"
           title="Flowfield settings"
@@ -490,7 +493,11 @@ export function FlowfieldSettings({
             ["harnesses", "appearance", "notifications", "updates"] as const
           }
           active={tab}
-          change={(value) => navigate(`/settings/${value}`)}
+          change={(value) =>
+            resourceNavigate
+              ? resourceNavigate(`/settings/${value}`)
+              : void navigate(`/settings/${value}`, { state: location.state })
+          }
         />
         {tab === "notifications" && (
           <div

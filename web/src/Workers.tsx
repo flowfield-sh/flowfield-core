@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { AgentModelFields } from "./AgentSettings";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Pause, Play, Settings2 } from "lucide-react";
+import { ActionTooltip } from "./ActionTooltip";
 import { useEffect, useState } from "react";
 import { WorkspaceLink as Link } from "./WorkspaceLink";
 import type { components } from "./api-schema";
@@ -64,57 +66,72 @@ export function QueueControls({
       </ResourceRetry>
       {data && (
         <>
-          <span className="muted">
-            Queue {data.enabled ? "enabled" : "paused"}
-            {occupancy.data &&
-              ` · ${occupancy.data.active}/${data.max_parallel} active`}
-            {!!occupancy.data?.uncertain &&
-              ` · ${occupancy.data.uncertain} uncertain`}
-          </span>
-          <div className="queue-actions">
-            <Button
-              size="xs"
-              variant="outline"
-              className="quiet"
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  const value = await request<Settings>(
-                    `${path}/queue`,
-                    "POST",
-                    {
-                      expected_revision: data.revision,
-                      enabled: !data.enabled,
-                    },
-                  );
-                  resource.invalidate();
-                  resource.setData(value);
-                  toast.success(
-                    value.enabled
-                      ? "Worker queue enabled."
-                      : "Worker queue paused.",
-                  );
-                } catch (e) {
-                  reportError(
-                    e,
-                    data.enabled
-                      ? "Queue could not pause"
-                      : "Queue could not start",
-                  );
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              {data.enabled ? "Pause queue" : "Run queue"}
-            </Button>
-            {!data.selection && (
-              <Button size="xs" variant="outline" asChild>
-                <Link to={settingsHref + "/edit/workers"}>Choose model</Link>
+          <div className="queue-status-row">
+            <div className="queue-status">
+              <span>Queue {data.enabled ? "running" : "paused"}</span>
+              <span className="detail-metadata">
+                {occupancy.data
+                  ? `${occupancy.data.active} of ${data.max_parallel} workers active`
+                  : "Loading workers…"}
+                {!!occupancy.data?.uncertain &&
+                  ` · ${occupancy.data.uncertain} uncertain`}
+              </span>
+            </div>
+            <ActionTooltip label={data.enabled ? "Pause queue" : "Run queue"}>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label={data.enabled ? "Pause queue" : "Run queue"}
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    const value = await request<Settings>(
+                      `${path}/queue`,
+                      "POST",
+                      {
+                        expected_revision: data.revision,
+                        enabled: !data.enabled,
+                      },
+                    );
+                    resource.invalidate();
+                    resource.setData(value);
+                    toast.success(
+                      value.enabled
+                        ? "Worker queue enabled."
+                        : "Worker queue paused.",
+                    );
+                  } catch (e) {
+                    reportError(
+                      e,
+                      data.enabled
+                        ? "Queue could not pause"
+                        : "Queue could not start",
+                    );
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {data.enabled ? <Pause /> : <Play />}
               </Button>
-            )}
+            </ActionTooltip>
+            <ActionTooltip label="Worker settings">
+              <Button size="icon-sm" variant="ghost" asChild>
+                <Link
+                  to={settingsHref + "/edit/workers"}
+                  aria-label="Worker settings"
+                >
+                  <Settings2 />
+                </Link>
+              </Button>
+            </ActionTooltip>
           </div>
+          {!data.selection && (
+            <Button size="xs" variant="outline" asChild>
+              <Link to={settingsHref + "/edit/workers"}>Choose model</Link>
+            </Button>
+          )}
         </>
       )}
       {problem && (

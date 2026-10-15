@@ -1,3 +1,4 @@
+import { ActivityEntry } from "./ActivityEntry";
 import { useRetainedState, retainDirty } from "./retainedState";
 import type { DirtyCallback } from "./retainedState";
 import { QuestionPrompt } from "./QuestionPrompt";
@@ -13,14 +14,13 @@ import {
   Fragment,
 } from "react";
 import { useParams } from "react-router";
-import { Badge } from "@/components/ui/badge";
 import { OverlayFooter, useOverlayBody } from "./EntityOverlay";
 import { Button } from "@/components/ui/button";
 import { Composer } from "./Composer";
 import { AgentSettingsControl } from "./AgentSettings";
 import { choiceLabel } from "./HarnessModels";
 import { ArrowUp } from "lucide-react";
-import { ContentStack, DetailHeading, DetailSection } from "./DetailLayout";
+import { ContentStack, DetailSection } from "./DetailLayout";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
 import { request, type Task, type Board } from "./workspace";
@@ -34,7 +34,6 @@ import { TaskChanges } from "./TaskChanges";
 import { RunActivity } from "./RunActivity";
 import { useFeedScroll } from "./useFeedScroll";
 import { TaskActionHost, WorkerActions } from "./TaskActions";
-import { WorkState } from "./WorkState";
 import { StageSequence } from "./StageSequence";
 
 type Gate = components["schemas"]["InputEligibility"];
@@ -497,7 +496,6 @@ export function TaskConversation({
     >
       <ContentStack ref={root} space="section" className="task-conversation">
         <ContentStack>
-          {!requestTarget && !overview && <strong>Activity</strong>}
           <ResourceRetry
             resources={[page, selected, gate, execution, currentAttempt]}
           />
@@ -574,189 +572,178 @@ export function TaskConversation({
                       data-message-id={message.id}
                       data-kind={message.kind}
                       className={
-                        requestTarget
-                          ? "request-content"
-                          : "conversation-message"
+                        requestTarget ? "request-content" : "task-activity-item"
                       }
                     >
-                      {!requestTarget && (
-                        <DetailHeading
-                          entry
-                          inlineMetadata
-                          title={
-                            <span className="feed-event-title">
-                              <WorkState state={message.state} indicatorOnly />
-                              <span>
-                                {message.kind === "state" &&
-                                message.title.startsWith("Moved to ") ? (
-                                  <>
-                                    Moved to{" "}
-                                    <Badge variant="outline">
-                                      {message.title.slice(9)}
-                                    </Badge>
-                                  </>
-                                ) : (
-                                  message.title
-                                )}
-                              </span>
-                            </span>
-                          }
-                          metadata={
-                            <>
-                              {message.actor.label} ·{" "}
-                              <ExactTimeTooltip date={message.created_at}>
-                                <WorkspaceLink
-                                  to={messageHref(projectId, task, message.id)}
-                                  aria-label={`Permalink: ${message.title}`}
-                                >
-                                  <Timestamp
-                                    date={message.created_at}
-                                    tooltip={false}
-                                  />
-                                </WorkspaceLink>
-                              </ExactTimeTooltip>
-                            </>
-                          }
-                        />
-                      )}
-                      {hasBody(message) && (
-                        <div
-                          className={
-                            requestTarget
-                              ? "content-stack"
-                              : "conversation-message-body content-stack"
-                          }
-                        >
-                          {message.kind === "result" &&
-                          (message.source_id === gate.data?.result_id ||
-                            expanded[message.id] ||
-                            target === message.id) ? (
-                            <Result
-                              compact={!!requestTarget}
-                              projectId={projectId}
-                              taskId={task.id}
-                              taskKey={task.key}
-                              versionId={message.source_id}
-                              refresh={tick}
-                              onReply={requestChanges}
-                              onApprove={approve}
-                              inputEnabled={
-                                inputEnabled && !gate.data?.question_id
-                              }
-                            />
-                          ) : (
-                            <>
-                              {requestTarget?.kind === "question"
-                                ? currentQuestion.data && (
-                                    <QuestionPrompt
-                                      question={currentQuestion.data.question}
-                                      context={currentQuestion.data.context}
-                                      verificationUrl={
-                                        currentQuestion.data.verification_url
-                                      }
-                                      recommendation={
-                                        currentQuestion.data.recommendation
-                                      }
-                                    />
-                                  )
-                                : message.kind !== "definition" && (
-                                    <MessageBody
-                                      message={message}
-                                      path={path}
-                                    />
-                                  )}
-                              {message.kind === "result" && (
-                                <Button size="sm" variant="outline" asChild>
-                                  <WorkspaceLink
-                                    onClick={() =>
-                                      setExpanded((values) => ({
-                                        ...values,
-                                        [message.id]: true,
-                                      }))
-                                    }
-                                    to={messageHref(
-                                      projectId,
-                                      task,
-                                      message.id,
-                                    )}
-                                  >
-                                    Inspect earlier result
-                                  </WorkspaceLink>
-                                </Button>
-                              )}
-                            </>
-                          )}
-                          {message.question_id && (
-                            <WorkspaceLink
-                              to={messageHref(
-                                projectId,
-                                task,
-                                `question:${message.question_id}:1`,
-                              )}
-                            >
-                              Related question
-                            </WorkspaceLink>
-                          )}
-                          {message.kind === "reply" && message.result_id && (
-                            <WorkspaceLink
-                              to={messageHref(
-                                projectId,
-                                task,
-                                `result:${message.result_id}`,
-                              )}
-                            >
-                              Tested result
-                            </WorkspaceLink>
-                          )}
-                          {message.earlier_id && (
-                            <WorkspaceLink
-                              to={messageHref(
-                                projectId,
-                                task,
-                                `activity:${message.earlier_id}`,
-                              )}
-                            >
-                              Earlier {message.title.toLowerCase()}
-                            </WorkspaceLink>
-                          )}
-                          {message.successor_id && (
-                            <WorkspaceLink
-                              to={messageHref(
-                                projectId,
-                                task,
-                                `activity:${message.successor_id}`,
-                              )}
-                            >
-                              Replacement {message.title.toLowerCase()}
-                            </WorkspaceLink>
-                          )}
-                          {message.kind === "attempt" && (
-                            <RunActivity
-                              projectId={projectId}
-                              runId={message.source_id}
-                            />
-                          )}
-                          {message.kind === "attempt" &&
-                            executionId &&
-                            execution.data?.run_id === message.source_id && (
-                              <ExecutionDetails
-                                key={executionId}
+                      <ActivityEntry
+                        identity={path + ":" + message.id}
+                        selected={
+                          target === message.id ||
+                          message === activeAttempt ||
+                          (!route.runId &&
+                            ["changes", "result"].includes(route.tab ?? "") &&
+                            message.source_id === gate.data?.result_id)
+                        }
+                        title={message.title}
+                        state={message.state}
+                        inline={!!requestTarget}
+                        hasBody={hasBody(message)}
+                        metadata={
+                          <>
+                            {message.actor.label} ·{" "}
+                            <ExactTimeTooltip date={message.created_at}>
+                              <WorkspaceLink
+                                to={messageHref(projectId, task, message.id)}
+                                aria-label={"Permalink: " + message.title}
+                              >
+                                <Timestamp
+                                  date={message.created_at}
+                                  tooltip={false}
+                                />
+                              </WorkspaceLink>
+                            </ExactTimeTooltip>
+                          </>
+                        }
+                      >
+                        {hasBody(message) && (
+                          <div
+                            className={
+                              requestTarget
+                                ? "content-stack"
+                                : "conversation-message-body content-stack"
+                            }
+                          >
+                            {message.kind === "result" &&
+                            (message.source_id === gate.data?.result_id ||
+                              expanded[message.id] ||
+                              target === message.id) ? (
+                              <Result
+                                compact={!!requestTarget}
                                 projectId={projectId}
+                                taskId={task.id}
                                 taskKey={task.key}
-                                item={execution.data}
+                                versionId={message.source_id}
                                 refresh={tick}
+                                onReply={requestChanges}
+                                onApprove={approve}
+                                inputEnabled={
+                                  inputEnabled && !gate.data?.question_id
+                                }
+                              />
+                            ) : (
+                              <>
+                                {requestTarget?.kind === "question"
+                                  ? currentQuestion.data && (
+                                      <QuestionPrompt
+                                        question={currentQuestion.data.question}
+                                        context={currentQuestion.data.context}
+                                        verificationUrl={
+                                          currentQuestion.data.verification_url
+                                        }
+                                        recommendation={
+                                          currentQuestion.data.recommendation
+                                        }
+                                      />
+                                    )
+                                  : message.kind !== "definition" && (
+                                      <MessageBody
+                                        message={message}
+                                        path={path}
+                                      />
+                                    )}
+                                {message.kind === "result" && (
+                                  <Button size="sm" variant="outline" asChild>
+                                    <WorkspaceLink
+                                      onClick={() =>
+                                        setExpanded((values) => ({
+                                          ...values,
+                                          [message.id]: true,
+                                        }))
+                                      }
+                                      to={messageHref(
+                                        projectId,
+                                        task,
+                                        message.id,
+                                      )}
+                                    >
+                                      Inspect earlier result
+                                    </WorkspaceLink>
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                            {message.question_id && (
+                              <WorkspaceLink
+                                to={messageHref(
+                                  projectId,
+                                  task,
+                                  `question:${message.question_id}:1`,
+                                )}
+                              >
+                                Related question
+                              </WorkspaceLink>
+                            )}
+                            {message.kind === "reply" && message.result_id && (
+                              <WorkspaceLink
+                                to={messageHref(
+                                  projectId,
+                                  task,
+                                  `result:${message.result_id}`,
+                                )}
+                              >
+                                Tested result
+                              </WorkspaceLink>
+                            )}
+                            {message.earlier_id && (
+                              <WorkspaceLink
+                                to={messageHref(
+                                  projectId,
+                                  task,
+                                  `activity:${message.earlier_id}`,
+                                )}
+                              >
+                                Earlier {message.title.toLowerCase()}
+                              </WorkspaceLink>
+                            )}
+                            {message.successor_id && (
+                              <WorkspaceLink
+                                to={messageHref(
+                                  projectId,
+                                  task,
+                                  `activity:${message.successor_id}`,
+                                )}
+                              >
+                                Replacement {message.title.toLowerCase()}
+                              </WorkspaceLink>
+                            )}
+                            {message.kind === "attempt" && (
+                              <RunActivity
+                                projectId={projectId}
+                                runId={message.source_id}
                               />
                             )}
-                          {message.kind === "definition" && (
-                            <TaskChanges
-                              revision={message.revision!}
-                              path={`projects/${projectId}/view/tasks/${task.id}`}
-                              milestones={board.milestones}
-                              tasks={board.tasks}
-                            />
-                          )}
-                        </div>
-                      )}
+                            {message.kind === "attempt" &&
+                              executionId &&
+                              execution.data?.run_id === message.source_id && (
+                                <ExecutionDetails
+                                  key={executionId}
+                                  projectId={projectId}
+                                  taskKey={task.key}
+                                  item={execution.data}
+                                  refresh={tick}
+                                />
+                              )}
+                            {message.kind === "definition" && (
+                              <TaskChanges
+                                revision={message.revision!}
+                                path={`projects/${projectId}/view/tasks/${task.id}`}
+                                milestones={board.milestones}
+                                tasks={board.tasks}
+                              />
+                            )}
+                          </div>
+                        )}
+                      </ActivityEntry>
                     </li>
                   </Fragment>
                 ))}

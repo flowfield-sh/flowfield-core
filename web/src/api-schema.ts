@@ -2922,6 +2922,8 @@ export interface components {
       tasks: components["schemas"]["TaskCard"][];
       /** Needs You Count */
       needs_you_count: number;
+      /** Attention Work Keys */
+      attention_work_keys?: string[];
       /** Awaiting Application Count */
       awaiting_application_count: number;
       /** Pending Code */

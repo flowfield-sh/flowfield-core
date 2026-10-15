@@ -485,6 +485,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   const timeline = page.locator(".conversation-messages");
   const history = timeline.locator('[data-kind="attempt"]');
   await expect(history).toHaveCount(1);
+  await history.locator(".activity-entry > summary").click();
   await expect(history.locator(".run-activity")).toBeVisible();
   await expect(result.locator(".run-activity")).toHaveCount(0);
   await page
@@ -625,8 +626,7 @@ test("managed answers show durable pause, safe edits and immutable correction in
   ).toHaveCount(0);
   await page.getByLabel("Your answer", { exact: true }).fill("All records");
   await page.getByRole("button", { name: "Send answer", exact: true }).click();
-  await page.getByText("Work details", { exact: true }).click();
-  await page.getByRole("link", { name: "Activity and history" }).click();
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
   await expect(page.getByRole("list", { name: "Task feed" })).toContainText(
     "All records",
   );
@@ -677,6 +677,11 @@ test("managed answers show durable pause, safe edits and immutable correction in
     "Only favourites",
   ]);
   await page.reload();
+  await detail
+    .locator('[data-kind="answer"]')
+    .filter({ hasText: "Only favourites" })
+    .locator(".activity-entry > summary")
+    .click();
   await expect(
     detail.getByText("Only favourites", { exact: true }),
   ).toBeVisible();
@@ -1105,8 +1110,7 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   await expect(
     page.getByRole("region", { name: "Proposed result", exact: true }),
   ).toContainText("A detailed finding.");
-  await page.getByText("Work details", { exact: true }).click();
-  await page.getByRole("link", { name: "Activity and history" }).click();
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
   await expect.poll(reportAtBottom).toBe(true);
   const reportStamp = page
     .locator('[data-kind="result"]')

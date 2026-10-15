@@ -43,11 +43,12 @@ export function withoutQuestionOverlay(path: string) {
   );
 }
 export function questionOverlayHref(path: string, id: string) {
-  return (
-    withoutQuestionOverlay(path) +
-    "/related/questions/" +
-    encodeURIComponent(id)
-  );
+  const project = /(?:^|\/)projects\/([^/]+)/.exec(path)?.[1];
+  return project
+    ? `/projects/${project}/inbox/${encodeURIComponent(id)}`
+    : withoutQuestionOverlay(path) +
+        "/related/questions/" +
+        encodeURIComponent(id);
 }
 export type TaskTab = "task" | "changes" | "history";
 export function taskTab(tab?: string): TaskTab {
@@ -125,8 +126,6 @@ function editorIdentity(path: string) {
 export function useWorkspaceNavigation(
   unsaved: boolean,
   setUnsaved: (value: boolean) => void,
-  overlayDirty: boolean,
-  setOverlayDirty: (value: boolean) => void,
   chatSettingsDirty = false,
   projectOwners: Record<string, string> = {},
 ) {
@@ -164,7 +163,6 @@ export function useWorkspaceNavigation(
       ((chatSettingsDirty &&
         workspaceOwner(currentLocation.pathname) !==
           workspaceOwner(nextLocation.pathname)) ||
-        (overlayDirty && currentLocation.pathname !== nextLocation.pathname) ||
         (unsaved &&
           responseIdentity(currentLocation) !==
             responseIdentity(nextLocation))),
@@ -211,24 +209,11 @@ export function useWorkspaceNavigation(
         if (blocker.state !== "blocked") return;
         if (responseIdentity(location) !== responseIdentity(blocker.location))
           setUnsaved(false);
-        setOverlayDirty(false);
         blocker.proceed();
       },
     },
     params,
     pathname: withoutQuestionOverlay(location.pathname),
-    closeQuestion: () => {
-      if (
-        location.state?.overlayFrom ===
-        withoutQuestionOverlay(location.pathname)
-      )
-        void navigate(-1);
-      else
-        void navigate(withoutQuestionOverlay(location.pathname), {
-          replace: true,
-          state: location.state,
-        });
-    },
     changeLocation,
     notFound:
       matches.at(-1)?.id === "not-found" ||

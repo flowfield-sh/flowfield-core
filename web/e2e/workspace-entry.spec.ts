@@ -50,7 +50,7 @@ test("explicit workspace creation, project adoption and shared draft navigation"
   });
   await page.getByRole("button", { name: "Add project", exact: true }).click();
   await expect(
-    page.getByRole("dialog", { name: "Add a project", exact: true }),
+    page.getByRole("region", { name: "Add a project", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await openResource(page, "Projects");

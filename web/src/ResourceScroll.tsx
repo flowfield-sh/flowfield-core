@@ -2,6 +2,7 @@ import { createContext, useLayoutEffect, useRef, type ReactNode } from "react";
 import { useLocation } from "react-router";
 
 const positions = new Map<string, Map<string, { top: number; left: number }>>();
+const focusLinks = new Map<string, string>();
 export const ResourceScrollKey = createContext<string | null>(null);
 const feedOwns = (node: HTMLElement) =>
   node.matches(".entity-overlay-body") &&
@@ -23,9 +24,23 @@ export function ResourceScroll({
     if (!host) return;
     const saved = positions.get(key);
     let restoring = !!saved;
+    let restoreFocus = focusLinks.get(key);
     const identity = (node: HTMLElement) =>
       node.className + ":" + (node.getAttribute("aria-label") ?? "");
     function restore() {
+      if (restoreFocus && host?.isConnected) {
+        const link = [
+          ...host.querySelectorAll<HTMLAnchorElement>("a[href]"),
+        ].find(
+          (node) =>
+            node.getAttribute("href") === restoreFocus &&
+            node.getClientRects().length,
+        );
+        if (link) {
+          link.focus({ preventScroll: true });
+          restoreFocus = undefined;
+        }
+      }
       if (!restoring || !saved) return;
       for (const node of host!.querySelectorAll<HTMLElement>(selector)) {
         if (feedOwns(node)) continue;
@@ -53,23 +68,41 @@ export function ResourceScroll({
     }
     function interact() {
       restoring = false;
+      restoreFocus = undefined;
+    }
+    function cancelFocusRestoration() {
+      restoreFocus = undefined;
+    }
+    function rememberFocus(event: FocusEvent) {
+      const node = event.target;
+      if (!(node instanceof HTMLAnchorElement)) return;
+      focusLinks.delete(key);
+      focusLinks.set(key, node.getAttribute("href")!);
+      while (focusLinks.size > 160)
+        focusLinks.delete(focusLinks.keys().next().value!);
     }
     const observer = new MutationObserver(restore);
     observer.observe(host, { childList: true, subtree: true });
     const resize = new ResizeObserver(restore);
     resize.observe(host);
     host.addEventListener("scroll", remember, true);
+    host.addEventListener("focusin", rememberFocus);
     host.addEventListener("wheel", interact, { passive: true });
     host.addEventListener("pointerdown", interact);
     host.addEventListener("keydown", interact);
+    document.addEventListener("pointerdown", cancelFocusRestoration, true);
+    document.addEventListener("keydown", cancelFocusRestoration, true);
     restore();
     return () => {
       observer.disconnect();
       resize.disconnect();
       host.removeEventListener("scroll", remember, true);
+      host.removeEventListener("focusin", rememberFocus);
       host.removeEventListener("wheel", interact);
       host.removeEventListener("pointerdown", interact);
       host.removeEventListener("keydown", interact);
+      document.removeEventListener("pointerdown", cancelFocusRestoration, true);
+      document.removeEventListener("keydown", cancelFocusRestoration, true);
     };
   }, [key]);
   return (

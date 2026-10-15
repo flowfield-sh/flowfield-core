@@ -1,9 +1,3 @@
-.harness-settings-page {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 32px 24px;
-}
 .project-agent-choice {
   display: grid;
   grid-template-columns: 100px minmax(0, 1fr);

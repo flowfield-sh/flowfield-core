@@ -12,8 +12,10 @@ import { reportError } from "./requestFeedback";
 
 export function WorkspaceList({
   workspaces,
+  attentionCounts,
 }: {
   workspaces: WorkspaceRecord[];
+  attentionCounts: Record<string, number> | null;
 }) {
   return (
     <section className="setup-page" aria-label="Workspaces">
@@ -42,6 +44,14 @@ export function WorkspaceList({
             >
               <ProjectBadge id={workspace.id} name={workspace.name} />
               <strong>{workspace.name}</strong>
+              {!!attentionCounts?.[workspace.id] && (
+                <span className="workspace-inbox-count">
+                  <span className="nav-count needs-attention">
+                    {attentionCounts[workspace.id]}
+                  </span>
+                  <span>in Inbox</span>
+                </span>
+              )}
             </WorkspaceLink>
           ))}
         </div>
@@ -63,9 +73,8 @@ export function NewWorkspace({
     onDirty(!!name);
   }, [name, onDirty]);
   return (
-    <section className="setup-page" aria-label="New workspace">
+    <section className="editor" aria-label="New workspace form">
       <ContentStack space="section" className="pane-form">
-        <DetailHeading title="New workspace" titleAs="h2" />
         <p>
           A workspace brings projects together around one Coordinator, shared
           milestones and a board. You can add projects after creating it.

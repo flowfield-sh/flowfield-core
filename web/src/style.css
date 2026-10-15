@@ -6,12 +6,6 @@
   .queue-controls {
     display: grid;
     gap: 8px;
-    margin-bottom: 1rem;
-  }
-  .queue-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
   }
 
   :root {
@@ -671,13 +665,9 @@
     font-size: 12px;
     color: var(--muted-foreground);
   }
-  .detail-heading a,
-  .question-meta > .close-control {
+  .detail-heading a {
     text-decoration: underline;
     text-underline-offset: 3px;
-  }
-  .question-meta > .close-control {
-    margin-left: auto;
   }
   @media (max-width: 1000px) {
     .collection-layout {
@@ -758,10 +748,8 @@
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    background: var(--muted);
-    border-radius: 6px;
-    padding: 6px 9px;
-    font-size: 11px;
+    padding: 6px 8px;
+    font-size: 12px;
     line-height: 16px;
     margin: 0;
   }
@@ -773,15 +761,6 @@
     font-size: 12px;
     padding: 4px 2px;
     text-align: left;
-  }
-  .column .queue-controls {
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 10px;
-    margin-bottom: 12px;
-    gap: 6px;
-  }
-  .queue-controls .muted {
-    font-size: 11px;
   }
   .entity-pane {
     display: flex;
@@ -800,13 +779,12 @@
     overscroll-behavior: contain;
     overflow-anchor: none;
   }
-  .entity-overlay:focus,
   .entity-overlay-body:focus {
     outline: none;
   }
 
-  :is(.entity-overlay, .entity-pane) .editor,
-  :is(.entity-overlay, .entity-pane) .question-detail {
+  .entity-pane .editor,
+  .entity-pane .question-detail {
     width: 100%;
     min-width: 0;
     max-width: none;
@@ -826,12 +804,12 @@
     padding: 14px 24px;
     border-bottom: 1px solid var(--border);
   }
-  :is(.entity-overlay, .entity-pane) .card-tabs {
+  .entity-pane .card-tabs {
     margin-bottom: 16px;
   }
   @media (max-width: 700px) {
-    :is(.entity-overlay, .entity-pane) .editor,
-    :is(.entity-overlay, .entity-pane) .question-detail {
+    .entity-pane .editor,
+    .entity-pane .question-detail {
       padding: 16px;
     }
     .entity-overlay-title .editor-heading,
@@ -956,45 +934,6 @@
   .code-review .token.operator,
   .code-review .token.punctuation {
     color: var(--muted-foreground);
-  }
-  .attention-card {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    height: 100%;
-    background: var(--background);
-    color: var(--foreground);
-    text-decoration: none;
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
-  .attention-card strong {
-    font-size: 14px;
-    line-height: 1.5;
-    overflow-wrap: anywhere;
-  }
-  .attention-card-meta {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    color: var(--muted-foreground);
-    flex-wrap: wrap;
-  }
-  .attention-card-detail {
-    color: var(--muted-foreground);
-    font-size: 12px;
-    line-height: 1.5;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  .attention-card-action {
-    margin-top: auto;
-    padding-top: 4px;
-    color: var(--muted-foreground);
-    font-size: 12px;
   }
   @media (max-width: 700px) {
     .diff-browser {

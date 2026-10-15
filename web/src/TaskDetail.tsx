@@ -1,12 +1,13 @@
 import { useParams } from "react-router";
-import { Button } from "@/components/ui/button";
+import { useContext } from "react";
+import { ResourceNavigation } from "./WorkspaceTabs";
 import { WorkState } from "./WorkState";
 import { SourceReferences } from "./SourceReferences";
 import type { DirtyCallback } from "./retainedState";
 import { useCallback, useEffect, useState } from "react";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { TaskLabels } from "./TaskLabels";
-import { DetailHeader, DraftBadge } from "./Presentation";
+import { DetailHeader, DetailTabs, DraftBadge } from "./Presentation";
 import { MilestoneBadge } from "./MilestoneBadge";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { projectHref, taskHref } from "./navigation";
@@ -30,6 +31,7 @@ export function TaskDetail({
   openTask: (id: string) => void;
 }) {
   const route = useParams();
+  const navigate = useContext(ResourceNavigation);
   const overview = !route.tab || route.tab === "task";
   const [dirty, setDirty] = useState(false);
   const [retained, setRetained] = useState(false);
@@ -59,15 +61,6 @@ export function TaskDetail({
         }
         close={close}
         closeLabel="Back"
-        actions={
-          !overview && (
-            <Button size="sm" variant="outline" asChild>
-              <WorkspaceLink to={taskHref(board.project.id, task)}>
-                Overview
-              </WorkspaceLink>
-            </Button>
-          )
-        }
       >
         <ContentStack className="task-conversation-header">
           <div className="task-header-badges" aria-label="Task labels">
@@ -83,6 +76,21 @@ export function TaskDetail({
             <TaskLabels ids={task.labels} />
           </div>
           <WorkState state={task.state} />
+          <DetailTabs
+            id="task"
+            title="Task views"
+            tabs={["overview", "activity"] as const}
+            active={overview ? "overview" : "activity"}
+            change={(tab) =>
+              navigate?.(
+                taskHref(
+                  board.project.id,
+                  task,
+                  tab === "overview" ? "task" : "history",
+                ),
+              )
+            }
+          />
         </ContentStack>
       </DetailHeader>
       {overview && (
@@ -150,9 +158,6 @@ export function TaskDetail({
               task={task}
               refresh={board}
             />
-            <WorkspaceLink to={taskHref(board.project.id, task, "history")}>
-              Activity and history
-            </WorkspaceLink>
           </Disclosure>
         </ContentStack>
       )}

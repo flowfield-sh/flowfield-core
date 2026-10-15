@@ -566,7 +566,7 @@ test("resolved permission links open the exact request without permitting anythi
       }),
   );
   await ready(page, `/workspaces/${workspace}/inbox?permission=expired`);
-  const dialog = page.getByRole("dialog", {
+  const dialog = page.getByRole("region", {
     name: "Tool permission",
     exact: true,
   });

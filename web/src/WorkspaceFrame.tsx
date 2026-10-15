@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import "./workspace-frame.css";
 import { followLink } from "./navigation";
+import { ActionTooltip } from "./ActionTooltip";
 
 export type WorkspaceEntry = {
   id: string;
@@ -95,17 +96,19 @@ function WorkspaceNavigation({
             </option>
           ))}
         </NativeSelect>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label="New workspace"
-          onClick={() => {
-            onAddWorkspace?.();
-            setOpenMobile(false);
-          }}
-        >
-          <Plus />
-        </Button>
+        <ActionTooltip label="New workspace">
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="New workspace"
+            onClick={() => {
+              onAddWorkspace?.();
+              setOpenMobile(false);
+            }}
+          >
+            <Plus />
+          </Button>
+        </ActionTooltip>
         {isMobile && <SidebarTrigger aria-label="Close navigation" />}
       </SidebarHeader>
       <SidebarContent

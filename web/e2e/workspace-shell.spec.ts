@@ -66,8 +66,7 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
   ).toBeVisible();
   const taskTab = page.getByRole("tab", { name: /SHL-2 / });
   await expect(taskTab).toHaveAttribute("aria-selected", "true");
-  await page.getByText("Work details", { exact: true }).click();
-  await page.getByRole("link", { name: "Activity and history" }).click();
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
   await expect(page.getByRole("list", { name: "Task feed" })).toBeVisible();
   await work.hover();
   await page.mouse.wheel(0, 300);
@@ -108,7 +107,7 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
   expect(inactiveReads).toEqual([]);
   await taskTab.click();
   await expect(page).toHaveURL(/SHL-2\/history$/);
-  await page.getByRole("button", { name: "Back in tab", exact: true }).click();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page).toHaveURL(/SHL-2$/);
   await page.goBack();
   await expect(page).toHaveURL(/SHL-2\/history$/);
@@ -166,8 +165,7 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
   await work.getByRole("link", { name: /SHL-2 / }).click();
   await expect(page).toHaveURL(/SHL-2$/);
   await expect(taskTab).toHaveCount(1);
-  await page.getByText("Work details", { exact: true }).click();
-  await page.getByRole("link", { name: "Activity and history" }).click();
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
   const comparison = page.getByRole("link", { name: "Open in work tab" });
   const popup = page.context().waitForEvent("page", { timeout: 5000 });
   await comparison.click({
