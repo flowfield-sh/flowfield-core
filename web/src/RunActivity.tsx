@@ -1,5 +1,5 @@
 import { ResourceRetry } from "./ResourceRetry";
-import { useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useLayoutEffect, useRef, useState } from "react";
 import { useResource } from "./useResource";
 import { label } from "./workspace";
 import type { components } from "./api-schema";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/tooltip";
 
 type Page = components["schemas"]["RunActivityPage"];
+const ActivityPatch = lazy(() => import("./ActivityPatch"));
 const isActive = (page: Page) => page.active;
 const activityIcons = {
   agent: MessageSquare,
@@ -112,7 +113,7 @@ export function ActivityEntries({ items }: { items: Page["items"] }) {
             <div>
               {item.omitted && <p className="muted">Some output omitted.</p>}
               {item.action ? (
-                <ActionEntry action={item.action} />
+                <ActionEntry action={item.action} kind={item.kind} />
               ) : (
                 <ActivityText text={item.text} preview={item.preview} />
               )}
@@ -126,40 +127,165 @@ export function ActivityEntries({ items }: { items: Page["items"] }) {
 
 function ActionEntry({
   action,
+  kind,
 }: {
   action: NonNullable<Page["items"][number]["action"]>;
+  kind: Page["items"][number]["kind"];
 }) {
   return (
-    <Disclosure summary={action.title}>
-      {action.details && (
-        <ActivityEvidence
-          title="Input"
-          text={action.details.replace(/^Arguments:\s*/, "")}
-        />
-      )}
+    <Disclosure
+      summary={action.title}
+      chevron={false}
+      className="activity-action"
+    >
+      <ActionDetails text={action.details} />
       {action.output ? (
-        <ActivityEvidence title="Output" text={action.output} />
+        <ActionResult
+          text={action.output}
+          flowfield={action.title.startsWith("Flowfield · ")}
+        />
       ) : (
-        <p>No output was recorded for this event.</p>
+        (kind === "command" || !action.details) && (
+          <p>No output was recorded for this event.</p>
+        )
       )}
     </Disclosure>
   );
 }
 
-function ActivityEvidence({ title, text }: { title: string; text: string }) {
-  const firstLine = text.split("\n", 1)[0];
+function formatEvidence(text: string): string {
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
+}
+
+const resultFields: Record<string, string> = {
+  title: "Title",
+  name: "Name",
+  body: "Description",
+  description: "Description",
+  summary: "Summary",
+  question: "Question",
+  answer: "Answer",
+  status: "Status",
+  problem: "Problem",
+  message: "Message",
+  acceptance_criteria: "Acceptance criteria",
+  checks: "Checks",
+  limitations: "Limitations",
+  next_action: "Next action",
+};
+
+/** Flowfield records lead with authored work; protocol metadata remains inspectable. */
+function ActionResult({
+  text,
+  flowfield,
+}: {
+  text: string;
+  flowfield: boolean;
+}) {
+  let value: unknown;
+  if (flowfield) {
+    try {
+      value = JSON.parse(text);
+    } catch {
+      /* Partial evidence uses the verbatim fallback. */
+    }
+  }
+  const record =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  const fields = record
+    ? Object.entries(record).filter(
+        ([key, value]) => resultFields[key] && value != null && value !== "",
+      )
+    : [];
+  if (!fields.length) return <Evidence text={text} />;
   return (
-    <Disclosure
-      className="activity-evidence"
-      summary={
-        <span className="activity-evidence-preview">
-          {title}: {firstLine || "…"}
-        </span>
-      }
-    >
-      <pre>{text}</pre>
-    </Disclosure>
+    <div className="activity-console" tabIndex={0}>
+      <dl className="activity-record">
+        {fields.map(([key, value]) => (
+          <div key={key}>
+            <dt>{resultFields[key]}</dt>
+            <dd>
+              <pre>
+                {typeof value === "string"
+                  ? value
+                  : JSON.stringify(value, null, 2)}
+              </pre>
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <Disclosure summary="Saved response" chevron={false}>
+        <pre>{formatEvidence(text)}</pre>
+      </Disclosure>
+    </div>
   );
+}
+
+function Evidence({ text }: { text: string }) {
+  const plain = (
+    <pre className="activity-console" tabIndex={0}>
+      {formatEvidence(text)}
+    </pre>
+  );
+  return text.includes("diff --git ") ? (
+    <Suspense fallback={plain}>
+      <ActivityPatch text={text} />
+    </Suspense>
+  ) : (
+    plain
+  );
+}
+
+/** Known parameter names express intent; unknown tools retain their actual fields. */
+function ActionDetails({ text }: { text: string }) {
+  if (!text) return null;
+  if (text.startsWith("Arguments: ")) {
+    let args: unknown;
+    try {
+      args = JSON.parse(text.slice("Arguments: ".length));
+    } catch {
+      /* Preserve truncated evidence below. */
+    }
+    if (args && typeof args === "object" && !Array.isArray(args)) {
+      if (!Object.keys(args).length) return null;
+      const names: Record<string, string> = {
+        cmd: "Command",
+        command: "Command",
+        cwd: "Directory",
+        workdir: "Directory",
+        path: "Path",
+        file_path: "File",
+        query: "Search",
+        pattern: "Pattern",
+        project_id: "Project",
+        task_id: "Task",
+        milestone_id: "Milestone",
+      };
+      return (
+        <dl className="activity-parameters">
+          {Object.entries(args).map(([key, value]) => (
+            <div key={key}>
+              <dt>{names[key] ?? label(key)}</dt>
+              <dd>
+                <pre>
+                  {typeof value === "string"
+                    ? value
+                    : JSON.stringify(value, null, 2)}
+                </pre>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      );
+    }
+  }
+  return <Evidence text={text} />;
 }
 
 function ActivityText({ text, preview }: { text: string; preview: string }) {
@@ -169,9 +295,10 @@ function ActivityText({ text, preview }: { text: string; preview: string }) {
   return (
     <Disclosure
       className="activity-evidence"
+      chevron={false}
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
-      summary={open ? "Output" : <pre>{preview}</pre>}
+      summary={open ? preview.split("\n", 1)[0] : <pre>{preview}</pre>}
     >
       <pre>{text}</pre>
     </Disclosure>

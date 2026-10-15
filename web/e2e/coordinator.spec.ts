@@ -1350,6 +1350,70 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
       },
     },
   });
+  turn.activity.items.splice(
+    1,
+    0,
+    ...[
+      {
+        key: "command",
+        kind: "command",
+        action: {
+          title: "pnpm test · failed (exit 1)",
+          details: "Directory: /project\nExit code: 1",
+          output: "Expected 200, received 500",
+          output_preview: "Expected 200, received 500",
+        },
+      },
+      {
+        key: "read",
+        kind: "tool",
+        action: {
+          title: "Read file · src/app.ts",
+          details: 'Arguments: {"file_path":"src/app.ts","offset":10}',
+          output: "export const status = 200;",
+          output_preview: "export const status = 200;",
+        },
+      },
+      {
+        key: "edit",
+        kind: "tool",
+        action: {
+          title: "Edit files · completed",
+          details:
+            "diff --git a/app.ts b/app.ts\n--- a/app.ts\n+++ b/app.ts\n@@ -1 +1 @@\n-const status = 500;\n+const status = 200;\n",
+          output: "",
+          output_preview: "",
+        },
+      },
+      {
+        key: "unknown",
+        kind: "tool",
+        action: {
+          title: "External tool · completed",
+          details: 'Arguments: {"custom_setting":true}',
+          output: '{"ok":true,"count":2}',
+          output_preview: '{"ok":true}',
+        },
+      },
+      {
+        key: "milestone",
+        kind: "tool",
+        action: {
+          title: "Flowfield · Get milestone · completed",
+          details: 'Arguments: {"milestone_id":"M-1"}',
+          output:
+            '{"id":"internal-milestone-id","title":"Deliver CSV export","body":"Download the complete inventory.","acceptance_criteria":"Empty inventories produce a valid CSV."}',
+          output_preview: "Deliver CSV export",
+        },
+      },
+    ].map((item) => ({
+      ...item,
+      text: "",
+      preview: "",
+      omitted: false,
+      abridged: false,
+    })),
+  );
   await page.route(`**/api/context/workspaces/${workspace}/text?*`, (route) => {
     const params = new URL(route.request().url()).searchParams;
     expect(params.get("revision")).toBe("7");
@@ -1375,50 +1439,79 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
     page.getByText("Opening … middle omitted … conclusion", { exact: true }),
   ).toBeVisible();
   await page.locator(".coordinator-activity-summary > summary").click();
-  const action = page.locator('.run-activity-entry[data-kind="tool"]');
+  const action = page
+    .locator('.run-activity-entry[data-kind="tool"]')
+    .filter({ hasText: "Flowfield · Get board" });
   await action
     .getByText("Flowfield · Get board · completed", { exact: true })
     .click();
-  await expect(
-    action
-      .locator(".activity-evidence > summary")
-      .filter({ hasText: /^Output:/ }),
-  ).toHaveText("Output: Found task 1");
-  await action
-    .locator(".activity-evidence > summary")
-    .filter({ hasText: /^Input:/ })
-    .click();
-  await expect(
-    action.getByText('{"project_id":"demo"}', { exact: true }),
-  ).toBeVisible();
-  await expect(
-    action.getByText("Flowfield · Get board · completed", { exact: true }),
-  ).toHaveCount(1);
-  const outputSummary = action
-    .locator(".activity-evidence > summary")
-    .filter({ hasText: /^Output:/ });
-  const readingTop = (await outputSummary.boundingBox())!.y;
-  await outputSummary.click();
-  await expect
-    .poll(async () =>
-      Math.abs((await outputSummary.boundingBox())!.y - readingTop),
-    )
-    .toBeLessThan(2);
-  await expect(action.locator("details[open] pre").last()).toContainText(
+  await expect(action.locator("summary .disclosure-chevron")).toHaveCount(0);
+  await expect(action.locator("dt")).toHaveText(["Project"]);
+  await expect(action.locator("dd")).toHaveText("demo");
+  await expect(action.locator(".activity-console")).toContainText(
     "Found task 30",
   );
+  await expect(action.locator("summary")).toHaveCount(1);
+  const eventSummary = action.locator("summary");
+  await eventSummary.click();
+  const readingTop = (await eventSummary.boundingBox())!.y;
+  await eventSummary.press("Enter");
+  await expect
+    .poll(async () =>
+      Math.abs((await eventSummary.boundingBox())!.y - readingTop),
+    )
+    .toBeLessThan(2);
+  await expect(action.locator(".activity-console")).toBeVisible();
   await action.scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath("action-expanded.png") });
-  await action
-    .locator(".activity-evidence > summary")
-    .filter({ hasText: /^Output:/ })
-    .click();
   await page.setViewportSize({ width: 430, height: 920 });
   await page.emulateMedia({ colorScheme: "dark" });
   await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
   await action.scrollIntoViewIfNeeded();
   await page.screenshot({
     path: testInfo.outputPath("action-narrow-dark.png"),
+  });
+  const command = page.locator('.run-activity-entry[data-kind="command"]');
+  await command.locator("summary").click();
+  await expect(command).toContainText("Expected 200, received 500");
+  await expect(command).toContainText("Exit code: 1");
+  const read = page
+    .locator(".run-activity-entry")
+    .filter({ hasText: "Read file · src/app.ts" });
+  await read.locator("summary").click();
+  await expect(read.locator("dt")).toHaveText(["File", "Offset"]);
+  const edit = page
+    .locator(".run-activity-entry")
+    .filter({ hasText: "Edit files · completed" });
+  await edit.locator("summary").first().click();
+  await expect(edit.locator(".diff-code-insert")).toContainText(
+    "const status = 200;",
+  );
+  await expect(edit).not.toContainText("No output was recorded");
+  const unknown = page
+    .locator(".run-activity-entry")
+    .filter({ hasText: "External tool · completed" });
+  await unknown.locator("summary").click();
+  await expect(unknown.locator("dt")).toHaveText("Custom setting");
+  await expect(unknown.locator(".activity-console")).toContainText(
+    '"count": 2',
+  );
+  const milestone = page
+    .locator(".run-activity-entry")
+    .filter({ hasText: "Flowfield · Get milestone · completed" });
+  await milestone.locator("summary").first().click();
+  await expect(milestone.locator(".activity-record")).toContainText(
+    "Deliver CSV export",
+  );
+  await expect(milestone.locator(".activity-record")).toContainText(
+    "Empty inventories produce a valid CSV.",
+  );
+  await expect(milestone.getByText(/internal-milestone-id/)).not.toBeVisible();
+  await milestone.getByText("Saved response", { exact: true }).click();
+  await expect(milestone.getByText(/internal-milestone-id/)).toBeVisible();
+  await edit.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: testInfo.outputPath("action-kinds-narrow-dark.png"),
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await expect(

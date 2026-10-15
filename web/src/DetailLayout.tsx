@@ -100,11 +100,13 @@ export function Disclosure({
   className = "",
   help,
   group = false,
+  chevron = true,
   ...props
 }: ComponentProps<"details"> & {
   summary: ReactNode;
   help?: string;
   group?: boolean;
+  chevron?: boolean;
 }) {
   return (
     <details
@@ -112,7 +114,9 @@ export function Disclosure({
       className={`disclosure ${group ? "detail-group" : ""} ${className}`}
     >
       <summary className={group ? "detail-group-header" : undefined}>
-        <ChevronRight className="disclosure-chevron" aria-hidden="true" />
+        {chevron && (
+          <ChevronRight className="disclosure-chevron" aria-hidden="true" />
+        )}
         <span>{summary}</span>
         {help && (
           <Tooltip>

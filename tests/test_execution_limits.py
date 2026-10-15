@@ -225,18 +225,17 @@ def test_saved_checks_require_exact_human_permission_and_cleanup(tmp_path):
     asyncio.run(exercise())
 
 
-def test_supported_upgrade_preserves_work_without_inventing_usage(tmp_path):
-    import sqlite3
+def test_supported_upgrade_preserves_work_without_inventing_usage(tmp_path, monkeypatch):
+    from flowfield import migrations
 
-    execution = fixture(tmp_path)
-    run = execution.claim("harbor", BASE, {BASE: set()})
-    execution.finish("harbor", run.id, "failed")
-    # Restore the schema-71 shape, retaining the authored task and historical run.
-    with sqlite3.connect(execution.workspace.database) as db:
-        for table in ("execution_policies", "task_execution_limits", "worker_check_grants"):
-            db.execute(f"DROP TABLE {table}")
-        db.execute("DELETE FROM schema_migrations WHERE version=72")
-        db.execute("PRAGMA user_version=71")
+    # Construct the actual schema-71 fixture instead of partially downgrading latest state.
+    with monkeypatch.context() as old:
+        old.setattr(
+            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version <= 71)
+        )
+        execution = fixture(tmp_path)
+        run = execution.claim("harbor", BASE, {BASE: set()})
+        execution.finish("harbor", run.id, "failed")
     upgraded = Execution(Workspace(execution.workspace.directory))
     latest = upgraded.get("harbor", run.id)
     assert latest.status == "failed" and latest.active_seconds == 0
@@ -246,6 +245,63 @@ def test_supported_upgrade_preserves_work_without_inventing_usage(tmp_path):
     limit = ExecutionLimits(upgraded.workspace).get("harbor", run.task_id)
     assert limit.earlier_usage_unknown and limit.active_seconds_used == 0
     assert limit.corrections_used == 1
+
+
+def test_check_permission_read_releases_a_pending_writer(tmp_path, monkeypatch):
+    """A second read connection would deadlock the writer behind the first read."""
+    import sqlite3
+    import time
+    from threading import Event, Thread
+
+    from flowfield.worker_checks import CheckPermissions
+
+    store = fixture(tmp_path).workspace
+    original = store._project
+    waiting = Event()
+    errors = []
+
+    def write():
+        try:
+            with sqlite3.connect(store.database, timeout=2) as db:
+                db.execute("BEGIN IMMEDIATE")
+                db.execute("UPDATE projects SET description='Concurrent update' WHERE id='harbor'")
+                waiting.set()
+                db.commit()
+        except Exception as error:
+            errors.append(error)
+
+    writer = Thread(target=write)
+    first = True
+
+    def project(db, identity):
+        nonlocal first
+        value = original(db, identity)
+        if first:
+            first = False
+            writer.start()
+            assert waiting.wait(1)
+            # Wait for SQLite's pending-write lock, not an arbitrary timing delay.
+            deadline = time.monotonic() + 1
+            while True:
+                probe = sqlite3.connect(store.database, timeout=0)
+                try:
+                    probe.execute("SELECT name FROM projects").fetchall()
+                except sqlite3.OperationalError as error:
+                    assert "locked" in str(error)
+                    break
+                finally:
+                    probe.close()
+                assert time.monotonic() < deadline
+                time.sleep(0.001)
+        return value
+
+    monkeypatch.setattr(store, "_project", project)
+    try:
+        assert not CheckPermissions(store).get("harbor").enabled
+    finally:
+        writer.join(3)
+    assert not writer.is_alive() and not errors
+    assert store.project("harbor").description == "Concurrent update"
 
 
 @pytest.mark.parametrize("capture_failure", [False, True])

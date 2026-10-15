@@ -455,18 +455,57 @@
   .coordinator-activity-summary > .disclosure-body {
     padding-left: 0;
   }
-  .activity-evidence > summary > span {
-    min-width: 0;
+  .coordinator-activity-summary > summary {
+    color: var(--muted-foreground);
+    font: 12px/1.6 var(--font-mono, ui-monospace, monospace);
   }
-  .activity-evidence-preview {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .activity-action > summary:hover,
+  .activity-evidence > summary:hover {
+    background: var(--muted);
   }
-  .activity-evidence > .disclosure-body {
+  .activity-action > .disclosure-body {
+    gap: 8px;
+    padding-block: 4px 8px;
+  }
+  .activity-evidence > .disclosure-body,
+  .activity-console,
+  .activity-parameters {
     max-height: 16rem;
     overflow: auto;
+  }
+  .activity-parameters {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+  }
+  .activity-parameters > div {
+    display: grid;
+    grid-template-columns: minmax(0, 7rem) minmax(0, 1fr);
+    gap: 8px;
+  }
+  .activity-parameters dt {
+    overflow-wrap: anywhere;
+  }
+  .activity-parameters dd {
+    margin: 0;
+    min-width: 0;
+  }
+  .activity-record {
+    display: grid;
+    gap: 8px;
+    margin: 0 0 8px;
+  }
+  .activity-record dt {
+    font-weight: 500;
+  }
+  .activity-record dd {
+    margin: 0;
+  }
+  .activity-patch {
+    font: inherit;
+  }
+  .activity-patch .diff {
+    font: inherit;
   }
 
   @keyframes work-pulse {

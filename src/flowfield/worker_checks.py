@@ -44,7 +44,9 @@ class CheckPermissions:
                 "SELECT data FROM worker_check_grants WHERE project_id=?", (project,)
             ).fetchone()
             value = CheckPermission.model_validate_json(row[0]) if row else CheckPermission()
-            settings = Integrations(self.store).settings(project)
+            # Keep grant and settings in one snapshot. A nested read can deadlock
+            # against a writer waiting for this transaction to release.
+            settings = Integrations(self.store)._settings(db, project)
             try:
                 stat = Path(current.path).stat()
                 identity = (stat.st_dev, stat.st_ino)
@@ -67,16 +69,7 @@ class CheckPermissions:
             previous = CheckPermission.model_validate_json(row[0]) if row else CheckPermission()
             self.store._current(previous.revision, request.expected_revision)
             # Concurrent Coordinator edits cannot retarget this settings-bound grant.
-            row = db.execute(
-                "SELECT data FROM integration_settings WHERE project_id=?", (project,)
-            ).fetchone()
-            from flowfield.integration_models import IntegrationSettings
-
-            settings = (
-                IntegrationSettings.model_validate_json(row[0])
-                if row
-                else IntegrationSettings(project_id=project)
-            )
+            settings = Integrations(self.store)._settings(db, project)
             self.store._current(settings.revision, request.settings_revision)
             if request.enabled and not settings.checks:
                 raise ApplicationError(

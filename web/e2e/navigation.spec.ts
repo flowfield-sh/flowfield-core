@@ -401,9 +401,17 @@ test("closing entity overlays returns through history without duplicate collecti
   request,
 }) => {
   const id = "history-roundtrip";
-  await fixtureProject(request, {
-    data: { path: existingDirectory(join(state, id)), task_prefix: "HIS" },
-  });
+  expect(
+    (
+      await fixtureProject(request, {
+        data: {
+          id,
+          path: existingDirectory(join(state, id)),
+          task_prefix: "HRT",
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
   await request.post(`/api/projects/${id}/tasks`, {
     data: { stages: fixtureStages(), id: "one", title: "History task" },
   });
@@ -412,7 +420,7 @@ test("closing entity overlays returns through history without duplicate collecti
     project_id: id,
     question: {
       id: "scope",
-      task_id: "HIS-1",
+      task_id: "HRT-1",
       question: "Which scope?",
       context: "Choose the scope",
       recommendation: "Small",
@@ -424,7 +432,7 @@ test("closing entity overlays returns through history without duplicate collecti
   await page.goto(board);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await page
-    .getByRole("link", { name: "HIS-1: Which scope?", exact: true })
+    .getByRole("link", { name: "HRT-1: Which scope?", exact: true })
     .click();
   await page
     .getByRole("button", {
@@ -459,7 +467,7 @@ test("closing entity overlays returns through history without duplicate collecti
   await expect(page).toHaveURL(inbox);
   await page.goBack();
   await expect(page).toHaveURL(board);
-  await page.getByRole("link", { name: /HIS-1/ }).first().click();
+  await page.getByRole("link", { name: /HRT-1/ }).first().click();
   await page
     .getByRole("button", {
       name: /^(Close editor|Back to board)$/,
@@ -468,7 +476,7 @@ test("closing entity overlays returns through history without duplicate collecti
     .click();
   await expect(page).toHaveURL(board);
   // Direct task links return to their workspace's board.
-  await page.goto(`/projects/${id}/tasks/HIS-1`);
+  await page.goto(`/projects/${id}/tasks/HRT-1`);
   await page
     .getByRole("button", {
       name: /^(Close editor|Back to board)$/,
