@@ -8,6 +8,7 @@ const pagePaths = [
   "settings/updates",
   "new-workspace",
   "workspaces/:workspaceId",
+  "workspaces/:workspaceId/tasks",
   "workspaces/:workspaceId/documents",
   "workspaces/:workspaceId/work",
   "workspaces/:workspaceId/documents/:documentId",
@@ -72,8 +73,15 @@ export function canonicalHref(path: string, owners: Record<string, string>) {
     (project ? owners[decodeURIComponent(project[1])] : undefined);
   if (project && owner) {
     url.pathname =
-      workspaceHref(decodeURIComponent(owner)) + (project[2] ?? "");
+      workspaceHref(decodeURIComponent(owner)) + (project[2] ?? "/tasks");
     url.searchParams.set("project", decodeURIComponent(project[1]));
+  }
+  if (/^\/workspaces\/[^/]+\/?$/.test(url.pathname)) {
+    const filtered = ["project", "milestone", "label"].some((key) =>
+      url.searchParams.has(key),
+    );
+    url.pathname =
+      url.pathname.replace(/\/$/, "") + (filtered ? "/tasks" : "/inbox");
   }
   return url.pathname + url.search + url.hash;
 }
@@ -90,7 +98,7 @@ export function boardHref(
   );
   return (
     workspaceHref(workspaceId) +
-    (archive ? "/archive" : "") +
+    (archive ? "/archive" : "/tasks") +
     (query.size ? "?" + query : "")
   );
 }

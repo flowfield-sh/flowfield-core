@@ -333,6 +333,7 @@ function title(
     (
       {
         inbox: "Inbox",
+        tasks: "Tasks",
         documents: "Documents",
         projects: "Projects",
         milestones: "Milestones",
@@ -350,7 +351,7 @@ function title(
       ? "Document"
       : root.includes("/tasks/")
         ? key
-        : "Board")
+        : "Tasks")
   );
 }
 function ResourceTab({

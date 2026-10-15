@@ -38,7 +38,8 @@ test("CLI adoption updates the browser, task creation and initial connection rec
     .getByLabel("Workspace", { exact: true })
     .selectOption({ label: adopted.name });
   const workspace = await projectWorkspace(request, adopted.id);
-  await expect(page).toHaveURL(`/workspaces/${workspace}`);
+  await expect(page).toHaveURL(`/workspaces/${workspace}/inbox`);
+  await page.getByRole("link", { name: "Tasks", exact: true }).click();
   expect(
     (
       await request.post(`/api/projects/${adopted.id}/tasks`, {
@@ -177,7 +178,9 @@ test("milestones group tasks with linked details and long project intent stays o
   await openResource(page, "Milestones");
   await page.getByRole("link", { name: "CSV export", exact: true }).click();
   await page.getByRole("link", { name: "View tasks", exact: true }).click();
-  await expect(page).toHaveURL(`/workspaces/${workspace_id}?milestone=export`);
+  await expect(page).toHaveURL(
+    `/workspaces/${workspace_id}/tasks?milestone=export`,
+  );
   await expect(page.getByLabel("Filter by milestone")).toHaveValue("export");
   await expect(page.locator(".task-card")).toHaveCount(2);
   await expect(page.locator(".board")).toContainText("Serialize CSV");

@@ -65,7 +65,7 @@ test("board columns scroll independently with fixed headings and reachable cards
     exact: true,
   });
   await expect(page.locator(".queue-controls")).toContainText(
-    "Queue paused · 1/2 active",
+    "1 of 2 workers active",
   );
   await expect(backlog.getByRole("link")).toHaveCount(14);
   // Force scrollbars that consume layout space, even on an overlay-scrollbar host.

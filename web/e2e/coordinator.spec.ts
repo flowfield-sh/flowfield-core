@@ -1560,7 +1560,7 @@ test("project URL canonicalization preserves the selected mobile coordinator", a
   ).toHaveAttribute("aria-selected", "true");
   release();
   await expect(page).toHaveURL(
-    new RegExp(`/workspaces/${workspace}\\?project=chat-alias$`),
+    new RegExp(`/workspaces/${workspace}/tasks\\?project=chat-alias$`),
   );
   await expect(
     page.getByRole("tab", { name: "Coordinator", exact: true }),

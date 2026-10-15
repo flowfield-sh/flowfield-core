@@ -213,14 +213,14 @@
   .task-view-navigation {
     margin-bottom: 16px;
   }
-  .task-heading-identity {
+  .entity-heading-identity {
     display: flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
   }
-  .task-heading-identity > .work-state,
-  .task-heading-identity > [data-slot="badge"] {
+  .entity-heading-identity > .work-state,
+  .entity-heading-identity > [data-slot="badge"] {
     flex-shrink: 0;
   }
   .task-context {
@@ -381,9 +381,11 @@
     display: none;
   }
   .task-input {
-    background: var(--chrome);
     border-top: 1px solid var(--border);
-    padding: var(--response-padding, 16px 24px);
+    padding: var(--response-padding, 12px 24px);
+  }
+  .task-input > .actions:not(:has(button, a)) {
+    display: none;
   }
   .task-input-context p {
     margin: 0;
@@ -413,7 +415,7 @@
       gap: 4px 8px;
     }
     .task-input {
-      padding: 12px 16px;
+      padding: var(--response-padding, 12px 16px);
     }
   }
 }
@@ -651,7 +653,7 @@
   gap: 16px;
 }
 .request-card {
-  --response-padding: 16px;
+  --response-padding: 12px;
   overflow-wrap: anywhere;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -659,13 +661,13 @@
   background: var(--card);
 }
 .request-card > .detail-heading-block {
-  padding: 12px 16px;
+  padding: 8px 12px;
   background: var(--chrome);
   border-bottom: 1px solid var(--border);
   border-radius: var(--radius) var(--radius) 0 0;
 }
 .request-body {
-  padding: 16px;
+  padding: 12px;
 }
 .request-body .actions:empty {
   display: none;

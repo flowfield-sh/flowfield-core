@@ -123,7 +123,7 @@ test("project defaults prepare exact task documents and preserve revision links"
   await expect(
     page.getByText("Keep the public API stable. 🦉", { exact: true }),
   ).toBeVisible();
-  await page.goto(`/workspaces/${workspace.id}`);
+  await page.goto(`/workspaces/${workspace.id}/tasks`);
   await expect(
     page.getByText("Newer source revision available", { exact: true }),
   ).toBeVisible();

@@ -93,16 +93,16 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
   const projectLink = page.getByRole("link", { name: /Core service/ });
   await expect(projectLink).toHaveAttribute(
     "href",
-    `${base}?project=${project}`,
+    `${base}/tasks?project=${project}`,
   );
   await projectLink.click();
-  await expect(page).toHaveURL(`${base}?project=${project}`);
+  await expect(page).toHaveURL(`${base}/tasks?project=${project}`);
   await expect(page.getByLabel("Filter by project")).toHaveValue(project);
   await expect(
     page
       .getByRole("tablist", { name: "Open resources" })
       .locator('[role="tab"][aria-selected="true"]'),
-  ).toHaveAccessibleName("Board");
+  ).toHaveAccessibleName("Tasks");
   await page.screenshot({
     path: testInfo.outputPath("project-actions-desktop-light.png"),
   });
@@ -114,7 +114,7 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
     ),
   ).toEqual(["Filter by project", "Filter by milestone", "Filter by label"]);
   await page.getByLabel("Filter by label").selectOption("bug");
-  await expect(page).toHaveURL(`${base}?project=${project}&label=bug`);
+  await expect(page).toHaveURL(`${base}/tasks?project=${project}&label=bug`);
   expect(
     (
       await request.delete(`/api${base}/labels/bug`, {
@@ -123,7 +123,7 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
     ).ok(),
   ).toBeTruthy();
   await expect(page.getByLabel("Filter by label")).toHaveValue("");
-  await expect(page).toHaveURL(`${base}?project=${project}`);
+  await expect(page).toHaveURL(`${base}/tasks?project=${project}`);
   const taskLink = page
     .locator(".task-card")
     .getByRole("link")

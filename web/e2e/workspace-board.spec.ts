@@ -91,7 +91,7 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
     }),
   );
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto(base);
+  await page.goto(base + "/tasks");
   await expect(
     page.getByRole("link", { name: "BCR-1 Core release", exact: true }),
   ).toBeVisible();
@@ -110,7 +110,7 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
     .click();
   await expect(page).toHaveURL(/\/projects\/board-site\/tasks\/BST-1$/);
   await page.getByRole("button", { name: "Back", exact: true }).click();
-  await expect(page).toHaveURL(`${base}?project=board-site`);
+  await expect(page).toHaveURL(`${base}/tasks?project=board-site`);
   await expect(page.getByLabel("Filter by project")).toHaveValue("board-site");
   await expect(
     page.getByRole("textbox", { name: "Message coordinator", exact: true }),
@@ -189,8 +189,8 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
   });
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await openResource(page, "Board");
-  await expect(page.getByRole("tab", { name: /^Board/ })).toHaveAttribute(
+  await openResource(page, "Tasks");
+  await expect(page.getByRole("tab", { name: /^Tasks/ })).toHaveAttribute(
     "aria-selected",
     "true",
   );

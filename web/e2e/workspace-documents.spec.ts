@@ -13,7 +13,7 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   ).json();
   const base = `/workspaces/${workspace.id}`;
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto(base);
+  await page.goto(base + "/tasks");
   await openResource(page, "Documents");
   await page.getByRole("link", { name: /Workspace guidance/ }).click();
   await page.getByRole("button", { name: "Edit", exact: true }).click();
@@ -53,7 +53,7 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   await page
     .getByRole("textbox", { name: "Content", exact: true })
     .fill("My unsaved guidance");
-  await page.getByRole("tab", { name: "Board", exact: true }).click();
+  await page.getByRole("tab", { name: "Tasks", exact: true }).click();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await page
     .getByRole("tab", { name: "Workspace guidance", exact: true })

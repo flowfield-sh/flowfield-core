@@ -61,6 +61,16 @@
 }
 .workspace-divider {
   width: 1px;
+  margin-right: -1px;
+  flex-shrink: 0;
+  margin-block: 56px 12px;
+  transform: translateX(12px);
+  background: transparent;
+  z-index: 1;
+}
+.workspace-divider:hover::after,
+.workspace-divider:focus-visible::after,
+.workspace-divider[data-separator="active"]::after {
   background: var(--border);
 }
 .workspace-surface-switch {
@@ -155,7 +165,7 @@
   min-height: 0;
   overflow: auto;
   overflow-anchor: none;
-  padding: 20px;
+  padding: 12px 0 12px 12px;
 }
 .coordinator-turn {
   min-width: 0;
@@ -176,10 +186,16 @@
 }
 .coordinator-composer {
   flex-shrink: 0;
-  padding: 12px;
+  padding: 12px 0 12px 12px;
   background: transparent;
   max-height: 55%;
   overflow: auto;
+}
+@media (max-width: 1023px) {
+  .coordinator-scroll,
+  .coordinator-composer {
+    padding: 12px;
+  }
 }
 
 /* Workspace resources and work share a compact navigation row owner. */

@@ -48,7 +48,7 @@ export function TaskDetail({
     <section className="editor task-detail">
       <DetailHeader
         title={
-          <span className="task-heading-identity">
+          <span className="entity-heading-identity">
             <WorkState state={task.state} indicatorOnly />
             <Badge variant="outline">{task.key}</Badge>
             <span>{task.title}</span>

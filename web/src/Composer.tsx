@@ -179,6 +179,7 @@ export function Composer({
       }
     }
   }
+  if (collapsed && !controls && !action) return null;
   return (
     <div className="composer-wrap">
       <input

@@ -1,8 +1,10 @@
-import { useEffect, type ReactNode } from "react";
+import { createContext, useEffect, type ReactNode } from "react";
 import { Disclosure } from "./DetailLayout";
 import { useRetainedState } from "./retainedState";
 import { WorkState } from "./WorkState";
 import type { components } from "./api-schema";
+
+export const ActivityBodyVisible = createContext(true);
 
 /** Compact presentation of canonical events; response controls retain their owner. */
 export function ActivityEntry({
@@ -46,7 +48,9 @@ export function ActivityEntry({
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      {children}
+      <ActivityBodyVisible.Provider value={open}>
+        {children}
+      </ActivityBodyVisible.Provider>
     </Disclosure>
   ) : (
     <div className="activity-entry activity-entry-record">{heading}</div>

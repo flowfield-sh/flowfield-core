@@ -34,7 +34,7 @@ Open [localhost:8765](http://127.0.0.1:8765), create a workspace and add your ex
 
 ## How does Flowfield work?
 
-Ask the Coordinator to organize the work, maintain shared context and follow up on results. Use the board, documents and task controls yourself whenever you prefer. Conversation and direct actions work on the same plan.
+Ask the Coordinator to organize the work, maintain shared context and follow up on results. Use Tasks to follow progress, edit shared documents and respond through Inbox. Conversation and direct actions work on the same plan.
 
 **💬 Shape the idea**<br>Talk through the problem with the Coordinator. It turns agreed decisions into tasks and milestones while the work continues beside the conversation.
 
@@ -52,7 +52,7 @@ Ask the Coordinator to organize the work, maintain shared context and follow up 
 
 <table>
   <tr>
-    <td width="33%" align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/board.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/board.png" alt="Workspace board with tasks across three projects"></a><br><strong>Board</strong></td>
+    <td width="33%" align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/board.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/board.png" alt="Workspace board with tasks across three projects"></a><br><strong>Tasks</strong></td>
     <td width="33%" align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/documents.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/documents.png" alt="Shared workspace document with revision history"></a><br><strong>Documents</strong></td>
     <td width="33%" align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/milestones.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/milestones.png" alt="Milestones grouping work across projects"></a><br><strong>Milestones</strong></td>
   </tr>

@@ -1,8 +1,9 @@
 import { useLabels } from "./labelContext";
-import { Disclosure, DetailSection } from "./DetailLayout";
+import { ContentStack, DetailSection } from "./DetailLayout";
 import { Button } from "@/components/ui/button";
 import { useResource } from "./useResource";
-import { useState } from "react";
+import { useContext, useState } from "react";
+import { ActivityBodyVisible } from "./ActivityEntry";
 import { Markdown } from "./Markdown";
 import { TextChanges } from "./TextChanges";
 import { ArrowRight } from "lucide-react";
@@ -32,7 +33,7 @@ export function TaskChanges({
   tasks: TaskReference[];
 }) {
   const labels = useLabels();
-  const [open, setOpen] = useState(false);
+  const open = useContext(ActivityBodyVisible);
   const [retry, setRetry] = useState(0);
   const beforeRead = useResource<TaskRevision>(
     open && revision > 1 ? `${path}/revisions/${revision - 1}` : null,
@@ -74,13 +75,7 @@ export function TaskChanges({
     return record[field];
   }
   return (
-    <Disclosure
-      summary={
-        <>{revision === 1 ? "View definition" : "View definition changes"}</>
-      }
-      className="task-changes history-disclosure"
-      onToggle={(e) => setOpen(e.currentTarget.open)}
-    >
+    <ContentStack className="task-changes">
       {open && (beforeRead.error || afterRead.error) && (
         <Button size="sm" onClick={() => setRetry((v) => v + 1)}>
           Retry
@@ -124,6 +119,6 @@ export function TaskChanges({
         ) : (
           <p>No net change across these edits.</p>
         ))}
-    </Disclosure>
+    </ContentStack>
   );
 }

@@ -76,7 +76,7 @@ test("task keys link to persistent selections with history and draft protection"
   await expect(
     waiting.getByRole("link", { name: one.key, exact: true }).first(),
   ).toBeVisible();
-  await page.goto(`/workspaces/${workspace}`);
+  await page.goto(`/workspaces/${workspace}/tasks`);
   const blocker = page.getByRole("link", { name: "NAV-1", exact: true });
   await blocker.hover();
   await expect(page.getByRole("tooltip")).toHaveText("Prepare the export");
@@ -112,14 +112,14 @@ test("task keys link to persistent selections with history and draft protection"
     .getByLabel("Message coordinator", { exact: true })
     .fill("Unsaved title");
   await page.goBack();
-  await expect(page).toHaveURL(`/workspaces/${workspace}`);
+  await expect(page).toHaveURL(`/workspaces/${workspace}/tasks`);
   await page.goForward();
   await expect(page).toHaveURL(/tasks\/NAV-1$/);
   await expect(
     page.getByLabel("Message coordinator", { exact: true }),
   ).toHaveValue("Unsaved title");
   await page.goBack();
-  await expect(page).toHaveURL(`/workspaces/${workspace}`);
+  await expect(page).toHaveURL(`/workspaces/${workspace}/tasks`);
   await expect(editor).toHaveCount(0);
   await page.goForward();
   await expect(
@@ -149,9 +149,9 @@ test("task keys link to persistent selections with history and draft protection"
   await page
     .getByLabel("Workspace", { exact: true })
     .selectOption(otherWorkspace);
-  await expect(page).toHaveURL(`/workspaces/${otherWorkspace}`);
+  await expect(page).toHaveURL(`/workspaces/${otherWorkspace}/inbox`);
   await page.goBack();
-  await expect(page).toHaveURL(`/workspaces/${workspace}`);
+  await expect(page).toHaveURL(`/workspaces/${workspace}/tasks`);
   await page
     .locator(".workspace-resource-content")
     .getByRole("link", {
@@ -295,7 +295,9 @@ test("task metadata and internal Markdown links stay inside the router", async (
   await openResource(page, "Milestones");
   await page.locator(".task-card-link").first().click();
   await page.getByRole("link", { name: "View tasks", exact: true }).click();
-  await expect(page).toHaveURL(`/workspaces/${workspace}?milestone=questions`);
+  await expect(page).toHaveURL(
+    `/workspaces/${workspace}/tasks?milestone=questions`,
+  );
   await expect(page.getByLabel("Filter by milestone")).toHaveValue("questions");
   await expect(
     page.getByRole("link", { name: /LNK-1 (?:Feature )?Export books/ }),
@@ -370,7 +372,9 @@ test("shared panes preserve the workspace and related return paths on mobile", a
   await card.click();
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: /^(Close editor|Back)$/ }).click();
-  await expect(page).toHaveURL(`/workspaces/${workspace}?milestone=group`);
+  await expect(page).toHaveURL(
+    `/workspaces/${workspace}/tasks?milestone=group`,
+  );
   await openResource(page, "Workspace settings");
   await expect(
     page.getByRole("region", { name: "Workspace settings", exact: true }),
@@ -380,14 +384,14 @@ test("shared panes preserve the workspace and related return paths on mobile", a
     page.getByRole("region", { name: "Workspace settings", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page).toHaveURL(`/workspaces/${workspace}`);
+  await expect(page).toHaveURL(`/workspaces/${workspace}/inbox`);
   await openResource(page, "Milestones");
   await expect(page.locator(".milestone-board")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "New milestone", exact: true }),
   ).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
-  await openResource(page, "Board");
+  await openResource(page, "Tasks");
   await expect(
     page.getByRole("button", { name: "New task", exact: true }),
   ).toHaveCount(0);
@@ -428,8 +432,8 @@ test("closing entity panes returns through history without duplicate collections
     },
   });
   const workspace = await projectWorkspace(request, id);
-  const board = `/workspaces/${workspace}`;
-  const inbox = `${board}/inbox`;
+  const board = `/workspaces/${workspace}/tasks`;
+  const inbox = `/workspaces/${workspace}/inbox`;
   await page.goto(board);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await page
@@ -470,7 +474,7 @@ test("closing entity panes returns through history without duplicate collections
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(inbox);
-  await openResource(page, "Board");
+  await openResource(page, "Tasks");
   await page
     .locator(".workspace-resource-content")
     .getByRole("link", { name: /HRT-1/ })
@@ -514,12 +518,14 @@ test("entity identity and drafts persist across task and workspace tabs", async 
   const projectLink = sidebar.getByLabel("Workspace", { exact: true });
   await expect(projectLink).toBeVisible();
   await expect(
-    sidebar.getByRole("button", { name: "Board", exact: true }),
+    sidebar.getByRole("button", { name: "Tasks", exact: true }),
   ).toHaveCount(0);
 
   await expect(logo).toHaveAttribute("href", "/");
 
   await projectLink.selectOption(workspace);
+  await expect(page).toHaveURL(`/workspaces/${workspace}/inbox`);
+  await openResource(page, "Tasks");
   await page
     .locator(".workspace-resource-content")
     .getByRole("link", { name: /IDN-1/ })
@@ -693,7 +699,7 @@ test("workspace selector names remain accessible and idle input opens deliberate
       ),
     });
   });
-  await page.goto(`/workspaces/${workspace}`);
+  await page.goto(`/workspaces/${workspace}/tasks`);
   const settings = page.getByRole("dialog", {
     name: "Coordinator model settings",
     exact: true,
@@ -714,6 +720,10 @@ test("workspace selector names remain accessible and idle input opens deliberate
   await selector.selectOption(workspace);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("tab", { name: /^Inbox 1$/ })).toBeVisible();
+  await page
+    .getByRole("button", { name: "Open workspaces", exact: true })
+    .click();
+  await page.getByRole("link", { name: "Tasks", exact: true }).click();
   await expect(
     page.getByRole("link", { name: /item needs your attention/ }),
   ).toHaveCount(0);
@@ -853,7 +863,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await page.screenshot({
     path: testInfo.outputPath("task-navigation-desktop.png"),
   });
-  await openResource(page, "Board");
+  await openResource(page, "Tasks");
   await expect(detail).not.toBeVisible();
   await expect(card).toBeVisible();
   await page.goBack();
@@ -865,7 +875,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   for (let visit = 0; visit < 2; visit++) {
     await card.click();
     await expect(detail).toBeVisible();
-    await openResource(page, "Board");
+    await openResource(page, "Tasks");
     await expect(detail).not.toBeVisible();
     await page.goBack();
     await expect(detail).toBeVisible();
@@ -879,6 +889,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await page.getByRole("tab", { name: "Appearance", exact: true }).click();
   await choose(page.getByLabel("Theme", { exact: true }), "light");
   await page.getByLabel("Workspace", { exact: true }).selectOption(workspace);
+  await openResource(page, "Tasks");
   await expect(page.locator("html")).not.toHaveClass("dark");
   expect(
     await page
@@ -900,20 +911,21 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await page.getByRole("tab", { name: "Appearance", exact: true }).click();
   await choose(page.getByLabel("Theme", { exact: true }), "system");
   await page.getByLabel("Workspace", { exact: true }).selectOption(workspace);
+  await openResource(page, "Tasks");
   await expect(page.locator("html")).toHaveClass("dark");
   await page.emulateMedia({ colorScheme: "light" });
   await expect(page.locator("html")).not.toHaveClass("dark");
-  await page.getByRole("tab", { name: /^Board/ }).focus();
+  await page.getByRole("tab", { name: /^Tasks/ }).focus();
   await page.keyboard.press("ArrowLeft");
   await expect(page.getByRole("tab", { name: /^Inbox/ })).toBeFocused();
-  await expect(page).toHaveURL(`/workspaces/${workspace}`);
+  await expect(page).toHaveURL(`/workspaces/${workspace}/tasks`);
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/inbox$/);
   await page.goBack();
   await openResource(page, "Milestones");
   await expect(page).toHaveURL(/\/milestones$/);
   await page.goBack();
-  await expect(page.getByRole("tab", { name: /^Board/ })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: /^Tasks/ })).toHaveAttribute(
     "aria-selected",
     "true",
   );
@@ -922,6 +934,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
     .getByRole("button", { name: "Open workspaces", exact: true })
     .click();
   await page.getByLabel("Workspace", { exact: true }).selectOption(workspace);
+  await openResource(page, "Tasks");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const board = page.locator(".board");
   expect(
@@ -957,7 +970,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
     path: testInfo.outputPath("task-navigation-mobile.png"),
   });
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("tab", { name: /^Board/ })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: /^Tasks/ })).toHaveAttribute(
     "aria-selected",
     "true",
   );
@@ -1007,10 +1020,7 @@ test("long task tooltips never expand the workspace scroll owners", async ({
   await expect(detail.locator(".activity-entry > summary")).toHaveCount(3);
   for (const row of await detail.locator(".activity-entry > summary").all())
     await row.click();
-  await expect(detail.locator(".task-changes summary")).toHaveCount(2);
-  for (const summary of await detail.locator(".task-changes summary").all()) {
-    await summary.click();
-  }
+  await expect(detail.locator(".task-changes")).toHaveCount(2);
   await expect(detail.getByText("Loading changes…")).toHaveCount(0);
   const bounds = () =>
     page.evaluate(() =>

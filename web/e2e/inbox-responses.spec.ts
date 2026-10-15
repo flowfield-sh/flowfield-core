@@ -228,7 +228,7 @@ test("milestone acceptance clears Inbox and Review column reflects the decision"
   await expect(
     page.getByRole("heading", { name: "Milestone accepted", exact: true }),
   ).toBeVisible();
-  await page.getByRole("tab", { name: "Details", exact: true }).click();
+  await page.getByRole("tab", { name: "History", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Acceptance criteria", exact: true }),
   ).toBeVisible();

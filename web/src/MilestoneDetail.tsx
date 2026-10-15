@@ -11,7 +11,8 @@ import { DetailTabs } from "./Presentation";
 import { DetailHeader } from "./Presentation";
 import { MilestoneVerification } from "./MilestoneVerification";
 import { Markdown } from "./Markdown";
-import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
+import { ContentStack, DetailSection } from "./DetailLayout";
+import { Badge } from "@/components/ui/badge";
 import { RevisionHistory } from "./RevisionHistory";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { boardHref, taskHref } from "./navigation";
@@ -56,13 +57,32 @@ export function MilestoneDetail({
     !historical &&
     (params.get("tab") === "review" || params.has("verification"))
       ? "review"
-      : historical || params.get("tab") === "details"
-        ? "details"
+      : historical || ["details", "history"].includes(params.get("tab") ?? "")
+        ? "history"
         : "overview";
   return (
     <section className="editor documents-page" aria-label="Milestone">
       <DetailHeader
-        title={`${milestone.key} · ${milestone.title}`}
+        title={
+          <span className="entity-heading-identity">
+            {!historical && (
+              <WorkState
+                indicatorOnly
+                state={
+                  milestoneState(
+                    card?.verification,
+                    !!card?.tasks.length && card.done === card.tasks.length,
+                  ) ?? {
+                    label: card?.column ?? "Planned",
+                    tone: card?.column === "Complete" ? "complete" : "idle",
+                  }
+                }
+              />
+            )}
+            <Badge variant="outline">{milestone.key}</Badge>
+            <span>{milestone.title}</span>
+          </span>
+        }
         close={close}
         closeLabel="Back"
         metadata={
@@ -96,7 +116,7 @@ export function MilestoneDetail({
         <DetailTabs
           id="milestone"
           title="Milestone views"
-          tabs={["overview", "details", "review"]}
+          tabs={["overview", "review", "history"]}
           active={tab}
           change={(value) => {
             const next = new URLSearchParams(params);
@@ -109,17 +129,6 @@ export function MilestoneDetail({
       {tab === "overview" ? (
         <ContentStack space="section">
           <Markdown>{milestone.body || "No description yet."}</Markdown>
-          <WorkState
-            state={
-              milestoneState(
-                card?.verification,
-                !!card?.tasks.length && card.done === card.tasks.length,
-              ) ?? {
-                label: card?.column ?? "Planned",
-                tone: card?.column === "Complete" ? "complete" : "idle",
-              }
-            }
-          />
           {card?.verification && (
             <WorkspaceLink
               to={`/workspaces/${milestone.workspace_id}/milestones/${milestone.key}?tab=review&verification=${card.verification.id}`}
@@ -165,12 +174,6 @@ export function MilestoneDetail({
               .filter((task) => task.milestone_id === milestone.id)
               .flatMap((task) => task.publication?.documents ?? [])}
           />
-          <Disclosure summary="Work and review details">
-            <WorkspaceLink to={`?tab=details`}>
-              Description and revision history
-            </WorkspaceLink>
-            <WorkspaceLink to={`?tab=review`}>Review history</WorkspaceLink>
-          </Disclosure>
         </ContentStack>
       ) : tab === "review" ? (
         <MilestoneVerification

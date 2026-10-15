@@ -80,15 +80,16 @@ test("long definitions collapse with a fade and history loads only when expanded
   const initial = page.locator('[data-message-id="definition:1"]');
   await expect(initial.locator(".markdown")).toHaveCount(0);
   await initial.locator(".activity-entry > summary").click();
-  await initial.getByText("View definition", { exact: true }).click();
+  await expect(
+    initial.getByText("View definition", { exact: true }),
+  ).toHaveCount(0);
   await expect(
     initial.getByText("Paragraph 24:", { exact: false }),
   ).toBeVisible();
-  await initial.getByText("View definition", { exact: true }).click();
+  await initial.locator(".activity-entry > summary").click();
   const updated = page.locator('[data-message-id="definition:2"]');
   await expect(updated.locator(".markdown")).toHaveCount(0);
   await updated.locator(".activity-entry > summary").click();
-  await updated.getByText("View definition changes", { exact: true }).click();
   await expect
     .poll(() =>
       updated.locator(".text-changes").evaluateAll((nodes) =>
@@ -197,7 +198,6 @@ test("definition revisions show focused word diffs and compact field values", as
   await page.goto(`/projects/${project}/tasks/${task.key}/history`);
   const revision = page.locator('[data-message-id="definition:2"]');
   await revision.locator(".activity-entry > summary").click();
-  await revision.getByText("View definition changes", { exact: true }).click();
   await expect(revision.locator("del")).toHaveText("all");
   await expect(revision.locator("ins")).toHaveText("selected");
   await expect(revision.locator(".text-changes")).toContainText(

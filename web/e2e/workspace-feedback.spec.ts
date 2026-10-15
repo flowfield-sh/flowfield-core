@@ -32,6 +32,19 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
       data: { id, title: id, stages: fixtureStages() },
     });
   await page.goto(base);
+  await expect(page).toHaveURL(base + "/inbox");
+  await expect(
+    page.getByRole("tab", { name: "Needs me", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("navigation", { name: "Workspace resources" })
+    .getByRole("link", { name: "Tasks", exact: true })
+    .click();
+  await expect(page).toHaveURL(base + "/tasks");
+  // Saved filtered links retain their collection semantics after the landing change.
+  await page.goto(base + "?project=" + project);
+  await expect(page).toHaveURL(base + "/tasks?project=" + project);
+  await expect(page.getByLabel("Filter by project")).toHaveValue(project);
   const work = page.getByRole("navigation", { name: "Work", exact: true });
   await expect(work.getByRole("link").first()).toHaveAttribute(
     "href",
@@ -149,6 +162,21 @@ test("failed intervention offers recovery and leaves Needs me immediately after 
   });
   await expect(card).toBeVisible();
   await expect(card).not.toContainText("no longer awaiting a response");
+  await expect(
+    card.getByRole("button", { name: "Retry worker", exact: true }),
+  ).toBeVisible();
+  const padding = await card.locator(".task-input").evaluate((footer) => {
+    const button = footer.querySelector("button")!.getBoundingClientRect();
+    const box = footer.getBoundingClientRect();
+    return {
+      above:
+        button.top -
+        box.top -
+        parseFloat(getComputedStyle(footer).borderTopWidth),
+      below: box.bottom - button.bottom,
+    };
+  });
+  expect(Math.abs(padding.above - padding.below)).toBeLessThan(1);
   await card.getByRole("button", { name: "Retry worker", exact: true }).click();
   await expect(card).toHaveCount(0);
   await expect(page.getByText("Nothing needs your attention.")).toBeVisible();

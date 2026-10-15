@@ -290,7 +290,7 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
     changes: { expected_revision: archived.revision, archived: false },
   });
   await closeOverlay(page);
-  await openResource(page, "Board");
+  await openResource(page, "Tasks");
   await page.getByLabel("Filter by milestone").selectOption("csv");
   await expect(page.locator(".task-card")).toHaveCount(2);
   await openResource(page, "Milestones");
@@ -308,7 +308,7 @@ test("three-task board across CLI, browser and MCP, with archive and mobile read
       exact: true,
     }),
   ).toBeVisible();
-  await openResource(page, "Board");
+  await openResource(page, "Tasks");
   await page.getByLabel("Filter by milestone").selectOption("");
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -440,6 +440,7 @@ test("Conversation permalinks preserve message drafts while coordinator revision
     .fill("Unsaved draft");
   await page.getByRole("tab", { name: "Activity", exact: true }).click();
   const history = page.getByRole("list", { name: "Task feed" });
+  expect(revisionReads).toHaveLength(0);
   await history
     .getByRole("link", { name: "Permalink: Task defined", exact: true })
     .focus();
@@ -451,12 +452,9 @@ test("Conversation permalinks preserve message drafts while coordinator revision
     changes: { expected_revision: 1, body: "New saved context" },
   });
   await expect(history).toContainText("Task definition updated");
-  expect(revisionReads).toHaveLength(0);
+  expect(revisionReads).toHaveLength(1);
   await history
     .locator('[data-message-id="definition:2"] .activity-entry > summary')
-    .click();
-  await history
-    .locator('[data-message-id="definition:2"] .task-changes summary')
     .click();
   await expect
     .poll(() =>
@@ -467,7 +465,7 @@ test("Conversation permalinks preserve message drafts while coordinator revision
       }),
     )
     .toBe("New saved context");
-  expect(revisionReads).toHaveLength(2);
+  expect(revisionReads).toHaveLength(3);
   await expect(history).not.toContainText("Unsaved draft");
   await expect(
     page.getByLabel("Message coordinator", { exact: true }),
@@ -581,7 +579,7 @@ test("archive preserves dated records and supports restore and mobile archiving"
       .status,
   ).toBe("up_next");
   await closeOverlay(page);
-  await openResource(page, "Board");
+  await openResource(page, "Tasks");
   await page.getByRole("link", { name: /older task/ }).click();
   await page.setViewportSize({ width: 390, height: 844 });
 
@@ -664,9 +662,6 @@ test("readable conversation preserves message drafts, revision links and legacy 
     })
     .click();
   await expect(page).toHaveURL(/conversation\/definition%3A2$/);
-  await thread
-    .locator('[data-message-id="definition:2"] .task-changes summary')
-    .click();
   await expect
     .poll(() =>
       thread.locator(".text-changes").evaluateAll((nodes) =>
@@ -731,7 +726,7 @@ test("task changes refresh their workspace without reloading the workspace catal
     ).toBe(true);
   }
   const workspace = await projectWorkspace(request, "scope-one");
-  await page.goto(`/workspaces/${workspace}`);
+  await page.goto(`/workspaces/${workspace}/tasks`);
   await expect(
     page
       .locator(".workspace-resource-content")
@@ -1309,7 +1304,7 @@ test("attempt activity updates without reloading the board and replays on reload
     page.getByRole("button", { name: "Retry worker", exact: true }),
   ).toHaveCount(0);
   await closeOverlay(page);
-  await openResource(page, "Board");
+  await openResource(page, "Tasks");
   await expect(page.locator(".up_next")).toContainText("Observe live output");
   await expect(page.locator(".up_next")).toContainText("Queue paused");
 });

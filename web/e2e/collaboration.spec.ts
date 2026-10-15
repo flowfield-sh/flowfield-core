@@ -110,7 +110,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
       exact: true,
     })
     .click();
-  await openResource(page, "Board");
+  await openResource(page, "Tasks");
   const card = page.locator(".task-card").filter({ hasText: "Download CSV" });
   await expect(card.locator(".work-state")).toHaveText("Waiting on DEP-3");
   await expect(
@@ -427,7 +427,6 @@ test("conversation pages exact revisions without hiding notes or superseded hand
   ).toHaveCount(0);
   const second = activity.locator('[data-message-id="definition:2"]');
   await second.locator(".activity-entry > summary").click();
-  await second.locator(".task-changes summary").click();
   await expect
     .poll(() =>
       second.locator(".text-changes").evaluateAll((nodes) =>
@@ -968,7 +967,7 @@ test("project questions link affected tasks and reconcile through CLI and MCP", 
     detail.getByRole("link", { name: "Project", exact: true }),
   ).toHaveAttribute(
     "href",
-    `/workspaces/${await projectWorkspace(request, project_id)}?project=${project_id}`,
+    `/workspaces/${await projectWorkspace(request, project_id)}/tasks?project=${project_id}`,
   );
   await expect(
     detail.getByRole("link", { name: "PRJ-2", exact: true }),

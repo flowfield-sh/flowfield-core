@@ -139,7 +139,7 @@ test("milestone reading preserves prepared revisions and renders acceptance list
   await page.screenshot({
     path: testInfo.outputPath("milestone-history-narrow-dark.png"),
   });
-  await page.goto(base);
+  await page.goto(base + "/tasks");
   await expect(
     page.getByText("Milestone details changed", { exact: true }),
   ).toBeVisible();

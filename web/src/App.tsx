@@ -434,9 +434,7 @@ export function App() {
                       drafts={chatDrafts}
                       onSettingsDirty={setChatSettingsDirty}
                       controlsActive={visible}
-                      offerInitialSetup={
-                        pathname === workspaceHref(workspaceId)
-                      }
+                      offerInitialSetup={pathname === boardHref(workspaceId)}
                     />
                   )
                 : undefined
@@ -757,7 +755,7 @@ function WorkspaceResource({
     if (!next)
       return (
         base +
-        (milestonesView ? "/milestones" : archived ? "/archive" : "") +
+        (milestonesView ? "/milestones" : archived ? "/archive" : "/tasks") +
         (query.size ? "?" + query : "")
       );
     if (next.kind === "project") return projectHref(next.id!) + "/edit";

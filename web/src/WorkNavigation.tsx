@@ -191,7 +191,7 @@ export function WorkNavigation({
   const resources = [
     { name: "Projects", href: base + "/projects", Icon: Folder },
     { name: "Documents", href: base + "/documents", Icon: FileText },
-    { name: "Board", href: base, Icon: Columns3 },
+    { name: "Tasks", href: base + "/tasks", Icon: Columns3 },
     { name: "Milestones", href: base + "/milestones", Icon: Flag },
     { name: "Archive", href: base + "/archive", Icon: Archive },
   ];
