@@ -23,7 +23,12 @@ export function TaskState({
   return (
     <>
       {task.state?.tone !== "idle" && (
-        <WorkState state={task.state} linked={linked}>
+        <WorkState
+          state={
+            task.state && { ...task.state, href: taskHref(projectId, task) }
+          }
+          linked={linked}
+        >
           {combinedDependencies(task) ? (
             <BlockedBy
               prefix="Waiting on"

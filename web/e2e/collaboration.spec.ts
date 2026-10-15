@@ -571,7 +571,14 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   await page
     .getByRole("link", { name: "Needs your answer", exact: true })
     .click();
-  await expect(page).toHaveURL(/conversation\/question:export-scope:1$/);
+  await expect(page).toHaveURL(`/projects/${project_id}/tasks/ASK-2`);
+  await expect(
+    page.getByRole("tab", { name: "Overview", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  // Explicit history links still select the exact question, unlike card entry.
+  await page.goto(
+    `/projects/${project_id}/tasks/ASK-2/conversation/question:export-scope:1`,
+  );
   await expect(page.getByRole("list", { name: "Task feed" })).toBeVisible();
   const questionEntry = page.locator(
     '.task-activity-item[data-kind="question"]',

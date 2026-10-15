@@ -1,6 +1,6 @@
 import { WorkState } from "./WorkState";
 import { SourceReferences } from "./SourceReferences";
-import { milestoneCards, milestoneState } from "./Milestones";
+import { milestoneCards } from "./Milestones";
 import { MilestoneReport } from "./MilestoneVerification";
 import { ResourceRetry } from "./ResourceRetry";
 import type { WorkspaceBoard } from "./workspace";
@@ -65,20 +65,7 @@ export function MilestoneDetail({
       <DetailHeader
         title={
           <span className="entity-heading-identity">
-            {!historical && (
-              <WorkState
-                indicatorOnly
-                state={
-                  milestoneState(
-                    card?.verification,
-                    !!card?.tasks.length && card.done === card.tasks.length,
-                  ) ?? {
-                    label: card?.column ?? "Planned",
-                    tone: card?.column === "Complete" ? "complete" : "idle",
-                  }
-                }
-              />
-            )}
+            {!historical && <WorkState indicatorOnly state={card?.workState} />}
             <Badge variant="outline">{milestone.key}</Badge>
             <span>{milestone.title}</span>
           </span>

@@ -81,8 +81,12 @@ export function DetailHeader({
           <h2>{title}</h2>
           {metadata && <p className="detail-metadata">{metadata}</p>}
         </ContentStack>
-        {actions && <div className="editor-heading-actions">{actions}</div>}
-        {closeLabel.startsWith("Back") && <OpenInWorkTab />}
+        {(actions || closeLabel.startsWith("Back")) && (
+          <div className="editor-heading-actions actions">
+            {actions}
+            {closeLabel.startsWith("Back") && <OpenInWorkTab />}
+          </div>
+        )}
         {!closeLabel.startsWith("Back") && (
           <CloseControl label={closeLabel} close={close} />
         )}

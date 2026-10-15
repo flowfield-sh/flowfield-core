@@ -472,6 +472,45 @@ export function WorkspaceTabs({
 }) {
   const state = controller.state;
   const strip = useRef<HTMLDivElement>(null);
+  const [overflow, setOverflow] = useState({ left: false, right: false });
+  useLayoutEffect(() => {
+    const host = strip.current;
+    const list = host?.querySelector<HTMLElement>('[role="tablist"]');
+    if (!host || !list) return;
+    const measure = () => {
+      const left = host.scrollLeft > 1;
+      const right = host.scrollWidth - host.clientWidth - host.scrollLeft > 1;
+      setOverflow((current) =>
+        current.left === left && current.right === right
+          ? current
+          : { left, right },
+      );
+    };
+    const wheel = (event: WheelEvent) => {
+      if (event.ctrlKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY))
+        return;
+      if (host.scrollWidth <= host.clientWidth) return;
+      event.preventDefault();
+      const unit =
+        event.deltaMode === 1
+          ? 16
+          : event.deltaMode === 2
+            ? host.clientWidth
+            : 1;
+      host.scrollLeft += event.deltaY * unit;
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(host);
+    observer.observe(list);
+    host.addEventListener("scroll", measure);
+    host.addEventListener("wheel", wheel, { passive: false });
+    measure();
+    return () => {
+      observer.disconnect();
+      host.removeEventListener("scroll", measure);
+      host.removeEventListener("wheel", wheel);
+    };
+  }, [state]);
   const restoreFocus = () =>
     requestAnimationFrame(() =>
       strip.current
@@ -534,7 +573,12 @@ export function WorkspaceTabs({
                 controller.reorder(source.initialIndex, source.index);
             }}
           >
-            <div className="workspace-tab-strip" ref={strip}>
+            <div
+              className="workspace-tab-strip"
+              ref={strip}
+              data-overflow-left={overflow.left}
+              data-overflow-right={overflow.right}
+            >
               <TabsList variant="line" aria-label="Open resources">
                 {state.tabs.map((tab, index) => (
                   <ResourceTab

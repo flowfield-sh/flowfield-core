@@ -12,8 +12,10 @@ export function milestoneCards(
     | "milestones"
     | "milestone_verifications"
     | "milestone_delivery_ids"
+    | "attention_work_keys"
   >,
 ) {
+  const attention = new Set(board.attention_work_keys ?? []);
   return board.milestones.map((milestone) => {
     const members = board.tasks.filter((t) => t.milestone_id === milestone.id);
     const tasks = members.filter((t) => !t.archived || t.status === "done");
@@ -40,6 +42,15 @@ export function milestoneCards(
       done,
       column,
       verification,
+      workState: tasks.find((task) => attention.has(task.key))?.state ??
+        milestoneState(
+          verification,
+          column !== "Complete" && tasks.length > 0 && done === tasks.length,
+        ) ?? {
+          label: column,
+          tone:
+            column === "Complete" ? ("complete" as const) : ("idle" as const),
+        },
       archived: !!members.length && members.every((t) => t.archived),
     };
   });
@@ -54,6 +65,7 @@ export function MilestoneList({
     | "milestones"
     | "milestone_verifications"
     | "milestone_delivery_ids"
+    | "attention_work_keys"
   >;
 }) {
   const cards = milestoneCards(board);
@@ -83,6 +95,7 @@ export function MilestoneList({
                   archived,
                   verification,
                   column,
+                  workState,
                 }) => (
                   <WorkCard key={milestone.id}>
                     <div className="work-card-heading">
@@ -99,14 +112,7 @@ export function MilestoneList({
                       </strong>
                     </span>
                     {column !== "Planned" && column !== "Complete" && (
-                      <WorkState
-                        state={milestoneState(
-                          verification,
-                          !!milestone.acceptance_criteria.trim() &&
-                            tasks.length > 0 &&
-                            done === tasks.length,
-                        )}
-                      />
+                      <WorkState state={workState} />
                     )}
                     <WorkspaceLink
                       className="detail-metadata"

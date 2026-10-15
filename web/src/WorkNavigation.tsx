@@ -14,7 +14,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { WorkState } from "./WorkState";
-import { milestoneCards, milestoneState } from "./Milestones";
+import { milestoneCards } from "./Milestones";
 import { followLink, taskHref, workspaceHref } from "./navigation";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { canonicalResourceRoot } from "./WorkspaceTabs";
@@ -24,7 +24,7 @@ export function workItems(board: WorkspaceBoard) {
   const attention = new Set(board.attention_work_keys ?? []);
   return [
     ...milestoneCards(board).map(
-      ({ milestone, column, verification, tasks, done, archived }) => ({
+      ({ milestone, column, tasks, archived, workState }) => ({
         key: milestone.key,
         title: milestone.title,
         href: `${workspaceHref(board.workspace.id)}/milestones/${milestone.key}`,
@@ -34,15 +34,7 @@ export function workItems(board: WorkspaceBoard) {
         attention:
           attention.has(milestone.key) ||
           tasks.some((t) => attention.has(t.key)),
-        state: tasks.find((t) => attention.has(t.key))?.state ??
-          milestoneState(
-            verification,
-            tasks.length > 0 && done === tasks.length,
-          ) ?? {
-            label: column,
-            tone:
-              column === "Complete" ? ("complete" as const) : ("idle" as const),
-          },
+        state: workState,
       }),
     ),
     ...board.tasks
