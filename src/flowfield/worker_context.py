@@ -149,6 +149,7 @@ def brief_context(sections: dict[str, str]) -> dict[str, object]:
         "earlier_answers",
         "correction",
         "validation",
+        "execution_limits",
         "documentation",
         "project",
         "milestone",

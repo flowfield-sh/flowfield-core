@@ -1,3 +1,4 @@
+import { ExecutionLimitSettings } from "./ExecutionLimits";
 import { SettingsCheckbox } from "./SettingsCheckbox";
 import { ContentStack } from "./DetailLayout";
 import { ResourceRetry } from "./ResourceRetry";
@@ -193,6 +194,7 @@ export function WorkerSettings({
   const cap = draft?.cap ?? resource.data?.max_parallel ?? 1;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [limitsDirty, setLimitsDirty] = useState(false);
   const dirty =
     !!draft &&
     !!resource.data &&
@@ -202,9 +204,9 @@ export function WorkerSettings({
       mode !== (resource.data.selection?.mode ?? "") ||
       cap !== resource.data.max_parallel);
   useEffect(() => {
-    onDirty(dirty);
+    onDirty(dirty || limitsDirty);
     return () => onDirty(false);
-  }, [dirty, onDirty]);
+  }, [dirty, limitsDirty, onDirty]);
   const stale = !!(
     draft &&
     resource.data &&
@@ -389,6 +391,13 @@ export function WorkerSettings({
             Load latest settings
           </Button>
         </>
+      )}
+      {workspaceId && (
+        <ExecutionLimitSettings
+          workspaceId={workspaceId}
+          refresh={refresh}
+          onDirty={setLimitsDirty}
+        />
       )}
     </section>
   );

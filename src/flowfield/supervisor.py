@@ -62,6 +62,9 @@ class Supervisor:
         self.integrations = Integrations(workspace)
         self.results = Results(workspace)
         self.setup_validation = SetupValidation(workspace)
+        from flowfield.worker_checks import WorkerChecks
+
+        self.check_jobs: dict[str, WorkerChecks] = {}
         self.delivery_jobs: dict[str, asyncio.Task[None]] = {}
         self.clients: dict[str, Agent] = {}
         self.permissions = Permissions(workspace)
@@ -191,6 +194,7 @@ class Supervisor:
                 followups.extend(
                     [
                         previous.input_checkpoint,
+                        previous.checkpoint_commit,
                         previous.input_base_commit,
                         correction.base_commit if correction else previous.result_commit,
                     ]
@@ -280,6 +284,9 @@ class Supervisor:
 
     async def _execute(self, run: Run, repository: Path) -> None:
         client: Agent | None = None
+        from flowfield.worker_checks import WorkerChecks
+
+        checks: WorkerChecks | None = None
         environment: LocalAttempt | None = None
         scope_stack = contextlib.AsyncExitStack()
         activity: ActivityRecorder | None = None
@@ -289,6 +296,10 @@ class Supervisor:
         result: WorkerResult | None = None
         commit: str | None = None
         input_checkpoint: str | None = None
+        from flowfield.execution_limits import ExecutionLimits
+        from flowfield.execution_runtime import ActiveExecution
+
+        active = ActiveExecution(ExecutionLimits(self.workspace), run)
         starting_commit = run.input_base_commit or run.base_commit
         try:
             sections = self.execution.assignment(run.project_id, run.id)
@@ -336,7 +347,9 @@ class Supervisor:
                 registration=run.agent_settings.registration if run.agent_settings else None,
             )
             self.clients[run.id] = client
-            bridge = WorkerBridge(self.execution, run, client)
+            checks = WorkerChecks(self.execution, run, environment, active)
+            self.check_jobs[run.id] = checks
+            bridge = WorkerBridge(self.execution, run, client, checks.call)
             server = await scope_stack.enter_async_context(serve_scope(worker_scope(bridge)))
             # Persist before launch: after a crash, missing PID is not a cleanup receipt.
             metadata["native_launch_started"] = True
@@ -407,16 +420,19 @@ class Supervisor:
                 sections, server=server.name, completion=run.completion
             )
             assert client.session_id
-            async with self.permissions.turn(
-                run.project_id,
-                "worker",
-                session_id=client.session_id,
-                turn_id=run.id,
-                run_id=run.id,
-            ) as turn:
+            async with (
+                self.permissions.turn(
+                    run.project_id,
+                    "worker",
+                    session_id=client.session_id,
+                    turn_id=run.id,
+                    run_id=run.id,
+                ) as turn,
+                active,
+            ):
                 outcome = await client.prompt(
                     json.dumps(brief, ensure_ascii=False),
-                    permission_handler(turn),
+                    active.permission(checks.permission(server.name, permission_handler(turn))),
                     attachments=Attachments(self.workspace).inputs(
                         run.project_id,
                         run.task_id,
@@ -441,7 +457,8 @@ class Supervisor:
                             )
                         )
                     outcome = await client.prompt(
-                        completion_reminder(server.name), permission_handler(turn)
+                        completion_reminder(server.name),
+                        active.permission(checks.permission(server.name, permission_handler(turn))),
                     )
             confirmed = await client.stop()
             if not confirmed:
@@ -484,6 +501,8 @@ class Supervisor:
                 )
         except asyncio.CancelledError:
             terminal, problem = "stopped", "Execution stopped; work preserved."
+            if checks:
+                await checks.close()
             if client and not await client.stop():
                 terminal, problem = "uncertain", "Native cleanup could not be confirmed."
         except Exception as error:
@@ -495,16 +514,36 @@ class Supervisor:
                     "Work is preserved."
                 )
             )
+            if isinstance(error, ApplicationError) and error.code == "execution_limit":
+                terminal = "stopped"
             if isinstance(error, ApplicationError) and error.code == "command_cleanup_uncertain":
                 terminal = "uncertain"
             elif self.execution.get(run.project_id, run.id).status == "stopping":
                 terminal = "stopped"
+            if checks:
+                await checks.close()
             if client and not await client.stop():
                 terminal, problem = (
                     "uncertain",
                     problem + " Tracked process cleanup could not be confirmed.",
                 )
         finally:
+            if checks:
+                await checks.close()
+                if checks.cleanup_uncertain:
+                    terminal, problem = (
+                        "uncertain",
+                        "Project check cleanup could not be confirmed. Inspect retained processes.",
+                    )
+            self.check_jobs.pop(run.id, None)
+            try:
+                active.clock(False)
+            except Exception:
+                terminal, problem = (
+                    "uncertain",
+                    "Execution accounting could not be recorded. "
+                    "Inspect the service and preserved work before recovery.",
+                )
             if client:
                 await client.close()
                 self.execution.save_local(
@@ -518,6 +557,20 @@ class Supervisor:
                 await scope_stack.aclose()
             except (Exception, asyncio.CancelledError):
                 terminal, problem = "uncertain", "Scoped tool shutdown could not be confirmed."
+            if (
+                environment
+                and terminal in ("stopped", "failed")
+                and client
+                and client.cleanup_confirmed
+                and self.execution.get(run.project_id, run.id).started_at
+            ):
+                try:
+                    await self._checkpoint(run, environment)
+                except Exception:
+                    terminal = "uncertain"
+                    problem = (
+                        problem or "Worker stopped."
+                    ) + " Snapshot unavailable; inspect the preserved checkout before retrying."
             if activity:
                 captured = commit or input_checkpoint
                 if environment and captured:
@@ -544,12 +597,26 @@ class Supervisor:
                     input_checkpoint=input_checkpoint,
                 )
 
+    async def _checkpoint(self, run: Run, environment: LocalAttempt) -> None:
+        checkpoint, _ = await asyncio.to_thread(
+            environment.snapshot, run.input_base_commit or run.base_commit
+        )
+        with self.workspace.connection(write=True, project_id=run.project_id) as db:
+            saved = self.execution._run(db, run.project_id, run.id)
+            saved.checkpoint_commit = checkpoint
+            if saved.question_id:
+                saved.input_checkpoint = checkpoint
+            self.execution._save(db, saved)
+
     async def stop(self, project_id: str, run_id: str, request: RunAction) -> Run:
         run = self.execution.stop_requested(project_id, run_id, request)
         self.permissions.close_run(project_id, run_id)
         if run.status == "stopped":
             return run
         client = self.clients.get(run_id)
+        checks = self.check_jobs.get(run_id)
+        if checks:
+            await checks.close()
         setup = self.setup_jobs.get(run_id)
         if setup:
             setup.cancel()
@@ -573,9 +640,25 @@ class Supervisor:
             return run  # Preparation sees the stop before starting a model turn.
         metadata = self.execution.local(run_id)
         if metadata.get("runtime_kind") == "local" and metadata.get("native_launch_started"):
-            confirmed = metadata.get("native_cleanup_confirmed") is True and not metadata.get(
-                "setup_process"
+            confirmed = metadata.get("native_cleanup_confirmed") is True and not (
+                metadata.get("setup_process") or metadata.get("check_process")
             )
+            if confirmed and run.started_at and not run.checkpoint_commit:
+                try:
+                    environment = self.environment(run_id)
+                    if not environment:
+                        raise ApplicationError(
+                            "workspace_missing", "Preserved checkout unavailable."
+                        )
+                    await self._checkpoint(run, environment)
+                except Exception:
+                    return self.execution.finish(
+                        project_id,
+                        run_id,
+                        "uncertain",
+                        problem="Process cleanup confirmed, but work could not be captured. "
+                        "Inspect the preserved checkout, then retry reconciliation.",
+                    )
             return self.execution.finish(
                 project_id,
                 run_id,
@@ -586,8 +669,13 @@ class Supervisor:
                 "its tools stopped. Work and capacity remain reserved; inspect the local "
                 "processes before recovery. No process was signalled from a saved PID.",
             )
-        if metadata.get("setup_process") or (
-            metadata.get("native_launch_started") and not metadata.get("native_cleanup_confirmed")
+        if (
+            metadata.get("setup_process")
+            or metadata.get("check_process")
+            or (
+                metadata.get("native_launch_started")
+                and not metadata.get("native_cleanup_confirmed")
+            )
         ):
             return self.execution.finish(
                 project_id,

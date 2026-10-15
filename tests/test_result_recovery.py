@@ -120,8 +120,14 @@ def test_failed_checks_correction_cap_and_no_automatic_model_loop(tmp_path):
         before = len(service.execution.page("harbor").items)
         service.results.process("harbor")
         assert len(service.execution.page("harbor").items) == before
-    with pytest.raises(ApplicationError, match="Two corrections"):
-        service.results.correct("harbor", blocked.id, action(blocked))
+    service.results.correct("harbor", blocked.id, action(blocked))
+    head = git(repo, "rev-parse", "HEAD").decode().strip()
+    assert service.execution.claim("harbor", head, service._available("harbor", repo, head)) is None
+    from flowfield.execution_limits import ExecutionLimits
+
+    assert (
+        ExecutionLimits(service.workspace).get("harbor", blocked.task_id).blocked == "corrections"
+    )
 
 
 def test_cancel_during_validation_retains_evidence_and_ignores_late_ready(tmp_path, monkeypatch):
@@ -317,8 +323,12 @@ def test_failed_correction_retry_consumes_remaining_attempt(tmp_path):
     second = claim_correction(service, repo)
     assert second.correction.number == 2
     failed = service.execution.finish("harbor", second.id, "failed", problem="Fixture failure")
-    with pytest.raises(ApplicationError, match="Two corrections"):
-        service.execution.retry("harbor", failed.id, action(failed))
+    service.execution.retry("harbor", failed.id, action(failed))
+    head = git(repo, "rev-parse", "HEAD").decode().strip()
+    assert service.execution.claim("harbor", head, service._available("harbor", repo, head)) is None
+    from flowfield.execution_limits import ExecutionLimits
+
+    assert ExecutionLimits(service.workspace).get("harbor", failed.task_id).blocked == "corrections"
 
 
 def test_answer_continuation_preserves_correction_budget_but_retry_consumes_it(tmp_path):
@@ -359,5 +369,9 @@ def test_answer_continuation_preserves_correction_budget_but_retry_consumes_it(t
     assert retry.correction.number == 2
     assert json.loads(service.execution.assignment("harbor", retry.id)["correction"])["number"] == 2
     failed = service.execution.finish("harbor", retry.id, "failed", problem="Worker failed again")
-    with pytest.raises(ApplicationError, match="Two corrections"):
-        service.execution.retry("harbor", failed.id, action(failed))
+    service.execution.retry("harbor", failed.id, action(failed))
+    head = git(repo, "rev-parse", "HEAD").decode().strip()
+    assert service.execution.claim("harbor", head, service._available("harbor", repo, head)) is None
+    from flowfield.execution_limits import ExecutionLimits
+
+    assert ExecutionLimits(service.workspace).get("harbor", failed.task_id).blocked == "corrections"

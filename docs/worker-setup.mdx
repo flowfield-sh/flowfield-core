@@ -35,6 +35,14 @@ Each setup or validation command runs in a separate shell. Its exports do not ca
 
 For a shared service, agree the endpoint, data permissions, version assumptions and who owns startup and cleanup. A worker must not stop a borrowed service. Declare any unknown service version or inaccessible behavior as a verification limitation. References to work in another project supply evidence, not that project's checkout or running services.
 
+## Let workers run saved checks
+
+**Project settings → Integration → Worker check permission** lets workers call `run_project_checks` for the exact saved validation commands. It starts disabled. This permission runs the worker’s edited code with Flowfield’s service-host access, including access that the native harness may restrict. Enable it only for a project whose code and check scripts you trust. It does not approve code delivery or grant general native shell permission.
+
+The worker cannot supply a command, working directory or environment to this operation. Commands run in its owned checkout with saved timeouts, bounded retained output and ordinary child-process cleanup. The task’s active allowance also applies. Latest full output is available through worker `read_context` pages and attempt evidence; final candidate validation still runs separately before approval.
+
+Changing integration settings or replacing the registered repository directory invalidates permission. Enable the revised settings deliberately and start a fresh attempt to adopt changed commands. Revocation prevents future calls; **Stop worker** cancels checks already running. Process cleanup uncertainty remains visible and reserves ownership until reconciled. Repository scripts must not detach services or modify shared data without explicit agreement.
+
 ## Choose workers
 
 Workspace defaults apply across member projects. Task **Agent settings** can override them; each attempt retains the harness, model and host registration it started with. Changes affect subsequent attempts, and unavailable choices fail explicitly rather than substituting a model.

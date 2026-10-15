@@ -56,6 +56,10 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
     if present("validation"):
         rules.append(
             "Read validation and use its frozen commands; report their observed results. "
+            "When validation.worker_checks_enabled is true, run saved checks through "
+            "run_project_checks; it executes your current code with authorized Flowfield host "
+            "access. Use native tools for other checks. If saved-check permission is missing, "
+            "use native permission requests or ask the human; never bypass access restrictions. "
             "Setup commands have finished; their shell exports and background processes do not "
             "carry into this turn. Use repository-owned wrappers for service-dependent checks, "
             "with isolated data/ports, readiness and cleanup. A prior setup check does not prove "

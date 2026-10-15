@@ -157,6 +157,9 @@ def reconcile_attention(
                     else f"{base}/inbox/{quote(identity, safe='')}"
                 )
                 label = "Needs your answer"
+            elif kind == "execution_limit":
+                href = task
+                label = "Execution limit reached"
             elif kind == "permission":
                 href = f"{base}/inbox?permission={quote(identity, safe='')}"
                 label = "Review tool permission"

@@ -1,3 +1,4 @@
+import { ProjectCheckPermission } from "./ProjectCheckPermission";
 import { StatusNotice } from "./StatusNotice";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
@@ -284,6 +285,14 @@ export function IntegrationSettings({
           </Button>
         </fieldset>
       </form>
+      {resource.data && (
+        <ProjectCheckPermission
+          projectId={projectId}
+          revision={resource.data.revision}
+          disabled={dirty || busy}
+          refresh={refresh}
+        />
+      )}
       {resource.data && (
         <SetupValidation
           projectId={projectId}

@@ -159,6 +159,11 @@ Repository instructions govern development conventions and permission to commit/
   authority; omit effort when no effort control is offered. Discovery can run native startup
   hooks but sends no model prompt. Never invent a universal
   permission policy or silently broaden native harness access.
+- Human-only Worker check permission enables the worker's `run_project_checks` for saved
+  validation commands on its edited code with Flowfield host access. It is not native shell
+  authority or code approval. Changes to integration settings invalidate it; do not repeatedly
+  rewrite unchanged settings. A fresh attempt adopts changed commands. Reuse saved checks and
+  surface missing permission to the human rather than weakening native access controls.
 - Local gives each attempt a checkout, temporary/output directories and FLOWFIELD_WORKSPACE /
   FLOWFIELD_RUNTIME_DIR. Project setup chooses its dependency tooling; no forced Python runtime
   or executable inventory. Keep manifests, lockfiles and setup reproducible. Use separate
@@ -259,6 +264,10 @@ Repository instructions govern development conventions and permission to commit/
 - Follow the result's contextual recovery action. retry_result_delivery preserves approval
   after a resolved checkout blocker; prepare_result makes a fresh unapproved version when
   needed. Corrections remain bounded and require fresh approval.
+- Task execution allowance survives answers, retries, reconciliation, reopening and restart.
+  `get_task` exposes usage and exhaustion. Human Inbox recovery adds allowance; do not clone
+  tasks, reset state or bypass a limit. Answer continuations keep time remaining; ordinary
+  follow-ups consume an attempt. The service stops exhausted execution and preserves work.
 - Keep feedback/corrections on the same task. For changed intent on work in progress or review, once no worker owns the task,
   use `edit_task` without preparation, include reviewed stages, then `reconcile_task` before
   requesting the follow-up with `get_task_input` and `reply_to_task`: an enabled queue can launch it immediately. Complete the

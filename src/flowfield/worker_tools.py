@@ -1,6 +1,7 @@
 """Run-bound workflow operations shared by managed harness adapters."""
 
 import json
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from pydantic import Field
@@ -40,9 +41,18 @@ def worker_tools() -> list[dict[str, Any]]:
         }
         for name, description, model in (
             (
+                "run_project_checks",
+                "Run the saved project checks on this worker checkout using "
+                "human-granted Flowfield host access. Takes no command arguments. "
+                "Timeout, cancellation and bounded output are service-owned. Final "
+                "candidate validation remains separate.",
+                Record,
+            ),
+            (
                 "read_context",
                 (
-                    "Read a 6000-character page of the frozen assignment section. "
+                    "Read a 6000-character page of an assignment section. execution_limits and "
+                    "project_checks return current retained evidence; other sections are frozen. "
                     "Available sections are listed in the initial brief."
                 ),
                 ReadContext,
@@ -91,8 +101,15 @@ def worker_tools() -> list[dict[str, Any]]:
 class WorkerBridge:
     """Fixed server-side run identity; worker input cannot select another task/project."""
 
-    def __init__(self, execution: Execution, run: Run, client: Any):
+    def __init__(
+        self,
+        execution: Execution,
+        run: Run,
+        client: Any,
+        checks: Callable[[], Awaitable[str]] | None = None,
+    ):
         self.execution, self.run, self.client = execution, run, client
+        self.checks = checks
         self.result: WorkerResult | None = None
         self.question_id: str | None = None
 
@@ -105,6 +122,7 @@ class WorkerBridge:
             )
         activity = getattr(self.client, "on_activity", None)
         titles = {
+            "run_project_checks": "Running project checks",
             "read_context": "Reading task context",
             "search_context": "Searching task context",
             "update_stages": "Updating progress",
@@ -115,6 +133,15 @@ class WorkerBridge:
             from uuid import uuid4
 
             activity(ActivityUpdate(key=uuid4().hex, kind="tool", text=titles[name]))
+        if name == "run_project_checks":
+            Record.model_validate(arguments)
+            if not self.checks:
+                raise ApplicationError(
+                    "checks_unavailable",
+                    "Project check execution is unavailable for this attempt.",
+                    409,
+                )
+            return await self.checks()
         if name == "update_stages":
             return (
                 Stages(self.execution.workspace)

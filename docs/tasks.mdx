@@ -47,6 +47,14 @@ Normal submissions need no extra model turn. When the reminder is needed, it use
 
 **Stop worker** ends an active attempt, including one responding to a reminder, and preserves its unfinished work. **Retry worker** queues a fresh attempt; it respects pause, dependencies and capacity. Follow the displayed recovery action if native cleanup is uncertain. The reporting reminder does not restart stopped or interrupted attempts.
 
+## Execution allowance
+
+**Workspace settings → Workers → Task execution limits** sets the allowance captured when a task first starts: initially 30 active minutes and two follow-up attempts. Active time includes native worker turns, the reporting reminder and worker-invoked project checks. Setup commands retain their separate configured timeouts. Waiting for a human permission or answer does not consume active time; continuing with an answer does not consume a follow-up attempt. Retrying failed work or requesting revised work does.
+
+The allowance belongs to the task across retries, changed agreements, reopening and restarts. Changing defaults affects tasks that have not started. When allowance is exhausted, Flowfield stops the worker and its owned checks, preserves its checkout, and asks for additional allowance in **Needs me** and the task footer. Review the work, add time or follow-up attempts and a continuation note, then choose **Add allowance and continue**. The response leaves Inbox immediately; continuation still respects task readiness, dependencies, queue pause and capacity. Code approval stays separate.
+
+After an interrupted service, reconcile uncertain process ownership first. The unobserved running interval is charged conservatively up to the remaining allowance and marked as incomplete accounting. Historical attempts keep unknown earlier usage; native token reports are informational and do not establish a spend cap.
+
 ## Work through Inbox
 
 Inbox gathers human decisions across the workspace in **Needs me** and keeps past responses in **History**, including answers awaiting Coordinator follow-up. Its badge counts actionable requests; the project filter narrows the view. Each request identifies its source, explains the decision and offers the relevant response controls directly in Inbox. Expand evidence or follow the source link when you need more context.
@@ -56,6 +64,7 @@ Resolved requests disappear from **Needs me** as you respond. Drafts on other re
 | Item | Next action |
 | --- | --- |
 | Question | Read the context, choose a suggested answer or write your own, then send it. Worker answers continue managed work when eligible; planning answers need the Coordinator to resume and reconcile them. |
+| Execution limit | Review preserved work, then explicitly add time or follow-up allowance and a continuation note. |
 | Code review | Read the selected result and destination, optionally try or inspect it, then request changes or approve and integrate it. |
 | Milestone acceptance | Review the checks and their evidence, then accept the milestone or request changes with feedback. |
 | Intervention | Inspect the failure or blocker and follow its recovery action. |

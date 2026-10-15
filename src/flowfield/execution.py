@@ -214,7 +214,6 @@ class Execution:
                 return None
             project = self.workspace._project(db, project_id)
             waiting_for_code = []
-            exhausted_corrections = []
             candidates = (
                 [self.workspace._task(db, project_id, task_id)]
                 if task_id
@@ -286,9 +285,6 @@ class Execution:
                     correction = predecessor.correction
                 if correction and not continuation:
                     correction_count = self._correction_count(db, project_id, task.id)
-                    if correction_count >= 2:
-                        exhausted_corrections.append(task.key)
-                        continue
                     correction = correction.model_copy(update={"number": correction_count + 1})
                 chosen_base = (
                     correction.base_commit
@@ -318,6 +314,17 @@ class Execution:
                     if retrying_input and predecessor
                     else None
                 )
+                if (
+                    predecessor
+                    and predecessor.checkpoint_commit
+                    and predecessor.agreement_revision == task.agreement_revision
+                    and predecessor.status in ("failed", "stopped")
+                    and task.publication
+                    and task.publication.target_branch == predecessor.target_branch
+                    and task.publication.completion == predecessor.completion
+                ):
+                    chosen_base = predecessor.base_commit
+                    input_base = predecessor.checkpoint_commit
                 prerequisites: list[dict[str, Any]] = []
                 usable = True
                 for reference in task.prerequisites:
@@ -427,6 +434,12 @@ class Execution:
                     )
                 ):
                     continue
+                from flowfield.execution_limits import claim as claim_allowance
+
+                if self.workspace.schema_version >= 72 and not claim_allowance(
+                    db, project_id, task.id, followup=bool(predecessor and not continuation)
+                ):
+                    continue
                 effective = (
                     AgentSettings(self.workspace)
                     .resolve(db, project_id, "worker", task.id)
@@ -449,6 +462,9 @@ class Execution:
                     input_base_commit=input_base,
                     correction=correction,
                     runtime=runtime_settings.get("runtime", "local"),
+                    check_settings_revision=runtime_settings.get("revision", 1),
+                    project_checks=runtime_settings.get("checks", []),
+                    check_timeout_seconds=runtime_settings.get("check_timeout_seconds", 60),
                     setup_commands=runtime_settings.get("setup_commands", []),
                     setup_timeout_seconds=runtime_settings.get("setup_timeout_seconds", 120),
                     model=effective.choice.model,
@@ -472,6 +488,12 @@ class Execution:
                     binding = task.publication.milestone
                     milestone = Milestones.revision(
                         db, binding.workspace_id, binding.id, binding.revision
+                    )
+                if self.workspace.schema_version >= 72:
+                    from flowfield.worker_checks import CheckPermissions
+
+                    runtime_settings["worker_checks_enabled"] = (
+                        CheckPermissions(self.workspace).get(project_id).enabled
                     )
                 assignment = {
                     "agreement": json.dumps(
@@ -553,6 +575,7 @@ class Execution:
                         ).fetchone()[0]
                     )
                     assignment["validation"] = json.dumps(runtime_settings)
+                    assignment["feedback"] = run.feedback
                     assignment["correction"] = correction.model_dump_json() if correction else ""
                     if continuation:
                         assert pending_input
@@ -583,8 +606,17 @@ class Execution:
                             question,
                             "Answer assigned to a continuation; model use is not yet confirmed.",
                         )
+                from flowfield.execution_limits import read as read_limits
                 from flowfield.worker_context import enrich
 
+                allowance = read_limits(db, project_id, task.id)
+                if allowance:
+                    assignment["execution_limits"] = allowance.model_dump_json()
+                    assignment["project_checks"] = (
+                        "Use run_project_checks for human-authorized saved commands. "
+                        "This section retains the latest output; "
+                        "read_context retrieves current pages."
+                    )
                 enrich(db, run, assignment)
                 db.execute(
                     (
@@ -607,13 +639,6 @@ class Execution:
                     f"Attempt {run.id[:8]} reserved at {run.base_commit[:12]}.",
                 )
                 return run
-            if exhausted_corrections:
-                raise ApplicationError(
-                    "correction_limit",
-                    ", ".join(exhausted_corrections[:5])
-                    + " used two corrections. Reconcile outcome and scope with the coordinator.",
-                    409,
-                )
             if waiting_for_code:
                 raise ApplicationError(
                     "prerequisite_code_unavailable",
@@ -648,6 +673,13 @@ class Execution:
             sections = json.loads(
                 db.execute("SELECT assignment FROM runs WHERE id=?", (run_id,)).fetchone()[0]
             )
+            if section == "project_checks":
+                return json.dumps([item.model_dump() for item in run.project_check_results])
+            if section == "execution_limits":
+                from flowfield.execution_limits import read as read_limits
+
+                allowance = read_limits(db, project_id, run.task_id)
+                return allowance.model_dump_json() if allowance else "{}"
             if section.startswith("attempt:"):
                 return attempt_source(db, run, sections, section.removeprefix("attempt:"))
             if section not in sections:
@@ -765,7 +797,7 @@ class Execution:
                     "result_missing", "Review requires a result and immutable code reference."
                 )
             run.status, run.result_commit, run.problem = status, commit, problem
-            if status == "waiting_for_input":
+            if status == "waiting_for_input" or input_checkpoint is not None:
                 run.input_checkpoint = input_checkpoint
             run.result = result or run.result
             run.ended_at = now() if status != "uncertain" else None
@@ -817,12 +849,6 @@ class Execution:
                     409,
                 )
             task = self.workspace._task(db, project_id, run.task_id)
-            if run.correction and self._correction_count(db, project_id, run.task_id) >= 2:
-                raise ApplicationError(
-                    "correction_limit",
-                    "Two corrections used. Reconcile scope with the coordinator.",
-                    409,
-                )
             latest = db.execute(
                 "SELECT id FROM work_runs WHERE project_id=? AND task_id=? "
                 "ORDER BY number DESC LIMIT 1",
@@ -891,6 +917,23 @@ class Execution:
                 "SELECT data FROM runs WHERE status IN ('preparing','running','stopping')"
             ).fetchall():
                 run = Run.model_validate_json(row[0])
+                if run.active_since is not None:
+                    from flowfield.execution_limits import ensure, save
+
+                    allowance = ensure(db, run.project_id, run.task_id)
+                    import time
+
+                    unobserved = min(
+                        max(0, time.time() - run.active_since),
+                        max(0, allowance.active_seconds_allowed - allowance.active_seconds_used),
+                    )
+                    run.active_seconds += unobserved
+                    allowance.active_seconds_used += unobserved
+                    if allowance.active_seconds_used >= allowance.active_seconds_allowed:
+                        allowance.blocked = "active_time"
+                    allowance.earlier_usage_unknown = True
+                    save(db, allowance)
+                    run.active_since = None
                 run.status, run.problem = (
                     "uncertain",
                     (

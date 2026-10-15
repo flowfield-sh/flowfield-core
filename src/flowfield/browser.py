@@ -25,6 +25,8 @@ from flowfield.attention import (
 )
 from flowfield.document_models import DocumentUpdate
 from flowfield.errors import ApplicationError
+from flowfield.execution_limits import TaskLimits
+from flowfield.execution_limits import read as read_limits
 from flowfield.labels import Labels, WorkspaceLabel
 from flowfield.milestone_models import MilestoneUpdate
 from flowfield.milestone_verification import board_verifications
@@ -72,6 +74,8 @@ class TaskCard(TaskReference):
 
 
 class TaskDetail(TaskRevision, TaskCard):
+    execution_limits: TaskLimits | None = None
+    execution_limit_actionable: bool = False
     archive_blocker: str | None = None
     prerequisites: list[TaskReference]
     dependents: list[TaskReference]
@@ -317,6 +321,14 @@ class BrowserReads:
             archive_issue = self.workspace.archive_issue(db, current)
             return TaskDetail(
                 **card.model_dump(),
+                execution_limits=read_limits(db, project_id, current.id),
+                execution_limit_actionable=not current.archived
+                and current.status != "done"
+                and not db.execute(
+                    "SELECT 1 FROM runs WHERE project_id=? AND task_id=? "
+                    "AND status IN ('preparing','running','stopping','uncertain')",
+                    (project_id, current.id),
+                ).fetchone(),
                 archive_blocker=archive_issue.message if archive_issue else None,
                 body=current.body,
                 change_note=current.change_note,

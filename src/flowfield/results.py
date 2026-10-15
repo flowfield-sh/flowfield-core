@@ -419,12 +419,6 @@ class Results:
                         409,
                     )
                 number = self.execution._correction_count(db, project_id, task.id) + 1
-                if number > 2:
-                    raise ApplicationError(
-                        "correction_limit",
-                        "Two corrections used. Reconcile outcome and scope with the coordinator.",
-                        409,
-                    )
             seed, conflicts = gitops.correction_seed(
                 repository, target, version.source_commit, uuid4().hex
             )

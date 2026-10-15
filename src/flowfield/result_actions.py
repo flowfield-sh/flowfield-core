@@ -162,16 +162,6 @@ def result_action(
             settings="integration",
         )
     if revised_assignment or value.problem_code in ("integration_conflict", "checks_failed"):
-        if execution._correction_count(db, value.project_id, value.task_id) >= 2:
-            return ResultAction(
-                owner="coordinator",
-                action="coordinator",
-                label="Reconcile next step",
-                reason=(
-                    "The correction limit was reached. Review the remaining outcome with "
-                    "the coordinator."
-                ),
-            )
         if not settings.selection:
             return ResultAction(
                 owner="human",

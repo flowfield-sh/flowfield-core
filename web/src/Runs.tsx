@@ -217,11 +217,15 @@ function WorkerEvidence({
       )}
       {record.correction && (
         <p>
-          Correction attempt {record.correction.number} of 2 · both the worker’s
+          Correction attempt {record.correction.number} · both the worker’s
           changes and current branch code are included.
         </p>
       )}
       <CheckEvidence checks={record.setup_checks ?? []} title="Runtime setup" />
+      <CheckEvidence
+        checks={record.project_check_results ?? []}
+        title="Worker project checks"
+      />
       <WorkerDocumentEvidence documents={record.documents ?? []} />
       {record.predecessor_id && (
         <Link

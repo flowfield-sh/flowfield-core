@@ -13,6 +13,7 @@ from flowfield import __version__
 from flowfield.adapters.agent_contract import (
     COMMANDS,
     Agent,
+    ManagedToolCall,
     McpServer,
     PermissionHandler,
     PermissionRequest,
@@ -105,7 +106,7 @@ class CodexAgent(Agent):
         self.tools: dict[str, str] = {}
         self._completion: asyncio.Future[str] | None = None
         self._permission: PermissionHandler | None = None
-        self._mcp_approvals: dict[str, tuple[str, str, str]] = {}
+        self._mcp_approvals: dict[str, tuple[str, str, str, ManagedToolCall | None]] = {}
         self._foreground_id: str | None = None
         self._close_task: asyncio.Task[bool] | None = None
         self._startup_lock = asyncio.Lock()
@@ -444,6 +445,13 @@ class CodexAgent(Agent):
                             str(item.get("server", "")),
                             title,
                             details,
+                            ManagedToolCall(
+                                str(item.get("server", "")),
+                                str(item.get("tool", "")),
+                                item["arguments"],
+                            )
+                            if isinstance(item.get("arguments"), dict)
+                            else None,
                         )
                         while len(self._mcp_approvals) > 100:
                             del self._mcp_approvals[next(iter(self._mcp_approvals))]
@@ -593,7 +601,9 @@ class CodexAgent(Agent):
             if not options:
                 return {"answers": {}}
             assert self._permission
-            selection = await self._permission(PermissionRequest(item, tool[1], options, tool[2]))
+            selection = await self._permission(
+                PermissionRequest(item, tool[1], options, tool[2], managed_tool=tool[3])
+            )
             if (
                 not eligible()
                 or self._mcp_approvals.get(item) != tool
@@ -636,12 +646,21 @@ class CodexAgent(Agent):
                     "arguments": meta.get("tool_params", {}),
                 }
             )
+            observed = [
+                call[3]
+                for call in self._mcp_approvals.values()
+                if call[3]
+                and call[3].server == data["serverName"]
+                and call[3].name == (match[1] if match else None)
+                and call[3].arguments == meta.get("tool_params", {})
+            ]
             selection = await self._permission(
                 PermissionRequest(
                     "mcp-" + name[:490],
                     title,
                     (("allow", "Allow once", "allow_once"), ("deny", "Deny", "reject_once")),
                     bounded_details(message + "\n" + details),
+                    managed_tool=observed[0] if len(observed) == 1 else None,
                 )
             )
             if not eligible() or selection not in {"allow", "deny"}:

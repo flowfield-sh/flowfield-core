@@ -16,6 +16,7 @@ import { TaskConversation } from "./TaskConversation";
 import { MilestoneReviewRequest } from "./MilestoneVerification";
 import { useDirtyItems } from "./useDirtyItems";
 import { ResourceRetry } from "./ResourceRetry";
+import { ExecutionLimitRequest } from "./ExecutionLimits";
 import { RequestFrame } from "./RequestFrame";
 import { EntityOverlay, OverlayFooter } from "./EntityOverlay";
 
@@ -135,7 +136,14 @@ function RequestCard({
       {item.kind === "result" && (
         <h3 className="detail-title">Review {item.title}</h3>
       )}
-      {item.kind === "milestone" ? (
+      {item.kind === "execution_limit" ? (
+        <ExecutionLimitRequest
+          projectId={item.project_id!}
+          taskId={item.id}
+          refresh={refresh}
+          onDirty={dirty}
+        />
+      ) : item.kind === "milestone" ? (
         <MilestoneReviewRequest
           path={`workspaces/${workspaceId}`}
           id={item.id}

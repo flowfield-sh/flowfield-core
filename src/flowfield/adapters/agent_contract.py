@@ -34,11 +34,21 @@ class McpServer(BaseModel):
 
 
 @dataclass(frozen=True)
+class ManagedToolCall:
+    """Observed native MCP call identity, never inferred from model-authored prose."""
+
+    server: str
+    name: str
+    arguments: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class PermissionRequest:
     tool_id: str
     title: str
     options: tuple[tuple[str, str, str], ...]
     details: str = ""
+    managed_tool: ManagedToolCall | None = None
 
 
 PermissionHandler = Callable[[PermissionRequest], Coroutine[Any, Any, str | None]]

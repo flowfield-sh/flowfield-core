@@ -172,6 +172,13 @@ class Run(Record):
     accepted_at: str | None = None
     accepted_by: str | None = None
     code_available: bool = False
+    active_seconds: float = 0
+    active_since: float | None = None
+    checkpoint_commit: str | None = None
+    check_settings_revision: int | None = None
+    project_checks: list[str] = Field(default_factory=list)
+    check_timeout_seconds: int = 60
+    project_check_results: list[CheckResult] = Field(default_factory=list)
     usage: Usage = Field(default_factory=Usage)
     documents: list[DocumentSnapshot] = Field(default_factory=list)
     excluded_files: list[str] = Field(default_factory=list)

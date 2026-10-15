@@ -384,6 +384,27 @@ def test_scoped_mcp_approval_maps_only_one_time_decisions(tmp_path, selection, a
                     await agent._request("mcpServer/elicitation/request", {**request, **update})
                 )["action"] == "cancel"
             assert len(offered) == 1
+            assert offered[0].managed_tool is None  # Prose alone cannot authorize a tool.
+            agent._foreground_id = "owned-turn"
+            event = {
+                "threadId": agent.session_id,
+                "turnId": "owned-turn",
+                "item": {
+                    "id": "check-1",
+                    "type": "mcpToolCall",
+                    "server": "flowfield_ab12",
+                    "tool": "submit_result",
+                    "arguments": {"summary": "Done"},
+                },
+            }
+            agent._event("item/started", event)
+            await agent._request("mcpServer/elicitation/request", request)
+            assert offered[-1].managed_tool.server == "flowfield_ab12"
+            assert offered[-1].managed_tool.name == "submit_result"
+            assert offered[-1].managed_tool.arguments == {"summary": "Done"}
+            agent._event("item/completed", event)
+            await agent._request("mcpServer/elicitation/request", request)
+            assert offered[-1].managed_tool is None
 
             async def stopped(_):
                 agent.stopping = True

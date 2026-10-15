@@ -78,6 +78,7 @@ class FakeWorker:
         assert {t["name"] for t in tools} == {
             "read_context",
             "search_context",
+            "run_project_checks",
             "update_stages",
             "ask_question",
             "submit_result",
