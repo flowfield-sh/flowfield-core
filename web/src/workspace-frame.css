@@ -2,7 +2,7 @@
   height: 100dvh;
   min-height: 0;
   overflow: hidden;
-  background: var(--sidebar);
+  background: var(--chrome);
 }
 .workspace-sidebar-header {
   height: 42px;
@@ -10,7 +10,6 @@
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
-  border-bottom: 1px solid var(--border);
 }
 .workspace-sidebar-header [data-slot="native-select-wrapper"] {
   min-width: 0;
@@ -178,7 +177,6 @@
 .coordinator-composer {
   flex-shrink: 0;
   padding: 12px;
-  border-top: 1px solid var(--border);
   background: transparent;
   max-height: 55%;
   overflow: auto;
@@ -358,7 +356,7 @@
   flex-shrink: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 6px 8px;
+  padding: 6px 12px;
 }
 .workspace-tab-strip [role="tablist"] {
   height: 100%;
@@ -411,13 +409,8 @@
   height: 24px;
   border-radius: 999px;
 }
-.detail-navigation {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-}
 .workspace-resource-content {
-  margin: 4px 8px 8px 0;
+  margin: 12px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--background);

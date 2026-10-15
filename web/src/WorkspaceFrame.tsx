@@ -158,7 +158,9 @@ export function WorkspaceFrame({
     () => window.matchMedia(compactQuery).matches,
     () => false,
   );
-  const [width, setWidth] = useState(() => {
+  // Changing defaultSize during a drag re-registers the panel and ends the drag.
+  // The library owns live sizing; this value is only the initial preference.
+  const [initialWidth] = useState(() => {
     try {
       return Math.max(
         360,
@@ -237,10 +239,9 @@ export function WorkspaceFrame({
             >
               <ResizablePanel
                 id="coordinator"
-                defaultSize={`${width}px`}
+                defaultSize={`${initialWidth}px`}
                 onResize={(size) => {
                   if (!compact) {
-                    setWidth(size.inPixels);
                     try {
                       localStorage.setItem(
                         "flowfield:coordinator-width",

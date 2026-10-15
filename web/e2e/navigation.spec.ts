@@ -777,10 +777,45 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await expect(
     page.getByRole("region", { name: "Coordinator conversation", exact: true }),
   ).toBeVisible();
+  const modelSettings = page.getByRole("dialog", {
+    name: "Coordinator model settings",
+  });
+  await modelSettings
+    .getByRole("button", { name: "Cancel", exact: true })
+    .click();
   const divider = page.getByRole("separator", {
     name: "Resize coordinator and work",
   });
   const pane = page.locator(".workspace-pane").first();
+  async function dragDivider(deltas: number[]) {
+    await divider.hover();
+    const start = (await pane.boundingBox())!.width;
+    const handle = (await divider.boundingBox())!;
+    const x = handle.x + handle.width / 2;
+    const y = handle.y + handle.height / 2;
+    await page.mouse.down();
+    for (const delta of deltas) {
+      await page.mouse.move(x + delta, y);
+      // Wait for each layout update with the button held: a re-registered panel
+      // can pass a single movement while dropping every later drag event.
+      await expect
+        .poll(async () =>
+          Math.abs((await pane.boundingBox())!.width - start - delta),
+        )
+        .toBeLessThan(2);
+    }
+    await page.mouse.up();
+  }
+  await dragDivider([1, 40, 120, 60, -40]);
+  await dragDivider([20, 50]);
+  const resized = (await pane.boundingBox())!.width;
+  await page.reload();
+  await modelSettings
+    .getByRole("button", { name: "Cancel", exact: true })
+    .click();
+  await expect
+    .poll(async () => Math.abs((await pane.boundingBox())!.width - resized))
+    .toBeLessThan(2);
   const before = await pane.boundingBox();
   await divider.focus();
   await page.keyboard.press("ArrowRight");
@@ -809,6 +844,11 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   const heading = detail.locator(".entity-overlay-title h2");
   expect((await back.boundingBox())!.x).toBeLessThan(
     (await heading.boundingBox())!.x,
+  );
+  const comparison = detail.getByRole("link", { name: "Open in work tab" });
+  const titleBox = (await heading.boundingBox())!;
+  expect((await comparison.boundingBox())!.x).toBeGreaterThanOrEqual(
+    titleBox.x + titleBox.width,
   );
   await page.screenshot({
     path: testInfo.outputPath("task-navigation-desktop.png"),

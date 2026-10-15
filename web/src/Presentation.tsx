@@ -75,16 +75,14 @@ export function DetailHeader({
     <OverlayHeading>
       <div className="editor-heading">
         {closeLabel.startsWith("Back") && (
-          <div className="detail-navigation">
-            <CloseControl label={closeLabel} close={close} />
-            <OpenInWorkTab />
-          </div>
+          <CloseControl label={closeLabel} close={close} />
         )}
         <ContentStack space="tight" className="min-w-0 flex-1 basis-44">
           <h2>{title}</h2>
           {metadata && <p className="detail-metadata">{metadata}</p>}
         </ContentStack>
         {actions && <div className="editor-heading-actions">{actions}</div>}
+        {closeLabel.startsWith("Back") && <OpenInWorkTab />}
         {!closeLabel.startsWith("Back") && (
           <CloseControl label={closeLabel} close={close} />
         )}

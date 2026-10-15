@@ -22,7 +22,7 @@
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: #f7f6f4;
-  --chrome: #f1efec;
+  --chrome: #f7f6f4;
   --muted-foreground: #66717d;
   --state-idle: #8a939e;
   --state-waiting: #ffc400;
