@@ -23,7 +23,12 @@ from flowfield.attention import (
     workspace_attention_counts,
 )
 from flowfield.browser import BrowserReads, BrowserWorkspaceBoard
-from flowfield.delivery_models import DeliveryConfigure, MilestoneDelivery
+from flowfield.delivery_models import (
+    DeliveryConfigure,
+    MilestoneDelivery,
+    TaskIntegrationPolicyEdit,
+    TaskIntegrationPolicyView,
+)
 from flowfield.documents import (
     Document,
     DocumentCreate,
@@ -208,6 +213,30 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     @router.get("/{workspace_id}/milestones/{identity}/delivery")
     def milestone_delivery(workspace_id: str, identity: str) -> MilestoneDelivery | None:
         return MilestoneDeliveries(supervisor().workspace).get(workspace_id, identity)
+
+    @router.put("/{workspace_id}/milestones/{identity}/delivery/integration-policy")
+    def milestone_integration_policy(
+        workspace_id: str, identity: str, request: TaskIntegrationPolicyEdit
+    ) -> TaskIntegrationPolicyView:
+        value = MilestoneDeliveries(supervisor().workspace).integration_policy(
+            workspace_id, identity, request
+        )
+        return TaskIntegrationPolicyView(
+            **value.integration_policy.model_dump(), delivery_id=value.id, branch=value.branch
+        )
+
+    @router.get("/{workspace_id}/milestones/{identity}/delivery/integration-policy")
+    def read_milestone_integration_policy(
+        workspace_id: str, identity: str
+    ) -> TaskIntegrationPolicyView:
+        value = MilestoneDeliveries(supervisor().workspace).get(workspace_id, identity)
+        if not value:
+            raise ApplicationError(
+                "delivery_required", "Prepare an owned milestone branch first.", 409
+            )
+        return TaskIntegrationPolicyView(
+            **value.integration_policy.model_dump(), delivery_id=value.id, branch=value.branch
+        )
 
     @router.put("/{workspace_id}/milestones/{identity}/delivery")
     def configure_milestone_delivery(

@@ -75,7 +75,7 @@ Findings appear in Overview, Activity and the exact result. The reviewer can ask
 
 **Stop review** preserves the candidate and findings. Failed or stopped reviews require explicit **Retry review**. If cleanup is uncertain, inspect **Review rounds and diagnostics**, confirm the retained processes have stopped, then retry. Uncertain execution keeps its capacity reserved. Changed inputs make an assessment outdated and retain its evidence; questions belonging to that assessment are withdrawn with their saved answers preserved.
 
-An independent approval recommends the candidate. You still approve and integrate the exact result below; assessment does not grant delivery authority. Stop an active review before making a manual result decision. Milestone verification and promotion retain their existing explicit preparation and human review.
+An independent approval recommends the candidate. Standalone results and milestones without delegated integration still need your exact approval. Stop an active review before making a manual result decision. Assessment alone grants no delivery authority.
 
 ## Review an exact result
 
@@ -101,7 +101,9 @@ Ask the Coordinator to archive work you set aside after reconciling active work,
 
 Ask the Coordinator to configure milestone delivery before preparing its tasks. Flowfield owns a separate branch and checkout for the milestone, while the project's destination remains the final delivery target. This delivery mode supports one repository per milestone. Existing milestones remain ordinary task groups until delivery is configured; prepared tasks are not moved automatically.
 
-Approve each contribution as usual. Its result names the milestone branch as its destination. Dependent tasks see delivered contributions on that branch; the original project checkout stays unchanged. A dependency from another branch cannot start until its required code is available in the receiving task's baseline.
+Approve each contribution as usual, or open **Task integration** on the milestone Overview and enable automatic integration into its named branch. This permission applies only to current independently approved candidates with passing configured checks. Turning assessment off does not authorize unreviewed integration. Policy changes require a fresh review; disabling integration stops pending delegated delivery and leaves already delivered code intact. Pausing the queue stops new delegated decisions; already authorized delivery can finish.
+
+Each result names the milestone branch as its destination and retains its exact approval. Dependent tasks see delivered contributions on that branch; the original project checkout stays unchanged. A dependency from another branch cannot start until its required code is available in the receiving task's baseline. Checkout-only retry retains the original approval; changed review inputs or authority require fresh preparation.
 
 Once contributions are complete, the Coordinator prepares whole-milestone verification. Flowfield combines the milestone work with the current project destination, runs configured checks, and starts the verifier from that exact candidate. The report lists the agreed checks and evidence. **Try milestone** prepares an independent copy of the same candidate; **Code changes** shows the combined changes. Opening inspection starts no application process. Follow its terminal command to run the project and stop it with Ctrl+C when finished.
 

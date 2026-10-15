@@ -480,6 +480,18 @@ class Integrations:
                             "Acceptance or settings changed. Prepare again.",
                             409,
                         )
+                    from flowfield.task_reviews import TaskReviews
+
+                    approved = db.execute(
+                        "SELECT id FROM result_versions WHERE project_id=? AND status='delivering' "
+                        "AND json_extract(data,'$.integration_id')=?",
+                        (project_id, record.id),
+                    ).fetchone()
+                    if not approved:
+                        raise ApplicationError(
+                            "approval_required", "Exact approval is no longer current.", 409
+                        )
+                    TaskReviews(self.workspace).validate_delivery(db, project_id, approved[0])
                     gitops.apply(
                         repository,
                         record.target_branch,

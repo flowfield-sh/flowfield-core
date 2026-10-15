@@ -15,6 +15,27 @@ class DeliveryConfigure(BaseModel):
     branch: str | None = Field(default=None, min_length=1, max_length=200)
 
 
+class TaskIntegrationPolicy(BaseModel):
+    revision: int = 1
+    enabled: bool = False
+    updated_at: str | None = None
+    author: str = "human"
+
+
+class TaskIntegrationPolicyEdit(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: int = Field(ge=1)
+    delivery_id: str
+    branch: str
+    enabled: bool
+
+
+class TaskIntegrationPolicyView(TaskIntegrationPolicy):
+    delivery_id: str
+    branch: str
+
+
 class MilestoneDelivery(BaseModel):
     id: str
     workspace_id: str
@@ -28,3 +49,4 @@ class MilestoneDelivery(BaseModel):
     status: Literal["creating", "ready", "blocked"] = "creating"
     problem: str | None = None
     created_at: str
+    integration_policy: TaskIntegrationPolicy = Field(default_factory=TaskIntegrationPolicy)

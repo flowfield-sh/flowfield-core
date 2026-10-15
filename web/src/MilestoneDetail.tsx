@@ -11,7 +11,8 @@ import { DetailTabs } from "./Presentation";
 import { DetailHeader } from "./Presentation";
 import { MilestoneVerification } from "./MilestoneVerification";
 import { Markdown } from "./Markdown";
-import { ContentStack, DetailSection } from "./DetailLayout";
+import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
+import { MilestoneIntegrationSettings } from "./MilestoneIntegrationSettings";
 import { Badge } from "@/components/ui/badge";
 import { RevisionHistory } from "./RevisionHistory";
 import { WorkspaceLink } from "./WorkspaceLink";
@@ -161,6 +162,15 @@ export function MilestoneDetail({
               .filter((task) => task.milestone_id === milestone.id)
               .flatMap((task) => task.publication?.documents ?? [])}
           />
+          {delivery.data?.status === "ready" && (
+            <Disclosure summary="Task integration">
+              <MilestoneIntegrationSettings
+                path={`${path}/milestones/${milestone.id}`}
+                refresh={refresh}
+                onDirty={onDirty}
+              />
+            </Disclosure>
+          )}
         </ContentStack>
       ) : tab === "review" ? (
         <MilestoneVerification

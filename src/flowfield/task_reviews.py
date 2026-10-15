@@ -53,6 +53,8 @@ class ReviewBinding(Record):
     milestone_revision: int | None = None
     reviewer: EffectiveReviewer
     assignment_digest: str = ""
+    delivery_id: str | None = None
+    integration_policy_revision: int | None = None
 
 
 class TaskReview(Record):
@@ -129,7 +131,7 @@ class TaskReviews:
         )
 
     def _binding(
-        self, db: sqlite3.Connection, project: str, result_id: str
+        self, db: sqlite3.Connection, project: str, result_id: str, *, delivering: bool = False
     ) -> tuple[str, str, ReviewBinding]:
         results = Results(self.store)
         result = results._get(db, project, result_id)
@@ -137,7 +139,7 @@ class TaskReviews:
         task = self.store._task(db, project, result.task_id)
         Execution(self.store)._current_assignment(run, task)
         if (
-            result.status != "ready"
+            result.status != ("delivering" if delivering else "ready")
             or result.report.outcome != "complete"
             or result.completion != "code"
         ):
@@ -163,7 +165,7 @@ class TaskReviews:
         integration = integrations.get(project, result.integration_id)
         settings = integrations.for_task(project, task.id)
         if (
-            integration.status != "ready"
+            integration.status not in (("ready", "applying", "stale") if delivering else ("ready",))
             or integration.candidate_commit != result.candidate_commit
             or settings.revision != result.settings_revision
             or settings.target_branch != result.target_branch
@@ -175,6 +177,9 @@ class TaskReviews:
                 409,
             )
         milestone = Milestones.read(db, owner, task.milestone_id) if task.milestone_id else None
+        from flowfield.milestone_delivery import for_milestone
+
+        delivery = for_milestone(db, project, task.milestone_id)
         prepared = task.publication.milestone if task.publication else None
         if milestone and (
             not prepared or prepared.id != milestone.id or prepared.revision != milestone.revision
@@ -206,8 +211,139 @@ class TaskReviews:
                         Execution(self.store).assignment(project, run.id), sort_keys=True
                     ).encode()
                 ).hexdigest(),
+                delivery_id=delivery.id if delivery else None,
+                integration_policy_revision=delivery.integration_policy.revision
+                if delivery
+                else None,
             ),
         )
+
+    def delegate(self, project: str, identity: str) -> TaskReview:
+        """Apply one current verdict under separately human-granted branch authority."""
+        from flowfield.milestone_delivery import for_milestone
+        from flowfield.result_models import ResultReview
+
+        with self.store.connection(write=True, project_id=project) as db:
+            review = self._get(db, project, identity)
+            if (
+                review.applied_at
+                or review.status != "decided"
+                or not review.verdict
+                or review.verdict.action != "approve"
+            ):
+                return review
+            if not self._fresh(db, review):
+                return review
+            delivery = for_milestone(db, project, review.binding.milestone_id)
+            if (
+                not delivery
+                or not delivery.integration_policy.enabled
+                or not read_project(db, project).enabled
+            ):
+                return review
+            Results(self.store)._review(
+                db,
+                project,
+                review.result_id,
+                ResultReview(
+                    expected_revision=review.binding.result_revision,
+                    candidate_commit=review.binding.candidate_commit,
+                    action="approve",
+                    author="flowfield",
+                    note=(
+                        f"Reviewed integration delegated to {delivery.branch} "
+                        f"under policy revision {delivery.integration_policy.revision}."
+                    ),
+                ),
+                delegated_review_id=review.id,
+            )
+            review.applied_at = now()
+            self._save(db, review)
+            return review
+
+    def refresh_destination(self, project: str, result_id: str) -> bool:
+        """A sibling delivery requires a newly assembled, validated and reviewed candidate."""
+        from flowfield.execution_models import RunAction
+        from flowfield.milestone_delivery import for_milestone
+
+        results = Results(self.store)
+        with self.store.connection() as db:
+            result = results._get(db, project, result_id)
+            task = self.store._task(db, project, result.task_id)
+            delivery = for_milestone(db, project, task.milestone_id)
+            if (
+                not delivery
+                or not delivery.integration_policy.enabled
+                or not read_project(db, project).enabled
+                or result.status not in ("ready", "stale")
+                or (result.status == "stale" and result.problem_code != "target_changed")
+                or result.target_branch != delivery.branch
+                or Integrations(self.store).settings(project).revision != result.settings_revision
+                or Integrations(self.store).head(project, task.id) == result.target_before
+                or db.execute(
+                    "SELECT 1 FROM task_reviews WHERE project_id=? AND task_id=? "
+                    "AND status IN ('preparing','running','waiting','uncertain')",
+                    (project, task.id),
+                ).fetchone()
+            ):
+                return False
+        results.reprepare(project, result_id, RunAction(expected_revision=result.revision))
+        return True
+
+    def validate_delivery(self, db: sqlite3.Connection, project: str, result_id: str) -> None:
+        """Recheck authority inside the Git owner's final transaction, before ref update."""
+        from pathlib import Path
+
+        from flowfield.adapters.git_workspace import git
+        from flowfield.milestone_delivery import for_milestone
+
+        result = Results(self.store)._get(db, project, result_id)
+        if not result.delegated_review_id:
+            return
+        review = self._get(db, project, result.delegated_review_id)
+        _, _, binding = self._binding(db, project, result_id, delivering=True)
+        # Approval and checkout-only recovery advance these operation revisions, not evidence.
+        comparable = binding.model_copy(
+            update={
+                "result_revision": review.binding.result_revision,
+                "integration_revision": review.binding.integration_revision,
+            }
+        )
+        delivery = for_milestone(db, project, review.binding.milestone_id)
+        if (
+            comparable != review.binding
+            or not review.applied_at
+            or review.status != "decided"
+            or not review.verdict
+            or review.verdict.action != "approve"
+            or not delivery
+            or not delivery.integration_policy.enabled
+            or delivery.branch != result.target_branch
+        ):
+            raise ApplicationError(
+                "delegation_changed",
+                "Delegated integration authority or review inputs changed. "
+                "Prepare a fresh candidate and decision.",
+                409,
+            )
+        marker = (
+            git(
+                Path(self.store.project(project).path),
+                "rev-parse",
+                "--verify",
+                "--quiet",
+                f"refs/flowfield/milestones/{delivery.id}",
+                allowed_returncodes=(0, 1),
+            )
+            .decode()
+            .strip()
+        )
+        if marker != delivery.base_commit:
+            raise ApplicationError(
+                "delegation_changed",
+                "Milestone branch ownership changed; inspect the repository.",
+                409,
+            )
 
     def prepare(self, project: str, result_id: str) -> TaskReview:
         """Explicit service entry; does not scan old results or start a model."""

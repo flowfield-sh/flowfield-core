@@ -36,8 +36,12 @@ class ReviewExecution:
         # Bounded rotating discovery includes only results captured by the new lifecycle.
         with service.workspace.connection() as db:
             rows = db.execute(
-                "SELECT number,project_id,id FROM result_versions WHERE status='ready' "
+                "SELECT number,project_id,id FROM result_versions v WHERE "
+                "(status='ready' OR (status='stale' "
+                "AND json_extract(data,'$.problem_code')='target_changed')) "
                 "AND json_extract(data,'$.review_requested')=1 "
+                "AND NOT EXISTS (SELECT 1 FROM result_versions n WHERE n.project_id=v.project_id "
+                "AND n.task_id=v.task_id AND n.version>v.version) "
                 "ORDER BY CASE WHEN number>? THEN 0 ELSE 1 END,number LIMIT 20",
                 (self.cursor,),
             ).fetchall()
@@ -54,7 +58,10 @@ class ReviewExecution:
                     saved = await asyncio.to_thread(self.reviews.check, project, previous[0])
                     if saved.status == "waiting":
                         self.reviews.resume_answer(project, saved.id)
-                await asyncio.to_thread(self.reviews.prepare, project, identity)
+                if await asyncio.to_thread(self.reviews.refresh_destination, project, identity):
+                    continue
+                prepared = await asyncio.to_thread(self.reviews.prepare, project, identity)
+                await asyncio.to_thread(self.reviews.delegate, project, prepared.id)
             except ApplicationError:
                 # Missing configuration is projected from the result; never guess a model.
                 continue

@@ -179,7 +179,13 @@ class Results:
             return self._review(db, project_id, identity, request)
 
     def _review(
-        self, db: sqlite3.Connection, project_id: str, identity: str, request: ResultReview
+        self,
+        db: sqlite3.Connection,
+        project_id: str,
+        identity: str,
+        request: ResultReview,
+        *,
+        delegated_review_id: str | None = None,
     ) -> ResultVersion:
         version = self._get(db, project_id, identity)
         binding = version.candidate_commit or version.source_commit
@@ -254,6 +260,7 @@ class Results:
                         409,
                     )
             version.approval_note = request.note.strip()
+            version.delegated_review_id = delegated_review_id
             version.approved_at, version.approved_by = now(), request.author
             run.status, run.accepted_at, run.accepted_by = (
                 "accepted",

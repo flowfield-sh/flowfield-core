@@ -629,6 +629,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/milestones/{identity}/delivery/integration-policy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Milestone Integration Policy */
+    get: operations["read_milestone_integration_policy_api_workspaces__workspace_id__milestones__identity__delivery_integration_policy_get"];
+    /** Milestone Integration Policy */
+    put: operations["milestone_integration_policy_api_workspaces__workspace_id__milestones__identity__delivery_integration_policy_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/workspaces/{workspace_id}/milestones/{identity}/verifications": {
     parameters: {
       query?: never;
@@ -4509,6 +4527,7 @@ export interface components {
       problem?: string | null;
       /** Created At */
       created_at: string;
+      integration_policy?: components["schemas"]["TaskIntegrationPolicy"];
     };
     /** MilestoneEdit */
     MilestoneEdit: {
@@ -5379,6 +5398,8 @@ export interface components {
       approved_at: string | null;
       /** Approved By */
       approved_by: string | null;
+      /** Delegated Review Id */
+      delegated_review_id: string | null;
       /**
        * Approval Note
        * @default
@@ -5472,6 +5493,10 @@ export interface components {
        * @default
        */
       assignment_digest: string;
+      /** Delivery Id */
+      delivery_id: string | null;
+      /** Integration Policy Revision */
+      integration_policy_revision: number | null;
     };
     /** ReviewVerdict */
     ReviewVerdict: {
@@ -6192,6 +6217,61 @@ export interface components {
       )[];
       /** Next Offset */
       next_offset: number | null;
+    };
+    /** TaskIntegrationPolicy */
+    TaskIntegrationPolicy: {
+      /**
+       * Revision
+       * @default 1
+       */
+      revision: number;
+      /**
+       * Enabled
+       * @default false
+       */
+      enabled: boolean;
+      /** Updated At */
+      updated_at?: string | null;
+      /**
+       * Author
+       * @default human
+       */
+      author: string;
+    };
+    /** TaskIntegrationPolicyEdit */
+    TaskIntegrationPolicyEdit: {
+      /** Expected Revision */
+      expected_revision: number;
+      /** Delivery Id */
+      delivery_id: string;
+      /** Branch */
+      branch: string;
+      /** Enabled */
+      enabled: boolean;
+    };
+    /** TaskIntegrationPolicyView */
+    TaskIntegrationPolicyView: {
+      /**
+       * Revision
+       * @default 1
+       */
+      revision: number;
+      /**
+       * Enabled
+       * @default false
+       */
+      enabled: boolean;
+      /** Updated At */
+      updated_at?: string | null;
+      /**
+       * Author
+       * @default human
+       */
+      author: string;
+      /** Delivery Id */
+      delivery_id: string;
+      /** Branch */
+      branch: string;
     };
     /** TaskPreparation */
     TaskPreparation: {
@@ -8353,6 +8433,74 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["MilestoneDelivery"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_milestone_integration_policy_api_workspaces__workspace_id__milestones__identity__delivery_integration_policy_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskIntegrationPolicyView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  milestone_integration_policy_api_workspaces__workspace_id__milestones__identity__delivery_integration_policy_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TaskIntegrationPolicyEdit"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskIntegrationPolicyView"];
         };
       };
       /** @description Validation Error */

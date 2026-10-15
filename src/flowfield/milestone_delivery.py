@@ -9,7 +9,12 @@ from flowfield.adapters import git_checkout
 from flowfield.adapters import git_integration as gitops
 from flowfield.adapters.git_workspace import git
 from flowfield.application import Workspace, now
-from flowfield.delivery_models import DeliveryConfigure, MilestoneDelivery
+from flowfield.delivery_models import (
+    DeliveryConfigure,
+    MilestoneDelivery,
+    TaskIntegrationPolicy,
+    TaskIntegrationPolicyEdit,
+)
 from flowfield.errors import ApplicationError
 from flowfield.milestones import Milestones
 from flowfield.workspaces import Workspaces
@@ -58,6 +63,49 @@ def effective_branch(
 class MilestoneDeliveries:
     def __init__(self, store: Workspace):
         self.store = store
+
+    def integration_policy(
+        self, workspace_id: str, milestone_id: str, request: TaskIntegrationPolicyEdit
+    ) -> MilestoneDelivery:
+        """Human settings entry; deliberately absent from coordinator/scoped tools."""
+        with self.store.connection(write=True) as db:
+            milestone = Milestones.read(db, workspace_id, milestone_id)
+            row = db.execute(
+                "SELECT data FROM milestone_deliveries WHERE workspace_id=? AND milestone_id=?",
+                (workspace_id, milestone.id),
+            ).fetchone()
+            if not row:
+                raise ApplicationError(
+                    "delivery_required", "Prepare an owned milestone branch first.", 409
+                )
+            value = MilestoneDelivery.model_validate_json(row[0])
+            self.store._current(value.integration_policy.revision, request.expected_revision)
+            if (
+                value.id != request.delivery_id
+                or value.branch != request.branch
+                or value.status != "ready"
+            ):
+                raise ApplicationError(
+                    "delivery_changed", "Inspect the current owned destination first.", 409
+                )
+            value.integration_policy = TaskIntegrationPolicy(
+                revision=value.integration_policy.revision + 1,
+                enabled=request.enabled,
+                updated_at=now(),
+            )
+            db.execute(
+                "INSERT INTO milestone_integration_policy_history VALUES (?,?,?)",
+                (
+                    value.id,
+                    value.integration_policy.revision,
+                    value.integration_policy.model_dump_json(),
+                ),
+            )
+            db.execute(
+                "UPDATE milestone_deliveries SET data=? WHERE id=?",
+                (value.model_dump_json(), value.id),
+            )
+            return value
 
     def get(self, workspace_id: str, milestone_id: str) -> MilestoneDelivery | None:
         with self.store.connection() as db:

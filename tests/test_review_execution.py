@@ -364,7 +364,7 @@ def test_review_migration_rolls_back_and_recovers(tmp_path, monkeypatch):
         assert not db.execute("SELECT 1 FROM sqlite_master WHERE name='review_attempts'").fetchone()
     upgraded = Workspace(service.workspace.directory)
     with upgraded.connection() as db:
-        assert storage.version(db) == 75
+        assert storage.version(db) == migrations.current_version()
         assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 
 

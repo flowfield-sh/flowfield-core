@@ -63,6 +63,7 @@ class ResultVersion(Record):
     settings_revision: int | None = None
     approved_at: str | None = None
     approved_by: str | None = None
+    delegated_review_id: str | None = None
     approval_note: str = Field(default="", max_length=8000)
     completed_at: str | None = None
     feedback: str = ""
