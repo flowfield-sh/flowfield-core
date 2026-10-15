@@ -21,6 +21,7 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
+  TooltipProvider,
 } from "@/components/ui/tooltip";
 import { canonicalHref, followLink, workspaceHref } from "./navigation";
 import type { WorkspaceBoard } from "./workspace";
@@ -579,18 +580,20 @@ export function WorkspaceTabs({
               data-overflow-left={overflow.left}
               data-overflow-right={overflow.right}
             >
-              <TabsList variant="line" aria-label="Open resources">
-                {state.tabs.map((tab, index) => (
-                  <ResourceTab
-                    key={tab.id}
-                    tab={tab}
-                    index={index}
-                    controller={controller}
-                    board={board}
-                    restoreFocus={restoreFocus}
-                  />
-                ))}
-              </TabsList>
+              <TooltipProvider delayDuration={400} skipDelayDuration={0}>
+                <TabsList variant="line" aria-label="Open resources">
+                  {state.tabs.map((tab, index) => (
+                    <ResourceTab
+                      key={tab.id}
+                      tab={tab}
+                      index={index}
+                      controller={controller}
+                      board={board}
+                      restoreFocus={restoreFocus}
+                    />
+                  ))}
+                </TabsList>
+              </TooltipProvider>
             </div>
           </DragDropProvider>
           <TabsContent

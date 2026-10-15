@@ -79,6 +79,11 @@ function WorkspaceNavigation({
         <NativeSelect
           size="sm"
           aria-label="Workspace"
+          className="bg-background dark:bg-background"
+          displayValue={
+            workspaces.find((workspace) => workspace.id === activeWorkspaceId)
+              ?.name ?? "Workspaces"
+          }
           value={activeWorkspaceId}
           onChange={(event) => {
             const workspace = workspaces.find(

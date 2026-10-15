@@ -76,6 +76,10 @@
 .workspace-divider[data-separator="active"]::after {
   background: var(--border);
 }
+.workspace-divider::after {
+  inset-block: 12px;
+  border-radius: 2px;
+}
 .workspace-surface-switch {
   display: flex;
   flex-shrink: 0;
@@ -326,6 +330,7 @@
 .workspace-utilities .connection {
   width: 100%;
   padding: 8px;
+  border-top: 1px solid var(--border);
 }
 .queue-status-row {
   padding: 4px 4px 4px 8px;
