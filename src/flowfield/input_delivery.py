@@ -22,6 +22,43 @@ def question_delivery(
     """One bounded, current projection for question, task and attention views."""
     from flowfield.execution_models import Run
 
+    review_question = db.execute(
+        "SELECT data FROM questions WHERE project_id=? AND id=? "
+        "AND json_extract(data,'$.origin_review_id') IS NOT NULL",
+        (project_id, identity),
+    ).fetchone()
+    if review_question:
+        question = json.loads(review_question[0])
+        row_review = db.execute(
+            "SELECT data FROM task_reviews WHERE id=?", (question["origin_review_id"],)
+        ).fetchone()
+        review = json.loads(row_review[0])
+        status = review["status"]
+        editable = (
+            status == "waiting"
+            and question["status"] in ("open", "answered")
+            and not question.get("consumed_answer_revision")
+        )
+        label = (
+            "Withdrawn"
+            if question["status"] == "withdrawn"
+            else "Needs your answer"
+            if question["status"] == "open"
+            else "Answer saved"
+            if status == "waiting"
+            else "Reviewing changes"
+            if status in ("queued", "preparing", "running")
+            else "Review complete"
+            if status == "decided"
+            else "Review needs attention"
+        )
+        return InputDelivery(
+            state=label,
+            can_edit=editable,
+            message=review.get("problem")
+            or "Your answer resumes the scoped review when the queue and capacity allow it.",
+        )
+
     row = db.execute(
         "SELECT task_id,status,json_extract(data,'$.origin_run_id') AS origin, "
         "json_extract(data,'$.continuation_run_id') AS continuation FROM questions "

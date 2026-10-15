@@ -16,15 +16,18 @@ import { BlockedBy } from "./TaskLinks";
 import { TaskNeeds, hasTaskNeeds } from "./TaskNeeds";
 import { TaskConversation, StageHeader } from "./TaskConversation";
 import { AgentPermissions } from "./AgentPermissions";
+import { TaskReview } from "./TaskReview";
 import { type Board, type Task } from "./workspace";
 export function TaskDetail({
   task,
+  workspaceId,
   board,
   setUnsaved,
   close,
   openTask,
 }: {
   task: Task;
+  workspaceId: string;
   board: Board;
   setUnsaved: DirtyCallback;
   close: () => void;
@@ -40,10 +43,14 @@ export function TaskDetail({
     setRetained(kept);
   }, []);
   const [settingsDirty, setSettingsDirty] = useState(false);
+  const [reviewerDirty, setReviewerDirty] = useState(false);
   useEffect(() => {
-    setUnsaved(dirty || settingsDirty, retained && !settingsDirty);
+    setUnsaved(
+      dirty || settingsDirty || reviewerDirty,
+      retained && !settingsDirty && !reviewerDirty,
+    );
     return () => setUnsaved(false);
-  }, [dirty, settingsDirty, setUnsaved, retained]);
+  }, [dirty, settingsDirty, reviewerDirty, setUnsaved, retained]);
   return (
     <section className="editor task-detail">
       <DetailHeader
@@ -144,6 +151,13 @@ export function TaskDetail({
           <SourceReferences
             documents={task.publication?.documents ?? []}
             updates={task.document_updates ?? []}
+          />
+          <TaskReview
+            projectId={board.project.id}
+            taskId={task.id}
+            workspaceId={workspaceId}
+            refresh={board}
+            onDirty={setReviewerDirty}
           />
           <Disclosure summary="Work details">
             <StageHeader

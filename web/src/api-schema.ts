@@ -2447,6 +2447,160 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace}/reviewers/{purpose}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Settings */
+    get: operations["settings_api_workspaces__workspace__reviewers__purpose__get"];
+    /** Configure */
+    put: operations["configure_api_workspaces__workspace__reviewers__purpose__put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/projects/{project}/tasks/{task}/review": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Current */
+    get: operations["current_api_projects__project__tasks__task__review_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/projects/{project}/reviews/{identity}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Review */
+    get: operations["review_api_projects__project__reviews__identity__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/projects/{project}/reviews/{identity}/attempts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Attempts */
+    get: operations["attempts_api_projects__project__reviews__identity__attempts_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/projects/{project}/reviews/{identity}/stop": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Stop */
+    post: operations["stop_api_projects__project__reviews__identity__stop_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/projects/{project}/reviews/{identity}/activity": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Activity */
+    get: operations["activity_api_projects__project__reviews__identity__activity_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/projects/{project}/reviews/{identity}/attempts/{attempt}/activity": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Attempt Activity */
+    get: operations["attempt_activity_api_projects__project__reviews__identity__attempts__attempt__activity_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/projects/{project}/reviews/{identity}/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Retry */
+    post: operations["retry_api_projects__project__reviews__identity__retry_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/projects/{project}/reviews/{identity}/confirm-stopped": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Confirm Stopped */
+    post: operations["confirm_stopped_api_projects__project__reviews__identity__confirm_stopped_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/projects/{project_id}/inspection/settings": {
     parameters: {
       query?: never;
@@ -2685,7 +2839,8 @@ export interface components {
        * Role
        * @enum {string}
        */
-      role: "human" | "coordinator" | "worker" | "flowfield" | "other";
+      role:
+        "human" | "coordinator" | "worker" | "reviewer" | "flowfield" | "other";
       /** Label */
       label: string;
       /** Identity */
@@ -3587,6 +3742,21 @@ export interface components {
       override_revision: number | null;
       registration: components["schemas"]["HarnessRegistration"] | null;
     };
+    /** EffectiveReviewer */
+    EffectiveReviewer: {
+      /** Enabled */
+      enabled: boolean;
+      /**
+       * Enabled Source
+       * @enum {string}
+       */
+      enabled_source: "workspace" | "override";
+      /** Default Revision */
+      default_revision: number;
+      /** Override Revision */
+      override_revision: number | null;
+      agent: components["schemas"]["EffectiveAgent"] | null;
+    };
     /** ExecutionItem */
     ExecutionItem: {
       /** Id */
@@ -3806,6 +3976,28 @@ export interface components {
       status: "ok";
       /** Version */
       version: string;
+    };
+    /** IndependentAssessment */
+    IndependentAssessment: {
+      /** Id */
+      id: string;
+      /** Status */
+      status: string;
+      /**
+       * Summary
+       * @default
+       */
+      summary: string;
+      /**
+       * Evidence
+       * @default
+       */
+      evidence: string;
+      /**
+       * Request
+       * @default
+       */
+      request: string;
     };
     /** InputDelivery */
     InputDelivery: {
@@ -4837,6 +5029,8 @@ export interface components {
       answer_count: number;
       /** Origin Run Id */
       origin_run_id: string | null;
+      /** Origin Review Id */
+      origin_review_id: string | null;
       /** Continuation Run Id */
       continuation_run_id: string | null;
       /** Consumed Answer Revision */
@@ -5207,6 +5401,114 @@ export interface components {
       next_action: components["schemas"]["ResultAction"] | null;
       /** Recheck Of */
       recheck_of: number | null;
+      /**
+       * Review Requested
+       * @default false
+       */
+      review_requested: boolean;
+      independent_review: components["schemas"]["IndependentAssessment"] | null;
+    };
+    /** ReviewAttemptInfo */
+    ReviewAttemptInfo: {
+      /** Id */
+      id: string;
+      /** Role */
+      role: string;
+      /** Created At */
+      created_at: string;
+      /** Completed At */
+      completed_at: string | null;
+      /** Status */
+      status: string;
+      /** Cleanup Confirmed */
+      cleanup_confirmed: boolean;
+      /** Checkout */
+      checkout: string | null;
+      /** Pid */
+      pid: number | null;
+      /** Process Stamp */
+      process_stamp: string | null;
+      requested_agent: components["schemas"]["AgentChoice-Output"] | null;
+      applied_agent: components["schemas"]["AgentChoice-Output"] | null;
+      /** Problem */
+      problem: string | null;
+    };
+    /** ReviewAttemptPage */
+    ReviewAttemptPage: {
+      /** Items */
+      items: components["schemas"]["ReviewAttemptInfo"][];
+      /** Next Before */
+      next_before: number | null;
+    };
+    /** ReviewBinding */
+    ReviewBinding: {
+      /** Result Revision */
+      result_revision: number;
+      /** Run Id */
+      run_id: string;
+      /** Agreement Revision */
+      agreement_revision: number;
+      /** Candidate Commit */
+      candidate_commit: string;
+      /** Source Commit */
+      source_commit: string;
+      /** Target Branch */
+      target_branch: string;
+      /** Target Before */
+      target_before: string;
+      /** Integration Id */
+      integration_id: string;
+      /** Integration Revision */
+      integration_revision: number;
+      /** Settings Revision */
+      settings_revision: number;
+      /** Milestone Id */
+      milestone_id: string | null;
+      /** Milestone Revision */
+      milestone_revision: number | null;
+      reviewer: components["schemas"]["EffectiveReviewer"];
+      /**
+       * Assignment Digest
+       * @default
+       */
+      assignment_digest: string;
+    };
+    /** ReviewVerdict */
+    ReviewVerdict: {
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: "approve" | "request_changes" | "ask_worker" | "ask_human";
+      /** Summary */
+      summary: string;
+      /** Evidence */
+      evidence: string;
+      /**
+       * Request
+       * @default
+       */
+      request: string;
+    };
+    /** ReviewerEdit */
+    ReviewerEdit: {
+      /** Expected Revision */
+      expected_revision: number;
+      /** Enabled */
+      enabled?: boolean | null;
+      selection?: components["schemas"]["AgentChoice-Input"] | null;
+    };
+    /** ReviewerSettingsView */
+    ReviewerSettingsView: {
+      /**
+       * Revision
+       * @default 1
+       */
+      revision: number;
+      /** Enabled */
+      enabled: boolean | null;
+      selection: components["schemas"]["AgentChoice-Output"] | null;
+      effective: components["schemas"]["EffectiveReviewer"];
     };
     /** Run */
     Run: {
@@ -5994,6 +6296,61 @@ export interface components {
       author: string;
       /** Note */
       note: string;
+    };
+    /** TaskReview */
+    TaskReview: {
+      /** Id */
+      id: string;
+      /** Project Id */
+      project_id: string;
+      /** Workspace Id */
+      workspace_id: string;
+      /** Task Id */
+      task_id: string;
+      /** Result Id */
+      result_id: string;
+      /**
+       * Revision
+       * @default 1
+       */
+      revision: number;
+      binding: components["schemas"]["ReviewBinding"];
+      /**
+       * Status
+       * @default queued
+       * @enum {string}
+       */
+      status:
+        | "queued"
+        | "preparing"
+        | "running"
+        | "waiting"
+        | "decided"
+        | "stale"
+        | "stopped"
+        | "uncertain"
+        | "failed";
+      /** Created At */
+      created_at: string;
+      /** Started At */
+      started_at: string | null;
+      /** Completed At */
+      completed_at: string | null;
+      verdict: components["schemas"]["ReviewVerdict"] | null;
+      /** Problem */
+      problem: string | null;
+      /**
+       * Recipient
+       * @default reviewer
+       * @enum {string}
+       */
+      recipient: "reviewer" | "implementer";
+      /** Attempt Id */
+      attempt_id: string | null;
+      /** Question Id */
+      question_id: string | null;
+      /** Applied At */
+      applied_at: string | null;
     };
     /** TaskRevision */
     TaskRevision: {
@@ -12275,6 +12632,351 @@ export interface operations {
       };
     };
   };
+  settings_api_workspaces__workspace__reviewers__purpose__get: {
+    parameters: {
+      query?: {
+        project?: string;
+        entity?: string;
+      };
+      header?: never;
+      path: {
+        workspace: string;
+        purpose: "task" | "milestone";
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReviewerSettingsView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  configure_api_workspaces__workspace__reviewers__purpose__put: {
+    parameters: {
+      query?: {
+        project?: string;
+        entity?: string;
+      };
+      header?: never;
+      path: {
+        workspace: string;
+        purpose: "task" | "milestone";
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReviewerEdit"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReviewerSettingsView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  current_api_projects__project__tasks__task__review_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project: string;
+        task: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskReview"] | null;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  review_api_projects__project__reviews__identity__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskReview"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  attempts_api_projects__project__reviews__identity__attempts_get: {
+    parameters: {
+      query?: {
+        before?: number | null;
+      };
+      header?: never;
+      path: {
+        project: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReviewAttemptPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  stop_api_projects__project__reviews__identity__stop_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RunAction"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskReview"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  activity_api_projects__project__reviews__identity__activity_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RunActivityPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  attempt_activity_api_projects__project__reviews__identity__attempts__attempt__activity_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project: string;
+        identity: string;
+        attempt: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RunActivityPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  retry_api_projects__project__reviews__identity__retry_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RunAction"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskReview"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  confirm_stopped_api_projects__project__reviews__identity__confirm_stopped_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RunAction"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskReview"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   settings_api_projects__project_id__inspection_settings_get: {
     parameters: {
       query?: never;
@@ -12641,6 +13343,7 @@ export const actorRoles = {
   coordinator: "coordinator",
   agent: "coordinator",
   worker: "worker",
+  reviewer: "reviewer",
   flowfield: "flowfield",
   service: "flowfield",
   migration: "flowfield",
@@ -12649,5 +13352,6 @@ export const actorLabels = {
   human: "You",
   coordinator: "Coordinator",
   worker: "Worker",
+  reviewer: "Reviewer",
   flowfield: "Flowfield",
 } as const;

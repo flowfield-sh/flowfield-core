@@ -26,15 +26,19 @@ const activityIcons = {
 export function RunActivity({
   projectId,
   runId,
+  review = false,
+  reviewAttemptId,
 }: {
   projectId: string;
   runId: string;
+  review?: boolean;
+  reviewAttemptId?: string;
 }) {
   const resource = useResource<Page>(
-    `projects/${projectId}/runs/${runId}/activity`,
+    `projects/${projectId}/${review ? "reviews" : "runs"}/${runId}${reviewAttemptId ? `/attempts/${reviewAttemptId}` : ""}/activity`,
     runId,
     10000,
-    { projectId, attemptId: runId, isActive },
+    { projectId, attemptId: reviewAttemptId ?? runId, isActive },
   );
   const { data: page, error } = resource;
   const pane = useRef<HTMLDivElement>(null);
@@ -50,7 +54,7 @@ export function RunActivity({
       {page && !page.supported && (
         <p className="muted">
           {page.active
-            ? "Waiting for public worker activity…"
+            ? "Waiting for public activity…"
             : "This attempt has no recorded activity feed."}
         </p>
       )}
@@ -59,7 +63,7 @@ export function RunActivity({
           ref={pane}
           className="run-activity-output"
           role="region"
-          aria-label="Worker activity"
+          aria-label={review ? "Review activity" : "Worker activity"}
           tabIndex={0}
           onScroll={() => {
             const element = pane.current!;

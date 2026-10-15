@@ -879,6 +879,25 @@ class ContextReads:
         value["report"] = excerpt(value["report"], 2000)
         if value["correction"]:
             value["correction"] = excerpt(value["correction"], 1500)
+        if self.workspace.schema_version >= 75:
+            with self.workspace.connection() as db:
+                row = db.execute(
+                    "SELECT data FROM task_reviews WHERE result_id=? ORDER BY number DESC LIMIT 1",
+                    (identity,),
+                ).fetchone()
+                if row:
+                    review = json.loads(row[0])
+                    value["independent_review"] = {
+                        key: review.get(key)
+                        for key in (
+                            "id",
+                            "status",
+                            "recipient",
+                            "verdict",
+                            "problem",
+                            "question_id",
+                        )
+                    }
         return excerpt(value, 2000)
 
     def text(

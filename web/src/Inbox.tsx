@@ -333,6 +333,7 @@ export function QuestionDetail({
             <QuestionPrompt
               question={loaded.question}
               context={loaded.context}
+              reviewContext={!!loaded.origin_review_id}
               recommendation={loaded.recommendation}
               verificationUrl={loaded.verification_url}
             />

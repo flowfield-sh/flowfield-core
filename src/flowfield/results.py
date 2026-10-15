@@ -13,7 +13,7 @@ from flowfield.execution import Execution
 from flowfield.execution_models import Correction, Run, RunAction
 from flowfield.integration import Integrations
 from flowfield.integration_models import IntegrationApply, IntegrationPrepare
-from flowfield.result_models import ResultPage, ResultReview, ResultVersion
+from flowfield.result_models import IndependentAssessment, ResultPage, ResultReview, ResultVersion
 
 
 class Results:
@@ -41,6 +41,21 @@ class Results:
             "SELECT min(version) FROM result_versions WHERE run_id=? AND version<?",
             (value.run_id, value.version),
         ).fetchone()[0]
+        if self.workspace.schema_version >= 75:
+            row = db.execute(
+                "SELECT data FROM task_reviews WHERE result_id=? ORDER BY number DESC LIMIT 1",
+                (value.id,),
+            ).fetchone()
+            if row:
+                review = json.loads(row[0])
+                verdict = review.get("verdict") or {}
+                value.independent_review = IndependentAssessment(
+                    id=review["id"],
+                    status=review["status"],
+                    summary=verdict.get("summary", ""),
+                    evidence=verdict.get("evidence", ""),
+                    request=verdict.get("request", ""),
+                )
         return value
 
     def page(
@@ -84,7 +99,9 @@ class Results:
             "UPDATE result_versions SET status=?,data=? WHERE id=?",
             (
                 version.status,
-                version.model_dump_json(exclude={"next_action", "recheck_of"}),
+                version.model_dump_json(
+                    exclude={"next_action", "recheck_of", "independent_review"}
+                ),
                 version.id,
             ),
         )
@@ -108,6 +125,7 @@ class Results:
             report=run.result,
             created_at=now(),
             target_branch=run.target_branch,
+            review_requested=self.workspace.schema_version >= 75,
         )
         db.execute(
             "INSERT INTO result_versions(id,project_id,task_id,run_id,version,status,data) "
@@ -173,6 +191,19 @@ class Results:
         if request.action == "approve" and version.approved_at:
             return self._present(db, version)
         self.workspace._current(version.revision, request.expected_revision)
+        if (
+            self.workspace.schema_version >= 75
+            and db.execute(
+                "SELECT 1 FROM task_reviews WHERE project_id=? AND task_id=? AND status IN "
+                "('queued','preparing','running','waiting','uncertain')",
+                (project_id, version.task_id),
+            ).fetchone()
+        ):
+            raise ApplicationError(
+                "review_owns_result",
+                "Wait for the review or stop it before responding to this result.",
+                409,
+            )
         run = self._current(db, version)
         task = self.workspace._task(db, project_id, version.task_id)
         if request.action == "request_changes":

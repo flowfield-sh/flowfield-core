@@ -99,7 +99,7 @@ class ThreadView(Conversation):
             title = "Answer"
             body = data["answer"] or ""
         elif kind == "activity":
-            title = data["kind"].capitalize()
+            title = "Independent review" if item.author == "reviewer" else data["kind"].capitalize()
             body = data["body"]
             if data["kind"] == "handoff":
                 task = self.workspace._task(db, project_id, task_id)

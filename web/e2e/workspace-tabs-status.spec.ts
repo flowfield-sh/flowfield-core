@@ -19,7 +19,7 @@ test("task card entry stays on Overview and milestone status agrees across views
     data: {
       id: project,
       path: existingDirectory(join(state, project)),
-      task_prefix: "CST",
+      task_prefix: "WTS",
     },
   });
   const workspace = await projectWorkspace(request, project);

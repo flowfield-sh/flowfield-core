@@ -26,6 +26,14 @@ class ResultAction(Record):
     settings: Literal["workers", "integration"] | None = None
 
 
+class IndependentAssessment(Record):
+    id: str
+    status: str
+    summary: str = ""
+    evidence: str = ""
+    request: str = ""
+
+
 class ResultVersion(Record):
     id: str
     project_id: str
@@ -64,6 +72,8 @@ class ResultVersion(Record):
     availability_id: str | None = None
     next_action: ResultAction | None = None
     recheck_of: int | None = None
+    review_requested: bool = False
+    independent_review: IndependentAssessment | None = None
 
 
 class ResultPage(Record):

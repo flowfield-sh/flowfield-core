@@ -4,12 +4,13 @@ from typing import Literal
 
 from flowfield.execution_models import Record
 
-ActorRole = Literal["human", "coordinator", "worker", "flowfield", "other"]
+ActorRole = Literal["human", "coordinator", "worker", "reviewer", "flowfield", "other"]
 ACTOR_ROLES: dict[str, ActorRole] = {
     "human": "human",
     "coordinator": "coordinator",
     "agent": "coordinator",
     "worker": "worker",
+    "reviewer": "reviewer",
     "flowfield": "flowfield",
     "service": "flowfield",
     "migration": "flowfield",
@@ -18,6 +19,7 @@ ACTOR_LABELS = {
     "human": "You",
     "coordinator": "Coordinator",
     "worker": "Worker",
+    "reviewer": "Reviewer",
     "flowfield": "Flowfield",
 }
 

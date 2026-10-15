@@ -9,6 +9,8 @@ import { DetailHeader, DetailTabs } from "./Presentation";
 import { MarkdownField } from "./Markdown";
 import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
 import { AgentSettingsForm } from "./AgentSettings";
+import { ReviewerSettings } from "./ReviewerSettings";
+import { DetailSection } from "./DetailLayout";
 import { QueueSettings, WorkerSettings } from "./Workers";
 import { workspaceHref } from "./navigation";
 import type { WorkspaceRecord } from "./workspace";
@@ -32,13 +34,16 @@ export function WorkspaceEditor({
   const { workspaceTab, projectTab } = useParams();
   const selectedTab = workspaceTab ?? projectTab;
   const tab =
-    selectedTab === "workers" || selectedTab === "coordinator"
+    selectedTab === "workers" ||
+    selectedTab === "coordinator" ||
+    selectedTab === "reviewers"
       ? selectedTab
       : "general";
   const navigate = useNavigate();
   const location = useLocation();
   const [workerDirty, setWorkerDirty] = useState(false);
   const [coordinatorDirty, setCoordinatorDirty] = useState(false);
+  const [taskReviewerDirty, setTaskReviewerDirty] = useState(false);
   const path = `workspaces/${incoming.id}`;
   const state = useRecordEditor({
     recordName: "workspace settings",
@@ -47,7 +52,7 @@ export function WorkspaceEditor({
     path: () => path,
     onDirty,
     saved,
-    otherDirty: workerDirty || coordinatorDirty,
+    otherDirty: workerDirty || coordinatorDirty || taskReviewerDirty,
   });
   const {
     element: editor,
@@ -65,7 +70,7 @@ export function WorkspaceEditor({
       <DetailTabs
         id={id}
         title="Workspace settings"
-        tabs={["general", "coordinator", "workers"]}
+        tabs={["general", "coordinator", "workers", "reviewers"]}
         active={tab}
         change={(value) =>
           void navigate(
@@ -157,6 +162,24 @@ export function WorkspaceEditor({
           refresh={incoming}
           onDirty={setWorkerDirty}
         />
+      </div>
+      <div
+        role="tabpanel"
+        id={`${id}-reviewers`}
+        aria-labelledby={`${id}-reviewers-tab`}
+        hidden={tab !== "reviewers"}
+      >
+        <ContentStack space="section">
+          <DetailSection title="Task reviewer">
+            <ReviewerSettings
+              workspaceId={incoming.id}
+              purpose="task"
+              refresh={incoming}
+              onDirty={setTaskReviewerDirty}
+              active={tab === "reviewers"}
+            />
+          </DetailSection>
+        </ContentStack>
       </div>
     </section>
   );

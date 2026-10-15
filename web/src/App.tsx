@@ -910,6 +910,7 @@ function WorkspaceResource({
           />
         ) : incoming && selectedProject ? (
           <TaskDetail
+            workspaceId={board.workspace.id}
             key={selection.id}
             task={incoming as Task}
             board={

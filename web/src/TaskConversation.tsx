@@ -519,6 +519,7 @@ export function TaskConversation({
                 <QuestionPrompt
                   question={currentQuestion.data.question}
                   context={currentQuestion.data.context}
+                  reviewContext={!!currentQuestion.data.origin_review_id}
                   recommendation={currentQuestion.data.recommendation}
                   verificationUrl={currentQuestion.data.verification_url}
                 />
@@ -637,6 +638,10 @@ export function TaskConversation({
                                       <QuestionPrompt
                                         question={currentQuestion.data.question}
                                         context={currentQuestion.data.context}
+                                        reviewContext={
+                                          !!currentQuestion.data
+                                            .origin_review_id
+                                        }
                                         verificationUrl={
                                           currentQuestion.data.verification_url
                                         }

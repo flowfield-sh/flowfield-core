@@ -133,7 +133,12 @@ def test_standalone_review_is_idempotent_and_grants_no_delivery(tmp_path):
         == decided
     )
     service.results.process("harbor")
-    assert current(service) == result and current(service).approved_at is None
+    presented = current(service)
+    assert presented.model_dump(exclude={"independent_review"}) == result.model_dump(
+        exclude={"independent_review"}
+    )
+    assert presented.independent_review.summary == verdict().summary
+    assert presented.approved_at is None
     assert service.workspace.task("harbor", run.task_id) == task_before
     assert git(repo, "rev-parse", "HEAD") == before
     with service.workspace.connection() as db:

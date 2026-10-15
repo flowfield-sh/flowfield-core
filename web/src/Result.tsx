@@ -169,6 +169,20 @@ export function Result({
               </Disclosure>
             )}
           </Section>
+          {version.independent_review?.summary && (
+            <Section title="Independent review">
+              {version.independent_review.status === "stale" && (
+                <p>
+                  This assessment is outdated. Changed inputs need a fresh
+                  review.
+                </p>
+              )}
+              <p>{version.independent_review.summary}</p>
+              <Disclosure summary="Review evidence">
+                <Markdown>{version.independent_review.evidence}</Markdown>
+              </Disclosure>
+            </Section>
+          )}
           <Section
             title={version.completion === "code" ? "Delivery" : "Report"}
           >

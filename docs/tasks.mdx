@@ -65,6 +65,18 @@ Suggested answers fill the composer; selecting one does not send it. Responses s
 
 Saved worker answers need no separate human apply step. Once assigned to a continuation, the answer remains in history; send a correction as new input rather than replacing it. Answering or retrying never enables a paused queue. The same actions are available from the task, and the Coordinator can help sort the Inbox and follow up. **Needs me** contains only unresolved requests. Once resolved, an item moves to compact **History**; if you still have an unsent response, it remains bound to that record in History until you discard it. Approved results with blocked delivery remain actionable as recovery requests.
 
+## Independent task review
+
+In **Workspace settings → Reviewers**, choose the native harness and model for **Task reviewer**. Assessment defaults on, but no model is selected automatically. A task's **Overview → Task reviewer settings** can override the workspace choice or reset to inheritance. There is no project or milestone-to-task inheritance.
+
+New complete code candidates receive an independent assessment against their exact assignment, sources, destination and saved validation. Reviews share worker capacity and respect the queue: pausing prevents new rounds, while an active round continues. Existing completed results are not automatically scheduled when you upgrade. The reviewer inspects the saved candidate and validation evidence; this review does not execute project checks itself.
+
+Findings appear in Overview, Activity and the exact result. The reviewer can ask the implementer a scoped clarification, request an in-scope correction, or send an intent, scope or access question to Inbox. Saved human answers continue the review without another apply step. A correction produces a new candidate and fresh independent assessment. Changes to the agreement or authority require Coordinator reconciliation; an answer does not silently amend them. Waiting for an answer releases capacity.
+
+**Stop review** preserves the candidate and findings. Failed or stopped reviews require explicit **Retry review**. If cleanup is uncertain, inspect **Review rounds and diagnostics**, confirm the retained processes have stopped, then retry. Uncertain execution keeps its capacity reserved. Changed inputs make an assessment outdated and retain its evidence; questions belonging to that assessment are withdrawn with their saved answers preserved.
+
+An independent approval recommends the candidate. You still approve and integrate the exact result below; assessment does not grant delivery authority. Stop an active review before making a manual result decision. Milestone verification and promotion retain their existing explicit preparation and human review.
+
 ## Review an exact result
 
 Read the worker report, limitations and checks against the task's success criteria. Project checks and worker-authored tests are useful evidence; try representative inputs or ask the Coordinator to investigate gaps before deciding what ships.

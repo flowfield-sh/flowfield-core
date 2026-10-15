@@ -150,9 +150,11 @@ export function usePage<
     const count = loaded.current.path === url ? loaded.current.count : 0;
     // Publish the refreshed window together, so later-page editors never
     // unmount briefly while the first page is being revalidated.
-    while (page.items.length < count && page.next_offset != null) {
+    while (page.items.length < count) {
+      const cursor = page.next_cursor ?? page.next_before ?? page.next_offset;
+      if (cursor == null) break;
       const next = await request<P>(
-        `${url}${url.includes("?") ? "&" : "?"}offset=${page.next_offset}`,
+        `${url}${url.includes("?") ? "&" : "?"}${page.next_offset != null ? "offset" : "before"}=${cursor}`,
         "GET",
         undefined,
         signal,
@@ -187,6 +189,11 @@ export function usePage<
     const pending = new AbortController();
     more.current = pending;
     setLoadingMore(true);
+    // A live refresh can cancel this read. Keep the requested window so that
+    // refresh completes the user's pagination instead of discarding the click.
+    if (refreshLoaded) {
+      loaded.current = { path, count: (data?.items.length ?? 0) + 1 };
+    }
     try {
       const page = await request<P>(
         `${path}${path.includes("?") ? "&" : "?"}${data?.next_offset != null ? "offset" : "before"}=${cursor}`,

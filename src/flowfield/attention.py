@@ -114,6 +114,7 @@ WITH scope_projects AS (SELECT id FROM projects WHERE id=:project), run_items AS
              WHEN EXISTS (SELECT 1 FROM task_replies q WHERE q.project_id=v.project_id
                  AND q.task_id=v.task_id AND json_extract(q.data,'$.status')='pending')
                  THEN 'waiting'
+             /* review ownership */
              WHEN v.status IN ('ready','blocked','stale','cancelled') THEN 'action'
              WHEN v.status='delivered' AND json_extract(v.data,'$.completion')='code'
                 AND NOT (SELECT json_extract(data,'$.code_available') FROM runs WHERE id=v.run_id)
@@ -193,7 +194,7 @@ _WORKSPACE_PROJECTION = (
 def workspace_attention_counts(db: sqlite3.Connection, workspace_id: str) -> dict[str, int]:
     return dict(
         db.execute(
-            _WORKSPACE_PROJECTION
+            review_projection(db, _WORKSPACE_PROJECTION)
             + "SELECT bucket,count(*) FROM items WHERE bucket IS NOT NULL GROUP BY bucket",
             {"workspace": workspace_id, "project": None},
         ).fetchall()
@@ -205,7 +206,8 @@ def workspace_attention_work(db: sqlite3.Connection, workspace_id: str) -> list[
     return [
         row[0]
         for row in db.execute(
-            _WORKSPACE_PROJECTION + "SELECT DISTINCT task_key FROM items WHERE bucket='action' "
+            review_projection(db, _WORKSPACE_PROJECTION)
+            + "SELECT DISTINCT task_key FROM items WHERE bucket='action' "
             "AND task_key IS NOT NULL ORDER BY task_key",
             {"workspace": workspace_id, "project": None},
         )
@@ -215,7 +217,7 @@ def workspace_attention_work(db: sqlite3.Connection, workspace_id: str) -> list[
 def actionable_attention(db: sqlite3.Connection, project_id: str) -> Iterator[sqlite3.Row]:
     """Stream the complete actionable projection for transactional event observation."""
     yield from db.execute(
-        _PROJECTION + "SELECT * FROM items WHERE bucket='action'",
+        review_projection(db, _PROJECTION) + "SELECT * FROM items WHERE bucket='action'",
         {"project": project_id},
     )
 
@@ -224,7 +226,7 @@ def attention_counts(db: sqlite3.Connection, project_id: str) -> dict[str, int]:
     """The board badge and inbox use exactly the same current-work projection."""
     return dict(
         db.execute(
-            _WITH_DOCUMENTS
+            review_projection(db, _WITH_DOCUMENTS)
             + "SELECT bucket,count(*) FROM items WHERE bucket IS NOT NULL GROUP BY bucket",
             {"project": project_id},
         ).fetchall()
@@ -252,7 +254,9 @@ def attention_page(
             workspace._project(db, project_id)
         else:
             raise ValueError("An attention scope is required")
-        projection = _WORKSPACE_PROJECTION if workspace_id is not None else _WITH_DOCUMENTS
+        projection = review_projection(
+            db, _WORKSPACE_PROJECTION if workspace_id is not None else _WITH_DOCUMENTS
+        )
         args = {
             "project": project_id,
             "workspace": workspace_id,
@@ -362,3 +366,15 @@ def attention_page(
             next_offset=offset + limit if offset + limit < total else None,
             total=total,
         )
+
+
+def review_projection(db: sqlite3.Connection, projection: str) -> str:
+    from flowfield.storage import version
+
+    clause = ""
+    if version(db) >= 75:
+        clause = """WHEN v.status='ready' AND EXISTS (
+            SELECT 1 FROM task_reviews review WHERE review.project_id=v.project_id
+            AND review.task_id=v.task_id
+            AND review.status IN ('queued','preparing','running','waiting')) THEN 'waiting'"""
+    return projection.replace("/* review ownership */", clause)

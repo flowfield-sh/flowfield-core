@@ -87,8 +87,8 @@ def add_execution_tools(
     @mcp.tool(annotations=write)
     async def correct_result(project_id: str, result_id: str, request: RunAction) -> dict[str, Any]:
         """Request one correction using configured worker model/effort and queue capacity.
-        Carries both code inputs and conflict/check evidence. Two correction attempts per task;
-        no automatic retry and no inherited approval. Reconcile changed scope first.
+        Carries both code inputs and conflict/check evidence, without inherited approval.
+        Reconcile changed scope first.
         """
         return receipt(
             (

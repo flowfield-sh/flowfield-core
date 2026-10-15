@@ -54,6 +54,7 @@ from flowfield.mcp import create_mcp
 from flowfield.notification_api import NotificationService, notification_router
 from flowfield.question_api import question_router
 from flowfield.result_api import result_router
+from flowfield.reviewer_api import reviewer_router
 from flowfield.state import data_path
 from flowfield.supervisor import Supervisor
 from flowfield.workspace_api import workspace_router
@@ -259,6 +260,7 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
     app.include_router(attachment_router(workspace, workspace_scope=True))
     app.include_router(integration_router(supervisor))
     app.include_router(result_router(supervisor))
+    app.include_router(reviewer_router(supervisor))
     app.include_router(inspection_router(lambda: supervisor().workspace))
     app.include_router(notification_router(lambda: app.state.notifications))
 

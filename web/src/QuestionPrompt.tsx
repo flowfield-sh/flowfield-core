@@ -1,4 +1,4 @@
-import { ContentStack } from "./DetailLayout";
+import { ContentStack, Disclosure } from "./DetailLayout";
 import { Markdown } from "./Markdown";
 import { WorkspaceLink } from "./WorkspaceLink";
 
@@ -8,23 +8,32 @@ export function QuestionPrompt({
   context,
   recommendation,
   verificationUrl,
+  reviewContext = false,
 }: {
   question: string;
   context: string;
   recommendation?: string;
   verificationUrl?: string | null;
+  reviewContext?: boolean;
 }) {
   return (
     <ContentStack space="section" className="question-prompt">
       <h3 className="detail-title">{question}</h3>
       {(context || recommendation) && (
         <ContentStack>
-          {context && <Markdown>{context}</Markdown>}
+          {context && !reviewContext && <Markdown>{context}</Markdown>}
           {recommendation && (
             <ContentStack space="tight">
-              <strong>Suggested approach</strong>
+              <strong>
+                {reviewContext ? "Decision needed" : "Suggested approach"}
+              </strong>
               <Markdown>{recommendation}</Markdown>
             </ContentStack>
+          )}
+          {context && reviewContext && (
+            <Disclosure summary="Review evidence">
+              <Markdown>{context}</Markdown>
+            </Disclosure>
           )}
         </ContentStack>
       )}

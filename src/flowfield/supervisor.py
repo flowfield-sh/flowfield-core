@@ -61,6 +61,9 @@ class Supervisor:
         self.workspace, self.execution = workspace, Execution(workspace)
         self.integrations = Integrations(workspace)
         self.results = Results(workspace)
+        from flowfield.review_execution import ReviewExecution
+
+        self.review_execution = ReviewExecution(self)
         self.setup_validation = SetupValidation(workspace)
         from flowfield.worker_checks import WorkerChecks
 
@@ -87,6 +90,7 @@ class Supervisor:
             with self.workspace.connection():
                 pass
             self.execution.restart()
+            self.review_execution.reviews.restart()
             self.permissions.restart()
             self.coordinator.store.restart()
             self.catalogs.restart()
@@ -212,6 +216,8 @@ class Supervisor:
             await asyncio.sleep(0.5)
 
     async def _schedule_once(self) -> None:
+        if self.workspace.schema_version >= 75:
+            await self.review_execution.schedule()
         # Repository preparation remains project-local. A failed repository cannot
         # consume the shared queue; fresh claims follow workspace board order.
         ready: dict[str, Path] = {}
@@ -718,6 +724,15 @@ class Supervisor:
                         run.project_id, run.id, RunAction(expected_revision=run.revision)
                     )
         if self.jobs:
+            for identity in list(self.jobs):
+                with self.workspace.connection() as db:
+                    row = db.execute(
+                        "SELECT project_id FROM task_reviews WHERE id=?", (identity,)
+                    ).fetchone()
+                if row:
+                    review = self.review_execution.reviews.get(row[0], identity)
+                    with contextlib.suppress(ApplicationError):
+                        await self.review_execution.stop(row[0], identity, review.revision)
             await asyncio.gather(*list(self.jobs.values()), return_exceptions=True)
         if self.delivery_jobs:
             await asyncio.gather(*list(self.delivery_jobs.values()), return_exceptions=True)

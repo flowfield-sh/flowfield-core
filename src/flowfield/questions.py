@@ -102,6 +102,7 @@ class Question(QuestionCreate):
     answer: str | None = None
     answer_count: int = 0
     origin_run_id: str | None = None
+    origin_review_id: str | None = None
     continuation_run_id: str | None = None
     consumed_answer_revision: int | None = None
     correction_question_id: str | None = None
@@ -197,7 +198,8 @@ class Questions:
             "needs_you_count": attention_counts(db, project_id).get("action", 0),
             "awaiting_application_count": db.execute(
                 "SELECT count(*) FROM questions WHERE project_id=? AND status='answered' "
-                "AND json_extract(data,'$.origin_run_id') IS NULL",
+                "AND json_extract(data,'$.origin_run_id') IS NULL "
+                "AND json_extract(data,'$.origin_review_id') IS NULL",
                 (project_id,),
             ).fetchone()[0],
         }
@@ -353,6 +355,7 @@ class Questions:
         request: QuestionCreate,
         *,
         origin_run_id: str | None = None,
+        origin_review_id: str | None = None,
     ) -> Question:
         self.workspace._project(db, project_id)
         task = self.workspace._task(db, project_id, request.task_id) if request.task_id else None
@@ -386,6 +389,7 @@ class Questions:
             **normalized.model_dump(),
             project_id=project_id,
             origin_run_id=origin_run_id,
+            origin_review_id=origin_review_id,
             task_key=task.key if task else None,
             affected_task_keys=[item.key for item in affected],
             created_at=stamp,
@@ -408,7 +412,7 @@ class Questions:
         current = self._get(db, project_id, identity)
         # A replay of the exact preceding write is a receipt, not another continuation.
         if (
-            current.origin_run_id
+            (current.origin_run_id or current.origin_review_id)
             and current.answer == request.answer
             and request.expected_revision
             in (
@@ -419,7 +423,7 @@ class Questions:
         ):
             current.delivery = question_delivery(db, project_id, identity)
             return current
-        if current.continuation_run_id:
+        if current.continuation_run_id or current.consumed_answer_revision:
             raise ApplicationError(
                 "answer_consumed",
                 "This answer is already assigned to work. Send a correction as new input; "
@@ -443,7 +447,7 @@ class Questions:
             db,
             question,
             "Answer sent."
-            if current.origin_run_id
+            if current.origin_run_id or current.origin_review_id
             else "Answer saved; coordinator response needed.",
         )
         question.delivery = question_delivery(db, project_id, identity)
@@ -496,7 +500,7 @@ class Questions:
     def retract_answer(self, project_id: str, identity: str, request: AnswerRetract) -> Question:
         with self.workspace.connection(write=True, project_id=project_id) as db:
             current = self._get(db, project_id, identity)
-            if current.origin_run_id:
+            if current.origin_run_id or current.origin_review_id:
                 raise ApplicationError(
                     "managed_answer", "Edit pending input instead of retracting it.", 409
                 )
@@ -512,7 +516,7 @@ class Questions:
     def follow_up(self, project_id: str, identity: str, request: QuestionFollowUp) -> Question:
         with self.workspace.connection(write=True, project_id=project_id) as db:
             current = self._get(db, project_id, identity)
-            if current.origin_run_id:
+            if current.origin_run_id or current.origin_review_id:
                 raise ApplicationError(
                     "managed_answer", "Ask a new question; preserve managed input history.", 409
                 )
@@ -533,7 +537,7 @@ class Questions:
 
         with self.workspace.connection(write=True, project_id=project_id) as db:
             current = self._get(db, project_id, identity)
-            if current.origin_run_id:
+            if current.origin_run_id or current.origin_review_id:
                 raise ApplicationError(
                     "managed_answer",
                     "The service delivers this task answer. Reconcile changed scope explicitly.",
