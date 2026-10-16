@@ -102,6 +102,39 @@ def test_workspace_description_reads_are_bounded_and_revision_checked(tmp_path):
     asyncio.run(exercise())
 
 
+def test_workspace_read_exposes_its_reviewer_defaults_without_configuration_authority(tmp_path):
+    from flowfield.agent_models import AgentChoice
+    from flowfield.reviewer_settings import ReviewerEdit, Reviewers
+
+    store = Workspace(tmp_path / "state")
+    spaces = Workspaces(store)
+    space = spaces.create(WorkspaceCreate(name="Product"))
+    other = spaces.create(WorkspaceCreate(name="Other"))
+    reviewers = Reviewers(store)
+    reviewers.configure(
+        space.id,
+        "task",
+        ReviewerEdit(expected_revision=1, enabled=True, selection=AgentChoice(model="fixture")),
+    )
+    reviewers.configure(other.id, "milestone", ReviewerEdit(expected_revision=1, enabled=False))
+
+    async def exercise():
+        service = Supervisor(store)
+        grant = await workspace_scope(service, space.id)
+        canonical = create_mcp(lambda: store, lambda: service)
+        scoped = (await grant.call("get_workspace", {})).structuredContent
+        shared = await canonical.call_tool("get_workspace", {"workspace_id": space.id})
+        assert shared.structuredContent["reviewers"] == scoped["reviewers"]
+        assert scoped["reviewers"]["task"]["selection"]["model"] == "fixture"
+        assert scoped["reviewers"]["task"]["revision"] == 2
+        assert scoped["reviewers"]["milestone"]["enabled"]
+        assert scoped["reviewers"]["milestone"]["selection"] is None
+        assert "configure_reviewers" not in grant.tools
+        assert reviewers.get(other.id, "milestone").enabled is False
+
+    asyncio.run(exercise())
+
+
 def test_workspace_tools_before_adoption_and_explicit_cross_project_planning(tmp_path):
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)

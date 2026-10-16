@@ -42,10 +42,16 @@ class MilestoneVerdict(Record):
     action: Literal["report", "ask_human"]
     summary: str = Field(min_length=1, max_length=2000)
     evidence: str = Field(min_length=1, max_length=8000)
-    request: str = Field(default="", max_length=8000)
+    request: str = Field(
+        default="",
+        max_length=8000,
+        description="Required for questions or corrections: state the question or bounded change.",
+    )
     report: VerificationReport | None = None
     correction_task_id: str | None = None
-    correction_check: int | None = Field(default=None, ge=1, le=50)
+    correction_check: int | None = Field(
+        default=None, ge=1, le=50, description="One-based number of the failed/unverified check."
+    )
     dependency_assessments: list[DependencyAssessment] = Field(
         default_factory=list, max_length=1000
     )

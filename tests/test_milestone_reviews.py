@@ -101,12 +101,22 @@ class OutcomeReviewer(FakeWorker):
                 "evidence": "The agreed criterion leaves the boundary unclear.",
                 "request": "Clarify the existing intent or reconcile the milestone.",
             }
-        elif self.action == "correct":
+        elif self.action in ("correct", "recover_correction"):
             decision.update(
                 correction_task_id=value["tasks"][0]["task_id"],
                 correction_check=1,
                 request="Correct the feature text to meet its existing agreement.",
             )
+            if self.action == "recover_correction":
+                incomplete = {key: val for key, val in decision.items() if key != "request"}
+                # FakeWorker asserts successful MCP replies; inspect the rejected reply
+                # before retrying within this same bound review attempt.
+                with pytest.raises(
+                    AssertionError, match="State the question or bounded correction"
+                ) as error:
+                    await self.on_tool("submit_milestone_review", incomplete)
+                assert "input_value" not in str(error.value)
+                assert "Inspected the combined" not in str(error.value)
         result = await self.on_tool("submit_milestone_review", decision)
         assert "retained" in result.lower(), result
         return {"status": "completed"}
@@ -248,11 +258,12 @@ def test_human_question_releases_capacity_and_resumes_saved_owner_once(tmp_path,
     assert len(reviews.attempts("harbor", review.id)["items"]) == 2
 
 
+@pytest.mark.parametrize("action", ["correct", "recover_correction"])
 def test_failed_check_schedules_existing_contribution_correction_without_rewriting_history(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, action
 ):
     service, _, _, milestone, delivery, result = fixture(tmp_path)
-    install(monkeypatch, "correct")
+    install(monkeypatch, action)
     original = service.workspace.task("harbor", result.task_id)
     asyncio.run(step(service))
     value = latest(service, milestone)

@@ -50,6 +50,7 @@ from flowfield.questions import (
     QuestionWithdraw,
 )
 from flowfield.reads import MAX_LIMIT, ContextReads, excerpt, receipt
+from flowfield.reviewer_settings import Reviewers, ReviewPurpose
 from flowfield.search import Entity, History, Search
 from flowfield.supervisor import Supervisor
 from flowfield.verification_models import VerificationPrepare
@@ -113,8 +114,23 @@ def create_mcp(
 
     @mcp.tool(annotations=read)
     async def get_workspace(workspace_id: Identifier) -> CallToolResult:
-        """Read the workspace's shared purpose and current revision."""
-        return await invoke(lambda: excerpt(Workspaces(workspace()).get(workspace_id).model_dump()))
+        """Read shared purpose, current revision and human-configured reviewer defaults."""
+
+        def load() -> dict[str, Any]:
+            store = workspace()
+            reviewers = Reviewers(store)
+            purposes: tuple[ReviewPurpose, ...] = ("task", "milestone")
+            return {
+                **excerpt(Workspaces(store).get(workspace_id).model_dump()),
+                "reviewers": {
+                    purpose: reviewers.get(workspace_id, purpose).model_dump(
+                        include={"revision", "enabled", "selection"}
+                    )
+                    for purpose in purposes
+                },
+            }
+
+        return await invoke(load)
 
     @mcp.tool(annotations=read)
     async def get_workspace_text(

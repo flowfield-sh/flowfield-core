@@ -148,7 +148,9 @@ class MilestoneReviewExecution(NativeReviewExecution[MilestoneReview]):
                     description=(
                         "Report all checks and full criteria coverage, or ask the human about "
                         "intent/access. A failed check may request one bounded correction to an "
-                        "existing contribution. No criteria, policy or promotion authority is "
+                        "existing contribution: provide correction_task_id, the one-based "
+                        "correction_check and request containing the bounded change. "
+                        "No criteria, policy or promotion authority is "
                         "granted."
                     ),
                     inputSchema=MilestoneVerdict.model_json_schema(),

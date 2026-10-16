@@ -3785,7 +3785,10 @@ export interface components {
     };
     /** CriterionFinding */
     CriterionFinding: {
-      /** Check */
+      /**
+       * Check
+       * @description One-based number in the prepared checks list.
+       */
       check: number;
       /**
        * Verdict
@@ -5009,13 +5012,17 @@ export interface components {
       evidence: string;
       /**
        * Request
+       * @description Required for questions or corrections: state the question or bounded change.
        * @default
        */
       request: string;
       report: components["schemas"]["VerificationReport"] | null;
       /** Correction Task Id */
       correction_task_id: string | null;
-      /** Correction Check */
+      /**
+       * Correction Check
+       * @description One-based number of the failed/unverified check.
+       */
       correction_check: number | null;
       /** Dependency Assessments */
       dependency_assessments: components["schemas"]["DependencyAssessment"][];

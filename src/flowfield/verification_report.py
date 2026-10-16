@@ -10,7 +10,7 @@ class VerificationInput(BaseModel):
 
 
 class CriterionFinding(VerificationInput):
-    check: int = Field(ge=1)
+    check: int = Field(ge=1, description="One-based number in the prepared checks list.")
     verdict: Literal["passed", "failed", "unverified"]
     evidence: str = Field(min_length=1, max_length=8000)
 

@@ -84,8 +84,12 @@ class ScopedTools:
                 return await self._call(name, arguments)
         except ApplicationError as error:
             return failure(error.code, error.message)
-        except ValidationError:
-            return failure("invalid_request", "Tool input does not match its schema.")
+        except ValidationError as error:
+            details = "; ".join(
+                f"{'.'.join(map(str, item['loc'])) or 'request'}: {item['msg']}"
+                for item in error.errors(include_input=False, include_context=False)[:5]
+            )
+            return failure("invalid_request", details[:2000])
 
     def revoke(self) -> None:
         # Already-running operations remain owned by their executor; revoking access
