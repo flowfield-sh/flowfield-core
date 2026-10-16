@@ -1095,12 +1095,10 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
       page.getByRole("region", { name: "Proposed result", exact: true }),
     ).toContainText("A detailed finding.");
     await expect.poll(reportAtBottom).toBe(true);
-    await page
-      .getByRole("button", {
-        name: /^(Close editor|Back)$/,
-        exact: true,
-      })
-      .click();
+    await expect(
+      page.getByRole("button", { name: "Back", exact: true }),
+    ).toBeDisabled();
+    await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   }
   // Board opens still follow late layout, while an explicit timestamp targets the entry.
   await page.goto("/projects/outcome-report");

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Disclosure } from "./DetailLayout";
 import { Markdown } from "./Markdown";
 import { request } from "./workspace";
-import { Button } from "@/components/ui/button";
+import { LoadMore } from "./LoadMore";
 
 // Long public replies remain saved even when the activity preview is abridged.
 // Reuse the revision-checked full-text endpoint; page only on explicit demand.
@@ -60,14 +60,14 @@ export function CoordinatorFullReply({
         <p className="detail-metadata">Some original output was not saved.</p>
       )}
       {offset !== null && (
-        <Button
+        <LoadMore
           size="sm"
           variant="outline"
           disabled={busy}
           onClick={() => void load()}
         >
           {busy ? "Loading…" : error ? "Retry" : "Load more"}
-        </Button>
+        </LoadMore>
       )}
     </Disclosure>
   );

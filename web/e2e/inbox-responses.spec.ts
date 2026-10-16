@@ -116,6 +116,14 @@ test("mixed Inbox history opens exact permission records without response contro
   ).toHaveCount(0);
   await page.screenshot({ path: info.outputPath("history-light.png") });
   await history.getByRole("link", { name: /Run isolated checks/ }).click();
+  const tabs = page.getByRole("tablist", { name: "Open resources" });
+  await expect(
+    tabs.getByRole("tab", { name: "Tool permission", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await tabs.getByRole("tab", { name: /^Inbox/ }).click();
+  await expect(history).toBeVisible();
+  await expect(page).not.toHaveURL(/permission=/);
+  await tabs.getByRole("tab", { name: "Tool permission", exact: true }).click();
   const dialog = page.getByRole("region", {
     name: "Tool permission",
     exact: true,

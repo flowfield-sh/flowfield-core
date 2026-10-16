@@ -1,3 +1,4 @@
+import { ResourceRetry } from "./ResourceRetry";
 import type { components } from "./api-schema";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -40,11 +41,7 @@ export function RevisionHistory({
           className="project-list document-revisions"
           aria-label={`${kind} revisions`}
         >
-          {resource.error && (
-            <Button size="sm" variant="outline" onClick={resource.retry}>
-              Retry history
-            </Button>
-          )}
+          <ResourceRetry resources={[resource]}>Retry history</ResourceRetry>
           {!resource.data && !resource.error && <p>Loading history…</p>}
           {resource.data?.items.map((item) => (
             <WorkspaceLink
@@ -74,9 +71,14 @@ export function RevisionHistory({
             </WorkspaceLink>
           ))}
         </nav>
-        <div className="actions">
+        <div className="pagination-controls actions">
           {before && (
-            <Button size="sm" variant="outline" onClick={() => setBefore(null)}>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={resource.loading}
+              onClick={() => setBefore(null)}
+            >
               Latest revisions
             </Button>
           )}
@@ -84,6 +86,7 @@ export function RevisionHistory({
             <Button
               size="sm"
               variant="outline"
+              disabled={resource.loading}
               onClick={() => setBefore(Number(resource.data!.next_cursor))}
             >
               Older revisions

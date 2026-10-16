@@ -231,9 +231,14 @@ function DocumentList({
             </WorkspaceLink>
           ))}
       </div>
-      <div className="actions">
+      <div className="pagination-controls actions">
         {after && (
-          <Button size="sm" variant="outline" onClick={() => setAfter(null)}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={resource.loading}
+            onClick={() => setAfter(null)}
+          >
             First documents
           </Button>
         )}
@@ -241,6 +246,7 @@ function DocumentList({
           <Button
             size="sm"
             variant="outline"
+            disabled={resource.loading}
             onClick={() => setAfter(String(resource.data!.next_cursor))}
           >
             More documents

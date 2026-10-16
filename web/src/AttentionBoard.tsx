@@ -1,3 +1,4 @@
+import { LoadMore } from "./LoadMore";
 import { useRetainedState } from "./retainedState";
 import { ResourceNavigation } from "./WorkspaceTabs";
 import type { DirtyCallback } from "./retainedState";
@@ -17,6 +18,7 @@ import { taskHref } from "./navigation";
 import { QuestionDetail, questionHref } from "./Inbox";
 import { label, type Task, type WorkspaceBoard } from "./workspace";
 import { WorkState } from "./WorkState";
+import { WorkIdentity } from "./WorkIdentity";
 import { PermissionCard } from "./AgentPermissions";
 import { ContentStack, Disclosure } from "./DetailLayout";
 import { DetailHeader, DetailTabs } from "./Presentation";
@@ -321,84 +323,93 @@ function InboxList({
             <WorkspaceLink to="?inbox=history">History</WorkspaceLink>.
           </p>
         )}
-      <ol
-        className={
-          tab === "needs_me" ? "request-list" : "request-list inbox-history"
-        }
-      >
-        {items.map((item, index) => (
-          <li
-            key={identityOf(item)}
-            onFocusCapture={() => {
-              focused.current = { id: identityOf(item), index };
-            }}
-          >
-            {tab === "needs_me" && item.kind === "permission" ? (
-              <PermissionCard
-                projectId={item.project_id ?? undefined}
-                workspaceId={item.project_id ? undefined : workspaceId}
-                id={item.id}
-                taskKey={item.task_key}
-                refresh={refresh}
-              />
-            ) : tab === "needs_me" ? (
-              <RequestCard
-                item={item}
-                workspaceId={workspaceId}
-                board={board}
-                refresh={refresh}
-                markDirty={markDirty}
-              />
-            ) : (
-              <ContentStack>
-                <WorkspaceLink
-                  className="inbox-history-row"
-                  to={
-                    item.kind === "permission"
-                      ? `/workspaces/${workspaceId}/inbox?inbox=history&permission=${encodeURIComponent(item.id)}${item.project_id ? `&permission_project=${encodeURIComponent(item.project_id)}` : ""}${projectId ? `&project_id=${encodeURIComponent(projectId)}` : ""}`
-                      : itemHref(item)
-                  }
-                >
-                  <span>
-                    <WorkState state={item.state} indicatorOnly decorative />
-                  </span>
-                  <span className="work-navigation-key">
-                    {item.task_key ?? label(item.kind)}
-                  </span>
-                  <span className="inbox-history-title">{item.title}</span>
-                  <span className="inbox-history-outcome">
-                    {item.next_action ??
-                      item.state?.label ??
-                      label(item.status)}
-                  </span>
-                  <span className="detail-metadata">
-                    <Timestamp date={item.updated_at} />
-                  </span>
-                </WorkspaceLink>
-                {drafts[identityOf(item)] && (
-                  <Disclosure summary="Unsent response" open>
-                    <RequestCard
-                      item={item}
-                      workspaceId={workspaceId}
-                      board={board}
-                      refresh={refresh}
-                      markDirty={markDirty}
+      {items.length > 0 && (
+        <ol
+          className={
+            tab === "needs_me"
+              ? "request-list"
+              : "request-list inbox-history work-resource-list"
+          }
+        >
+          {items.map((item, index) => (
+            <li
+              key={identityOf(item)}
+              onFocusCapture={() => {
+                focused.current = { id: identityOf(item), index };
+              }}
+            >
+              {tab === "needs_me" && item.kind === "permission" ? (
+                <PermissionCard
+                  projectId={item.project_id ?? undefined}
+                  workspaceId={item.project_id ? undefined : workspaceId}
+                  id={item.id}
+                  taskKey={item.task_key}
+                  refresh={refresh}
+                />
+              ) : tab === "needs_me" ? (
+                <RequestCard
+                  item={item}
+                  workspaceId={workspaceId}
+                  board={board}
+                  refresh={refresh}
+                  markDirty={markDirty}
+                />
+              ) : (
+                <ContentStack>
+                  <WorkspaceLink
+                    className="work-navigation-row inbox-history-row"
+                    to={
+                      item.kind === "permission"
+                        ? `/workspaces/${workspaceId}/inbox?inbox=history&permission=${encodeURIComponent(item.id)}${item.project_id ? `&permission_project=${encodeURIComponent(item.project_id)}` : ""}${projectId ? `&project_id=${encodeURIComponent(projectId)}` : ""}`
+                        : itemHref(item)
+                    }
+                  >
+                    <WorkIdentity
+                      state={
+                        item.state ?? {
+                          label: label(item.status),
+                          tone: "idle",
+                        }
+                      }
+                      itemKey={item.task_key}
+                      title={item.title}
                     />
-                  </Disclosure>
-                )}
-              </ContentStack>
-            )}
-          </li>
-        ))}
-      </ol>
+                    <span className="inbox-history-metadata">
+                      <span className="inbox-history-outcome">
+                        {item.next_action ??
+                          item.state?.label ??
+                          label(item.status)}
+                      </span>
+                      <span className="detail-metadata">
+                        <Timestamp date={item.updated_at} />
+                      </span>
+                    </span>
+                  </WorkspaceLink>
+                  {drafts[identityOf(item)] && (
+                    <Disclosure summary="Unsent response" open>
+                      <RequestCard
+                        item={item}
+                        workspaceId={workspaceId}
+                        board={board}
+                        refresh={refresh}
+                        markDirty={markDirty}
+                      />
+                    </Disclosure>
+                  )}
+                </ContentStack>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
       {page.data?.next_offset != null && (
-        <Button
+        <LoadMore
           variant="outline"
           disabled={page.loadingMore || page.loading}
           onClick={() => void page.older()}
         >
           Load more
-        </Button>
+        </LoadMore>
       )}
     </ContentStack>
   );

@@ -1,3 +1,4 @@
+import { LoadMore } from "./LoadMore";
 import { reportError } from "./requestFeedback";
 import { DetailSection } from "./DetailLayout";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -155,7 +156,7 @@ export default function CodeDiff({
       }
     >
       {files.error && (
-        <Button size="sm" onClick={() => setRetry(retry + 1)}>
+        <Button size="sm" variant="outline" onClick={() => setRetry(retry + 1)}>
           Retry
         </Button>
       )}
@@ -185,7 +186,7 @@ export default function CodeDiff({
               </Button>
             ))}
             {files.data.next_offset !== null && (
-              <Button
+              <LoadMore
                 size="sm"
                 variant="outline"
                 className="quiet"
@@ -193,13 +194,17 @@ export default function CodeDiff({
                 onClick={() => void more()}
               >
                 More files
-              </Button>
+              </LoadMore>
             )}
           </nav>
           <div key={selected} className="file-preview" aria-live="polite">
             {patch.loading && <p className="muted">Loading file…</p>}
             {patch.error && (
-              <Button size="sm" onClick={() => setRetry((v) => v + 1)}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setRetry((v) => v + 1)}
+              >
                 Retry file
               </Button>
             )}

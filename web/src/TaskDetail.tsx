@@ -1,7 +1,6 @@
 import { useParams } from "react-router";
 import { useContext } from "react";
 import { ResourceNavigation } from "./WorkspaceTabs";
-import { WorkState } from "./WorkState";
 import { SourceReferences } from "./SourceReferences";
 import type { DirtyCallback } from "./retainedState";
 import { useCallback, useEffect, useState } from "react";
@@ -9,7 +8,7 @@ import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { TaskLabels } from "./TaskLabels";
 import { DetailHeader, DetailTabs, DraftBadge } from "./Presentation";
 import { MilestoneBadge } from "./MilestoneBadge";
-import { Badge } from "@/components/ui/badge";
+import { WorkIdentity } from "./WorkIdentity";
 import { taskHref } from "./navigation";
 import { ExpandableMarkdown } from "./ExpandableMarkdown";
 import { BlockedBy } from "./TaskLinks";
@@ -55,11 +54,11 @@ export function TaskDetail({
     <section className="editor task-detail">
       <DetailHeader
         title={
-          <span className="entity-heading-identity">
-            <WorkState state={task.state} indicatorOnly />
-            <Badge variant="outline">{task.key}</Badge>
-            <span>{task.title}</span>
-          </span>
+          <WorkIdentity
+            state={task.state}
+            itemKey={task.key}
+            title={task.title}
+          />
         }
         close={close}
         closeLabel="Back"

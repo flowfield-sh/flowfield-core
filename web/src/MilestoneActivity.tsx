@@ -1,6 +1,6 @@
+import { LoadMore } from "./LoadMore";
 import { useContext, useEffect, useRef } from "react";
 import { useLocation, useSearchParams } from "react-router";
-import { Button } from "@/components/ui/button";
 import { ActivityEntry, ActivityBodyVisible } from "./ActivityEntry";
 import { ContentStack, DetailSection } from "./DetailLayout";
 import { OverlayFooter } from "./EntityOverlay";
@@ -192,19 +192,17 @@ export function MilestoneActivity({
         </WorkspaceLink>
       ))}
       {history.data?.next_cursor && (
-        <div className="actions">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={history.loadingMore}
-            onClick={() => {
-              scrolling.readingEarlier();
-              void history.older();
-            }}
-          >
-            Earlier activity
-          </Button>
-        </div>
+        <LoadMore
+          size="sm"
+          variant="outline"
+          disabled={history.loadingMore || history.loading}
+          onClick={() => {
+            scrolling.readingEarlier();
+            void history.older();
+          }}
+        >
+          Earlier activity
+        </LoadMore>
       )}
       {!history.data && !history.error && <p>Loading activity…</p>}
       <ol className="conversation-messages" aria-label="Milestone activity">

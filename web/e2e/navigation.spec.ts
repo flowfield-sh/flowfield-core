@@ -439,12 +439,10 @@ test("closing entity panes returns through history without duplicate collections
   await page
     .getByRole("link", { name: "HRT-1: Which scope?", exact: true })
     .click();
-  await page
-    .getByRole("button", {
-      name: /^(Close editor|Back)$/,
-      exact: true,
-    })
-    .click();
+  await expect(
+    page.getByRole("button", { name: "Back", exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(page).toHaveURL(inbox);
   await page.goBack();
   await expect(page).toHaveURL(/conversation\/question:scope:1$/);
@@ -473,6 +471,10 @@ test("closing entity panes returns through history without duplicate collections
     page.getByRole("region", { name: "Task details", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "Back", exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(page).toHaveURL(inbox);
   await openResource(page, "Tasks");
   await page
@@ -486,7 +488,8 @@ test("closing entity panes returns through history without duplicate collections
     })
     .click();
   await expect(page).toHaveURL(board);
-  // Direct links retain the collection fallback; explicit new tabs start fresh.
+  // A fresh browser entry retains the collection fallback; new work tabs start fresh.
+  await page.evaluate(() => sessionStorage.clear());
   await page.goto(`/projects/${id}/tasks/HRT-1`);
   await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page).toHaveURL(board);

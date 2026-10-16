@@ -5,7 +5,6 @@ import { ContentStack } from "./DetailLayout";
 import { SettingsCheckbox } from "./SettingsCheckbox";
 import { Button } from "@/components/ui/button";
 import { ResourceRetry } from "./ResourceRetry";
-import { Timestamp } from "./Timestamp";
 import type { DirtyCallback } from "./retainedState";
 
 type Policy = components["schemas"]["TaskIntegrationPolicyView"];
@@ -77,12 +76,6 @@ export function MilestoneIntegrationSettings({
             </div>
           </fieldset>
         </form>
-        {loaded?.updated_at && (
-          <p className="muted">
-            Policy revision {loaded.revision} ·{" "}
-            <Timestamp date={loaded.updated_at} />
-          </p>
-        )}
       </ContentStack>
     </section>
   );

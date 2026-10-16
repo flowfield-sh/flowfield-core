@@ -1,3 +1,4 @@
+import { LoadMore } from "./LoadMore";
 import { useRetainedState, retainDirty } from "./retainedState";
 import type { DirtyCallback } from "./retainedState";
 import { ArrowUp } from "lucide-react";
@@ -117,17 +118,18 @@ function PreviousAnswers({
             )}
           </div>
         ))}
-      {error && (
-        <Button
-          size="sm"
-          onClick={() => void read(page?.next_cursor ?? revision)}
-        >
-          Retry
-        </Button>
-      )}
+      <ResourceRetry
+        resources={[
+          {
+            error,
+            loading: busy,
+            retry: () => void read(page?.next_cursor ?? revision),
+          },
+        ]}
+      />
       {busy && <p>Loading…</p>}
       {page?.next_cursor && (
-        <Button
+        <LoadMore
           size="sm"
           variant="outline"
           className="quiet"
@@ -135,7 +137,7 @@ function PreviousAnswers({
           onClick={() => void read(page.next_cursor!)}
         >
           Older responses
-        </Button>
+        </LoadMore>
       )}
       {page &&
         !page.items.some((q) => q.status === "answered") &&
@@ -298,8 +300,7 @@ export function QuestionDetail({
       {error && (
         <Button
           size="sm"
-          variant="link"
-          className="text-button"
+          variant="outline"
           onClick={() => setRetry((v) => v + 1)}
         >
           Reload question

@@ -1,3 +1,5 @@
+import { ResourceRetry } from "./ResourceRetry";
+import { LoadMore } from "./LoadMore";
 import type { AdjacentContext } from "./AdjacentView";
 import { toast } from "sonner";
 import { reportError } from "./requestFeedback";
@@ -303,14 +305,14 @@ export function CoordinatorChat({
       >
         <div ref={content} className="content-stack" data-space="section">
           {cursor && (
-            <Button
+            <LoadMore
               size="sm"
               variant="outline"
               disabled={loadingEarlier}
               onClick={() => void older()}
             >
               Load earlier messages
-            </Button>
+            </LoadMore>
           )}
           {page?.welcome && cursor === null && (
             <article
@@ -415,11 +417,9 @@ export function CoordinatorChat({
         </div>
       </div>
       <div className="coordinator-composer content-stack">
-        {resource.error && (
-          <Button variant="link" onClick={() => setTick((n) => n + 1)}>
-            Retry loading messages
-          </Button>
-        )}
+        <ResourceRetry resources={[resource]}>
+          Retry loading messages
+        </ResourceRetry>
         {active?.status === "uncertain" && (
           <Alert>
             <AlertDescription>

@@ -76,7 +76,7 @@ test("task card entry stays on Overview and milestone status agrees across views
   const tone = await row.locator(".work-state").getAttribute("data-tone");
   await row.click();
   const dot = page
-    .locator(".entity-heading-identity")
+    .locator(".editor-heading .work-identity")
     .getByRole("img", { name: "Needs your answer", exact: true });
   await expect(dot).toHaveAttribute("data-tone", tone!);
   await dot.focus();
@@ -85,6 +85,38 @@ test("task card entry stays on Overview and milestone status agrees across views
   await expect(page.locator(".milestone-board .work-state")).toHaveText(
     "Needs your answer",
   );
+  const tabs = page.getByRole("tablist", { name: "Open resources" });
+  await tabs.getByRole("tab", { name: /^Inbox/ }).click();
+  const before = await tabs.getByRole("tab").count();
+  await page.getByRole("tab", { name: "History", exact: true }).click();
+  await expect(tabs.getByRole("tab")).toHaveCount(before);
+  await page.getByRole("tab", { name: "Needs me", exact: true }).click();
+  await page
+    .getByRole("link", { name: `${task.key}: Which format?`, exact: true })
+    .click();
+  await expect(tabs.getByRole("tab")).toHaveCount(before + 1);
+  await expect(tabs.getByRole("tab", { selected: true })).toContainText(
+    task.key,
+  );
+  await page.getByRole("tab", { name: "Overview", exact: true }).click();
+  await expect(tabs.getByRole("tab")).toHaveCount(before + 1);
+  await tabs.getByRole("tab", { name: /^Inbox/ }).click();
+  await expect(page).toHaveURL(/\/inbox\?inbox=needs_me$/);
+  const taskUrl = `/projects/${project}/tasks/${task.key}`;
+  await page.evaluate(
+    ({ workspace, taskUrl }) => {
+      const key = `flowfield:tabs:${workspace}`;
+      const saved = JSON.parse(sessionStorage.getItem(key)!);
+      saved.active = saved.tabs[0].id;
+      saved.tabs[0].history = [taskUrl];
+      saved.tabs[0].index = 0;
+      sessionStorage.setItem(key, JSON.stringify(saved));
+    },
+    { workspace, taskUrl },
+  );
+  await page.goto(taskUrl);
+  await tabs.getByRole("tab", { name: /^Inbox/ }).click();
+  await expect(page).toHaveURL(base + "/inbox");
 });
 
 test("overflowing tabs scroll by wheel with directional fades and even gutters", async ({

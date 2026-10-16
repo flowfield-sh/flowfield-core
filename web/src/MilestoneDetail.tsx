@@ -1,4 +1,5 @@
-import { WorkState } from "./WorkState";
+import { WorkIdentity } from "./WorkIdentity";
+import { MilestoneVerificationPlan } from "./MilestoneReviewSettings";
 import { milestoneCards } from "./Milestones";
 import { ResourceRetry } from "./ResourceRetry";
 import type { WorkspaceBoard } from "./workspace";
@@ -11,7 +12,6 @@ import { MilestoneActivity } from "./MilestoneActivity";
 import { Markdown } from "./Markdown";
 import { ContentStack, DetailSection } from "./DetailLayout";
 import { MilestoneSettings } from "./MilestoneSettings";
-import { Badge } from "@/components/ui/badge";
 import { RevisionHistory } from "./RevisionHistory";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { boardHref, taskHref } from "./navigation";
@@ -66,11 +66,11 @@ export function MilestoneDetail({
     <section className="editor documents-page" aria-label="Milestone">
       <DetailHeader
         title={
-          <span className="entity-heading-identity">
-            {!historical && <WorkState indicatorOnly state={card?.workState} />}
-            <Badge variant="outline">{milestone.key}</Badge>
-            <span>{settings ? "Milestone settings" : milestone.title}</span>
-          </span>
+          <WorkIdentity
+            state={historical ? undefined : card?.workState}
+            itemKey={milestone.key}
+            title={settings ? "Milestone settings" : milestone.title}
+          />
         }
         close={close}
         closeLabel="Back"
@@ -139,6 +139,7 @@ export function MilestoneDetail({
           {delivery.data && (
             <DetailSection title="Delivery">
               <p>
+                Project:{" "}
                 <WorkspaceLink to={`/projects/${delivery.data.project_id}`}>
                   {board.projects.find(
                     (project) => project.id === delivery.data?.project_id,
@@ -146,6 +147,7 @@ export function MilestoneDetail({
                 </WorkspaceLink>
               </p>
               <p className="delivery-branches">
+                <span>Merge:</span>
                 <code>{delivery.data.branch}</code>
                 <span aria-label="to">→</span>
                 <code>{delivery.data.destination_branch}</code>
@@ -157,6 +159,11 @@ export function MilestoneDetail({
               {milestone.acceptance_criteria || "No acceptance criteria yet."}
             </Markdown>
           </DetailSection>
+          <MilestoneVerificationPlan
+            workspaceId={milestone.workspace_id}
+            milestoneId={milestone.id}
+            refresh={refresh}
+          />
           <ResourceRetry resources={[latestReview]} />
           {latestReview.data?.summary && (
             <DetailSection title="Outcome">
@@ -164,16 +171,24 @@ export function MilestoneDetail({
             </DetailSection>
           )}
           <DetailSection title="Contributing work">
-            <ul className="source-reference-list">
-              {card?.tasks.map((task) => (
-                <li key={task.key}>
-                  <WorkspaceLink to={taskHref(task.project_id, task)}>
-                    {task.key} {task.title}
-                  </WorkspaceLink>{" "}
-                  <WorkState state={task.state} />
-                </li>
-              ))}
-            </ul>
+            {!!card?.tasks.length && (
+              <ul className="work-resource-list">
+                {card?.tasks.map((task) => (
+                  <li key={task.key}>
+                    <WorkspaceLink
+                      className="work-navigation-row"
+                      to={taskHref(task.project_id, task)}
+                    >
+                      <WorkIdentity
+                        state={task.state}
+                        itemKey={task.key}
+                        title={task.title}
+                      />
+                    </WorkspaceLink>
+                  </li>
+                ))}
+              </ul>
+            )}
             {!card?.tasks.length && <p>No contributing tasks yet.</p>}
           </DetailSection>
         </ContentStack>

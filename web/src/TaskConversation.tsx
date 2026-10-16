@@ -1,3 +1,4 @@
+import { LoadMore } from "./LoadMore";
 import { ActivityEntry } from "./ActivityEntry";
 import { useRetainedState, retainDirty } from "./retainedState";
 import type { DirtyCallback } from "./retainedState";
@@ -552,14 +553,14 @@ export function TaskConversation({
                   <Fragment key={message.id}>
                     {!requestTarget && index === 1 && cursor && (
                       <li>
-                        <Button
+                        <LoadMore
                           variant="outline"
                           size="sm"
                           disabled={olderBusy}
                           onClick={() => void older()}
                         >
                           Load earlier activity
-                        </Button>
+                        </LoadMore>
                       </li>
                     )}
                     <li

@@ -1,3 +1,5 @@
+import { WorkIdentity } from "./WorkIdentity";
+import { TaskLabels } from "./TaskLabels";
 import { hasRetainedDrafts, type DirtyCallback } from "./retainedState";
 import {
   ResourceNavigation,
@@ -1344,52 +1346,51 @@ function ArchiveList({
   return (
     <section className="archive-list" aria-label="Archived tasks">
       {entries.length ? (
-        <ul>
+        <ul className="work-resource-list">
           {entries.map(({ task, archived }) => (
             <li key={task.key}>
-              <WorkCard
-                selected={
+              <ScopedAnchor
+                className="work-navigation-row task-card-link"
+                href={taskHref(task.project_id, task)}
+                aria-current={
                   selection?.kind === "task" && selection.id === task.key
+                    ? "page"
+                    : undefined
+                }
+                onClick={(event) =>
+                  followLink(event, () =>
+                    choose({ kind: "task", id: task.key }),
+                  )
                 }
               >
-                <span className="archive-task">
-                  <TaskIdentity
-                    task={task}
-                    metadata={
-                      <>
-                        <MilestoneBadge
-                          milestone={milestones.find(
-                            (m) => m.id === task.milestone_id,
-                          )}
-                        />
-                        <DraftBadge
-                          publicationStatus={task.publication_status}
-                        />
-                      </>
-                    }
-                    title={
-                      <ScopedAnchor
-                        className="task-card-link"
-                        href={taskHref(task.project_id, task)}
-                        onClick={(event) =>
-                          followLink(event, () =>
-                            choose({ kind: "task", id: task.key }),
-                          )
-                        }
-                      >
-                        {task.title}
-                      </ScopedAnchor>
-                    }
-                  />
-                  {task.reconciliation_reason && (
-                    <span className="readiness blocked">Needs update</span>
-                  )}
-                </span>
+                <WorkIdentity
+                  state={task.state}
+                  itemKey={task.key}
+                  title={task.title}
+                />
+              </ScopedAnchor>
+              <div className="content-stack px-2 pb-2">
+                {(task.milestone_id ||
+                  task.publication_status === "draft" ||
+                  task.labels.length > 0) && (
+                  <div className="task-labels">
+                    <MilestoneBadge
+                      milestone={milestones.find(
+                        (m) => m.id === task.milestone_id,
+                      )}
+                    />
+                    <DraftBadge publicationStatus={task.publication_status} />
+                    <TaskLabels ids={task.labels} />
+                  </div>
+                )}
+                {task.reconciliation_reason && (
+                  <span className="readiness blocked">Needs update</span>
+                )}
                 <ArchiveAttribution
                   author={archived.updated_by}
                   date={archived.updated_at}
                 />
-              </WorkCard>
+              </div>
             </li>
           ))}
         </ul>

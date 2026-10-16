@@ -141,7 +141,13 @@ test("three-letter prefix setup, coordinator dependencies and immediate accessib
   await ensureEditing(page);
   await expect(page.getByLabel("Directory", { exact: true })).toHaveCount(0);
   await page.getByLabel("Prefix", { exact: true }).fill("UIT");
+  const savedPrefix = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PUT" &&
+      response.url().endsWith(`/api/projects/${adopted.id}`),
+  );
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  expect((await savedPrefix).ok()).toBe(true);
   await expect(
     page.getByRole("button", { name: "Save changes", exact: true }),
   ).toBeDisabled();
@@ -657,7 +663,10 @@ test("Inbox carries a free-text answer from browser to coordinator application",
     .fill(
       "All filtered rows, capped at 10,000. Explain when the limit is exceeded.",
     );
-  await detail.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(
+    detail.getByRole("button", { name: "Back", exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await page.goBack();
   await expect(detail.getByLabel("Your answer", { exact: true })).toHaveValue(
     /Explain/,
@@ -731,7 +740,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
     "href",
     `/projects/${project_id}/tasks/ASK-2/conversation/question%3Aexport-scope%3A1`,
   );
-  await closeOverlay(page);
+  await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(page.locator(".request-card")).toHaveCount(0);
 });
 
@@ -1886,7 +1895,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   await expect(page).toHaveURL(/changes\/first$/);
   await page.getByRole("tab", { name: /^Inbox/ }).click();
   await expect(page).toHaveURL(
-    `/workspaces/${await projectWorkspace(request, project_id)}/inbox`,
+    `/workspaces/${await projectWorkspace(request, project_id)}/inbox?project=${project_id}`,
   );
   await expect(
     page.getByRole("tabpanel", { name: "Needs me", exact: true }),

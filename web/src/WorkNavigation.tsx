@@ -1,3 +1,4 @@
+import { LoadMore } from "./LoadMore";
 import { useState } from "react";
 import {
   Archive,
@@ -7,13 +8,12 @@ import {
   Folder,
   Settings,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { WorkState } from "./WorkState";
+import { WorkIdentity } from "./WorkIdentity";
 import { milestoneCards } from "./Milestones";
 import { followLink, taskHref, workspaceHref } from "./navigation";
 import { WorkspaceLink } from "./WorkspaceLink";
@@ -128,17 +128,12 @@ export function WorkList({
                               : undefined
                           }
                         >
-                          <WorkState
+                          <WorkIdentity
                             state={item.state}
-                            indicatorOnly
+                            itemKey={item.key}
+                            title={item.title}
                             decorative={!all}
                           />
-                          <span className="work-navigation-key">
-                            {item.key}
-                          </span>
-                          <span className="work-navigation-title">
-                            {item.title}
-                          </span>
                         </WorkspaceLink>
                       </TooltipTrigger>
                       <TooltipContent side="right">
@@ -159,13 +154,9 @@ export function WorkList({
         )}
       </div>
       {count < items.length && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setCount((n) => n + 40)}
-        >
+        <LoadMore size="sm" onClick={() => setCount((n) => n + 40)}>
           Load more work
-        </Button>
+        </LoadMore>
       )}
     </>
   );

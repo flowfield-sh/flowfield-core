@@ -1,3 +1,4 @@
+import { LoadMore } from "./LoadMore";
 import { useState } from "react";
 import type { components } from "./api-schema";
 import { usePage, useResource } from "./useResource";
@@ -156,14 +157,14 @@ export function ReviewRounds({
         />
       ))}
       {page.data?.next_before != null && (
-        <Button
+        <LoadMore
           size="sm"
           variant="outline"
-          disabled={page.loadingMore}
+          disabled={page.loadingMore || page.loading}
           onClick={() => void page.older()}
         >
           Earlier rounds
-        </Button>
+        </LoadMore>
       )}
     </ContentStack>
   );

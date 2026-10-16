@@ -112,7 +112,7 @@ export function TaskIdentity({
   return (
     <span className="task-identity">
       <span className="task-labels">
-        <span className="task-key">{task.key}</span>
+        <Badge variant="outline">{task.key}</Badge>
         {metadata}
       </span>
       <strong>{title ?? task.title}</strong>

@@ -43,6 +43,10 @@ type Tab = {
 };
 type TabState = { workspace: string; active: string; tabs: Tab[] };
 const limit = 24;
+function isInboxView(url: string, root: string) {
+  const target = new URL(url, "http://flowfield.local");
+  return target.pathname === root && !target.searchParams.has("permission");
+}
 export function resourceRoot(url: string) {
   const path = url.split(/[?#]/)[0];
   if (path.startsWith("/settings/")) return "/settings";
@@ -133,6 +137,13 @@ function visit(
   board: WorkspaceBoard | null = null,
 ): TabState {
   const root = canonicalResourceRoot(url, board);
+  const inbox = state.tabs[0];
+  if (
+    intent === "within" &&
+    state.active === inbox.id &&
+    !isInboxView(url, inbox.root)
+  )
+    intent = "new";
   let tab =
     intent === "new"
       ? undefined
@@ -246,7 +257,12 @@ export function useWorkspaceTabs(
     select(id: string) {
       const tab = state?.tabs.find((t) => t.id === id);
       if (state && tab) {
-        if (id === state.tabs[0].id) go(tab.root, "open");
+        // Older saved tabs may have navigated a resource inside pinned Inbox.
+        if (
+          id === state.tabs[0].id &&
+          !isInboxView(tab.history[tab.index], tab.root)
+        )
+          go(tab.root, "open");
         else move({ ...state, active: id }, tab.history[tab.index]);
       }
     },
@@ -314,11 +330,18 @@ export function OpenInWorkTab() {
   );
 }
 function title(
-  root: string,
+  url: string,
   board: WorkspaceBoard | null,
   titles: Record<string, string>,
 ) {
-  if (titles[root]) return titles[root];
+  const location = new URL(url, "http://flowfield.local");
+  const root = canonicalResourceRoot(url, board);
+  if (location.searchParams.has("permission")) return "Tool permission";
+  if (/\/(?:inbox|related\/questions)\/[^/]+$/.test(location.pathname))
+    return "Question";
+  const settings = /\/milestones\/[^/]+\/settings$/.test(location.pathname);
+  const suffix = settings ? " · Settings" : "";
+  if (titles[root]) return titles[root] + suffix;
   const key = decodeURIComponent(root.split("/").at(-1) ?? "");
   const task = board?.tasks.find(
     (t) =>
@@ -329,7 +352,8 @@ function title(
   const milestone = board?.milestones.find(
     (m) => root.includes("/milestones/") && (key === m.key || key === m.id),
   );
-  if (milestone) return `${milestone.key} ${milestone.title}`;
+  if (milestone)
+    return `${milestone.key} ${settings ? "Settings" : milestone.title}`;
   return (
     (
       {
@@ -375,7 +399,9 @@ function ResourceTab({
   });
   const currentRoot = canonicalResourceRoot(tab.history[tab.index], board);
   const name =
-    index === 0 ? "Inbox" : title(currentRoot, board, controller.titles);
+    index === 0
+      ? "Inbox"
+      : title(tab.history[tab.index], board, controller.titles);
   const label = useRef<HTMLSpanElement>(null);
   const [overflowing, setOverflowing] = useState(false);
   useLayoutEffect(() => {
@@ -409,7 +435,10 @@ function ResourceTab({
             data-slot="tabs-trigger"
             onClick={() => {
               if (!active) controller.select(tab.id);
-              else if (index === 0 && tab.history[tab.index] !== tab.root)
+              else if (
+                index === 0 &&
+                !isInboxView(tab.history[tab.index], tab.root)
+              )
                 controller.go(tab.root, "open");
             }}
             onKeyDown={(event) => {

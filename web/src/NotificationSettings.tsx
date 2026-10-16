@@ -108,7 +108,12 @@ export function NotificationSettings() {
   return (
     <ContentStack space="section">
       {settings.error && (
-        <Button variant="outline" onClick={settings.retry}>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={settings.loading}
+          onClick={settings.retry}
+        >
           Retry notification settings
         </Button>
       )}

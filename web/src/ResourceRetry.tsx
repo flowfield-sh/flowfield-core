@@ -11,14 +11,16 @@ export function ResourceRetry({
   const failed = resources.filter((resource) => resource.error);
   if (!failed.length) return null;
   return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      disabled={failed.some((resource) => resource.loading)}
-      onClick={() => failed.forEach((resource) => resource.retry())}
-    >
-      {children}
-    </Button>
+    <div className="actions">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={failed.some((resource) => resource.loading)}
+        onClick={() => failed.forEach((resource) => resource.retry())}
+      >
+        {children}
+      </Button>
+    </div>
   );
 }

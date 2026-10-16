@@ -77,7 +77,11 @@ export function TaskChanges({
   return (
     <ContentStack className="task-changes">
       {open && (beforeRead.error || afterRead.error) && (
-        <Button size="sm" onClick={() => setRetry((v) => v + 1)}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setRetry((v) => v + 1)}
+        >
           Retry
         </Button>
       )}

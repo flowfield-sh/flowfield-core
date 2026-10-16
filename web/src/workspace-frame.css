@@ -249,8 +249,7 @@
   padding: 8px 16px;
   font-size: 12px;
 }
-.work-navigation-heading > span,
-.work-navigation-key {
+.work-navigation-heading > span {
   color: var(--muted-foreground);
 }
 .work-navigation-heading a {
@@ -267,14 +266,6 @@
 .work-navigation-row {
   height: 30px;
   white-space: nowrap;
-}
-.work-navigation-key {
-  flex-shrink: 0;
-  font-size: 12px;
-}
-.work-navigation-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .work-navigation-row .work-state {
   flex-shrink: 0;
@@ -297,7 +288,7 @@
   min-height: 42px;
   border-radius: 0;
 }
-.work-resource-list > div + div {
+.work-resource-list > * + * {
   border-top: 1px solid var(--border);
 }
 .work-group-label {
