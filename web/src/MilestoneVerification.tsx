@@ -335,24 +335,27 @@ export function MilestoneReport({ value }: { value: Verification }) {
             {promotion && (
               <Disclosure summary="Delivery evidence">
                 <ContentStack>
-                  <dl className="detail-facts">
-                    <dt>Destination</dt>
-                    <dd>
-                      <code>{promotion.target_branch}</code>
-                    </dd>
-                    <dt>Candidate</dt>
-                    <dd>
-                      <code>{promotion.candidate_commit ?? "Preparing"}</code>
-                    </dd>
-                    <dt>Milestone source</dt>
-                    <dd>
-                      <code>{promotion.source_commit}</code>
-                    </dd>
-                    <dt>Destination before</dt>
-                    <dd>
-                      <code>{promotion.target_before}</code>
-                    </dd>
-                  </dl>
+                  <p>
+                    Destination: <code>{promotion.target_branch}</code>
+                  </p>
+                  <p>
+                    Candidate:{" "}
+                    <code className="wrap-anywhere">
+                      {promotion.candidate_commit ?? "Preparing"}
+                    </code>
+                  </p>
+                  <p>
+                    Milestone source:{" "}
+                    <code className="wrap-anywhere">
+                      {promotion.source_commit}
+                    </code>
+                  </p>
+                  <p>
+                    Destination before:{" "}
+                    <code className="wrap-anywhere">
+                      {promotion.target_before}
+                    </code>
+                  </p>
                   <CheckEvidence
                     checks={promotion.setup_checks}
                     title="Runtime setup"

@@ -145,12 +145,7 @@ function ReviewRound({
     >
       {open && (
         <ContentStack>
-          <p>
-            {attempt.problem ||
-              (attempt.cleanup_confirmed
-                ? "Process cleanup confirmed."
-                : "Process cleanup needs confirmation.")}
-          </p>
+          {attempt.problem && <p>{attempt.problem}</p>}
           <RunActivity
             projectId={projectId}
             runId={reviewId}
@@ -158,26 +153,28 @@ function ReviewRound({
             reviewKind={kind}
             reviewAttemptId={attempt.id}
           />
-          <Disclosure summary="Process evidence">
-            <p>
-              Attempt: <code>{attempt.id}</code>
-            </p>
-            <p>
-              Requested model:{" "}
-              {attempt.requested_agent?.model || "Not launched"}
-            </p>
-            <p>
-              Applied model: {attempt.applied_agent?.model || "Not confirmed"}
-            </p>
-            <p>PID: {attempt.pid ?? "Not recorded"}</p>
-            <p>
-              Process identity:{" "}
-              <code>{attempt.process_stamp || "Not recorded"}</code>
-            </p>
-            <p>
-              Checkout: <code>{attempt.checkout || "Not prepared"}</code>
-            </p>
-          </Disclosure>
+          {attempt.status === "uncertain" && !attempt.cleanup_confirmed && (
+            <Disclosure summary="Process evidence">
+              <p>
+                Attempt: <code>{attempt.id}</code>
+              </p>
+              <p>
+                Requested model:{" "}
+                {attempt.requested_agent?.model || "Not launched"}
+              </p>
+              <p>
+                Applied model: {attempt.applied_agent?.model || "Not confirmed"}
+              </p>
+              <p>PID: {attempt.pid ?? "Not recorded"}</p>
+              <p>
+                Process identity:{" "}
+                <code>{attempt.process_stamp || "Not recorded"}</code>
+              </p>
+              <p>
+                Checkout: <code>{attempt.checkout || "Not prepared"}</code>
+              </p>
+            </Disclosure>
+          )}
         </ContentStack>
       )}
     </Disclosure>

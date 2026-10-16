@@ -94,10 +94,12 @@ export function Inspection({
       )}
       {open && value && (
         <ContentStack>
-          <p className="detail-metadata">
-            {value.task_key} · {milestone ? "Milestone revision" : "Result"}{" "}
-            {value.version} · <Timestamp date={value.created_at} />
-          </p>
+          {!milestone && (
+            <p className="detail-metadata">
+              {value.task_key} · Result {value.version} ·{" "}
+              <Timestamp date={value.created_at} />
+            </p>
+          )}
           {value.source_changed && (
             <p>
               The source has changed. This copy contains the selected review.

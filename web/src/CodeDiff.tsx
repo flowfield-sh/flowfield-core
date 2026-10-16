@@ -1,6 +1,6 @@
 import { LoadMore } from "./LoadMore";
 import { reportError } from "./requestFeedback";
-import { DetailSection } from "./DetailLayout";
+import { ContentStack } from "./DetailLayout";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -114,47 +114,31 @@ export default function CodeDiff({
     }
   }
   return (
-    <DetailSection
+    <ContentStack
       className="code-review"
+      role="region"
       aria-label="Code changes"
-      title={
-        <>
-          Changes{" "}
-          {files.data && (
-            <span className="muted">
-              {files.data.total_files}{" "}
-              {files.data.total_files === 1 ? "file" : "files"}
-            </span>
-          )}
-        </>
-      }
-      actions={
-        <div
-          className="segmented-control"
-          role="group"
-          aria-label="Diff layout"
-        >
-          <Button
-            size="xs"
-            type="button"
-            variant={mode === "unified" ? "secondary" : "ghost"}
-            aria-pressed={mode === "unified"}
-            onClick={() => setMode("unified")}
-          >
-            Unified
-          </Button>
-          <Button
-            size="xs"
-            type="button"
-            variant={mode === "split" ? "secondary" : "ghost"}
-            aria-pressed={mode === "split"}
-            onClick={() => setMode("split")}
-          >
-            Split
-          </Button>
-        </div>
-      }
     >
+      <div className="segmented-control" role="group" aria-label="Diff layout">
+        <Button
+          size="xs"
+          type="button"
+          variant={mode === "unified" ? "secondary" : "ghost"}
+          aria-pressed={mode === "unified"}
+          onClick={() => setMode("unified")}
+        >
+          Unified
+        </Button>
+        <Button
+          size="xs"
+          type="button"
+          variant={mode === "split" ? "secondary" : "ghost"}
+          aria-pressed={mode === "split"}
+          onClick={() => setMode("split")}
+        >
+          Split
+        </Button>
+      </div>
       {files.error && (
         <Button size="sm" variant="outline" onClick={() => setRetry(retry + 1)}>
           Retry
@@ -256,7 +240,7 @@ export default function CodeDiff({
           </div>
         </div>
       )}
-    </DetailSection>
+    </ContentStack>
   );
 }
 
