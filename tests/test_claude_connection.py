@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
-from test_connection import running_service
+from service_fixtures import running_service
 from typer.testing import CliRunner
 
 from flowfield.adapters.claude_connection import ClaudeConnection

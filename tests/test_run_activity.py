@@ -5,7 +5,7 @@ import sqlite3
 import threading
 
 import pytest
-from test_execution import BASE, fixture
+from execution_fixtures import BASE, fixture
 from test_input_continuation import question
 
 from flowfield.application import Workspace

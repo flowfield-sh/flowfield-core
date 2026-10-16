@@ -4,10 +4,10 @@ import asyncio
 import json
 
 import pytest
+from execution_fixtures import BASE, fixture
 from project_fixtures import fixture_stage_change, task_request
 from pydantic import ValidationError
-from test_execution import BASE, fixture
-from test_storage_migrations import logical_data
+from storage_fixtures import logical_data
 from test_worker_documents import defaults, prepare
 from test_workspace_dependencies import complete, shared
 

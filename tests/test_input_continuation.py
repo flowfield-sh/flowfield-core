@@ -4,8 +4,8 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from execution_fixtures import BASE, RESULT, fixture
 from project_fixtures import fixture_stage_change
-from test_execution import BASE, RESULT, fixture
 
 from flowfield.application import TaskEdit
 from flowfield.errors import ApplicationError
@@ -201,7 +201,7 @@ def test_supervisor_preserves_pre_question_code_and_report_baseline(tmp_path, mo
     import asyncio
     from pathlib import Path
 
-    from test_supervisor import FakeWorker
+    from fake_worker import FakeWorker
 
     from flowfield.adapters.git_workspace import baseline, git
     from flowfield.supervisor import Supervisor

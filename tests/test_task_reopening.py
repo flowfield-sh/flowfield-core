@@ -6,7 +6,7 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 from project_fixtures import fixture_stage_change
-from test_results import approve, current, fixture
+from result_fixtures import approve, current, fixture
 
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_tools import worker_scope, workspace_scope

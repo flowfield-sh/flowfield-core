@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from project_fixtures import adopt, existing_directory, task_request
-from test_connection import running_service
+from service_fixtures import running_service
 from typer.testing import CliRunner
 
 from flowfield.api import create_app

@@ -4,7 +4,7 @@ import asyncio
 import json
 
 import httpx
-from test_execution import BASE, fixture
+from execution_fixtures import BASE, fixture
 from test_native_adapters import start
 
 from flowfield.adapters.agent_mcp import serve_scope
@@ -444,8 +444,8 @@ def test_new_project_tools_are_available_without_changing_workspace_scope(tmp_pa
 
 
 def test_coordinator_reviews_exact_result_and_service_delivers_with_queue_paused(tmp_path):
-    from test_results import current
-    from test_results import fixture as result_fixture
+    from result_fixtures import current
+    from result_fixtures import fixture as result_fixture
 
     from flowfield.actors import actor
 

@@ -1,12 +1,12 @@
 """Milestone review discovery on Supervisor's shared capacity and native lifecycle."""
 
 import asyncio
-import json
 from typing import TYPE_CHECKING, Any
 
 from mcp.types import CallToolResult, TextContent, Tool, ToolAnnotations
 
 from flowfield.agent_tools import ScopedTools
+from flowfield.context_pages import ReadContext
 from flowfield.errors import ApplicationError
 from flowfield.milestone_reviews import (
     MilestoneReview,
@@ -16,7 +16,6 @@ from flowfield.milestone_reviews import (
 )
 from flowfield.milestone_verification import read
 from flowfield.native_review_execution import NativeReviewExecution, ReviewLaunch
-from flowfield.worker_tools import ReadContext
 
 if TYPE_CHECKING:
     from flowfield.supervisor import Supervisor
@@ -97,16 +96,7 @@ class MilestoneReviewExecution(NativeReviewExecution[MilestoneReview]):
             if name == "read_context":
                 request = ReadContext.model_validate(arguments)
                 body = self.reviews.read_context(review, request.section)
-                if request.offset > len(body):
-                    raise ApplicationError("invalid_offset", "Offset exceeds source length.")
-                end = min(len(body), request.offset + 6000)
-                text = json.dumps(
-                    {
-                        "text": body[request.offset : end],
-                        "total_chars": len(body),
-                        "next_offset": end if end < len(body) else None,
-                    }
-                )
+                text = request.page(body)
             else:
                 verdict = MilestoneVerdict.model_validate(arguments)
                 validate_decision(value, verdict)

@@ -4,9 +4,9 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from execution_fixtures import BASE, RESULT, fixture, validate_report
 from project_fixtures import task_request
 from test_conversation import plan
-from test_execution import BASE, RESULT, fixture, validate_report
 from test_input_continuation import answer
 
 from flowfield.application import TaskEdit, TaskPublish

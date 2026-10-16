@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 
 import pytest
+from execution_fixtures import BASE, fixture
 from pydantic import ValidationError
-from test_execution import BASE, fixture
 
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import RunAction

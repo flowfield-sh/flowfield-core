@@ -578,6 +578,8 @@ class Integrations:
                     (project_id,),
                 )
             }
+        if not observed_integrations and not observed_runs and not branches:
+            return set()
         branches.add(settings.target_branch)
         heads: dict[str | None, str | None] = {}
         available_by_branch: dict[str | None, set[str]] = {}

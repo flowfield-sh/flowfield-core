@@ -6,7 +6,7 @@ import shlex
 import pytest
 from click import unstyle
 from project_fixtures import existing_directory
-from test_connection import running_service
+from service_fixtures import running_service
 from typer.testing import CliRunner
 
 from flowfield.cli import app

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import anyio
 import pytest
-from test_connection import running_service
+from service_fixtures import running_service
 from typer.testing import CliRunner
 
 from flowfield.adapters.connection import probe

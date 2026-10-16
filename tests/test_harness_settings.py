@@ -7,9 +7,9 @@ from dataclasses import replace
 
 import httpx
 import pytest
+from execution_fixtures import BASE, fixture
 from pydantic import ValidationError
 from test_coordinator import message, settled, setup
-from test_execution import BASE, fixture
 from typer.testing import CliRunner
 
 from flowfield import migrations, storage

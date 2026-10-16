@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 
 import pytest
-from test_execution import fixture
-from test_results import approve
+from execution_fixtures import fixture
+from result_fixtures import approve
 
 from flowfield.adapters.git_workspace import baseline, git
 from flowfield.agent_models import AgentChoice

@@ -81,8 +81,8 @@ def test_empty_and_mode_only_changes_and_literal_paths(tmp_path: Path) -> None:
 def test_review_api_files_and_successor_use_captured_commits(tmp_path: Path, monkeypatch) -> None:
     """Actual HTTP review -> revised result -> acceptance, with no harness process."""
 
+    from execution_fixtures import fixture
     from fastapi.testclient import TestClient
-    from test_execution import fixture
 
     from flowfield.adapters.local_execution import LocalHost
     from flowfield.api import create_app

@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 from project_fixtures import reconcile_fixture_stages
+from result_fixtures import approve, current, fixture
 from test_result_recovery import target_change
-from test_results import approve, current, fixture
 
 from flowfield.adapters.git_workspace import baseline, git
 from flowfield.adapters.local_execution import LocalHost
@@ -313,7 +313,7 @@ def test_real_mcp_and_http_inspect_the_same_candidate_without_running_commands(t
     import httpx
     from mcp import ClientSession
     from mcp.client.streamable_http import streamable_http_client
-    from test_connection import running_service
+    from service_fixtures import running_service
 
     service, _, _ = fixture(tmp_path)
     service.results.process("harbor")

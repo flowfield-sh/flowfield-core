@@ -21,9 +21,33 @@ from flowfield.reviewer_settings import ReviewerEdit, Reviewers
 from flowfield.task_reviews import TaskReviews
 
 
-def prepared(tmp_path, *, validate=True):
+def prepared(tmp_path, *, validate=True, prior_report=False):
     execution, integrations, repo, base, milestone, delivery = setup(tmp_path)
     store = execution.workspace
+    if prior_report:
+        report = store.create_task(
+            "harbor",
+            task_request(
+                title="Earlier report", body="Report repository findings", status="up_next"
+            ),
+        )
+        store.publish_task(
+            "harbor",
+            report.id,
+            TaskPublish(expected_revision=report.revision, completion="report"),
+        )
+        attempt = execution.claim("harbor", base, {base: set()}, task_id=report.id)
+        assert attempt
+        execution.started("harbor", attempt.id)
+        execution.finish(
+            "harbor",
+            attempt.id,
+            "in_review",
+            commit=base,
+            result=WorkerResult(summary="Earlier findings", checks="Read the repository"),
+        )
+        Results(store).process("harbor")
+        assert execution.get("harbor", attempt.id).status == "accepted"
     task = store.create_task(
         "harbor",
         task_request(
@@ -70,7 +94,9 @@ def test_refresh_does_not_invalidate_a_milestone_candidate_prepared_during_obser
 ):
     from flowfield.integration import Integrations
 
-    store, _, _, _, delivery, results, result = prepared(tmp_path, validate=False)
+    store, _, _, _, delivery, results, result = prepared(
+        tmp_path, validate=False, prior_report=True
+    )
     integrations = Integrations(store)
     original = integrations.available
 
@@ -78,7 +104,8 @@ def test_refresh_does_not_invalidate_a_milestone_candidate_prepared_during_obser
         results.process(project_id)
         return original(project_id, head, branch)
 
-    # The first ready candidate introduces a branch after refresh has read its branch list.
+    # Accepted history makes this an active refresh. The first ready code candidate
+    # introduces a branch after refresh has read its branch list.
     monkeypatch.setattr(integrations, "available", finish_preparation)
     integrations.refresh_availability("harbor")
     current = results.get("harbor", result.id)

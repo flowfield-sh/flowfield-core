@@ -4,8 +4,8 @@ import os
 from pathlib import Path
 
 import pytest
+from execution_fixtures import fixture
 from project_fixtures import fixture_stage_change, task_request
-from test_execution import fixture
 from test_milestone_delivery_git import commit
 
 from flowfield.adapters.git_workspace import baseline, git
@@ -246,7 +246,7 @@ def test_other_milestone_cannot_claim_unavailable_prerequisite(tmp_path):
 
 @pytest.mark.parametrize("version", [70, 71])
 def test_delivery_migrations_preserve_existing_work_and_rollback(tmp_path, monkeypatch, version):
-    from test_storage_migrations import logical_data
+    from storage_fixtures import logical_data
 
     from flowfield import migrations
     from flowfield.application import Workspace

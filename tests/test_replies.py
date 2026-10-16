@@ -4,11 +4,11 @@ import asyncio
 import json
 
 import pytest
+from execution_fixtures import BASE, fixture, result
 from project_fixtures import task_request
-from test_execution import BASE, fixture, result
+from result_fixtures import approve, current
+from result_fixtures import fixture as result_fixture
 from test_input_continuation import question
-from test_results import approve, current
-from test_results import fixture as result_fixture
 
 from flowfield.application import TaskEdit, TaskPublish, Workspace
 from flowfield.conversation import Conversation
@@ -238,7 +238,7 @@ def test_registered_mcp_reply_and_browser_thread_share_durable_receipts(tmp_path
     import httpx
     from mcp import ClientSession
     from mcp.client.streamable_http import streamable_http_client
-    from test_connection import running_service
+    from service_fixtures import running_service
 
     execution = fixture(tmp_path)
     result(execution, partial=True)

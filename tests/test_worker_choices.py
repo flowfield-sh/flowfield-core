@@ -7,7 +7,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from test_execution import BASE, fixture
+from execution_fixtures import BASE, fixture
 
 from flowfield import migrations, storage
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit

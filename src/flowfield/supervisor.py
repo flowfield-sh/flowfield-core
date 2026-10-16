@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import json
+import logging
 import os
 import subprocess
 from functools import partial
@@ -216,9 +217,22 @@ class Supervisor:
         }
 
     async def _schedule(self) -> None:
-        while not self.closing:
-            await self._schedule_once()
-            await asyncio.sleep(0.5)
+        try:
+            while not self.closing:
+                await self._schedule_once()
+                await asyncio.sleep(0.5)
+        except Exception:
+            logging.getLogger(__name__).exception("Scheduling stopped unexpectedly")
+            try:
+                for project in self.workspace.projects():
+                    self.execution.queue_problem(
+                        project.id,
+                        "Scheduling stopped unexpectedly. Inspect the service log and restart "
+                        "Flowfield before continuing. Active work and evidence are preserved.",
+                    )
+            except Exception:
+                logging.getLogger(__name__).exception("Could not record scheduler failure")
+            raise
 
     async def _schedule_once(self) -> None:
         if self.workspace.schema_version >= 75:

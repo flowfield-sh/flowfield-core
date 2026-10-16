@@ -4,8 +4,8 @@ import os
 from pathlib import Path
 
 import pytest
+from execution_fixtures import fixture
 from project_fixtures import fixture_stage_change
-from test_execution import fixture
 
 from flowfield.adapters import git_integration as gitops
 from flowfield.adapters.git_workspace import baseline, git
@@ -20,6 +20,56 @@ from flowfield.result_models import ResultReview
 from flowfield.results import Results
 
 CHECK = "python -B -c 'from loader import load; assert load() == 42'"
+
+
+def test_repeated_target_reads_validate_names_once_but_observe_each_commit(tmp_path, monkeypatch):
+    git(tmp_path, "init", "-b", "main")
+
+    def commit(message):
+        git(
+            tmp_path,
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "--allow-empty",
+            "-m",
+            message,
+        )
+        return baseline(tmp_path)
+
+    before = commit("First")
+    calls = []
+    original = gitops.git
+
+    def observed(repository, *args, **kwargs):
+        calls.append(args[0])
+        return original(repository, *args, **kwargs)
+
+    monkeypatch.setattr(gitops, "git", observed)
+    assert gitops.target(tmp_path, "main") == before
+    after = commit("Second")
+    assert gitops.target(tmp_path, "main") == after != before
+    assert calls.count("check-ref-format") == 1
+    assert calls.count("rev-parse") == 2
+    for branch in ("main~1", "main^{commit}", "../main", "-main", "refs/heads/main", "main@{1}"):
+        with pytest.raises(ApplicationError):
+            gitops.target(tmp_path, branch)
+
+
+def test_availability_with_no_result_evidence_does_not_poll_git(tmp_path, monkeypatch):
+    execution = fixture(tmp_path)
+    integrations = Integrations(execution.workspace)
+    calls = []
+    monkeypatch.setattr(gitops, "target", lambda *args: calls.append(args))
+    with execution.workspace.connection(write=True) as db:
+        db.execute(
+            "INSERT INTO integration_settings VALUES (?,?)",
+            ("harbor", '{"project_id":"harbor","target_branch":"main"}'),
+        )
+    assert integrations.refresh_availability("harbor") == set()
+    assert calls == []
 
 
 def seed(tmp_path: Path, checks: list[str] | None = None):
@@ -428,7 +478,7 @@ def test_target_compare_and_swap_and_changed_intent_cannot_be_bypassed(tmp_path,
 def test_enabled_scheduler_picks_up_dependent_after_explicit_integration(tmp_path, monkeypatch):
     import asyncio
 
-    from test_supervisor import FakeWorker
+    from fake_worker import FakeWorker
 
     from flowfield.execution_models import QueueEdit
     from flowfield.supervisor import Supervisor

@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from project_fixtures import existing_directory, task_request
-from test_storage_migrations import logical_data
+from storage_fixtures import logical_data
 
 from flowfield import migrations
 from flowfield.application import ProjectSetup, TaskEdit, TaskProgress, TaskPublish, Workspace
@@ -124,8 +124,8 @@ def test_competing_cross_project_edges_cannot_commit_a_cycle(tmp_path):
 def test_foreign_code_is_frozen_evidence_without_local_ancestry_or_worker_scope(
     tmp_path, monkeypatch, managed
 ):
-    from test_results import approve, current
-    from test_results import fixture as result_fixture
+    from result_fixtures import approve, current
+    from result_fixtures import fixture as result_fixture
 
     from flowfield.adapters.git_workspace import baseline, git
     from flowfield.agent_models import AgentChoice
@@ -195,7 +195,7 @@ def test_foreign_code_is_frozen_evidence_without_local_ancestry_or_worker_scope(
     assert prerequisites[0]["result"]["summary"] == "Outcome"
     assert BrowserReads(store).board("site").pending_code.get(task.id, []) == []
     if managed:
-        from test_supervisor import FakeWorker
+        from fake_worker import FakeWorker
 
         monkeypatch.setattr("flowfield.adapters.agent_selection.CodexAgent", FakeWorker)
         monkeypatch.setattr("flowfield.supervisor.process_stamp", lambda pid: "fixture-process")

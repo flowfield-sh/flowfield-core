@@ -4,10 +4,10 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from execution_fixtures import BASE, fixture
 from fastapi.testclient import TestClient
 from project_fixtures import existing_directory, task_request
-from test_execution import BASE, fixture
-from test_storage_migrations import logical_data
+from storage_fixtures import logical_data
 
 from flowfield import migrations
 from flowfield.agent_tools import workspace_scope
@@ -253,8 +253,8 @@ def test_cli_repeated_labels_clear_and_discover(monkeypatch):
 
 
 def test_label_removal_preserves_exact_approved_delivery(tmp_path):
-    from test_results import approve, current
-    from test_results import fixture as result_fixture
+    from result_fixtures import approve, current
+    from result_fixtures import fixture as result_fixture
 
     service, repo, _ = result_fixture(tmp_path)
     store = service.workspace

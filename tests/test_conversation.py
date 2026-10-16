@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
 import pytest
-from test_execution import BASE, fixture
+from execution_fixtures import BASE, fixture
 from test_input_continuation import answer, question
 
 from flowfield.activity import ActivityCreate
@@ -294,8 +294,8 @@ def test_worker_reads_only_frozen_report_sources_and_stage_updates_are_scoped(tm
 
 
 def test_approval_and_delivery_have_distinct_linked_items(tmp_path):
-    from test_results import approve, current
-    from test_results import fixture as result_fixture
+    from result_fixtures import approve, current
+    from result_fixtures import fixture as result_fixture
 
     service, _, _ = result_fixture(tmp_path)
     thread = Conversation(service.workspace)
@@ -316,7 +316,7 @@ def test_approval_and_delivery_have_distinct_linked_items(tmp_path):
 
 
 def test_result_feedback_keeps_consumed_answers_within_the_same_agreement(tmp_path):
-    from test_execution import validate_report
+    from execution_fixtures import validate_report
 
     from flowfield.questions import QuestionCreate
     from flowfield.result_models import ResultReview
@@ -394,7 +394,7 @@ def test_mcp_conversation_cursor_round_trips_without_sdk_coercion(tmp_path):
     import anyio
     from mcp import ClientSession
     from mcp.client.streamable_http import streamable_http_client
-    from test_connection import running_service
+    from service_fixtures import running_service
 
     execution = fixture(tmp_path)
     workspace = execution.workspace

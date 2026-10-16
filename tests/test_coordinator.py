@@ -7,9 +7,9 @@ from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 import pytest
+from execution_fixtures import BASE, fixture
 from fastapi.testclient import TestClient
 from project_fixtures import task_request
-from test_execution import BASE, fixture
 from test_managed_local import FAKE, configured
 
 from flowfield import migrations
@@ -608,7 +608,7 @@ def test_task_focus_is_scoped_revision_bound_and_idempotent(tmp_path, monkeypatc
 
 
 def test_selected_result_is_exact_and_must_belong_to_the_task(tmp_path, monkeypatch):
-    from test_execution import result
+    from execution_fixtures import result
 
     from flowfield.coordinator_models import CoordinatorTaskSelection
 

@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import Field
 
+from flowfield.context_pages import ReadContext
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.execution_models import Record, Run, WorkerResult, WorkerSubmission
@@ -13,11 +14,6 @@ from flowfield.questions import QuestionCreate
 from flowfield.run_activity import ActivityUpdate
 from flowfield.stage_models import StageUpdate
 from flowfield.stages import Stages
-
-
-class ReadContext(Record):
-    section: str
-    offset: int = Field(default=0, ge=0)
 
 
 class SearchContext(Record):
@@ -89,8 +85,8 @@ def worker_tools() -> list[dict[str, Any]]:
                     "limitations. Explicitly choose complete or partial against the entire "
                     "agreed outcome and name remaining_work for partial progress. Before a "
                     "complete result, update any unfinished stages to reflect actual progress. "
-                    "Code still requires human approval; complete unchanged-tree reports finish "
-                    "on delivery."
+                    "Code delivery follows explicit approval policy; complete unchanged-tree "
+                    "reports finish on delivery."
                 ),
                 WorkerSubmission,
             ),
@@ -156,16 +152,7 @@ class WorkerBridge:
         if name == "read_context":
             request = ReadContext.model_validate(arguments)
             text = self.execution.context_section(self.run.project_id, self.run.id, request.section)
-            if request.offset > len(text):
-                raise ApplicationError("invalid_offset", "Offset exceeds source length.")
-            end = min(len(text), request.offset + 6000)
-            return json.dumps(
-                {
-                    "text": text[request.offset : end],
-                    "total_chars": len(text),
-                    "next_offset": end if end < len(text) else None,
-                }
-            )
+            return request.page(text)
         if name == "search_context":
             from flowfield.search import assignment_search
 

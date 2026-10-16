@@ -4,6 +4,7 @@ import asyncio
 import fcntl
 from collections.abc import Iterator
 from contextlib import contextmanager
+from functools import lru_cache
 from pathlib import Path
 
 from flowfield.adapters import git_checkout, local_checks
@@ -14,7 +15,10 @@ from flowfield.execution_models import CheckResult
 from flowfield.integration_models import CheckoutBinding
 
 
+@lru_cache(maxsize=256)
 def branch_ref(repository: Path, branch: str) -> str:
+    # Cache successful syntax validation only. Targets, checkout identity and
+    # authority are mutable and must still be observed on every operation.
     # Full refs, option-like input and reflog expressions are not branch identities.
     if branch.startswith(("-", "refs/")) or "@{" in branch:
         raise ApplicationError("invalid_target", "Choose a local branch name, such as integration.")

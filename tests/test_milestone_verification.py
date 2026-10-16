@@ -3,8 +3,8 @@
 import json
 
 import pytest
+from execution_fixtures import BASE, RESULT, fixture, result, validate_report
 from project_fixtures import task_request
-from test_execution import BASE, RESULT, fixture, result, validate_report
 from test_worker_documents import prepare
 
 from flowfield.application import MilestoneCreate, MilestoneEdit, TaskEdit, Workspace
@@ -312,7 +312,7 @@ def test_reopened_contribution_invalidates_review(tmp_path):
 
 
 def test_schema_68_upgrade_and_failure_recovery(tmp_path, monkeypatch):
-    from test_storage_migrations import logical_data
+    from storage_fixtures import logical_data
 
     from flowfield import migrations
     from flowfield.migrations import Migration

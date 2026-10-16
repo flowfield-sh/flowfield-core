@@ -1,7 +1,7 @@
 """Checkout protection and interrupted delivery, using real disposable Git repositories."""
 
 import pytest
-from test_results import approve, current, fixture
+from result_fixtures import approve, current, fixture
 
 from flowfield.adapters import git_checkout
 from flowfield.adapters.git_workspace import baseline, git

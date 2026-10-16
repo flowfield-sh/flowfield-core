@@ -1,6 +1,6 @@
 """Readable public activity preserves evidence and real ownership; no model calls."""
 
-from test_execution import BASE, fixture
+from execution_fixtures import BASE, fixture
 
 from flowfield.activity_text import preview, retain
 from flowfield.adapters.activity_diff import captured_changes

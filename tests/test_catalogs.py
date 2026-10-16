@@ -3,7 +3,7 @@
 import asyncio
 
 import pytest
-from test_execution import fixture
+from execution_fixtures import fixture
 
 from flowfield.agent_models import AgentChoice, AgentCommand
 from flowfield.catalogs import Catalogs

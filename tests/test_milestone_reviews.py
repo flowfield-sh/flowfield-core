@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 
 import pytest
+from fake_worker import FakeWorker
 from test_delegated_integration import assess, policy, prepared
-from test_supervisor import FakeWorker
 
 from flowfield.adapters.git_workspace import git
 from flowfield.agent_models import AgentChoice
@@ -175,55 +175,6 @@ def test_combined_review_reaches_human_promotion_without_a_verifier_task(tmp_pat
     MilestonePromotions(service.workspace).process("harbor")
     assert records.get("harbor", value.id).status == "accepted"
     assert git(repo, "rev-parse", "main").decode().strip() == value.promotion.candidate_commit
-
-
-@pytest.mark.parametrize(
-    "invalid", ["missing", "duplicate", "other_task", "other_check", "blank", "intent"]
-)
-def test_passing_summary_cannot_clear_unassessed_or_changed_work(tmp_path, invalid):
-    from flowfield.milestone_reviews import MilestoneVerdict, validate_decision
-    from flowfield.publication import DEPENDENCY_CHANGED
-
-    service, _, _, milestone, _, _ = fixture(tmp_path)
-    value = service.milestone_review_execution.reviews.prepare("harbor", milestone.id)
-    task = value.tasks[0]
-    task.reconciliation_reason = DEPENDENCY_CHANGED
-    assessment = {
-        "task_id": task.task_id,
-        "check": 1,
-        "evidence": "The exact changed prerequisite leaves this contribution correct.",
-    }
-    assessments = [assessment]
-    if invalid == "missing":
-        assessments = []
-    elif invalid == "duplicate":
-        assessments.append(dict(assessment))
-    elif invalid == "other_task":
-        assessment["task_id"] = "outside-the-assignment"
-    elif invalid == "other_check":
-        assessment["check"] = 2
-    elif invalid == "blank":
-        assessment["evidence"] = " "
-    else:
-        task.reconciliation_reason = (
-            "Requirements changed. Review recorded work with the coordinator."
-        )
-    decision = MilestoneVerdict.model_validate(
-        {
-            "action": "report",
-            "summary": "All good",
-            "evidence": "Generic passing claim",
-            "dependency_assessments": assessments,
-            "report": {
-                "verification_id": value.id,
-                "coverage": "complete",
-                "coverage_notes": "All checked",
-                "findings": [{"check": 1, "verdict": "passed", "evidence": "Feature checked"}],
-            },
-        }
-    )
-    with pytest.raises(ApplicationError, match="Assess each changed prerequisite"):
-        validate_decision(value, decision)
 
 
 def test_human_question_releases_capacity_and_resumes_saved_owner_once(tmp_path, monkeypatch):

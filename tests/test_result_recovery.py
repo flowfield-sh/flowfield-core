@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 
 import pytest
-from test_results import approve, current, fixture
+from result_fixtures import approve, current, fixture
 
 from flowfield.adapters import git_integration as gitops
 from flowfield.adapters.git_workspace import contains, git
@@ -297,7 +297,7 @@ def test_setup_failure_does_not_launch_model_and_retains_location(tmp_path, monk
     async def forbidden(*args):
         pytest.fail("Setup failure must not launch a model")
 
-    from test_supervisor import FakeWorker
+    from fake_worker import FakeWorker
 
     monkeypatch.setattr("flowfield.adapters.agent_selection.CodexAgent", FakeWorker)
     monkeypatch.setattr(FakeWorker, "run", forbidden, raising=False)

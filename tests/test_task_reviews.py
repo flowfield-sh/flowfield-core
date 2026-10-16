@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from pydantic import ValidationError
-from test_results import current, fixture
+from result_fixtures import current, fixture
 
 from flowfield.adapters.git_workspace import git
 from flowfield.agent_models import AgentChoice

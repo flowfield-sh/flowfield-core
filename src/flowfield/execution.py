@@ -197,6 +197,199 @@ class Execution:
                 )
             ]
 
+    def _prerequisites(
+        self, db: sqlite3.Connection, task: Task, available_results: set[str]
+    ) -> list[dict[str, Any]] | None:
+        """Resolve accepted prerequisite evidence inside the claim transaction."""
+        project_id = task.project_id
+        prerequisites: list[dict[str, Any]] = []
+        usable = True
+        for reference in task.prerequisites:
+            dependency = reference.id
+            dependency_project = reference.project_id
+            row = db.execute(
+                (
+                    "SELECT data FROM work_runs WHERE project_id=? AND task_id=? AND "
+                    "status='accepted' ORDER BY number DESC LIMIT 1"
+                ),
+                (dependency_project, dependency),
+            ).fetchone()
+            if row:
+                prerequisite = Run.model_validate_json(row[0])
+                if (
+                    dependency_project == project_id
+                    and prerequisite.completion == "code"
+                    and prerequisite.result_commit not in available_results
+                ):
+                    usable = False
+                prerequisites.append(
+                    {
+                        "task": prerequisite.task_key,
+                        "project_id": dependency_project,
+                        "repository_scope": "same_repository"
+                        if dependency_project == project_id
+                        else "other_repository",
+                        "run_id": prerequisite.id,
+                        "completion": prerequisite.completion,
+                        "agreement_revision": prerequisite.agreement_revision,
+                        "commit": prerequisite.result_commit
+                        if prerequisite.completion == "code"
+                        else None,
+                        "result": prerequisite.result.model_dump() if prerequisite.result else None,
+                    }
+                )
+            else:
+                prerequisite_task = self.workspace._task(db, dependency_project, dependency)
+                if prerequisite_task.report_completion_revision:
+                    accepted = db.execute(
+                        "SELECT data FROM task_revisions WHERE project_id=? "
+                        "AND task_id=? AND revision=?",
+                        (
+                            dependency_project,
+                            dependency,
+                            prerequisite_task.report_completion_revision,
+                        ),
+                    ).fetchone()
+                    assert accepted
+                    recorded = json.loads(accepted[0])
+                    handoff = db.execute(
+                        "SELECT id,body FROM activity WHERE project_id=? AND task_id=? "
+                        "AND kind='handoff' AND created_at<=? "
+                        "ORDER BY sequence DESC LIMIT 1",
+                        (dependency_project, dependency, recorded["updated_at"]),
+                    ).fetchone()
+                    prerequisites.append(
+                        {
+                            "task": prerequisite_task.key,
+                            "project_id": dependency_project,
+                            "commit": None,
+                            "completion": "report",
+                            "accepted_by": recorded["updated_by"],
+                            "task_revision": prerequisite_task.report_completion_revision,
+                            "description": recorded["body"],
+                            "result": {
+                                "summary": handoff["body"]
+                                if handoff
+                                else "Human accepted a report; no findings were recorded."
+                            },
+                            "source": handoff["id"] if handoff else None,
+                        }
+                    )
+                else:
+                    usable = False
+        return prerequisites if usable else None
+
+    def _assignment(
+        self,
+        db: sqlite3.Connection,
+        task: Task,
+        run: Run,
+        predecessor: Run | None,
+        prerequisites: list[dict[str, Any]],
+        runtime_settings: dict[str, Any],
+        *,
+        resume: bool,
+    ) -> dict[str, str]:
+        """Freeze context once; input continuations reuse their original assignment."""
+        project_id = task.project_id
+        assert task.publication
+        if self.workspace.schema_version >= 72:
+            from flowfield.worker_checks import CheckPermissions
+
+            runtime_settings["worker_checks_enabled"] = (
+                CheckPermissions(self.workspace).read(db, project_id).enabled
+            )
+        if resume:
+            assert predecessor
+            run.documents = predecessor.documents
+            assignment: dict[str, str] = json.loads(
+                db.execute("SELECT assignment FROM runs WHERE id=?", (predecessor.id,)).fetchone()[
+                    0
+                ]
+            )
+            assignment.update(
+                validation=json.dumps(runtime_settings),
+                feedback=run.feedback,
+                correction=run.correction.model_dump_json() if run.correction else "",
+            )
+            return assignment
+        project = self.workspace._project(db, project_id)
+        milestone = (
+            self.workspace._milestone(db, project_id, task.milestone_id)
+            if task.milestone_id
+            else None
+        )
+        if task.publication.milestone:
+            from flowfield.milestones import Milestones
+
+            binding = task.publication.milestone
+            milestone = Milestones.revision(db, binding.workspace_id, binding.id, binding.revision)
+        assignment = {
+            "agreement": json.dumps(
+                {
+                    "task": task.key,
+                    "task_revision": task.revision,
+                    "agreement_revision": task.agreement_revision,
+                    "completion": task.publication.completion,
+                    "target_branch": task.publication.target_branch,
+                    "base_commit": run.base_commit,
+                    "scope": "Frozen at claim; discoveries do not change intent.",
+                }
+            ),
+            "description": task.body,
+            "project": project.description,
+            "milestone": milestone.body if milestone else "",
+            "milestone_criteria": milestone.acceptance_criteria if milestone else "",
+            "milestone_agreement": task.publication.milestone.model_dump_json()
+            if task.publication.milestone
+            else "",
+            "prerequisites": json.dumps(prerequisites),
+            "feedback": run.feedback,
+            "predecessor": predecessor.result.model_dump_json()
+            if predecessor and predecessor.result
+            else "",
+            "title": f"{task.key}: {task.title}",
+            "correction": run.correction.model_dump_json() if run.correction else "",
+            "validation": json.dumps(runtime_settings),
+        }
+        from flowfield.milestone_verification import assignment as verification_assignment
+
+        assignment["milestone_verification"] = (
+            verification_assignment(db, project_id, task.id, task.agreement_revision)
+            if self.workspace.schema_version >= 69
+            else ""
+        )
+        from flowfield.worker_documents import sections as document_sections
+
+        run.documents = task.publication.documents
+        assignment.update(document_sections(db, run.documents))
+        handoff = db.execute(
+            "SELECT body FROM activity WHERE project_id=? AND task_id=? "
+            "AND kind='handoff' ORDER BY sequence DESC LIMIT 1",
+            (project_id, task.id),
+        ).fetchone()
+        assignment["handoff"] = handoff[0] if handoff else ""
+        assignment["questions"] = json.dumps(
+            [
+                json.loads(row[0])
+                for row in db.execute(
+                    "SELECT data FROM questions WHERE project_id=? AND task_id=? "
+                    "AND status IN ('open','answered') ORDER BY number",
+                    (project_id, task.id),
+                )
+            ]
+        )
+        if predecessor and predecessor.agreement_revision == run.agreement_revision:
+            previous_sections = json.loads(
+                db.execute("SELECT assignment FROM runs WHERE id=?", (predecessor.id,)).fetchone()[
+                    0
+                ]
+            )
+            for section in ("input", "exchange_history", "earlier_answers"):
+                if section in previous_sections:
+                    assignment[section] = previous_sections[section]
+        return assignment
+
     def claim(
         self,
         project_id: str,
@@ -212,7 +405,6 @@ class Execution:
             count = occupied.active + occupied.uncertain
             if not settings.enabled or not settings.selection or count >= settings.max_parallel:
                 return None
-            project = self.workspace._project(db, project_id)
             waiting_for_code = []
             candidates = (
                 [self.workspace._task(db, project_id, task_id)]
@@ -325,85 +517,10 @@ class Execution:
                 ):
                     chosen_base = predecessor.base_commit
                     input_base = predecessor.checkpoint_commit
-                prerequisites: list[dict[str, Any]] = []
-                usable = True
-                for reference in task.prerequisites:
-                    dependency = reference.id
-                    dependency_project = reference.project_id
-                    row = db.execute(
-                        (
-                            "SELECT data FROM work_runs WHERE project_id=? AND task_id=? AND "
-                            "status='accepted' ORDER BY number DESC LIMIT 1"
-                        ),
-                        (dependency_project, dependency),
-                    ).fetchone()
-                    if row:
-                        prerequisite = Run.model_validate_json(row[0])
-                        if (
-                            dependency_project == project_id
-                            and prerequisite.completion == "code"
-                            and prerequisite.result_commit
-                            not in available_results.get(input_base or chosen_base, set())
-                        ):
-                            usable = False
-                        prerequisites.append(
-                            {
-                                "task": prerequisite.task_key,
-                                "project_id": dependency_project,
-                                "repository_scope": "same_repository"
-                                if dependency_project == project_id
-                                else "other_repository",
-                                "run_id": prerequisite.id,
-                                "completion": prerequisite.completion,
-                                "agreement_revision": prerequisite.agreement_revision,
-                                "commit": prerequisite.result_commit
-                                if prerequisite.completion == "code"
-                                else None,
-                                "result": prerequisite.result.model_dump()
-                                if prerequisite.result
-                                else None,
-                            }
-                        )
-                    else:
-                        prerequisite_task = self.workspace._task(db, dependency_project, dependency)
-                        if prerequisite_task.report_completion_revision:
-                            accepted = db.execute(
-                                "SELECT data FROM task_revisions WHERE project_id=? "
-                                "AND task_id=? AND revision=?",
-                                (
-                                    dependency_project,
-                                    dependency,
-                                    prerequisite_task.report_completion_revision,
-                                ),
-                            ).fetchone()
-                            assert accepted
-                            recorded = json.loads(accepted[0])
-                            handoff = db.execute(
-                                "SELECT id,body FROM activity WHERE project_id=? AND task_id=? "
-                                "AND kind='handoff' AND created_at<=? "
-                                "ORDER BY sequence DESC LIMIT 1",
-                                (dependency_project, dependency, recorded["updated_at"]),
-                            ).fetchone()
-                            prerequisites.append(
-                                {
-                                    "task": prerequisite_task.key,
-                                    "project_id": dependency_project,
-                                    "commit": None,
-                                    "completion": "report",
-                                    "accepted_by": recorded["updated_by"],
-                                    "task_revision": prerequisite_task.report_completion_revision,
-                                    "description": recorded["body"],
-                                    "result": {
-                                        "summary": handoff["body"]
-                                        if handoff
-                                        else "Human accepted a report; no findings were recorded."
-                                    },
-                                    "source": handoff["id"] if handoff else None,
-                                }
-                            )
-                        else:
-                            usable = False
-                if not usable:
+                prerequisites = self._prerequisites(
+                    db, task, available_results.get(input_base or chosen_base, set())
+                )
+                if prerequisites is None:
                     waiting_for_code.append(task.key)
                     continue
                 assert task.publication
@@ -471,135 +588,44 @@ class Execution:
                     feedback=predecessor.feedback if predecessor else "",
                     created_at=now(),
                 )
-                milestone = (
-                    self.workspace._milestone(db, project_id, task.milestone_id)
-                    if task.milestone_id
-                    else None
+                assignment = self._assignment(
+                    db,
+                    task,
+                    run,
+                    predecessor,
+                    prerequisites,
+                    runtime_settings,
+                    resume=continuation or retrying_input,
                 )
-                if task.publication.milestone:
-                    from flowfield.milestones import Milestones
+                if continuation:
+                    assert pending_input and predecessor
+                    from flowfield.worker_context import continue_input
 
-                    binding = task.publication.milestone
-                    milestone = Milestones.revision(
-                        db, binding.workspace_id, binding.id, binding.revision
-                    )
-                if self.workspace.schema_version >= 72:
-                    from flowfield.worker_checks import CheckPermissions
-
-                    runtime_settings["worker_checks_enabled"] = (
-                        CheckPermissions(self.workspace).get(project_id).enabled
-                    )
-                assignment = {
-                    "agreement": json.dumps(
+                    continue_input(
+                        assignment,
                         {
-                            "task": task.key,
-                            "task_revision": task.revision,
-                            "agreement_revision": task.agreement_revision,
-                            "completion": task.publication.completion,
-                            "target_branch": task.publication.target_branch,
-                            "base_commit": chosen_base,
-                            "scope": "Frozen at claim; discoveries do not change intent.",
-                        }
-                    ),
-                    "description": task.body,
-                    "project": project.description,
-                    "milestone": milestone.body if milestone else "",
-                    "milestone_criteria": milestone.acceptance_criteria if milestone else "",
-                    "milestone_agreement": task.publication.milestone.model_dump_json()
-                    if task.publication.milestone
-                    else "",
-                    "prerequisites": json.dumps(prerequisites),
-                    "feedback": run.feedback,
-                    "predecessor": predecessor.result.model_dump_json()
-                    if predecessor and predecessor.result
-                    else "",
-                    "title": f"{task.key}: {task.title}",
-                    "correction": correction.model_dump_json() if correction else "",
-                    "validation": json.dumps(runtime_settings),
-                }
-                from flowfield.milestone_verification import assignment as verification_assignment
-
-                assignment["milestone_verification"] = (
-                    verification_assignment(db, project_id, task.id, task.agreement_revision)
-                    if self.workspace.schema_version >= 69
-                    else ""
-                )
-                from flowfield.worker_documents import sections as document_sections
-
-                run.documents = task.publication.documents
-                if not continuation and not retrying_input:
-                    assignment.update(document_sections(db, run.documents))
-                handoff = db.execute(
-                    "SELECT body FROM activity WHERE project_id=? AND task_id=? "
-                    "AND kind='handoff' ORDER BY sequence DESC LIMIT 1",
-                    (project_id, task.id),
-                ).fetchone()
-                assignment["handoff"] = handoff[0] if handoff else ""
-                assignment["questions"] = json.dumps(
-                    [
-                        json.loads(row[0])
-                        for row in db.execute(
-                            "SELECT data FROM questions WHERE project_id=? AND task_id=? "
-                            "AND status IN ('open','answered') ORDER BY number",
-                            (project_id, task.id),
-                        )
-                    ]
-                )
-                if (
-                    predecessor
-                    and not continuation
-                    and not retrying_input
-                    and predecessor.agreement_revision == run.agreement_revision
-                ):
-                    previous_sections = json.loads(
-                        db.execute(
-                            "SELECT assignment FROM runs WHERE id=?", (predecessor.id,)
-                        ).fetchone()[0]
+                            "question_id": pending_input.id,
+                            "origin_run_id": predecessor.id,
+                            "answer_revision": pending_input.revision,
+                            "question": pending_input.question,
+                            "context": pending_input.context,
+                            "answer": pending_input.answer,
+                            "checkpoint": input_base,
+                        },
                     )
-                    for section in ("input", "exchange_history", "earlier_answers"):
-                        if section in previous_sections:
-                            assignment[section] = previous_sections[section]
-                if continuation or retrying_input:
-                    assert predecessor
-                    run.documents = predecessor.documents
-                    assignment = json.loads(
-                        db.execute(
-                            "SELECT assignment FROM runs WHERE id=?",
-                            (predecessor.id,),
-                        ).fetchone()[0]
+                    question = questions._change(
+                        pending_input,
+                        pending_input.revision,
+                        "flowfield",
+                        status="assigned",
+                        continuation_run_id=run.id,
+                        consumed_answer_revision=pending_input.revision,
                     )
-                    assignment["validation"] = json.dumps(runtime_settings)
-                    assignment["feedback"] = run.feedback
-                    assignment["correction"] = correction.model_dump_json() if correction else ""
-                    if continuation:
-                        assert pending_input
-                        from flowfield.worker_context import continue_input
-
-                        continue_input(
-                            assignment,
-                            {
-                                "question_id": pending_input.id,
-                                "origin_run_id": predecessor.id,
-                                "answer_revision": pending_input.revision,
-                                "question": pending_input.question,
-                                "context": pending_input.context,
-                                "answer": pending_input.answer,
-                                "checkpoint": input_base,
-                            },
-                        )
-                        question = questions._change(
-                            pending_input,
-                            pending_input.revision,
-                            "flowfield",
-                            status="assigned",
-                            continuation_run_id=run.id,
-                            consumed_answer_revision=pending_input.revision,
-                        )
-                        questions._save(
-                            db,
-                            question,
-                            "Answer assigned to a continuation; model use is not yet confirmed.",
-                        )
+                    questions._save(
+                        db,
+                        question,
+                        "Answer assigned to a continuation; model use is not yet confirmed.",
+                    )
                 from flowfield.worker_context import enrich
 
                 assignment["project_checks"] = (

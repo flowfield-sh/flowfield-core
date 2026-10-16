@@ -1,7 +1,7 @@
 """History separates actual work from human review and preserves result lineage."""
 
 import pytest
-from test_results import approve, current, fixture
+from result_fixtures import approve, current, fixture
 
 from flowfield.errors import ApplicationError
 from flowfield.execution_history import ExecutionHistory

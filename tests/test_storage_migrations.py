@@ -12,11 +12,12 @@ from pathlib import Path
 from threading import Event
 
 import pytest
-from test_execution import BASE, RESULT
-from test_execution import fixture as execution_fixture
+from execution_fixtures import BASE, RESULT
+from execution_fixtures import fixture as execution_fixture
+from result_fixtures import approve, current
+from result_fixtures import fixture as result_fixture
+from storage_fixtures import logical_data, raw
 from test_input_continuation import answer, question, queue
-from test_results import approve, current
-from test_results import fixture as result_fixture
 from typer.testing import CliRunner
 
 from flowfield import migrations, storage
@@ -32,21 +33,12 @@ from flowfield.supervisor import Supervisor
 CURRENT = migrations.current_version()
 
 
-def raw(directory):
-    return closing(storage.connect(directory / storage.DATABASE))
-
-
 def add_column(db):
     db.execute("ALTER TABLE tasks ADD COLUMN migration_note TEXT NOT NULL DEFAULT ''")
 
 
 def later(monkeypatch, *extra):
     monkeypatch.setattr(migrations, "MIGRATIONS", (*migrations.MIGRATIONS, *extra))
-
-
-def logical_data(directory):
-    with raw(directory) as db:
-        return list(db.iterdump())
 
 
 def test_frozen_baseline_and_fresh_initialization(tmp_path):

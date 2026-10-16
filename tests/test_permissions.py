@@ -5,7 +5,7 @@ import json
 from contextlib import suppress
 
 import pytest
-from test_execution import BASE, fixture
+from execution_fixtures import BASE, fixture
 from test_native_adapters import start
 
 from flowfield.adapters.agent_permissions import permission_handler

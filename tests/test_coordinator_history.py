@@ -5,9 +5,9 @@ import json
 from uuid import uuid4
 
 import pytest
+from execution_fixtures import BASE, fixture
 from fastapi.testclient import TestClient
 from project_fixtures import adopt
-from test_execution import BASE, fixture
 
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit
 from flowfield.agent_settings import AgentSettings

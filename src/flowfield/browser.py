@@ -106,7 +106,9 @@ class BrowserWorkspaceBoard(BaseModel):
     pending_code: dict[str, list[TaskReference]]
 
 
-def task_timeline(db: sqlite3.Connection, project_id: str) -> dict[str, sqlite3.Row]:
+def task_timeline(
+    db: sqlite3.Connection, project_id: str, task_id: str | None = None
+) -> dict[str, sqlite3.Row]:
     # SQLite projects just state transitions; Python never loads historical bodies.
     return {
         row["task_id"]: row
@@ -119,7 +121,9 @@ def task_timeline(db: sqlite3.Connection, project_id: str) -> dict[str, sqlite3.
             "(PARTITION BY task_id ORDER BY revision) AS previous_status, "
             "lag(json_extract(data, '$.archived')) OVER "
             "(PARTITION BY task_id ORDER BY revision) AS previous_archived "
-            "FROM task_revisions WHERE project_id=?), "
+            "FROM task_revisions WHERE project_id=?"
+            + (" AND task_id=?" if task_id is not None else "")
+            + "), "
             "times AS (SELECT task_id, "
             "max(CASE WHEN status IS NOT previous_status THEN updated_at END) AS entered, "
             "max(CASE WHEN archived=1 AND coalesce(previous_archived,0)=0 "
@@ -128,7 +132,7 @@ def task_timeline(db: sqlite3.Connection, project_id: str) -> dict[str, sqlite3.
             "json_extract(r.data, '$.updated_by') AS archived_by FROM times "
             "LEFT JOIN task_revisions r ON r.project_id=? AND r.task_id=times.task_id "
             "AND r.revision=times.archive_revision",
-            (project_id, project_id),
+            (project_id, task_id, project_id) if task_id is not None else (project_id, project_id),
         )
     }
 
@@ -318,7 +322,7 @@ class BrowserReads:
                 records,
                 self.workspace._completed(records, db),
                 positions[self.workspace._record_key(current)],
-                task_timeline(db, project_id)[current.id],
+                task_timeline(db, project_id, current.id)[current.id],
             )
             archive_issue = self.workspace.archive_issue(db, current)
             return TaskDetail(

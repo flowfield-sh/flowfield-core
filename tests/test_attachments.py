@@ -4,9 +4,9 @@ import asyncio
 import base64
 
 import pytest
+from execution_fixtures import fixture
 from fastapi.testclient import TestClient
 from test_coordinator import message, settled, setup
-from test_execution import fixture
 from test_managed_local import configured
 from test_replies import message as reply_message
 

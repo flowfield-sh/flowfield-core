@@ -5,7 +5,7 @@ import json
 import os
 
 import pytest
-from test_execution import BASE, fixture
+from execution_fixtures import BASE, fixture
 
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import RunAction
@@ -200,7 +200,7 @@ def test_check_permission_native_grant_is_exact_and_revocable(tmp_path):
 def test_stop_cancels_owned_check_and_resumes_exact_preserved_work(
     tmp_path, monkeypatch, capture_failure
 ):
-    from test_supervisor import FakeWorker
+    from fake_worker import FakeWorker
 
     from flowfield.adapters.git_workspace import baseline, git
     from flowfield.integration_models import IntegrationConfig

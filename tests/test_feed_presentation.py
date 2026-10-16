@@ -1,7 +1,7 @@
 """Feed attribution and live state must not rewrite or reanimate historical evidence."""
 
 import pytest
-from test_execution import BASE, fixture
+from execution_fixtures import BASE, fixture
 
 from flowfield.actors import actor
 from flowfield.execution_models import RunAction

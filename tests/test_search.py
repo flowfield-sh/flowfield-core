@@ -4,10 +4,10 @@ import asyncio
 import json
 
 import pytest
+from execution_fixtures import BASE
+from execution_fixtures import fixture as execution_fixture
 from project_fixtures import adopt, task_request
-from test_execution import BASE
-from test_execution import fixture as execution_fixture
-from test_results import approve, current, fixture
+from result_fixtures import approve, current, fixture
 
 from flowfield.activity import ActivityCreate
 from flowfield.application import (

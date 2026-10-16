@@ -1,6 +1,7 @@
 """Human-granted execution of frozen project checks on a run-owned checkout."""
 
 import asyncio
+import sqlite3
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -38,26 +39,29 @@ class CheckPermissions:
 
     def get(self, project: str) -> CheckPermission:
         with self.store.connection() as db:
-            current = self.store._project(db, project)
-            row = db.execute(
-                "SELECT data FROM worker_check_grants WHERE project_id=?", (project,)
-            ).fetchone()
-            value = CheckPermission.model_validate_json(row[0]) if row else CheckPermission()
-            # Keep grant and settings in one snapshot. A nested read can deadlock
-            # against a writer waiting for this transaction to release.
-            settings = Integrations(self.store)._settings(db, project)
-            try:
-                stat = Path(current.path).stat()
-                identity = (stat.st_dev, stat.st_ino)
-            except OSError:
-                identity = None
-            if (
-                value.settings_revision != settings.revision
-                or value.project_path != current.path
-                or value.project_identity != identity
-            ):
-                value.enabled = False
-            return value
+            return self.read(db, project)
+
+    def read(self, db: sqlite3.Connection, project: str) -> CheckPermission:
+        current = self.store._project(db, project)
+        row = db.execute(
+            "SELECT data FROM worker_check_grants WHERE project_id=?", (project,)
+        ).fetchone()
+        value = CheckPermission.model_validate_json(row[0]) if row else CheckPermission()
+        # Keep grant and settings in one snapshot. A nested read can deadlock
+        # against a writer waiting for this transaction to release.
+        settings = Integrations(self.store)._settings(db, project)
+        try:
+            stat = Path(current.path).stat()
+            identity = (stat.st_dev, stat.st_ino)
+        except OSError:
+            identity = None
+        if (
+            value.settings_revision != settings.revision
+            or value.project_path != current.path
+            or value.project_identity != identity
+        ):
+            value.enabled = False
+        return value
 
     def configure(self, project: str, request: CheckPermissionEdit) -> CheckPermission:
         with self.store.connection(write=True, project_id=project) as db:

@@ -4,8 +4,8 @@ import asyncio
 import json
 
 import pytest
-from test_results import current
-from test_supervisor import FakeWorker
+from fake_worker import FakeWorker
+from result_fixtures import current
 from test_task_reviews import configured
 
 from flowfield.adapters.git_workspace import git

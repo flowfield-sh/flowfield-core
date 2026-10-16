@@ -3,8 +3,8 @@
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from execution_fixtures import BASE, fixture
 from project_fixtures import existing_directory, fixture_stage_change, task_request
-from test_execution import BASE, fixture
 
 from flowfield import migrations, storage
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit

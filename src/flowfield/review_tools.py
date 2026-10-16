@@ -1,16 +1,15 @@
 """Candidate-bound reviewer and implementer clarification tools; no delivery authority."""
 
-import json
 from typing import Any, Literal
 
 from mcp.types import CallToolResult, TextContent, Tool, ToolAnnotations
 from pydantic import Field
 
 from flowfield.agent_tools import ScopedTools
+from flowfield.context_pages import ReadContext
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import Record
 from flowfield.task_reviews import ReviewVerdict, TaskReview, TaskReviews
-from flowfield.worker_tools import ReadContext
 
 
 class ReviewResponse(Record):
@@ -54,16 +53,7 @@ class ReviewBridge:
             if name == "read_context":
                 request = ReadContext.model_validate(arguments)
                 text = self.reviews.read_context(self.review, request.section)
-                if request.offset > len(text):
-                    raise ApplicationError("invalid_offset", "Offset exceeds source length.")
-                end = min(len(text), request.offset + 6000)
-                result = json.dumps(
-                    {
-                        "text": text[request.offset : end],
-                        "total_chars": len(text),
-                        "next_offset": end if end < len(text) else None,
-                    }
-                )
+                result = request.page(text)
             else:
                 self.decision = model.model_validate(arguments)
                 if self.decision.action == "ask_human" and not self.decision.request.strip():
