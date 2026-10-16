@@ -37,14 +37,9 @@ export function ConnectionRecovery() {
         <DialogHeader>
           <DialogTitle>Connection lost</DialogTitle>
           <DialogDescription>
-            Cannot reach Flowfield. Check that the service is running. We’ll
-            reconnect automatically.
+            Cannot reach Flowfield. Check that the service is running.
           </DialogDescription>
         </DialogHeader>
-        <p>
-          Your open views and drafts stay here. Interrupted actions won’t be
-          sent again automatically.
-        </p>
         <DialogFooter>
           <Button
             size="sm"
@@ -59,7 +54,7 @@ export function ConnectionRecovery() {
               }
             }}
           >
-            {checking ? "Checking connection…" : "Reconnect now"}
+            {checking ? "Checking connection…" : "Try reconnecting"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -118,7 +118,7 @@ test("a service outage blocks once, preserves drafts, and recovers without repla
   await page.evaluate(() => window.dispatchEvent(new Event("offline")));
   await expect(dialog).toBeVisible();
   down = false;
-  await dialog.getByRole("button", { name: "Reconnect now" }).click();
+  await dialog.getByRole("button", { name: "Try reconnecting" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(name).toHaveValue("Unsent project change");
   expect(saves).toBe(1);

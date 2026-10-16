@@ -170,7 +170,7 @@ test("cancelled reads are silent and initial service failures have retry control
   ).toBeVisible();
   await expect(errors(page)).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "Reconnect now" }),
+    page.getByRole("button", { name: "Try reconnecting" }),
   ).toBeVisible();
   await expect(page.locator("main")).not.toContainText("Load failed");
 });
