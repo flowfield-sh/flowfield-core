@@ -528,7 +528,8 @@ class MilestoneVerifications:
         with boundary:
             if value.promotion and request.action != "request_changes":
                 MilestonePromotions(self.store).inputs(value.promotion)
-            return self._review(workspace_id, identity, request)
+            self._review(workspace_id, identity, request)
+            return self.get(workspace_id, identity)
 
     def _review(
         self, workspace_id: str, identity: str, request: VerificationReview

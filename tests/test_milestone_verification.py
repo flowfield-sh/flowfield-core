@@ -149,6 +149,8 @@ def test_passing_report_opens_one_review_and_acceptance_survives_restart(tmp_pat
         "harbor", value.id, VerificationReview(expected_revision=value.revision, action="accept")
     )
     assert accepted.status == "accepted" and accepted.reviewed_by == "human"
+    assert accepted.task_titles == value.task_titles
+    assert accepted.task_titles
     restarted = MilestoneVerifications(Workspace(execution.workspace.directory))
     assert restarted.get("harbor", value.id) == accepted
     assert not [
