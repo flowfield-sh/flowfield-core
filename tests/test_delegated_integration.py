@@ -21,7 +21,7 @@ from flowfield.reviewer_settings import ReviewerEdit, Reviewers
 from flowfield.task_reviews import TaskReviews
 
 
-def prepared(tmp_path):
+def prepared(tmp_path, *, validate=True):
     execution, integrations, repo, base, milestone, delivery = setup(tmp_path)
     store = execution.workspace
     task = store.create_task(
@@ -52,7 +52,8 @@ def prepared(tmp_path):
         commit=candidate,
     )
     results = Results(store)
-    results.process("harbor")
+    if validate:
+        results.process("harbor")
     result = results.page("harbor", task.id).items[0]
     Reviewers(store).configure(
         "harbor",
@@ -62,6 +63,29 @@ def prepared(tmp_path):
         ),
     )
     return store, repo, base, milestone, delivery, results, result
+
+
+def test_refresh_does_not_invalidate_a_milestone_candidate_prepared_during_observation(
+    tmp_path, monkeypatch
+):
+    from flowfield.integration import Integrations
+
+    store, _, _, _, delivery, results, result = prepared(tmp_path, validate=False)
+    integrations = Integrations(store)
+    original = integrations.available
+
+    def finish_preparation(project_id, head, branch=None):
+        results.process(project_id)
+        return original(project_id, head, branch)
+
+    # The first ready candidate introduces a branch after refresh has read its branch list.
+    monkeypatch.setattr(integrations, "available", finish_preparation)
+    integrations.refresh_availability("harbor")
+    current = results.get("harbor", result.id)
+    assert current.status == "ready", current.problem
+    assert integrations.get("harbor", current.integration_id).target_branch == delivery.branch
+    integrations.refresh_availability("harbor")
+    assert results.get("harbor", result.id).status == "ready"
 
 
 def policy(store, milestone, delivery, enabled):

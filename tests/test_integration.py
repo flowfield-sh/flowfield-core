@@ -202,6 +202,44 @@ def test_advanced_target_combination_is_checked_and_stale_candidate_cannot_apply
     assert service.get("harbor", candidate.id).status == "stale"
 
 
+def test_refresh_preserves_delivery_completed_during_git_observation(tmp_path, monkeypatch):
+    service, execution, _, run = seed(tmp_path)
+    candidate = prepare(service, run)
+    original = service.available
+
+    def deliver(project_id, head, branch=None):
+        observed = original(project_id, head, branch)
+        monkeypatch.setattr(service, "available", original)
+        assert apply(service, candidate).status == "integrated"
+        return observed
+
+    monkeypatch.setattr(service, "available", deliver)
+    service.refresh_availability("harbor")
+    assert execution.get("harbor", run.id).code_available
+
+
+def test_refresh_cannot_restore_availability_after_settings_change(tmp_path, monkeypatch):
+    service, execution, _, run = seed(tmp_path)
+    apply(service, prepare(service, run))
+    original = service.available
+
+    def reconfigure(project_id, head, branch=None):
+        observed = original(project_id, head, branch)
+        service.configure(
+            project_id,
+            IntegrationConfig(
+                expected_revision=service.settings(project_id).revision,
+                target_branch="integration",
+                checks=["true"],
+            ),
+        )
+        return observed
+
+    monkeypatch.setattr(service, "available", reconfigure)
+    assert service.refresh_availability("harbor") == set()
+    assert not execution.get("harbor", run.id).code_available
+
+
 def test_conflicts_and_failed_or_mutating_checks_preserve_target(tmp_path):
     service, execution, repo, run = seed(tmp_path)
     target = advance(repo, run.base_commit, {"loader.py": "def load():\n    return 99\n"}, tmp_path)

@@ -556,6 +556,20 @@ class Integrations:
         settings = self.settings(project_id)
         repository = Path(self.workspace.project(project_id).path)
         with self.workspace.connection() as db:
+            observed_integrations = {
+                row[0]
+                for row in db.execute(
+                    "SELECT data FROM integrations WHERE project_id=? AND status='ready'",
+                    (project_id,),
+                )
+            }
+            observed_runs = {
+                row[0]
+                for row in db.execute(
+                    "SELECT data FROM work_runs WHERE project_id=? AND status='accepted'",
+                    (project_id,),
+                )
+            }
             branches = {
                 row[0]
                 for row in db.execute(
@@ -577,9 +591,15 @@ class Integrations:
             except ApplicationError:
                 heads[branch], available_by_branch[branch] = None, set()
         with self.workspace.connection(write=True, project_id=project_id) as db:
+            if self._settings(db, project_id).revision != settings.revision:
+                return set()
             for row in db.execute(
                 "SELECT data FROM integrations WHERE project_id=? AND status='ready'", (project_id,)
             ).fetchall():
+                # Git reads happen outside the transaction. A candidate prepared or
+                # changed meanwhile has not been observed by this refresh.
+                if row[0] not in observed_integrations:
+                    continue
                 record = Integration.model_validate_json(row[0])
                 if (
                     record.target_before != heads.get(record.target_branch)
@@ -598,6 +618,8 @@ class Integrations:
             for row in db.execute(
                 "SELECT data FROM work_runs WHERE project_id=? AND status='accepted'", (project_id,)
             ).fetchall():
+                if row[0] not in observed_runs:
+                    continue
                 run = self.execution._run(db, project_id, json.loads(row[0])["id"])
                 value = run.result_commit in available_by_branch.get(run.target_branch, set())
                 if run.code_available != value:
