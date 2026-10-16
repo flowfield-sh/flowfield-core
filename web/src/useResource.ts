@@ -139,10 +139,15 @@ export function useResource<T>(
   };
 }
 
+function readPage<P>(url: string, signal: AbortSignal) {
+  return request<P>(url, "GET", undefined, signal);
+}
+
 export function usePage<P extends Page>(
   path: string,
   refresh: unknown,
   refreshLoaded = false,
+  read: (url: string, signal: AbortSignal) => Promise<P> = readPage,
 ) {
   const loaded = useRef({
     path,
@@ -166,10 +171,10 @@ export function usePage<P extends Page>(
       return pageWindow<P>(
         url,
         refreshLoaded ? loaded.current.count : 0,
-        (next) => request<P>(next, "GET", undefined, signal),
+        (next) => read(next, signal),
       );
     },
-    [refreshLoaded],
+    [refreshLoaded, read],
   );
   const resource = useResource<P>(path, refresh, 10000, undefined, readLoaded);
   const { data, setData, setError } = resource;
@@ -196,7 +201,7 @@ export function usePage<P extends Page>(
     }
     try {
       const page = await nextPage(path, data, (url) =>
-        request<P>(url, "GET", undefined, pending.signal),
+        read(url, pending.signal),
       );
       if (!pending.signal.aborted) {
         setData((previous) => ({

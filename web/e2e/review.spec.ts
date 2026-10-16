@@ -11,7 +11,7 @@ import {
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
-import { expect } from "@playwright/test";
+import { expect, type Route } from "@playwright/test";
 
 test("managed review keeps its URL, binds the result, and preserves feedback on conflict", async ({
   page,
@@ -78,6 +78,12 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   });
   let rejectOnce = true;
   let cancellations = 0;
+  let moreFiles = true;
+  let pendingFiles: Route | undefined;
+  let cancelledFiles = false;
+  page.on("requestfailed", (request) => {
+    if (request.url().endsWith("/diff?offset=40")) cancelledFiles = true;
+  });
   await page.route("**/api/projects/run-ui/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
@@ -135,6 +141,10 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
           try_command: "Run fixture checks",
         },
       });
+    if (path.endsWith("/diff") && url.searchParams.has("offset")) {
+      pendingFiles = route;
+      return;
+    }
     if (path.endsWith("/diff"))
       return route.fulfill({
         json: {
@@ -146,8 +156,8 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
             old_mode: "000000",
             new_mode: "100644",
           })),
-          total_files: 40,
-          next_offset: null,
+          total_files: moreFiles ? 41 : 40,
+          next_offset: moreFiles ? 40 : null,
           base_commit: run.base_commit,
           result_commit: run.result_commit,
         },
@@ -237,6 +247,33 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   const browser = runs.locator(".diff-browser");
   const preview = browser.locator(".file-preview");
   const files = browser.getByRole("navigation", { name: "Changed files" });
+  await files.getByRole("button", { name: "More files" }).click();
+  await expect.poll(() => !!pendingFiles).toBe(true);
+  moreFiles = false;
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("flowfield:service-recovered")),
+  );
+  try {
+    await expect.poll(() => cancelledFiles).toBe(true);
+  } finally {
+    await pendingFiles!.fulfill({
+      json: {
+        files: [
+          { id: 40, new_path: "stale.py", old_path: null, change: "added" },
+        ],
+        total_files: 41,
+        next_offset: null,
+        base_commit: run.base_commit,
+        result_commit: run.result_commit,
+      },
+    });
+  }
+  await expect(files.getByRole("button", { name: /stale.py/ })).toHaveCount(0);
+  await expect(files.getByRole("button", { name: "More files" })).toHaveCount(
+    0,
+  );
+  await expect(files.getByRole("button")).toHaveCount(40);
+  await files.evaluate((element) => (element.scrollTop = 0));
   const pane = page.locator(".entity-pane-body");
   const geometry = () =>
     browser.evaluate((el) => el.getBoundingClientRect().height);
@@ -299,9 +336,22 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
     expect(await geometry()).toBe(height);
     expect(await pane.evaluate((el) => el.scrollTop)).toBe(top);
   }
-  await page.screenshot({
-    path: testInfo.outputPath("code-preview-desktop.png"),
-  });
+  const capturePreview = async (size: string) => {
+    for (const theme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: theme });
+      await expect
+        .poll(() =>
+          page.locator("html").evaluate((el) => el.classList.contains("dark")),
+        )
+        .toBe(theme === "dark");
+      await page.screenshot({
+        path: testInfo.outputPath(`code-preview-${size}-${theme}.png`),
+        animations: "disabled",
+      });
+    }
+    await page.emulateMedia({ colorScheme: "light" });
+  };
+  await capturePreview("desktop");
   await files.evaluate((el) => {
     el.scrollTop = el.scrollHeight;
   });
@@ -329,9 +379,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   await runs.getByRole("button", { name: "Split", exact: true }).click();
   expect(await geometry()).toBe(mobileHeight);
   await preview.scrollIntoViewIfNeeded();
-  await page.screenshot({
-    path: testInfo.outputPath("code-preview-mobile.png"),
-  });
+  await capturePreview("mobile");
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

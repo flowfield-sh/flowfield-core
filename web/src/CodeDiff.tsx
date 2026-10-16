@@ -1,9 +1,8 @@
 import { LoadMore } from "./LoadMore";
-import { reportError } from "./requestFeedback";
 import { ContentStack } from "./DetailLayout";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Diff, Hunk, Decoration, parseDiff, tokenize } from "react-diff-view";
 import refractor from "refractor/core";
 import python from "refractor/lang/python";
@@ -13,7 +12,7 @@ import tsx from "refractor/lang/tsx";
 import json from "refractor/lang/json";
 import bash from "refractor/lang/bash";
 import "react-diff-view/style/index.css";
-import { useResource } from "./useResource";
+import { usePage, useResource } from "./useResource";
 import { request, label } from "./workspace";
 import type { components } from "./api-schema";
 
@@ -21,6 +20,15 @@ for (const language of [python, typescript, jsx, tsx, json, bash])
   refractor.register(language);
 type Files = components["schemas"]["ChangedFiles"];
 type Patch = components["schemas"]["FilePatch"];
+async function readFiles(url: string, signal: AbortSignal) {
+  const { files, ...page } = await request<Files>(
+    url,
+    "GET",
+    undefined,
+    signal,
+  );
+  return { ...page, items: files };
+}
 const languages: Record<string, string> = {
   py: "python",
   js: "javascript",
@@ -50,20 +58,13 @@ export default function CodeDiff({
   changeView: (view: DiffViewState) => void;
 }) {
   const [retry, setRetry] = useState(0);
-  const files = useResource<Files>(`${path}/diff`, `${result}:${retry}`);
-  const moreRequest = useRef<AbortController | null>(null);
+  const files = usePage(`${path}/diff`, `${result}:${retry}`, false, readFiles);
   const { selected, mode } = view;
   const setSelected = (selected: number) => changeView({ ...view, selected });
   const setMode = (mode: DiffViewState["mode"]) =>
     changeView({ ...view, mode });
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [key, setKey] = useState({ path, result, retry });
-  if (key.path !== path || key.result !== result || key.retry !== retry) {
-    setKey({ path, result, retry });
-    setLoadingMore(false);
-  }
   const patch = useResource<Patch>(
-    files.data?.files.length ? `${path}/diff/${selected}` : null,
+    files.data?.items.length ? `${path}/diff/${selected}` : null,
     `${result}:${retry}`,
   );
   const preview = useMemo(() => {
@@ -80,39 +81,6 @@ export default function CodeDiff({
       };
     }
   }, [patch.data]);
-  useEffect(() => {
-    moreRequest.current?.abort();
-    moreRequest.current = null;
-    return () => moreRequest.current?.abort();
-  }, [path, result, retry]);
-  async function more() {
-    if (files.data?.next_offset == null || moreRequest.current || files.loading)
-      return;
-    const pending = new AbortController();
-    moreRequest.current = pending;
-    setLoadingMore(true);
-    try {
-      const next = await request<Files>(
-        `${path}/diff?offset=${files.data.next_offset}`,
-        "GET",
-        undefined,
-        pending.signal,
-      );
-      if (pending.signal.aborted) return;
-      files.setData((previous) => ({
-        ...next,
-        files: [...(previous?.files ?? []), ...next.files],
-      }));
-    } catch (e) {
-      if (!pending.signal.aborted)
-        reportError(e, "Could not load more changed files");
-    } finally {
-      if (!pending.signal.aborted) {
-        moreRequest.current = null;
-        setLoadingMore(false);
-      }
-    }
-  }
   return (
     <ContentStack
       className="code-review"
@@ -148,10 +116,10 @@ export default function CodeDiff({
       {files.data?.total_files === 0 && (
         <p className="muted">No code changes between these commits.</p>
       )}
-      {!!files.data?.files.length && (
+      {!!files.data?.items.length && (
         <div className="diff-browser">
           <nav className="changed-files" aria-label="Changed files">
-            {files.data.files.map((file) => (
+            {files.data.items.map((file) => (
               <Button
                 size="sm"
                 variant="ghost"
@@ -174,8 +142,8 @@ export default function CodeDiff({
                 size="sm"
                 variant="outline"
                 className="quiet"
-                disabled={loadingMore || files.loading}
-                onClick={() => void more()}
+                disabled={files.loadingMore}
+                onClick={() => void files.older()}
               >
                 More files
               </LoadMore>

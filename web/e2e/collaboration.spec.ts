@@ -1792,7 +1792,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     page
       .locator("[data-sonner-toast][data-type=error]")
       .filter({ hasText: "More files temporarily unavailable" }),
-  ).toContainText("Could not load more changed files");
+  ).toContainText("Could not load more items");
   await expect(runs).not.toContainText("More files temporarily unavailable");
   await runs
     .getByRole("button", { name: "Added tests/test_loader.py", exact: true })
