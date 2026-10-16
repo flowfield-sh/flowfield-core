@@ -6,7 +6,7 @@ const focusLinks = new Map<string, string>();
 export const ResourceScrollKey = createContext<string | null>(null);
 const feedOwns = (node: HTMLElement) =>
   node.matches(".entity-overlay-body") &&
-  !!node.querySelector(".conversation-messages, .milestone-review-feed");
+  !!node.querySelector(".conversation-messages");
 const selector =
   ".entity-overlay-body, .workspace-work-content, .column-cards, .board, .milestone-board";
 export function ResourceScroll({

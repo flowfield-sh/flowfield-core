@@ -61,6 +61,41 @@ def setup(tmp_path):
     return execution, records, verification
 
 
+def test_activity_pages_existing_revisions_and_reviews_with_stable_bounded_cursors(tmp_path):
+    from flowfield.workspaces import WorkspaceCreate, Workspaces
+
+    execution, _, verification = setup(tmp_path)
+    store = execution.workspace
+    records = Milestones(store)
+    space = verification.workspace_id
+    identity = verification.milestone_id
+    # Equal timestamps still have deterministic, distinct cursor identities.
+    with store.connection(write=True) as db:
+        db.execute(
+            "UPDATE milestone_revisions SET data=json_set(data,'$.updated_at',?) "
+            "WHERE workspace_id=? AND id=?",
+            (verification.created_at, space, identity),
+        )
+    first = records.activity(space, identity, limit=1)
+    assert len(first["items"]) == 1 and first["next_cursor"]
+    records.edit(space, identity, MilestoneEdit(expected_revision=1, body="New definition"))
+    second = records.activity(space, identity, limit=1, before=first["next_cursor"])
+    assert len(second["items"]) == 1 and second["next_cursor"] is None
+    assert {first["items"][0]["kind"], second["items"][0]["kind"]} == {"revision", "review"}
+    full = records.activity(space, identity)
+    assert len(full["items"]) == 3
+    assert full["items"][0]["number"] == 2
+    assert all(
+        not {"body", "acceptance_criteria", "report", "tasks"} & item.keys()
+        for item in full["items"]
+    )
+    other = Workspaces(store).create(WorkspaceCreate(name="Other"))
+    with pytest.raises(ApplicationError, match="not found"):
+        records.activity(other.id, identity)
+    with pytest.raises(ApplicationError, match="Limit"):
+        records.activity(space, identity, limit=51)
+
+
 def complete(execution, verification, *, verdict="passed", coverage="complete", omit=False):
     run = execution.claim("harbor", BASE, {BASE: set()})
     assert run and run.task_id == verification.task_id

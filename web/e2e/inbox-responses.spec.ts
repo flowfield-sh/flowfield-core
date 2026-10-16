@@ -223,17 +223,17 @@ test("milestone acceptance clears Inbox and Review column reflects the decision"
     .getByRole("link", { name: /Verify installed harness discovery/ })
     .click();
   await expect(
-    page.getByRole("list", { name: "Milestone review feed" }),
+    page.getByRole("list", { name: "Milestone activity" }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Milestone accepted", exact: true }),
   ).toBeVisible();
-  await page.getByRole("tab", { name: "History", exact: true }).click();
+  await page.getByRole("tab", { name: "Overview", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Acceptance criteria", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("list", { name: "Milestone review feed" }),
+    page.getByRole("list", { name: "Milestone activity" }),
   ).toHaveCount(0);
   await page.goto(`${base}/milestones`);
   await expect(

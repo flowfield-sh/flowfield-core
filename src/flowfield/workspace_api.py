@@ -213,6 +213,17 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
             workspace_id, identity, before=before, limit=limit
         )
 
+    @router.get("/{workspace_id}/milestones/{identity}/activity")
+    def milestone_activity(
+        workspace_id: str,
+        identity: str,
+        before: str | None = Query(None, max_length=256),
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return Milestones(supervisor().workspace).activity(
+            workspace_id, identity, before=before, limit=limit
+        )
+
     @router.get("/{workspace_id}/milestones/{identity}/delivery")
     def milestone_delivery(workspace_id: str, identity: str) -> MilestoneDelivery | None:
         return MilestoneDeliveries(supervisor().workspace).get(workspace_id, identity)

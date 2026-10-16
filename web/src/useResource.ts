@@ -136,7 +136,7 @@ export function useResource<T>(
 export function usePage<
   P extends {
     items: unknown[];
-    next_cursor?: number | null;
+    next_cursor?: number | string | null;
     next_before?: number | null;
     next_offset?: number | null;
   },
@@ -154,7 +154,7 @@ export function usePage<
       const cursor = page.next_cursor ?? page.next_before ?? page.next_offset;
       if (cursor == null) break;
       const next = await request<P>(
-        `${url}${url.includes("?") ? "&" : "?"}${page.next_offset != null ? "offset" : "before"}=${cursor}`,
+        `${url}${url.includes("?") ? "&" : "?"}${page.next_offset != null ? "offset" : "before"}=${encodeURIComponent(cursor)}`,
         "GET",
         undefined,
         signal,
@@ -196,7 +196,7 @@ export function usePage<
     }
     try {
       const page = await request<P>(
-        `${path}${path.includes("?") ? "&" : "?"}${data?.next_offset != null ? "offset" : "before"}=${cursor}`,
+        `${path}${path.includes("?") ? "&" : "?"}${data?.next_offset != null ? "offset" : "before"}=${encodeURIComponent(cursor)}`,
         "GET",
         undefined,
         pending.signal,

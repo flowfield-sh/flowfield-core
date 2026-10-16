@@ -1,7 +1,6 @@
 import { WorkState } from "./WorkState";
 import { SourceReferences } from "./SourceReferences";
 import { milestoneCards } from "./Milestones";
-import { MilestoneReport } from "./MilestoneVerification";
 import { ResourceRetry } from "./ResourceRetry";
 import type { WorkspaceBoard } from "./workspace";
 import type { DirtyCallback } from "./retainedState";
@@ -9,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useLocation, useSearchParams } from "react-router";
 import { DetailTabs } from "./Presentation";
 import { DetailHeader } from "./Presentation";
-import { MilestoneVerification } from "./MilestoneVerification";
+import { MilestoneActivity } from "./MilestoneActivity";
 import { Markdown } from "./Markdown";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { MilestoneIntegrationSettings } from "./MilestoneIntegrationSettings";
@@ -80,13 +79,14 @@ export function MilestoneDetail({
     card?.verification ? `${path}/verifications/${card.verification.id}` : null,
     refresh,
   );
-  const tab =
-    !historical &&
-    (params.get("tab") === "review" || params.has("verification"))
-      ? "review"
-      : historical || ["details", "history"].includes(params.get("tab") ?? "")
-        ? "history"
-        : "overview";
+  const tab = historical
+    ? "revisions"
+    : params.has("verification") ||
+        ["activity", "review", "history", "details"].includes(
+          params.get("tab") ?? "",
+        )
+      ? "activity"
+      : "overview";
   return (
     <section className="editor documents-page" aria-label="Milestone">
       <DetailHeader
@@ -99,10 +99,6 @@ export function MilestoneDetail({
         }
         close={close}
         closeLabel="Back"
-        metadata={
-          delivery.data &&
-          `${delivery.data.project_id} → ${delivery.data.destination_branch}`
-        }
         actions={
           <div className="actions">
             {historical && (
@@ -130,7 +126,7 @@ export function MilestoneDetail({
         <DetailTabs
           id="milestone"
           title="Milestone views"
-          tabs={["overview", "review", "history"]}
+          tabs={["overview", "activity"]}
           active={tab}
           change={(value) => {
             const next = new URLSearchParams(params);
@@ -143,9 +139,28 @@ export function MilestoneDetail({
       {tab === "overview" ? (
         <ContentStack space="section">
           <Markdown>{milestone.body || "No description yet."}</Markdown>
+          <ResourceRetry resources={[delivery]} />
+          {delivery.data && (
+            <DetailSection title="Delivery destination">
+              <p>
+                Final approval delivers the verified result to{" "}
+                <strong>{delivery.data.destination_branch}</strong> in{" "}
+                <WorkspaceLink to={`/projects/${delivery.data.project_id}`}>
+                  {board.projects.find(
+                    (project) => project.id === delivery.data?.project_id,
+                  )?.name ?? delivery.data.project_id}
+                </WorkspaceLink>
+                .
+              </p>
+              <p>
+                Task results are assembled and checked on the milestone’s
+                separate branch before your final approval.
+              </p>
+            </DetailSection>
+          )}
           {card?.verification && (
             <WorkspaceLink
-              to={`/workspaces/${milestone.workspace_id}/milestones/${milestone.key}?tab=review&verification=${card.verification.id}`}
+              to={`/workspaces/${milestone.workspace_id}/milestones/${milestone.key}?tab=activity&verification=${card.verification.id}`}
             >
               Inspect review
               {card.verification.status === "ready" ||
@@ -160,7 +175,11 @@ export function MilestoneDetail({
             </Markdown>
           </DetailSection>
           <ResourceRetry resources={[latestReview]} />
-          {latestReview.data && <MilestoneReport value={latestReview.data} />}
+          {latestReview.data?.summary && (
+            <DetailSection title="Outcome">
+              <Markdown>{latestReview.data.summary}</Markdown>
+            </DetailSection>
+          )}
           <DetailSection title="Contributing work">
             <ul className="source-reference-list">
               {card?.tasks.map((task) => (
@@ -206,15 +225,14 @@ export function MilestoneDetail({
             />
           )}
         </ContentStack>
-      ) : tab === "review" ? (
-        <MilestoneVerification
+      ) : tab === "activity" ? (
+        <MilestoneActivity
           key={milestone.id}
           refresh={refresh}
           onDirty={markResponseDirty}
           path={path}
-          milestoneId={milestone.id}
-          milestoneKey={milestone.key}
-          revision={milestone.revision}
+          milestone={milestone}
+          newest={card?.verification?.id}
         />
       ) : (
         <div className="document-layout">

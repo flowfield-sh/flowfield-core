@@ -23,6 +23,17 @@ test("combined native-review evidence ends at exact human promotion", async ({
   await expect(
     page.getByRole("button", { name: "Accept and promote", exact: true }),
   ).toBeVisible();
+  await expect(page.locator(".editor-heading")).not.toContainText("→");
+  await page.getByRole("tab", { name: "Overview", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Delivery destination", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Final approval delivers the verified result to", {
+      exact: false,
+    }),
+  ).toContainText("main");
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
   await page.locator(".verification-checks summary").first().click();
   await expect(
     page.getByText("The feature file exists", { exact: false }),
@@ -79,6 +90,30 @@ test("combined native-review evidence ends at exact human promotion", async ({
   await expect(
     page.getByRole("button", { name: "Accept and promote", exact: true }),
   ).toHaveCount(0);
+  for (const [width, height, theme] of [
+    [1440, 1000, "light"],
+    [1440, 1000, "dark"],
+    [390, 844, "light"],
+    [390, 844, "dark"],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await page.emulateMedia({ colorScheme: theme });
+    await expect(
+      page.getByRole("heading", { name: "Milestone accepted" }),
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        page
+          .locator("html")
+          .evaluate((element) => element.classList.contains("dark")),
+      )
+      .toBe(theme === "dark");
+    await page.screenshot({
+      path: testInfo.outputPath(`completed-review-${width}-${theme}.png`),
+      fullPage: true,
+      animations: "disabled",
+    });
+  }
 });
 
 test("failed milestone reviewer has shared recovery and a paused retry", async ({

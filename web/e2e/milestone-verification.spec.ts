@@ -36,17 +36,17 @@ test("Inbox review accepts exact milestone evidence and keeps history", async ({
   ).toBeVisible();
   await expect(
     page
-      .getByRole("tabpanel", { name: "Review", exact: true })
+      .getByRole("tabpanel", { name: "Activity", exact: true })
       .getByRole("img", {
         name: "Ready for milestone review · 2 of 2 checks passed",
       }),
   ).toBeVisible();
   await page
-    .getByRole("tabpanel", { name: "Review", exact: true })
+    .getByRole("tabpanel", { name: "Activity", exact: true })
     .getByText("Tasks", { exact: true })
     .click();
   const tasks = page
-    .getByRole("tabpanel", { name: "Review", exact: true })
+    .getByRole("tabpanel", { name: "Activity", exact: true })
     .getByLabel("Verification tasks", { exact: true });
   await expect(tasks.getByRole("link")).toHaveCount(2);
   const record = await (
@@ -230,64 +230,62 @@ test("external review refreshes the pane without losing an unsent note", async (
   ).toHaveCount(0);
 });
 
-test("one selected review keeps paged history and exact unsent notes", async ({
+test("milestone Activity keeps expandable revisions, paged reviews and exact notes", async ({
   page,
 }) => {
-  const value = seed("verification-scroll", "passed", 12);
+  const value = seed("verification-scroll", "passed", 22);
   const base = `/workspaces/${value.workspace_id}/milestones/${value.milestone_key}`;
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 844 });
-    await page.goto(`${base}?tab=review`);
+    await page.goto(`${base}?tab=activity`);
     await expect(
       page.getByRole("button", { name: "Accept milestone", exact: true }),
     ).toBeVisible();
-    const feed = page.getByRole("list", { name: "Milestone review feed" });
-    await expect(feed.locator(":scope > li")).toHaveCount(1);
     await expect(
-      page.getByText("Review round 1: include the recovery walkthrough.", {
-        exact: true,
-      }),
-    ).toHaveCount(0);
-    await expect(
-      page.getByText("Fixture: discovery returned the configured executable.", {
-        exact: true,
-      }),
-    ).not.toBeVisible();
-    await page
-      .getByText("Discover an installed harness", { exact: true })
-      .click();
-    await expect(
-      page.getByText("Fixture: discovery returned the configured executable.", {
-        exact: true,
-      }),
-    ).toBeVisible();
+      page.getByRole("tablist", { name: "Milestone views" }).getByRole("tab"),
+    ).toHaveText(["Overview", "Activity"]);
+    const feed = page.getByRole("list", { name: "Milestone activity" });
+    await expect(feed.locator(":scope > li")).toHaveCount(20);
+    await expect(feed.locator(".activity-entry[open]")).toHaveCount(1);
     const note = page.getByRole("textbox", { name: "Review note" });
     await note.fill(`Keep this exact report note at ${width}`);
-    await page.getByText("Earlier reviews", { exact: true }).click();
-    const earlier = page.getByRole("list", {
-      name: "Earlier milestone reviews",
-    });
-    await expect(earlier.getByRole("link")).toHaveCount(9);
     await page
-      .getByRole("button", { name: "Load earlier reviews", exact: true })
+      .getByRole("button", { name: "Earlier activity", exact: true })
       .click();
-    await expect(earlier.getByRole("link")).toHaveCount(11);
-    const href = await earlier.getByRole("link").last().getAttribute("href");
-    await earlier.getByRole("link").last().click();
-    await expect(feed.locator(":scope > li")).toHaveCount(1);
+    await expect(feed.locator(":scope > li")).toHaveCount(23);
+    const definition = feed.locator('[data-kind="revision"]').first();
+    await definition.locator("summary").click();
+    await expect(
+      definition.getByRole("heading", {
+        name: "Acceptance criteria",
+        exact: true,
+      }),
+    ).toBeVisible();
+    const old = feed.locator('[data-kind="review"]').first();
+    await old.locator(".activity-entry > summary").click();
+    await expect(
+      old.getByText("Review round 1: include the recovery walkthrough.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    const href = await old
+      .locator(".activity-entry-meta a")
+      .getAttribute("href");
+    await old.locator(".activity-entry-meta a").click();
     await expect(
       page.getByRole("button", { name: "Accept milestone", exact: true }),
     ).toHaveCount(0);
-    await expect(
-      page.getByRole("link", { name: "Latest review", exact: true }),
-    ).toBeVisible();
     await page
       .getByRole("link", { name: "Unsent review note", exact: true })
       .click();
     await expect(note).toHaveValue(`Keep this exact report note at ${width}`);
     await note.fill("");
     await page.goto(href!);
-    await expect(feed.locator(":scope > li")).toHaveCount(1);
+    await expect(
+      old.getByText("Review round 1: include the recovery walkthrough.", {
+        exact: true,
+      }),
+    ).toBeVisible();
     await expect(page.locator(".entity-overlay-footer")).toBeEmpty();
   }
 });

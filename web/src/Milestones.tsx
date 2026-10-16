@@ -105,7 +105,7 @@ export function MilestoneList({
                       <strong>
                         <WorkspaceLink
                           className="task-card-link"
-                          to={`${workspaceHref(milestone.workspace_id)}/milestones/${milestone.key}${verification ? `?tab=review&verification=${verification.id}` : ""}`}
+                          to={`${workspaceHref(milestone.workspace_id)}/milestones/${milestone.key}${verification ? `?tab=activity&verification=${verification.id}` : ""}`}
                         >
                           {milestone.title}
                         </WorkspaceLink>

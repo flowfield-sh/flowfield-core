@@ -1,18 +1,6 @@
-import {
-  useRetainedState,
-  retainDirty,
-  useRetainedDraftKeys,
-} from "./retainedState";
+import { useRetainedState, retainDirty } from "./retainedState";
 import type { DirtyCallback } from "./retainedState";
-import {
-  useCallback,
-  useEffect,
-  useState,
-  lazy,
-  Suspense,
-  type ReactNode,
-} from "react";
-import { useLocation, useSearchParams } from "react-router";
+import { useEffect, useState, lazy, Suspense, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { components } from "./api-schema";
@@ -29,11 +17,9 @@ import { Inspection } from "./Inspection";
 import type { DiffViewState } from "./CodeDiff";
 import { CheckEvidence } from "./Integration";
 import { OverlayFooter } from "./EntityOverlay";
-import { useDirtyItems } from "./useDirtyItems";
 import { ResourceRetry } from "./ResourceRetry";
-import { Timestamp } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { usePage, useResource } from "./useResource";
+import { useResource } from "./useResource";
 import { label, request } from "./workspace";
 import {
   MilestoneReviewRecord,
@@ -42,13 +28,7 @@ import {
 
 export type Verification = components["schemas"]["MilestoneVerification"];
 const CodeDiff = lazy(() => import("./CodeDiff"));
-type History = {
-  items: (Pick<Verification, "id" | "status" | "updated_at"> & {
-    number: number;
-  })[];
-  next_cursor: number | null;
-};
-const statuses: Record<string, string> = {
+export const verificationStatuses: Record<string, string> = {
   preparing: "Preparing combined candidate",
   promoting: "Promoting verified milestone",
   delivery_blocked: "Promotion needs your attention",
@@ -245,7 +225,9 @@ export function MilestoneReviewResponse({
   );
 }
 
-function reportState(value: Verification): components["schemas"]["WorkState"] {
+export function reportState(
+  value: Verification,
+): components["schemas"]["WorkState"] {
   if (value.status === "verifying" && value.review_status === "waiting")
     return { label: "Waiting for your answer", tone: "waiting" };
   if (value.status === "verifying" && value.review_status === "queued")
@@ -257,7 +239,7 @@ function reportState(value: Verification): components["schemas"]["WorkState"] {
     label: [
       value.status === "accepted" && !value.current
         ? "Previously accepted"
-        : statuses[value.status],
+        : verificationStatuses[value.status],
       passed != null
         ? `${passed} of ${value.checks.length} checks passed`
         : null,
@@ -280,8 +262,10 @@ function reportState(value: Verification): components["schemas"]["WorkState"] {
 export function MilestoneReport({
   value,
   metadata,
+  embedded = false,
 }: {
   value: Verification;
+  embedded?: boolean;
   metadata?: ReactNode;
 }) {
   const [diffView, setDiffView] = useState<DiffViewState>({
@@ -329,22 +313,27 @@ export function MilestoneReport({
     </ol>
   );
   return (
-    <article className="conversation-message">
-      <DetailHeading
-        entry
-        inlineMetadata
-        titleAs="h3"
-        metadata={metadata}
-        title={
-          <span className="feed-event-title">
-            <WorkState indicatorOnly state={reportState(value)} />
-            <span>
-              {value.report ? "Verification report" : "Verification started"}
+    <article className={embedded ? undefined : "conversation-message"}>
+      {!embedded && (
+        <DetailHeading
+          entry
+          inlineMetadata
+          titleAs="h3"
+          metadata={metadata}
+          title={
+            <span className="feed-event-title">
+              <WorkState indicatorOnly state={reportState(value)} />
+              <span>
+                {value.report ? "Verification report" : "Verification started"}
+              </span>
             </span>
-          </span>
-        }
-      />
-      <ContentStack className="conversation-message-body" space="section">
+          }
+        />
+      )}
+      <ContentStack
+        className={embedded ? undefined : "conversation-message-body"}
+        space="section"
+      >
         {value.summary && <Markdown>{value.summary}</Markdown>}
         {value.limitations && (
           <DetailSection title="Limitations">
@@ -502,217 +491,6 @@ export function MilestoneReviewRequest({
             />
           </OverlayFooter>
         </>
-      )}
-    </ContentStack>
-  );
-}
-
-function ReviewEntry({
-  id,
-  path,
-  refresh,
-  markDirty,
-  milestoneId,
-  respond,
-}: {
-  respond: boolean;
-  id: string;
-  path: string;
-  refresh: unknown;
-  markDirty: (id: string, value: boolean, retained?: boolean) => void;
-  milestoneId: string;
-}) {
-  const resource = useResource<Verification>(
-    `${path}/verifications/${id}`,
-    refresh,
-  );
-  const value = resource.data;
-  const dirty = useCallback(
-    (value: boolean, retained?: boolean) => markDirty(id, value, retained),
-    [id, markDirty],
-  );
-  if (!value)
-    return (
-      <li data-message-id={id}>
-        <ResourceRetry resources={[resource]} />
-        {!resource.error && <p>Loading review…</p>}
-      </li>
-    );
-  if (value.milestone_id !== milestoneId)
-    return (
-      <li role="alert">This verification belongs to another milestone.</li>
-    );
-  const href = `/workspaces/${value.workspace_id}/milestones/${value.milestone_key}?verification=${value.id}`;
-  return (
-    <li
-      data-message-id={id}
-      data-announcement-source={`workspace:${value.workspace_id}:milestone:${value.id}`}
-    >
-      <MilestoneReport
-        value={value}
-        metadata={
-          <>
-            {value.purpose === "review" ? "Reviewer" : "Worker"} ·{" "}
-            <WorkspaceLink to={href}>
-              <Timestamp date={value.created_at} />
-            </WorkspaceLink>
-          </>
-        }
-      />
-      {value.reviewed_by && (
-        <article className="conversation-message review-decision">
-          <DetailHeading
-            entry
-            inlineMetadata
-            titleAs="h3"
-            title={
-              value.status === "accepted"
-                ? "Milestone accepted"
-                : value.promotion?.approved_at
-                  ? "Promotion approved"
-                  : "Changes requested"
-            }
-            metadata={
-              <>
-                {value.reviewed_by === "human" ? "You" : value.reviewed_by} ·{" "}
-                <Timestamp date={value.reviewed_at ?? value.updated_at} />
-              </>
-            }
-          />
-          {value.review_note && (
-            <div className="conversation-message-body">
-              <Markdown>{value.review_note}</Markdown>
-            </div>
-          )}
-        </article>
-      )}
-      <OverlayFooter>
-        <MilestoneReviewResponse
-          key={value.id}
-          value={value}
-          path={path}
-          refresh={resource.retry}
-          onDirty={dirty}
-          allowReview={respond}
-        />
-      </OverlayFooter>
-    </li>
-  );
-}
-
-export function MilestoneVerification({
-  path,
-  milestoneId,
-  revision,
-  refresh,
-  onDirty,
-}: {
-  path: string;
-  milestoneId: string;
-  milestoneKey: string;
-  revision: number;
-  refresh: unknown;
-  onDirty: DirtyCallback;
-}) {
-  const [params, setParams] = useSearchParams();
-  const location = useLocation();
-  const selected = params.get("verification");
-  const history = usePage<History>(
-    `${path}/milestones/${milestoneId}/verifications?limit=10`,
-    JSON.stringify([revision, refresh]),
-  );
-  const newest = history.data?.items[0]?.id;
-  useEffect(() => {
-    if (!selected && newest) {
-      const next = new URLSearchParams(params);
-      next.set("verification", newest);
-      setParams(next, { replace: true, state: location.state });
-    }
-  }, [newest, selected, params, setParams, location.state]);
-  const markDirty = useDirtyItems(onDirty);
-  const current = selected ?? newest;
-  const draftPrefix = `${path}:milestone:${milestoneId}:verification:`;
-  const drafts = useRetainedDraftKeys(draftPrefix)
-    .map((key) => key.slice(draftPrefix.length))
-    .filter((id) => id !== current);
-  const earlier =
-    history.data?.items.filter((item) => item.id !== current) ?? [];
-  return (
-    <ContentStack
-      space="section"
-      className="milestone-review-feed"
-      role="tabpanel"
-      aria-label="Review"
-    >
-      <ResourceRetry resources={[history]} />
-      {selected && newest && selected !== newest && (
-        <WorkspaceLink to={`?tab=review&verification=${newest}`}>
-          Latest review
-        </WorkspaceLink>
-      )}
-      {!history.data && !history.error && <p>Loading reviews…</p>}
-      {history.data?.items.length === 0 && !selected && (
-        <p>
-          No reviews yet. Verification will appear here when the contributing
-          work is ready.
-        </p>
-      )}
-      {drafts.length > 0 && (
-        <ContentStack aria-label="Saved review notes">
-          {drafts.map((id) => (
-            <WorkspaceLink key={id} to={`?tab=review&verification=${id}`}>
-              Unsent review note
-            </WorkspaceLink>
-          ))}
-        </ContentStack>
-      )}
-      {current && (
-        <ol
-          className="conversation-messages"
-          aria-label="Milestone review feed"
-        >
-          <ReviewEntry
-            key={current}
-            id={current}
-            path={path}
-            refresh={JSON.stringify([revision, refresh])}
-            respond={current === newest}
-            markDirty={markDirty}
-            milestoneId={milestoneId}
-          />
-        </ol>
-      )}
-      {(earlier.length > 0 || history.data?.next_cursor) && (
-        <Disclosure summary="Earlier reviews">
-          <ContentStack>
-            <ul
-              className="source-reference-list"
-              aria-label="Earlier milestone reviews"
-            >
-              {earlier.map((item) => (
-                <li key={item.id}>
-                  <WorkspaceLink to={`?tab=review&verification=${item.id}`}>
-                    {statuses[item.status]}
-                  </WorkspaceLink>
-                  {" · "}
-                  <Timestamp date={item.updated_at} />
-                </li>
-              ))}
-            </ul>
-            {history.data?.next_cursor && (
-              <div className="actions">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={history.loadingMore}
-                  onClick={() => void history.older()}
-                >
-                  Load earlier reviews
-                </Button>
-              </div>
-            )}
-          </ContentStack>
-        </Disclosure>
       )}
     </ContentStack>
   );

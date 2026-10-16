@@ -88,6 +88,30 @@ class Milestones:
             )
             return page([json.loads(row[0]) for row in rows], limit, "revision")
 
+    def activity(
+        self, workspace_id: str, identity: str, *, before: str | None = None, limit: int = 20
+    ) -> dict[str, Any]:
+        """Page existing revisions and review rounds without copying their full bodies."""
+        validate_page(limit, before)
+        with self.store.connection() as db:
+            current = self.read(db, workspace_id, identity)
+            rows = db.execute(
+                "WITH entries AS ("
+                "SELECT 'revision:'||revision id, 'revision' kind, revision number, "
+                "json_extract(data,'$.updated_at') timestamp, "
+                "json_extract(data,'$.updated_by') actor, NULL status, NULL verification_id "
+                "FROM milestone_revisions WHERE workspace_id=? AND id=? UNION ALL "
+                "SELECT 'verification:'||id, 'review', number, "
+                "json_extract(data,'$.created_at'), "
+                "CASE WHEN json_extract(data,'$.purpose')='review' THEN 'reviewer' "
+                "ELSE 'worker' END, json_extract(data,'$.status'), id "
+                "FROM milestone_verifications WHERE workspace_id=? AND milestone_id=?) "
+                "SELECT *, timestamp||'|'||id cursor FROM entries "
+                "WHERE (? IS NULL OR timestamp||'|'||id<?) ORDER BY cursor DESC LIMIT ?",
+                (workspace_id, current.id, workspace_id, current.id, before, before, limit + 1),
+            )
+            return page([dict(row) for row in rows], limit, "cursor")
+
     def impact(
         self, workspace_id: str, identity: str, *, after: str | None = None, limit: int = 20
     ) -> dict[str, Any]:
