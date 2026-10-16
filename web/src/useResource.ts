@@ -1,6 +1,7 @@
 import { reportError } from "./requestFeedback";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RequestError, request } from "./workspace";
+import { nextPage, pageCursor, pageWindow, type Page } from "./pagination";
 
 const loadedWindows = new Map<string, number>();
 
@@ -138,59 +139,53 @@ export function useResource<T>(
   };
 }
 
-export function usePage<
-  P extends {
-    items: unknown[];
-    next_cursor?: number | string | null;
-    next_before?: number | null;
-    next_offset?: number | null;
-  },
->(path: string, refresh: unknown, refreshLoaded = false) {
+export function usePage<P extends Page>(
+  path: string,
+  refresh: unknown,
+  refreshLoaded = false,
+) {
   const loaded = useRef({
     path,
     count: refreshLoaded ? (loadedWindows.get(path) ?? 0) : 0,
   });
-  const readLoaded = useCallback(async (url: string, signal: AbortSignal) => {
-    let page = await request<P>(url, "GET", undefined, signal);
-    const count = loaded.current.path === url ? loaded.current.count : 0;
-    // Publish the refreshed window together, so later-page editors never
-    // unmount briefly while the first page is being revalidated.
-    while (page.items.length < count) {
-      const cursor = page.next_cursor ?? page.next_before ?? page.next_offset;
-      if (cursor == null) break;
-      const next = await request<P>(
-        `${url}${url.includes("?") ? "&" : "?"}${page.next_offset != null ? "offset" : "before"}=${encodeURIComponent(cursor)}`,
-        "GET",
-        undefined,
-        signal,
-      );
-      page = { ...next, items: [...page.items, ...next.items] };
-    }
-    return page;
-  }, []);
-  const resource = useResource<P>(
-    path,
-    refresh,
-    10000,
-    undefined,
-    refreshLoaded ? readLoaded : undefined,
-  );
-  const { data, setData, setError } = resource;
+  const more = useRef<AbortController | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const readLoaded = useCallback(
+    async (url: string, signal: AbortSignal) => {
+      // Every base read supersedes pagination, including service recovery and
+      // hook-local retry when the caller's refresh value has not changed.
+      more.current?.abort();
+      more.current = null;
+      setLoadingMore(false);
+      if (loaded.current.path !== url)
+        loaded.current = {
+          path: url,
+          count: refreshLoaded ? (loadedWindows.get(url) ?? 0) : 0,
+        };
+      // Publish the refreshed window together so later-page editors stay mounted.
+      return pageWindow<P>(
+        url,
+        refreshLoaded ? loaded.current.count : 0,
+        (next) => request<P>(next, "GET", undefined, signal),
+      );
+    },
+    [refreshLoaded],
+  );
+  const resource = useResource<P>(path, refresh, 10000, undefined, readLoaded);
+  const { data, setData, setError } = resource;
   const [key, setKey] = useState({ path, refresh });
   if (key.path !== path || key.refresh !== refresh) {
     setKey({ path, refresh });
     setLoadingMore(false);
   }
-  const more = useRef<AbortController | null>(null);
   useEffect(() => {
     more.current?.abort();
     more.current = null;
     return () => more.current?.abort();
   }, [path, refresh]);
   async function older() {
-    const cursor = data?.next_cursor ?? data?.next_before ?? data?.next_offset;
-    if (!cursor || more.current || resource.loading) return;
+    if (!data || pageCursor(data) == null || more.current || resource.loading)
+      return;
     const pending = new AbortController();
     more.current = pending;
     setLoadingMore(true);
@@ -200,11 +195,8 @@ export function usePage<
       loaded.current = { path, count: (data?.items.length ?? 0) + 1 };
     }
     try {
-      const page = await request<P>(
-        `${path}${path.includes("?") ? "&" : "?"}${data?.next_offset != null ? "offset" : "before"}=${encodeURIComponent(cursor)}`,
-        "GET",
-        undefined,
-        pending.signal,
+      const page = await nextPage(path, data, (url) =>
+        request<P>(url, "GET", undefined, pending.signal),
       );
       if (!pending.signal.aborted) {
         setData((previous) => ({
