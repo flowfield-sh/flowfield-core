@@ -72,7 +72,7 @@ Labels are optional and shared across the workspace. Ask the Coordinator to main
 
 ## Configure at the right level
 
-- **Workspace settings** owns its name, queue, worker defaults, shared capacity and independent task and milestone reviewer settings. The Coordinator can read reviewer defaults while planning; changing them remains a human action.
+- **Workspace settings** owns its name, queue, worker defaults, shared capacity, independent task and milestone reviewer settings, and the default for reviewed task integration into owned milestone branches. Milestones can override that default. The Coordinator can read these defaults while planning; changing them remains a human action.
 - **Project settings** owns repository identity, description, worker-document defaults and Integration: branch, setup, checks and local result previews.
 - The **Coordinator input** owns its harness/model controls; task **Agent settings** can override the worker choice for subsequent attempts.
 

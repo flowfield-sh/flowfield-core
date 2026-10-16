@@ -45,6 +45,7 @@ export function ReviewerSettings({
   const state = useRecordEditor({
     incoming: resource.data ?? undefined,
     recordName: "reviewer settings",
+    version: (record) => JSON.stringify([record.revision, record.effective]),
     fields,
     path: () => path,
     onDirty,

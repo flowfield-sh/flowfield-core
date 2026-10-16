@@ -42,10 +42,11 @@ test("Inbox review accepts exact milestone evidence and keeps history", async ({
         name: "Ready for milestone review · 2 of 2 checks passed",
       }),
   ).toBeVisible();
-  await page
-    .getByRole("tabpanel", { name: "Activity", exact: true })
-    .getByText("Tasks", { exact: true })
-    .click();
+  await expect(
+    page
+      .getByRole("tabpanel", { name: "Activity", exact: true })
+      .getByRole("heading", { name: "Tasks", exact: true }),
+  ).toBeVisible();
   const tasks = page
     .getByRole("tabpanel", { name: "Activity", exact: true })
     .getByLabel("Verification tasks", { exact: true });
@@ -55,11 +56,14 @@ test("Inbox review accepts exact milestone evidence and keeps history", async ({
   ).json();
   for (const task of record.tasks) {
     await expect(
-      tasks.getByRole("link", { name: task.task_key, exact: true }),
+      tasks
+        .getByRole("link")
+        .filter({ has: page.getByText(task.task_key, { exact: true }) }),
     ).toHaveAttribute(
       "href",
       `/projects/${task.project_id}/tasks/${task.task_key}/result/${task.result_id}`,
     );
+    await expect(tasks).toContainText(record.task_titles[task.result_id]);
   }
   await expect(tasks).toContainText("Verification");
   await expect(tasks).not.toContainText("aaaaaaaaaaaa");

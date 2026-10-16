@@ -16,6 +16,7 @@ from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.execution_models import Record
 from flowfield.integration import Integrations
+from flowfield.milestone_delivery import integration_enabled, workspace_policy
 from flowfield.milestones import Milestones
 from flowfield.results import Results
 from flowfield.review_records import ReviewRecord, ReviewRecords
@@ -57,6 +58,7 @@ class ReviewBinding(Record):
     assignment_digest: str = ""
     delivery_id: str | None = None
     integration_policy_revision: int | None = None
+    workspace_integration_policy_revision: int | None = None
 
 
 class TaskReview(ReviewRecord):
@@ -175,6 +177,9 @@ class TaskReviews(ReviewRecords[TaskReview]):
                     ).encode()
                 ).hexdigest(),
                 delivery_id=delivery.id if delivery else None,
+                workspace_integration_policy_revision=workspace_policy(db, owner).revision
+                if delivery and delivery.integration_policy.enabled is None
+                else None,
                 integration_policy_revision=delivery.integration_policy.revision
                 if delivery
                 else None,
@@ -200,7 +205,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
             delivery = for_milestone(db, project, review.binding.milestone_id)
             if (
                 not delivery
-                or not delivery.integration_policy.enabled
+                or not integration_enabled(db, delivery)
                 or not read_project(db, project).enabled
             ):
                 return review
@@ -236,7 +241,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
             delivery = for_milestone(db, project, task.milestone_id)
             if (
                 not delivery
-                or not delivery.integration_policy.enabled
+                or not integration_enabled(db, delivery)
                 or not read_project(db, project).enabled
                 or result.status not in ("ready", "stale")
                 or (result.status == "stale" and result.problem_code != "target_changed")
@@ -282,7 +287,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
             or not review.verdict
             or review.verdict.action != "approve"
             or not delivery
-            or not delivery.integration_policy.enabled
+            or not integration_enabled(db, delivery)
             or delivery.branch != result.target_branch
         ):
             raise ApplicationError(

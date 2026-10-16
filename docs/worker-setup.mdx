@@ -37,7 +37,7 @@ For a shared service, agree the endpoint, data permissions, version assumptions 
 
 ## Let workers run saved checks
 
-**Project settings → Integration → Worker check permission** lets workers call `run_project_checks` for the exact saved validation commands. It starts disabled. This permission runs the worker’s edited code with Flowfield’s service-host access, including access that the native harness may restrict. Enable it only for a project whose code and check scripts you trust. It does not approve code delivery or grant general native shell permission.
+**Project settings → Integration → Check execution** lets workers call `run_project_checks` for the exact saved validation commands. It starts disabled. This permission runs the worker’s edited code with Flowfield’s service-host access, including access that the native harness may restrict. Enable it only for a project whose code and check scripts you trust. It does not approve code delivery or grant general native shell permission.
 
 The worker cannot supply a command, working directory or environment to this operation. Commands run in its owned checkout with saved timeouts, bounded retained output and ordinary child-process cleanup. Latest full output is available through worker `read_context` pages and attempt evidence; final candidate validation still runs separately before approval.
 

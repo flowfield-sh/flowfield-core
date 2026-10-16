@@ -115,7 +115,9 @@ Repository instructions govern development conventions and permission to commit/
   The service binds delivered contributions, checks their exact combination with the destination,
   and runs the separately configured milestone reviewer. Do not create a verifier task for owned delivery.
   Humans choose Task reviewer/Milestone reviewer settings and may delegate reviewed task integration
-  into the named milestone branch; you cannot grant this authority. Standalone integration remains exact human review.
+  through workspace defaults or milestone overrides; you cannot grant this authority. Read
+  `get_workspace` for defaults and `get_milestone` for the owned branch and override. A null
+  milestone policy inherits the workspace default. Standalone integration remains exact human review.
   The milestone reviewer can request one scoped contribution correction or ask about intent/access.
   Passing whole-outcome evidence ends at human acceptance/promotion, never implicit final delivery.
   Ordinary milestones without owned delivery can still use an explicit staged report task with all
@@ -171,7 +173,7 @@ Repository instructions govern development conventions and permission to commit/
   authority; omit effort when no effort control is offered. Discovery can run native startup
   hooks but sends no model prompt. Never invent a universal
   permission policy or silently broaden native harness access.
-- Human-only Worker check permission enables the worker's `run_project_checks` for saved
+- Human-only “Let workers run checks through Flowfield” enables the worker's `run_project_checks` for saved
   validation commands on its edited code with Flowfield host access. It is not native shell
   authority or code approval. Changes to integration settings invalidate it; do not repeatedly
   rewrite unchanged settings. A fresh attempt adopts changed commands. Reuse saved checks and
@@ -261,6 +263,10 @@ Repository instructions govern development conventions and permission to commit/
   Use `reply_to_task` with action `observation` to record what the human tried and observed
   against the current exact result without requesting changes or starting a worker. Read
   those observations in the task conversation on resume; they do not test successor code.
+  For a human's combined milestone test, include the `milestone` binding from the exact
+  verification's ID, revision and promotion candidate, using a contributing task's current
+  result. The milestone Request shows those observations beside the automated checks.
+  Record what the human reported, preserve attribution and never infer acceptance.
 - Inspection is optional. `prepare_inspection` binds to the selected result/revision and
   creates a separate candidate checkout without running project commands. Return its saved
   directory and complete saved launcher command, following pagination for older inline commands.

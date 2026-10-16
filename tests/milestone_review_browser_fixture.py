@@ -184,6 +184,29 @@ def seed(directory: Path, kind: str):
             else None,
         )
     value = MilestoneVerifications(store).get(project, value.id)
+    if kind == "ready":
+        from flowfield.conversation import Conversation
+        from flowfield.replies import Replies
+        from flowfield.reply_models import MilestoneObservationBinding, ReplyBinding, ReplyCreate
+
+        gate = Conversation(store).eligibility(project, task.id)
+        Replies(store).submit(
+            project,
+            task.id,
+            ReplyCreate(
+                action="observation",
+                binding=ReplyBinding.model_validate(
+                    gate.model_dump(include=set(ReplyBinding.model_fields))
+                ),
+                milestone=MilestoneObservationBinding(
+                    verification_id=value.id,
+                    verification_revision=value.revision,
+                    candidate_commit=value.promotion.candidate_commit,
+                ),
+                body="Human tested the complete pipeline: 19 cases passed.",
+                author="coordinator:browser-fixture",
+            ),
+        )
     return {
         "workspace": project,
         "project": project,

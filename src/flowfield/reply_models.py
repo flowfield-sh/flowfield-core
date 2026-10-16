@@ -18,11 +18,22 @@ class ReplyBinding(Record):
     question_revision: int | None = None
 
 
+class MilestoneObservationBinding(Record):
+    verification_id: str
+    verification_revision: int = Field(ge=1)
+    candidate_commit: str = Field(min_length=40, max_length=64)
+
+
 class ReplyFields(Record):
     id: Identifier = Field(default_factory=lambda: uuid4().hex)
     binding: ReplyBinding
     body: str = Field(min_length=1, max_length=8000)
     author: str = Field(default="human", min_length=1, max_length=200)
+    milestone: MilestoneObservationBinding | None = Field(
+        default=None,
+        description="For human testing of a combined milestone, bind the exact verification "
+        "and candidate from get_milestone_verification. Only for action=observation.",
+    )
 
 
 class ReplyCreate(ReplyFields):

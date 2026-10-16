@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { ContentStack, DetailSection } from "./DetailLayout";
-import { MilestoneIntegrationSettings } from "./MilestoneIntegrationSettings";
+import { IntegrationPolicySettings } from "./IntegrationPolicySettings";
 import { ReviewerSettings } from "./ReviewerSettings";
 import { Separator } from "@/components/ui/separator";
 import { useDirtyItems } from "./useDirtyItems";
@@ -32,7 +32,8 @@ export function MilestoneSettings({
     <ContentStack space="section" aria-label="Milestone settings">
       <DetailSection title="Integration">
         {delivery?.status === "ready" ? (
-          <MilestoneIntegrationSettings
+          <IntegrationPolicySettings
+            milestone
             path={`workspaces/${milestone.workspace_id}/milestones/${milestone.id}`}
             refresh={refresh}
             onDirty={integrationDirty}

@@ -14,10 +14,32 @@ from flowfield.delivery_models import (
     MilestoneDelivery,
     TaskIntegrationPolicy,
     TaskIntegrationPolicyEdit,
+    TaskIntegrationPolicyView,
+    WorkspaceIntegrationPolicy,
+    WorkspaceIntegrationPolicyEdit,
 )
 from flowfield.errors import ApplicationError
 from flowfield.milestones import Milestones
 from flowfield.workspaces import Workspaces
+
+
+def workspace_policy(db: sqlite3.Connection, workspace_id: str) -> WorkspaceIntegrationPolicy:
+    Workspaces.read(db, workspace_id)
+    row = db.execute(
+        "SELECT data FROM workspace_integration_policies WHERE workspace_id=? "
+        "ORDER BY revision DESC LIMIT 1",
+        (workspace_id,),
+    ).fetchone()
+    return (
+        WorkspaceIntegrationPolicy.model_validate_json(row[0])
+        if row
+        else WorkspaceIntegrationPolicy()
+    )
+
+
+def integration_enabled(db: sqlite3.Connection, delivery: MilestoneDelivery) -> bool:
+    override = delivery.integration_policy.enabled
+    return override if override is not None else workspace_policy(db, delivery.workspace_id).enabled
 
 
 def for_milestone(
@@ -64,6 +86,46 @@ class MilestoneDeliveries:
     def __init__(self, store: Workspace):
         self.store = store
 
+    def workspace_policy(self, workspace_id: str) -> WorkspaceIntegrationPolicy:
+        with self.store.connection() as db:
+            return workspace_policy(db, workspace_id)
+
+    def configure_workspace_policy(
+        self, workspace_id: str, request: WorkspaceIntegrationPolicyEdit
+    ) -> WorkspaceIntegrationPolicy:
+        with self.store.connection(write=True) as db:
+            previous = workspace_policy(db, workspace_id)
+            self.store._current(previous.revision, request.expected_revision)
+            value = WorkspaceIntegrationPolicy(
+                revision=previous.revision + 1, enabled=request.enabled, updated_at=now()
+            )
+            db.execute(
+                "INSERT INTO workspace_integration_policies VALUES (?,?,?)",
+                (workspace_id, value.revision, value.model_dump_json()),
+            )
+            return value
+
+    def policy_view(self, workspace_id: str, milestone_id: str) -> TaskIntegrationPolicyView:
+        with self.store.connection() as db:
+            milestone = Milestones.read(db, workspace_id, milestone_id)
+            row = db.execute(
+                "SELECT data FROM milestone_deliveries WHERE workspace_id=? AND milestone_id=?",
+                (workspace_id, milestone.id),
+            ).fetchone()
+            if not row:
+                raise ApplicationError(
+                    "delivery_required", "Prepare an owned milestone branch first.", 409
+                )
+            delivery = MilestoneDelivery.model_validate_json(row[0])
+            defaults = workspace_policy(db, workspace_id)
+            return TaskIntegrationPolicyView(
+                **delivery.integration_policy.model_dump(),
+                delivery_id=delivery.id,
+                branch=delivery.branch,
+                effective_enabled=integration_enabled(db, delivery),
+                workspace_revision=defaults.revision,
+            )
+
     def integration_policy(
         self, workspace_id: str, milestone_id: str, request: TaskIntegrationPolicyEdit
     ) -> MilestoneDelivery:
@@ -80,6 +142,10 @@ class MilestoneDeliveries:
                 )
             value = MilestoneDelivery.model_validate_json(row[0])
             self.store._current(value.integration_policy.revision, request.expected_revision)
+            if request.expected_workspace_revision is not None:
+                self.store._current(
+                    workspace_policy(db, workspace_id).revision, request.expected_workspace_revision
+                )
             if (
                 value.id != request.delivery_id
                 or value.branch != request.branch

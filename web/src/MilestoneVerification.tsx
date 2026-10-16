@@ -18,7 +18,10 @@ import { CheckEvidence } from "./Integration";
 import { OverlayFooter } from "./EntityOverlay";
 import { ResourceRetry } from "./ResourceRetry";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { useResource } from "./useResource";
+import { WorkIdentity } from "./WorkIdentity";
+import { Timestamp } from "./Timestamp";
+import { LoadMore } from "./LoadMore";
+import { usePage, useResource } from "./useResource";
 import { label, request } from "./workspace";
 import {
   MilestoneReviewRecord,
@@ -311,6 +314,38 @@ export function MilestoneReport({ value }: { value: Verification }) {
           </DetailSection>
         )}
         <DetailSection title="Checks">{checks}</DetailSection>
+        <MilestoneHumanTesting value={value} />
+        <DetailSection title="Tasks">
+          <ul className="work-resource-list" aria-label="Verification tasks">
+            {value.tasks.map((task) => (
+              <li key={task.result_id}>
+                <WorkspaceLink
+                  className="work-navigation-row"
+                  to={`/projects/${task.project_id}/tasks/${task.task_key}/result/${task.result_id}`}
+                >
+                  <WorkIdentity
+                    state={{ label: "Delivered result", tone: "complete" }}
+                    itemKey={task.task_key}
+                    title={
+                      value.task_titles?.[task.result_id] ??
+                      "Contributing result"
+                    }
+                  />
+                </WorkspaceLink>
+              </li>
+            ))}
+            {value.task_key && (
+              <li>
+                <WorkspaceLink
+                  className="work-navigation-row"
+                  to={`/projects/${value.project_id}/tasks/${value.task_key}${value.result_id ? `/result/${value.result_id}` : ""}`}
+                >
+                  <WorkIdentity itemKey={value.task_key} title="Verification" />
+                </WorkspaceLink>
+              </li>
+            )}
+          </ul>
+        </DetailSection>
         <DetailSection title="Details">
           <ContentStack>
             {promotion?.candidate_commit && (
@@ -387,33 +422,6 @@ export function MilestoneReport({ value }: { value: Verification }) {
                 </Disclosure>
               </ContentStack>
             </Disclosure>
-            <Disclosure summary="Tasks">
-              <ContentStack aria-label="Verification tasks">
-                <p>
-                  Contributions:{" "}
-                  {value.tasks.map((task, index) => (
-                    <span key={`${task.project_id}/${task.task_id}`}>
-                      {index > 0 && ", "}
-                      <WorkspaceLink
-                        to={`/projects/${task.project_id}/tasks/${task.task_key}/result/${task.result_id}`}
-                      >
-                        {task.task_key}
-                      </WorkspaceLink>
-                    </span>
-                  ))}
-                </p>
-                {value.task_key && (
-                  <p>
-                    Verification:{" "}
-                    <WorkspaceLink
-                      to={`/projects/${value.project_id}/tasks/${value.task_key}${value.result_id ? `/result/${value.result_id}` : ""}`}
-                    >
-                      {value.task_key}
-                    </WorkspaceLink>
-                  </p>
-                )}
-              </ContentStack>
-            </Disclosure>
             {value.review_id && (
               <MilestoneReviewRecord
                 projectId={value.project_id}
@@ -425,6 +433,41 @@ export function MilestoneReport({ value }: { value: Verification }) {
         </DetailSection>
       </ContentStack>
     </article>
+  );
+}
+
+function MilestoneHumanTesting({ value }: { value: Verification }) {
+  const notes = usePage<components["schemas"]["MilestoneTestingPage"]>(
+    `workspaces/${value.workspace_id}/verifications/${value.id}/testing`,
+    value,
+    true,
+  );
+  if (!notes.data?.items.length && !notes.error) return null;
+  return (
+    <DetailSection title="Human testing" aria-label="Human testing">
+      <ResourceRetry resources={[notes]} />
+      {notes.data?.items.map((note) => (
+        <Disclosure
+          key={note.id}
+          summary={
+            <span>
+              {note.actor.label} · {note.task_key} ·{" "}
+              <Timestamp date={note.created_at} />
+            </span>
+          }
+        >
+          <Markdown>{note.body}</Markdown>
+        </Disclosure>
+      ))}
+      {notes.data?.next_offset != null && (
+        <LoadMore
+          disabled={notes.loadingMore}
+          onClick={() => void notes.older()}
+        >
+          Load earlier testing
+        </LoadMore>
+      )}
+    </DetailSection>
   );
 }
 

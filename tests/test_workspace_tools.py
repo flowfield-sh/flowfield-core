@@ -104,6 +104,8 @@ def test_workspace_description_reads_are_bounded_and_revision_checked(tmp_path):
 
 def test_workspace_read_exposes_its_reviewer_defaults_without_configuration_authority(tmp_path):
     from flowfield.agent_models import AgentChoice
+    from flowfield.delivery_models import WorkspaceIntegrationPolicyEdit
+    from flowfield.milestone_delivery import MilestoneDeliveries
     from flowfield.reviewer_settings import ReviewerEdit, Reviewers
 
     store = Workspace(tmp_path / "state")
@@ -117,6 +119,10 @@ def test_workspace_read_exposes_its_reviewer_defaults_without_configuration_auth
         ReviewerEdit(expected_revision=1, enabled=True, selection=AgentChoice(model="fixture")),
     )
     reviewers.configure(other.id, "milestone", ReviewerEdit(expected_revision=1, enabled=False))
+    policies = MilestoneDeliveries(store)
+    policies.configure_workspace_policy(
+        space.id, WorkspaceIntegrationPolicyEdit(expected_revision=1, enabled=True)
+    )
 
     async def exercise():
         service = Supervisor(store)
@@ -131,6 +137,11 @@ def test_workspace_read_exposes_its_reviewer_defaults_without_configuration_auth
         assert scoped["reviewers"]["milestone"]["selection"] is None
         assert "configure_reviewers" not in grant.tools
         assert reviewers.get(other.id, "milestone").enabled is False
+        assert shared.structuredContent["integration_policy"] == scoped["integration_policy"]
+        assert scoped["integration_policy"]["enabled"]
+        assert scoped["integration_policy"]["revision"] == 2
+        assert not policies.workspace_policy(other.id).enabled
+        assert "configure_workspace_integration_policy" not in grant.tools
 
     asyncio.run(exercise())
 

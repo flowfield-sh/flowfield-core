@@ -103,6 +103,9 @@ def add_conversation_tools(mcp: FastMCP, workspace: Callable[[], Workspace]) -> 
         Reuse the same ID after an uncertain response; stale input must be reconciled.
         action=observation saves human testing against the exact result without starting
         a worker, requesting changes or approving code. State what was tried and observed.
+        For combined milestone testing, include milestone with the exact verification ID,
+        revision and candidate commit from get_milestone_verification. This displays the
+        observation beside that milestone decision; changed candidates never inherit it.
         """
         return Replies(workspace()).submit(project_id, task_id, request)
 

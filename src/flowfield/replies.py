@@ -47,6 +47,37 @@ class Replies:
                 )
             if not request.body.strip():
                 raise ApplicationError("empty_reply", "Write a reply before sending.")
+            if request.milestone:
+                from flowfield.milestone_promotion import read as promotion_read
+                from flowfield.milestone_verification import read
+                from flowfield.worker_settings import workspace_id
+
+                owner = workspace_id(db, project_id)
+                if not owner:
+                    raise ApplicationError("not_found", "Workspace not found.", 404)
+                evidence = read(db, owner, request.milestone.verification_id)
+                promotion = (
+                    promotion_read(db, evidence.promotion_id) if evidence.promotion_id else None
+                )
+                self.workspace._current(evidence.revision, request.milestone.verification_revision)
+                if (
+                    request.action != "observation"
+                    or not evidence.current
+                    or not promotion
+                    or promotion.candidate_commit != request.milestone.candidate_commit
+                    or not any(
+                        task.project_id == project_id
+                        and task.task_id == task_id
+                        and task.result_id == binding.result_id
+                        and task.result_revision == binding.result_revision
+                        for task in evidence.tasks
+                    )
+                ):
+                    raise ApplicationError(
+                        "observation_stale",
+                        "Read the current milestone candidate before recording testing.",
+                        409,
+                    )
             Attachments(self.workspace).references(db, project_id, task_id, request.body, bind=True)
             reply = Reply(
                 **request.model_dump(), project_id=project_id, task_id=task_id, created_at=now()

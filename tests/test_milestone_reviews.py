@@ -517,9 +517,15 @@ def test_correction_returns_through_task_review_and_fresh_whole_outcome(tmp_path
     )
 
 
-def test_missing_plan_creates_one_retained_question_and_does_not_guess_checks(tmp_path):
+@pytest.mark.parametrize("inherit", [False, True])
+def test_missing_plan_creates_one_retained_question_and_does_not_guess_checks(tmp_path, inherit):
     store, _, _, milestone, delivery, results, result = prepared(tmp_path)
-    policy(store, milestone, delivery, True)
+    if inherit:
+        from test_delegated_integration import workspace_policy
+
+        workspace_policy(store, True)
+    else:
+        policy(store, milestone, delivery, True)
     review = assess(store, result)
     TaskReviews(store).delegate("harbor", review.id)
     results.process("harbor")

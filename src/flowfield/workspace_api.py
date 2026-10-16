@@ -30,6 +30,8 @@ from flowfield.delivery_models import (
     MilestoneDelivery,
     TaskIntegrationPolicyEdit,
     TaskIntegrationPolicyView,
+    WorkspaceIntegrationPolicy,
+    WorkspaceIntegrationPolicyEdit,
 )
 from flowfield.documents import (
     Document,
@@ -60,6 +62,7 @@ from flowfield.permission_models import PermissionAnswer, PermissionPage, Permis
 from flowfield.review_models import ChangedFiles, FilePatch
 from flowfield.supervisor import Supervisor
 from flowfield.verification_models import (
+    MilestoneTestingPage,
     MilestoneVerification,
     VerificationPrepare,
     VerificationReview,
@@ -256,24 +259,26 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     def milestone_integration_policy(
         workspace_id: str, identity: str, request: TaskIntegrationPolicyEdit
     ) -> TaskIntegrationPolicyView:
-        value = MilestoneDeliveries(supervisor().workspace).integration_policy(
-            workspace_id, identity, request
-        )
-        return TaskIntegrationPolicyView(
-            **value.integration_policy.model_dump(), delivery_id=value.id, branch=value.branch
-        )
+        owner = MilestoneDeliveries(supervisor().workspace)
+        owner.integration_policy(workspace_id, identity, request)
+        return owner.policy_view(workspace_id, identity)
 
     @router.get("/{workspace_id}/milestones/{identity}/delivery/integration-policy")
     def read_milestone_integration_policy(
         workspace_id: str, identity: str
     ) -> TaskIntegrationPolicyView:
-        value = MilestoneDeliveries(supervisor().workspace).get(workspace_id, identity)
-        if not value:
-            raise ApplicationError(
-                "delivery_required", "Prepare an owned milestone branch first.", 409
-            )
-        return TaskIntegrationPolicyView(
-            **value.integration_policy.model_dump(), delivery_id=value.id, branch=value.branch
+        return MilestoneDeliveries(supervisor().workspace).policy_view(workspace_id, identity)
+
+    @router.get("/{workspace_id}/integration-policy")
+    def workspace_integration_policy(workspace_id: str) -> WorkspaceIntegrationPolicy:
+        return MilestoneDeliveries(supervisor().workspace).workspace_policy(workspace_id)
+
+    @router.put("/{workspace_id}/integration-policy")
+    def configure_workspace_integration_policy(
+        workspace_id: str, request: WorkspaceIntegrationPolicyEdit
+    ) -> WorkspaceIntegrationPolicy:
+        return MilestoneDeliveries(supervisor().workspace).configure_workspace_policy(
+            workspace_id, request
         )
 
     @router.put("/{workspace_id}/milestones/{identity}/delivery")
@@ -303,6 +308,14 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     @router.get("/{workspace_id}/verifications/{identity}")
     def verification(workspace_id: str, identity: str) -> MilestoneVerification:
         return MilestoneVerifications(supervisor().workspace).get(workspace_id, identity)
+
+    @router.get("/{workspace_id}/verifications/{identity}/testing")
+    def milestone_testing(
+        workspace_id: str, identity: str, offset: int = Query(0, ge=0, le=10000)
+    ) -> MilestoneTestingPage:
+        return MilestoneVerifications(supervisor().workspace).testing(
+            workspace_id, identity, offset
+        )
 
     @router.post("/{workspace_id}/verifications/{identity}/review")
     def review_verification(

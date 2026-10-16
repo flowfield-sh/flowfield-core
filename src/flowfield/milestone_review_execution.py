@@ -34,8 +34,10 @@ class MilestoneReviewExecution(NativeReviewExecution[MilestoneReview]):
     async def schedule(self) -> None:
         with self.supervisor.workspace.connection() as db:
             deliveries = db.execute(
-                "SELECT id,workspace_id,milestone_id FROM milestone_deliveries "
-                "WHERE json_extract(data,'$.integration_policy.enabled')=1 "
+                "SELECT id,workspace_id,milestone_id FROM milestone_deliveries d "
+                "WHERE COALESCE(json_extract(d.data,'$.integration_policy.enabled'), "
+                "(SELECT json_extract(p.data,'$.enabled') FROM workspace_integration_policies p "
+                "WHERE p.workspace_id=d.workspace_id ORDER BY p.revision DESC LIMIT 1),0)=1 "
                 "ORDER BY CASE WHEN id>? THEN 0 ELSE 1 END,id LIMIT 20",
                 (self.delivery_cursor,),
             ).fetchall()

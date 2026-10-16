@@ -114,7 +114,7 @@ def create_mcp(
 
     @mcp.tool(annotations=read)
     async def get_workspace(workspace_id: Identifier) -> CallToolResult:
-        """Read shared purpose, current revision and human-configured reviewer defaults."""
+        """Read shared purpose, revision and human-configured reviewer/integration defaults."""
 
         def load() -> dict[str, Any]:
             store = workspace()
@@ -122,6 +122,9 @@ def create_mcp(
             purposes: tuple[ReviewPurpose, ...] = ("task", "milestone")
             return {
                 **excerpt(Workspaces(store).get(workspace_id).model_dump()),
+                "integration_policy": MilestoneDeliveries(store)
+                .workspace_policy(workspace_id)
+                .model_dump(),
                 "reviewers": {
                     purpose: reviewers.get(workspace_id, purpose).model_dump(
                         include={"revision", "enabled", "selection"}

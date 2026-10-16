@@ -2,7 +2,13 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { expect } from "@playwright/test";
-import { test, state, fixtureProject, projectWorkspace } from "./support";
+import {
+  test,
+  state,
+  fixtureProject,
+  projectWorkspace,
+  existingDirectory,
+} from "./support";
 
 test("human grants and revokes named milestone integration with retained settings", async ({
   page,
@@ -145,4 +151,100 @@ test("human grants and revokes named milestone integration with retained setting
     form.getByRole("button", { name: "Save integration policy" }),
   ).toBeDisabled();
   await expect(checkbox).not.toBeChecked();
+});
+
+test("workspace integration defaults inherit while milestone overrides remain explicit", async ({
+  page,
+  request,
+}) => {
+  const project = "default-integration";
+  await fixtureProject(request, {
+    data: {
+      id: project,
+      path: existingDirectory(join(state, project)),
+      task_prefix: "DFI",
+    },
+  });
+  const repo = join(state, project);
+  execFileSync("git", ["init", "-b", "main"], { cwd: repo });
+  execFileSync(
+    "git",
+    [
+      "-c",
+      "user.name=Fixture",
+      "-c",
+      "user.email=fixture@example.test",
+      "commit",
+      "--allow-empty",
+      "-m",
+      "Initial",
+    ],
+    { cwd: repo },
+  );
+  const workspace = await projectWorkspace(request, project);
+  expect(
+    (
+      await request.put(`/api/projects/${project}/integration`, {
+        data: { expected_revision: 1, target_branch: "main", checks: ["true"] },
+      })
+    ).ok(),
+  ).toBe(true);
+  const milestone = await (
+    await request.post(`/api/workspaces/${workspace}/milestones`, {
+      data: { title: "Inherited delivery", acceptance_criteria: "Ready" },
+    })
+  ).json();
+  const base = `/workspaces/${workspace}/milestones/${milestone.id}`;
+  expect(
+    (
+      await request.put(`/api${base}/delivery`, {
+        data: { expected_revision: 1, project_id: project },
+      })
+    ).ok(),
+  ).toBe(true);
+  await page.goto(`/workspaces/${workspace}/edit/integration`);
+  const form = page.getByRole("region", { name: "Task integration settings" });
+  const enabled = form.getByRole("checkbox");
+  await expect(enabled).not.toBeChecked();
+  await enabled.check();
+  await page.getByRole("tab", { name: "General", exact: true }).click();
+  await page.getByRole("tab", { name: "Integration", exact: true }).click();
+  await expect(enabled).toBeChecked();
+  await form.getByRole("button", { name: "Save integration policy" }).click();
+  await expect(
+    form.getByRole("button", { name: "Save integration policy" }),
+  ).toBeDisabled();
+  await page.goto(`${base}?tab=settings`);
+  await expect(enabled).toBeChecked();
+  await expect(form).toContainText("Uses workspace default");
+  await enabled.uncheck();
+  await form.getByRole("button", { name: "Save integration policy" }).click();
+  await expect(form).toContainText("Milestone override");
+  await page.reload();
+  await expect(enabled).not.toBeChecked();
+  await form.getByRole("button", { name: "Reset to workspace" }).click();
+  await expect(enabled).toBeChecked();
+  const defaults = await (
+    await request.get(`/api/workspaces/${workspace}/integration-policy`)
+  ).json();
+  await request.put(`/api/workspaces/${workspace}/integration-policy`, {
+    data: { expected_revision: defaults.revision, enabled: false },
+  });
+  await expect(enabled).not.toBeChecked();
+  await expect(form).toContainText("Uses workspace default");
+  await enabled.check();
+  await request.put(`/api/workspaces/${workspace}/integration-policy`, {
+    data: { expected_revision: defaults.revision + 1, enabled: true },
+  });
+  await expect(form.getByRole("status")).toContainText(
+    "unsaved edits are preserved",
+  );
+  await expect(enabled).toBeChecked();
+  await expect(
+    form.getByRole("button", { name: "Save integration policy" }),
+  ).toBeDisabled();
+  page.once("dialog", (dialog) => dialog.accept());
+  await form.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(form).toContainText("Uses workspace default");
+  await expect(form.getByRole("status")).toHaveCount(0);
 });

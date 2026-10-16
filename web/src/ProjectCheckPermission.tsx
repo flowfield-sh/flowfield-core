@@ -23,11 +23,11 @@ export function ProjectCheckPermission({
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<boolean | null>(null);
   return (
-    <DetailSection title="Worker check permission">
+    <DetailSection title="Check execution">
       <SettingsCheckbox
         checked={pending ?? resource.data?.enabled ?? false}
         disabled={disabled || busy || !resource.data}
-        hint="Saves immediately. Workers can run the saved check commands on their edited code with Flowfield’s host access. Changing integration settings requires fresh permission. Revocation blocks future calls; use Stop worker to stop running checks."
+        hint="Runs these commands on worker-edited code with Flowfield’s machine access, outside the worker’s sandbox. Saves immediately; changes to integration settings require permission again. Turning this off blocks new runs."
         onChange={async (event) => {
           if (!resource.data) return;
           setBusy(true);
@@ -49,7 +49,7 @@ export function ProjectCheckPermission({
           }
         }}
       >
-        Allow workers to run saved project checks
+        Let workers run checks through Flowfield
       </SettingsCheckbox>
       <ResourceRetry resources={[resource]} />
     </DetailSection>

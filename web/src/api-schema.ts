@@ -716,6 +716,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/integration-policy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Workspace Integration Policy */
+    get: operations["workspace_integration_policy_api_workspaces__workspace_id__integration_policy_get"];
+    /** Configure Workspace Integration Policy */
+    put: operations["configure_workspace_integration_policy_api_workspaces__workspace_id__integration_policy_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/workspaces/{workspace_id}/milestones/{identity}/verifications": {
     parameters: {
       query?: never;
@@ -743,6 +761,23 @@ export interface paths {
     };
     /** Verification */
     get: operations["verification_api_workspaces__workspace_id__verifications__identity__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/verifications/{identity}/testing": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Milestone Testing */
+    get: operations["milestone_testing_api_workspaces__workspace_id__verifications__identity__testing_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -4857,6 +4892,15 @@ export interface components {
        */
       new_copy: boolean;
     };
+    /** MilestoneObservationBinding */
+    MilestoneObservationBinding: {
+      /** Verification Id */
+      verification_id: string;
+      /** Verification Revision */
+      verification_revision: number;
+      /** Candidate Commit */
+      candidate_commit: string;
+    };
     /** MilestonePromotion */
     MilestonePromotion: {
       /** Id */
@@ -4983,6 +5027,29 @@ export interface components {
       review: components["schemas"]["MilestoneReview"] | null;
       /** Message */
       message: string;
+    };
+    /** MilestoneTestingNote */
+    MilestoneTestingNote: {
+      /** Id */
+      id: string;
+      /** Project Id */
+      project_id: string;
+      /** Task Key */
+      task_key: string;
+      /** Result Id */
+      result_id: string;
+      /** Body */
+      body: string;
+      actor: components["schemas"]["Actor"];
+      /** Created At */
+      created_at: string;
+    };
+    /** MilestoneTestingPage */
+    MilestoneTestingPage: {
+      /** Items */
+      items: components["schemas"]["MilestoneTestingNote"][];
+      /** Next Offset */
+      next_offset?: number | null;
     };
     /** MilestoneUpdate */
     MilestoneUpdate: {
@@ -5120,6 +5187,10 @@ export interface components {
       /** Promotion Id */
       promotion_id: string | null;
       promotion: components["schemas"]["MilestonePromotion"] | null;
+      /** Task Titles */
+      task_titles: {
+        [key: string]: string;
+      };
       /**
        * Purpose
        * @default task
@@ -5638,6 +5709,8 @@ export interface components {
        * @default human
        */
       author: string;
+      /** @description For human testing of a combined milestone, bind the exact verification and candidate from get_milestone_verification. Only for action=observation. */
+      milestone: components["schemas"]["MilestoneObservationBinding"] | null;
       /**
        * Action
        * @enum {string}
@@ -5700,6 +5773,8 @@ export interface components {
        * @default human
        */
       author: string;
+      /** @description For human testing of a combined milestone, bind the exact verification and candidate from get_milestone_verification. Only for action=observation. */
+      milestone?: components["schemas"]["MilestoneObservationBinding"] | null;
       /**
        * Action
        * @enum {string}
@@ -5924,6 +5999,8 @@ export interface components {
       delivery_id: string | null;
       /** Integration Policy Revision */
       integration_policy_revision: number | null;
+      /** Workspace Integration Policy Revision */
+      workspace_integration_policy_revision: number | null;
     };
     /** ReviewVerdict */
     ReviewVerdict: {
@@ -6652,11 +6729,8 @@ export interface components {
        * @default 1
        */
       revision: number;
-      /**
-       * Enabled
-       * @default false
-       */
-      enabled: boolean;
+      /** Enabled */
+      enabled?: boolean | null;
       /** Updated At */
       updated_at?: string | null;
       /**
@@ -6674,7 +6748,9 @@ export interface components {
       /** Branch */
       branch: string;
       /** Enabled */
-      enabled: boolean;
+      enabled: boolean | null;
+      /** Expected Workspace Revision */
+      expected_workspace_revision?: number | null;
     };
     /** TaskIntegrationPolicyView */
     TaskIntegrationPolicyView: {
@@ -6683,11 +6759,8 @@ export interface components {
        * @default 1
        */
       revision: number;
-      /**
-       * Enabled
-       * @default false
-       */
-      enabled: boolean;
+      /** Enabled */
+      enabled?: boolean | null;
       /** Updated At */
       updated_at?: string | null;
       /**
@@ -6699,6 +6772,10 @@ export interface components {
       delivery_id: string;
       /** Branch */
       branch: string;
+      /** Effective Enabled */
+      effective_enabled: boolean;
+      /** Workspace Revision */
+      workspace_revision: number;
     };
     /** TaskPreparation */
     TaskPreparation: {
@@ -7241,6 +7318,33 @@ export interface components {
       name?: string | null;
       /** Description */
       description?: string | null;
+    };
+    /** WorkspaceIntegrationPolicy */
+    WorkspaceIntegrationPolicy: {
+      /**
+       * Revision
+       * @default 1
+       */
+      revision: number;
+      /**
+       * Enabled
+       * @default false
+       */
+      enabled: boolean;
+      /** Updated At */
+      updated_at?: string | null;
+      /**
+       * Author
+       * @default human
+       */
+      author: string;
+    };
+    /** WorkspaceIntegrationPolicyEdit */
+    WorkspaceIntegrationPolicyEdit: {
+      /** Expected Revision */
+      expected_revision: number;
+      /** Enabled */
+      enabled: boolean;
     };
     /** WorkspaceLabel */
     WorkspaceLabel: {
@@ -9159,6 +9263,72 @@ export interface operations {
       };
     };
   };
+  workspace_integration_policy_api_workspaces__workspace_id__integration_policy_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkspaceIntegrationPolicy"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  configure_workspace_integration_policy_api_workspaces__workspace_id__integration_policy_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkspaceIntegrationPolicyEdit"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkspaceIntegrationPolicy"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   verification_history_api_workspaces__workspace_id__milestones__identity__verifications_get: {
     parameters: {
       query?: {
@@ -9251,6 +9421,40 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["MilestoneVerification"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  milestone_testing_api_workspaces__workspace_id__verifications__identity__testing_get: {
+    parameters: {
+      query?: {
+        offset?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MilestoneTestingPage"];
         };
       };
       /** @description Validation Error */

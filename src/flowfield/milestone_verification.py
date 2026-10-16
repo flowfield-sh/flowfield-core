@@ -14,6 +14,8 @@ from flowfield.milestones import Milestones
 from flowfield.reads import PAGE_BYTES, clip, excerpt, page, validate_page
 from flowfield.verification_models import (
     DeliveredTask,
+    MilestoneTestingNote,
+    MilestoneTestingPage,
     MilestoneVerification,
     MilestoneVerificationSummary,
     VerificationPrepare,
@@ -102,7 +104,7 @@ def read(db: sqlite3.Connection, workspace_id: str, identity: str) -> MilestoneV
 def save(db: sqlite3.Connection, value: MilestoneVerification) -> None:
     db.execute(
         "UPDATE milestone_verifications SET status=?,data=? WHERE id=?",
-        (value.status, value.model_dump_json(exclude={"promotion"}), value.id),
+        (value.status, value.model_dump_json(exclude={"promotion", "task_titles"}), value.id),
     )
 
 
@@ -283,11 +285,76 @@ class MilestoneVerifications:
     def get(self, workspace_id: str, identity: str) -> MilestoneVerification:
         with self.store.connection() as db:
             value = read(db, workspace_id, identity)
+            for task in value.tasks:
+                row = db.execute(
+                    "SELECT json_extract(data,'$.title') FROM task_revisions "
+                    "WHERE project_id=? AND task_id=? AND revision=?",
+                    (task.project_id, task.task_id, task.revision),
+                ).fetchone()
+                if row:
+                    value.task_titles[task.result_id] = row[0]
             if value.promotion_id:
                 from flowfield.milestone_promotion import read as promotion_read
 
                 value.promotion = promotion_read(db, value.promotion_id)
             return value
+
+    def testing(self, workspace_id: str, identity: str, offset: int = 0) -> MilestoneTestingPage:
+        """Read existing observations only for this exact combined candidate."""
+        from flowfield.actors import actor
+        from flowfield.milestone_promotion import read as promotion_read
+        from flowfield.reply_models import Reply
+
+        if not 0 <= offset <= 10000:
+            raise ApplicationError("invalid_request", "Use an offset from 0 to 10000.")
+        with self.store.connection() as db:
+            value = read(db, workspace_id, identity)
+            promotion = promotion_read(db, value.promotion_id) if value.promotion_id else None
+            if not promotion or not promotion.candidate_commit:
+                return MilestoneTestingPage(items=[])
+            # Legacy task observations qualify only when their exact code is also
+            # the combined candidate. Never infer milestone scope from their prose.
+            rows = db.execute(
+                "SELECT r.data,json_extract(t.value,'$.task_key') FROM json_each(?) t "
+                "JOIN task_replies r ON r.project_id=json_extract(t.value,'$.project_id') "
+                "AND r.task_id=json_extract(t.value,'$.task_id') "
+                "WHERE json_extract(r.data,'$.action')='observation' "
+                "AND json_extract(r.data,'$.status')='recorded' "
+                "AND json_extract(r.data,'$.binding.result_id')="
+                "json_extract(t.value,'$.result_id') "
+                "AND json_extract(r.data,'$.binding.result_revision')="
+                "json_extract(t.value,'$.result_revision') "
+                "AND ((json_extract(r.data,'$.milestone.verification_id')=? "
+                "AND json_extract(r.data,'$.milestone.candidate_commit')=?) "
+                "OR (json_extract(r.data,'$.milestone') IS NULL "
+                "AND r.project_id=? AND json_extract(t.value,'$.commit')=?)) "
+                "ORDER BY r.created_at DESC,r.id DESC LIMIT 21 OFFSET ?",
+                (
+                    json.dumps([task.model_dump() for task in value.tasks]),
+                    value.id,
+                    promotion.candidate_commit,
+                    value.project_id,
+                    promotion.candidate_commit,
+                    offset,
+                ),
+            ).fetchall()
+            notes = []
+            for row in rows[:20]:
+                reply = Reply.model_validate_json(row[0])
+                notes.append(
+                    MilestoneTestingNote(
+                        id=reply.id,
+                        project_id=reply.project_id,
+                        task_key=row[1],
+                        result_id=reply.binding.result_id or "",
+                        body=reply.body,
+                        actor=actor(reply.author),
+                        created_at=reply.created_at,
+                    )
+                )
+            return MilestoneTestingPage(
+                items=notes, next_offset=offset + 20 if len(rows) > 20 else None
+            )
 
     def context(
         self,

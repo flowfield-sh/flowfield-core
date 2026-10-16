@@ -121,6 +121,7 @@ class MilestoneReviews(ReviewRecords[MilestoneReview]):
 
     def request_missing_plan(self, workspace: str, milestone_id: str) -> None:
         from flowfield.delivery_models import MilestoneDelivery
+        from flowfield.milestone_delivery import integration_enabled
 
         with self.store.connection(write=True) as db:
             milestone = Milestones.read(db, workspace, milestone_id)
@@ -133,7 +134,7 @@ class MilestoneReviews(ReviewRecords[MilestoneReview]):
             delivery = MilestoneDelivery.model_validate_json(row[0])
             plan = plan_read(db, workspace, milestone.id)
             if (
-                not delivery.integration_policy.enabled
+                not integration_enabled(db, delivery)
                 or not read_project(db, delivery.project_id).enabled
                 or not Reviewers.resolved(
                     db, workspace, "milestone", entity=milestone.id

@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from flowfield.actors import Actor
 from flowfield.promotion_models import MilestonePromotion
 from flowfield.reviewer_settings import EffectiveReviewer
 from flowfield.verification_report import (
@@ -110,9 +111,25 @@ class MilestoneVerification(VerificationInput):
     promotion_id: str | None = None
     # Read projection; the independent promotion record owns delivery authority.
     promotion: MilestonePromotion | None = None
+    task_titles: dict[str, str] = Field(default_factory=dict)
     purpose: Literal["task", "review"] = "task"
     plan_revision: int | None = None
     reviewer: EffectiveReviewer | None = None
     review_id: str | None = None
     instructions: str = ""
     review_status: str | None = None
+
+
+class MilestoneTestingNote(BaseModel):
+    id: str
+    project_id: str
+    task_key: str
+    result_id: str
+    body: str
+    actor: Actor
+    created_at: str
+
+
+class MilestoneTestingPage(BaseModel):
+    items: list[MilestoneTestingNote]
+    next_offset: int | None = None

@@ -129,9 +129,10 @@ history before claiming completion or addressing feedback. Follow verification n
 the returned revision until all JSON evidence pages are read. For owned milestone delivery, save
 plan_milestone_verification during preparation, binding current criteria and observable checks
 with procedures/examples in its instructions. The service binds delivered inputs and runs the
-configured milestone reviewer; do not create a verifier task. Read reviewer defaults from
-get_workspace; do not ask the human to confirm settings already present there. Entity overrides
-remain separate. Human reviewer settings and
+configured milestone reviewer; do not create a verifier task. Read reviewer and integration defaults
+from get_workspace; do not ask the human to confirm settings already present there. Entity overrides
+remain separate; a null milestone integration policy inherits the workspace default.
+Human reviewer settings and
 task-integration policy grant separate authority; you cannot grant it yourself. Final promotion
 remains human. Ordinary groups can still use prepare_milestone_verification with an explicit
 staged report task depending on all delivered contributions. Confirm scoped reviewers can observe

@@ -19,6 +19,7 @@ export function useRecordEditor<R extends { revision: number }, V>({
   otherDirty = false,
   read,
   retainedKey,
+  version,
 }: {
   incoming?: R;
   recordName?: string;
@@ -27,6 +28,7 @@ export function useRecordEditor<R extends { revision: number }, V>({
   saved: (record: R, method: string) => void | Promise<void>;
   onDirty: DirtyCallback;
   retainedKey?: string;
+  version?: (record: R) => string;
   otherDirty?: boolean;
   read?: () => Promise<R>;
 }) {
@@ -57,7 +59,12 @@ export function useRecordEditor<R extends { revision: number }, V>({
     if (retainedKey) retainDirty(retainedKey, dirty);
     onDirty(dirty || otherDirty || busy, !!retainedKey && !otherDirty && !busy);
   }, [dirty, otherDirty, onDirty, retainedKey, busy]);
-  const newer = !!(incoming && loaded && incoming.revision > loaded.revision);
+  const newer = !!(
+    incoming &&
+    loaded &&
+    (incoming.revision > loaded.revision ||
+      (version && version(incoming) !== version(loaded)))
+  );
   function adopt(record: R) {
     setLoaded(record);
     setValues(fields(record));

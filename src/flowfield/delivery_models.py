@@ -17,7 +17,7 @@ class DeliveryConfigure(BaseModel):
 
 class TaskIntegrationPolicy(BaseModel):
     revision: int = 1
-    enabled: bool = False
+    enabled: bool | None = None
     updated_at: str | None = None
     author: str = "human"
 
@@ -28,12 +28,29 @@ class TaskIntegrationPolicyEdit(BaseModel):
     expected_revision: int = Field(ge=1)
     delivery_id: str
     branch: str
-    enabled: bool
+    enabled: bool | None
+    expected_workspace_revision: int | None = Field(default=None, ge=1)
 
 
 class TaskIntegrationPolicyView(TaskIntegrationPolicy):
     delivery_id: str
     branch: str
+    effective_enabled: bool
+    workspace_revision: int
+
+
+class WorkspaceIntegrationPolicy(BaseModel):
+    revision: int = 1
+    enabled: bool = False
+    updated_at: str | None = None
+    author: str = "human"
+
+
+class WorkspaceIntegrationPolicyEdit(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: int = Field(ge=1)
+    enabled: bool
 
 
 class MilestoneDelivery(BaseModel):
