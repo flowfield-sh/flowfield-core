@@ -349,3 +349,43 @@ def test_document_attribution_uses_task_feed_actor_roles():
         )
         assert record.actor == actor(identity)
         assert record.actor.role != "other"
+
+
+def test_restore_respects_capacity_atomically_without_blocking_active_revisions(tmp_path):
+    from flowfield.application import Edit
+
+    store = Workspace(tmp_path / "state")
+    space = Workspaces(store).create(WorkspaceCreate(name="Product"))
+    docs = Documents(store)
+    retired = docs.create(space.id, DocumentCreate(title="Retired", body="Keep this evidence"))
+    deleted = docs.delete(space.id, retired.id, Edit(expected_revision=1))
+    for index in range(99):
+        docs.create(space.id, DocumentCreate(title=f"Document {index}"))
+
+    with pytest.raises(ApplicationError) as rejected:
+        docs.restore(space.id, retired.id, DocumentRestore(expected_revision=2, revision=1))
+    assert rejected.value.code == "document_limit"
+    assert docs.get(space.id, retired.id) == deleted
+    assert len(docs.history(space.id, retired.id).items) == 2
+    # Restoring the content of an active document consumes no new slot.
+    assert docs.restore(space.id, "guidance", DocumentRestore(expected_revision=1, revision=1))
+    spare = docs.page(space.id).items[1]
+    docs.delete(space.id, spare.id, Edit(expected_revision=spare.revision))
+
+    def restore():
+        try:
+            return docs.restore(
+                space.id, retired.id, DocumentRestore(expected_revision=2, revision=1)
+            )
+        except ApplicationError as error:
+            return error.code
+
+    with ThreadPoolExecutor(2) as pool:
+        outcomes = list(pool.map(lambda _: restore(), range(2)))
+    assert outcomes.count("revision_conflict") == 1
+    assert docs.get(space.id, retired.id).body == retired.body
+    with store.connection() as db:
+        assert db.execute(
+            "SELECT count(*) FROM workspace_documents WHERE workspace_id=? AND deleted_at IS NULL",
+            (space.id,),
+        ).fetchone()[0] == 100

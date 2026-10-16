@@ -184,17 +184,7 @@ class Documents:
     def create(self, workspace_id: str, request: DocumentCreate) -> Document:
         with self.store.connection(write=True) as db:
             Workspaces.read(db, workspace_id)
-            if (
-                db.execute(
-                    "SELECT count(*) FROM workspace_documents WHERE workspace_id=? "
-                    "AND deleted_at IS NULL",
-                    (workspace_id,),
-                ).fetchone()[0]
-                >= 100
-            ):
-                raise ApplicationError(
-                    "document_limit", "A workspace can have up to 100 documents.", 409
-                )
+            self._require_capacity(db, workspace_id)
             value = Document(
                 **request.model_dump(),
                 workspace_id=workspace_id,
@@ -208,6 +198,20 @@ class Documents:
                 (workspace_id, value.id),
             )
             return self.save(db, value)
+
+    @staticmethod
+    def _require_capacity(db: sqlite3.Connection, workspace_id: str) -> None:
+        # Creation and deleted-document restoration consume the same active slot.
+        # Call inside the write transaction so concurrent operations cannot exceed it.
+        count = db.execute(
+            "SELECT count(*) FROM workspace_documents WHERE workspace_id=? "
+            "AND deleted_at IS NULL",
+            (workspace_id,),
+        ).fetchone()[0]
+        if count >= 100:
+            raise ApplicationError(
+                "document_limit", "A workspace can have up to 100 documents.", 409
+            )
 
     def edit(self, workspace_id: str, identity: str, request: DocumentEdit) -> Document:
         with self.store.connection(write=True) as db:
@@ -240,6 +244,8 @@ class Documents:
             current = self.read(db, workspace_id, identity)
             self.store._current(current.revision, request.expected_revision)
             source = self.read(db, workspace_id, identity, request.revision)
+            if current.deleted_at:
+                self._require_capacity(db, workspace_id)
             db.execute(
                 "UPDATE workspace_documents SET deleted_at=NULL,deleted_by=NULL "
                 "WHERE workspace_id=? AND id=?",
