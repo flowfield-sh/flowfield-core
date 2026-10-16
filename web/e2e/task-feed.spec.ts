@@ -1152,6 +1152,14 @@ test("attempt activity updates without reloading the board and replays on reload
   // This fixture publishes focused activity directly below. Exclude unrelated
   // service-wide SSE changes from other journeys during the no-board-read assertion.
   await page.route("**/api/events", (route) => route.abort());
+  let releasePoll!: () => void;
+  const pollReady = new Promise<void>((resolve) => {
+    releasePoll = resolve;
+  });
+  await page.route("**/api/announcements/poll", async (route) => {
+    await pollReady;
+    await route.continue();
+  });
   const seeded = await fixture("create");
   await page.goto("/projects/stream-project/tasks/STR-1/history");
   const output = page.getByRole("region", {
@@ -1183,6 +1191,15 @@ test("attempt activity updates without reloading the board and replays on reload
   page.on("request", (req) => {
     if (req.url().endsWith("/view/board")) boards++;
   });
+  // Complete a real notification delivery poll inside the measured window.
+  // It must not masquerade as a workspace change or reload the board.
+  const polled = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/announcements/poll") &&
+      response.status() === 200,
+  );
+  releasePoll();
+  await polled;
   await fixture("later");
   await expect(output).toContainText("later observed output");
   expect(boards).toBe(0);

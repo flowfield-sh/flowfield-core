@@ -229,6 +229,8 @@ export function App() {
     }
     function saved(event: Event) {
       const { path } = (event as CustomEvent<{ path: string }>).detail;
+      // Claiming notification delivery does not change workspace data.
+      if (path === "announcements/poll") return;
       const project = /^projects\/([^/]+)\//.exec(path)?.[1];
       // Confirmed local writes refresh cards and counts even while SSE reconnects.
       changed({ projects: project ? [decodeURIComponent(project)] : null });
@@ -611,7 +613,7 @@ function WorkspaceResource({
     taskRef && projectId
       ? `${projectPath}/view/tasks/${encodeURIComponent(taskRef)}`
       : null,
-    `${refresh}:${retry}`,
+    `${refresh}:${retry}:${pathname}`,
   );
   const historicalMilestone = useResource<Milestone>(
     params.milestoneId && params.milestoneRevision
@@ -1090,7 +1092,10 @@ function WorkspaceResource({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setRetry((v) => v + 1)}
+                    onClick={() => {
+                      boardResource.retry();
+                      setRetry((v) => v + 1);
+                    }}
                   >
                     Refresh board
                   </Button>

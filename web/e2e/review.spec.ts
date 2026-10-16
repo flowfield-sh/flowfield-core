@@ -538,6 +538,19 @@ test("validated result approval delivers real Git code with the worker queue pau
   // No unrelated SSE refresh may hide a stale retained result on navigation.
   await page.evaluate(() => window.dispatchEvent(new Event("offline")));
   git("update-ref", "refs/heads/integration", advanced);
+  // Availability is observed by the service scheduler. Wait for that observation
+  // before testing navigation refresh, while SSE remains disconnected.
+  await expect
+    .poll(
+      async () => {
+        const observed = await (
+          await request.get(`${base}/results/${seed.result}`)
+        ).json();
+        return observed.next_action?.action;
+      },
+      { timeout: 15000 },
+    )
+    .toBe("revalidate");
   await history
     .getByRole("link", { name: "Review these changes" })
     .first()
