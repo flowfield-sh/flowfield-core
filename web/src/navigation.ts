@@ -225,7 +225,8 @@ export function useWorkspaceNavigation(
     changeLocation,
     notFound:
       matches.at(-1)?.id === "not-found" ||
-      (!!params.milestoneTab && params.milestoneTab !== "tasks") ||
+      (!!params.milestoneTab &&
+        !["tasks", "settings"].includes(params.milestoneTab)) ||
       (!!params.tab &&
         ![
           "task",

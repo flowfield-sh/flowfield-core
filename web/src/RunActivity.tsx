@@ -50,7 +50,7 @@ export function RunActivity({
       pane.current.scrollTop = pane.current.scrollHeight;
   }, [page]);
   return (
-    <div className="run-activity content-stack" data-space="tight">
+    <div className="run-activity content-stack">
       <ResourceRetry resources={[resource]}>Retry activity</ResourceRetry>
       {!page && !error && <p className="muted">Loading activity…</p>}
       {page && !page.supported && (
@@ -63,7 +63,7 @@ export function RunActivity({
       {page?.supported && (
         <div
           ref={pane}
-          className="run-activity-output"
+          className="run-activity-output content-stack"
           role="region"
           aria-label={review ? "Review activity" : "Worker activity"}
           tabIndex={0}

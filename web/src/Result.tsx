@@ -348,13 +348,7 @@ export function Result({
                 )}
               </ResultActions>
             )}
-          <Disclosure
-            group
-            summary="Checks"
-            role="region"
-            aria-label="Checks"
-            open={compact ? undefined : true}
-          >
+          <Section title="Checks" role="region" aria-label="Checks">
             <ReviewChecks
               preparation={evidence.data}
               availability={availability.data}
@@ -363,10 +357,11 @@ export function Result({
               branch={version.target_branch}
               historyHref={taskHref(projectId, { key: taskKey }, "history")}
             />
-          </Disclosure>
+          </Section>
           {version.completion === "code" && version.candidate_commit && (
-            <>
+            <Section title="Details">
               <Inspection
+                compact={compact}
                 key={version.id}
                 projectId={projectId}
                 result={version}
@@ -374,7 +369,7 @@ export function Result({
               />
               {version.integration_id && version.candidate_commit && (
                 <Disclosure
-                  group
+                  group={!compact}
                   summary={<>Code changes</>}
                   onToggle={(e) => setDiffOpen(e.currentTarget.open)}
                 >
@@ -400,7 +395,7 @@ export function Result({
                   )}
                 </Disclosure>
               )}
-            </>
+            </Section>
           )}
           {current && version.status === "ready" && (
             <ResultActions version={version.version}>

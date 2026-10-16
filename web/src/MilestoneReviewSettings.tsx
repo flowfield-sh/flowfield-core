@@ -27,13 +27,18 @@ export function MilestoneReviewSettings({
     `workspaces/${workspaceId}/milestones/${milestoneId}/automation`,
     refresh,
   );
-  const [open, setOpen] = useState(false);
   const value = resource.data;
   return (
-    <DetailSection title="Combined verification">
+    <DetailSection title="Milestone reviewer">
       <ContentStack>
         <ResourceRetry resources={[resource]} />
-        {value && <p>{value.message}</p>}
+        <ReviewerSettings
+          workspaceId={workspaceId}
+          purpose="milestone"
+          entity={milestoneId}
+          refresh={refresh}
+          onDirty={onDirty}
+        />
         {value?.plan && (
           <Disclosure summary="Verification plan">
             <ContentStack>
@@ -50,19 +55,6 @@ export function MilestoneReviewSettings({
             </ContentStack>
           </Disclosure>
         )}
-        <Disclosure
-          summary="Milestone reviewer settings"
-          onToggle={(event) => setOpen(event.currentTarget.open)}
-        >
-          <ReviewerSettings
-            workspaceId={workspaceId}
-            purpose="milestone"
-            entity={milestoneId}
-            refresh={refresh}
-            onDirty={onDirty}
-            active={open}
-          />
-        </Disclosure>
       </ContentStack>
     </DetailSection>
   );

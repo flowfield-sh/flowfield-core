@@ -270,7 +270,7 @@ function WorkerEvidence({
           />
         </Suspense>
       )}
-      <ContentStack space="flush">
+      <ContentStack>
         <Disclosure
           summary={<>Worker workspace</>}
           className="run-inspection"

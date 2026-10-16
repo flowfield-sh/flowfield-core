@@ -168,7 +168,7 @@ test("a completed verifier with a failed criterion never offers acceptance", asy
       exact: true,
     })
     .click();
-  await expect(page).toHaveURL(/tab=review/);
+  await expect(page).toHaveURL(/tab=activity/);
   await expect(
     page
       .getByRole("list", { name: "Checks" })

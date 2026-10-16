@@ -171,6 +171,13 @@ test("milestone acceptance clears Inbox and Review column reflects the decision"
   await expect(
     card.getByLabel("Response").getByRole("textbox", { name: "Review note" }),
   ).toBeVisible();
+  await expect(card.locator(":scope > header").getByRole("img")).toHaveCount(1);
+  await expect(
+    card.getByText("Verification report", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    card.locator(".conversation-message, .detail-group"),
+  ).toHaveCount(0);
   const headings = await card.getByRole("heading").allTextContents();
   expect(headings.indexOf("Checks")).toBeLessThan(headings.indexOf("Details"));
   await card.getByText("Verification context", { exact: true }).click();
@@ -307,7 +314,7 @@ test("Inbox drafts survive external review across view switches", async ({
 test("task and project questions accept suggested or free answers inside Inbox", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const project = "inline-questions";
   expect(
     (
@@ -369,6 +376,11 @@ test("task and project questions accept suggested or free answers inside Inbox",
   await expect(
     card.getByText("Choose the scope for the export.", { exact: true }),
   ).toBeVisible();
+  await expect(card.locator(":scope > header").getByRole("img")).toHaveCount(1);
+  await page.screenshot({
+    path: testInfo.outputPath("questions-inbox.png"),
+    animations: "disabled",
+  });
   await card.getByRole("button", { name: "All records", exact: true }).click();
   await expect(
     card
@@ -433,7 +445,7 @@ test("task and project questions accept suggested or free answers inside Inbox",
 test("code review in Inbox approves the exact result and delivers without navigation", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const project = "inline-code";
   execFileSync(resolve("../.venv/bin/python"), [
     resolve("../tests/inspection_browser_fixture.py"),
@@ -448,6 +460,18 @@ test("code review in Inbox approves the exact result and delivers without naviga
     page.getByRole("button", { name: "Approve and integrate", exact: true }),
   ).toBeEnabled({ timeout: 15000 });
   await expect(page.getByText("Destination:")).toContainText("delivery");
+  const reviewCard = page.getByRole("article", { name: /^Code review:/ });
+  await expect(
+    reviewCard.locator(":scope > header").getByRole("img"),
+  ).toHaveCount(1);
+  await expect(
+    reviewCard.getByRole("heading", { name: "Checks", exact: true }),
+  ).toBeVisible();
+  await expect(reviewCard.locator(".detail-group")).toHaveCount(0);
+  await page.screenshot({
+    path: testInfo.outputPath("code-inbox.png"),
+    animations: "disabled",
+  });
   await page
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();

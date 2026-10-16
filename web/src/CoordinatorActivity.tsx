@@ -39,7 +39,7 @@ function Timeline({ items }: { items: Items }) {
         ) : (
           <ContentStack
             key={entry.key}
-            space="flush"
+
             className="activity-events"
           >
             <ActivityEntries items={[entry, ...rest]} />

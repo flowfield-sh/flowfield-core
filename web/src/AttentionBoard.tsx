@@ -131,6 +131,7 @@ function RequestCard({
   return (
     <RequestFrame
       kind={kind}
+      state={item.state}
       label={`${kind}: ${item.title}`}
       source={
         <WorkspaceLink
@@ -145,12 +146,7 @@ function RequestCard({
         </WorkspaceLink>
       }
     >
-      {item.kind === "result" && (
-        <h3 className="detail-title">
-          {kind === "Code review" ? "Review " : ""}
-          {item.title}
-        </h3>
-      )}
+      {item.kind === "result" && <h3 className="detail-title">{item.title}</h3>}
       {item.kind === "milestone" ? (
         <MilestoneReviewRequest
           path={`workspaces/${workspaceId}`}

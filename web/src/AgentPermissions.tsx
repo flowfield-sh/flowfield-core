@@ -151,6 +151,13 @@ export function PermissionCard({
   return (
     <RequestFrame
       kind="Tool permission"
+      state={{
+        label:
+          resource.data?.status === "pending"
+            ? "Needs permission"
+            : (resource.data?.status ?? "Loading permission"),
+        tone: resource.data?.status === "pending" ? "waiting" : "idle",
+      }}
       label="Tool permission"
       source={
         taskKey &&

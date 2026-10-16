@@ -52,12 +52,26 @@ test("human grants and revokes named milestone integration with retained setting
   });
   expect(response.ok(), await response.text()).toBe(true);
   await page.goto(`/workspaces/${workspace}/milestones/${milestone.key}`);
-  await page.getByText("Task integration", { exact: true }).click();
+  await expect(
+    page.getByText("Documents captured by tasks", { exact: true }),
+  ).toHaveCount(0);
+  await page
+    .locator(".editor-heading")
+    .getByRole("link", { name: "Settings", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(
+    page.getByRole("heading", { name: "Milestone reviewer", exact: true }),
+  ).toBeVisible();
   const form = page.getByRole("region", { name: "Task integration settings" });
   const checkbox = form.getByRole("checkbox");
   await expect(checkbox).not.toBeChecked();
   await expect(form).toContainText("flowfield/reviewed-feature");
   await checkbox.check();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+  await page.getByRole("button", { name: "Keep editing", exact: true }).click();
+  await expect(checkbox).toBeChecked();
   await form.getByRole("button", { name: "Save integration policy" }).click();
   await expect(form).toContainText("Policy revision 2");
   for (const [width, height, theme] of [
@@ -68,6 +82,13 @@ test("human grants and revokes named milestone integration with retained setting
   ] as const) {
     await page.setViewportSize({ width, height });
     await page.emulateMedia({ colorScheme: theme });
+    await expect
+      .poll(() =>
+        page
+          .locator("html")
+          .evaluate((element) => element.classList.contains("dark")),
+      )
+      .toBe(theme === "dark");
     await page.screenshot({
       path: testInfo.outputPath(`delegation-${width}-${theme}.png`),
       fullPage: true,
@@ -79,7 +100,7 @@ test("human grants and revokes named milestone integration with retained setting
     ).toBeTruthy();
   }
   await page.reload();
-  await page.getByText("Task integration", { exact: true }).click();
+
   await expect(checkbox).toBeChecked();
   await checkbox.uncheck();
   await form.getByRole("button", { name: "Save integration policy" }).click();
@@ -88,4 +109,15 @@ test("human grants and revokes named milestone integration with retained setting
     await request.get(`/api${base}/delivery/integration-policy`)
   ).json();
   expect(policy.enabled).toBe(false);
+  await checkbox.check();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Discard changes", exact: true })
+    .click();
+  await page
+    .locator(".editor-heading")
+    .getByRole("link", { name: "Settings", exact: true })
+    .click();
+  await expect(form).toContainText("Policy revision 3");
+  await expect(checkbox).not.toBeChecked();
 });

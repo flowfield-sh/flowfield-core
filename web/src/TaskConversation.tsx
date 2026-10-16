@@ -783,7 +783,9 @@ export function TaskConversation({
             >
               {!(requestTarget?.kind === "question") &&
                 (showComposer ||
-                  (matchesRequest && replyResult?.status === "ready")) && (
+                  (!requestTarget &&
+                    matchesRequest &&
+                    replyResult?.status === "ready")) && (
                   <div className="task-input-context">
                     <strong>
                       {replyBinding?.question_id

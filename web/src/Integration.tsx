@@ -503,9 +503,9 @@ export function CheckEvidence({
 }) {
   if (!checks.length) return null;
   return (
-    <ContentStack space="flush">
+    <ContentStack>
       <strong>{title}</strong>
-      <ContentStack space="flush">
+      <ContentStack>
         {checks.map((check, index) => (
           <Disclosure
             summary={

@@ -68,10 +68,13 @@
     outline: 2px solid var(--ring);
     outline-offset: 4px;
   }
+  :root {
+    --detail-content-gap: 8px;
+  }
   .content-stack {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--detail-content-gap);
     min-width: 0;
     font-size: 14px;
     line-height: 1.6;
@@ -283,7 +286,7 @@
     margin: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 0;
+    gap: var(--detail-content-gap);
   }
   .task-activity-item {
     min-width: 0;
@@ -748,5 +751,13 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 12px;
+  gap: var(--detail-content-gap);
+}
+
+.delivery-branches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  overflow-wrap: anywhere;
 }

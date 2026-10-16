@@ -21,11 +21,13 @@ export function Inspection({
   result,
   refresh,
   milestone,
+  compact = false,
 }: {
   projectId: string;
   result?: Version;
   milestone?: { id: string; revision: number; workspace_id: string };
   refresh: unknown;
+  compact?: boolean;
 }) {
   const path = `projects/${projectId}`;
   const title = milestone ? "Try milestone" : "Try result";
@@ -70,7 +72,7 @@ export function Inspection({
   }
   return (
     <Disclosure
-      group={!milestone}
+      group={!milestone && !compact}
       summary={title}
       role="region"
       aria-label={title}

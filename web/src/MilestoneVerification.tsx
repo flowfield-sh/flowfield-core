@@ -1,12 +1,11 @@
 import { useRetainedState, retainDirty } from "./retainedState";
 import type { DirtyCallback } from "./retainedState";
-import { useEffect, useState, lazy, Suspense, type ReactNode } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { components } from "./api-schema";
 import {
   ContentStack,
-  DetailHeading,
   DetailSection,
   Disclosure,
   ResponseInput,
@@ -161,9 +160,7 @@ export function MilestoneReviewResponse({
         <ContentStack aria-label="Your review">
           {canReview && value.promotion && (
             <p>
-              Deliver the verified result to{" "}
-              <code>{value.promotion.target_branch}</code> in the project
-              checkout.
+              Destination: <code>{value.promotion.target_branch}</code>
             </p>
           )}
           <ResponseInput>
@@ -259,15 +256,7 @@ export function reportState(
   };
 }
 
-export function MilestoneReport({
-  value,
-  metadata,
-  embedded = false,
-}: {
-  value: Verification;
-  embedded?: boolean;
-  metadata?: ReactNode;
-}) {
+export function MilestoneReport({ value }: { value: Verification }) {
   const [diffView, setDiffView] = useState<DiffViewState>({
     selected: 0,
     mode: "unified",
@@ -313,27 +302,8 @@ export function MilestoneReport({
     </ol>
   );
   return (
-    <article className={embedded ? undefined : "conversation-message"}>
-      {!embedded && (
-        <DetailHeading
-          entry
-          inlineMetadata
-          titleAs="h3"
-          metadata={metadata}
-          title={
-            <span className="feed-event-title">
-              <WorkState indicatorOnly state={reportState(value)} />
-              <span>
-                {value.report ? "Verification report" : "Verification started"}
-              </span>
-            </span>
-          }
-        />
-      )}
-      <ContentStack
-        className={embedded ? undefined : "conversation-message-body"}
-        space="section"
-      >
+    <article>
+      <ContentStack space="section">
         {value.summary && <Markdown>{value.summary}</Markdown>}
         {value.limitations && (
           <DetailSection title="Limitations">
@@ -342,7 +312,7 @@ export function MilestoneReport({
         )}
         <DetailSection title="Checks">{checks}</DetailSection>
         <DetailSection title="Details">
-          <ContentStack space="flush">
+          <ContentStack>
             {promotion?.candidate_commit && (
               <>
                 <Inspection

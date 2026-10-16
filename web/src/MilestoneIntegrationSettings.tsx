@@ -28,7 +28,6 @@ export function MilestoneIntegrationSettings({
     fields,
     path: () => endpoint,
     onDirty,
-    retainedKey: endpoint,
     saved: (record: Policy) => resource.setData(record),
   });
   const { loaded, values, change, run, busy, dirty, newer, cancel, element } =
@@ -61,10 +60,7 @@ export function MilestoneIntegrationSettings({
               Automatically integrate reviewed tasks into{" "}
               {loaded?.branch ?? "the milestone branch"}
             </SettingsCheckbox>
-            <p>
-              Only current approved reviews and passing configured checks can
-              integrate. Final milestone promotion requires your approval.
-            </p>
+            <p>Final delivery still requires your approval.</p>
             <div className="actions">
               <Button size="sm" disabled={!dirty || newer}>
                 {busy ? "Saving…" : "Save integration policy"}

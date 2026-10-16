@@ -23,7 +23,7 @@ export function ReviewChecks({
   historyHref: string;
 }) {
   return (
-    <ContentStack space="flush" className="review-checks">
+    <ContentStack className="review-checks">
       {availability && (
         <DetailSection
           aria-label="Current branch checks"

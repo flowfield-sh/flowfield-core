@@ -146,7 +146,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
 test("failed intervention offers recovery and leaves Needs me immediately after queued retry", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const seed = JSON.parse(
     execFileSync(
       join(checkout, ".venv/bin/python"),
@@ -165,6 +165,11 @@ test("failed intervention offers recovery and leaves Needs me immediately after 
   await expect(
     card.getByRole("button", { name: "Retry worker", exact: true }),
   ).toBeVisible();
+  await expect(card.locator(":scope > header").getByRole("img")).toHaveCount(1);
+  await page.screenshot({
+    path: testInfo.outputPath("intervention-inbox.png"),
+    animations: "disabled",
+  });
   const padding = await card.locator(".task-input").evaluate((footer) => {
     const button = footer.querySelector("button")!.getBoundingClientRect();
     const box = footer.getBoundingClientRect();

@@ -83,7 +83,7 @@ function ReviewBody({
       {visible && !value && !resource.error && <p>Loading review…</p>}
       {value?.milestone_id === milestoneId && (
         <ContentStack space="section">
-          <MilestoneReport value={value} embedded />
+          <MilestoneReport value={value} />
           {value.reviewed_by && (
             <DetailSection
               title={

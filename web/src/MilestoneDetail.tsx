@@ -1,19 +1,16 @@
 import { WorkState } from "./WorkState";
-import { SourceReferences } from "./SourceReferences";
 import { milestoneCards } from "./Milestones";
 import { ResourceRetry } from "./ResourceRetry";
 import type { WorkspaceBoard } from "./workspace";
 import type { DirtyCallback } from "./retainedState";
 import { Button } from "@/components/ui/button";
-import { useLocation, useSearchParams } from "react-router";
+import { useLocation, useParams, useSearchParams } from "react-router";
 import { DetailTabs } from "./Presentation";
 import { DetailHeader } from "./Presentation";
 import { MilestoneActivity } from "./MilestoneActivity";
 import { Markdown } from "./Markdown";
-import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
-import { MilestoneIntegrationSettings } from "./MilestoneIntegrationSettings";
-import { MilestoneReviewSettings } from "./MilestoneReviewSettings";
-import { useCallback, useEffect, useState } from "react";
+import { ContentStack, DetailSection } from "./DetailLayout";
+import { MilestoneSettings } from "./MilestoneSettings";
 import { Badge } from "@/components/ui/badge";
 import { RevisionHistory } from "./RevisionHistory";
 import { WorkspaceLink } from "./WorkspaceLink";
@@ -42,31 +39,9 @@ export function MilestoneDetail({
   close: () => void;
 }) {
   const [params, setParams] = useSearchParams();
-  const [integrationDirty, setIntegrationDirty] = useState(false);
-  const [reviewerDirty, setReviewerDirty] = useState(false);
-  const [responseDirty, setResponseDirty] = useState(false);
-  const [responseRetained, setResponseRetained] = useState(false);
-  const markResponseDirty = useCallback<DirtyCallback>(
-    (dirty, retained = false) => {
-      setResponseDirty(dirty);
-      setResponseRetained(retained);
-    },
-    [],
-  );
-  useEffect(() => {
-    onDirty(
-      integrationDirty || reviewerDirty || responseDirty,
-      responseRetained && !integrationDirty && !reviewerDirty,
-    );
-    return () => onDirty(false);
-  }, [
-    onDirty,
-    integrationDirty,
-    reviewerDirty,
-    responseDirty,
-    responseRetained,
-  ]);
   const location = useLocation();
+  const settings = useParams().milestoneTab === "settings";
+  const href = `/workspaces/${milestone.workspace_id}/milestones/${milestone.key}`;
   const delivery = useResource<
     components["schemas"]["MilestoneDelivery"] | null
   >(`${path}/milestones/${milestone.id}/delivery`, refresh);
@@ -94,13 +69,18 @@ export function MilestoneDetail({
           <span className="entity-heading-identity">
             {!historical && <WorkState indicatorOnly state={card?.workState} />}
             <Badge variant="outline">{milestone.key}</Badge>
-            <span>{milestone.title}</span>
+            <span>{settings ? "Milestone settings" : milestone.title}</span>
           </span>
         }
         close={close}
         closeLabel="Back"
         actions={
           <div className="actions">
+            {!historical && !settings && (
+              <Button size="sm" variant="outline" asChild>
+                <WorkspaceLink to={`${href}/settings`}>Settings</WorkspaceLink>
+              </Button>
+            )}
             {historical && (
               <Button size="sm" variant="outline" asChild>
                 <WorkspaceLink
@@ -122,7 +102,7 @@ export function MilestoneDetail({
           </div>
         }
       />
-      {!historical && (
+      {!historical && !settings && (
         <DetailTabs
           id="milestone"
           title="Milestone views"
@@ -136,38 +116,41 @@ export function MilestoneDetail({
           }}
         />
       )}
-      {tab === "overview" ? (
+      {settings ? (
+        <>
+          <ResourceRetry resources={[delivery]} />
+          {delivery.loading && !delivery.data ? (
+            <p>Loading settings…</p>
+          ) : (
+            !delivery.error && (
+              <MilestoneSettings
+                milestone={milestone}
+                delivery={delivery.data}
+                refresh={refresh}
+                onDirty={onDirty}
+              />
+            )
+          )}
+        </>
+      ) : tab === "overview" ? (
         <ContentStack space="section">
           <Markdown>{milestone.body || "No description yet."}</Markdown>
           <ResourceRetry resources={[delivery]} />
           {delivery.data && (
-            <DetailSection title="Delivery destination">
+            <DetailSection title="Delivery">
               <p>
-                Final approval delivers the verified result to{" "}
-                <strong>{delivery.data.destination_branch}</strong> in{" "}
                 <WorkspaceLink to={`/projects/${delivery.data.project_id}`}>
                   {board.projects.find(
                     (project) => project.id === delivery.data?.project_id,
                   )?.name ?? delivery.data.project_id}
                 </WorkspaceLink>
-                .
               </p>
-              <p>
-                Task results are assembled and checked on the milestone’s
-                separate branch before your final approval.
+              <p className="delivery-branches">
+                <code>{delivery.data.branch}</code>
+                <span aria-label="to">→</span>
+                <code>{delivery.data.destination_branch}</code>
               </p>
             </DetailSection>
-          )}
-          {card?.verification && (
-            <WorkspaceLink
-              to={`/workspaces/${milestone.workspace_id}/milestones/${milestone.key}?tab=activity&verification=${card.verification.id}`}
-            >
-              Inspect review
-              {card.verification.status === "ready" ||
-              card.verification.status === "delivery_blocked"
-                ? " and respond"
-                : ""}
-            </WorkspaceLink>
           )}
           <DetailSection title="Acceptance criteria">
             <Markdown>
@@ -193,43 +176,12 @@ export function MilestoneDetail({
             </ul>
             {!card?.tasks.length && <p>No contributing tasks yet.</p>}
           </DetailSection>
-          <SourceReferences
-            title="Documents captured by tasks"
-            updates={[
-              ...new Map(
-                board.tasks
-                  .filter((task) => task.milestone_id === milestone.id)
-                  .flatMap((task) => task.document_updates ?? [])
-                  .map((update) => [update.id, update]),
-              ).values(),
-            ]}
-            documents={board.tasks
-              .filter((task) => task.milestone_id === milestone.id)
-              .flatMap((task) => task.publication?.documents ?? [])}
-          />
-          {delivery.data?.status === "ready" && (
-            <Disclosure summary="Task integration">
-              <MilestoneIntegrationSettings
-                path={`${path}/milestones/${milestone.id}`}
-                refresh={refresh}
-                onDirty={setIntegrationDirty}
-              />
-            </Disclosure>
-          )}
-          {delivery.data && (
-            <MilestoneReviewSettings
-              workspaceId={milestone.workspace_id}
-              milestoneId={milestone.id}
-              refresh={refresh}
-              onDirty={setReviewerDirty}
-            />
-          )}
         </ContentStack>
       ) : tab === "activity" ? (
         <MilestoneActivity
           key={milestone.id}
           refresh={refresh}
-          onDirty={markResponseDirty}
+          onDirty={onDirty}
           path={path}
           milestone={milestone}
           newest={card?.verification?.id}

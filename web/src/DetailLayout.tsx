@@ -135,7 +135,6 @@ export function Disclosure({
         )}
       </summary>
       <ContentStack
-        space={group ? "content" : "flush"}
         className={`disclosure-body ${group ? "detail-group-body" : ""}`}
       >
         {children}

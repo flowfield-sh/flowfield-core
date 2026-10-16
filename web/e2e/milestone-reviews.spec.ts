@@ -26,13 +26,12 @@ test("combined native-review evidence ends at exact human promotion", async ({
   await expect(page.locator(".editor-heading")).not.toContainText("→");
   await page.getByRole("tab", { name: "Overview", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Delivery destination", exact: true }),
+    page.getByRole("heading", { name: "Delivery", exact: true }),
   ).toBeVisible();
+  await expect(page.locator(".delivery-branches")).toContainText("main");
   await expect(
-    page.getByText("Final approval delivers the verified result to", {
-      exact: false,
-    }),
-  ).toContainText("main");
+    page.getByRole("link", { name: "Inspect review and respond", exact: true }),
+  ).toHaveCount(0);
   await page.getByRole("tab", { name: "Activity", exact: true }).click();
   await page.locator(".verification-checks summary").first().click();
   await expect(
