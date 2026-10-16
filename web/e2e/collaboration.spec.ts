@@ -1467,11 +1467,24 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   });
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
+  // The real question is unchanged throughout this synthetic result journey.
+  // Snapshot it before routing so refreshes do not leave server fetches in flight
+  // when the browser context tears down its fixtures.
+  const attention = new Map(
+    await Promise.all(
+      ["action", "waiting", "history"].map(async (column) => {
+        const response = await request.get(
+          `/api/workspaces/${workspace_id}/view/attention`,
+          { params: { column, project_id, include_answered: true } },
+        );
+        expect(response.ok()).toBe(true);
+        return [column, (await response.json()).items] as const;
+      }),
+    ),
+  );
   await page.route(
     `**/api/workspaces/${workspace_id}/view/attention**`,
     async (route) => {
-      const response = await route.fetch();
-      const data = await response.json();
       const column = new URL(route.request().url()).searchParams.get("column");
       const runs =
         column === "action"
@@ -1491,7 +1504,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
               ]
             : [];
       const items = [
-        ...data.items,
+        ...(attention.get(column ?? "action") ?? []),
         ...runs.map((run) => ({
           id: run.id,
           project_id,
@@ -1909,7 +1922,6 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     page.getByRole("tabpanel", { name: "Needs me", exact: true }),
   ).toBeVisible();
   expect(await page.evaluate(() => performance.timeOrigin)).not.toBe(boot); // Only the explicit refresh navigated the document.
-  await page.unrouteAll({ behavior: "wait" });
   expect(errors).toEqual([]);
 });
 import { openResource } from "./shell-navigation";

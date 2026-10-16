@@ -105,6 +105,8 @@ test("individual requests retain answers and drafts across independent tabs", as
   await expect(
     detail.getByRole("button", { name: "Send answer", exact: true }),
   ).toHaveCount(0);
+  // Exercise explicit retry without a concurrent SSE refresh recovering first.
+  await page.route("**/api/events", (route) => route.abort());
   await page.route("**/api" + href, (route) =>
     route.fulfill({
       status: 503,
