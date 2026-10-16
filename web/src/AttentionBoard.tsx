@@ -205,9 +205,7 @@ export function requestTitle(item: Item) {
       ? "Milestone promotion"
       : "Milestone acceptance"
     : item.kind === "result"
-      ? ["blocked", "stale"].includes(item.status)
-        ? "Result recovery"
-        : "Code review"
+      ? "Result"
       : item.kind === "permission"
         ? "Tool permission"
         : label(item.kind);

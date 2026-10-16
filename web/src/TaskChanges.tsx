@@ -1,3 +1,4 @@
+import { SourceReferences } from "./SourceReferences";
 import { useLabels } from "./labelContext";
 import { ContentStack, DetailSection } from "./DetailLayout";
 import { Button } from "@/components/ui/button";
@@ -123,6 +124,15 @@ export function TaskChanges({
         ) : (
           <p>No net change across these edits.</p>
         ))}
+      {open &&
+        after?.publication &&
+        JSON.stringify(before?.publication?.documents) !==
+          JSON.stringify(after.publication.documents) && (
+          <SourceReferences
+            documents={after.publication.documents}
+            title="Captured sources"
+          />
+        )}
     </ContentStack>
   );
 }

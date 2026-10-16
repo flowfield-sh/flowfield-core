@@ -974,13 +974,15 @@ test("conversation capture prepares atomically while task defaults show only use
   ).toHaveCount(0);
   const planTask = await call("get_task", { project_id, task_id: task.id });
   const stages = page.getByRole("group", {
-    name: "Task stages",
+    name: "Stages at this update",
     exact: true,
   });
   await expect(page.getByRole("list", { name: "Task feed" })).toHaveCount(0);
   await expect(stages).not.toBeVisible();
   await page.getByRole("tab", { name: "Activity", exact: true }).click();
-  await page.getByText("Task details", { exact: true }).click();
+  await page
+    .getByRole("link", { name: "Permalink: Stages defined", exact: true })
+    .click();
   await expect(stages.getByRole("link")).toHaveCount(0);
   await expect(page.getByRole("tooltip")).toHaveCount(0);
   // Stage details are disclosed independently from the default outcome.
@@ -1086,8 +1088,7 @@ test("conversation capture prepares atomically while task defaults show only use
   await expect(editor.getByText("Related work", { exact: true })).toHaveCount(
     0,
   );
-  await page.getByRole("tab", { name: "Activity", exact: true }).click();
-  await page.getByText("Task details", { exact: true }).click();
+  await page.getByRole("tab", { name: "Overview", exact: true }).click();
   await expect(editor.getByText("Needed by:", { exact: false })).toBeVisible();
   await expect(
     editor.getByRole("link", { name: related.key, exact: true }),
@@ -1145,6 +1146,9 @@ test("attempt activity updates without reloading the board and replays on reload
       );
     return value;
   };
+  // This fixture publishes focused activity directly below. Exclude unrelated
+  // service-wide SSE changes from other journeys during the no-board-read assertion.
+  await page.route("**/api/events", (route) => route.abort());
   const seeded = await fixture("create");
   await page.goto("/projects/stream-project/tasks/STR-1/history");
   const output = page.getByRole("region", {

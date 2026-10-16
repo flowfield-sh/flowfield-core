@@ -90,8 +90,6 @@ test("coordinator dependencies update blockers, links and reconciliation without
   await expect(detail.getByLabel("Add prerequisite")).toHaveCount(0);
   await detail.getByRole("link", { name: "DEP-1", exact: true }).click();
   await expect(page).toHaveURL(/DEP-1$/);
-  await page.getByRole("tab", { name: "Activity", exact: true }).click();
-  await page.getByText("Task details", { exact: true }).click();
   await expect(
     detail.getByRole("link", { name: "DEP-2", exact: true }),
   ).toBeVisible();
@@ -1866,9 +1864,6 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   await runs
     .getByText("Requested in the previous review", { exact: true })
     .click();
-  await expect(
-    runs.getByText("This revision responds to the request below."),
-  ).toBeVisible();
   await expect(
     runs.getByText("Include the source path in validation errors.", {
       exact: true,

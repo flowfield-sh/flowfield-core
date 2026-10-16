@@ -335,20 +335,24 @@ export function MilestoneReport({ value }: { value: Verification }) {
             {promotion && (
               <Disclosure summary="Delivery evidence">
                 <ContentStack>
-                  <p>
-                    Destination: <code>{promotion.target_branch}</code>
-                  </p>
-                  <p>
-                    Combined candidate:{" "}
-                    <code>{promotion.candidate_commit ?? "Preparing"}</code>
-                  </p>
-                  <p>
-                    Milestone source: <code>{promotion.source_commit}</code>
-                  </p>
-                  <p>
-                    Destination before promotion:{" "}
-                    <code>{promotion.target_before}</code>
-                  </p>
+                  <dl className="detail-facts">
+                    <dt>Destination</dt>
+                    <dd>
+                      <code>{promotion.target_branch}</code>
+                    </dd>
+                    <dt>Candidate</dt>
+                    <dd>
+                      <code>{promotion.candidate_commit ?? "Preparing"}</code>
+                    </dd>
+                    <dt>Milestone source</dt>
+                    <dd>
+                      <code>{promotion.source_commit}</code>
+                    </dd>
+                    <dt>Destination before</dt>
+                    <dd>
+                      <code>{promotion.target_before}</code>
+                    </dd>
+                  </dl>
                   <CheckEvidence
                     checks={promotion.setup_checks}
                     title="Runtime setup"
@@ -361,7 +365,7 @@ export function MilestoneReport({ value }: { value: Verification }) {
               </Disclosure>
             )}
             <Disclosure summary="Verification context">
-              <ContentStack space="section">
+              <ContentStack>
                 <p>
                   Criteria checked:{" "}
                   <WorkspaceLink
@@ -371,13 +375,13 @@ export function MilestoneReport({ value }: { value: Verification }) {
                   </WorkspaceLink>
                 </p>
                 {value.report?.coverage_notes && (
-                  <DetailSection title="Coverage">
+                  <Disclosure summary="Coverage">
                     <Markdown>{value.report.coverage_notes}</Markdown>
-                  </DetailSection>
+                  </Disclosure>
                 )}
-                <DetailSection title="Acceptance criteria">
+                <Disclosure summary="Acceptance criteria">
                   <Markdown>{value.criteria}</Markdown>
-                </DetailSection>
+                </Disclosure>
               </ContentStack>
             </Disclosure>
             <Disclosure summary="Tasks">

@@ -1,4 +1,4 @@
-import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
+import { ContentStack, Disclosure } from "./DetailLayout";
 import type { components } from "./api-schema";
 import { CheckEvidence } from "./Integration";
 import { Markdown } from "./Markdown";
@@ -25,9 +25,11 @@ export function ReviewChecks({
   return (
     <ContentStack className="review-checks">
       {availability && (
-        <DetailSection
+        <Disclosure
+          role="region"
           aria-label="Current branch checks"
-          title={
+          open={availability.status !== "integrated"}
+          summary={
             <>
               Current branch:{" "}
               {availability.status === "integrated"
@@ -36,10 +38,7 @@ export function ReviewChecks({
             </>
           }
         >
-          <p className="muted">
-            Checks on {branch} after delivery. These establish whether dependent
-            work can use the code now.
-          </p>
+          <p>Checks on {branch} after delivery.</p>
           {availability.problem && <p>{availability.problem}</p>}
           <CheckEvidence
             checks={availability.setup_checks ?? []}
@@ -52,7 +51,7 @@ export function ReviewChecks({
           <WorkspaceLink to={historyHref + "/validation:" + availability.id}>
             Open branch check details
           </WorkspaceLink>
-        </DetailSection>
+        </Disclosure>
       )}
       {preparation ? (
         <Disclosure

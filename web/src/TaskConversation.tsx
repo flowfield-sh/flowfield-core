@@ -1,6 +1,3 @@
-import { requestHref } from "./requestLinks";
-import { ProjectOwners } from "./WorkspaceLink";
-import { OpenInWorkTab } from "./WorkspaceTabs";
 import { LoadMore } from "./LoadMore";
 import { ActivityEntry } from "./ActivityEntry";
 import { useRetainedState, retainDirty } from "./retainedState";
@@ -11,7 +8,6 @@ import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
 import {
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -70,36 +66,6 @@ const contextKey = (value: Binding) =>
 const messageHref = (projectId: string, task: Task, id: string) =>
   `${taskHref(projectId, task)}/conversation/${encodeURIComponent(id)}`;
 
-export function StageHeader({
-  projectId,
-  task,
-  refresh,
-}: {
-  projectId: string;
-  task: Task;
-  refresh: unknown;
-}) {
-  const plan = useResource<components["schemas"]["StagePlan"]>(
-    `projects/${projectId}/tasks/${task.id}/stages`,
-    refresh,
-  );
-  return (
-    <>
-      <ResourceRetry resources={[plan]} />
-      {!!plan.data?.stages.length && (
-        <ContentStack className="task-header-stages">
-          <StageSequence stages={plan.data.stages} label="Task stages" />
-          {plan.data.agreement_revision !== task.agreement_revision && (
-            <p className="detail-metadata">
-              Stages reflect an earlier task revision.
-            </p>
-          )}
-        </ContentStack>
-      )}
-    </>
-  );
-}
-
 export function TaskConversation({
   projectId,
   task,
@@ -120,7 +86,6 @@ export function TaskConversation({
   onDirty: DirtyCallback;
   onSettingsDirty: (dirty: boolean) => void;
 }) {
-  const owners = useContext(ProjectOwners);
   const route = useParams();
   const overview = !requestTarget && (!route.tab || route.tab === "task");
   const path = `projects/${projectId}/tasks/${task.id}`;
@@ -567,7 +532,6 @@ export function TaskConversation({
               {gate.data?.result_id && (
                 <Result
                   overview
-                  compact
                   projectId={projectId}
                   taskId={task.id}
                   taskKey={task.key}
@@ -644,21 +608,6 @@ export function TaskConversation({
                                 />
                               </WorkspaceLink>
                             </ExactTimeTooltip>
-                            {!requestTarget &&
-                              message.source_id &&
-                              ["result", "question", "attempt"].includes(
-                                message.kind,
-                              ) && (
-                                <OpenInWorkTab
-                                  href={requestHref(
-                                    owners[projectId],
-                                    message.kind,
-                                    message.source_id,
-                                    projectId,
-                                  )}
-                                  label="Open request in work tab"
-                                />
-                              )}
                           </>
                         }
                       >
@@ -675,7 +624,6 @@ export function TaskConversation({
                               expanded[message.id] ||
                               target === message.id) ? (
                               <Result
-                                compact={!!requestTarget}
                                 projectId={projectId}
                                 taskId={task.id}
                                 taskKey={task.key}

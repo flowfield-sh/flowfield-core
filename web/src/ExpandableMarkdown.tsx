@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { DetailSection } from "./DetailLayout";
 import { Markdown } from "./Markdown";
 
 /** Bound the rendered preview, so wrapped paragraphs count as lines too. */
@@ -33,48 +34,49 @@ export function ExpandableMarkdown({
   const collapsed = preview.long && !expanded;
   return (
     <div ref={container} className="content-stack" data-space="tight">
-      <strong>{title}</strong>
-      <div
-        id={id}
-        ref={content}
-        className="definition-preview"
-        data-collapsed={collapsed}
-        style={{ maxHeight: collapsed ? preview.height : undefined }}
-        onFocusCapture={(event) => {
-          // Keyboard navigation must never leave focus in clipped content.
-          if (
-            collapsed &&
-            event.target.getBoundingClientRect().bottom >
-              event.currentTarget.getBoundingClientRect().top +
-                preview.height * 0.65
-          )
-            setExpanded(true);
-        }}
-      >
-        <Markdown>{children}</Markdown>
-      </div>
-      {preview.long && (
-        <button
-          type="button"
-          className="disclosure-control definition-toggle"
-          aria-expanded={expanded}
-          aria-controls={id}
-          onClick={() => {
-            setExpanded(!expanded);
-            if (expanded)
-              requestAnimationFrame(() =>
-                container.current?.scrollIntoView({ block: "start" }),
-              );
+      <DetailSection title={title}>
+        <div
+          id={id}
+          ref={content}
+          className="definition-preview"
+          data-collapsed={collapsed}
+          style={{ maxHeight: collapsed ? preview.height : undefined }}
+          onFocusCapture={(event) => {
+            // Keyboard navigation must never leave focus in clipped content.
+            if (
+              collapsed &&
+              event.target.getBoundingClientRect().bottom >
+                event.currentTarget.getBoundingClientRect().top +
+                  preview.height * 0.65
+            )
+              setExpanded(true);
           }}
         >
-          {expanded ? (
-            <ChevronUp aria-hidden="true" />
-          ) : (
-            <ChevronDown aria-hidden="true" />
-          )}
-          {expanded ? "Collapse definition" : "Expand definition"}
-        </button>
-      )}
+          <Markdown>{children}</Markdown>
+        </div>
+        {preview.long && (
+          <button
+            type="button"
+            className="disclosure-control definition-toggle"
+            aria-expanded={expanded}
+            aria-controls={id}
+            onClick={() => {
+              setExpanded(!expanded);
+              if (expanded)
+                requestAnimationFrame(() =>
+                  container.current?.scrollIntoView({ block: "start" }),
+                );
+            }}
+          >
+            {expanded ? (
+              <ChevronUp aria-hidden="true" />
+            ) : (
+              <ChevronDown aria-hidden="true" />
+            )}
+            {expanded ? "Collapse definition" : "Expand definition"}
+          </button>
+        )}
+      </DetailSection>
     </div>
   );
 }

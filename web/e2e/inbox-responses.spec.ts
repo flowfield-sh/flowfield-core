@@ -481,7 +481,7 @@ test("code review in Inbox approves the exact result and delivers without naviga
     page.getByRole("button", { name: "Approve and integrate", exact: true }),
   ).toBeEnabled({ timeout: 15000 });
   await expect(page.getByText("Destination:")).toContainText("delivery");
-  const reviewCard = page.getByRole("article", { name: /^Code review:/ });
+  const reviewCard = page.getByRole("article", { name: /^Result:/ });
   await expect(
     reviewCard.locator(":scope > header").getByRole("img"),
   ).toHaveCount(1);
@@ -516,9 +516,7 @@ test("code review in Inbox approves the exact result and delivers without naviga
     )
     .toBe("done");
   await expect(page).toHaveURL(new RegExp(`/workspaces/${workspace}/inbox$`));
-  await expect(
-    page.getByRole("article", { name: /^Code review:/ }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("article", { name: /^Result:/ })).toHaveCount(0);
   await page.goto(`/projects/${project}/tasks/INC-1`);
   await expect(
     page

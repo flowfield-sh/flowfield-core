@@ -5,11 +5,9 @@ import { usePage, useResource } from "./useResource";
 import { request } from "./workspace";
 import { reportError } from "./requestFeedback";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
-import { Markdown } from "./Markdown";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "./ConfirmButton";
 import { RunActivity } from "./RunActivity";
-import { WorkspaceLink } from "./WorkspaceLink";
 import { Timestamp } from "./Timestamp";
 import { ResourceRetry } from "./ResourceRetry";
 
@@ -18,13 +16,10 @@ export function TaskReview({
   projectId,
   taskId,
   refresh,
-  compact = false,
 }: {
   projectId: string;
   taskId: string;
-  workspaceId: string;
   refresh: unknown;
-  compact?: boolean;
 }) {
   const resource = useResource<Review | null>(
     `projects/${projectId}/tasks/${taskId}/review`,
@@ -32,9 +27,8 @@ export function TaskReview({
   );
   const [historyOpen, setHistoryOpen] = useState(false);
   const review = resource.data;
-  if (compact && review && ["decided", "stale"].includes(review.status))
-    return null;
-  if (compact && !review && !resource.error) return null;
+  if (review && ["decided", "stale"].includes(review.status)) return null;
+  if (!review && !resource.error) return null;
   return (
     <DetailSection title="Independent review">
       <ContentStack>
@@ -60,32 +54,13 @@ export function TaskReview({
                               ? "Review failed"
                               : "Preparing review"}
             </p>
-            {!compact && review.verdict && (
-              <Disclosure summary="Review evidence">
-                <Markdown>{review.verdict.evidence}</Markdown>
-              </Disclosure>
-            )}
             {review.problem && <p>{review.problem}</p>}
-            {!compact && review.status === "waiting" && review.question_id && (
-              <WorkspaceLink
-                to={`/projects/${projectId}/tasks/${taskId}/conversation/question:${review.question_id}`}
-              >
-                Answer review question
-              </WorkspaceLink>
-            )}
-            {!compact && (
-              <WorkspaceLink
-                to={`/projects/${projectId}/tasks/${taskId}/conversation/result:${review.result_id}`}
-              >
-                Reviewed result
-              </WorkspaceLink>
-            )}
             <ReviewControls
               review={review}
               path={`projects/${projectId}/reviews/${review.id}`}
               saved={resource.setData}
             />
-            {(!compact || review.status === "uncertain") && (
+            {["uncertain", "failed", "stopped"].includes(review.status) && (
               <Disclosure
                 summary="Review rounds and diagnostics"
                 onToggle={(event) => setHistoryOpen(event.currentTarget.open)}

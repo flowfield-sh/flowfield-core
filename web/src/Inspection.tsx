@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Copy } from "lucide-react";
 import { ActionTooltip } from "./ActionTooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { DetailSection, Disclosure } from "./DetailLayout";
+import { ContentStack, Disclosure } from "./DetailLayout";
 import { Timestamp } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { useResource } from "./useResource";
@@ -21,13 +21,11 @@ export function Inspection({
   result,
   refresh,
   milestone,
-  compact = false,
 }: {
   projectId: string;
   result?: Version;
   milestone?: { id: string; revision: number; workspace_id: string };
   refresh: unknown;
-  compact?: boolean;
 }) {
   const path = `projects/${projectId}`;
   const title = milestone ? "Try milestone" : "Try result";
@@ -72,7 +70,6 @@ export function Inspection({
   }
   return (
     <Disclosure
-      group={!milestone && !compact}
       summary={title}
       role="region"
       aria-label={title}
@@ -96,11 +93,10 @@ export function Inspection({
         </Button>
       )}
       {open && value && (
-        <DetailSection
-          title={`${value.task_key} · ${milestone ? "Milestone revision" : "Review"} ${value.version}`}
-        >
-          <p>
-            Separate inspection copy · <Timestamp date={value.created_at} />
+        <ContentStack>
+          <p className="detail-metadata">
+            {value.task_key} · {milestone ? "Milestone revision" : "Result"}{" "}
+            {value.version} · <Timestamp date={value.created_at} />
           </p>
           {value.source_changed && (
             <p>
@@ -134,14 +130,7 @@ export function Inspection({
             !value.problem &&
             (value.command ? (
               <>
-                <p>
-                  Run in your terminal on the service machine. Setup runs first;
-                  stop a running application with Ctrl+C.
-                </p>
-                <p>
-                  Run:{" "}
-                  <code className="wrap-anywhere">{value.run_command}</code>
-                </p>
+                <p>Run on the service machine:</p>
                 <div className="inspection-command">
                   <pre
                     className="evidence-output"
@@ -194,7 +183,7 @@ export function Inspection({
               Prepare another copy
             </Button>
           )}
-        </DetailSection>
+        </ContentStack>
       )}
     </Disclosure>
   );

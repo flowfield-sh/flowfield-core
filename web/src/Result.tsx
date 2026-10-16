@@ -1,14 +1,11 @@
+import { useLocation } from "react-router";
+import { ReviewRounds } from "./TaskReview";
 import { requestHref } from "./requestLinks";
 import { ProjectOwners } from "./WorkspaceLink";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
-import {
-  ContentStack,
-  DetailGroup,
-  DetailSection,
-  Disclosure,
-} from "./DetailLayout";
-import { lazy, Suspense, useState, useContext } from "react";
+import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
+import { lazy, Suspense, useState, useContext, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { components } from "./api-schema";
@@ -35,7 +32,6 @@ export function Result({
   onReply,
   onApprove,
   inputEnabled,
-  compact = false,
   overview = false,
 }: {
   projectId: string;
@@ -46,16 +42,18 @@ export function Result({
   onReply: (version: Version) => void;
   onApprove: (version: Version) => void;
   inputEnabled: boolean;
-  compact?: boolean;
   overview?: boolean;
 }) {
   const owners = useContext(ProjectOwners);
+  const { pathname } = useLocation();
+  // Returning to a retained result rechecks external branch movement too.
+  const observed = useMemo(() => ({ refresh, pathname }), [refresh, pathname]);
   const path = `projects/${projectId}`;
   const page = usePage<components["schemas"]["ResultPage"]>(
     `${path}/tasks/${taskId}/results`,
-    refresh,
+    observed,
   );
-  const detail = useResource<Version>(`${path}/results/${versionId}`, refresh);
+  const detail = useResource<Version>(`${path}/results/${versionId}`, observed);
   const [saved, setSaved] = useState<Version | null>(null);
   const incoming = detail.data;
   const version =
@@ -64,6 +62,7 @@ export function Result({
       : incoming;
   const [views, setViews] = useState<Record<string, DiffViewState>>({});
   const [diffOpen, setDiffOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const evidence = useResource<components["schemas"]["Integration"]>(
     version?.integration_id
@@ -91,7 +90,6 @@ export function Result({
     version?.id === page.data?.current_id &&
     version?.run_id === page.data?.current_run_id;
   const href = taskHref(projectId, { key: taskKey }, "result");
-  const Section = compact ? DetailSection : DetailGroup;
   async function recover(
     action: "prepare" | "correct" | "cancel" | "revalidate" | "retry-delivery",
   ) {
@@ -144,7 +142,10 @@ export function Result({
       )}
       {version && version.task_id === taskId && (
         <>
-          <Section title={overview ? "Outcome" : "Worker report"}>
+          <DetailSection
+            title={overview ? "Outcome" : "Worker report"}
+            panel={overview}
+          >
             <Markdown>{version.report.summary}</Markdown>
             {version.report.outcome === "partial" && (
               <DetailSection title="Work remaining">
@@ -168,15 +169,26 @@ export function Result({
                 summary={<>Requested in the previous review</>}
                 className="review-disclosure"
               >
-                <p className="muted">
-                  This revision responds to the request below.
-                </p>
                 <Markdown>{worker.data.feedback}</Markdown>
               </Disclosure>
             )}
-          </Section>
+            {overview && (
+              <Button size="sm" variant="outline" asChild>
+                <WorkspaceLink
+                  to={requestHref(
+                    owners[projectId],
+                    "result",
+                    version.id,
+                    projectId,
+                  )}
+                >
+                  View result
+                </WorkspaceLink>
+              </Button>
+            )}
+          </DetailSection>
           {!overview && version.independent_review?.summary && (
-            <Section title="Independent review">
+            <DetailSection title="Independent review">
               {version.independent_review.status === "stale" && (
                 <p>
                   This assessment is outdated. Changed inputs need a fresh
@@ -187,40 +199,57 @@ export function Result({
               <Disclosure summary="Review evidence">
                 <Markdown>{version.independent_review.evidence}</Markdown>
               </Disclosure>
-            </Section>
+              <Disclosure
+                summary="Review rounds and diagnostics"
+                onToggle={(event) => setReviewOpen(event.currentTarget.open)}
+              >
+                {reviewOpen && (
+                  <ReviewRounds
+                    projectId={projectId}
+                    review={{
+                      id: version.independent_review.id,
+                      revision: version.revision,
+                    }}
+                  />
+                )}
+              </Disclosure>
+            </DetailSection>
           )}
           {(!overview ||
             ["preparing", "delivering"].includes(version.status)) && (
-            <Section
+            <DetailSection
               title={version.completion === "code" ? "Delivery" : "Report"}
             >
-              <p>
-                <strong>
-                  {!current
-                    ? "Earlier result"
-                    : {
-                        ready: "Ready for review",
-                        preparing: "Checking result",
-                        delivering:
-                          version.completion === "code"
-                            ? "Integrating changes"
-                            : "Delivering findings",
-                        delivered:
-                          version.completion === "code"
-                            ? "Integrated"
-                            : "Findings delivered",
-                        blocked: "Needs attention",
-                        stale: "Needs attention",
-                        cancelled: "Review stopped",
-                        changes_requested: "Changes requested",
-                      }[version.status]}
-                </strong>
-              </p>
-              {version.completion === "code" && (
+              {version.status !== "delivered" && (
                 <p>
-                  Destination: <strong>{version.target_branch}</strong>
+                  <strong>
+                    {!current
+                      ? "Earlier result"
+                      : {
+                          ready: "Ready for review",
+                          preparing: "Checking result",
+                          delivering:
+                            version.completion === "code"
+                              ? "Integrating changes"
+                              : "Delivering findings",
+                          delivered:
+                            version.completion === "code"
+                              ? "Integrated"
+                              : "Findings delivered",
+                          blocked: "Needs attention",
+                          stale: "Needs attention",
+                          cancelled: "Review stopped",
+                          changes_requested: "Changes requested",
+                        }[version.status]}
+                  </strong>
                 </p>
               )}
+              {version.completion === "code" &&
+                version.status !== "delivered" && (
+                  <p>
+                    Destination: <strong>{version.target_branch}</strong>
+                  </p>
+                )}
               {version.recheck_of != null && (
                 <p className="muted">
                   Updated checks for review {version.recheck_of}; the worker
@@ -250,8 +279,8 @@ export function Result({
                   <>
                     <p>
                       {version.status === "preparing"
-                        ? "Flowfield is combining these changes with the branch and running checks. You can stop this cycle if the work needs to change; code and output are kept."
-                        : "Approved changes are waiting to reach the branch. You can cancel until the branch update starts; the task becomes Done after delivery."}
+                        ? "Combining changes and running checks. Stopping keeps code and output."
+                        : "Approved; waiting to update the branch. You can cancel until delivery starts."}
                     </p>
                     <ResultActions version={version.version}>
                       <Button
@@ -272,7 +301,7 @@ export function Result({
                 <p>
                   {version.completion === "code"
                     ? `Delivered to ${version.target_branch}.`
-                    : "Findings delivered; this does not endorse the recommendation."}{" "}
+                    : "Findings delivered."}{" "}
                   Task complete.
                 </p>
               )}
@@ -280,29 +309,14 @@ export function Result({
                 <p>{version.next_action?.reason || "Changes requested."}</p>
               )}
               {version.status === "cancelled" ? (
-                <p>
-                  Code and check output were kept. These changes are no longer
-                  awaiting approval or delivery.
-                </p>
+                <p>Code and check output were kept.</p>
               ) : (
                 version.problem &&
                 version.problem_code !== "partial_outcome" && (
                   <FailureEvidence problem={version.problem} />
                 )
               )}
-            </Section>
-          )}
-          {overview && (
-            <WorkspaceLink
-              to={requestHref(
-                owners[projectId],
-                "result",
-                version.id,
-                projectId,
-              )}
-            >
-              Open result
-            </WorkspaceLink>
+            </DetailSection>
           )}
           {current &&
             version.next_action &&
@@ -370,23 +384,28 @@ export function Result({
               </ResultActions>
             )}
           {!overview && (
-            <Section title="Checks" role="region" aria-label="Checks">
-              <ReviewChecks
-                preparation={evidence.data}
-                availability={availability.data}
-                report={version.report.checks}
-                completion={version.completion}
-                branch={version.target_branch}
-                historyHref={taskHref(projectId, { key: taskKey }, "history")}
-              />
-            </Section>
+            <DetailSection title="Checks" role="region" aria-label="Checks">
+              {version.integration_id && !evidence.data ? (
+                <p>
+                  {evidence.loading ? "Loading checks…" : "Checks unavailable."}
+                </p>
+              ) : (
+                <ReviewChecks
+                  preparation={evidence.data}
+                  availability={availability.data}
+                  report={version.report.checks}
+                  completion={version.completion}
+                  branch={version.target_branch}
+                  historyHref={taskHref(projectId, { key: taskKey }, "history")}
+                />
+              )}
+            </DetailSection>
           )}
           {!overview &&
             version.completion === "code" &&
             version.candidate_commit && (
-              <Section title="Details">
+              <DetailSection title="Details">
                 <Inspection
-                  compact={compact}
                   key={version.id}
                   projectId={projectId}
                   result={version}
@@ -394,7 +413,6 @@ export function Result({
                 />
                 {version.integration_id && version.candidate_commit && (
                   <Disclosure
-                    group={!compact}
                     summary={<>Code changes</>}
                     onToggle={(e) => setDiffOpen(e.currentTarget.open)}
                   >
@@ -420,7 +438,7 @@ export function Result({
                     )}
                   </Disclosure>
                 )}
-              </Section>
+              </DetailSection>
             )}
           {current && version.status === "ready" && (
             <ResultActions version={version.version}>

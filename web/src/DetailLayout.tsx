@@ -74,13 +74,18 @@ export function DetailSection({
   children,
   className = "",
   actions,
+  panel = false,
   ...props
 }: Omit<ComponentProps<"section">, "title"> & {
   title: ReactNode;
   actions?: ReactNode;
+  panel?: boolean;
 }) {
   return (
-    <section {...props} className={`detail-section ${className}`}>
+    <section
+      {...props}
+      className={`detail-section ${panel ? "detail-panel" : ""} ${className}`}
+    >
       {actions ? (
         <div className="detail-heading-row">
           <h4>{title}</h4>

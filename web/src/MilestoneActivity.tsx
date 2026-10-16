@@ -1,5 +1,3 @@
-import { requestHref } from "./requestLinks";
-import { OpenInWorkTab } from "./WorkspaceTabs";
 import { LoadMore } from "./LoadMore";
 import { useContext, useEffect, useRef } from "react";
 import { useLocation, useSearchParams } from "react-router";
@@ -259,16 +257,6 @@ export function MilestoneActivity({
                     <WorkspaceLink to={link}>
                       <Timestamp date={item.timestamp} />
                     </WorkspaceLink>
-                    {item.verification_id && (
-                      <OpenInWorkTab
-                        href={requestHref(
-                          milestone.workspace_id,
-                          "milestone",
-                          item.verification_id,
-                        )}
-                        label="Open request in work tab"
-                      />
-                    )}
                   </>
                 }
               >

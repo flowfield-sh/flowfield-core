@@ -2,10 +2,9 @@ import { useParams } from "react-router";
 import { useContext } from "react";
 import { ResourceNavigation } from "./WorkspaceTabs";
 import { ReviewerSettings } from "./ReviewerSettings";
-import { SourceReferences } from "./SourceReferences";
 import type { DirtyCallback } from "./retainedState";
 import { useCallback, useEffect, useState } from "react";
-import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
+import { ContentStack, DetailSection } from "./DetailLayout";
 import { TaskLabels } from "./TaskLabels";
 import { DetailHeader, DetailTabs, DraftBadge } from "./Presentation";
 import { MilestoneBadge } from "./MilestoneBadge";
@@ -14,7 +13,7 @@ import { taskHref } from "./navigation";
 import { ExpandableMarkdown } from "./ExpandableMarkdown";
 import { BlockedBy } from "./TaskLinks";
 import { TaskNeeds, hasTaskNeeds } from "./TaskNeeds";
-import { TaskConversation, StageHeader } from "./TaskConversation";
+import { TaskConversation } from "./TaskConversation";
 import { AgentPermissions } from "./AgentPermissions";
 import { TaskReview } from "./TaskReview";
 import { type Board, type Task } from "./workspace";
@@ -124,12 +123,41 @@ export function TaskDetail({
               />
             </DetailSection>
           )}
+          {(task.dependents.length > 0 ||
+            task.prerequisites.some(
+              (p) => !task.blocked_by.some((b) => b.key === p.key),
+            )) && (
+            <ContentStack aria-label="Related work">
+              {task.prerequisites.some(
+                (p) => !task.blocked_by.some((b) => b.key === p.key),
+              ) && (
+                <p>
+                  <BlockedBy
+                    prefix="Prerequisites:"
+                    projectId={board.project.id}
+                    tasks={task.prerequisites.filter(
+                      (p) => !task.blocked_by.some((b) => b.key === p.key),
+                    )}
+                    open={openTask}
+                  />
+                </p>
+              )}
+              {!!task.dependents.length && (
+                <p>
+                  <BlockedBy
+                    prefix="Needed by:"
+                    projectId={board.project.id}
+                    tasks={task.dependents}
+                    open={openTask}
+                  />
+                </p>
+              )}
+            </ContentStack>
+          )}
           <TaskReview
             projectId={board.project.id}
             taskId={task.id}
-            workspaceId={workspaceId}
             refresh={board}
-            compact
           />
         </ContentStack>
       )}
@@ -142,56 +170,6 @@ export function TaskDetail({
           refresh={board}
           onDirty={setReviewerDirty}
         />
-      )}
-      {!overview && !settings && (
-        <Disclosure summary="Task details">
-          <ContentStack space="section">
-            {(task.prerequisites.some(
-              (p) => !task.blocked_by.some((b) => b.key === p.key),
-            ) ||
-              task.dependents.length > 0) && (
-              <DetailSection title="Related work">
-                {!!task.dependents.length && (
-                  <p>
-                    <BlockedBy
-                      prefix="Needed by:"
-                      projectId={board.project.id}
-                      tasks={task.dependents}
-                      open={openTask}
-                    />
-                  </p>
-                )}
-                {!!task.prerequisites.length && (
-                  <p>
-                    <BlockedBy
-                      prefix="Prerequisites:"
-                      projectId={board.project.id}
-                      tasks={task.prerequisites}
-                      open={openTask}
-                    />
-                  </p>
-                )}
-              </DetailSection>
-            )}
-            <SourceReferences
-              documents={task.publication?.documents ?? []}
-              updates={task.document_updates ?? []}
-            />
-            <DetailSection title="Progress">
-              <StageHeader
-                projectId={board.project.id}
-                task={task}
-                refresh={board}
-              />
-            </DetailSection>
-            <TaskReview
-              projectId={board.project.id}
-              taskId={task.id}
-              workspaceId={workspaceId}
-              refresh={board}
-            />
-          </ContentStack>
-        </Disclosure>
       )}
       {!settings && (
         <TaskConversation

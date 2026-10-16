@@ -426,6 +426,14 @@ test("validated result approval delivers real Git code with the worker queue pau
   await page
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();
+  const approval = page.locator('[data-kind="approval"] .activity-entry');
+  await expect(approval).toBeVisible();
+  if (
+    !(await approval.evaluate(
+      (element) => (element as HTMLDetailsElement).open,
+    ))
+  )
+    await approval.locator(":scope > summary").click();
   await expect(
     page.getByText("Keyboard checked; mobile not tested.", { exact: true }),
   ).toBeVisible();
@@ -527,6 +535,8 @@ test("validated result approval delivers real Git code with the worker queue pau
     "-m",
     "External target advance",
   );
+  // No unrelated SSE refresh may hide a stale retained result on navigation.
+  await page.evaluate(() => window.dispatchEvent(new Event("offline")));
   git("update-ref", "refs/heads/integration", advanced);
   await history
     .getByRole("link", { name: "Review these changes" })
@@ -535,6 +545,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   await expect(
     page.getByRole("button", { name: "Check destination" }),
   ).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await page.getByRole("button", { name: "Check destination" }).click();
   await expect(
     result.getByRole("region", { name: "Current branch checks" }),
@@ -544,6 +555,10 @@ test("validated result approval delivers real Git code with the worker queue pau
   ).toHaveCount(0);
   expect(git("rev-parse", "integration")).toBe(advanced);
   await expect(result).toContainText("Task complete.");
+  await result
+    .getByRole("region", { name: "Current branch checks" })
+    .locator(":scope > summary")
+    .click();
   await result.getByRole("link", { name: "Open branch check details" }).click();
   await expect(
     history.getByRole("heading", { name: "Review 1 branch checks" }),
@@ -802,7 +817,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     .filter({ hasText: /^Try result$/ })
     .click();
   await expect(
-    preview().getByText("Run in your terminal", { exact: false }),
+    preview().getByText("Run on the service machine:", { exact: false }),
   ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Inspection", exact: true }),
@@ -914,9 +929,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     .locator("summary")
     .filter({ hasText: /^Try result$/ })
     .click();
-  await expect(
-    preview().getByText("IPV-1 · Review 2", { exact: true }),
-  ).toBeVisible();
+  await expect(preview().getByText(/IPV-1 · Result 2/)).toBeVisible();
   const second = (await (await request.get(`${path}/tasks/try/results`)).json())
     .items[0];
   const next = await (
@@ -1145,10 +1158,7 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   await page.setViewportSize(originalViewport);
   await page.goto("/projects/outcome-report/tasks/ORP-1/changes");
   await expect(
-    page.getByText(
-      "Findings delivered; this does not endorse the recommendation.",
-      { exact: false },
-    ),
+    page.getByText("Findings delivered.", { exact: false }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Approve and integrate" }),

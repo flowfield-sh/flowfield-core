@@ -35,12 +35,16 @@ export function MilestoneVerificationPlan({
               Plan revision {plan.revision} · milestone revision{" "}
               {plan.milestone_revision}
             </p>
-            <Markdown>{plan.instructions}</Markdown>
-            <ol>
-              {plan.checks.map((check, index) => (
-                <li key={index}>{check}</li>
-              ))}
-            </ol>
+            <Disclosure summary="Instructions">
+              <Markdown>{plan.instructions}</Markdown>
+            </Disclosure>
+            <Disclosure summary="Checks">
+              <ol>
+                {plan.checks.map((check, index) => (
+                  <li key={index}>{check}</li>
+                ))}
+              </ol>
+            </Disclosure>
           </ContentStack>
         </Disclosure>
       )}

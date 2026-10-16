@@ -105,20 +105,18 @@ test("individual requests retain answers and drafts across independent tabs", as
   await expect(
     detail.getByRole("button", { name: "Send answer", exact: true }),
   ).toHaveCount(0);
-  await page.route(
-    "**/api" + href,
-    (route) =>
-      route.fulfill({
-        status: 503,
-        json: { error: { message: "Request temporarily unavailable" } },
-      }),
-    { times: 1 },
+  await page.route("**/api" + href, (route) =>
+    route.fulfill({
+      status: 503,
+      json: { error: { message: "Request temporarily unavailable" } },
+    }),
   );
   await page.reload();
   await expect(
     detail.getByRole("button", { name: "Retry loading", exact: true }),
   ).toBeVisible();
   await page.screenshot({ path: info.outputPath("request-unavailable.png") });
+  await page.unroute("**/api" + href);
   await detail
     .getByRole("button", { name: "Retry loading", exact: true })
     .click();

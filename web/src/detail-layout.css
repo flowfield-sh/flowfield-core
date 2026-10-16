@@ -138,6 +138,25 @@
     font-size: 12px;
     line-height: 1.6;
   }
+  .detail-facts {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 12px;
+    row-gap: 4px;
+    font-size: 12px;
+  }
+  .detail-facts dt {
+    color: var(--muted-foreground);
+  }
+  .detail-facts dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .detail-panel {
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
   .disclosure {
     margin: 0;
     min-width: 0;
@@ -349,18 +368,11 @@
     padding: 12px;
     border-top: 1px solid var(--border);
   }
-  .conversation-message .detail-title,
-  .conversation-message .detail-section h4,
-  .conversation-message .markdown :is(h1, h2, h3, h4, h5, h6),
-  .task-action-context .detail-section h4 {
+  .conversation-message .detail-entry-title {
     font-size: 14px;
     font-weight: 600;
     line-height: 1.6;
     margin-bottom: 0;
-  }
-  .conversation-message .detail-section:not(:has(> .detail-heading-row)),
-  .task-action-context .detail-section:not(:has(> .detail-heading-row)) {
-    gap: 0;
   }
   .conversation-message .markdown {
     max-width: none;
