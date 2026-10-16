@@ -1271,9 +1271,15 @@ test("related questions preserve the page, drafts, focus and router history", as
   await expect(trigger).toBeFocused();
   await expect
     .poll(() =>
-      taskDialog.locator(".entity-overlay-body").evaluate((el) => el.scrollTop),
+      taskDialog.locator(".entity-overlay-body").evaluate(
+        (el, saved) =>
+          // The delayed loading row disappears while away. Native scrolling clamps
+          // the saved offset when the returning content has a shorter scroll range.
+          el.scrollTop - Math.min(saved, el.scrollHeight - el.clientHeight),
+        overlayScroll,
+      ),
     )
-    .toBe(overlayScroll);
+    .toBe(0);
   await trigger.click();
   await page.goBack();
   await expect(dialog).toHaveCount(0);

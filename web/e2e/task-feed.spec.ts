@@ -556,7 +556,10 @@ test("archive preserves dated records and supports restore and mobile archiving"
   await archive.getByRole("link", { name: /older task/ }).click();
   const info = page.getByRole("region", { name: "Task details", exact: true });
   await expect(
-    info.getByRole("heading", { name: /Up next|Archived/ }),
+    info.getByRole("img", { name: "Archived", exact: true }),
+  ).toBeVisible();
+  await expect(
+    info.getByRole("heading", { name: /^(Up next|Archived)$/ }),
   ).toHaveCount(0);
   await expect(info.getByText(/Previously|Your agent/)).toHaveCount(0);
   const actions = page.getByRole("region", {
