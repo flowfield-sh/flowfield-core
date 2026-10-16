@@ -204,8 +204,7 @@ class Documents:
         # Creation and deleted-document restoration consume the same active slot.
         # Call inside the write transaction so concurrent operations cannot exceed it.
         count = db.execute(
-            "SELECT count(*) FROM workspace_documents WHERE workspace_id=? "
-            "AND deleted_at IS NULL",
+            "SELECT count(*) FROM workspace_documents WHERE workspace_id=? AND deleted_at IS NULL",
             (workspace_id,),
         ).fetchone()[0]
         if count >= 100:

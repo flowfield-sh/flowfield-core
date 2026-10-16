@@ -359,6 +359,8 @@ def test_restore_respects_capacity_atomically_without_blocking_active_revisions(
     docs = Documents(store)
     retired = docs.create(space.id, DocumentCreate(title="Retired", body="Keep this evidence"))
     deleted = docs.delete(space.id, retired.id, Edit(expected_revision=1))
+    other = docs.create(space.id, DocumentCreate(title="Other retired", body="Other evidence"))
+    docs.delete(space.id, other.id, Edit(expected_revision=1))
     for index in range(99):
         docs.create(space.id, DocumentCreate(title=f"Document {index}"))
 
@@ -372,20 +374,29 @@ def test_restore_respects_capacity_atomically_without_blocking_active_revisions(
     spare = docs.page(space.id).items[1]
     docs.delete(space.id, spare.id, Edit(expected_revision=spare.revision))
 
-    def restore():
+    def restore(identity):
         try:
             return docs.restore(
-                space.id, retired.id, DocumentRestore(expected_revision=2, revision=1)
+                space.id, identity, DocumentRestore(expected_revision=2, revision=1)
             )
         except ApplicationError as error:
             return error.code
 
     with ThreadPoolExecutor(2) as pool:
-        outcomes = list(pool.map(lambda _: restore(), range(2)))
-    assert outcomes.count("revision_conflict") == 1
+        outcomes = list(pool.map(restore, [retired.id, other.id]))
+    assert outcomes.count("document_limit") == 1
     assert docs.get(space.id, retired.id).body == retired.body
+    assert docs.get(space.id, other.id).body == other.body
+    assert (
+        sum(docs.get(space.id, identity).deleted_at is None for identity in [retired.id, other.id])
+        == 1
+    )
     with store.connection() as db:
-        assert db.execute(
-            "SELECT count(*) FROM workspace_documents WHERE workspace_id=? AND deleted_at IS NULL",
-            (space.id,),
-        ).fetchone()[0] == 100
+        assert (
+            db.execute(
+                "SELECT count(*) FROM workspace_documents "
+                "WHERE workspace_id=? AND deleted_at IS NULL",
+                (space.id,),
+            ).fetchone()[0]
+            == 100
+        )
