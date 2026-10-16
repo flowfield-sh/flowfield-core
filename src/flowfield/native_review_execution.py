@@ -61,7 +61,7 @@ class ReviewOwner(Protocol[J]):
     def claim(self, project: str, identity: str, expected_revision: int) -> J: ...
     def started(self, project: str, identity: str, expected_revision: int) -> J: ...
     def attempt(self, identity: str) -> dict[str, Any]: ...
-    def save_attempt(self, identity: str, data: dict[str, Any]) -> None: ...
+    def save_attempt(self, identity: str, updates: dict[str, Any]) -> None: ...
     def write(self, project: str, attempt: str, updates: list[ActivityUpdate]) -> None: ...
     def finish_attempt(
         self,
@@ -148,9 +148,7 @@ class NativeReviewExecution[J: ReviewJob](ABC):
         attempt = review.attempt_id
 
         def save(**values: Any) -> None:
-            data = self.reviews.attempt(attempt)
-            data.update(values)
-            self.reviews.save_attempt(attempt, data)
+            self.reviews.save_attempt(attempt, values)
 
         async def permission(request: PermissionRequest) -> str | None:
             # No background permission escalation. Ask the human through a scoped question.

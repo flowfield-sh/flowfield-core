@@ -158,8 +158,16 @@ class ReviewRecords[J: ReviewRecord](ABC):
                 "next_before": rows[19][0] if len(rows) > 20 else None,
             }
 
-    def save_attempt(self, identity: str, data: dict[str, Any]) -> None:
+    def save_attempt(self, identity: str, updates: dict[str, Any]) -> None:
+        """Patch lifecycle metadata without replacing concurrently recorded evidence."""
         with self.store.connection(write=True, notify=False) as db:
+            row = db.execute(
+                f"SELECT data FROM {self.attempt_table} WHERE id=?", (identity,)
+            ).fetchone()
+            if not row:
+                raise ApplicationError("not_found", "Review attempt not found.", 404)
+            data = json.loads(row[0])
+            data.update(updates)
             db.execute(
                 f"UPDATE {self.attempt_table} SET data=? WHERE id=?", (json.dumps(data), identity)
             )

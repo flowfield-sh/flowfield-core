@@ -87,6 +87,40 @@ def test_native_assessment_does_not_integrate_and_shares_capacity(tmp_path, monk
     assert current(service).status == "delivered"
 
 
+def test_cleanup_metadata_preserves_concurrent_review_activity(tmp_path, monkeypatch):
+    from flowfield.review_records import ReviewRecords
+    from flowfield.run_activity import ActivityUpdate
+
+    service, _, run, _, reviews = configured(tmp_path)
+    install(monkeypatch)
+    save = ReviewRecords.save_attempt
+    interleaved = []
+
+    def concurrent_activity(owner, identity, data):
+        if data.get("completed_at") and not interleaved:
+            # The recorder's worker thread commits between metadata preparation
+            # and its write transaction. That evidence must not be overwritten.
+            owner.write(
+                "harbor",
+                identity,
+                [ActivityUpdate(key="late-evidence", kind="agent", text="Retain this finding")],
+            )
+            interleaved.append(identity)
+        save(owner, identity, data)
+
+    monkeypatch.setattr(ReviewRecords, "save_attempt", concurrent_activity)
+    asyncio.run(round_trip(service))
+    review = reviews.latest("harbor", run.task_id)
+    assert interleaved == [review.attempt_id]
+    assert review.status == "decided" and review.verdict.action == "approve"
+    attempt = reviews.attempt(review.attempt_id)
+    assert attempt["cleanup_confirmed"] and attempt["completed_at"]
+    assert attempt["decision"]["action"] == "approve"
+    assert any(
+        item.text == "Retain this finding" for item in reviews.activity("harbor", review.id).items
+    )
+
+
 def test_stale_question_is_retained_and_cannot_resume_old_review(tmp_path, monkeypatch):
     from flowfield.reviewer_settings import ReviewerEdit
 
@@ -305,9 +339,9 @@ def test_uncertain_review_is_not_replayed_after_restart(tmp_path):
     review = reviews.prepare("harbor", current(service).id)
     review = reviews.claim("harbor", review.id, review.revision)
     review = reviews.begin_attempt("harbor", review.id)
-    data = reviews.attempt(review.attempt_id)
-    data.update(native_launch_started=True, cleanup_confirmed=False)
-    reviews.save_attempt(review.attempt_id, data)
+    reviews.save_attempt(
+        review.attempt_id, {"native_launch_started": True, "cleanup_confirmed": False}
+    )
     reviews.restart()
     review = reviews.latest("harbor", run.task_id)
     stopped = asyncio.run(service.review_execution.stop("harbor", review.id, review.revision))
