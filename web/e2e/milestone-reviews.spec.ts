@@ -44,7 +44,9 @@ test("combined native-review evidence ends at exact human promotion", async ({
   await page
     .getByText("Review rounds and diagnostics", { exact: true })
     .click();
-  await expect(page.getByText("Reviewer ·", { exact: false })).toBeVisible();
+  await expect(
+    page.locator("summary").filter({ hasText: /^Reviewer ·/ }),
+  ).toBeVisible();
   for (const [width, height, theme] of [
     [1440, 1000, "light"],
     [1440, 1000, "dark"],
