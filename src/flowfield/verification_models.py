@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from flowfield.promotion_models import MilestonePromotion
+from flowfield.reviewer_settings import EffectiveReviewer
 from flowfield.verification_report import (
     CriterionFinding as CriterionFinding,
 )
@@ -63,6 +64,7 @@ class MilestoneVerificationSummary(BaseModel):
     status: VerificationStatus
     checks_passed: int | None
     checks_total: int
+    review_status: str | None = None
 
 
 class MilestoneVerification(VerificationInput):
@@ -76,9 +78,9 @@ class MilestoneVerification(VerificationInput):
     checks: list[str]
     tasks: list[DeliveredTask]
     project_id: str
-    task_id: str
-    task_key: str
-    agreement_revision: int
+    task_id: str | None = None
+    task_key: str | None = None
+    agreement_revision: int | None = None
     revision: int = 1
     status: VerificationStatus = "verifying"
     current: bool = True
@@ -95,3 +97,9 @@ class MilestoneVerification(VerificationInput):
     promotion_id: str | None = None
     # Read projection; the independent promotion record owns delivery authority.
     promotion: MilestonePromotion | None = None
+    purpose: Literal["task", "review"] = "task"
+    plan_revision: int | None = None
+    reviewer: EffectiveReviewer | None = None
+    review_id: str | None = None
+    instructions: str = ""
+    review_status: str | None = None

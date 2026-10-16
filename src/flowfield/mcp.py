@@ -52,6 +52,7 @@ from flowfield.reads import MAX_LIMIT, ContextReads, excerpt, receipt
 from flowfield.search import Entity, History, Search
 from flowfield.supervisor import Supervisor
 from flowfield.verification_models import VerificationPrepare
+from flowfield.verification_plans import VerificationPlanEdit, VerificationPlans
 from flowfield.workspaces import ProjectAdoption, WorkspaceCreate, WorkspaceEdit, Workspaces
 
 PageLimit = Annotated[int, Field(ge=1, le=MAX_LIMIT)]
@@ -448,6 +449,42 @@ def create_mcp(
         return await invoke(
             lambda: Milestones(workspace()).history(
                 workspace_id, milestone_id, before=before, limit=limit
+            )
+        )
+
+    @mcp.tool(annotations=write)
+    async def plan_milestone_verification(
+        workspace_id: Identifier,
+        milestone_id: MilestoneIdentifier,
+        plan: VerificationPlanEdit,
+    ) -> CallToolResult:
+        """Save whole-outcome checks and procedures during milestone preparation.
+        Bind the current milestone revision; use expected_revision 1 for the first plan.
+        With an owned milestone branch, the service binds delivered contributions and
+        runs the configured milestone reviewer automatically. Cover every criterion and
+        name required human/runtime evidence; never infer permission to run extra commands.
+        Task integration policy and final milestone promotion remain human-controlled.
+        """
+        return await mutate(
+            lambda: (
+                VerificationPlans(workspace())
+                .save(workspace_id, milestone_id, attributed(plan))
+                .model_dump()
+            )
+        )
+
+    @mcp.tool(annotations=read)
+    async def get_milestone_verification_plan(
+        workspace_id: Identifier,
+        milestone_id: MilestoneIdentifier,
+        revision: Annotated[int, Field(ge=1)] | None = None,
+        offset: Annotated[int, Field(ge=0)] = 0,
+        limit: Annotated[int, Field(ge=1, le=4000)] = 4000,
+    ) -> CallToolResult:
+        """Read the saved verification plan revision before changing its checks or procedures."""
+        return await invoke(
+            lambda: VerificationPlans(workspace()).context(
+                workspace_id, milestone_id, revision=revision, offset=offset, limit=limit
             )
         )
 

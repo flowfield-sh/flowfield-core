@@ -24,7 +24,7 @@ from flowfield.workspaces import Workspaces
 
 
 def delivered_tasks(
-    db: sqlite3.Connection, workspace_id: str, milestone_id: str, verifier: tuple[str, str]
+    db: sqlite3.Connection, workspace_id: str, milestone_id: str, verifier: tuple[str, str | None]
 ) -> list[DeliveredTask]:
     rows = db.execute(
         "SELECT t.project_id,t.id,t.key,t.data FROM tasks t JOIN workspace_projects w "
@@ -36,7 +36,7 @@ def delivered_tasks(
         "AND json_extract(v.data,'$.task_id')=t.id "
         "AND json_extract(t.data,'$.publication.completion')='report') "
         "ORDER BY t.project_id,t.id LIMIT 1001",
-        (workspace_id, milestone_id, *verifier, milestone_id),
+        (workspace_id, milestone_id, verifier[0], verifier[1] or "", milestone_id),
     ).fetchall()
     if not rows or len(rows) > 1000:
         raise ApplicationError(
@@ -150,6 +150,19 @@ def current_problem(db: sqlite3.Connection, value: MilestoneVerification) -> str
         return str(error)
     if tasks != value.tasks:
         return "Contributing tasks or delivered results changed. Prepare a new verification."
+    if value.purpose == "review":
+        from flowfield.reviewer_settings import Reviewers
+        from flowfield.verification_plans import read as plan_read
+
+        plan = plan_read(db, value.workspace_id, value.milestone_id)
+        if not plan or plan.revision != value.plan_revision:
+            return "The verification plan changed. Verify the updated plan."
+        reviewer = Reviewers.resolved(
+            db, value.workspace_id, "milestone", entity=value.milestone_id
+        )
+        if value.status != "accepted" and reviewer.effective != value.reviewer:
+            return "Milestone reviewer settings changed. A fresh assessment is required."
+        return None
     row = db.execute(
         "SELECT data FROM tasks WHERE project_id=? AND id=?", (value.project_id, value.task_id)
     ).fetchone()
@@ -191,6 +204,8 @@ def reconcile(db: sqlite3.Connection, project_id: str | None = None) -> None:
             if value.status != "accepted":
                 value.status = "stale"
         elif value.status == "verifying":
+            if value.purpose == "review":
+                continue  # The scoped review owner supplies structured findings after cleanup.
             result_row = db.execute(
                 "SELECT v.data,r.assignment FROM result_versions v JOIN runs r ON r.id=v.run_id "
                 "WHERE v.project_id=? AND v.task_id=? AND v.status='delivered' "
@@ -505,13 +520,15 @@ def board_verifications(
             status=row[2] if row[3] else "stale",
             checks_total=row[4],
             checks_passed=row[5],
+            review_status=row[6] if row[3] else None,
         )
         for row in db.execute(
             "SELECT milestone_id,id,status,json_extract(data,'$.current'), "
             "json_array_length(data,'$.checks'), "
             "CASE WHEN json_type(data,'$.report')='object' THEN "
             "(SELECT count(*) FROM json_each(v.data,'$.report.findings') "
-            "WHERE json_extract(value,'$.verdict')='passed') END "
+            "WHERE json_extract(value,'$.verdict')='passed') END, "
+            "json_extract(data,'$.review_status') "
             "FROM milestone_verifications v WHERE workspace_id=? AND NOT EXISTS "
             "(SELECT 1 FROM milestone_verifications n WHERE n.workspace_id=v.workspace_id "
             "AND n.milestone_id=v.milestone_id AND n.number>v.number)",

@@ -27,15 +27,17 @@ export function RunActivity({
   projectId,
   runId,
   review = false,
+  reviewKind = "reviews",
   reviewAttemptId,
 }: {
   projectId: string;
   runId: string;
   review?: boolean;
+  reviewKind?: "reviews" | "milestone-reviews";
   reviewAttemptId?: string;
 }) {
   const resource = useResource<Page>(
-    `projects/${projectId}/${review ? "reviews" : "runs"}/${runId}${reviewAttemptId ? `/attempts/${reviewAttemptId}` : ""}/activity`,
+    `projects/${projectId}/${review ? reviewKind : "runs"}/${runId}${reviewAttemptId ? `/attempts/${reviewAttemptId}` : ""}/activity`,
     runId,
     10000,
     { projectId, attemptId: reviewAttemptId ?? runId, isActive },

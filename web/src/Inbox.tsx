@@ -316,10 +316,16 @@ export function QuestionDetail({
               metadata={
                 <>
                   <ScopedAnchor
-                    href={scopeHref}
-                    onClick={(e) => followLink(e, () => open(scopeHref))}
+                    href={loaded.verification_url ?? scopeHref}
+                    onClick={(e) =>
+                      followLink(e, () =>
+                        open(loaded.verification_url ?? scopeHref),
+                      )
+                    }
                   >
-                    {loaded.task_key ?? "Project"}
+                    {loaded.verification_url
+                      ? "Milestone review"
+                      : (loaded.task_key ?? "Project")}
                   </ScopedAnchor>
                   {" · "}
                   <span role="status">

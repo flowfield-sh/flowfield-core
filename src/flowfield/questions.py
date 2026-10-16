@@ -189,6 +189,18 @@ class Questions:
                         f"/workspaces/{verification['workspace_id']}/milestones/"
                         f"{verification['milestone_key']}?verification={verification['id']}"
                     )
+            elif result.origin_review_id and self.workspace.schema_version >= 77:
+                row = db.execute(
+                    "SELECT v.data FROM milestone_verifications v JOIN milestone_reviews r "
+                    "ON r.verification_id=v.id WHERE r.project_id=? AND r.id=?",
+                    (project_id, result.origin_review_id),
+                ).fetchone()
+                if row:
+                    verification = json.loads(row[0])
+                    result.verification_url = (
+                        f"/workspaces/{verification['workspace_id']}/milestones/"
+                        f"{verification['milestone_key']}?verification={verification['id']}"
+                    )
             return result
 
     def counts(self, db: sqlite3.Connection, project_id: str) -> dict[str, int]:

@@ -13,6 +13,8 @@ import { MilestoneVerification } from "./MilestoneVerification";
 import { Markdown } from "./Markdown";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { MilestoneIntegrationSettings } from "./MilestoneIntegrationSettings";
+import { MilestoneReviewSettings } from "./MilestoneReviewSettings";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { RevisionHistory } from "./RevisionHistory";
 import { WorkspaceLink } from "./WorkspaceLink";
@@ -41,6 +43,30 @@ export function MilestoneDetail({
   close: () => void;
 }) {
   const [params, setParams] = useSearchParams();
+  const [integrationDirty, setIntegrationDirty] = useState(false);
+  const [reviewerDirty, setReviewerDirty] = useState(false);
+  const [responseDirty, setResponseDirty] = useState(false);
+  const [responseRetained, setResponseRetained] = useState(false);
+  const markResponseDirty = useCallback<DirtyCallback>(
+    (dirty, retained = false) => {
+      setResponseDirty(dirty);
+      setResponseRetained(retained);
+    },
+    [],
+  );
+  useEffect(() => {
+    onDirty(
+      integrationDirty || reviewerDirty || responseDirty,
+      responseRetained && !integrationDirty && !reviewerDirty,
+    );
+    return () => onDirty(false);
+  }, [
+    onDirty,
+    integrationDirty,
+    reviewerDirty,
+    responseDirty,
+    responseRetained,
+  ]);
   const location = useLocation();
   const delivery = useResource<
     components["schemas"]["MilestoneDelivery"] | null
@@ -167,16 +193,24 @@ export function MilestoneDetail({
               <MilestoneIntegrationSettings
                 path={`${path}/milestones/${milestone.id}`}
                 refresh={refresh}
-                onDirty={onDirty}
+                onDirty={setIntegrationDirty}
               />
             </Disclosure>
+          )}
+          {delivery.data && (
+            <MilestoneReviewSettings
+              workspaceId={milestone.workspace_id}
+              milestoneId={milestone.id}
+              refresh={refresh}
+              onDirty={setReviewerDirty}
+            />
           )}
         </ContentStack>
       ) : tab === "review" ? (
         <MilestoneVerification
           key={milestone.id}
           refresh={refresh}
-          onDirty={onDirty}
+          onDirty={markResponseDirty}
           path={path}
           milestoneId={milestone.id}
           milestoneKey={milestone.key}

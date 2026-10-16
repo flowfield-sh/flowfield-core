@@ -50,3 +50,5 @@ class MilestoneDelivery(BaseModel):
     problem: str | None = None
     created_at: str
     integration_policy: TaskIntegrationPolicy = Field(default_factory=TaskIntegrationPolicy)
+    review_plan_question_id: str | None = None
+    review_plan_question_revision: int | None = None

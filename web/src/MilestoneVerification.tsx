@@ -33,6 +33,10 @@ import { Timestamp } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { usePage, useResource } from "./useResource";
 import { label, request } from "./workspace";
+import {
+  MilestoneReviewRecord,
+  MilestoneReviewRecovery,
+} from "./MilestoneReviewSettings";
 
 export type Verification = components["schemas"]["MilestoneVerification"];
 const CodeDiff = lazy(() => import("./CodeDiff"));
@@ -115,18 +119,48 @@ export function MilestoneReviewResponse({
       setPending(false);
     }
   }
-  const hint = allowReview
-    ? (value.problem ??
-      (value.status === "failed" || value.status === "changes_requested"
-        ? "Ask the Coordinator to address the findings and verify the milestone again."
-        : value.status === "stale"
-          ? "The work changed after this report. Ask the Coordinator to verify the updated milestone."
-          : null))
-    : null;
-  if (!canReview && !canRetry && !note.trim() && !hint && !error) return null;
+  const reviewRecovery =
+    allowReview &&
+    value.current &&
+    value.review_id &&
+    value.review_status &&
+    [
+      "queued",
+      "preparing",
+      "running",
+      "waiting",
+      "failed",
+      "uncertain",
+      "stopped",
+    ].includes(value.review_status);
+  const hint =
+    allowReview && !reviewRecovery
+      ? (value.problem ??
+        (value.status === "failed" || value.status === "changes_requested"
+          ? "Ask the Coordinator to address the findings and verify the milestone again."
+          : value.status === "stale"
+            ? "The work changed after this report. Ask the Coordinator to verify the updated milestone."
+            : null))
+      : null;
+  if (
+    !canReview &&
+    !canRetry &&
+    !reviewRecovery &&
+    !note.trim() &&
+    !hint &&
+    !error
+  )
+    return null;
   return (
     <ContentStack className="task-input" aria-label="Milestone response">
       {hint && <p>{hint}</p>}
+      {reviewRecovery && value.review_id && (
+        <MilestoneReviewRecovery
+          projectId={value.project_id}
+          reviewId={value.review_id}
+          refresh={value.revision}
+        />
+      )}
       {canRetry && (
         <div className="actions">
           <Button
@@ -207,6 +241,10 @@ export function MilestoneReviewResponse({
 }
 
 function reportState(value: Verification): components["schemas"]["WorkState"] {
+  if (value.status === "verifying" && value.review_status === "waiting")
+    return { label: "Waiting for your answer", tone: "waiting" };
+  if (value.status === "verifying" && value.review_status === "queued")
+    return { label: "Milestone review queued", tone: "waiting" };
   const passed = value.report?.findings.filter(
     (f) => f.verdict === "passed",
   ).length;
@@ -393,16 +431,25 @@ export function MilestoneReport({
                     </span>
                   ))}
                 </p>
-                <p>
-                  Verification:{" "}
-                  <WorkspaceLink
-                    to={`/projects/${value.project_id}/tasks/${value.task_key}${value.result_id ? `/result/${value.result_id}` : ""}`}
-                  >
-                    {value.task_key}
-                  </WorkspaceLink>
-                </p>
+                {value.task_key && (
+                  <p>
+                    Verification:{" "}
+                    <WorkspaceLink
+                      to={`/projects/${value.project_id}/tasks/${value.task_key}${value.result_id ? `/result/${value.result_id}` : ""}`}
+                    >
+                      {value.task_key}
+                    </WorkspaceLink>
+                  </p>
+                )}
               </ContentStack>
             </Disclosure>
+            {value.review_id && (
+              <MilestoneReviewRecord
+                projectId={value.project_id}
+                reviewId={value.review_id}
+                refresh={value.revision}
+              />
+            )}
           </ContentStack>
         </DetailSection>
         <DetailSection title="Checks">{checks}</DetailSection>
@@ -511,7 +558,7 @@ function ReviewEntry({
         value={value}
         metadata={
           <>
-            Worker ·{" "}
+            {value.purpose === "review" ? "Reviewer" : "Worker"} ·{" "}
             <WorkspaceLink to={href}>
               <Timestamp date={value.created_at} />
             </WorkspaceLink>

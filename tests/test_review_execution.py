@@ -47,7 +47,7 @@ def install(monkeypatch, decision="approve"):
     Reviewer.decision = decision
     Reviewer.observed = []
     monkeypatch.setattr(
-        "flowfield.review_execution.create",
+        "flowfield.native_review_execution.create",
         lambda choice, directory, cwd, environment, **kw: Reviewer(
             directory, cwd, environment, **kw
         ),
@@ -437,7 +437,7 @@ def test_missing_setup_failure_is_retained_and_retry_is_explicit(tmp_path, monke
     def missing(*args, **kwargs):
         raise ApplicationError("harness_missing", "Install the configured reviewer harness.", 409)
 
-    monkeypatch.setattr("flowfield.review_execution.create", missing)
+    monkeypatch.setattr("flowfield.native_review_execution.create", missing)
     asyncio.run(round_trip(service))
     review = reviews.latest("harbor", run.task_id)
     assert review.status == "failed" and "Install" in review.problem
@@ -458,7 +458,7 @@ def test_review_cannot_modify_candidate_or_call_coordinator_tools(tmp_path, monk
             return await super().run(*args)
 
     monkeypatch.setattr(
-        "flowfield.review_execution.create",
+        "flowfield.native_review_execution.create",
         lambda choice, directory, cwd, environment, **kw: EditingReviewer(
             directory, cwd, environment, **kw
         ),

@@ -32,6 +32,14 @@ def question_delivery(
         row_review = db.execute(
             "SELECT data FROM task_reviews WHERE id=?", (question["origin_review_id"],)
         ).fetchone()
+        if not row_review:
+            row_review = db.execute(
+                "SELECT data FROM milestone_reviews WHERE id=?", (question["origin_review_id"],)
+            ).fetchone()
+        if not row_review:
+            return InputDelivery(
+                state="Review unavailable", message="Inspect the retained review before continuing."
+            )
         review = json.loads(row_review[0])
         status = review["status"]
         editable = (

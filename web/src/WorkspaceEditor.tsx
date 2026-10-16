@@ -44,6 +44,7 @@ export function WorkspaceEditor({
   const [workerDirty, setWorkerDirty] = useState(false);
   const [coordinatorDirty, setCoordinatorDirty] = useState(false);
   const [taskReviewerDirty, setTaskReviewerDirty] = useState(false);
+  const [milestoneReviewerDirty, setMilestoneReviewerDirty] = useState(false);
   const path = `workspaces/${incoming.id}`;
   const state = useRecordEditor({
     recordName: "workspace settings",
@@ -52,7 +53,11 @@ export function WorkspaceEditor({
     path: () => path,
     onDirty,
     saved,
-    otherDirty: workerDirty || coordinatorDirty || taskReviewerDirty,
+    otherDirty:
+      workerDirty ||
+      coordinatorDirty ||
+      taskReviewerDirty ||
+      milestoneReviewerDirty,
   });
   const {
     element: editor,
@@ -176,6 +181,15 @@ export function WorkspaceEditor({
               purpose="task"
               refresh={incoming}
               onDirty={setTaskReviewerDirty}
+              active={tab === "reviewers"}
+            />
+          </DetailSection>
+          <DetailSection title="Milestone reviewer">
+            <ReviewerSettings
+              workspaceId={incoming.id}
+              purpose="milestone"
+              refresh={incoming}
+              onDirty={setMilestoneReviewerDirty}
               active={tab === "reviewers"}
             />
           </DetailSection>

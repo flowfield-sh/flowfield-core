@@ -178,9 +178,10 @@ _WORKSPACE_PROJECTION = (
     SELECT NULL,v.id,'milestone',json_extract(v.data,'$.milestone_key'),
         substr(json_extract(v.data,'$.title'),1,500),v.status,
         json_extract(v.data,'$.updated_at'),NULL,
-        CASE v.status WHEN 'ready' THEN 'action' WHEN 'delivery_blocked' THEN 'action'
-        WHEN 'verifying' THEN 'waiting' WHEN 'preparing' THEN 'waiting'
-        WHEN 'promoting' THEN 'waiting'
+        CASE WHEN v.status IN ('ready','delivery_blocked') THEN 'action'
+        WHEN json_extract(v.data,'$.current')=1 AND
+            json_extract(v.data,'$.review_status') IN ('failed','uncertain','stopped') THEN 'action'
+        WHEN v.status IN ('verifying','preparing','promoting') THEN 'waiting'
         ELSE 'history' END,NULL,NULL
     FROM milestone_verifications v WHERE v.workspace_id=:workspace
         AND (:project IS NULL OR EXISTS (SELECT 1 FROM json_each(v.data,'$.tasks') t
@@ -203,12 +204,25 @@ def workspace_attention_counts(db: sqlite3.Connection, workspace_id: str) -> dic
 
 def workspace_attention_work(db: sqlite3.Connection, workspace_id: str) -> list[str]:
     """Complete work identities requiring attention, from the same Inbox projection."""
+    from flowfield.storage import version
+
+    identity = "task_key"
+    if version(db) >= 77:
+        identity = """coalesce(task_key,
+            (SELECT json_extract(v.data,'$.milestone_key') FROM questions q
+             JOIN milestone_reviews r ON r.id=json_extract(q.data,'$.origin_review_id')
+             JOIN milestone_verifications v ON v.id=r.verification_id
+             WHERE items.kind='question' AND q.id=items.id AND v.workspace_id=:workspace),
+            (SELECT m.key FROM milestone_deliveries d JOIN milestones m
+             ON m.workspace_id=d.workspace_id AND m.id=d.milestone_id
+             WHERE items.kind='question' AND d.workspace_id=:workspace AND
+             json_extract(d.data,'$.review_plan_question_id')=items.id))"""
     return [
         row[0]
         for row in db.execute(
             review_projection(db, _WORKSPACE_PROJECTION)
-            + "SELECT DISTINCT task_key FROM items WHERE bucket='action' "
-            "AND task_key IS NOT NULL ORDER BY task_key",
+            + f"SELECT DISTINCT {identity} AS work_key FROM items WHERE bucket='action' "
+            "AND work_key IS NOT NULL ORDER BY work_key",
             {"workspace": workspace_id, "project": None},
         )
     ]

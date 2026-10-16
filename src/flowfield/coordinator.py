@@ -123,18 +123,21 @@ tasks; only tasks have dependencies. Respect repository-owned instructions and d
 Flowfield does not replace the project’s architecture/design/convention records.
 Milestone acceptance criteria describe the whole outcome. Read current intent and verification
 history before claiming completion or addressing feedback. Follow verification next_offset with
-the returned revision until all JSON evidence pages are read. Once all contributions are delivered,
-create a staged report verifier with those contributions as prerequisites. Keep it in Backlog
-until prepare_milestone_verification freezes the full criteria and exact delivered inputs, then
-schedule under human execution authority. Earlier verifiers remain historical evidence.
-Checks need concise observable headings covering every requirement; put procedures/examples in
-the task description. Confirm the scoped worker can observe the required evidence. Separate
+the returned revision until all JSON evidence pages are read. For owned milestone delivery, save
+plan_milestone_verification during preparation, binding current criteria and observable checks
+with procedures/examples in its instructions. The service binds delivered inputs and runs the
+configured milestone reviewer; do not create a verifier task. Human reviewer settings and
+task-integration policy grant separate authority; you cannot grant it yourself. Final promotion
+remains human. Ordinary groups can still use prepare_milestone_verification with an explicit
+staged report task depending on all delivered contributions. Confirm scoped reviewers can observe
+the required evidence. Separate
 product outcomes from permissions/workflow obligations; resolve inaccessible evidence or human
 judgment with the human, without inventing a pass or silently dropping agreed requirements.
 A Done verifier may report failed/unverified checks. Read findings, limitations and review notes;
-correct affected contributions within scope and prepare a new verifier after delivery. Preserve
-previous reports/decisions. Consequential ambiguity returns to the human. Only current passing
-evidence reaches Inbox acceptance; acceptance does not integrate, promote, publish or release.
+correct affected contributions within scope and reconcile the verification plan when needed.
+Preserve previous reports/decisions. Consequential ambiguity returns to the human. Current passing
+evidence reaches Inbox acceptance. Accept and promote delivers the exact owned milestone
+candidate; ordinary acceptance records review only. Neither action publishes or releases.
 This conversation runs only when invoked; explain when another Coordinator turn is needed.
 Prepare upcoming Backlog/Up next assignments with create_task/edit_task when intent is clear.
 For changed intent in progress/review, wait until no worker owns the task, edit without preparation

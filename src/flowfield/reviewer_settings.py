@@ -92,8 +92,20 @@ class Reviewers:
         entity: str = "",
     ) -> ReviewerSettingsView:
         project, entity = self._scope(db, workspace, purpose, project, entity)
-        defaults = self._read(db, workspace, purpose, "", "")
-        override = self._read(db, workspace, purpose, project, entity) if entity else None
+        return self.resolved(db, workspace, purpose, project, entity)
+
+    @classmethod
+    def resolved(
+        cls,
+        db: sqlite3.Connection,
+        workspace: str,
+        purpose: ReviewPurpose,
+        project: str = "",
+        entity: str = "",
+    ) -> ReviewerSettingsView:
+        """Resolve an already canonical scope inside an evidence transaction."""
+        defaults = cls._read(db, workspace, purpose, "", "")
+        override = cls._read(db, workspace, purpose, project, entity) if entity else None
         current = override or defaults
         enabled = (
             override.enabled if override and override.enabled is not None else defaults.enabled

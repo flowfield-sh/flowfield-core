@@ -512,10 +512,56 @@ class Results:
                     db,
                     self.workspace._task(db, project_id, run.task_id),
                     "up_next",
-                    f"Requested bounded correction {number}/2 for result v{version.version}.",
+                    f"Requested correction {number} for result v{version.version}.",
                     request.author,
                 )
                 return self._present(db, current)
+
+    def milestone_correction(
+        self,
+        db: sqlite3.Connection,
+        project: str,
+        identity: str,
+        revision: int,
+        verification_id: str,
+        note: str,
+    ) -> None:
+        """Continue one delivered contribution within its unchanged published agreement."""
+        version = self._get(db, project, identity)
+        self.workspace._current(version.revision, revision)
+        run = self._current(db, version)
+        task = self.workspace._task(db, project, version.task_id)
+        self.execution._current_assignment(run, task)
+        if (
+            version.status != "delivered"
+            or version.completion != "code"
+            or task.status != "done"
+            or task.archived
+        ):
+            raise ApplicationError(
+                "correction_unavailable", "The contribution changed; reconcile the milestone.", 409
+            )
+        target = Integrations(self.workspace).head(project, task.id)
+        run.next_correction = Correction(
+            result_id=version.id,
+            source_commit=version.source_commit,
+            target_commit=target,
+            base_commit=target,
+            number=self.execution._correction_count(db, project, task.id) + 1,
+            details=json.dumps(
+                {
+                    "verification_id": verification_id,
+                    "instruction": note,
+                    "scope": "Correct only this contribution within its unchanged agreement. "
+                    "Ask about intent or scope changes.",
+                }
+            ),
+        )
+        run.status, run.feedback = "changes_requested", note
+        self.execution._save(db, run)
+        self.execution._task_state(
+            db, task, "up_next", f"Milestone review requested correction: {note}", "reviewer"
+        )
 
     def process(self, project_id: str) -> None:
         """One bounded local operation; called by the service even with worker queue paused."""

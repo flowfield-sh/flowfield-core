@@ -50,6 +50,8 @@ from flowfield.inspection import Inspections
 from flowfield.inspection_models import Inspection, MilestoneInspectionPrepare
 from flowfield.labels import LabelCreate, LabelEdit, Labels, WorkspaceLabel
 from flowfield.milestone_delivery import MilestoneDeliveries
+from flowfield.milestone_review_status import MilestoneReviewStatus
+from flowfield.milestone_review_status import status as review_status
 from flowfield.milestone_verification import MilestoneVerifications
 from flowfield.milestones import Milestones
 from flowfield.permission_models import PermissionAnswer, PermissionPage, PermissionRecord
@@ -60,6 +62,7 @@ from flowfield.verification_models import (
     VerificationPrepare,
     VerificationReview,
 )
+from flowfield.verification_plans import VerificationPlan, VerificationPlanEdit, VerificationPlans
 from flowfield.workspaces import (
     ProjectAdoption,
     WorkspaceCreate,
@@ -213,6 +216,20 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     @router.get("/{workspace_id}/milestones/{identity}/delivery")
     def milestone_delivery(workspace_id: str, identity: str) -> MilestoneDelivery | None:
         return MilestoneDeliveries(supervisor().workspace).get(workspace_id, identity)
+
+    @router.get("/{workspace_id}/milestones/{identity}/verification-plan")
+    def verification_plan(workspace_id: str, identity: str) -> VerificationPlan | None:
+        return VerificationPlans(supervisor().workspace).get(workspace_id, identity)
+
+    @router.get("/{workspace_id}/milestones/{identity}/automation")
+    def milestone_automation(workspace_id: str, identity: str) -> MilestoneReviewStatus:
+        return review_status(supervisor().workspace, workspace_id, identity)
+
+    @router.put("/{workspace_id}/milestones/{identity}/verification-plan")
+    def save_verification_plan(
+        workspace_id: str, identity: str, request: VerificationPlanEdit
+    ) -> VerificationPlan:
+        return VerificationPlans(supervisor().workspace).save(workspace_id, identity, request)
 
     @router.put("/{workspace_id}/milestones/{identity}/delivery/integration-policy")
     def milestone_integration_policy(

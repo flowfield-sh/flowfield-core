@@ -92,7 +92,10 @@ def test_explicit_grant_delivers_once_only_to_owned_branch(tmp_path):
     review = assess(store, result)
     reviews = TaskReviews(store)
     applied = reviews.delegate("harbor", review.id)
-    assert applied.applied_at and results.get("harbor", result.id).delegated_review_id == review.id
+    assert (
+        applied.integration_applied_at
+        and results.get("harbor", result.id).delegated_review_id == review.id
+    )
     assert reviews.delegate("harbor", review.id) == applied
     results.process("harbor")
     assert results.get("harbor", result.id).status == "delivered"
@@ -226,3 +229,25 @@ def test_sibling_delivery_reassembles_and_requires_fresh_review(tmp_path):
     assert git(repo, "rev-parse", "main").decode().strip() == base
     assert (Path(delivery.path) / "sibling.txt").exists()
     assert (Path(delivery.path) / "feature.txt").exists()
+
+
+def test_native_conclusion_is_followed_by_one_delegated_decision(tmp_path, monkeypatch):
+    import asyncio
+
+    from test_review_execution import install, round_trip
+
+    from flowfield.supervisor import Supervisor
+
+    store, repo, base, milestone, delivery, results, result = prepared(tmp_path)
+    policy(store, milestone, delivery, True)
+    install(monkeypatch)
+    service = Supervisor(store)
+    asyncio.run(round_trip(service))
+    review = TaskReviews(store).latest("harbor", result.task_id)
+    assert review.status == "decided" and review.applied_at
+    assert not review.integration_applied_at and not results.get("harbor", result.id).approved_at
+    asyncio.run(round_trip(service))
+    results.process("harbor")
+    assert results.get("harbor", result.id).status == "delivered"
+    assert TaskReviews(store).get("harbor", review.id).integration_applied_at
+    assert git(repo, "rev-parse", "main").decode().strip() == base

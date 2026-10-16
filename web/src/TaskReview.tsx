@@ -32,7 +32,6 @@ export function TaskReview({
     `projects/${projectId}/tasks/${taskId}/review`,
     refresh,
   );
-  const [busy, setBusy] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const settings = useResource<components["schemas"]["ReviewerSettingsView"]>(
@@ -40,22 +39,6 @@ export function TaskReview({
     refresh,
   );
   const review = resource.data;
-  async function act(action: "stop" | "retry" | "confirm-stopped") {
-    if (!review) return;
-    setBusy(true);
-    try {
-      const saved = await request<Review>(
-        `projects/${projectId}/reviews/${review.id}/${action}`,
-        "POST",
-        { expected_revision: review.revision },
-      );
-      resource.setData(saved);
-    } catch (error) {
-      reportError(error, "Could not update review");
-    } finally {
-      setBusy(false);
-    }
-  }
   return (
     <DetailSection title="Independent review">
       <ContentStack>
@@ -101,46 +84,11 @@ export function TaskReview({
             >
               Reviewed result
             </WorkspaceLink>
-            <div className="actions">
-              {[
-                "queued",
-                "preparing",
-                "running",
-                "waiting",
-                "uncertain",
-              ].includes(review.status) && (
-                <ConfirmButton
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  title="Stop this review?"
-                  description="Retained findings and the task candidate are preserved. The queue remains unchanged."
-                  action={() => void act("stop")}
-                >
-                  Stop review
-                </ConfirmButton>
-              )}
-              {review.status === "uncertain" && (
-                <ConfirmButton
-                  size="sm"
-                  disabled={busy}
-                  title="Confirm all review processes stopped?"
-                  description="Inspect the retained process evidence first. Confirm only after the reviewer and its commands have stopped. This releases its reserved capacity without applying its conclusion."
-                  action={() => void act("confirm-stopped")}
-                >
-                  Confirm stopped
-                </ConfirmButton>
-              )}
-              {["failed", "stopped"].includes(review.status) && (
-                <Button
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => void act("retry")}
-                >
-                  Retry review
-                </Button>
-              )}
-            </div>
+            <ReviewControls
+              review={review}
+              path={`projects/${projectId}/reviews/${review.id}`}
+              saved={resource.setData}
+            />
             <Disclosure
               summary="Review rounds and diagnostics"
               onToggle={(event) => setHistoryOpen(event.currentTarget.open)}
@@ -181,15 +129,17 @@ export function TaskReview({
   );
 }
 
-function ReviewRounds({
+export function ReviewRounds({
   projectId,
   review,
+  kind = "reviews",
 }: {
   projectId: string;
-  review: Review;
+  review: { id: string; revision: number };
+  kind?: "reviews" | "milestone-reviews";
 }) {
   const page = usePage<components["schemas"]["ReviewAttemptPage"]>(
-    `projects/${projectId}/reviews/${review.id}/attempts`,
+    `projects/${projectId}/${kind}/${review.id}/attempts`,
     review.revision,
     true,
   );
@@ -200,6 +150,7 @@ function ReviewRounds({
         <ReviewRound
           key={attempt.id}
           projectId={projectId}
+          kind={kind}
           reviewId={review.id}
           attempt={attempt}
         />
@@ -220,11 +171,13 @@ function ReviewRounds({
 
 function ReviewRound({
   projectId,
+  kind,
   reviewId,
   attempt,
 }: {
   projectId: string;
   reviewId: string;
+  kind: "reviews" | "milestone-reviews";
   attempt: components["schemas"]["ReviewAttemptInfo"];
 }) {
   const [open, setOpen] = useState(false);
@@ -250,6 +203,7 @@ function ReviewRound({
             projectId={projectId}
             runId={reviewId}
             review
+            reviewKind={kind}
             reviewAttemptId={attempt.id}
           />
           <Disclosure summary="Process evidence">
@@ -275,5 +229,65 @@ function ReviewRound({
         </ContentStack>
       )}
     </Disclosure>
+  );
+}
+
+export function ReviewControls<R extends { revision: number; status: string }>({
+  review,
+  path,
+  saved: onSaved,
+}: {
+  review: R;
+  path: string;
+  saved: (value: R) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  async function act(action: "stop" | "retry" | "confirm-stopped") {
+    if (!review) return;
+    setBusy(true);
+    try {
+      const saved = await request<R>(`${path}/${action}`, "POST", {
+        expected_revision: review.revision,
+      });
+      onSaved(saved);
+    } catch (error) {
+      reportError(error, "Could not update review");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="actions">
+      {["queued", "preparing", "running", "waiting", "uncertain"].includes(
+        review.status,
+      ) && (
+        <ConfirmButton
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          title="Stop this review?"
+          description="Retained findings and the candidate are preserved. The queue remains unchanged."
+          action={() => void act("stop")}
+        >
+          Stop review
+        </ConfirmButton>
+      )}
+      {review.status === "uncertain" && (
+        <ConfirmButton
+          size="sm"
+          disabled={busy}
+          title="Confirm all review processes stopped?"
+          description="Inspect the retained process evidence first. Confirm only after the reviewer and its commands have stopped. This releases its reserved capacity without applying its conclusion."
+          action={() => void act("confirm-stopped")}
+        >
+          Confirm stopped
+        </ConfirmButton>
+      )}
+      {["failed", "stopped"].includes(review.status) && (
+        <Button size="sm" disabled={busy} onClick={() => void act("retry")}>
+          Retry review
+        </Button>
+      )}
+    </div>
   );
 }

@@ -103,13 +103,17 @@ Repository instructions govern development conventions and permission to commit/
   This owns one repository branch/checkout; task approvals deliver only to that branch.
   Keep other projects in separate milestones for this delivery mode. Existing prepared work
   is never silently moved. Read `get_milestone` for destination ownership or creation recovery.
-- Create a report task in that milestone, with all contributing tasks as prerequisites and
-  reviewed outcome stages. Leave it in Backlog while binding `prepare_milestone_verification` to exact milestone/task
-  revisions and checks covering the complete acceptance criteria. Preparation freezes inputs
-  and prepares report completion; then queue under human execution authority. Use concise observable
-  outcome check headings; put test procedures and examples in the verifier description.
-  Owned delivery first prepares and checks the exact combination with the project destination.
-  The verifier waits for that candidate and runs from it, including concurrent destination work.
+- During preparation, save `plan_milestone_verification` against the current milestone revision,
+  with concise observable checks covering every criterion and procedures/examples in instructions.
+  Read its exact revision through paged `get_milestone_verification_plan` before changing it.
+  The service binds delivered contributions, checks their exact combination with the destination,
+  and runs the separately configured milestone reviewer. Do not create a verifier task for owned delivery.
+  Humans choose Task reviewer/Milestone reviewer settings and may delegate reviewed task integration
+  into the named milestone branch; you cannot grant this authority. Standalone integration remains exact human review.
+  The milestone reviewer can request one scoped contribution correction or ask about intent/access.
+  Passing whole-outcome evidence ends at human acceptance/promotion, never implicit final delivery.
+  Ordinary milestones without owned delivery can still use an explicit staged report task with all
+  contributions as prerequisites and `prepare_milestone_verification` after their delivery.
   Failed preparation needs correction and new verification; source, destination, settings or
   criteria changes invalidate the old candidate. Do not merge again after verification.
   Separate product outcomes from permissions and workflow obligations. Confirm the scoped
@@ -125,7 +129,9 @@ Repository instructions govern development conventions and permission to commit/
   `next_offset` with the returned revision until all JSON evidence pages are read. Current
   passing findings open one human Inbox review. Address failed checks, unverified outcomes or
   human change requests within the agreed scope, preserving the affected task and earlier reports.
-  Reopen delivered contributions for correction; prepare a new verifier after they are delivered.
+  When Coordinator replanning is needed, reopen affected contributions and reconcile their
+  preparation. Owned delivery verifies the newly delivered combination automatically; ordinary
+  groups need a newly prepared verifier task.
   Return consequential ambiguity to the human. Explain when a later Coordinator turn is needed. Changed
   criteria, contributions or verifier agreement invalidate pending evidence. Do not treat a
   historical acceptance receipt as acceptance of new work. Do not inject an unsolicited turn
@@ -264,10 +270,6 @@ Repository instructions govern development conventions and permission to commit/
 - Follow the result's contextual recovery action. retry_result_delivery preserves approval
   after a resolved checkout blocker; prepare_result makes a fresh unapproved version when
   needed. Corrections remain bounded and require fresh approval.
-- Task execution allowance survives answers, retries, reconciliation, reopening and restart.
-  `get_task` exposes usage and exhaustion. Human Inbox recovery adds allowance; do not clone
-  tasks, reset state or bypass a limit. Answer continuations keep time remaining; ordinary
-  follow-ups consume an attempt. The service stops exhausted execution and preserves work.
 - Keep feedback/corrections on the same task. For changed intent on work in progress or review, once no worker owns the task,
   use `edit_task` without preparation, include reviewed stages, then `reconcile_task` before
   requesting the follow-up with `get_task_input` and `reply_to_task`: an enabled queue can launch it immediately. Complete the

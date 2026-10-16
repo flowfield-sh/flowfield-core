@@ -141,6 +141,16 @@ def occupancy(
         )
         for status, count in reviews:
             counts[status] = counts.get(status, 0) + count
+    if version(db) >= 77:
+        reviews = db.execute(
+            "SELECT r.status,count(*) FROM milestone_reviews r JOIN workspace_projects m "
+            "ON m.project_id=r.project_id WHERE (? IS NOT NULL AND m.workspace_id=? "
+            "OR ? IS NULL AND r.project_id=?) AND r.status IN ('preparing','running','uncertain') "
+            "GROUP BY r.status",
+            (workspace, workspace, workspace, project),
+        )
+        for status, count in reviews:
+            counts[status] = counts.get(status, 0) + count
     return WorkerOccupancy(
         active=sum(counts.get(status, 0) for status in ("preparing", "running", "stopping")),
         uncertain=counts.get("uncertain", 0),

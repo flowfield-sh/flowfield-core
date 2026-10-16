@@ -149,6 +149,10 @@ export function milestoneState(
     value.checks_passed == null
       ? null
       : `${value.checks_passed} of ${value.checks_total} checks passed`;
+  if (value.status === "verifying" && value.review_status === "waiting")
+    return { label: "Waiting for your answer", tone: "waiting" };
+  if (value.status === "verifying" && value.review_status === "queued")
+    return { label: "Milestone review queued", tone: "waiting" };
   switch (value.status) {
     case "preparing":
       return { label: "Preparing combined candidate", tone: "active" };

@@ -64,6 +64,9 @@ class Supervisor:
         from flowfield.review_execution import ReviewExecution
 
         self.review_execution = ReviewExecution(self)
+        from flowfield.milestone_review_execution import MilestoneReviewExecution
+
+        self.milestone_review_execution = MilestoneReviewExecution(self)
         self.setup_validation = SetupValidation(workspace)
         from flowfield.worker_checks import WorkerChecks
 
@@ -91,6 +94,8 @@ class Supervisor:
                 pass
             self.execution.restart()
             self.review_execution.reviews.restart()
+            if self.workspace.schema_version >= 77:
+                self.milestone_review_execution.reviews.restart()
             self.permissions.restart()
             self.coordinator.store.restart()
             self.catalogs.restart()
@@ -218,6 +223,8 @@ class Supervisor:
     async def _schedule_once(self) -> None:
         if self.workspace.schema_version >= 75:
             await self.review_execution.schedule()
+        if self.workspace.schema_version >= 77:
+            await self.milestone_review_execution.schedule()
         # Repository preparation remains project-local. A failed repository cannot
         # consume the shared queue; fresh claims follow workspace board order.
         ready: dict[str, Path] = {}
@@ -713,10 +720,15 @@ class Supervisor:
         self.permissions.close()
         await self.catalogs.close()
         await self.setup_validation.close()
+        scheduling_error = None
         if self.loop_task:
             self.loop_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
+            try:
                 await self.loop_task
+            except asyncio.CancelledError:
+                pass
+            except Exception as error:
+                scheduling_error = error
         for run in self.execution.active():
             if run.id in self.jobs or run.id in self.clients:
                 with contextlib.suppress(Exception):
@@ -725,17 +737,27 @@ class Supervisor:
                     )
         if self.jobs:
             for identity in list(self.jobs):
-                with self.workspace.connection() as db:
-                    row = db.execute(
-                        "SELECT project_id FROM task_reviews WHERE id=?", (identity,)
-                    ).fetchone()
-                if row:
-                    review = self.review_execution.reviews.get(row[0], identity)
-                    with contextlib.suppress(ApplicationError):
-                        await self.review_execution.stop(row[0], identity, review.revision)
+                for owner in (self.review_execution, self.milestone_review_execution):
+                    if (
+                        owner is self.milestone_review_execution
+                        and self.workspace.schema_version < 77
+                    ):
+                        continue
+                    with self.workspace.connection() as db:
+                        row = db.execute(
+                            f"SELECT project_id FROM {owner.reviews.job_table} WHERE id=?",
+                            (identity,),
+                        ).fetchone()
+                    if row:
+                        review = owner.reviews.get(row[0], identity)
+                        with contextlib.suppress(ApplicationError):
+                            await owner.stop(row[0], identity, review.revision)
+                        break
             await asyncio.gather(*list(self.jobs.values()), return_exceptions=True)
         if self.delivery_jobs:
             await asyncio.gather(*list(self.delivery_jobs.values()), return_exceptions=True)
         if self.lock:
             self.lock.close()
             self.lock = None
+        if scheduling_error:
+            raise scheduling_error
