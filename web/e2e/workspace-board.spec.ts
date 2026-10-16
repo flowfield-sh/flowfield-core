@@ -164,7 +164,7 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
   ).toHaveCount(0);
   await openResource(page, "Projects");
   await expect(page.getByRole("link", { name: /board-site/ })).toBeVisible();
-  await openResource(page, "Workspace settings");
+  await openResource(page, "Settings");
   await page.getByLabel("Name", { exact: true }).fill("Delivery workspace");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(

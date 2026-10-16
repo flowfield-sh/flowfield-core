@@ -75,6 +75,14 @@ test("task card entry stays on Overview and milestone status agrees across views
   await expect(page.getByRole("tooltip")).toContainText("Needs your answer");
   const tone = await row.locator(".work-state").getAttribute("data-tone");
   await row.click();
+  await expect(
+    page.getByRole("region", { name: "Request", exact: true }),
+  ).toBeVisible();
+  await openResource(page, "Milestones");
+  await page
+    .locator(".milestone-board")
+    .getByRole("link", { name: milestone.title, exact: true })
+    .click();
   const dot = page
     .locator(".editor-heading .work-identity")
     .getByRole("img", { name: "Needs your answer", exact: true });

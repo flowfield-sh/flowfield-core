@@ -30,7 +30,9 @@ class Replies:
                         "reply_conflict", "This message ID is already used.", 409
                     )
                 return reply
-            gate = Conversation(self.workspace)._eligibility(db, project_id, task_id)
+            gate = Conversation(self.workspace)._eligibility(
+                db, project_id, task_id, request.binding.question_id
+            )
             if not gate.enabled:
                 raise ApplicationError(
                     "input_closed", "Work is processing. Your draft is kept; wait until idle.", 409

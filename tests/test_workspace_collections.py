@@ -48,6 +48,10 @@ def test_shared_board_and_attention_keep_owner_scope_and_same_local_ids(tmp_path
     assert board.milestones == [milestone]
     assert board.needs_you_count == 2
     assert board.attention_work_keys == ["COR-1", "SIT-1"]
+    assert board.attention_requests == {
+        "COR-1": f"/workspaces/{space}/requests/question/same?project_id=core",
+        "SIT-1": f"/workspaces/{space}/requests/question/same?project_id=site",
+    }
     assert "private body" not in board.model_dump_json()
     first = attention_page(store, None, "action", limit=1, workspace_id=space)
     second = attention_page(
@@ -74,6 +78,24 @@ def test_shared_board_and_attention_keep_owner_scope_and_same_local_ids(tmp_path
         "core", "same", QuestionAnswer(expected_revision=1, answer="Use the local scope")
     )
     assert BrowserReads(store).workspace_board(space).attention_work_keys == ["SIT-1"]
+    assert set(BrowserReads(store).workspace_board(space).attention_requests) == {"SIT-1"}
+    Questions(store).ask(
+        "site",
+        QuestionCreate(
+            id="newer",
+            task_id="same",
+            question="New question",
+            context="Choose again",
+            recommendation="Yes",
+        ),
+    )
+    assert BrowserReads(store).workspace_board(space).attention_requests["SIT-1"] == (
+        f"/workspaces/{space}/requests/question/newer?project_id=site"
+    )
+    Questions(store).answer("site", "newer", QuestionAnswer(expected_revision=1, answer="Yes"))
+    assert BrowserReads(store).workspace_board(space).attention_requests["SIT-1"] == (
+        f"/workspaces/{space}/requests/question/same?project_id=site"
+    )
 
 
 def test_workspace_inbox_includes_coordinator_permissions_without_project_duplication(tmp_path):

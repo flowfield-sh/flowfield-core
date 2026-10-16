@@ -61,7 +61,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   });
   await expect(work.getByRole("link").first()).toHaveAttribute(
     "href",
-    `/projects/${project}/tasks/FDB-2`,
+    `${base}/requests/question/attention?project_id=${project}`,
   );
   await expect(
     work.getByText("Needs attention", { exact: true }),
@@ -69,6 +69,18 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   const resources = page.getByRole("navigation", {
     name: "Workspace resources",
   });
+  await expect(resources.getByRole("link")).toHaveText([
+    "Projects",
+    "Milestones",
+    "Tasks",
+    "Documents",
+    "Archive",
+    "Settings",
+  ]);
+  await page
+    .getByRole("link", { name: "Flowfield settings", exact: true })
+    .hover();
+  await expect(page.getByRole("tooltip")).toHaveText("Global settings");
   for (const name of ["Projects", "Documents", "Milestones"])
     await resources.getByRole("link", { name, exact: true }).click();
   const tabs = page.getByRole("tablist", { name: "Open resources" });
@@ -105,9 +117,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
     .poll(titles)
     .toEqual([before[0], before[1], "Milestones", "Projects", before.at(-2)]);
   await expect(tabs.getByRole("tab").first()).toHaveAccessibleName("Inbox 1");
-  await resources
-    .getByRole("link", { name: "Workspace settings", exact: true })
-    .click();
+  await resources.getByRole("link", { name: "Settings", exact: true }).click();
   await expect(
     page.getByRole("region", { name: "Workspace settings", exact: true }),
   ).toBeVisible();

@@ -240,9 +240,9 @@ def test_human_question_releases_capacity_and_resumes_saved_owner_once(tmp_path,
     assert question.delivery.can_edit
     with service.workspace.connection() as db:
         assert occupancy(db, project="harbor").active == 0
-        from flowfield.attention import workspace_attention_work
+        from flowfield.attention import workspace_attention_requests
 
-        assert milestone.key in workspace_attention_work(db, "harbor")
+        assert milestone.key in workspace_attention_requests(db, "harbor")
     questions.answer(
         "harbor",
         question.id,
@@ -542,9 +542,9 @@ def test_missing_plan_creates_one_retained_question_and_does_not_guess_checks(tm
         assert db.execute("SELECT count(*) FROM milestone_verifications").fetchone()[0] == 0
         rows = db.execute("SELECT id FROM questions").fetchall()
         assert len(rows) == 1
-        from flowfield.attention import workspace_attention_work
+        from flowfield.attention import workspace_attention_requests
 
-        assert milestone.key in workspace_attention_work(db, "harbor")
+        assert milestone.key in workspace_attention_requests(db, "harbor")
     question = Questions(store).get("harbor", rows[0][0])
     assert "verification plan" in question.question
     VerificationPlans(store).save(

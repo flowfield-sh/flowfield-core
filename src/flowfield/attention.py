@@ -207,8 +207,9 @@ def workspace_attention_counts(db: sqlite3.Connection, workspace_id: str) -> dic
     )
 
 
-def workspace_attention_work(db: sqlite3.Connection, workspace_id: str) -> list[str]:
-    """Complete work identities requiring attention, from the same Inbox projection."""
+def workspace_attention_requests(db: sqlite3.Connection, workspace_id: str) -> dict[str, str]:
+    """Newest actionable Request per work identity, in canonical Inbox order."""
+    from flowfield.requests import request_href
     from flowfield.storage import version
 
     identity = "task_key"
@@ -222,15 +223,20 @@ def workspace_attention_work(db: sqlite3.Connection, workspace_id: str) -> list[
              ON m.workspace_id=d.workspace_id AND m.id=d.milestone_id
              WHERE items.kind='question' AND d.workspace_id=:workspace AND
              json_extract(d.data,'$.review_plan_question_id')=items.id))"""
-    return [
-        row[0]
+    return {
+        row[0]: request_href(workspace_id, row[1], row[2], row[3])
         for row in db.execute(
             review_projection(db, _WORKSPACE_PROJECTION)
-            + f"SELECT DISTINCT {identity} AS work_key FROM items WHERE bucket='action' "
-            "AND work_key IS NOT NULL ORDER BY work_key",
+            + f", work_requests AS (SELECT {identity} AS work_key,kind,id,project_id,updated_at "
+            "FROM items WHERE bucket='action'), ranked AS ("
+            "SELECT *,row_number() OVER (PARTITION BY work_key "
+            "ORDER BY updated_at DESC,kind,project_id,id) AS rank "
+            "FROM work_requests WHERE work_key IS NOT NULL) "
+            "SELECT work_key,kind,id,project_id FROM ranked WHERE rank=1 "
+            "ORDER BY updated_at DESC,kind,project_id,id",
             {"workspace": workspace_id, "project": None},
         )
-    ]
+    }
 
 
 def actionable_attention(db: sqlite3.Connection, project_id: str) -> Iterator[sqlite3.Row]:

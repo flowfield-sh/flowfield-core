@@ -22,7 +22,7 @@ from flowfield.attention import (
     AttentionPage,
     attention_page,
     workspace_attention_counts,
-    workspace_attention_work,
+    workspace_attention_requests,
 )
 from flowfield.document_models import DocumentUpdate
 from flowfield.errors import ApplicationError
@@ -101,6 +101,7 @@ class BrowserWorkspaceBoard(BaseModel):
     tasks: list[TaskCard]
     needs_you_count: int
     attention_work_keys: list[str] = Field(default_factory=list)
+    attention_requests: dict[str, str] = Field(default_factory=dict)
     awaiting_application_count: int
     pending_code: dict[str, list[TaskReference]]
 
@@ -268,6 +269,7 @@ class BrowserReads:
                 cards.extend(items)
                 pending.update({item.key: blocked.get(item.id, []) for item in items})
             counts = workspace_attention_counts(db, workspace_id)
+            attention_requests = workspace_attention_requests(db, workspace_id)
             return BrowserWorkspaceBoard(
                 document_count=db.execute(
                     "SELECT count(*) FROM workspace_documents WHERE workspace_id=? "
@@ -296,7 +298,8 @@ class BrowserReads:
                 tasks=cards,
                 pending_code=pending,
                 needs_you_count=counts.get("action", 0),
-                attention_work_keys=workspace_attention_work(db, workspace_id),
+                attention_work_keys=sorted(attention_requests),
+                attention_requests=attention_requests,
                 awaiting_application_count=counts.get("waiting", 0),
             )
 

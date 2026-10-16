@@ -222,13 +222,15 @@ class Conversation:
                 next_offset=offset + len(text) if offset + len(text) < item.total_chars else None,
             )
 
-    def eligibility(self, project_id: str, task_id: str) -> InputEligibility:
+    def eligibility(
+        self, project_id: str, task_id: str, question_id: str | None = None
+    ) -> InputEligibility:
         with self.workspace.connection() as db:
             args = self._args(db, project_id, task_id)
-            return self._eligibility(db, args["project"], args["task"])
+            return self._eligibility(db, args["project"], args["task"], question_id)
 
     def _eligibility(
-        self, db: sqlite3.Connection, project_id: str, task_id: str
+        self, db: sqlite3.Connection, project_id: str, task_id: str, question_id: str | None = None
     ) -> InputEligibility:
         """Recheck inside the submit transaction; a read receipt never authorizes a write."""
         task = json.loads(
@@ -282,8 +284,8 @@ class Conversation:
             result.enabled, result.reason = False, "review_owns_result"
         question = db.execute(
             "SELECT id,data FROM questions WHERE project_id=? AND task_id=? "
-            "AND status='open' ORDER BY number LIMIT 1",
-            (project_id, task_id),
+            "AND status='open' AND (? IS NULL OR id=?) ORDER BY number LIMIT 1",
+            (project_id, task_id, question_id, question_id),
         ).fetchone()
         if question:
             result.question_id, result.question_revision = (
@@ -295,8 +297,8 @@ class Conversation:
         elif result.enabled:
             answered = db.execute(
                 "SELECT id,data FROM questions WHERE project_id=? AND task_id=? "
-                "AND status='answered' ORDER BY number LIMIT 1",
-                (project_id, task_id),
+                "AND status='answered' AND (? IS NULL OR id=?) ORDER BY number LIMIT 1",
+                (project_id, task_id, question_id, question_id),
             ).fetchone()
             if answered:
                 from flowfield.input_delivery import question_delivery

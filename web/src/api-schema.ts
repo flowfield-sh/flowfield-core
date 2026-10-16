@@ -3371,6 +3371,10 @@ export interface components {
       needs_you_count: number;
       /** Attention Work Keys */
       attention_work_keys?: string[];
+      /** Attention Requests */
+      attention_requests?: {
+        [key: string]: string;
+      };
       /** Awaiting Application Count */
       awaiting_application_count: number;
       /** Pending Code */
@@ -11347,7 +11351,9 @@ export interface operations {
   };
   eligibility_api_projects__project_id__tasks__task_id__input_eligibility_get: {
     parameters: {
-      query?: never;
+      query?: {
+        question_id?: string | null;
+      };
       header?: never;
       path: {
         project_id: string;

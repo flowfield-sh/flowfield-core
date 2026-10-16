@@ -375,7 +375,7 @@ test("shared panes preserve the workspace and related return paths on mobile", a
   await expect(page).toHaveURL(
     `/workspaces/${workspace}/tasks?milestone=group`,
   );
-  await openResource(page, "Workspace settings");
+  await openResource(page, "Settings");
   await expect(
     page.getByRole("region", { name: "Workspace settings", exact: true }),
   ).toBeVisible();
@@ -568,7 +568,7 @@ test("entity identity and drafts persist across task and workspace tabs", async 
     await settingsReady;
     await route.continue();
   });
-  await openResource(page, "Workspace settings");
+  await openResource(page, "Settings");
   await page.getByRole("tab", { name: "Workers", exact: true }).click();
   await expect(page).toHaveURL(
     new RegExp(`/workspaces/${workspace}/edit/workers$`),

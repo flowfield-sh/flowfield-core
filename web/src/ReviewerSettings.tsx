@@ -176,14 +176,6 @@ export function ReviewerSettings({
             </div>
           </fieldset>
         </form>
-        {loaded?.effective.enabled && !loaded.effective.agent && (
-          <Alert>
-            <AlertDescription>
-              Choose a reviewer to run automatic assessments. No model is
-              selected automatically.
-            </AlertDescription>
-          </Alert>
-        )}
       </ContentStack>
     </section>
   );

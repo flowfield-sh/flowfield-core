@@ -22,12 +22,31 @@ import type { WorkspaceBoard } from "./workspace";
 
 export function workItems(board: WorkspaceBoard) {
   const attention = new Set(board.attention_work_keys ?? []);
+  // The projection orders the newest request for each work item as Inbox does.
+  const requests = new Map(
+    Object.entries(board.attention_requests ?? {}).map(([key, href], order) => [
+      key,
+      { href, order },
+    ]),
+  );
+  const requestFor = (keys: string[]) => {
+    let first: { href: string; order: number } | undefined;
+    for (const key of keys) {
+      const request = requests.get(key);
+      if (request && (!first || request.order < first.order)) first = request;
+    }
+    return first?.href;
+  };
   return [
     ...milestoneCards(board).map(
       ({ milestone, column, tasks, archived, workState }) => ({
         key: milestone.key,
         title: milestone.title,
-        href: `${workspaceHref(board.workspace.id)}/milestones/${milestone.key}`,
+        href:
+          (!archived
+            ? requestFor([milestone.key, ...tasks.map((task) => task.key)])
+            : undefined) ??
+          `${workspaceHref(board.workspace.id)}/milestones/${milestone.key}`,
         complete: column === "Complete",
         archived,
         planned: column === "Planned",
@@ -42,7 +61,9 @@ export function workItems(board: WorkspaceBoard) {
       .map((t) => ({
         key: t.key,
         title: t.title,
-        href: taskHref(t.project_id, t),
+        href:
+          (!t.archived ? requestFor([t.key]) : undefined) ??
+          taskHref(t.project_id, t),
         complete: t.status === "done",
         archived: t.archived,
         planned: t.status === "backlog" || t.status === "up_next",
@@ -173,9 +194,9 @@ export function WorkNavigation({
   const base = workspaceHref(board.workspace.id);
   const resources = [
     { name: "Projects", href: base + "/projects", Icon: Folder },
-    { name: "Documents", href: base + "/documents", Icon: FileText },
-    { name: "Tasks", href: base + "/tasks", Icon: Columns3 },
     { name: "Milestones", href: base + "/milestones", Icon: Flag },
+    { name: "Tasks", href: base + "/tasks", Icon: Columns3 },
+    { name: "Documents", href: base + "/documents", Icon: FileText },
     { name: "Archive", href: base + "/archive", Icon: Archive },
   ];
   return (
@@ -196,7 +217,7 @@ export function WorkNavigation({
           href={base + "/edit"}
           onClick={(event) => followLink(event, () => open(base + "/edit"))}
         >
-          <Settings size={16} /> Workspace settings
+          <Settings size={16} /> Settings
         </a>
       </nav>
       <div className="work-navigation-heading">
@@ -205,7 +226,7 @@ export function WorkNavigation({
           href={base + "/work"}
           onClick={(event) => followLink(event, () => open(base + "/work"))}
         >
-          All work
+          Show all
         </a>
       </div>
       <nav className="work-navigation-scroll" aria-label="Work">

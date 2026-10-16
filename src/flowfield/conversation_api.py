@@ -73,8 +73,10 @@ def conversation_router(workspace: Callable[[], Workspace]) -> APIRouter:
         )
 
     @router.get("/input-eligibility")
-    def eligibility(project_id: str, task_id: str) -> InputEligibility:
-        return Conversation(workspace()).eligibility(project_id, task_id)
+    def eligibility(
+        project_id: str, task_id: str, question_id: str | None = None
+    ) -> InputEligibility:
+        return Conversation(workspace()).eligibility(project_id, task_id, question_id)
 
     @router.get("/stages")
     def stages(project_id: str, task_id: str) -> StagePlan:
@@ -92,9 +94,13 @@ def add_conversation_tools(mcp: FastMCP, workspace: Callable[[], Workspace]) -> 
     write = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=False)
 
     @mcp.tool(annotations=read)
-    def get_task_input(project_id: str, task_id: str) -> InputEligibility:
-        """Read input eligibility and exact task/question/result bindings before replying."""
-        return Conversation(workspace()).eligibility(project_id, task_id)
+    def get_task_input(
+        project_id: str, task_id: str, question_id: str | None = None
+    ) -> InputEligibility:
+        """Read exact task/question/result bindings before replying.
+        Supply question_id for a specific question Request; otherwise read the current input.
+        """
+        return Conversation(workspace()).eligibility(project_id, task_id, question_id)
 
     @mcp.tool(annotations=write)
     def reply_to_task(project_id: str, task_id: str, request: ReplyCreate) -> Reply:

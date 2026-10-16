@@ -35,7 +35,7 @@ export function SettingsLink({ active }: { active: boolean }) {
   const { updates } = useAnnouncements();
   const { setOpenMobile } = useSidebar();
   return (
-    <ActionTooltip label="Flowfield settings">
+    <ActionTooltip label="Global settings">
       <Button asChild size="icon-sm" variant="ghost" className="relative">
         <WorkspaceLink
           to="/settings/harnesses"

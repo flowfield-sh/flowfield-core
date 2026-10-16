@@ -437,9 +437,10 @@ test("validated result approval delivers real Git code with the worker queue pau
   await expect(
     page.getByText("Keyboard checked; mobile not tested.", { exact: true }),
   ).toBeVisible();
+  // The shared scheduler also handles other journeys before attempting delivery.
   await expect(
     page.getByRole("button", { name: "Retry integration", exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15000 });
   expect((await (await request.get(`${base}/tasks/INT-1`)).json()).status).toBe(
     "in_review",
   );

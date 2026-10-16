@@ -92,7 +92,10 @@ export function TaskConversation({
   const [revision, setRevision] = useState(0);
   const tick = useMemo(() => ({ refresh, revision }), [refresh, revision]);
   const page = useResource<Page>(`${path}/thread`, tick);
-  const gate = useResource<Gate>(`${path}/input-eligibility`, tick);
+  const gate = useResource<Gate>(
+    `${path}/input-eligibility${requestTarget?.kind === "question" ? `?question_id=${encodeURIComponent(requestTarget.id)}` : ""}`,
+    tick,
+  );
   const currentAttemptId =
     gate.data?.run_id ??
     task.state?.href?.match(/\/conversation\/attempt:([^/?#]+)/)?.[1];

@@ -231,3 +231,78 @@ test("individual requests retain answers and drafts across independent tabs", as
     ).toBe(true);
   }
 });
+
+test("Needs attention opens the newest milestone member request and advances after answers", async ({
+  page,
+  request,
+}) => {
+  const project = "attention-navigation";
+  await fixtureProject(request, {
+    data: {
+      id: project,
+      path: existingDirectory(join(state, project)),
+      task_prefix: "ATN",
+    },
+  });
+  const workspace = await projectWorkspace(request, project);
+  const base = `/workspaces/${workspace}`;
+  const milestone = await (
+    await request.post(`/api/workspaces/${workspace}/milestones`, {
+      data: { title: "Deliver exports" },
+    })
+  ).json();
+  const task = await (
+    await request.post(`/api/projects/${project}/tasks`, {
+      data: {
+        title: "Build the export",
+        milestone_id: milestone.id,
+        stages: fixtureStages(),
+      },
+    })
+  ).json();
+  for (const id of ["earlier", "newer"])
+    await request.post(`/api/projects/${project}/questions`, {
+      data: {
+        id,
+        task_id: task.id,
+        question: `${id} choice`,
+        context: "Choose the format",
+        recommendation: "JSON",
+      },
+    });
+  await page.goto(base + "/inbox");
+  const work = page.getByRole("navigation", { name: "Work", exact: true });
+  const entry = work.getByRole("link", {
+    name: `${milestone.key} Deliver exports`,
+    exact: true,
+  });
+  for (const id of ["newer", "earlier"]) {
+    const href = `${base}/requests/question/${id}?project_id=${project}`;
+    await expect(entry).toHaveAttribute("href", href);
+    await entry.click();
+    await expect(page).toHaveURL(href);
+    const detail = page.getByRole("region", { name: "Request", exact: true });
+    await expect(detail).toContainText(`${id} choice`);
+    await detail
+      .getByRole("textbox", { name: "Your answer", exact: true })
+      .fill("JSON");
+    await detail
+      .getByRole("button", { name: "Send answer", exact: true })
+      .click();
+    await expect(
+      detail.getByRole("textbox", { name: "Your answer", exact: true }),
+    ).toHaveCount(0);
+  }
+  await expect(entry).toHaveAttribute(
+    "href",
+    `${base}/milestones/${milestone.key}`,
+  );
+  await expect(work.getByText("Needs attention", { exact: true })).toHaveCount(
+    0,
+  );
+  await page.getByRole("link", { name: "Show all", exact: true }).click();
+  await expect(page).toHaveURL(`${base}/work`);
+  await expect(
+    page.getByRole("tabpanel", { name: "All work", exact: true }),
+  ).toBeVisible();
+});

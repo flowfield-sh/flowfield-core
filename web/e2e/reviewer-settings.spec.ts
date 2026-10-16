@@ -34,7 +34,7 @@ test("review defaults and task reset preserve explicit inheritance and missing s
     defaults.getByText("Choose a reviewer to run automatic assessments.", {
       exact: false,
     }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await defaults.getByLabel("Automatically assess task changes").uncheck();
   await defaults.getByRole("button", { name: "Save reviewer" }).click();
   await expect(

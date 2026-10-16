@@ -14,6 +14,7 @@ from flowfield.application import TaskEdit, TaskPublish, Workspace
 from flowfield.conversation import Conversation
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import QueueEdit, SettingsEdit
+from flowfield.questions import QuestionCreate, Questions, QuestionWithdraw
 from flowfield.replies import Replies
 from flowfield.reply_models import ReplyBinding, ReplyCreate
 from flowfield.results import Results
@@ -36,6 +37,46 @@ def queue(execution, enabled):
         "harbor",
         QueueEdit(expected_revision=execution.settings("harbor").revision, enabled=enabled),
     )
+
+
+def test_exact_question_reply_preserves_scope_and_revision_checks(tmp_path):
+    execution = fixture(tmp_path, count=2)
+    workspace = execution.workspace
+    questions = Questions(workspace)
+    earlier, newer = [
+        questions.ask(
+            "harbor",
+            QuestionCreate(
+                task_id="task-0", question=title, context="Export", recommendation="CSV"
+            ),
+        )
+        for title in ("Which fields?", "Which format?")
+    ]
+    conversation = Conversation(workspace)
+    assert conversation.eligibility("harbor", "task-0").question_id == earlier.id
+    gate = conversation.eligibility("harbor", "task-0", newer.id)
+    assert gate.enabled and gate.question_id == newer.id
+    request = ReplyCreate(
+        action="answer",
+        body="CSV",
+        binding=ReplyBinding.model_validate(
+            gate.model_dump(include=set(ReplyBinding.model_fields))
+        ),
+    )
+    replies = Replies(workspace)
+    with pytest.raises(ApplicationError, match="changed"):
+        replies.submit("harbor", "task-1", request)
+    assert replies.submit("harbor", "task-0", request).status == "recorded"
+    assert replies.submit("harbor", "task-0", request).status == "recorded"
+    assert conversation.eligibility("harbor", "task-0").question_id == earlier.id
+    with pytest.raises(ApplicationError, match="changed"):
+        replies.submit("harbor", "task-0", request.model_copy(update={"id": "stale"}))
+    closed = message(workspace, action="answer", body="All fields")
+    questions.withdraw(
+        "harbor", earlier.id, QuestionWithdraw(expected_revision=earlier.revision, reason="Revised")
+    )
+    with pytest.raises(ApplicationError, match="changed"):
+        replies.submit("harbor", "task-0", closed)
 
 
 def test_bound_answer_is_one_atomic_receipt_and_continues_once(tmp_path):
