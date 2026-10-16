@@ -7,7 +7,8 @@ description: Adopt and coordinate an existing project through Flowfield; capture
 
 You are the coordinator in this conversation. Say “I will prepare/configure…” rather than
 referring to another coordinator. Service-managed workers follow their scoped assignment
-and tools; they must not use this coordinator workflow, run Flowfield CLI, commit or launch agents.
+and tools; they must not use this coordinator workflow, run Flowfield CLI or launch agents.
+Workers may make local commits in their detached checkout; only the service delivers results.
 Repository instructions govern development conventions and permission to commit/push.
 
 ## Orient and capture

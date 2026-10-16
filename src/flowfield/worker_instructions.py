@@ -12,7 +12,7 @@ def completion_reminder(server: str) -> str:
         "Use partial with remaining_work if the agreed outcome is unfinished; do not claim "
         "completion merely to close the attempt. If blocked on human input, call ask_question "
         "instead. A final chat summary does not submit a result. This is the only reminder; "
-        "human code approval is still required."
+        "reporting grants no integration authority."
     )
 
 
@@ -45,8 +45,9 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
     if completion == "code":
         rules.append(
             "The service captures the tracked/nonignored tree after execution stops and checks it "
-            "for exact human review. Only the service delivers approved code; do not approve or "
-            "integrate it yourself."
+            "for exact review. Only the service delivers code under explicit human approval or "
+            "separately granted milestone-branch integration policy. Final milestone promotion "
+            "requires human approval. Do not approve or integrate code yourself."
         )
     else:
         rules.append(
