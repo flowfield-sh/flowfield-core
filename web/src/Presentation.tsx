@@ -11,7 +11,7 @@ import { ArrowLeft, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useContext, type ReactNode } from "react";
 import { label, type TaskRevision } from "./workspace";
-import { useOverlayClose, OverlayHeading } from "./EntityOverlay";
+import { usePaneClose, PaneHeading } from "./EntityPane";
 import { Timestamp } from "./Timestamp";
 import { ContentStack } from "./DetailLayout";
 import { OpenInWorkTab, ResourceBackAvailable } from "./WorkspaceTabs";
@@ -23,9 +23,9 @@ export function CloseControl({
   label: string;
   close: () => void;
 }) {
-  const overlayClose = useOverlayClose();
+  const paneClose = usePaneClose();
   const backAvailable = useContext(ResourceBackAvailable);
-  const dismiss = overlayClose ?? close;
+  const dismiss = paneClose ?? close;
   return (
     <Button
       size="icon-sm"
@@ -72,7 +72,7 @@ export function DetailHeader({
   children?: ReactNode;
 }) {
   return (
-    <OverlayHeading>
+    <PaneHeading>
       <div className="editor-heading">
         {closeLabel.startsWith("Back") && (
           <CloseControl label={closeLabel} close={close} />
@@ -92,7 +92,7 @@ export function DetailHeader({
         )}
       </div>
       {children}
-    </OverlayHeading>
+    </PaneHeading>
   );
 }
 

@@ -569,7 +569,7 @@ test("configured project choices preload and unknown harness status stays loadin
   // Reconnection warms the active project's choices again without opening a picker.
   await context.setOffline(true);
   await expect(
-    page.getByRole("status", { name: "Disconnected", exact: true }),
+    page.getByRole("dialog", { name: "Connection lost", exact: true }),
   ).toBeVisible();
   await context.setOffline(false);
   await expect.poll(() => discovered.length).toBe(6);

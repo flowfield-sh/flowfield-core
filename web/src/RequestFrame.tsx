@@ -1,6 +1,6 @@
 import { OpenInWorkTab } from "./WorkspaceTabs";
 import { useState, type ReactNode } from "react";
-import { ResponseFooterHost } from "./EntityOverlay";
+import { ResponseFooterHost } from "./EntityPane";
 import { ContentStack, DetailHeading } from "./DetailLayout";
 import { WorkState } from "./WorkState";
 import type { components } from "./api-schema";

@@ -1,3 +1,4 @@
+import { checkServiceConnection } from "./serviceConnection";
 import { RequestError, requestRecovered } from "./requestFeedback";
 export { RequestError } from "./requestFeedback";
 import type { components } from "./api-schema";
@@ -50,8 +51,10 @@ export async function request<T>(
     method !== "GET"
       ? " Reload to check whether the action completed before trying again."
       : " Try again once the service is available.";
-  const failed = (message: string, code: string) =>
-    new RequestError(message, code, path, method);
+  const failed = (message: string, code: string) => {
+    void checkServiceConnection();
+    return new RequestError(message, code, path, method);
+  };
   const saved = () => {
     requestRecovered(path, startedAt);
     if (method !== "GET")
@@ -79,6 +82,7 @@ export async function request<T>(
       "service_unavailable",
     );
   }
+  if (response.status >= 500) void checkServiceConnection();
   if (response.status === 204) {
     saved();
     return undefined as T;
@@ -112,6 +116,7 @@ export async function request<T>(
       data?.error?.code,
       path,
       method,
+      response.status,
     );
   saved();
   return data as T;

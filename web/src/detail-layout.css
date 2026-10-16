@@ -384,17 +384,17 @@
   .task-input label {
     font-size: 12px;
   }
-  .entity-overlay-footer {
+  .entity-pane-footer {
     flex-shrink: 1;
     min-height: 0;
     max-height: 45dvh;
     overflow-y: auto;
     overscroll-behavior: contain;
   }
-  .entity-pane:has(.task-input) .entity-overlay-body {
+  .entity-pane:has(.task-input) .entity-pane-body {
     min-height: min(20dvh, 8rem);
   }
-  .entity-overlay-footer:empty {
+  .entity-pane-footer:empty {
     display: none;
   }
   .conversation-message .detail-heading-row > .detail-metadata {
@@ -699,9 +699,6 @@
 }
 .request-footer:empty {
   display: none;
-}
-.review-decision {
-  margin-top: 12px;
 }
 .board.milestone-board {
   grid-template-columns: repeat(4, minmax(240px, 1fr));

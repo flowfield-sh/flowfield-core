@@ -3,7 +3,7 @@ import { useContext, useEffect, useRef } from "react";
 import { useLocation, useSearchParams } from "react-router";
 import { ActivityEntry, ActivityBodyVisible } from "./ActivityEntry";
 import { ContentStack, DetailSection } from "./DetailLayout";
-import { OverlayFooter } from "./EntityOverlay";
+import { PaneFooter } from "./EntityPane";
 import { Markdown } from "./Markdown";
 import {
   MilestoneReport,
@@ -277,7 +277,7 @@ export function MilestoneActivity({
         })}
       </ol>
       {value && (
-        <OverlayFooter>
+        <PaneFooter>
           <MilestoneReviewResponse
             key={value.id}
             value={value}
@@ -286,7 +286,7 @@ export function MilestoneActivity({
             onDirty={onDirty}
             allowReview={value.id === newest}
           />
-        </OverlayFooter>
+        </PaneFooter>
       )}
     </ContentStack>
   );

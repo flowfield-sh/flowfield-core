@@ -15,7 +15,7 @@ import {
   Fragment,
 } from "react";
 import { useParams } from "react-router";
-import { OverlayFooter, useOverlayBody } from "./EntityOverlay";
+import { PaneFooter, usePaneBody } from "./EntityPane";
 import { Button } from "@/components/ui/button";
 import { Composer } from "./Composer";
 import { AgentSettingsControl } from "./AgentSettings";
@@ -247,7 +247,7 @@ export function TaskConversation({
     setSeenResult(gate.data.result_id);
   }
   const root = useRef<HTMLDivElement>(null);
-  const overlayBody = useOverlayBody();
+  const paneBody = usePaneBody();
   const input = useRef<HTMLTextAreaElement>(null);
   const [actionHost, setActionHost] = useState<HTMLDivElement | null>(null);
   const [actionContext, setActionContext] = useState<HTMLDivElement | null>(
@@ -257,7 +257,7 @@ export function TaskConversation({
     const focused = document.activeElement;
     const initialFocus =
       focused === document.body ||
-      focused?.classList.contains("entity-overlay-body");
+      focused?.classList.contains("entity-pane-body");
     // Late eligibility reads must not steal focus from evidence or other controls.
     // Choosing a reply/draft explicitly still moves into its composer.
     if (
@@ -759,7 +759,7 @@ export function TaskConversation({
             </ol>
           )}
         </ContentStack>
-        <OverlayFooter>
+        <PaneFooter>
           {showInputFooter && (
             <form
               className="task-input content-stack"
@@ -777,7 +777,7 @@ export function TaskConversation({
                 if (busy || uploading) return;
                 discardDraft();
                 requestAnimationFrame(() =>
-                  overlayBody?.focus({ preventScroll: true }),
+                  paneBody?.focus({ preventScroll: true }),
                 );
               }}
               onSubmit={(event) => {
@@ -1043,7 +1043,7 @@ export function TaskConversation({
               </div>
             </form>
           )}
-        </OverlayFooter>
+        </PaneFooter>
       </ContentStack>
     </TaskActionHost.Provider>
   );

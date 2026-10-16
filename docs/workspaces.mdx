@@ -7,7 +7,7 @@ Create a workspace for projects that you want to plan together: an API, its appl
 
 ## Create and adopt
 
-Choose **New workspace** from Home or the sidebar. Inside it, open **Projects → Add project → Choose directory**, select an existing repository and review the prefilled name, ID and task prefix. The three-letter prefix appears in task keys such as `API-1` and locks after the first task, including archived tasks.
+Choose **New workspace** from Home. Inside it, open **Projects → Add project → Choose directory**, select an existing repository and review the prefilled name, ID and task prefix. The three-letter prefix appears in task keys such as `API-1` and locks after the first task, including archived tasks.
 
 The CLI uses the same registration:
 
@@ -23,7 +23,7 @@ Existing registrations stay in their current workspace. Moving projects between 
 
 ## Find the work
 
-Opening a workspace takes you to **Inbox**. Choose **Tasks** for task columns and filters. The sidebar keeps workspace resources above **Work**, a compact list of milestones and standalone tasks. Tasks assigned to a milestone appear in its overview and in Tasks. **All work** includes completed outcomes. The Work list scrolls independently, with queue controls below it. Use the workspace selector to switch conversations and drag the left border of the content pane to resize the Coordinator.
+Opening a workspace takes you to **Inbox**. Choose **Tasks** for task columns and filters. The sidebar keeps workspace resources above **Work**, a compact list of milestones and standalone tasks. Tasks assigned to a milestone appear in its overview and in Tasks. **All work** includes completed outcomes. The Work list scrolls independently, with queue controls below it. The top sidebar icons open Home and Flowfield settings; the workspace selector below them switches conversations. Use the board background to drag overflowing task and milestone columns horizontally. Drag the left border of the content pane to resize the Coordinator.
 
 | View | Use it to |
 | --- | --- |
@@ -77,3 +77,9 @@ Labels are optional and shared across the workspace. Ask the Coordinator to main
 - The **Coordinator input** owns its harness/model controls; task **Agent settings** can override the worker choice for subsequent attempts.
 
 To open Project settings, select that project from Projects or filter the board to it. One project's setup blocker does not prevent ready work in other projects. See [worker setup](/worker-setup) and [workspace documents](/documents) for the remaining configuration.
+
+## Connection recovery
+
+If Flowfield cannot reach the service, one **Connection lost** dialog pauses interaction while it reconnects automatically. Open views and drafts stay in place. Start the service again or use **Reconnect now** to check immediately. Recovery refreshes the views; interrupted actions are never sent again automatically. Check whether an interrupted save or action completed before trying it again.
+
+A disconnected live-update stream shows **Reconnecting…** while the service remains reachable. Individual load failures keep their local retry controls; validation errors, changed revisions and worker or reviewer recovery stay with the affected operation.

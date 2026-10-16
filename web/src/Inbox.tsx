@@ -23,7 +23,7 @@ import { useEffect, useLayoutEffect, useId, useRef, useState } from "react";
 import { Markdown } from "./Markdown";
 import { followLink, projectHref, taskHref } from "./navigation";
 import { request } from "./workspace";
-import { EntityPane, OverlayFooter } from "./EntityOverlay";
+import { EntityPane, PaneFooter } from "./EntityPane";
 import { useResource } from "./useResource";
 
 export type Question = components["schemas"]["Question"] & {
@@ -453,7 +453,7 @@ export function QuestionDetail({
               <Markdown>{loaded.decision}</Markdown>
             </DetailSection>
           )}
-          <OverlayFooter inline={!inline}>
+          <PaneFooter inline={!inline}>
             {(correcting ||
               loaded.status === "open" ||
               (loaded.status === "answered" &&
@@ -608,7 +608,7 @@ export function QuestionDetail({
                 )}
               </div>
             )}
-          </OverlayFooter>
+          </PaneFooter>
           {loaded.answer_count > (loaded.answer ? 1 : 0) && (
             <PreviousAnswers
               key={loaded.revision}

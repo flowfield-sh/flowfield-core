@@ -217,7 +217,9 @@ test("central harness settings preserve host drafts and configure kinds independ
     return route.fulfill({ json: value });
   });
   await page.goto("/");
-  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Flowfield settings", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/settings\/harnesses$/);
   const first = page.getByRole("region", {
     name: "Codex settings",
@@ -266,7 +268,7 @@ test("central harness settings preserve host drafts and configure kinds independ
   expect(codex.registration.revision).toBe(1);
   await screenshot(page, testInfo, "desktop");
   await second.getByLabel("Executable path", { exact: true }).fill("/unsaved");
-  await page.getByRole("link", { name: "Flowfield", exact: true }).click();
+  await page.getByRole("link", { name: "Home", exact: true }).click();
   await expect(page.getByRole("alertdialog")).toBeVisible();
   await page.getByRole("button", { name: "Keep editing" }).click();
   await expect(
@@ -421,7 +423,9 @@ test("mobile settings close workspace navigation and keep long host paths inside
   await page
     .getByRole("button", { name: "Open workspaces", exact: true })
     .click();
-  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Flowfield settings", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Settings", exact: true }),
   ).toBeVisible();
@@ -462,7 +466,7 @@ test("appearance lives in routed settings tabs and follows system changes outsid
   await theme.click();
   await page.getByRole("option", { name: "System", exact: true }).click();
   await expect(page.locator("html")).not.toHaveClass("dark");
-  await page.getByRole("link", { name: "Flowfield", exact: true }).click();
+  await page.getByRole("link", { name: "Home", exact: true }).click();
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html")).toHaveClass("dark");
 });

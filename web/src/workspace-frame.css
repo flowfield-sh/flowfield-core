@@ -7,15 +7,27 @@
   background: var(--chrome);
 }
 .workspace-sidebar-header {
-  height: 42px;
-  flex-direction: row;
+  gap: 8px;
+  padding: 8px 16px;
+}
+.workspace-global-actions {
+  display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 8px;
+  margin-inline: -4px;
+}
+.workspace-global-actions > :last-child[data-sidebar="trigger"] {
+  margin-left: auto;
+}
+.workspace-global-actions a {
+  color: inherit;
+}
+.workspace-global-actions a[aria-current="page"] {
+  background: var(--accent);
 }
 .workspace-sidebar-header [data-slot="native-select-wrapper"] {
   min-width: 0;
-  flex: 1;
+  width: 100%;
 }
 .project-badge {
   display: inline-flex;
@@ -139,8 +151,7 @@
   flex: 1;
   min-height: 0;
 }
-.workspace-pane > .welcome,
-.workspace-pane > .setup-instructions {
+.workspace-pane > .welcome {
   overflow-y: auto;
   padding: 24px;
 }
@@ -172,7 +183,14 @@
   min-height: 0;
   overflow: auto;
   overflow-anchor: none;
+  scrollbar-color: transparent transparent;
   padding: 12px 0 12px 12px;
+}
+.coordinator-scroll[data-scrolling="true"] {
+  scrollbar-color: var(--muted-foreground) transparent;
+}
+.coordinator-scroll[data-overflow-top="true"] {
+  mask-image: linear-gradient(to bottom, transparent, black 16px);
 }
 .coordinator-turn {
   min-width: 0;
@@ -303,7 +321,7 @@
 }
 .workspace-frame [data-sidebar="footer"] {
   border-top: 1px solid var(--border);
-  padding: 8px;
+  padding: 8px 8px 0;
   gap: 8px;
   max-height: 40dvh;
   overflow: auto;
@@ -320,15 +338,12 @@
 }
 .workspace-utilities .connection {
   width: 100%;
-  padding: 8px;
+  margin: 0;
+  padding: 12px 8px;
   border-top: 1px solid var(--border);
 }
 .queue-status-row {
   padding: 4px 4px 4px 8px;
-}
-.queue-status-icon {
-  flex-shrink: 0;
-  margin-right: 4px;
 }
 .queue-status {
   display: grid;
@@ -340,11 +355,6 @@
 .queue-status-row > button,
 .queue-status-row > a {
   flex-shrink: 0;
-}
-.workspace-utilities .workspace-settings-link {
-  color: inherit;
-  text-decoration: none;
-  flex: 1;
 }
 .workspace-list-row {
   grid-template-columns: auto minmax(0, 1fr) auto;

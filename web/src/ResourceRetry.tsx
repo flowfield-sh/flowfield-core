@@ -1,3 +1,4 @@
+import { useServiceUnavailable } from "./serviceConnection";
 import { Button } from "@/components/ui/button";
 
 // Keep recovery beside the affected content; request explanations live in Sonner.
@@ -8,8 +9,9 @@ export function ResourceRetry({
   resources: { error: string; loading?: boolean; retry: () => void }[];
   children?: React.ReactNode;
 }) {
+  const unavailable = useServiceUnavailable();
   const failed = resources.filter((resource) => resource.error);
-  if (!failed.length) return null;
+  if (unavailable || !failed.length) return null;
   return (
     <div className="actions">
       <Button

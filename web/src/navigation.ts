@@ -36,19 +36,19 @@ const nestedProjectPaths = pagePaths
   .filter((path) => path.startsWith("projects/"))
   .map((path) => `workspaces/:workspaceId/${path}`);
 export const workspacePaths = [...pagePaths, ...nestedProjectPaths].flatMap(
-  (path) => [path, path + "/related/questions/:overlayQuestionId"],
+  (path) => [path, path + "/related/questions/:relatedQuestionId"],
 );
-export function withoutQuestionOverlay(path: string) {
+export function withoutRelatedQuestion(path: string) {
   return path.replace(
     /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+)(?:\/.*)?)\/related\/questions\/[^/]+\/?$/,
     "$1",
   );
 }
-export function questionOverlayHref(path: string, id: string) {
+export function relatedQuestionHref(path: string, id: string) {
   const project = /(?:^|\/)projects\/([^/]+)/.exec(path)?.[1];
   return project
     ? `/projects/${project}/inbox/${encodeURIComponent(id)}`
-    : withoutQuestionOverlay(path) +
+    : withoutRelatedQuestion(path) +
         "/related/questions/" +
         encodeURIComponent(id);
 }
@@ -118,7 +118,7 @@ export function taskHref(
   return `${projectHref(projectId)}/tasks/${encodeURIComponent(task.key)}${taskTab(tab) === "task" ? "" : `/${taskTab(tab)}`}`;
 }
 function editorIdentity(path: string) {
-  return withoutQuestionOverlay(path)
+  return withoutRelatedQuestion(path)
     .replace(
       /^\/settings\/(harnesses|appearance|notifications|updates)\/?$/,
       "/settings",
@@ -222,7 +222,7 @@ export function useWorkspaceNavigation(
       },
     },
     params,
-    pathname: withoutQuestionOverlay(location.pathname),
+    pathname: withoutRelatedQuestion(location.pathname),
     changeLocation,
     notFound:
       matches.at(-1)?.id === "not-found" ||

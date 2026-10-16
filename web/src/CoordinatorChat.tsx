@@ -1,3 +1,4 @@
+import { useScrollPresentation } from "./useScrollPresentation";
 import { ResourceRetry } from "./ResourceRetry";
 import { LoadMore } from "./LoadMore";
 import type { AdjacentContext } from "./AdjacentView";
@@ -179,6 +180,7 @@ export function CoordinatorChat({
   );
   const [pane, setPane] = useState<HTMLDivElement | null>(null);
   const content = useRef<HTMLDivElement>(null);
+  useScrollPresentation(pane);
   const page = resource.data ?? history.page;
   if (page && history.page !== page) {
     // Preserve already displayed pages as the latest server window moves forward.

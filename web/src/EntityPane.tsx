@@ -9,13 +9,13 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-const OverlayClose = createContext<(() => void) | null>(null);
-export const useOverlayClose = () => useContext(OverlayClose);
-const OverlayTitleHost = createContext<HTMLElement | null>(null);
-const OverlayBody = createContext<HTMLElement | null>(null);
+const PaneClose = createContext<(() => void) | null>(null);
+export const usePaneClose = () => useContext(PaneClose);
+const PaneTitleHost = createContext<HTMLElement | null>(null);
+const PaneBody = createContext<HTMLElement | null>(null);
 export const ResponseFooterHost = createContext<HTMLElement | null>(null);
-export const useOverlayBody = () => useContext(OverlayBody);
-export function OverlayFooter({
+export const usePaneBody = () => useContext(PaneBody);
+export function PaneFooter({
   children,
   inline = false,
 }: {
@@ -25,8 +25,8 @@ export function OverlayFooter({
   const host = useContext(ResponseFooterHost);
   return inline ? children : host ? createPortal(children, host) : null;
 }
-export function OverlayHeading({ children }: { children: ReactNode }) {
-  const host = useContext(OverlayTitleHost);
+export function PaneHeading({ children }: { children: ReactNode }) {
+  const host = useContext(PaneTitleHost);
   return host ? createPortal(children, host) : children;
 }
 
@@ -94,9 +94,9 @@ export function EntityPane({
     [body, returnFocusHref],
   );
   return (
-    <OverlayClose.Provider value={close}>
-      <OverlayTitleHost.Provider value={title}>
-        <OverlayBody.Provider value={body}>
+    <PaneClose.Provider value={close}>
+      <PaneTitleHost.Provider value={title}>
+        <PaneBody.Provider value={body}>
           <ResponseFooterHost.Provider value={footer}>
             <section
               className="entity-pane"
@@ -108,15 +108,15 @@ export function EntityPane({
                 }
               }}
             >
-              <div className="entity-overlay-title" ref={setTitle} />
-              <div className="entity-overlay-body" ref={setBody} tabIndex={-1}>
+              <div className="entity-pane-title" ref={setTitle} />
+              <div className="entity-pane-body" ref={setBody} tabIndex={-1}>
                 {children}
               </div>
-              <div className="entity-overlay-footer" ref={setFooter} />
+              <div className="entity-pane-footer" ref={setFooter} />
             </section>
           </ResponseFooterHost.Provider>
-        </OverlayBody.Provider>
-      </OverlayTitleHost.Provider>
-    </OverlayClose.Provider>
+        </PaneBody.Provider>
+      </PaneTitleHost.Provider>
+    </PaneClose.Provider>
   );
 }

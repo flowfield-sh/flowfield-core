@@ -104,116 +104,6 @@ for (const kind of [
   });
 }
 
-test("an outage is reported once across settings reads and polling, recovers, and reports a later outage", async ({
-  page,
-  request,
-}, testInfo) => {
-  const id = "feedback-offline";
-  await fixtureProject(request, {
-    data: { path: existingDirectory(join(state, id)), task_prefix: "FOF" },
-  });
-  let offline = false;
-  let releaseReads!: () => void;
-  const heldReads = new Promise<void>((resolve) => {
-    releaseReads = resolve;
-  });
-  const pending = new Set<string>();
-  // Settings mount before their tab opens. Hold these two reads so the outage
-  // reliably affects both the form and validation status, regardless of timing.
-  await page.route("**/api/**", async (route) => {
-    const path = new URL(route.request().url()).pathname;
-    if (
-      path === `/api/projects/${id}/inspection/settings` ||
-      path === `/api/projects/${id}/setup-validation`
-    ) {
-      pending.add(path);
-      await heldReads;
-    }
-    return offline ? route.abort("failed") : route.continue();
-  });
-  await page.goto(`/projects/${id}/edit/general`);
-  const editor = page.getByRole("region", {
-    name: "Edit project",
-    exact: true,
-  });
-  await expect(editor.getByLabel("Name", { exact: true })).toBeVisible();
-  await expect.poll(() => pending.size).toBe(2);
-  offline = true;
-  releaseReads();
-  await editor.getByRole("tab", { name: "Integration", exact: true }).click();
-  const integration = editor.getByRole("region", {
-    name: "Integration settings",
-  });
-  await expect(errors(page)).toContainText("Flowfield is unavailable");
-  const retries = integration.getByRole("button", {
-    name: "Retry loading",
-    exact: true,
-  });
-  await expect(retries).toHaveCount(2);
-  await expect(retries.nth(0)).toBeVisible();
-  await expect(retries.nth(1)).toBeVisible();
-  await expect(integration).not.toContainText(
-    /Load failed|Cannot reach Flowfield/,
-  );
-  await atTopRight(page, errors(page));
-  await page.screenshot({
-    path: testInfo.outputPath("offline-integration-desktop.png"),
-  });
-  await errors(page).getByRole("button", { name: "Close toast" }).click();
-  await expect(errors(page)).toHaveCount(0);
-  await editor.getByRole("tab", { name: "General", exact: true }).click();
-  await expect(editor.getByLabel("Name", { exact: true })).toBeVisible();
-  // Observe two real notification polls: dismissed background failures stay dismissed.
-  for (let i = 0; i < 2; i++)
-    await page.waitForRequest("**/api/announcements/poll");
-  await expect(errors(page)).toHaveCount(0);
-  await editor.getByRole("tab", { name: "General", exact: true }).click();
-  await editor
-    .getByLabel("Name", { exact: true })
-    .fill("Draft survives outage");
-  await editor
-    .getByRole("button", { name: "Save changes", exact: true })
-    .click();
-  await expect(errors(page)).toContainText("Could not save project settings");
-  await expect(errors(page)).not.toContainText("preserved");
-  await errors(page).getByRole("button", { name: "Close toast" }).click();
-  await expect(errors(page)).toHaveCount(0);
-  await editor.getByRole("tab", { name: "Integration", exact: true }).click();
-  // Keep the outage until both failed resources are visible. Returning to the
-  // tab can remount validation and start another read.
-  await expect(retries).toHaveCount(2);
-  offline = false;
-  // Wait for each recovery to settle before clicking the next resource's Retry.
-  // Otherwise both clicks can hit the same still-visible first button.
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const count = await retries.count();
-    const recovered = page.waitForResponse(
-      (response) =>
-        response.ok() &&
-        (response.url().endsWith(`/api/projects/${id}/inspection/settings`) ||
-          response.url().endsWith(`/api/projects/${id}/setup-validation`)),
-    );
-    await retries.first().click();
-    await recovered;
-    await expect.poll(() => retries.count()).toBeLessThan(count);
-  }
-  await expect(retries).toHaveCount(0);
-  await expect(
-    integration.getByLabel("Validation commands", { exact: true }),
-  ).toBeEnabled();
-  await expect(
-    integration.getByLabel("Run command", { exact: true }),
-  ).toBeEnabled();
-  offline = true;
-  await expect(errors(page)).toContainText("Flowfield is unavailable", {
-    timeout: 7000,
-  });
-  await editor.getByRole("tab", { name: "General", exact: true }).click();
-  await expect(editor.getByLabel("Name", { exact: true })).toHaveValue(
-    "Draft survives outage",
-  );
-});
-
 test("worker and coordinator settings report failed saves with their own action and retain values", async ({
   page,
   request,
@@ -271,13 +161,16 @@ test("cancelled reads are silent and initial service failures have retry control
   await page.goto("/settings/harnesses");
   await expect.poll(() => pending).toBe(true);
   await page.getByRole("tab", { name: "Appearance", exact: true }).click();
-  await page.getByRole("link", { name: "Flowfield", exact: true }).click();
+  await page.getByRole("link", { name: "Home", exact: true }).click();
   await expect(errors(page)).toHaveCount(0);
   await page.route("**/api/**", (route) => route.abort());
   await page.reload();
-  await expect(errors(page)).toContainText("Flowfield is unavailable");
   await expect(
-    page.getByRole("button", { name: "Retry connection" }),
+    page.getByRole("dialog", { name: "Connection lost" }),
+  ).toBeVisible();
+  await expect(errors(page)).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Reconnect now" }),
   ).toBeVisible();
   await expect(page.locator("main")).not.toContainText("Load failed");
 });

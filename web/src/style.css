@@ -66,13 +66,6 @@
   .muted {
     color: var(--muted-foreground);
   }
-  .eyebrow {
-    color: var(--muted-foreground);
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 1.6px;
-    font-weight: 650;
-  }
 
   .live-dot {
     display: inline-block;
@@ -120,6 +113,18 @@
     min-width: 0;
     padding: 0 2px 2px;
     min-height: 0;
+  }
+  .board[data-overflow="true"],
+  .board[data-overflow="true"] :is(.column, .column-cards) {
+    cursor: grab;
+  }
+  .board[data-panning="true"],
+  .board[data-panning="true"] * {
+    cursor: grabbing;
+    user-select: none;
+  }
+  .board .task-card {
+    cursor: auto;
   }
   .board .column {
     display: flex;
@@ -259,14 +264,6 @@
     line-height: 1.4;
     overflow-wrap: anywhere;
   }
-  .two-fields {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-  .two-fields > label {
-    min-width: 0;
-  }
   .notice {
     font-size: 14px;
     padding: 12px;
@@ -296,10 +293,6 @@
     }
   }
   @media (max-width: 700px) {
-    .connection {
-      margin: 0;
-    }
-
     .welcome {
       margin: 25px auto;
     }
@@ -334,25 +327,6 @@
   }
   .blocked {
     color: var(--warning-foreground);
-  }
-  .dependency-list {
-    list-style: none;
-    padding: 0;
-  }
-  .dependency-list li {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.4rem 0.7rem;
-    border-bottom: 1px solid var(--border);
-    padding: 0.6rem 0;
-  }
-  .dependency-list .muted {
-    font-size: 0.8rem;
-  }
-  .dependency-list .quiet {
-    margin-left: auto;
-    padding: 0.3rem 0.5rem;
   }
 
   .task-card-link {
@@ -463,17 +437,6 @@
     padding: 12px;
     min-height: 100px;
   }
-  .checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .history-checkbox {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-    accent-color: var(--primary);
-  }
 
   .markdown ul.contains-task-list {
     list-style: none;
@@ -551,19 +514,6 @@
     border: 1px solid var(--border);
     border-radius: 6px;
     padding: 12px;
-  }
-  .task-blockers {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    color: var(--muted-foreground);
-    line-height: 1.6;
-  }
-  .task-blockers a.task-key {
-    white-space: nowrap;
-    font-size: inherit;
-    text-decoration-color: var(--muted-foreground);
   }
   .input-request {
     display: inline-flex;
@@ -666,22 +616,12 @@
     text-decoration: underline;
     text-underline-offset: 4px;
   }
-
-  .board.three-column-board {
-    grid-template-columns: repeat(3, minmax(280px, 1fr));
-  }
   .work-card-heading {
     display: flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;
     gap: 8px;
-  }
-  .work-card-controls {
-    display: flex;
-    gap: 4px;
-    position: relative;
-    z-index: 2;
   }
   a.milestone-tag {
     text-decoration: none;
@@ -715,12 +655,6 @@
   .compact-control:hover {
     border-color: var(--foreground);
   }
-  .task-kind-labels {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-  }
 
   /* Routed entity surfaces. */
 
@@ -751,7 +685,7 @@
     min-width: 0;
     overflow: hidden;
   }
-  .entity-overlay-body {
+  .entity-pane-body {
     /* Contain absolutely positioned accessibility text within this scroller. */
     position: relative;
     min-height: 0;
@@ -760,7 +694,7 @@
     overscroll-behavior: contain;
     overflow-anchor: none;
   }
-  .entity-overlay-body:focus {
+  .entity-pane-body:focus {
     outline: none;
   }
 
@@ -774,14 +708,13 @@
     padding: 20px 24px;
     background: transparent;
   }
-  .entity-overlay-title {
+  .entity-pane-title {
     max-height: 40%;
     overflow-y: auto;
     flex-shrink: 0;
     background: transparent;
   }
-  .entity-overlay-title .editor-heading,
-  .entity-overlay-title .overlay-heading {
+  .entity-pane-title .editor-heading {
     margin: 0;
     padding: 8px 24px;
     border-bottom: 1px solid var(--border);
@@ -794,12 +727,8 @@
     .entity-pane .question-detail {
       padding: 16px;
     }
-    .entity-overlay-title .editor-heading,
-    .entity-overlay-title .overlay-heading {
+    .entity-pane-title .editor-heading {
       padding: 8px 16px;
-    }
-    .two-fields {
-      grid-template-columns: 1fr;
     }
   }
 
@@ -928,9 +857,6 @@
     .file-preview {
       border-left: 0;
     }
-    .attempt-toolbar label {
-      width: 100%;
-    }
   }
 }
 
@@ -956,31 +882,6 @@
   .card-tabs [data-slot="tabs-trigger"] {
     flex: 0 0 auto;
   }
-  .attention-column ul {
-    list-style: none;
-    padding: 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
-    margin: 0;
-  }
-  .attention-column .column-cards {
-    overflow-x: hidden;
-    overflow-wrap: anywhere;
-  }
-  .attention-column li,
-  .attention-column li > [data-slot="card"] {
-    min-width: 0;
-  }
-  .attention-column h2 {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .column-count {
-    font-size: 12px;
-    color: var(--muted-foreground);
-  }
 }
 
 @layer components {
@@ -988,52 +889,6 @@
     outline: 2px solid var(--ring);
     outline-offset: 3px;
     border-radius: 2px;
-  }
-  .review-choices {
-    list-style: none;
-    padding: 0;
-  }
-  .review-choices li {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 4px 16px;
-    padding: 6px 0;
-  }
-  .review-choices [aria-current="page"] {
-    font-weight: 600;
-  }
-  .review-choices time {
-    font-size: 12px;
-    color: var(--muted-foreground);
-  }
-}
-
-@layer components {
-  .review-footnotes {
-    border-top: 1px solid var(--border);
-    padding-top: 16px;
-  }
-  .review-footnotes > a {
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-  .attempt-evidence ul {
-    padding: 0;
-    list-style: none;
-  }
-  .attempt-evidence li {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 8px 0;
-    font-size: 13px;
-  }
-  .attempt-evidence time {
-    color: var(--muted-foreground);
-    font-size: 12px;
   }
 }
 

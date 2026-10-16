@@ -1,3 +1,7 @@
+import {
+  checkServiceConnection,
+  serviceIsUnavailable,
+} from "./serviceConnection";
 import { toast } from "sonner";
 
 export class RequestError extends Error {
@@ -6,6 +10,7 @@ export class RequestError extends Error {
     readonly code?: string,
     readonly path = "",
     readonly method = "GET",
+    readonly status?: number,
   ) {
     super(message);
   }
@@ -20,6 +25,22 @@ export function requestRecovered(path: string, startedAt: number) {
     if ((failures.get(key)?.at ?? Infinity) <= startedAt) failures.delete(key);
 }
 export function reportError(error: unknown, title: string, background = false) {
+  if (
+    error instanceof RequestError &&
+    (["service_unavailable", "request_timeout", "invalid_response"].includes(
+      error.code ?? "",
+    ) ||
+      (error.status ?? 0) >= 500)
+  ) {
+    void checkServiceConnection().then((available) => {
+      if (available) showError(error, title, background);
+    });
+    return;
+  }
+  showError(error, title, background);
+}
+function showError(error: unknown, title: string, background: boolean) {
+  if (serviceIsUnavailable()) return;
   if (error instanceof DOMException && error.name === "AbortError") return;
   const failure = error instanceof RequestError ? error : null;
   const connection = failure?.code === "service_unavailable";

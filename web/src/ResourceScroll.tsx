@@ -5,10 +5,10 @@ const positions = new Map<string, Map<string, { top: number; left: number }>>();
 const focusLinks = new Map<string, string>();
 export const ResourceScrollKey = createContext<string | null>(null);
 const feedOwns = (node: HTMLElement) =>
-  node.matches(".entity-overlay-body") &&
+  node.matches(".entity-pane-body") &&
   !!node.querySelector(".conversation-messages");
 const selector =
-  ".entity-overlay-body, .workspace-work-content, .column-cards, .board, .milestone-board";
+  ".entity-pane-body, .workspace-work-content, .column-cards, .board, .milestone-board";
 export function ResourceScroll({
   tab,
   children,

@@ -20,6 +20,11 @@ export function useResource<T>(
 ) {
   const [retryVersion, setRetryVersion] = useState(0);
   const retry = useCallback(() => setRetryVersion((value) => value + 1), []);
+  useEffect(() => {
+    window.addEventListener("flowfield:service-recovered", retry);
+    return () =>
+      window.removeEventListener("flowfield:service-recovered", retry);
+  }, [retry]);
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState<string | undefined>();

@@ -548,9 +548,8 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     page.getByRole("button", { name: "Collapse projects" }),
   ).toHaveCount(0);
   for (const control of [
-    page.getByRole("link", { name: "Flowfield", exact: true }),
-    page.getByRole("link", { name: "Settings", exact: true }),
-    page.getByRole("button", { name: "New workspace", exact: true }),
+    page.getByRole("link", { name: "Home", exact: true }),
+    page.getByRole("link", { name: "Flowfield settings", exact: true }),
     page.getByLabel("Workspace", { exact: true }),
     page.locator(".connection"),
   ])
@@ -1035,6 +1034,14 @@ test("long project chat preserves loaded history while live pages advance", asyn
     data: { stages: fixtureStages(), title: "Reconnect with newer work" },
   });
   await expect(messages).toHaveCount(100);
+  const scroll = page.locator(".coordinator-scroll");
+  await scroll.hover();
+  await page.mouse.wheel(0, -400);
+  await expect(scroll).toHaveAttribute("data-scrolling", "true");
+  await expect(scroll).toHaveAttribute("data-overflow-top", "true");
+  await expect(scroll).not.toHaveAttribute("data-scrolling", "true");
+  await scroll.evaluate((element) => element.scrollTo({ top: 0 }));
+  await expect(scroll).toHaveAttribute("data-overflow-top", "false");
   await expect(
     page.getByText("Planning exchange 60", { exact: true }),
   ).toBeAttached();
@@ -1181,11 +1188,9 @@ test("automatic task context preserves one coordinator and immutable retry recei
   await expect(
     page.getByRole("region", { name: "Coordinator conversation" }),
   ).toContainText("FOC-1");
-  await page
-    .locator(".entity-pane .entity-overlay-body")
-    .evaluate((element) => {
-      element.scrollTop = 0;
-    });
+  await page.locator(".entity-pane .entity-pane-body").evaluate((element) => {
+    element.scrollTop = 0;
+  });
   await page.screenshot({
     animations: "disabled",
     path: testInfo.outputPath("task-beside-coordinator.png"),

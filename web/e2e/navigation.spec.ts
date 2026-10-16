@@ -517,7 +517,7 @@ test("entity identity and drafts persist across task and workspace tabs", async 
   });
   await page.goto("/");
   const sidebar = page.locator('[data-slot="sidebar"]');
-  const logo = sidebar.getByRole("link", { name: "Flowfield", exact: true });
+  const logo = sidebar.getByRole("link", { name: "Home", exact: true });
   const projectLink = sidebar.getByLabel("Workspace", { exact: true });
   await expect(projectLink).toBeVisible();
   await expect(
@@ -854,7 +854,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
     page.getByRole("tablist", { name: "Open resources" }),
   ).toBeVisible();
   const back = detail.getByRole("button", { name: "Back" });
-  const heading = detail.locator(".entity-overlay-title h2");
+  const heading = detail.locator(".entity-pane-title h2");
   expect((await back.boundingBox())!.x).toBeLessThan(
     (await heading.boundingBox())!.x,
   );
@@ -888,7 +888,9 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await expect(
     page.getByRole("button", { name: /Collapse projects|Expand projects/ }),
   ).toHaveCount(0);
-  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Flowfield settings", exact: true })
+    .click();
   await page.getByRole("tab", { name: "Appearance", exact: true }).click();
   await choose(page.getByLabel("Theme", { exact: true }), "light");
   await page.getByLabel("Workspace", { exact: true }).selectOption(workspace);
@@ -910,7 +912,9 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await expect(
     page.getByRole("button", { name: "Expand projects", exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Flowfield settings", exact: true })
+    .click();
   await page.getByRole("tab", { name: "Appearance", exact: true }).click();
   await choose(page.getByLabel("Theme", { exact: true }), "system");
   await page.getByLabel("Workspace", { exact: true }).selectOption(workspace);

@@ -111,7 +111,9 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   await expect(
     page.getByRole("region", { name: "Workspace settings", exact: true }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Flowfield settings", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Settings", exact: true }),
   ).toBeVisible();
@@ -122,22 +124,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
     page.getByRole("textbox", { name: "Message coordinator", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page
-    .getByRole("button", { name: "New workspace", exact: true })
-    .hover();
-  await expect(
-    page.getByRole("tooltip", { name: "New workspace", exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "New workspace", exact: true })
-    .click();
-  await expect(
-    page.getByRole("heading", { name: "New workspace", exact: true }),
-  ).toBeVisible();
-  await expect(
-    tabs.getByRole("tab", { name: "New workspace", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("link", { name: "Flowfield", exact: true }).click();
+  await page.getByRole("link", { name: "Home", exact: true }).click();
   await expect(
     page.locator(".project-list").getByRole("link", { name: /Feedback shell/ }),
   ).toContainText(/1\s*in Inbox/);

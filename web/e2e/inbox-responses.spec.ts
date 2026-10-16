@@ -526,7 +526,7 @@ test("code review in Inbox approves the exact result and delivers without naviga
   await expect(
     page.getByRole("heading", { name: "Outcome", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".entity-overlay-footer")).toBeEmpty();
+  await expect(page.locator(".entity-pane-footer")).toBeEmpty();
 });
 
 test("Needs me scrolls with wheel input and retains reading position during updates", async ({

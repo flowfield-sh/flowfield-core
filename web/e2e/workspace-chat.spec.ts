@@ -188,7 +188,9 @@ test("member projects share coordinator history and a draft", async ({
     project_id: null,
     label_id: null,
   });
-  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Flowfield settings", exact: true })
+    .click();
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(() => messages.length).toBe(6);
   expect(messages[5].view_context).toBeNull();

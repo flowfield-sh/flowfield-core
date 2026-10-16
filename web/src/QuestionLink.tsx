@@ -4,7 +4,7 @@ import { useContext } from "react";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { ResourceNavigation } from "./WorkspaceTabs";
 import { TooltipLink } from "./TooltipLink";
-import { followLink, questionOverlayHref } from "./navigation";
+import { followLink, relatedQuestionHref } from "./navigation";
 
 /** Related input uses the current resource tab and preserves native link behavior. */
 export function QuestionLink({
@@ -20,7 +20,7 @@ export function QuestionLink({
 }) {
   const location = useLocation();
   const navigate = useContext(ResourceNavigation);
-  const href = questionOverlayHref(location.pathname, id);
+  const href = relatedQuestionHref(location.pathname, id);
   return tooltip ? (
     <TooltipLink
       className={className}

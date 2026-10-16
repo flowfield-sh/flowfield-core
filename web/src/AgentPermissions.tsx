@@ -1,4 +1,4 @@
-import { OverlayFooter } from "./EntityOverlay";
+import { PaneFooter } from "./EntityPane";
 import { RequestFrame } from "./RequestFrame";
 import { reportError } from "./requestFeedback";
 import { useEffect, useState } from "react";
@@ -36,7 +36,7 @@ export function PermissionControl({
         <pre className="evidence-output">{record.details}</pre>
       )}
       {record.status === "pending" ? (
-        <OverlayFooter inline={!inRequest}>
+        <PaneFooter inline={!inRequest}>
           <div className={inRequest ? "task-input actions" : "actions"}>
             {record.options.map((option) => (
               <Button
@@ -69,7 +69,7 @@ export function PermissionControl({
               </Button>
             ))}
           </div>
-        </OverlayFooter>
+        </PaneFooter>
       ) : (
         <p>
           {record.status === "answered"

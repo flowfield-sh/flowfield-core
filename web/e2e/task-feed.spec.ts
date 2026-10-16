@@ -1210,9 +1210,7 @@ test("attempt activity updates without reloading the board and replays on reload
     "data-message-id",
     `attempt:${seeded.run_id}`,
   );
-  await expect(page.locator(".entity-overlay-title .work-state")).toHaveCount(
-    1,
-  );
+  await expect(page.locator(".entity-pane-title .work-state")).toHaveCount(1);
   await closeOverlay(page);
   const activeCard = page
     .locator(".task-card")
@@ -1361,7 +1359,7 @@ test("task feed follows the live end but preserves reading position and timestam
     });
   }
   await page.goto("/projects/feed-reading/tasks/FED-1/history");
-  const pane = page.locator(".entity-overlay-body");
+  const pane = page.locator(".entity-pane-body");
   const feed = page.getByRole("list", { name: "Task feed" });
   const atBottom = () =>
     pane.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight < 3);
@@ -1384,7 +1382,7 @@ test("task feed follows the live end but preserves reading position and timestam
     anchor.evaluate(
       (el) =>
         el.getBoundingClientRect().top -
-        el.closest(".entity-overlay-body")!.getBoundingClientRect().top,
+        el.closest(".entity-pane-body")!.getBoundingClientRect().top,
     );
   const before = await position();
   await request.post(`${path}/activity`, {

@@ -15,7 +15,7 @@ import { WorkState } from "./WorkState";
 import { Inspection } from "./Inspection";
 import type { DiffViewState } from "./CodeDiff";
 import { CheckEvidence } from "./Integration";
-import { OverlayFooter } from "./EntityOverlay";
+import { PaneFooter } from "./EntityPane";
 import { ResourceRetry } from "./ResourceRetry";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { WorkIdentity } from "./WorkIdentity";
@@ -501,7 +501,7 @@ export function MilestoneReviewRequest({
         <>
           <MilestoneReport value={value} />
           {value.review_note && <Markdown>{value.review_note}</Markdown>}
-          <OverlayFooter>
+          <PaneFooter>
             <MilestoneReviewResponse
               key={value.id}
               value={value}
@@ -509,7 +509,7 @@ export function MilestoneReviewRequest({
               refresh={resource.retry}
               onDirty={onDirty}
             />
-          </OverlayFooter>
+          </PaneFooter>
         </>
       )}
     </ContentStack>

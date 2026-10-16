@@ -237,7 +237,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   const browser = runs.locator(".diff-browser");
   const preview = browser.locator(".file-preview");
   const files = browser.getByRole("navigation", { name: "Changed files" });
-  const pane = page.locator(".entity-overlay-body");
+  const pane = page.locator(".entity-pane-body");
   const geometry = () =>
     browser.evaluate((el) => el.getBoundingClientRect().height);
   const height = await geometry();
@@ -267,7 +267,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   );
   for (const offset of [100, 160]) {
     await browser.evaluate((el, offset) => {
-      const pane = el.closest(".entity-overlay-body")!;
+      const pane = el.closest(".entity-pane-body")!;
       pane.scrollTop +=
         el.getBoundingClientRect().top -
         pane.getBoundingClientRect().top -
@@ -791,7 +791,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     },
   );
   const atTop = () =>
-    page.locator(".entity-overlay-body").evaluate((el) => el.scrollTop < 3);
+    page.locator(".entity-pane-body").evaluate((el) => el.scrollTop < 3);
   for (let i = 0; i < 3; i++) {
     await page.goto(`/projects/${project}/tasks/IPV-1`);
     await expect(
@@ -930,7 +930,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   selectedPreview = (
     await (await request.get(`${path}/tasks/try/results`)).json()
   ).items[0].id;
-  await page.locator(".entity-overlay-body").evaluate((el) => {
+  await page.locator(".entity-pane-body").evaluate((el) => {
     el.scrollTop = el.scrollHeight;
   });
   await expect(
@@ -1105,7 +1105,7 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
       await route.continue();
     },
   );
-  const reportPane = page.locator(".entity-overlay-body");
+  const reportPane = page.locator(".entity-pane-body");
   const reportAtBottom = () =>
     reportPane.evaluate(
       (el) => el.scrollHeight - el.scrollTop - el.clientHeight < 3,

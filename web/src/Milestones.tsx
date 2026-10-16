@@ -1,3 +1,4 @@
+import { Board } from "./Board";
 import { MilestoneBadge } from "./MilestoneBadge";
 import { WorkState } from "./WorkState";
 import type { components } from "./api-schema";
@@ -70,7 +71,7 @@ export function MilestoneList({
 }) {
   const cards = milestoneCards(board);
   return (
-    <div className="board milestone-board" aria-label="Milestones">
+    <Board className="milestone-board" aria-label="Milestones">
       {["Planned", "In progress", "Review", "Complete"].map((column) => (
         <section key={column} className="column" aria-label={column}>
           <h2>
@@ -133,7 +134,7 @@ export function MilestoneList({
           </div>
         </section>
       ))}
-    </div>
+    </Board>
   );
 }
 

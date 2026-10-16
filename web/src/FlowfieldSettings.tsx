@@ -1,3 +1,4 @@
+import { ActionTooltip } from "./ActionTooltip";
 import { StatusNotice } from "./StatusNotice";
 import { NotificationSettings } from "./NotificationSettings";
 import { UpdateSettings } from "./UpdateSettings";
@@ -21,7 +22,7 @@ import { ConfirmButton } from "./ConfirmButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SidebarMenuButton, useSidebar } from "@/components/ui/sidebar";
+import { useSidebar } from "@/components/ui/sidebar";
 import "./harness-settings.css";
 import { harnessNames as names } from "./HarnessModels";
 import { HarnessLogo } from "./HarnessSelect";
@@ -34,25 +35,26 @@ export function SettingsLink({ active }: { active: boolean }) {
   const { updates } = useAnnouncements();
   const { setOpenMobile } = useSidebar();
   return (
-    <SidebarMenuButton asChild tooltip="Settings" isActive={active}>
-      <WorkspaceLink
-        to="/settings/harnesses"
-        className="workspace-settings-link"
-        aria-label="Settings"
-        aria-current={active ? "page" : undefined}
-        onClick={() => setOpenMobile(false)}
-      >
-        <Settings />
-        {updates?.available_version && (
-          <span
-            className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary"
-            role="status"
-            aria-label="Update available"
-          />
-        )}
-        <span data-sidebar="label">Settings</span>
-      </WorkspaceLink>
-    </SidebarMenuButton>
+    <ActionTooltip label="Flowfield settings">
+      <Button asChild size="icon-sm" variant="ghost" className="relative">
+        <WorkspaceLink
+          to="/settings/harnesses"
+          className="workspace-settings-link"
+          aria-label="Flowfield settings"
+          aria-current={active ? "page" : undefined}
+          onClick={() => setOpenMobile(false)}
+        >
+          <Settings />
+          {updates?.available_version && (
+            <span
+              className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary"
+              role="status"
+              aria-label="Update available"
+            />
+          )}
+        </WorkspaceLink>
+      </Button>
+    </ActionTooltip>
   );
 }
 

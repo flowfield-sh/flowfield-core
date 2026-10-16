@@ -29,7 +29,7 @@ test("CLI adoption updates the browser, task creation and initial connection rec
   await page.unroute("**/api/workspaces");
   await page.getByRole("button", { name: "Retry connection" }).click();
   await expect(
-    page.getByRole("button", { name: "New workspace", exact: true }),
+    page.getByRole("link", { name: "New workspace", exact: true }),
   ).toHaveCount(1);
   const adopted = fixtureCliProject([
     existingDirectory(join(state, "browser")),

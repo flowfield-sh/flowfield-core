@@ -6,7 +6,7 @@ import { ContentStack } from "./DetailLayout";
 import { DetailHeader } from "./Presentation";
 import { ResourceTitles } from "./WorkspaceTabs";
 import { ResourceRetry } from "./ResourceRetry";
-import { EntityPane } from "./EntityOverlay";
+import { EntityPane } from "./EntityPane";
 import { WorkState } from "./WorkState";
 import { useResource } from "./useResource";
 import type { DirtyCallback } from "./retainedState";

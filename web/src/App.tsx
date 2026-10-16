@@ -1,3 +1,10 @@
+import { Board as ScrollableBoard } from "./Board";
+import { ConnectionRecovery } from "./ConnectionRecovery";
+import {
+  checkServiceConnection,
+  serviceIsUnavailable,
+  useServiceUnavailable,
+} from "./serviceConnection";
 import { WorkIdentity } from "./WorkIdentity";
 import { TaskLabels } from "./TaskLabels";
 import { hasRetainedDrafts, type DirtyCallback } from "./retainedState";
@@ -29,12 +36,12 @@ import {
 } from "@/components/ui/tooltip";
 import { WorkspaceFrame } from "./WorkspaceFrame";
 import { useTheme } from "./AppearanceSettings";
-import { FlowfieldSettings, SettingsLink } from "./FlowfieldSettings";
+import { FlowfieldSettings } from "./FlowfieldSettings";
 import { ContentStack } from "./DetailLayout";
 import { WorkCard } from "./WorkCard";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
-import { EntityPane } from "./EntityOverlay";
+import { EntityPane } from "./EntityPane";
 import { DetailHeader } from "./Presentation";
 import { useResource } from "./useResource";
 import { TaskDetail } from "./TaskDetail";
@@ -76,6 +83,7 @@ type Selection = { kind: "task" | "milestone" | "project"; id: string };
 export function App() {
   const contextLocation = useLocation();
   const appearance = useTheme();
+  const unavailable = useServiceUnavailable();
   const [chatDrafts] = useState<ChatDrafts>(() => new Map());
   const [adjacent, setAdjacent] = useState<AdjacentSnapshot | null>(null);
   const [chatSettingsDirty, setChatSettingsDirty] = useState(false);
@@ -84,6 +92,16 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  useEffect(() => {
+    const recovered = () => {
+      setRefresh((value) => value + 1);
+      window.dispatchEvent(new Event("flowfield:reconnected"));
+    };
+    window.addEventListener("flowfield:service-recovered", recovered);
+    return () =>
+      window.removeEventListener("flowfield:service-recovered", recovered);
+  }, []);
+
   const [projectRefresh, setProjectRefresh] = useState<Record<string, number>>(
     {},
   );
@@ -183,15 +201,17 @@ export function App() {
         board.projects.map((project) => [project.id, board.workspace.id]),
       ),
     }));
-  const connectionStatus = connected
-    ? live
-      ? "Connected"
-      : navigator.onLine
-        ? "Reconnecting…"
-        : "Disconnected"
-    : loading
-      ? "Connecting…"
-      : "Disconnected";
+  const connectionStatus = unavailable
+    ? "Disconnected"
+    : connected
+      ? live
+        ? "Connected"
+        : navigator.onLine
+          ? "Reconnecting…"
+          : "Disconnected"
+      : loading
+        ? "Connecting…"
+        : "Disconnected";
   useEffect(() => {
     let active = true;
     request<WorkspaceRecord[]>("workspaces")
@@ -215,6 +235,18 @@ export function App() {
     if (!connected) return;
     let events: EventSource;
     let opened = false;
+    let streaming = false;
+    let streamNeedsRefresh = false;
+    // Health recovery already refreshes reads and catalogs. A later stream-open
+    // signal for the same outage must not discover the model catalogs again.
+    const recovered = () => {
+      streamNeedsRefresh = false;
+    };
+    const disconnected = () => {
+      if (streaming) streamNeedsRefresh = true;
+      streaming = false;
+      setLive(false);
+    };
     function changed(change: { projects: string[] | null }) {
       window.dispatchEvent(
         new CustomEvent("flowfield:activity", { detail: change }),
@@ -239,11 +271,17 @@ export function App() {
       events?.close();
       events = new EventSource("/api/events");
       events.onopen = () => {
+        streaming = true;
         setLive(true);
-        if (opened) window.dispatchEvent(new Event("flowfield:reconnected"));
+        if (opened && streamNeedsRefresh && !serviceIsUnavailable())
+          window.dispatchEvent(new Event("flowfield:reconnected"));
+        streamNeedsRefresh = false;
         opened = true;
       };
-      events.onerror = () => setLive(false);
+      events.onerror = () => {
+        disconnected();
+        void checkServiceConnection();
+      };
       events.addEventListener("change", (event) => {
         changed(JSON.parse(event.data) as { projects: string[] | null });
       });
@@ -257,16 +295,18 @@ export function App() {
     }
     function offline() {
       events?.close();
-      setLive(false);
+      disconnected();
     }
     if (navigator.onLine) connect();
     window.addEventListener("online", connect);
     window.addEventListener("offline", offline);
+    window.addEventListener("flowfield:service-recovered", recovered);
     window.addEventListener("flowfield:mutation", saved);
     return () => {
       events?.close();
       window.removeEventListener("online", connect);
       window.removeEventListener("offline", offline);
+      window.removeEventListener("flowfield:service-recovered", recovered);
       window.removeEventListener("flowfield:mutation", saved);
     };
   }, [connected]);
@@ -349,6 +389,7 @@ export function App() {
       <ResourceNavigation.Provider value={openResource}>
         <AnnouncementProvider navigate={openResource}>
           <Toaster theme={appearance.theme} />
+          <ConnectionRecovery />
           <WorkspaceFrame
             workLocation={workLocation}
             workspaces={workspaces.map((workspace) => ({
@@ -360,7 +401,7 @@ export function App() {
             activeWorkspaceId={workspaceId ?? ""}
             onWorkspaceSelect={(workspace) => rawChangeLocation(workspace.href)}
             onHome={() => changeLocation("/")}
-            onAddWorkspace={() => openResource("/new-workspace")}
+            settingsActive={pathname.startsWith("/settings/")}
             navigation={
               board && workspaceId ? (
                 <WorkNavigation
@@ -391,7 +432,6 @@ export function App() {
             }
             footer={
               <div className="workspace-utilities">
-                <SettingsLink active={pathname.startsWith("/settings/")} />
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <p
@@ -401,7 +441,9 @@ export function App() {
                       aria-label={connectionStatus}
                     >
                       <span
-                        className={live ? "live-dot" : "live-dot offline"}
+                        className={
+                          live && !unavailable ? "live-dot" : "live-dot offline"
+                        }
                       />
                       <span data-sidebar="label">{connectionStatus}</span>
                     </p>
@@ -451,9 +493,9 @@ export function App() {
                     <h1>
                       {loading
                         ? "Opening your workspace"
-                        : "Service unavailable"}
+                        : "Could not load workspaces"}
                     </h1>
-                    {!loading && (
+                    {!loading && !unavailable && (
                       <>
                         <p>Check that Flowfield is running, then try again.</p>
                         <Button
@@ -600,7 +642,7 @@ function WorkspaceResource({
     : "";
   const base = workspaceHref(workspaceId);
   const { data: board, setData: setBoard, error, invalidate } = boardResource;
-  const questionId = params.questionId ?? params.overlayQuestionId;
+  const questionId = params.questionId ?? params.relatedQuestionId;
   const questionSelected = questionId !== undefined;
   const requestSelected = !!params.requestId;
   const taskRef = params.taskKey;
@@ -1121,7 +1163,7 @@ function WorkspaceResource({
                       choose={choose}
                     />
                   ) : (
-                    <div className="board" aria-label="Task board">
+                    <ScrollableBoard aria-label="Task board">
                       {columns.map((column) => {
                         const tasks = visible
                           .filter((t) => t.status === column)
@@ -1248,7 +1290,7 @@ function WorkspaceResource({
                           </section>
                         );
                       })}
-                    </div>
+                    </ScrollableBoard>
                   )}
                 </div>
               </ContentStack>
@@ -1335,7 +1377,7 @@ function WorkspaceResource({
           open={changeLocation}
           close={() =>
             closeEntity(
-              params.overlayQuestionId
+              params.relatedQuestionId
                 ? pathname
                 : projectHref(projectId) + "/inbox",
             )

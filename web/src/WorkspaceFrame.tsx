@@ -20,11 +20,12 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Home } from "lucide-react";
+import { Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import "./workspace-frame.css";
 import { followLink } from "./navigation";
+import { SettingsLink } from "./FlowfieldSettings";
 import { ActionTooltip } from "./ActionTooltip";
 
 export type WorkspaceEntry = {
@@ -46,7 +47,7 @@ function WorkspaceNavigation({
   onWorkspaceSelect,
   footer,
   onHome,
-  onAddWorkspace,
+  settingsActive,
   navigation,
   queue,
 }: {
@@ -55,7 +56,7 @@ function WorkspaceNavigation({
   onWorkspaceSelect: (workspace: WorkspaceEntry) => void;
   footer?: ReactNode;
   onHome?: () => void;
-  onAddWorkspace?: () => void;
+  settingsActive?: boolean;
   navigation?: ReactNode;
   queue?: ReactNode;
 }) {
@@ -63,19 +64,25 @@ function WorkspaceNavigation({
   return (
     <Sidebar collapsible="offcanvas">
       <SidebarHeader className="workspace-sidebar-header">
-        <Button asChild size="icon-sm" variant="ghost" aria-label="Flowfield">
-          <a
-            href="/"
-            onClick={(event) =>
-              followLink(event, () => {
-                onHome?.();
-                setOpenMobile(false);
-              })
-            }
-          >
-            <Home />
-          </a>
-        </Button>
+        <div className="workspace-global-actions">
+          <ActionTooltip label="Home">
+            <Button asChild size="icon-sm" variant="ghost" aria-label="Home">
+              <a
+                href="/"
+                onClick={(event) =>
+                  followLink(event, () => {
+                    onHome?.();
+                    setOpenMobile(false);
+                  })
+                }
+              >
+                <Home />
+              </a>
+            </Button>
+          </ActionTooltip>
+          <SettingsLink active={!!settingsActive} />
+          {isMobile && <SidebarTrigger aria-label="Close navigation" />}
+        </div>
         <NativeSelect
           size="sm"
           aria-label="Workspace"
@@ -101,20 +108,6 @@ function WorkspaceNavigation({
             </option>
           ))}
         </NativeSelect>
-        <ActionTooltip label="New workspace">
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label="New workspace"
-            onClick={() => {
-              onAddWorkspace?.();
-              setOpenMobile(false);
-            }}
-          >
-            <Plus />
-          </Button>
-        </ActionTooltip>
-        {isMobile && <SidebarTrigger aria-label="Close navigation" />}
       </SidebarHeader>
       <SidebarContent
         className="workspace-sidebar-content"
@@ -141,7 +134,7 @@ export function WorkspaceFrame({
   work,
   footer,
   onHome,
-  onAddWorkspace,
+  settingsActive,
   workLocation,
   navigation,
   queue,
@@ -156,7 +149,7 @@ export function WorkspaceFrame({
   work: ReactNode;
   footer?: ReactNode;
   onHome?: () => void;
-  onAddWorkspace?: () => void;
+  settingsActive?: boolean;
 }) {
   const compact = useSyncExternalStore(
     subscribeCompact,
@@ -208,7 +201,7 @@ export function WorkspaceFrame({
         navigation={navigation}
         queue={queue}
         onHome={onHome}
-        onAddWorkspace={onAddWorkspace}
+        settingsActive={settingsActive}
       />
       <main className="workspace-main">
         {coordinator == null ? (

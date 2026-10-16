@@ -19,7 +19,7 @@ test("explicit workspace creation, project adoption and shared draft navigation"
   );
   await page.getByRole("link", { name: "New workspace", exact: true }).click();
   await page.getByLabel("Name", { exact: true }).fill("Product development");
-  await page.getByRole("link", { name: "Flowfield", exact: true }).click();
+  await page.getByRole("link", { name: "Home", exact: true }).click();
   await expect(page.getByRole("alertdialog")).toBeVisible();
   await page.getByRole("button", { name: "Keep editing" }).click();
   await page

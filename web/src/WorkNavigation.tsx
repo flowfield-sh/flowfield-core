@@ -148,7 +148,7 @@ export function WorkList({
           );
         })}
         {!items.length && (
-          <p className="empty-column">
+          <p className="collection-empty">
             {all ? "No work yet" : "No active work"}
           </p>
         )}

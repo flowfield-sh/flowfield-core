@@ -82,9 +82,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
   await expect(
     detail.getByRole("img", { name: "Waiting on prerequisites", exact: true }),
   ).toHaveCount(1);
-  await expect(detail.locator(".entity-overlay-title .work-state")).toHaveCount(
-    1,
-  );
+  await expect(detail.locator(".entity-pane-title .work-state")).toHaveCount(1);
   await detail.getByRole("link", { name: "DEP-3", exact: true }).hover();
   await expect(page.getByRole("tooltip")).toHaveText("Prepare export settings");
   await expect(detail.getByLabel("Add prerequisite")).toHaveCount(0);
@@ -1246,7 +1244,7 @@ test("related questions preserve the page, drafts, focus and router history", as
     exact: true,
   });
   const overlayScroll = await taskDialog
-    .locator(".entity-overlay-body")
+    .locator(".entity-pane-body")
     .evaluate((el) => el.scrollTop);
   expect(overlayScroll).toBeGreaterThan(0);
   const scroll = await page.evaluate(() => scrollY);
@@ -1271,7 +1269,7 @@ test("related questions preserve the page, drafts, focus and router history", as
   await expect(trigger).toBeFocused();
   await expect
     .poll(() =>
-      taskDialog.locator(".entity-overlay-body").evaluate(
+      taskDialog.locator(".entity-pane-body").evaluate(
         (el, saved) =>
           // The delayed loading row disappears while away. Native scrolling clamps
           // the saved offset when the returning content has a shorter scroll range.

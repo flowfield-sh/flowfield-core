@@ -30,7 +30,7 @@ import { useDirtyItems } from "./useDirtyItems";
 import { ResourceRetry } from "./ResourceRetry";
 import { RequestFrame } from "./RequestFrame";
 import { Timestamp } from "./Timestamp";
-import { EntityPane, OverlayFooter } from "./EntityOverlay";
+import { EntityPane, PaneFooter } from "./EntityPane";
 
 type Item = components["schemas"]["AttentionItem"];
 type Page = components["schemas"]["AttentionPage"];
@@ -171,7 +171,7 @@ export function RequestCard({
         <>
           <strong>{item.title}</strong>
           {item.state && <WorkState state={item.state} />}
-          <OverlayFooter>
+          <PaneFooter>
             <div className="task-input actions">
               <Button variant="outline" asChild>
                 <WorkspaceLink to={href}>
@@ -179,7 +179,7 @@ export function RequestCard({
                 </WorkspaceLink>
               </Button>
             </div>
-          </OverlayFooter>
+          </PaneFooter>
         </>
       )}
     </>
@@ -341,7 +341,7 @@ function InboxList({
       <ResourceRetry resources={[page]} />
       {page.loading && !page.data && <p>Loading requests…</p>}
       {page.data && !items.length && (
-        <p className="empty-column">
+        <p className="collection-empty">
           {tab === "needs_me"
             ? "Nothing needs your attention."
             : "No past items yet."}

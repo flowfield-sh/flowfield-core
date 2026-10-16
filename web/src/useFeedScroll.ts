@@ -1,5 +1,5 @@
 import { useContext, useLayoutEffect, useRef, type RefObject } from "react";
-import { useOverlayBody } from "./EntityOverlay";
+import { usePaneBody } from "./EntityPane";
 import { ResourceScrollKey } from "./ResourceScroll";
 
 const initialPosition = () => ({
@@ -26,8 +26,8 @@ export function useFeedScroll(
   targetReady: boolean,
   scrollPane?: HTMLDivElement | null,
 ) {
-  const overlayPane = useOverlayBody();
-  const pane = scrollPane ?? overlayPane;
+  const entityPane = usePaneBody();
+  const pane = scrollPane ?? entityPane;
   const key = useContext(ResourceScrollKey);
   const scope = useRef<string | null | undefined>(undefined);
   const control = useRef(initialPosition());
@@ -171,7 +171,7 @@ export function useFeedScroll(
     state.initialized = false;
     state.target = nextTarget;
     if (!restored) state.following = !target && !state.interacted;
-    // The overlay resets its body in a parent layout effect. Ignore its queued
+    // The pane resets its body in a parent layout effect. Ignore its queued
     // scroll events until our own initial positioning has run after that reset.
     const frame = requestAnimationFrame(() => {
       const entry =

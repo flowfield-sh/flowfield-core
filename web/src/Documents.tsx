@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import type { components } from "./api-schema";
 import type { AdjacentSnapshot } from "./AdjacentView";
 import { ContentStack } from "./DetailLayout";
-import { EntityPane } from "./EntityOverlay";
+import { EntityPane } from "./EntityPane";
 import { DetailHeader } from "./Presentation";
 import { Markdown, MarkdownField } from "./Markdown";
 import { RevisionHistory } from "./RevisionHistory";

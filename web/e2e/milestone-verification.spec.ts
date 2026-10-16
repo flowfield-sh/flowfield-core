@@ -106,7 +106,7 @@ test("Inbox review accepts exact milestone evidence and keeps history", async ({
   expect(
     inbox.items.filter((item: { kind: string }) => item.kind === "milestone"),
   ).toHaveLength(0);
-  await expect(page.locator(".entity-overlay-footer")).toBeEmpty();
+  await expect(page.locator(".entity-pane-footer")).toBeEmpty();
   await page.reload();
   await expect(
     page.getByRole("heading", { name: "Milestone accepted", exact: true }),
@@ -150,7 +150,7 @@ test("request changes preserves feedback and stale evidence cannot be accepted",
   });
   await expect(
     page
-      .locator(".entity-overlay-footer")
+      .locator(".entity-pane-footer")
       .getByText(/revision 1; revision 2 is now current/),
   ).toBeVisible();
   await expect(
@@ -181,7 +181,7 @@ test("a completed verifier with a failed criterion never offers acceptance", asy
   ).toBeVisible();
   await expect(
     page
-      .locator(".entity-overlay-footer")
+      .locator(".entity-pane-footer")
       .getByText(
         "Ask the Coordinator to address the findings and verify the milestone again.",
         { exact: true },
@@ -291,6 +291,6 @@ test("milestone Activity keeps expandable revisions, paged reviews and exact not
         exact: true,
       }),
     ).toBeVisible();
-    await expect(page.locator(".entity-overlay-footer")).toBeEmpty();
+    await expect(page.locator(".entity-pane-footer")).toBeEmpty();
   }
 });
