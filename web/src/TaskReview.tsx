@@ -7,11 +7,9 @@ import { reportError } from "./requestFeedback";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { Markdown } from "./Markdown";
 import { Button } from "@/components/ui/button";
-import { ReviewerSettings } from "./ReviewerSettings";
 import { ConfirmButton } from "./ConfirmButton";
 import { RunActivity } from "./RunActivity";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Timestamp } from "./Timestamp";
 import { ResourceRetry } from "./ResourceRetry";
 
@@ -19,33 +17,28 @@ type Review = components["schemas"]["TaskReview"];
 export function TaskReview({
   projectId,
   taskId,
-  workspaceId,
   refresh,
-  onDirty,
+  compact = false,
 }: {
   projectId: string;
   taskId: string;
   workspaceId: string;
   refresh: unknown;
-  onDirty: (value: boolean) => void;
+  compact?: boolean;
 }) {
   const resource = useResource<Review | null>(
     `projects/${projectId}/tasks/${taskId}/review`,
     refresh,
   );
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const settings = useResource<components["schemas"]["ReviewerSettingsView"]>(
-    `workspaces/${workspaceId}/reviewers/task?project=${projectId}&entity=${taskId}`,
-    refresh,
-  );
   const review = resource.data;
+  if (compact && review && ["decided", "stale"].includes(review.status))
+    return null;
+  if (compact && !review && !resource.error) return null;
   return (
     <DetailSection title="Independent review">
       <ContentStack>
-        <ResourceRetry resources={[resource, settings]}>
-          Retry review
-        </ResourceRetry>
+        <ResourceRetry resources={[resource]}>Retry review</ResourceRetry>
         {review && (
           <>
             <p>
@@ -67,64 +60,47 @@ export function TaskReview({
                               ? "Review failed"
                               : "Preparing review"}
             </p>
-            {review.verdict && (
+            {!compact && review.verdict && (
               <Disclosure summary="Review evidence">
                 <Markdown>{review.verdict.evidence}</Markdown>
               </Disclosure>
             )}
             {review.problem && <p>{review.problem}</p>}
-            {review.status === "waiting" && review.question_id && (
+            {!compact && review.status === "waiting" && review.question_id && (
               <WorkspaceLink
                 to={`/projects/${projectId}/tasks/${taskId}/conversation/question:${review.question_id}`}
               >
                 Answer review question
               </WorkspaceLink>
             )}
-            <WorkspaceLink
-              to={`/projects/${projectId}/tasks/${taskId}/conversation/result:${review.result_id}`}
-            >
-              Reviewed result
-            </WorkspaceLink>
+            {!compact && (
+              <WorkspaceLink
+                to={`/projects/${projectId}/tasks/${taskId}/conversation/result:${review.result_id}`}
+              >
+                Reviewed result
+              </WorkspaceLink>
+            )}
             <ReviewControls
               review={review}
               path={`projects/${projectId}/reviews/${review.id}`}
               saved={resource.setData}
             />
-            <Disclosure
-              summary="Review rounds and diagnostics"
-              onToggle={(event) => setHistoryOpen(event.currentTarget.open)}
-            >
-              {historyOpen && (
-                <ReviewRounds
-                  key={review.id}
-                  projectId={projectId}
-                  review={review}
-                />
-              )}
-            </Disclosure>
+            {(!compact || review.status === "uncertain") && (
+              <Disclosure
+                summary="Review rounds and diagnostics"
+                onToggle={(event) => setHistoryOpen(event.currentTarget.open)}
+              >
+                {historyOpen && (
+                  <ReviewRounds
+                    key={review.id}
+                    projectId={projectId}
+                    review={review}
+                  />
+                )}
+              </Disclosure>
+            )}
           </>
         )}
-        {settings.data?.effective.enabled && !settings.data.effective.agent && (
-          <Alert>
-            <AlertDescription>
-              Choose a task reviewer below to run automatic assessments.
-            </AlertDescription>
-          </Alert>
-        )}
-        <Disclosure
-          summary="Task reviewer settings"
-          onToggle={(event) => setSettingsOpen(event.currentTarget.open)}
-        >
-          <ReviewerSettings
-            workspaceId={workspaceId}
-            purpose="task"
-            projectId={projectId}
-            entity={taskId}
-            refresh={refresh}
-            onDirty={onDirty}
-            active={settingsOpen}
-          />
-        </Disclosure>
       </ContentStack>
     </DetailSection>
   );

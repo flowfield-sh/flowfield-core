@@ -31,6 +31,7 @@ test("Inbox review accepts exact milestone evidence and keeps history", async ({
     .getByRole("link", { name: /Verify installed harness discovery/ })
     .first()
     .click();
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Accept milestone", exact: true }),
   ).toBeVisible();
@@ -243,7 +244,7 @@ test("milestone Activity keeps expandable revisions, paged reviews and exact not
     ).toBeVisible();
     await expect(
       page.getByRole("tablist", { name: "Milestone views" }).getByRole("tab"),
-    ).toHaveText(["Overview", "Activity"]);
+    ).toHaveText(["Overview", "Activity", "Settings"]);
     const feed = page.getByRole("list", { name: "Milestone activity" });
     await expect(feed.locator(":scope > li")).toHaveCount(20);
     await expect(feed.locator(".activity-entry[open]")).toHaveCount(1);
@@ -269,9 +270,9 @@ test("milestone Activity keeps expandable revisions, paged reviews and exact not
       }),
     ).toBeVisible();
     const href = await old
-      .locator(".activity-entry-meta a")
+      .locator(".activity-entry-meta a:has(time)")
       .getAttribute("href");
-    await old.locator(".activity-entry-meta a").click();
+    await old.locator(".activity-entry-meta a:has(time)").click();
     await expect(
       page.getByRole("button", { name: "Accept milestone", exact: true }),
     ).toHaveCount(0);

@@ -41,6 +41,7 @@ import { TaskDetail } from "./TaskDetail";
 import { ProjectEditor } from "./ProjectEditor";
 import { WorkspaceEditor } from "./WorkspaceEditor";
 import { QueueControls } from "./Workers";
+import { RequestDetail } from "./RequestDetail";
 import { AttentionBoard } from "./AttentionBoard";
 import { MilestoneDetail } from "./MilestoneDetail";
 import { MilestoneList } from "./Milestones";
@@ -599,6 +600,7 @@ function WorkspaceResource({
   const { data: board, setData: setBoard, error, invalidate } = boardResource;
   const questionId = params.questionId ?? params.overlayQuestionId;
   const questionSelected = questionId !== undefined;
+  const requestSelected = !!params.requestId;
   const taskRef = params.taskKey;
   const {
     data: taskDetail,
@@ -633,7 +635,7 @@ function WorkspaceResource({
     ["workers", "coordinator"].includes(params.projectTab ?? "");
   const selection: Selection | null = workspaceSettings
     ? null
-    : questionSelected
+    : questionSelected || requestSelected
       ? null
       : taskRef
         ? { kind: "task", id: selectedTask?.key ?? taskRef }
@@ -673,19 +675,21 @@ function WorkspaceResource({
   const milestonesView = inView("milestones");
   const showInbox = inView("inbox");
   const archive = inView("archive");
-  const surface = params.milestoneId
-    ? "milestone"
-    : taskRef
-      ? "task"
-      : projectsView
-        ? "projects"
-        : milestonesView
-          ? "milestones"
-          : showInbox
-            ? "inbox"
-            : archive
-              ? "archive"
-              : "board";
+  const surface = requestSelected
+    ? "request"
+    : params.milestoneId
+      ? "milestone"
+      : taskRef
+        ? "task"
+        : projectsView
+          ? "projects"
+          : milestonesView
+            ? "milestones"
+            : showInbox
+              ? "inbox"
+              : archive
+                ? "archive"
+                : "board";
   const filtered = surface === "board" || surface === "archive";
   useEffect(() => {
     if (
@@ -700,6 +704,7 @@ function WorkspaceResource({
     }
   }, [filtered, board, labelFilter, location.search, pathname, changeLocation]);
   const adjacentContext: AdjacentContext | null =
+    !requestSelected &&
     board &&
     (!taskRef || (taskDetail && !detailError)) &&
     (!params.milestoneId || viewedMilestone)
@@ -746,13 +751,20 @@ function WorkspaceResource({
       : null;
   const viewSnapshot = JSON.stringify(adjacentContext);
   useEffect(() => {
-    if (documentsView) return;
+    if (documentsView || requestSelected) return;
     publishView({
       workspaceId,
       pathname,
       context: JSON.parse(viewSnapshot) as AdjacentContext | null,
     });
-  }, [workspaceId, pathname, viewSnapshot, publishView, documentsView]);
+  }, [
+    workspaceId,
+    pathname,
+    viewSnapshot,
+    publishView,
+    documentsView,
+    requestSelected,
+  ]);
   function selectionUrl(next: Selection | null, archived = archive) {
     if (!next)
       return (
@@ -941,10 +953,24 @@ function WorkspaceResource({
   );
   return (
     <LabelCatalog value={board.labels}>
+      {requestSelected && (
+        <RequestDetail
+          publishView={publishView}
+          workspaceId={workspaceId}
+          kind={params.requestKind!}
+          identity={params.requestId!}
+          projectId={query.get("project_id") ?? undefined}
+          board={board}
+          refresh={refresh}
+          onDirty={setUnsaved}
+          close={() => closeEntity(`${base}/inbox`)}
+        />
+      )}
       {!selection &&
         !workspaceSettings &&
         !addingProject &&
-        !questionSelected && (
+        !questionSelected &&
+        !requestSelected && (
           <div
             className={`${documentsView && params.documentId ? "workspace-detail-content " : ""}workspace-work-content ${!allWorkView && !projectsView && !documentsView && !showInbox && !archive ? "workspace-task-board" : ""}`}
           >

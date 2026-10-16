@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from flowfield.application import Workspace
 
 AttentionColumn = Literal["action", "waiting", "history"]
+RequestKind = Literal["question", "attempt", "integration", "result", "permission", "milestone"]
 
 
 class AttentionItem(BaseModel):
@@ -38,6 +39,10 @@ class AttentionItem(BaseModel):
     result_version: int | None = None
     next_action: str | None = None
     state: WorkState | None = None
+    request_href: str | None = None
+    source_href: str | None = None
+    source_key: str | None = None
+    request_kind: RequestKind | None = None
 
 
 class AttentionPage(BaseModel):
@@ -256,6 +261,9 @@ def attention_page(
     *,
     workspace_id: str | None = None,
     include_answered: bool = False,
+    request_kind: RequestKind | None = None,
+    request_id: str | None = None,
+    requests_only: bool = False,
 ) -> AttentionPage:
     with workspace.connection() as db:
         if workspace_id is not None:
@@ -271,6 +279,19 @@ def attention_page(
         projection = review_projection(
             db, _WORKSPACE_PROJECTION if workspace_id is not None else _WITH_DOCUMENTS
         )
+        if request_id:
+            # Exact links outlive Inbox visibility and later result creation.
+            projection = (
+                projection.replace(
+                    "WHERE NOT EXISTS (SELECT 1 FROM result_versions v WHERE v.run_id=r.id)", ""
+                )
+                .replace("AND json_extract(i.data,'$.result_id') IS NULL", "")
+                .replace(
+                    "AND NOT EXISTS (SELECT 1 FROM result_versions v\n"
+                    "        WHERE json_extract(v.data,'$.integration_id')=i.id)",
+                    "",
+                )
+            )
         args = {
             "project": project_id,
             "workspace": workspace_id,
@@ -278,10 +299,20 @@ def attention_page(
             "include_answered": include_answered and column == "history",
             "offset": offset,
             "limit": limit,
+            "request_kind": request_kind,
+            "request_id": request_id,
         }
         selection = (
             "(bucket=:column OR (:include_answered AND kind='question' AND status='answered'))"
         )
+        if requests_only:
+            selection += " AND kind!='document'"
+        if request_id:
+            selection = (
+                "id=:request_id AND project_id IS :project AND "
+                "(kind=:request_kind OR (:request_kind='attempt' AND "
+                "kind IN ('intervention','review')))"
+            )
         total = db.execute(
             projection + "SELECT count(*) FROM items WHERE " + selection, args
         ).fetchone()[0]
@@ -298,6 +329,9 @@ def attention_page(
         items = [AttentionItem.model_validate(dict(row)) for row in rows]
         for item in items:
             owner = item.project_id
+            from flowfield.requests import bind_links
+
+            bind_links(db, item, workspace_id)
             if item.kind == "milestone":
                 item.next_action = {
                     "preparing": "Preparing combined candidate",
@@ -374,6 +408,17 @@ def attention_page(
                         if item.status == "applied"
                         else None
                     )
+                )
+            if item.state is None:
+                item.state = WorkState(
+                    label=item.status.replace("_", " ").capitalize(),
+                    tone="complete"
+                    if item.status in {"accepted", "delivered", "applied", "answered"}
+                    else "attention"
+                    if item.status in {"failed", "blocked", "uncertain", "stale"}
+                    else "waiting"
+                    if item.status in {"open", "pending", "ready", "in_review"}
+                    else "idle",
                 )
         return AttentionPage(
             items=items,

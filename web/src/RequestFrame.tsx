@@ -1,3 +1,4 @@
+import { OpenInWorkTab } from "./WorkspaceTabs";
 import { useState, type ReactNode } from "react";
 import { ResponseFooterHost } from "./EntityOverlay";
 import { ContentStack, DetailHeading } from "./DetailLayout";
@@ -11,8 +12,10 @@ export function RequestFrame({
   label,
   state,
   children,
+  href,
 }: {
   kind: string;
+  href?: string;
   source?: ReactNode;
   label: string;
   state: components["schemas"]["WorkState"] | null | undefined;
@@ -29,10 +32,13 @@ export function RequestFrame({
               state={state ?? { label: kind, tone: "waiting" }}
               indicatorOnly
             />
+            {source}
             <span>{kind}</span>
           </span>
         }
-        metadata={source}
+        metadata={
+          href && <OpenInWorkTab href={href} label="Open request in work tab" />
+        }
         inlineMetadata
       />
       <ResponseFooterHost.Provider value={footer}>

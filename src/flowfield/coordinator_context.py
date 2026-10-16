@@ -57,6 +57,11 @@ def freeze_view(
             selection.surface != "document"
             and (selection.document_id is not None or selection.document_revision is not None)
         )
+        or (
+            selection.surface == "request"
+            and (not selection.request_kind or not selection.request_id)
+        )
+        or (selection.surface != "request" and (selection.request_kind or selection.request_id))
     ):
         raise ApplicationError(
             "invalid_view_context", "The message view does not match its context."
@@ -67,6 +72,15 @@ def freeze_view(
         workspace_name=workspace.name,
         workspace_revision=workspace.revision,
     )
+    if selection.request_kind and selection.request_id:
+        from flowfield.requests import get_request
+
+        request = get_request(
+            store, workspace_id, selection.request_kind, selection.request_id, selection.project_id
+        )
+        value.request_title = request.title
+        value.request_status = request.status
+        value.request_href = request.request_href
     if selection.document_id:
         document = Documents.read(
             db, workspace_id, selection.document_id, selection.document_revision

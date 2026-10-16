@@ -1,6 +1,7 @@
 import { useParams } from "react-router";
 import { useContext } from "react";
 import { ResourceNavigation } from "./WorkspaceTabs";
+import { ReviewerSettings } from "./ReviewerSettings";
 import { SourceReferences } from "./SourceReferences";
 import type { DirtyCallback } from "./retainedState";
 import { useCallback, useEffect, useState } from "react";
@@ -35,6 +36,7 @@ export function TaskDetail({
   const route = useParams();
   const navigate = useContext(ResourceNavigation);
   const overview = !route.tab || route.tab === "task";
+  const settings = route.tab === "settings";
   const [dirty, setDirty] = useState(false);
   const [retained, setRetained] = useState(false);
   const markDirty = useCallback<DirtyCallback>((value, kept = false) => {
@@ -79,15 +81,17 @@ export function TaskDetail({
         <DetailTabs
           id="task"
           title="Task views"
-          tabs={["overview", "activity"] as const}
-          active={overview ? "overview" : "activity"}
+          tabs={["overview", "activity", "settings"] as const}
+          active={overview ? "overview" : settings ? "settings" : "activity"}
           change={(tab) =>
             navigate?.(
-              taskHref(
-                board.project.id,
-                task,
-                tab === "overview" ? "task" : "history",
-              ),
+              tab === "settings"
+                ? `${taskHref(board.project.id, task)}/settings`
+                : taskHref(
+                    board.project.id,
+                    task,
+                    tab === "overview" ? "task" : "history",
+                  ),
             )
           }
         />
@@ -120,61 +124,85 @@ export function TaskDetail({
               />
             </DetailSection>
           )}
-          {(task.prerequisites.some(
-            (p) => !task.blocked_by.some((b) => b.key === p.key),
-          ) ||
-            task.dependents.length > 0) && (
-            <Disclosure summary={<>Related work</>}>
-              {!!task.dependents.length && (
-                <p>
-                  <BlockedBy
-                    prefix="Needed by:"
-                    projectId={board.project.id}
-                    tasks={task.dependents}
-                    open={openTask}
-                  />
-                </p>
-              )}
-              {!!task.prerequisites.length && (
-                <p>
-                  <BlockedBy
-                    prefix="Prerequisites:"
-                    projectId={board.project.id}
-                    tasks={task.prerequisites}
-                    open={openTask}
-                  />
-                </p>
-              )}
-            </Disclosure>
-          )}
-          <SourceReferences
-            documents={task.publication?.documents ?? []}
-            updates={task.document_updates ?? []}
-          />
           <TaskReview
             projectId={board.project.id}
             taskId={task.id}
             workspaceId={workspaceId}
             refresh={board}
-            onDirty={setReviewerDirty}
+            compact
           />
-          <Disclosure summary="Work details">
-            <StageHeader
-              projectId={board.project.id}
-              task={task}
-              refresh={board}
-            />
-          </Disclosure>
         </ContentStack>
       )}
-      <TaskConversation
-        projectId={board.project.id}
-        task={task}
-        board={board}
-        refresh={board}
-        onDirty={markDirty}
-        onSettingsDirty={setSettingsDirty}
-      />
+      {settings && (
+        <ReviewerSettings
+          workspaceId={workspaceId}
+          purpose="task"
+          projectId={board.project.id}
+          entity={task.id}
+          refresh={board}
+          onDirty={setReviewerDirty}
+        />
+      )}
+      {!overview && !settings && (
+        <Disclosure summary="Task details">
+          <ContentStack space="section">
+            {(task.prerequisites.some(
+              (p) => !task.blocked_by.some((b) => b.key === p.key),
+            ) ||
+              task.dependents.length > 0) && (
+              <DetailSection title="Related work">
+                {!!task.dependents.length && (
+                  <p>
+                    <BlockedBy
+                      prefix="Needed by:"
+                      projectId={board.project.id}
+                      tasks={task.dependents}
+                      open={openTask}
+                    />
+                  </p>
+                )}
+                {!!task.prerequisites.length && (
+                  <p>
+                    <BlockedBy
+                      prefix="Prerequisites:"
+                      projectId={board.project.id}
+                      tasks={task.prerequisites}
+                      open={openTask}
+                    />
+                  </p>
+                )}
+              </DetailSection>
+            )}
+            <SourceReferences
+              documents={task.publication?.documents ?? []}
+              updates={task.document_updates ?? []}
+            />
+            <DetailSection title="Progress">
+              <StageHeader
+                projectId={board.project.id}
+                task={task}
+                refresh={board}
+              />
+            </DetailSection>
+            <TaskReview
+              projectId={board.project.id}
+              taskId={task.id}
+              workspaceId={workspaceId}
+              refresh={board}
+            />
+          </ContentStack>
+        </Disclosure>
+      )}
+      {!settings && (
+        <TaskConversation
+          projectId={board.project.id}
+          task={task}
+          board={board}
+          refresh={board}
+          onDirty={markDirty}
+          onSettingsDirty={setSettingsDirty}
+        />
+      )}
     </section>
   );
 }

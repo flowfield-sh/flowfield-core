@@ -49,7 +49,7 @@ test("review defaults and task reset preserve explicit inheritance and missing s
   ).json();
   expect(milestone.enabled).toBe(true);
   await page.goto(`/projects/review-settings/tasks/${task.key}`);
-  await page.getByText("Task reviewer settings", { exact: true }).click();
+  await page.getByRole("tab", { name: "Settings", exact: true }).click();
   const override = page.getByRole("region", { name: "Task reviewer settings" });
   await expect(
     override.getByLabel("Automatically assess task changes"),
@@ -82,7 +82,7 @@ test("review defaults and task reset preserve explicit inheritance and missing s
   expect(reset.selection).toBeNull();
   expect(reset.effective.enabled_source).toBe("workspace");
   await page.reload();
-  await page.getByText("Task reviewer settings", { exact: true }).click();
+  await page.getByRole("tab", { name: "Settings", exact: true }).click();
   await expect(
     page
       .getByRole("region", { name: "Task reviewer settings" })

@@ -72,9 +72,16 @@ test("mixed Inbox history opens exact permission records without response contro
     updated_at: now,
     state: null,
     next_action: null,
+    request_href: `/workspaces/${workspace}/requests/${item.kind}/${item.id}?project_id=${project}`,
+    source_href: `/projects/${project}/tasks/HIS-1`,
   }));
   await page.route(`**/api/workspaces/${workspace}/view/attention?*`, (route) =>
     route.fulfill({ json: { items, total: items.length, next_offset: null } }),
+  );
+  await page.route(`**/api/workspaces/${workspace}/requests/*/*?*`, (route) =>
+    route.fulfill({
+      json: items.find((item) => route.request().url().includes(item.id)),
+    }),
   );
   await page.route(`**/api/projects/${project}/permissions/*?*`, (route) => {
     const expired = route.request().url().includes("expired-permission");
@@ -118,14 +125,16 @@ test("mixed Inbox history opens exact permission records without response contro
   await history.getByRole("link", { name: /Run isolated checks/ }).click();
   const tabs = page.getByRole("tablist", { name: "Open resources" });
   await expect(
-    tabs.getByRole("tab", { name: "Tool permission", exact: true }),
+    tabs.getByRole("tab", { name: "HIS-1 Tool permission", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await tabs.getByRole("tab", { name: /^Inbox/ }).click();
   await expect(history).toBeVisible();
   await expect(page).not.toHaveURL(/permission=/);
-  await tabs.getByRole("tab", { name: "Tool permission", exact: true }).click();
+  await tabs
+    .getByRole("tab", { name: "HIS-1 Tool permission", exact: true })
+    .click();
   const dialog = page.getByRole("region", {
-    name: "Tool permission",
+    name: "Request",
     exact: true,
   });
   await expect(
@@ -138,13 +147,13 @@ test("mixed Inbox history opens exact permission records without response contro
   await expect(
     dialog.getByText("npm run test:isolated", { exact: true }),
   ).toBeVisible();
-  await page.keyboard.press("Escape");
+  await tabs.getByRole("tab", { name: /^Inbox/ }).click();
   await expect(page).not.toHaveURL(/permission=/);
   await history.getByRole("link", { name: /Earlier tool request/ }).click();
   await expect(
     dialog.getByText("Expired. No permission was delivered.", { exact: true }),
   ).toBeVisible();
-  await page.keyboard.press("Escape");
+  await tabs.getByRole("tab", { name: /^Inbox/ }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ colorScheme: "dark" });
   await page.screenshot({ path: info.outputPath("history-narrow-dark.png") });
@@ -237,13 +246,17 @@ test("milestone acceptance clears Inbox and Review column reflects the decision"
   await page
     .getByRole("link", { name: /Verify installed harness discovery/ })
     .click();
+  const completed = page.getByRole("region", { name: "Request", exact: true });
   await expect(
-    page.getByRole("list", { name: "Milestone activity" }),
+    completed.getByRole("img", { name: "Milestone accepted", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Milestone accepted", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("tab", { name: "Overview", exact: true }).click();
+    completed.getByRole("button", { name: "Accept milestone", exact: true }),
+  ).toHaveCount(0);
+  await completed
+    .locator(".editor-heading")
+    .getByRole("link", { name: new RegExp(value.milestone_key + ":") })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Acceptance criteria", exact: true }),
   ).toBeVisible();
@@ -507,7 +520,14 @@ test("code review in Inbox approves the exact result and delivers without naviga
     page.getByRole("article", { name: /^Code review:/ }),
   ).toHaveCount(0);
   await page.goto(`/projects/${project}/tasks/INC-1`);
-  await expect(page.getByText("Integrated", { exact: true })).toBeVisible();
+  await expect(
+    page
+      .locator(".editor-heading")
+      .getByRole("img", { name: "Completed", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Outcome", exact: true }),
+  ).toBeVisible();
   await expect(page.locator(".entity-overlay-footer")).toBeEmpty();
 });
 

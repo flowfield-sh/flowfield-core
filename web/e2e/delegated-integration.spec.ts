@@ -55,27 +55,22 @@ test("human grants and revokes named milestone integration with retained setting
   await expect(
     page.getByText("Documents captured by tasks", { exact: true }),
   ).toHaveCount(0);
-  await page
-    .locator(".editor-heading")
-    .getByRole("link", { name: "Settings", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/settings$/);
+  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  await expect(page).toHaveURL(/tab=settings$/);
   await expect(
-    page.getByRole("tab", { name: "Integration", exact: true }),
+    page.getByRole("heading", { name: "Integration", exact: true }),
   ).toBeVisible();
   const form = page.getByRole("region", { name: "Task integration settings" });
   const checkbox = form.getByRole("checkbox");
   await expect(checkbox).not.toBeChecked();
   await expect(form).toContainText("flowfield/reviewed-feature");
   await checkbox.check();
-  await page.getByRole("tab", { name: "Reviewer", exact: true }).click();
   await expect(
-    page.getByRole("tabpanel", { name: "Reviewer", exact: true }),
+    page.getByRole("heading", { name: "Reviewer", exact: true }),
   ).toBeVisible();
   await expect(page.getByText(/Policy revision|Verification plan/)).toHaveCount(
     0,
   );
-  await page.getByRole("tab", { name: "Integration", exact: true }).click();
   await expect(checkbox).toBeChecked();
   await expect(
     page
@@ -145,10 +140,7 @@ test("human grants and revokes named milestone integration with retained setting
   await page
     .getByRole("button", { name: "Discard changes", exact: true })
     .click();
-  await page
-    .locator(".editor-heading")
-    .getByRole("link", { name: "Settings", exact: true })
-    .click();
+  await page.getByRole("tab", { name: "Settings", exact: true }).click();
   await expect(
     form.getByRole("button", { name: "Save integration policy" }),
   ).toBeDisabled();

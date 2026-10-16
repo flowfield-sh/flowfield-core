@@ -136,7 +136,9 @@ export function PermissionCard({
   id,
   taskKey,
   refresh,
+  inline = false,
 }: {
+  inline?: boolean;
   projectId?: string;
   workspaceId?: string;
   id: string;
@@ -148,6 +150,23 @@ export function PermissionCard({
     `${workspaceId ? `workspaces/${workspaceId}` : `projects/${projectId}`}/permissions/${id}?retry=${retry}`,
     refresh,
   );
+  const content = (
+    <>
+      {resource.error && (
+        <Button variant="outline" size="sm" onClick={() => setRetry(retry + 1)}>
+          Retry
+        </Button>
+      )}
+      {resource.data && (
+        <PermissionControl
+          record={resource.data}
+          inRequest
+          answered={() => setRetry(retry + 1)}
+        />
+      )}
+    </>
+  );
+  if (inline) return content;
   return (
     <RequestFrame
       kind="Tool permission"
@@ -168,18 +187,7 @@ export function PermissionCard({
         )
       }
     >
-      {resource.error && (
-        <Button variant="outline" size="sm" onClick={() => setRetry(retry + 1)}>
-          Retry
-        </Button>
-      )}
-      {resource.data && (
-        <PermissionControl
-          record={resource.data}
-          inRequest
-          answered={() => setRetry(retry + 1)}
-        />
-      )}
+      {content}
     </RequestFrame>
   );
 }

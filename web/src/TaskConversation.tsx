@@ -1,3 +1,6 @@
+import { requestHref } from "./requestLinks";
+import { ProjectOwners } from "./WorkspaceLink";
+import { OpenInWorkTab } from "./WorkspaceTabs";
 import { LoadMore } from "./LoadMore";
 import { ActivityEntry } from "./ActivityEntry";
 import { useRetainedState, retainDirty } from "./retainedState";
@@ -8,6 +11,7 @@ import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
 import {
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -109,13 +113,14 @@ export function TaskConversation({
   task: Task;
   board: Pick<Board, "milestones" | "tasks">;
   requestTarget?: {
-    kind: "question" | "result" | "intervention" | "review";
+    kind: "question" | "result" | "intervention" | "review" | "integration";
     id: string;
   };
   refresh: unknown;
   onDirty: DirtyCallback;
   onSettingsDirty: (dirty: boolean) => void;
 }) {
+  const owners = useContext(ProjectOwners);
   const route = useParams();
   const overview = !requestTarget && (!route.tab || route.tab === "task");
   const path = `projects/${projectId}/tasks/${task.id}`;
@@ -146,26 +151,33 @@ export function TaskConversation({
   );
   const initial = useResource<Message>(`${path}/thread/definition:1`, task.id);
   const executionId =
-    ["history", "runs"].includes(route.tab ?? "") && route.runId
-      ? route.integrationId
-        ? "validation:" + route.integrationId
-        : route.runId.includes(":")
-          ? route.runId
-          : "worker:" + route.runId
-      : null;
+    requestTarget?.kind === "integration"
+      ? `validation:${requestTarget.id}`
+      : ["history", "runs"].includes(route.tab ?? "") && route.runId
+        ? route.integrationId
+          ? "validation:" + route.integrationId
+          : route.runId.includes(":")
+            ? route.runId
+            : "worker:" + route.runId
+        : null;
   const execution = useResource<components["schemas"]["ExecutionItem"]>(
     executionId ? `${path}/executions/${executionId}` : null,
     tick,
   );
-  const target = requestTarget
-    ? `${requestTarget.kind === "intervention" || requestTarget.kind === "review" ? "attempt" : requestTarget.kind}:${requestTarget.id}`
-    : route.tab === "conversation"
-      ? route.runId
-      : ["result", "changes"].includes(route.tab ?? "") && route.runId
-        ? `result:${route.runId}`
-        : execution.data
-          ? `attempt:${execution.data.run_id}`
-          : undefined;
+  const target =
+    requestTarget?.kind === "integration"
+      ? execution.data
+        ? `attempt:${execution.data.run_id}`
+        : undefined
+      : requestTarget
+        ? `${requestTarget.kind === "intervention" || requestTarget.kind === "review" ? "attempt" : requestTarget.kind}:${requestTarget.id}`
+        : route.tab === "conversation"
+          ? route.runId
+          : ["result", "changes"].includes(route.tab ?? "") && route.runId
+            ? `result:${route.runId}`
+            : execution.data
+              ? `attempt:${execution.data.run_id}`
+              : undefined;
   const selected = useResource<Message>(
     target ? `${path}/thread/${encodeURIComponent(target)}` : null,
     tick,
@@ -187,7 +199,30 @@ export function TaskConversation({
     null,
   );
   const currentBinding = gate.data ? binding(gate.data) : null;
-  const key = chosen ?? (currentBinding ? contextKey(currentBinding) : "task");
+  const requestedAttemptId =
+    requestTarget?.kind === "integration"
+      ? execution.data?.run_id
+      : requestTarget?.id;
+  const belongs = (binding: Draft["binding"]) =>
+    !requestTarget ||
+    (requestTarget.kind === "question"
+      ? binding.question_id === requestTarget.id
+      : requestTarget.kind === "result"
+        ? binding.result_id === requestTarget.id && !binding.question_id
+        : !!requestedAttemptId &&
+          currentAttemptId === requestedAttemptId &&
+          !binding.question_id &&
+          !binding.result_id);
+  const selectedKey =
+    chosen && drafts[chosen] && belongs(drafts[chosen].binding) ? chosen : null;
+  const key =
+    selectedKey ??
+    (currentBinding && belongs(currentBinding)
+      ? contextKey(currentBinding)
+      : (Object.keys(drafts).find((key) => belongs(drafts[key].binding)) ??
+        (requestTarget
+          ? "request:" + requestTarget.kind + ":" + requestTarget.id
+          : "task")));
   const draft = drafts[key];
   const matchesRequest =
     !requestTarget ||
@@ -195,7 +230,10 @@ export function TaskConversation({
       ? gate.data?.question_id === requestTarget.id
       : requestTarget.kind === "result"
         ? gate.data?.result_id === requestTarget.id && !gate.data?.question_id
-        : currentAttemptId === requestTarget.id);
+        : !!requestedAttemptId &&
+          currentAttemptId === requestedAttemptId &&
+          !gate.data?.question_id &&
+          !gate.data?.result_id);
   const inputEnabled =
     matchesRequest &&
     !!gate.data?.enabled &&
@@ -484,13 +522,14 @@ export function TaskConversation({
     }
   }
   const showInputFooter =
-    task.status !== "done" ||
-    task.state?.tone === "attention" ||
-    !!task.reconciliation_reason ||
-    showComposer ||
-    stale ||
-    Object.values(drafts).some((saved) => !!saved.body) ||
-    !!gate.data?.pending_reply_id;
+    (!requestTarget || matchesRequest || !!draft) &&
+    (task.status !== "done" ||
+      task.state?.tone === "attention" ||
+      !!task.reconciliation_reason ||
+      showComposer ||
+      stale ||
+      Object.values(drafts).some((saved) => !!saved.body) ||
+      !!gate.data?.pending_reply_id);
   return (
     <TaskActionHost.Provider
       value={{ actions: actionHost, context: actionContext }}
@@ -527,6 +566,7 @@ export function TaskConversation({
               )}
               {gate.data?.result_id && (
                 <Result
+                  overview
                   compact
                   projectId={projectId}
                   taskId={task.id}
@@ -604,6 +644,21 @@ export function TaskConversation({
                                 />
                               </WorkspaceLink>
                             </ExactTimeTooltip>
+                            {!requestTarget &&
+                              message.source_id &&
+                              ["result", "question", "attempt"].includes(
+                                message.kind,
+                              ) && (
+                                <OpenInWorkTab
+                                  href={requestHref(
+                                    owners[projectId],
+                                    message.kind,
+                                    message.source_id,
+                                    projectId,
+                                  )}
+                                  label="Open request in work tab"
+                                />
+                              )}
                           </>
                         }
                       >
@@ -951,7 +1006,9 @@ export function TaskConversation({
                     </Button>
                   )}
                 {Object.entries(drafts)
-                  .filter(([id, d]) => id !== key && d.body)
+                  .filter(
+                    ([id, d]) => id !== key && d.body && belongs(d.binding),
+                  )
                   .map(([id]) => (
                     <Button
                       key={id}

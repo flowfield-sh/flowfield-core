@@ -384,6 +384,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/requests/{kind}/{identity}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Request Detail */
+    get: operations["request_detail_api_workspaces__workspace_id__requests__kind___identity__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/workspaces/{workspace_id}": {
     parameters: {
       query?: never;
@@ -1259,6 +1276,40 @@ export interface paths {
     };
     /** Question */
     get: operations["question_api_context_projects__project_id__questions__identity__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/context/workspaces/{workspace_id}/requests": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Requests */
+    get: operations["requests_api_context_workspaces__workspace_id__requests_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/context/workspaces/{workspace_id}/requests/{kind}/{identity}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Request Detail */
+    get: operations["request_detail_api_context_workspaces__workspace_id__requests__kind___identity__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -3191,6 +3242,23 @@ export interface components {
       /** Next Action */
       next_action?: string | null;
       state?: components["schemas"]["WorkState"] | null;
+      /** Request Href */
+      request_href?: string | null;
+      /** Source Href */
+      source_href?: string | null;
+      /** Source Key */
+      source_key?: string | null;
+      /** Request Kind */
+      request_kind?:
+        | (
+            | "question"
+            | "attempt"
+            | "integration"
+            | "result"
+            | "permission"
+            | "milestone"
+          )
+        | null;
     };
     /** AttentionPage */
     AttentionPage: {
@@ -3589,7 +3657,8 @@ export interface components {
         | "milestone"
         | "task"
         | "documents"
-        | "document";
+        | "document"
+        | "request";
       /** Project Id */
       project_id: string | null;
       /** Milestone Id */
@@ -3609,6 +3678,19 @@ export interface components {
       document_id: string | null;
       /** Document Revision */
       document_revision: number | null;
+      /** Request Kind */
+      request_kind:
+        | (
+            | "question"
+            | "attempt"
+            | "integration"
+            | "result"
+            | "permission"
+            | "milestone"
+          )
+        | null;
+      /** Request Id */
+      request_id: string | null;
       /** Workspace Name */
       workspace_name: string;
       /** Workspace Revision */
@@ -3629,6 +3711,12 @@ export interface components {
       label_revision: number | null;
       /** Document Title */
       document_title: string | null;
+      /** Request Title */
+      request_title: string | null;
+      /** Request Status */
+      request_status: string | null;
+      /** Request Href */
+      request_href: string | null;
     };
     /** CoordinatorViewSelection */
     CoordinatorViewSelection: {
@@ -3645,7 +3733,8 @@ export interface components {
         | "milestone"
         | "task"
         | "documents"
-        | "document";
+        | "document"
+        | "request";
       /** Project Id */
       project_id?: string | null;
       /** Milestone Id */
@@ -3665,6 +3754,19 @@ export interface components {
       document_id?: string | null;
       /** Document Revision */
       document_revision?: number | null;
+      /** Request Kind */
+      request_kind?:
+        | (
+            | "question"
+            | "attempt"
+            | "integration"
+            | "result"
+            | "permission"
+            | "milestone"
+          )
+        | null;
+      /** Request Id */
+      request_id?: string | null;
     };
     /** Correction */
     Correction: {
@@ -8097,6 +8199,47 @@ export interface operations {
       };
     };
   };
+  request_detail_api_workspaces__workspace_id__requests__kind___identity__get: {
+    parameters: {
+      query?: {
+        project_id?: string | null;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+        kind:
+          | "question"
+          | "attempt"
+          | "integration"
+          | "result"
+          | "permission"
+          | "milestone";
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttentionItem"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   get_api_workspaces__workspace_id__get: {
     parameters: {
       query?: never;
@@ -10414,6 +10557,86 @@ export interface operations {
       header?: never;
       path: {
         project_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  requests_api_context_workspaces__workspace_id__requests_get: {
+    parameters: {
+      query?: {
+        column?: "action" | "waiting" | "history";
+        offset?: number;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  request_detail_api_context_workspaces__workspace_id__requests__kind___identity__get: {
+    parameters: {
+      query?: {
+        project_id?: string | null;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+        kind:
+          | "question"
+          | "attempt"
+          | "integration"
+          | "result"
+          | "permission"
+          | "milestone";
         identity: string;
       };
       cookie?: never;

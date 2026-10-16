@@ -5,7 +5,12 @@ import { ResourceRetry } from "./ResourceRetry";
 import type { WorkspaceBoard } from "./workspace";
 import type { DirtyCallback } from "./retainedState";
 import { Button } from "@/components/ui/button";
-import { useLocation, useParams, useSearchParams } from "react-router";
+import {
+  useLocation,
+  useParams,
+  useSearchParams,
+  useNavigate,
+} from "react-router";
 import { DetailTabs } from "./Presentation";
 import { DetailHeader } from "./Presentation";
 import { MilestoneActivity } from "./MilestoneActivity";
@@ -40,7 +45,8 @@ export function MilestoneDetail({
 }) {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
-  const settings = useParams().milestoneTab === "settings";
+  const legacySettings = useParams().milestoneTab === "settings";
+  const navigate = useNavigate();
   const href = `/workspaces/${milestone.workspace_id}/milestones/${milestone.key}`;
   const delivery = useResource<
     components["schemas"]["MilestoneDelivery"] | null
@@ -56,12 +62,14 @@ export function MilestoneDetail({
   );
   const tab = historical
     ? "revisions"
-    : params.has("verification") ||
-        ["activity", "review", "history", "details"].includes(
-          params.get("tab") ?? "",
-        )
-      ? "activity"
-      : "overview";
+    : legacySettings || params.get("tab") === "settings"
+      ? "settings"
+      : params.has("verification") ||
+          ["activity", "review", "history", "details"].includes(
+            params.get("tab") ?? "",
+          )
+        ? "activity"
+        : "overview";
   return (
     <section className="editor documents-page" aria-label="Milestone">
       <DetailHeader
@@ -69,18 +77,13 @@ export function MilestoneDetail({
           <WorkIdentity
             state={historical ? undefined : card?.workState}
             itemKey={milestone.key}
-            title={settings ? "Milestone settings" : milestone.title}
+            title={milestone.title}
           />
         }
         close={close}
         closeLabel="Back"
         actions={
           <div className="actions">
-            {!historical && !settings && (
-              <Button size="sm" variant="outline" asChild>
-                <WorkspaceLink to={`${href}/settings`}>Settings</WorkspaceLink>
-              </Button>
-            )}
             {historical && (
               <Button size="sm" variant="outline" asChild>
                 <WorkspaceLink
@@ -102,21 +105,23 @@ export function MilestoneDetail({
           </div>
         }
       />
-      {!historical && !settings && (
+      {!historical && (
         <DetailTabs
           id="milestone"
           title="Milestone views"
-          tabs={["overview", "activity"]}
+          tabs={["overview", "activity", "settings"]}
           active={tab}
           change={(value) => {
             const next = new URLSearchParams(params);
             next.delete("verification");
             next.set("tab", value);
-            setParams(next, { state: location.state });
+            if (legacySettings)
+              void navigate(`${href}?${next}`, { state: location.state });
+            else setParams(next, { state: location.state });
           }}
         />
       )}
-      {settings ? (
+      {tab === "settings" ? (
         <>
           <ResourceRetry resources={[delivery]} />
           {delivery.loading && !delivery.data ? (

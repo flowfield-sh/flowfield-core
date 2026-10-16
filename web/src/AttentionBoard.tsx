@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { LoadMore } from "./LoadMore";
 import { useRetainedState } from "./retainedState";
 import { ResourceNavigation } from "./WorkspaceTabs";
@@ -89,7 +90,7 @@ function TaskRequest({
           onSettingsDirty={settings}
           requestTarget={{
             kind: item.kind as
-              "question" | "result" | "intervention" | "review",
+              "question" | "result" | "intervention" | "review" | "integration",
             id: item.id,
           }}
         />
@@ -98,18 +99,20 @@ function TaskRequest({
   );
 }
 
-function RequestCard({
+export function RequestCard({
   item,
   workspaceId,
   board,
   refresh,
   markDirty,
+  standalone = false,
 }: {
   item: Item;
   workspaceId: string;
   board: WorkspaceBoard;
   refresh: unknown;
   markDirty: (id: string, dirty: boolean, retained?: boolean) => void;
+  standalone?: boolean;
 }) {
   const navigate = useNavigate();
   const resourceNavigate = useContext(ResourceNavigation);
@@ -118,38 +121,21 @@ function RequestCard({
     (value: boolean, retained?: boolean) => markDirty(id, value, retained),
     [id, markDirty],
   );
-  const kind =
-    item.kind === "milestone"
-      ? item.status === "delivery_blocked"
-        ? "Milestone promotion"
-        : "Milestone acceptance"
-      : item.kind === "result"
-        ? ["blocked", "stale"].includes(item.status)
-          ? "Result recovery"
-          : "Code review"
-        : label(item.kind);
+  const kind = requestTitle(item);
   const href = itemHref(item);
-  const project = board.projects.find((p) => p.id === item.project_id);
-  return (
-    <RequestFrame
-      kind={kind}
-      state={item.state}
-      label={`${kind}: ${item.title}`}
-      source={
-        <WorkspaceLink
-          to={href}
-          aria-label={`${item.task_key ?? (item.kind === "milestone" ? "Milestone" : "Question")}: ${item.title}`}
-        >
-          {item.kind === "milestone"
-            ? (item.task_key ?? item.title)
-            : item.task_key
-              ? `${project?.name ?? item.project_id} / ${item.task_key}`
-              : (project?.name ?? "Workspace")}
-        </WorkspaceLink>
-      }
-    >
+  const content = (
+    <>
       {item.kind === "result" && <h3 className="detail-title">{item.title}</h3>}
-      {item.kind === "milestone" ? (
+      {item.kind === "permission" ? (
+        <PermissionCard
+          projectId={item.project_id ?? undefined}
+          workspaceId={item.project_id ? undefined : workspaceId}
+          id={item.id}
+          taskKey={item.task_key}
+          refresh={refresh}
+          inline
+        />
+      ) : item.kind === "milestone" ? (
         <MilestoneReviewRequest
           path={`workspaces/${workspaceId}`}
           id={item.id}
@@ -168,9 +154,13 @@ function RequestCard({
           }
           inline
         />
-      ) : ["question", "result", "review", "intervention"].includes(
-          item.kind,
-        ) && item.task_key ? (
+      ) : [
+          "question",
+          "result",
+          "review",
+          "intervention",
+          "integration",
+        ].includes(item.kind) && item.task_key ? (
         <TaskRequest
           item={item}
           board={board}
@@ -192,7 +182,53 @@ function RequestCard({
           </OverlayFooter>
         </>
       )}
+    </>
+  );
+  return standalone ? (
+    content
+  ) : (
+    <RequestFrame
+      kind={kind}
+      state={item.state}
+      label={`${kind}: ${item.title}`}
+      href={item.request_href ?? undefined}
+      source={<RequestSource item={item} board={board} />}
+    >
+      {content}
     </RequestFrame>
+  );
+}
+
+export function requestTitle(item: Item) {
+  return item.kind === "milestone"
+    ? item.status === "delivery_blocked"
+      ? "Milestone promotion"
+      : "Milestone acceptance"
+    : item.kind === "result"
+      ? ["blocked", "stale"].includes(item.status)
+        ? "Result recovery"
+        : "Code review"
+      : item.kind === "permission"
+        ? "Tool permission"
+        : label(item.kind);
+}
+export function RequestSource({
+  item,
+  board,
+}: {
+  item: Item;
+  board: WorkspaceBoard;
+}) {
+  const project = board.projects.find((p) => p.id === item.project_id);
+  return (
+    <WorkspaceLink
+      to={item.source_href ?? itemHref(item)}
+      aria-label={`${item.source_key ?? item.task_key ?? project?.name ?? "Workspace"}: ${item.title}`}
+    >
+      <Badge variant="outline">
+        {item.task_key ?? project?.name ?? "Workspace"}
+      </Badge>
+    </WorkspaceLink>
   );
 }
 
@@ -338,15 +374,7 @@ function InboxList({
                 focused.current = { id: identityOf(item), index };
               }}
             >
-              {tab === "needs_me" && item.kind === "permission" ? (
-                <PermissionCard
-                  projectId={item.project_id ?? undefined}
-                  workspaceId={item.project_id ? undefined : workspaceId}
-                  id={item.id}
-                  taskKey={item.task_key}
-                  refresh={refresh}
-                />
-              ) : tab === "needs_me" ? (
+              {tab === "needs_me" ? (
                 <RequestCard
                   item={item}
                   workspaceId={workspaceId}
@@ -358,11 +386,7 @@ function InboxList({
                 <ContentStack>
                   <WorkspaceLink
                     className="work-navigation-row inbox-history-row"
-                    to={
-                      item.kind === "permission"
-                        ? `/workspaces/${workspaceId}/inbox?inbox=history&permission=${encodeURIComponent(item.id)}${item.project_id ? `&permission_project=${encodeURIComponent(item.project_id)}` : ""}${projectId ? `&project_id=${encodeURIComponent(projectId)}` : ""}`
-                        : itemHref(item)
-                    }
+                    to={item.request_href ?? itemHref(item)}
                   >
                     <WorkIdentity
                       state={
@@ -371,7 +395,7 @@ function InboxList({
                           tone: "idle",
                         }
                       }
-                      itemKey={item.task_key}
+                      itemKey={item.source_key ?? item.task_key}
                       title={item.title}
                     />
                     <span className="inbox-history-metadata">

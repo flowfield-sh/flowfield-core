@@ -184,6 +184,7 @@ export function WorkspaceEditor({
               active={tab === "reviewers"}
             />
           </DetailSection>
+          <Separator />
           <DetailSection title="Milestone reviewer">
             <ReviewerSettings
               workspaceId={incoming.id}

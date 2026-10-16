@@ -49,6 +49,12 @@ function isInboxView(url: string, root: string) {
 }
 export function resourceRoot(url: string) {
   const path = url.split(/[?#]/)[0];
+  if (path.includes("/requests/")) {
+    const project = new URL(url, "http://flowfield.local").searchParams.get(
+      "project_id",
+    );
+    return path + (project ? `?project_id=${encodeURIComponent(project)}` : "");
+  }
   if (path.startsWith("/settings/")) return "/settings";
   return path.replace(
     /(\/tasks\/[^/]+|\/documents\/[^/]+|\/milestones\/[^/]+|\/edit)(?:\/.*)?$/,
@@ -310,17 +316,20 @@ export function useWorkspaceTabs(
   };
 }
 export type WorkspaceTabsController = ReturnType<typeof useWorkspaceTabs>;
-export function OpenInWorkTab() {
+export function OpenInWorkTab({
+  href: target,
+  label = "Open in work tab",
+}: { href?: string; label?: string } = {}) {
   const location = useLocation();
   const open = useContext(ResourceNavigation);
   if (!open) return null;
-  const href = location.pathname + location.search + location.hash;
+  const href = target ?? location.pathname + location.search + location.hash;
   return (
-    <ActionTooltip label="Open in work tab">
+    <ActionTooltip label={label}>
       <Button size="icon-sm" variant="ghost" asChild>
         <a
           href={href}
-          aria-label="Open in work tab"
+          aria-label={label}
           onClick={(event) => followLink(event, () => open(href, "new"))}
         >
           <ExternalLink />
@@ -336,10 +345,14 @@ function title(
 ) {
   const location = new URL(url, "http://flowfield.local");
   const root = canonicalResourceRoot(url, board);
+  if (root.includes("/requests/")) return titles[root] ?? "Request";
   if (location.searchParams.has("permission")) return "Tool permission";
   if (/\/(?:inbox|related\/questions)\/[^/]+$/.test(location.pathname))
     return "Question";
-  const settings = /\/milestones\/[^/]+\/settings$/.test(location.pathname);
+  const settings =
+    /\/milestones\/[^/]+\/settings$/.test(location.pathname) ||
+    (root.includes("/milestones/") &&
+      location.searchParams.get("tab") === "settings");
   const suffix = settings ? " · Settings" : "";
   if (titles[root]) return titles[root] + suffix;
   const key = decodeURIComponent(root.split("/").at(-1) ?? "");
@@ -348,7 +361,8 @@ function title(
       root.startsWith(`/projects/${t.project_id}/tasks/`) &&
       (key === t.key || key === t.id),
   );
-  if (task) return `${task.key} ${task.title}`;
+  if (task)
+    return `${task.key} ${location.pathname.endsWith("/settings") ? "Settings" : task.title}`;
   const milestone = board?.milestones.find(
     (m) => root.includes("/milestones/") && (key === m.key || key === m.id),
   );

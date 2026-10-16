@@ -409,6 +409,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
                   project_id: "agent-settings",
                   task_id: task.id,
                   kind: "permission",
+                  request_href: `/workspaces/${workspace}/requests/permission/${permission.id}?project_id=agent-settings`,
                   task_key: task.key,
                   title: permission.title,
                   status: permission.status,
@@ -421,6 +422,24 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
         },
       });
     },
+  );
+  await page.route(
+    `**/api/workspaces/${workspace}/requests/permission/request-2?*`,
+    (route) =>
+      route.fulfill({
+        json: {
+          id: permission.id,
+          project_id: "agent-settings",
+          kind: "permission",
+          task_key: task.key,
+          title: permission.title,
+          status: permission.status,
+          updated_at: permission.updated_at,
+          request_kind: "permission",
+          request_href: `/workspaces/${workspace}/requests/permission/request-2?project_id=agent-settings`,
+          source_href: `/projects/agent-settings/tasks/${task.key}`,
+        },
+      }),
   );
   await page.route("**/permissions/request-2?*", (route) =>
     route.fulfill({ json: permission }),
@@ -457,7 +476,10 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     exact: true,
   });
   await expect(
-    action.getByRole("link", { name: task.key, exact: true }),
+    action.getByRole("link", {
+      name: `${task.key}: Run the project checks`,
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(
     action.getByRole("button", { name: "Allow once" }),

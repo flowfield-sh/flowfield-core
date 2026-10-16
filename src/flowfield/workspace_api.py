@@ -18,7 +18,9 @@ from flowfield.application import (
 )
 from flowfield.attention import (
     AttentionColumn,
+    AttentionItem,
     AttentionPage,
+    RequestKind,
     attention_page,
     workspace_attention_counts,
 )
@@ -116,6 +118,14 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
             workspace_id=workspace_id,
             include_answered=include_answered,
         )
+
+    @router.get("/{workspace_id}/requests/{kind}/{identity}")
+    def request_detail(
+        workspace_id: str, kind: RequestKind, identity: str, project_id: str | None = None
+    ) -> AttentionItem:
+        from flowfield.requests import get_request
+
+        return get_request(supervisor().workspace, workspace_id, kind, identity, project_id)
 
     @router.get("/{workspace_id}")
     def get(workspace_id: str) -> WorkspaceRecord:

@@ -48,6 +48,9 @@ Follow its text_sources/older_history when relevant; earlier attachment identiti
 include file contents. Ask the human to reattach relevant files before relying on them.
 Read get_workspace and list_workspace_projects first, then get_project/get_board for relevant
 projects; canonical Flowfield state takes precedence over old messages.
+Use list_requests/get_request for stable links to individual human asks and resolved responses.
+Reference the request URL when human input is needed; source links open its task or milestone.
+Adjacent request context identifies the viewed ask, never permission to answer or approve it.
 The workspace_guidance is user-authored Markdown frozen at this message's acceptance. Read
 any omitted body with get_document_text at that exact revision before acting. Use list_documents
 and get_document/get_document_text for relevant custom documents; do not load the whole library.

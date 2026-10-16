@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import AliasChoices, Field
 
 from flowfield.agent_models import AgentRecord, EffectiveAgent
+from flowfield.attention import RequestKind
 from flowfield.harness_models import HarnessLaunch
 from flowfield.project_config import Identifier
 from flowfield.run_activity import ContextUsage, RunActivityPage
@@ -40,6 +41,7 @@ class CoordinatorViewSelection(AgentRecord):
         "task",
         "documents",
         "document",
+        "request",
     ]
     project_id: Identifier | None = None
     milestone_id: Identifier | None = None
@@ -49,6 +51,8 @@ class CoordinatorViewSelection(AgentRecord):
     without_milestone: bool = False
     document_id: Identifier | None = None
     document_revision: int | None = Field(default=None, ge=1)
+    request_kind: RequestKind | None = None
+    request_id: Identifier | None = None
 
 
 class CoordinatorViewContext(CoordinatorViewSelection):
@@ -62,6 +66,9 @@ class CoordinatorViewContext(CoordinatorViewSelection):
     label_name: str | None = None
     label_revision: int | None = None
     document_title: str | None = None
+    request_title: str | None = None
+    request_status: str | None = None
+    request_href: str | None = None
 
 
 class CoordinatorSend(AgentRecord):

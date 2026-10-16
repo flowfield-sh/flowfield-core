@@ -396,8 +396,9 @@ test("validated result approval delivers real Git code with the worker queue pau
   ).toBe(seed.candidate);
   await page.goto(`/projects/${seed.project}/inbox`);
   await page.getByRole("link", { name: /INT-1:/ }).click();
-  await expect(page).toHaveURL(
-    new RegExp(`/conversation/result:${seed.result}$`),
+  await expect(page).toHaveURL(`/projects/${seed.project}/tasks/INT-1`);
+  await page.goto(
+    `/projects/${seed.project}/tasks/INT-1/conversation/result:${seed.result}`,
   );
   const result = page.getByRole("region", { name: "Proposed result" });
   await expect(result).toContainText("project checks passed");
@@ -767,7 +768,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     await page.goto(`/projects/${project}/tasks/IPV-1`);
     await expect(
       page.getByRole("region", { name: "Proposed result" }),
-    ).toContainText("Ready for review");
+    ).toContainText("First greeting");
     await expect(page.getByLabel("Current task definition")).toBeVisible();
     await expect.poll(atTop).toBe(true);
     await expect(page.getByRole("form", { name: "Task input" })).toContainText(
@@ -1094,7 +1095,8 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     await expect(
       page.getByRole("region", { name: "Proposed result", exact: true }),
     ).toContainText("A detailed finding.");
-    await expect.poll(reportAtBottom).toBe(true);
+    // Standalone Requests open at the ask, without jumping to task activity.
+    await expect.poll(() => reportPane.evaluate((el) => el.scrollTop)).toBe(0);
     await expect(
       page.getByRole("button", { name: "Back", exact: true }),
     ).toBeDisabled();

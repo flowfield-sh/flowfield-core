@@ -90,11 +90,12 @@ test("coordinator dependencies update blockers, links and reconciliation without
   await expect(detail.getByLabel("Add prerequisite")).toHaveCount(0);
   await detail.getByRole("link", { name: "DEP-1", exact: true }).click();
   await expect(page).toHaveURL(/DEP-1$/);
-  await page.getByText("Related work", { exact: true }).click();
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
+  await page.getByText("Task details", { exact: true }).click();
   await expect(
     detail.getByRole("link", { name: "DEP-2", exact: true }),
   ).toBeVisible();
-  await page.goBack();
+  await page.goto(`/projects/${identity.project_id}/tasks/DEP-2`);
   await fixtureProgress(request, {
     ...identity,
     task_id: one.id,
@@ -642,6 +643,9 @@ test("Inbox carries a free-text answer from browser to coordinator application",
       includeHidden: true,
     }),
   ).toHaveCount(0);
+  await page.goto(
+    `/projects/${project_id}/tasks/ASK-2/conversation/question:export-scope:1`,
+  );
   await page.reload();
   const detail = page.getByRole("region", {
     name: "Task details",
@@ -665,7 +669,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
     );
   await expect(
     detail.getByRole("button", { name: "Back", exact: true }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await page.goBack();
   await expect(detail.getByLabel("Your answer", { exact: true })).toHaveValue(
@@ -1578,7 +1582,10 @@ test("review journey preserves feedback, navigates complete files and reviews a 
           next_before: null,
         },
       });
-    if (url.pathname.endsWith("/review") || url.pathname.endsWith("/replies")) {
+    if (
+      route.request().method() === "POST" &&
+      (url.pathname.endsWith("/review") || url.pathname.endsWith("/replies"))
+    ) {
       const body = route.request().postDataJSON();
       if (body.action === "changes") {
         expect(body.binding.result_id).toBe(first.id);

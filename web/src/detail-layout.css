@@ -659,6 +659,16 @@
   border-bottom: 1px solid var(--border);
   border-radius: var(--radius) var(--radius) 0 0;
 }
+.request-card > .detail-heading-block > .detail-heading-row {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+.request-card .detail-entry-title {
+  flex: 1;
+}
+.request-card > .detail-heading-block .detail-metadata {
+  flex-shrink: 0;
+}
 .request-body {
   padding: 12px;
 }

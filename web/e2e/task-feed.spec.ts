@@ -979,15 +979,12 @@ test("conversation capture prepares atomically while task defaults show only use
   });
   await expect(page.getByRole("list", { name: "Task feed" })).toHaveCount(0);
   await expect(stages).not.toBeVisible();
-  await page.getByText("Work details", { exact: true }).click();
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
+  await page.getByText("Task details", { exact: true }).click();
   await expect(stages.getByRole("link")).toHaveCount(0);
   await expect(page.getByRole("tooltip")).toHaveCount(0);
   // Stage details are disclosed independently from the default outcome.
-  await expect(
-    page
-      .locator(".task-context")
-      .getByRole("group", { name: "Task stages", exact: true }),
-  ).toBeVisible();
+  await expect(stages).toBeVisible();
   await stages.locator(".task-stage").first().focus();
   // Exercise keyboard focus on the visible stage sequence.
   await page.keyboard.press("Tab");
@@ -1086,9 +1083,11 @@ test("conversation capture prepares atomically while task defaults show only use
       dependencies: [task.id],
     },
   });
-  await expect(editor.getByText("Related work", { exact: true })).toBeVisible();
-  await expect(editor.getByText("Needed by:", { exact: false })).toBeHidden();
-  await editor.getByText("Related work", { exact: true }).click();
+  await expect(editor.getByText("Related work", { exact: true })).toHaveCount(
+    0,
+  );
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
+  await page.getByText("Task details", { exact: true }).click();
   await expect(editor.getByText("Needed by:", { exact: false })).toBeVisible();
   await expect(
     editor.getByRole("link", { name: related.key, exact: true }),
@@ -1103,6 +1102,7 @@ test("conversation capture prepares atomically while task defaults show only use
       })
     ).enabled,
   ).toBe(false);
+  await page.getByRole("tab", { name: "Overview", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   await expect(

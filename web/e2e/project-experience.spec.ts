@@ -194,7 +194,7 @@ test("home, welcome and editable settings form a complete project journey", asyn
     name: "Edit workspace",
     exact: true,
   });
-  await expect(shared.locator('[data-slot="separator"]')).toBeVisible();
+  await expect(shared.locator('[data-slot="separator"]').first()).toBeVisible();
   await shared.getByLabel("Run worker queue", { exact: true }).click();
   await expect(
     shared.getByLabel("Run worker queue", { exact: true }),

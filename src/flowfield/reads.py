@@ -11,6 +11,7 @@ from urllib.parse import quote, urlencode
 from flowfield import worker_settings
 from flowfield.activity import EntryKind
 from flowfield.application import STATUSES, TaskRevision, Workspace, now
+from flowfield.attention import RequestKind
 from flowfield.coordinator_ownership import column as owner_column
 from flowfield.coordinator_ownership import validate
 from flowfield.coordinator_prose import read as read_prose
@@ -836,6 +837,53 @@ class ContextReads:
 
     def activity_entry(self, project_id: str, entry_id: str) -> dict[str, Any]:
         return excerpt(self.workspace.activity_entry(project_id, entry_id).model_dump(), 2000)
+
+    def requests(
+        self, workspace_id: str, column: str = "action", offset: int = 0, limit: int = 20
+    ) -> dict[str, Any]:
+        from typing import cast
+
+        from flowfield.attention import AttentionColumn, attention_page
+
+        if (
+            column not in {"action", "waiting", "history"}
+            or offset < 0
+            or not 1 <= limit <= MAX_LIMIT
+        ):
+            raise ApplicationError("invalid_request", "Invalid request page.")
+        value = attention_page(
+            self.workspace,
+            None,
+            cast(AttentionColumn, column),
+            offset,
+            limit,
+            workspace_id=workspace_id,
+            include_answered=True,
+            requests_only=True,
+        ).model_dump()
+        for item in value["items"]:
+            if item["request_href"]:
+                item["url"] = self.browser_origin + item["request_href"]
+        while len(value["items"]) > 1 and size(value) > PAGE_BYTES - 200:
+            value["items"].pop()
+            value["next_offset"] = offset + len(value["items"])
+        return value
+
+    def request(
+        self, workspace_id: str, kind: "RequestKind", identity: str, project_id: str | None = None
+    ) -> dict[str, Any]:
+        from flowfield.requests import get_request
+
+        item = get_request(self.workspace, workspace_id, kind, identity, project_id)
+        value = item.model_dump()
+        value["url"] = self.browser_origin + (item.request_href or "")
+        # Content remains owned by the source-specific bounded read APIs.
+        value["source"] = {"kind": item.kind, "id": item.id, "project_id": item.project_id}
+        if item.kind == "question" and item.project_id:
+            value["question"] = self.question(item.project_id, item.id)
+        elif item.kind == "result" and item.project_id:
+            value["result"] = self.result(item.project_id, item.id)
+        return value
 
     def questions(
         self,

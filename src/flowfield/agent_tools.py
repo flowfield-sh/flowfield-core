@@ -140,6 +140,7 @@ async def workspace_scope(
     )
     scoped = []
     project_tools = set()
+    optional_project_tools = set()
     workspace_tools = set()
     authored_arguments: dict[str, list[str]] = {}
     for tool in await canonical.list_tools():
@@ -150,6 +151,10 @@ async def workspace_scope(
             del properties["workspace_id"]
         if "project_id" in properties:
             project_tools.add(tool.name)
+            if "workspace_id" in tool.inputSchema.get(
+                "properties", {}
+            ) and "project_id" not in schema.get("required", []):
+                optional_project_tools.add(tool.name)
         elif tool.name not in workspace_tools and (
             not tool.annotations or not tool.annotations.readOnlyHint
         ):
@@ -171,7 +176,9 @@ async def workspace_scope(
         bound = copy.deepcopy(arguments)
         if name in workspace_tools:
             bound["workspace_id"] = workspace_id
-        if name in project_tools:
+        if name in project_tools and not (
+            name in optional_project_tools and bound.get("project_id") is None
+        ):
             destination = bound.get("project_id")
             if not isinstance(destination, str) or not destination:
                 raise ApplicationError(

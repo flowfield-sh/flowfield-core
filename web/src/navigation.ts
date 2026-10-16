@@ -17,6 +17,7 @@ const pagePaths = [
   "workspaces/:workspaceId/projects/new",
   "workspaces/:workspaceId/archive",
   "workspaces/:workspaceId/inbox",
+  "workspaces/:workspaceId/requests/:requestKind/:requestId",
   "workspaces/:workspaceId/milestones",
   "workspaces/:workspaceId/milestones/:milestoneId/revisions/:milestoneRevision",
   "workspaces/:workspaceId/milestones/:milestoneId/:milestoneTab?",
@@ -238,6 +239,7 @@ export function useWorkspaceNavigation(
           "result",
           "activity",
           "runs",
+          "settings",
         ].includes(params.tab)),
   };
 }

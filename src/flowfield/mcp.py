@@ -25,6 +25,7 @@ from flowfield.application import (
     TaskReopen,
     Workspace,
 )
+from flowfield.attention import AttentionColumn, RequestKind
 from flowfield.conversation_api import add_conversation_tools
 from flowfield.delivery_models import DeliveryConfigure
 from flowfield.documents import DocumentCreate, DocumentEdit, DocumentRestore, Documents
@@ -1002,6 +1003,33 @@ def create_mcp(
         return await mutate(
             lambda: workspace().add_activity(project_id, attributed(entry)).model_dump()
         )
+
+    @mcp.tool(annotations=read)
+    async def list_requests(
+        workspace_id: Identifier,
+        column: AttentionColumn = "action",
+        offset: Annotated[int, Field(ge=0)] = 0,
+        limit: PageLimit = 20,
+    ) -> CallToolResult:
+        """Read bounded human requests with stable links. History retains resolved asks.
+
+        Share the returned request URL for a direct human response.
+        Source updates are informational.
+        """
+        return await invoke(lambda: reads().requests(workspace_id, column, offset, limit))
+
+    @mcp.tool(annotations=read)
+    async def get_request(
+        workspace_id: Identifier,
+        kind: RequestKind,
+        request_id: Identifier,
+        project_id: Identifier | None = None,
+    ) -> CallToolResult:
+        """Read an exact human request and its stable URL, including resolved requests.
+
+        Existing question/result/review/permission tools retain all response authority.
+        """
+        return await invoke(lambda: reads().request(workspace_id, kind, request_id, project_id))
 
     @mcp.tool(annotations=read)
     async def list_questions(

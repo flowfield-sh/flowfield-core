@@ -445,7 +445,7 @@ test("closing entity panes returns through history without duplicate collections
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(page).toHaveURL(inbox);
   await page.goBack();
-  await expect(page).toHaveURL(/conversation\/question:scope:1$/);
+  await expect(page).toHaveURL(/tasks\/HRT-1$/);
   await page.goBack();
   await expect(page).toHaveURL(inbox);
   await page.goBack();

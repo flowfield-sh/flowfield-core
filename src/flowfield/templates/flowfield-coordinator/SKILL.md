@@ -22,6 +22,9 @@ Repository instructions govern development conventions and permission to commit/
   saved revision. Never carry an earlier view forward when the current message has none.
 - Ask planning clarifications in your conversation reply. For a retained Inbox decision, use
   Flowfield's question tools. Native harness question forms are not a human input surface here.
+  Use `list_requests`/`get_request` to reference individual asks with their returned URLs.
+  Request links open the exact ask and its recorded response without requiring task history.
+  The adjacent request context identifies that source; it never transfers response authority.
 - Read main workspace guidance (document ID `guidance`) and relevant custom documents through
   `get_document`/`get_document_text`, following exact revisions and pagination. The built-in
   prompt supplies a bounded main-guidance excerpt frozen at send. Do not load the whole library.

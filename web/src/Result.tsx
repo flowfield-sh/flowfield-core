@@ -1,3 +1,5 @@
+import { requestHref } from "./requestLinks";
+import { ProjectOwners } from "./WorkspaceLink";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
 import {
@@ -6,7 +8,7 @@ import {
   DetailSection,
   Disclosure,
 } from "./DetailLayout";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useState, useContext } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { components } from "./api-schema";
@@ -34,6 +36,7 @@ export function Result({
   onApprove,
   inputEnabled,
   compact = false,
+  overview = false,
 }: {
   projectId: string;
   taskId: string;
@@ -44,7 +47,9 @@ export function Result({
   onApprove: (version: Version) => void;
   inputEnabled: boolean;
   compact?: boolean;
+  overview?: boolean;
 }) {
+  const owners = useContext(ProjectOwners);
   const path = `projects/${projectId}`;
   const page = usePage<components["schemas"]["ResultPage"]>(
     `${path}/tasks/${taskId}/results`,
@@ -139,7 +144,7 @@ export function Result({
       )}
       {version && version.task_id === taskId && (
         <>
-          <Section title="Worker report">
+          <Section title={overview ? "Outcome" : "Worker report"}>
             <Markdown>{version.report.summary}</Markdown>
             {version.report.outcome === "partial" && (
               <DetailSection title="Work remaining">
@@ -147,17 +152,18 @@ export function Result({
               </DetailSection>
             )}
 
-            {version.report.limitations && (
-              <DetailSection title="Limitations">
-                <Markdown>{version.report.limitations}</Markdown>
-              </DetailSection>
-            )}
+            {version.report.limitations &&
+              (!overview || version.status !== "delivered") && (
+                <DetailSection title="Limitations">
+                  <Markdown>{version.report.limitations}</Markdown>
+                </DetailSection>
+              )}
             {version.feedback && (
               <DetailSection title="Review request">
                 <Markdown>{version.feedback}</Markdown>
               </DetailSection>
             )}
-            {worker.data?.feedback && !version.feedback && (
+            {!overview && worker.data?.feedback && !version.feedback && (
               <Disclosure
                 summary={<>Requested in the previous review</>}
                 className="review-disclosure"
@@ -169,7 +175,7 @@ export function Result({
               </Disclosure>
             )}
           </Section>
-          {version.independent_review?.summary && (
+          {!overview && version.independent_review?.summary && (
             <Section title="Independent review">
               {version.independent_review.status === "stale" && (
                 <p>
@@ -183,106 +189,121 @@ export function Result({
               </Disclosure>
             </Section>
           )}
-          <Section
-            title={version.completion === "code" ? "Delivery" : "Report"}
-          >
-            <p>
-              <strong>
-                {!current
-                  ? "Earlier result"
-                  : {
-                      ready: "Ready for review",
-                      preparing: "Checking result",
-                      delivering:
-                        version.completion === "code"
-                          ? "Integrating changes"
-                          : "Delivering findings",
-                      delivered:
-                        version.completion === "code"
-                          ? "Integrated"
-                          : "Findings delivered",
-                      blocked: "Needs attention",
-                      stale: "Needs attention",
-                      cancelled: "Review stopped",
-                      changes_requested: "Changes requested",
-                    }[version.status]}
-              </strong>
-            </p>
-            {version.completion === "code" && (
+          {(!overview ||
+            ["preparing", "delivering"].includes(version.status)) && (
+            <Section
+              title={version.completion === "code" ? "Delivery" : "Report"}
+            >
               <p>
-                Destination: <strong>{version.target_branch}</strong>
+                <strong>
+                  {!current
+                    ? "Earlier result"
+                    : {
+                        ready: "Ready for review",
+                        preparing: "Checking result",
+                        delivering:
+                          version.completion === "code"
+                            ? "Integrating changes"
+                            : "Delivering findings",
+                        delivered:
+                          version.completion === "code"
+                            ? "Integrated"
+                            : "Findings delivered",
+                        blocked: "Needs attention",
+                        stale: "Needs attention",
+                        cancelled: "Review stopped",
+                        changes_requested: "Changes requested",
+                      }[version.status]}
+                </strong>
               </p>
-            )}
-            {version.recheck_of != null && (
-              <p className="muted">
-                Updated checks for review {version.recheck_of}; the worker
-                submission is unchanged.
-              </p>
-            )}
-            {!current && (
-              <Alert>
-                <AlertDescription>
-                  Earlier checked revision.{" "}
-                  {page.data?.current_id !== version.id ? (
-                    <WorkspaceLink to={`${href}/${page.data?.current_id}`}>
-                      Open current changes
-                    </WorkspaceLink>
-                  ) : (
-                    <>
-                      A newer worker attempt is{" "}
-                      {label(successor.data?.status ?? "pending")}. Its result
-                      will appear here when submitted.
-                    </>
-                  )}
-                </AlertDescription>
-              </Alert>
-            )}
-            {current &&
-              ["preparing", "delivering"].includes(version.status) && (
-                <>
-                  <p>
-                    {version.status === "preparing"
-                      ? "Flowfield is combining these changes with the branch and running checks. You can stop this cycle if the work needs to change; code and output are kept."
-                      : "Approved changes are waiting to reach the branch. You can cancel until the branch update starts; the task becomes Done after delivery."}
-                  </p>
-                  <ResultActions version={version.version}>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() => void recover("cancel")}
-                    >
-                      {version.status === "preparing"
-                        ? "Stop checks"
-                        : "Cancel delivery"}
-                    </Button>
-                  </ResultActions>
-                </>
+              {version.completion === "code" && (
+                <p>
+                  Destination: <strong>{version.target_branch}</strong>
+                </p>
               )}
-            {version.status === "delivered" && (
-              <p>
-                {version.completion === "code"
-                  ? `Delivered to ${version.target_branch}.`
-                  : "Findings delivered; this does not endorse the recommendation."}{" "}
-                Task complete.
-              </p>
-            )}
-            {version.status === "changes_requested" && current && (
-              <p>{version.next_action?.reason || "Changes requested."}</p>
-            )}
-            {version.status === "cancelled" ? (
-              <p>
-                Code and check output were kept. These changes are no longer
-                awaiting approval or delivery.
-              </p>
-            ) : (
-              version.problem &&
-              version.problem_code !== "partial_outcome" && (
-                <FailureEvidence problem={version.problem} />
-              )
-            )}
-          </Section>
+              {version.recheck_of != null && (
+                <p className="muted">
+                  Updated checks for review {version.recheck_of}; the worker
+                  submission is unchanged.
+                </p>
+              )}
+              {!current && (
+                <Alert>
+                  <AlertDescription>
+                    Earlier checked revision.{" "}
+                    {page.data?.current_id !== version.id ? (
+                      <WorkspaceLink to={`${href}/${page.data?.current_id}`}>
+                        Open current changes
+                      </WorkspaceLink>
+                    ) : (
+                      <>
+                        A newer worker attempt is{" "}
+                        {label(successor.data?.status ?? "pending")}. Its result
+                        will appear here when submitted.
+                      </>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {current &&
+                ["preparing", "delivering"].includes(version.status) && (
+                  <>
+                    <p>
+                      {version.status === "preparing"
+                        ? "Flowfield is combining these changes with the branch and running checks. You can stop this cycle if the work needs to change; code and output are kept."
+                        : "Approved changes are waiting to reach the branch. You can cancel until the branch update starts; the task becomes Done after delivery."}
+                    </p>
+                    <ResultActions version={version.version}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => void recover("cancel")}
+                      >
+                        {version.status === "preparing"
+                          ? "Stop checks"
+                          : "Cancel delivery"}
+                      </Button>
+                    </ResultActions>
+                  </>
+                )}
+              {version.status === "delivered" && (
+                <p>
+                  {version.completion === "code"
+                    ? `Delivered to ${version.target_branch}.`
+                    : "Findings delivered; this does not endorse the recommendation."}{" "}
+                  Task complete.
+                </p>
+              )}
+              {version.status === "changes_requested" && current && (
+                <p>{version.next_action?.reason || "Changes requested."}</p>
+              )}
+              {version.status === "cancelled" ? (
+                <p>
+                  Code and check output were kept. These changes are no longer
+                  awaiting approval or delivery.
+                </p>
+              ) : (
+                version.problem &&
+                version.problem_code !== "partial_outcome" && (
+                  <FailureEvidence problem={version.problem} />
+                )
+              )}
+            </Section>
+          )}
+          {overview && (
+            <WorkspaceLink
+              to={requestHref(
+                owners[projectId],
+                "result",
+                version.id,
+                projectId,
+              )}
+            >
+              Open result
+            </WorkspaceLink>
+          )}
           {current &&
             version.next_action &&
             !["none", "wait", "review_result"].includes(
@@ -348,55 +369,59 @@ export function Result({
                 )}
               </ResultActions>
             )}
-          <Section title="Checks" role="region" aria-label="Checks">
-            <ReviewChecks
-              preparation={evidence.data}
-              availability={availability.data}
-              report={version.report.checks}
-              completion={version.completion}
-              branch={version.target_branch}
-              historyHref={taskHref(projectId, { key: taskKey }, "history")}
-            />
-          </Section>
-          {version.completion === "code" && version.candidate_commit && (
-            <Section title="Details">
-              <Inspection
-                compact={compact}
-                key={version.id}
-                projectId={projectId}
-                result={version}
-                refresh={refresh}
+          {!overview && (
+            <Section title="Checks" role="region" aria-label="Checks">
+              <ReviewChecks
+                preparation={evidence.data}
+                availability={availability.data}
+                report={version.report.checks}
+                completion={version.completion}
+                branch={version.target_branch}
+                historyHref={taskHref(projectId, { key: taskKey }, "history")}
               />
-              {version.integration_id && version.candidate_commit && (
-                <Disclosure
-                  group={!compact}
-                  summary={<>Code changes</>}
-                  onToggle={(e) => setDiffOpen(e.currentTarget.open)}
-                >
-                  {diffOpen && (
-                    <Suspense fallback={<p>Loading changes…</p>}>
-                      <CodeDiff
-                        path={`${path}/integrations/${version.integration_id}`}
-                        result={version.candidate_commit}
-                        view={
-                          views[version.id] ?? {
-                            selected: 0,
-                            mode: "unified",
-                          }
-                        }
-                        changeView={(view) =>
-                          setViews((current) => ({
-                            ...current,
-                            [version.id]: view,
-                          }))
-                        }
-                      />
-                    </Suspense>
-                  )}
-                </Disclosure>
-              )}
             </Section>
           )}
+          {!overview &&
+            version.completion === "code" &&
+            version.candidate_commit && (
+              <Section title="Details">
+                <Inspection
+                  compact={compact}
+                  key={version.id}
+                  projectId={projectId}
+                  result={version}
+                  refresh={refresh}
+                />
+                {version.integration_id && version.candidate_commit && (
+                  <Disclosure
+                    group={!compact}
+                    summary={<>Code changes</>}
+                    onToggle={(e) => setDiffOpen(e.currentTarget.open)}
+                  >
+                    {diffOpen && (
+                      <Suspense fallback={<p>Loading changes…</p>}>
+                        <CodeDiff
+                          path={`${path}/integrations/${version.integration_id}`}
+                          result={version.candidate_commit}
+                          view={
+                            views[version.id] ?? {
+                              selected: 0,
+                              mode: "unified",
+                            }
+                          }
+                          changeView={(view) =>
+                            setViews((current) => ({
+                              ...current,
+                              [version.id]: view,
+                            }))
+                          }
+                        />
+                      </Suspense>
+                    )}
+                  </Disclosure>
+                )}
+              </Section>
+            )}
           {current && version.status === "ready" && (
             <ResultActions version={version.version}>
               <Button
