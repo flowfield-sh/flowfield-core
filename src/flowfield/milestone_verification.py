@@ -83,6 +83,7 @@ def delivered_tasks(
                 settings_revision=settings[0] if settings else None,
                 commit=result.get("candidate_commit") or result["source_commit"],
                 target_branch=result.get("target_branch"),
+                reconciliation_reason=task.get("reconciliation_reason"),
             )
         )
     return values
@@ -148,7 +149,16 @@ def current_problem(db: sqlite3.Connection, value: MilestoneVerification) -> str
         )
     except ApplicationError as error:
         return str(error)
-    if tasks != value.tasks:
+    resolutions = {item.task_id: item for item in value.dependency_resolutions}
+    expected = [
+        task.model_copy(
+            update={"revision": resolutions[task.task_id].revision, "reconciliation_reason": None}
+        )
+        if task.project_id == value.project_id and task.task_id in resolutions
+        else task
+        for task in value.tasks
+    ]
+    if tasks != expected:
         return "Contributing tasks or delivered results changed. Prepare a new verification."
     if value.purpose == "review":
         from flowfield.reviewer_settings import Reviewers

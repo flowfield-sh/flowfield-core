@@ -140,6 +140,8 @@ evidence reaches Inbox acceptance. Accept and promote delivers the exact owned m
 candidate; ordinary acceptance records review only. Neither action publishes or releases.
 This conversation runs only when invoked; explain when another Coordinator turn is needed.
 Prepare upcoming Backlog/Up next assignments with create_task/edit_task when intent is clear.
+Keep implementation, tests and documentation together when they form one coherent change.
+Split tasks for useful independent ownership or real dependencies, not one task per file or phase.
 For changed intent in progress/review, wait until no worker owns the task, edit without preparation
 with reviewed stages, then reconcile_task before get_task_input/reply_to_task follow-up.
 For delivered work, use reopen_task with the current revision and reason. It retains results and

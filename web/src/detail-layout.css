@@ -750,9 +750,3 @@
   display: grid;
   gap: 12px;
 }
-.verification-checks > li {
-  padding-left: 14px;
-}
-.verification-checks .feed-event-title {
-  margin-left: -14px;
-}

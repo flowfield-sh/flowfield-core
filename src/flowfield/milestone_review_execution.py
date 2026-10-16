@@ -8,8 +8,13 @@ from mcp.types import CallToolResult, TextContent, Tool, ToolAnnotations
 
 from flowfield.agent_tools import ScopedTools
 from flowfield.errors import ApplicationError
-from flowfield.milestone_reviews import MilestoneReview, MilestoneReviews, MilestoneVerdict
-from flowfield.milestone_verification import read, validate_report
+from flowfield.milestone_reviews import (
+    MilestoneReview,
+    MilestoneReviews,
+    MilestoneVerdict,
+    validate_decision,
+)
+from flowfield.milestone_verification import read
 from flowfield.native_review_execution import NativeReviewExecution, ReviewLaunch
 from flowfield.worker_tools import ReadContext
 
@@ -102,8 +107,7 @@ class MilestoneReviewExecution(NativeReviewExecution[MilestoneReview]):
                 )
             else:
                 verdict = MilestoneVerdict.model_validate(arguments)
-                if verdict.report:
-                    validate_report(value, verdict.report)
+                validate_decision(value, verdict)
                 if verdict.correction_task_id:
                     assert verdict.report
                     if verdict.correction_task_id not in {
@@ -185,6 +189,18 @@ class MilestoneReviewExecution(NativeReviewExecution[MilestoneReview]):
                     "A regression visible only in the combined candidate may return to the "
                     "existing task that owns that behavior. Its worker starts from the "
                     "current milestone branch; this grants no broader task scope. "
+                    "For each contribution with reconciliation_reason, inspect its full "
+                    "contribution context and the changed prerequisite in this candidate. "
+                    "A prerequisite-only flag can be resolved in dependency_assessments: cite "
+                    "the task_id, a passed check and specific evidence that its unchanged "
+                    "agreement still holds. The service records that exact resolution, "
+                    "without another agent turn or adopting new intent/sources. If the "
+                    "dependent work is wrong, request its correction instead. Other task "
+                    "reconciliation reasons or ambiguity require a focused human question. "
+                    "Write summary for the human's outcome decision: what works and what "
+                    "remains unresolved, without commit hashes or execution bookkeeping. "
+                    "Put only material caveats or required human checks "
+                    "in limitations; keep technical proof in findings/evidence. "
                     "Read previous exchanges and human_answer when present. Submit every "
                     "prepared check once and full coverage notes through "
                     "submit_milestone_review, then end. Passing requests human milestone "

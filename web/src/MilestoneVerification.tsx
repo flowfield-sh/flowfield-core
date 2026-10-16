@@ -1,9 +1,12 @@
-import { useRetainedState, retainDirty } from "./retainedState";
+import {
+  useRetainedState,
+  retainDirty,
+  useRetainedDraftKeys,
+} from "./retainedState";
 import type { DirtyCallback } from "./retainedState";
 import {
   useCallback,
   useEffect,
-  useRef,
   useState,
   lazy,
   Suspense,
@@ -26,7 +29,6 @@ import { Inspection } from "./Inspection";
 import type { DiffViewState } from "./CodeDiff";
 import { CheckEvidence } from "./Integration";
 import { OverlayFooter } from "./EntityOverlay";
-import { useFeedScroll } from "./useFeedScroll";
 import { useDirtyItems } from "./useDirtyItems";
 import { ResourceRetry } from "./ResourceRetry";
 import { Timestamp } from "./Timestamp";
@@ -72,11 +74,11 @@ export function MilestoneReviewResponse({
   onDirty: DirtyCallback;
 }) {
   const [revision, setRevision] = useRetainedState(
-    `${path}:verification:${value.id}:revision`,
+    `${path}:milestone:${value.milestone_id}:verification:${value.id}:revision`,
     value.revision,
   );
   const [note, setNote] = useRetainedState(
-    `${path}:verification:${value.id}:note`,
+    `${path}:milestone:${value.milestone_id}:verification:${value.id}:note`,
     "",
   );
   const [pending, setPending] = useState(false);
@@ -88,10 +90,13 @@ export function MilestoneReviewResponse({
   const canRetry =
     allowReview && value.current && value.status === "delivery_blocked";
   useEffect(() => {
-    retainDirty(`${path}:verification:${value.id}`, !!note.trim());
+    retainDirty(
+      `${path}:milestone:${value.milestone_id}:verification:${value.id}`,
+      !!note.trim(),
+    );
     onDirty(!!note.trim() || pending, !pending);
     return () => onDirty(false);
-  }, [note, pending, onDirty, path, value.id]);
+  }, [note, pending, onDirty, path, value.id, value.milestone_id]);
   async function review(
     action: "accept" | "request_changes" | "retry_promotion",
   ) {
@@ -291,11 +296,10 @@ export function MilestoneReport({
         const finding = findings.find((f) => f.check === index + 1);
         const verdict = finding ? label(finding.verdict) : "Pending";
         return (
-          <li className="content-stack" key={index} data-space="tight">
-            <DetailHeading
-              entry
-              titleAs="h3"
-              title={
+          <li key={index}>
+            <Disclosure
+              open={finding?.verdict !== "passed"}
+              summary={
                 <span className="feed-event-title">
                   <WorkState
                     indicatorOnly
@@ -312,14 +316,13 @@ export function MilestoneReport({
                   <span>{check}</span>
                 </span>
               }
-            />
-            <div>
+            >
               {finding ? (
                 <Markdown>{finding.evidence}</Markdown>
               ) : (
                 <p>No finding yet.</p>
               )}
-            </div>
+            </Disclosure>
           </li>
         );
       })}
@@ -342,6 +345,13 @@ export function MilestoneReport({
         }
       />
       <ContentStack className="conversation-message-body" space="section">
+        {value.summary && <Markdown>{value.summary}</Markdown>}
+        {value.limitations && (
+          <DetailSection title="Limitations">
+            <Markdown>{value.limitations}</Markdown>
+          </DetailSection>
+        )}
+        <DetailSection title="Checks">{checks}</DetailSection>
         <DetailSection title="Details">
           <ContentStack space="flush">
             {promotion?.candidate_commit && (
@@ -389,11 +399,6 @@ export function MilestoneReport({
                     title="Project checks"
                   />
                 </ContentStack>
-              </Disclosure>
-            )}
-            {value.limitations && (
-              <Disclosure summary="Limitations reported">
-                <Markdown>{value.limitations}</Markdown>
               </Disclosure>
             )}
             <Disclosure summary="Verification context">
@@ -452,7 +457,6 @@ export function MilestoneReport({
             )}
           </ContentStack>
         </DetailSection>
-        <DetailSection title="Checks">{checks}</DetailSection>
       </ContentStack>
     </article>
   );
@@ -507,7 +511,6 @@ function ReviewEntry({
   id,
   path,
   refresh,
-  selected,
   markDirty,
   milestoneId,
   respond,
@@ -516,7 +519,6 @@ function ReviewEntry({
   id: string;
   path: string;
   refresh: unknown;
-  selected: boolean;
   markDirty: (id: string, value: boolean, retained?: boolean) => void;
   milestoneId: string;
 }) {
@@ -528,14 +530,6 @@ function ReviewEntry({
   const dirty = useCallback(
     (value: boolean, retained?: boolean) => markDirty(id, value, retained),
     [id, markDirty],
-  );
-  const [hasDraft, setHasDraft] = useState(false);
-  const onDirty = useCallback(
-    (value: boolean, retained?: boolean) => {
-      setHasDraft(value);
-      dirty(value, retained);
-    },
-    [dirty],
   );
   if (!value)
     return (
@@ -592,18 +586,16 @@ function ReviewEntry({
           )}
         </article>
       )}
-      {(selected || respond || hasDraft) && (
-        <OverlayFooter>
-          <MilestoneReviewResponse
-            key={value.id}
-            value={value}
-            path={path}
-            refresh={resource.retry}
-            onDirty={onDirty}
-            allowReview={respond}
-          />
-        </OverlayFooter>
-      )}
+      <OverlayFooter>
+        <MilestoneReviewResponse
+          key={value.id}
+          value={value}
+          path={path}
+          refresh={resource.retry}
+          onDirty={dirty}
+          allowReview={respond}
+        />
+      </OverlayFooter>
     </li>
   );
 }
@@ -638,30 +630,15 @@ export function MilestoneVerification({
     }
   }, [newest, selected, params, setParams, location.state]);
   const markDirty = useDirtyItems(onDirty);
-  const root = useRef<HTMLDivElement>(null);
-  const [seen, setSeen] = useState<History | null>(null);
-  const [entries, setEntries] = useState<History["items"]>([]);
-  if (history.data && history.data !== seen) {
-    setSeen(history.data);
-    setEntries((previous) =>
-      [
-        ...new Map(
-          [...previous, ...history.data!.items].map((item) => [item.id, item]),
-        ).values(),
-      ].sort((a, b) => a.number - b.number),
-    );
-  }
-  const ids = entries.map((item) => item.id);
-  if (selected && !ids.includes(selected)) ids.unshift(selected);
-  const scrolling = useFeedScroll(
-    root,
-    !!history.data,
-    selected ?? undefined,
-    !!history.data,
-  );
+  const current = selected ?? newest;
+  const draftPrefix = `${path}:milestone:${milestoneId}:verification:`;
+  const drafts = useRetainedDraftKeys(draftPrefix)
+    .map((key) => key.slice(draftPrefix.length))
+    .filter((id) => id !== current);
+  const earlier =
+    history.data?.items.filter((item) => item.id !== current) ?? [];
   return (
     <ContentStack
-      ref={root}
       space="section"
       className="milestone-review-feed"
       role="tabpanel"
@@ -680,36 +657,63 @@ export function MilestoneVerification({
           work is ready.
         </p>
       )}
-      {history.data?.next_cursor && (
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={history.loadingMore}
-          onClick={() => {
-            scrolling.readingEarlier();
-            void history.older();
-          }}
-        >
-          Earlier reviews
-        </Button>
+      {drafts.length > 0 && (
+        <ContentStack aria-label="Saved review notes">
+          {drafts.map((id) => (
+            <WorkspaceLink key={id} to={`?tab=review&verification=${id}`}>
+              Unsent review note
+            </WorkspaceLink>
+          ))}
+        </ContentStack>
       )}
-      <ol className="conversation-messages" aria-label="Milestone review feed">
-        {ids.map((id) => (
+      {current && (
+        <ol
+          className="conversation-messages"
+          aria-label="Milestone review feed"
+        >
           <ReviewEntry
-            key={id}
-            id={id}
+            key={current}
+            id={current}
             path={path}
             refresh={JSON.stringify([revision, refresh])}
-            selected={selected === id}
-            respond={
-              id === history.data?.items[0]?.id &&
-              (!selected || selected === id)
-            }
+            respond={current === newest}
             markDirty={markDirty}
             milestoneId={milestoneId}
           />
-        ))}
-      </ol>
+        </ol>
+      )}
+      {(earlier.length > 0 || history.data?.next_cursor) && (
+        <Disclosure summary="Earlier reviews">
+          <ContentStack>
+            <ul
+              className="source-reference-list"
+              aria-label="Earlier milestone reviews"
+            >
+              {earlier.map((item) => (
+                <li key={item.id}>
+                  <WorkspaceLink to={`?tab=review&verification=${item.id}`}>
+                    {statuses[item.status]}
+                  </WorkspaceLink>
+                  {" · "}
+                  <Timestamp date={item.updated_at} />
+                </li>
+              ))}
+            </ul>
+            {history.data?.next_cursor && (
+              <div className="actions">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={history.loadingMore}
+                  onClick={() => void history.older()}
+                >
+                  Load earlier reviews
+                </Button>
+              </div>
+            )}
+          </ContentStack>
+        </Disclosure>
+      )}
     </ContentStack>
   );
 }

@@ -230,88 +230,64 @@ test("external review refreshes the pane without losing an unsent note", async (
   ).toHaveCount(0);
 });
 
-test("long milestone history scrolls by wheel and preserves reading through refresh", async ({
+test("one selected review keeps paged history and exact unsent notes", async ({
   page,
-  request,
 }) => {
   const value = seed("verification-scroll", "passed", 12);
-  const base = `/workspaces/${value.workspace_id}`;
+  const base = `/workspaces/${value.workspace_id}/milestones/${value.milestone_key}`;
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 844 });
-    await page.goto(`${base}/milestones/${value.milestone_key}?tab=review`);
+    await page.goto(`${base}?tab=review`);
     await expect(
       page.getByRole("button", { name: "Accept milestone", exact: true }),
     ).toBeVisible();
-    const pane = page.locator(".entity-pane .entity-overlay-body");
-    await expect
-      .poll(() => pane.evaluate((n) => n.scrollTop))
-      .toBeGreaterThan(500);
-    const bounds = (await pane.boundingBox())!;
-    await page.mouse.move(
-      bounds.x + bounds.width / 2,
-      bounds.y + bounds.height / 2,
-    );
-    const initial = await pane.evaluate((n) => n.scrollTop);
-    await page.mouse.wheel(0, -450);
-    await expect
-      .poll(() => pane.evaluate((n) => n.scrollTop))
-      .toBeLessThan(initial - 200);
-    const before = await pane.evaluate((n) => n.scrollTop);
-    // A harmless metadata refresh must not pull the reader back to the selected report.
-    const current = await (await request.get(`/api${base}`)).json();
-    const refreshed = page.waitForResponse(
-      (response) =>
-        response.url().endsWith("/api/workspaces") &&
-        response.request().method() === "GET",
-    );
-    const response = await request.put(`/api${base}`, {
-      data: {
-        expected_revision: current.revision,
-        name: `History at ${width}`,
-      },
-    });
-    expect(response.ok(), await response.text()).toBe(true);
-    await refreshed;
-    await expect
-      .poll(() => pane.evaluate((n) => n.scrollTop))
-      .toBeGreaterThan(before - 5);
-    await expect
-      .poll(() => pane.evaluate((n) => n.scrollTop))
-      .toBeLessThan(before + 5);
-    await page.mouse.wheel(0, 400);
-    await expect
-      .poll(() => pane.evaluate((n) => n.scrollTop))
-      .toBeGreaterThan(before + 200);
-    await page.mouse.wheel(0, -20000);
-    await expect.poll(() => pane.evaluate((n) => n.scrollTop)).toBeLessThan(5);
+    const feed = page.getByRole("list", { name: "Milestone review feed" });
+    await expect(feed.locator(":scope > li")).toHaveCount(1);
+    await expect(
+      page.getByText("Review round 1: include the recovery walkthrough.", {
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText("Fixture: discovery returned the configured executable.", {
+        exact: true,
+      }),
+    ).not.toBeVisible();
     await page
-      .getByRole("button", { name: "Earlier reviews", exact: true })
+      .getByText("Discover an installed harness", { exact: true })
       .click();
     await expect(
-      page
-        .getByRole("list", { name: "Milestone review feed" })
-        .locator(":scope > li"),
-    ).toHaveCount(12);
-    await page.mouse.move(
-      bounds.x + bounds.width / 2,
-      bounds.y + bounds.height / 2,
-    );
-    const loaded = await pane.evaluate((n) => n.scrollTop);
-    await page.mouse.wheel(0, 400);
-    await expect
-      .poll(() => pane.evaluate((n) => n.scrollTop))
-      .toBeGreaterThan(loaded + 200);
-    const older = await page
-      .getByRole("list", { name: "Milestone review feed" })
-      .locator(":scope > li")
-      .first()
-      .getAttribute("data-message-id");
-    await page.goto(
-      `${base}/milestones/${value.milestone_key}?verification=${older}`,
-    );
+      page.getByText("Fixture: discovery returned the configured executable.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    const note = page.getByRole("textbox", { name: "Review note" });
+    await note.fill(`Keep this exact report note at ${width}`);
+    await page.getByText("Earlier reviews", { exact: true }).click();
+    const earlier = page.getByRole("list", {
+      name: "Earlier milestone reviews",
+    });
+    await expect(earlier.getByRole("link")).toHaveCount(9);
+    await page
+      .getByRole("button", { name: "Load earlier reviews", exact: true })
+      .click();
+    await expect(earlier.getByRole("link")).toHaveCount(11);
+    const href = await earlier.getByRole("link").last().getAttribute("href");
+    await earlier.getByRole("link").last().click();
+    await expect(feed.locator(":scope > li")).toHaveCount(1);
+    await expect(
+      page.getByRole("button", { name: "Accept milestone", exact: true }),
+    ).toHaveCount(0);
     await expect(
       page.getByRole("link", { name: "Latest review", exact: true }),
     ).toBeVisible();
+    await page
+      .getByRole("link", { name: "Unsent review note", exact: true })
+      .click();
+    await expect(note).toHaveValue(`Keep this exact report note at ${width}`);
+    await note.fill("");
+    await page.goto(href!);
+    await expect(feed.locator(":scope > li")).toHaveCount(1);
     await expect(page.locator(".entity-overlay-footer")).toBeEmpty();
   }
 });

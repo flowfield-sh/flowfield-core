@@ -3698,6 +3698,8 @@ export interface components {
       commit: string;
       /** Target Branch */
       target_branch: string | null;
+      /** Reconciliation Reason */
+      reconciliation_reason: string | null;
     };
     /** Delivery */
     Delivery: {
@@ -3719,6 +3721,26 @@ export interface components {
       project_id: string;
       /** Branch */
       branch?: string | null;
+    };
+    /** DependencyAssessment */
+    DependencyAssessment: {
+      /** Task Id */
+      task_id: string;
+      /** Check */
+      check: number;
+      /** Evidence */
+      evidence: string;
+    };
+    /** DependencyResolution */
+    DependencyResolution: {
+      /** Task Id */
+      task_id: string;
+      /** Check */
+      check: number;
+      /** Evidence */
+      evidence: string;
+      /** Revision */
+      revision: number;
     };
     /** DirectorySelection */
     DirectorySelection: {
@@ -4876,6 +4898,13 @@ export interface components {
       correction_task_id: string | null;
       /** Correction Check */
       correction_check: number | null;
+      /** Dependency Assessments */
+      dependency_assessments: components["schemas"]["DependencyAssessment"][];
+      /**
+       * Limitations
+       * @default
+       */
+      limitations: string;
     };
     /** MilestoneVerification */
     MilestoneVerification: {
@@ -4931,6 +4960,13 @@ export interface components {
        */
       current: boolean;
       report: components["schemas"]["VerificationReport"] | null;
+      /**
+       * Summary
+       * @default
+       */
+      summary: string;
+      /** Dependency Resolutions */
+      dependency_resolutions: components["schemas"]["DependencyResolution"][];
       /**
        * Limitations
        * @default

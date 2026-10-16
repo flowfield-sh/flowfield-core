@@ -44,6 +44,17 @@ class DeliveredTask(VerificationInput):
     settings_revision: int | None
     commit: str
     target_branch: str | None
+    reconciliation_reason: str | None = None
+
+
+class DependencyAssessment(VerificationInput):
+    task_id: str
+    check: int = Field(ge=1, le=50)
+    evidence: str = Field(min_length=1, max_length=4000)
+
+
+class DependencyResolution(DependencyAssessment):
+    revision: int
 
 
 VerificationStatus = Literal[
@@ -85,6 +96,8 @@ class MilestoneVerification(VerificationInput):
     status: VerificationStatus = "verifying"
     current: bool = True
     report: VerificationReport | None = None
+    summary: str = ""
+    dependency_resolutions: list[DependencyResolution] = Field(default_factory=list)
     limitations: str = ""
     result_id: str | None = None
     created_at: str

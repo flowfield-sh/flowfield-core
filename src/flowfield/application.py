@@ -3,7 +3,7 @@
 import json
 import re
 import sqlite3
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -46,6 +46,7 @@ from flowfield.migrations import current_version
 from flowfield.milestone_models import MilestoneBinding, MilestoneUpdate
 from flowfield.project_config import Identifier, ProjectConfig, Title, read_config, write_config
 from flowfield.publication import (
+    DEPENDENCY_CHANGED,
     Publication,
     PublicationStatus,
     Readiness,
@@ -1144,7 +1145,7 @@ class Workspace:
                 and item.publication.verification_id is not None
                 and item.publication.agreement_revision == item.agreement_revision
             )
-            dependency_reason = "Prerequisites changed. Review recorded work with the coordinator."
+            dependency_reason = DEPENDENCY_CHANGED
             if frozen_report and item.reconciliation_reason == dependency_reason:
                 # Repair an earlier derived flag through the ordinary revision
                 # owner. Retain the prior revision and report; never clear an
@@ -1922,6 +1923,43 @@ class Workspace:
                 (self._append_position(db, project_id), project_id, current.id),
             )
             return self._task(db, project_id, current.id)
+
+    def _reconcile_verified_dependencies(
+        self, db: sqlite3.Connection, tasks: Sequence[tuple[TaskRevision, str]]
+    ) -> None:
+        """Apply exact dependency-only assessments without adopting new intent or sources."""
+        changes = []
+        for expected, note in tasks:
+            current = self._task(db, expected.project_id, expected.id)
+            self._current(current.revision, expected.revision)
+            if (
+                current.status != "done"
+                or current.reconciliation_reason != DEPENDENCY_CHANGED
+                or publication_status(current) != "published"
+            ):
+                raise ApplicationError(
+                    "reconciliation_changed",
+                    "The dependent assignment changed; review it again.",
+                    409,
+                )
+            changes.append(
+                TaskRevision.model_validate(current.model_dump()).model_copy(
+                    update={
+                        "revision": current.revision + 1,
+                        "reconciliation_reason": None,
+                        "change_note": note,
+                        "updated_at": now(),
+                        "updated_by": "flowfield",
+                    }
+                )
+            )
+        self._apply_tasks(db, changes)
+        # Outside or unresolved ancestry cannot be cleared by a milestone assessment.
+        for task in changes:
+            if self._task(db, task.project_id, task.id).reconciliation_reason:
+                raise ApplicationError(
+                    "reconciliation_blocked", "A prerequisite still needs reconciliation.", 409
+                )
 
     def reconcile_task(self, project_id: str, task_id: str, request: TaskReconcile) -> Task:
         with self.connection(write=True, project_id=project_id) as db:

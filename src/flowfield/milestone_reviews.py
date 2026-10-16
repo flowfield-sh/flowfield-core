@@ -24,10 +24,16 @@ from flowfield.milestone_verification import (
     validate_report,
 )
 from flowfield.milestones import Milestones
+from flowfield.publication import DEPENDENCY_CHANGED
 from flowfield.questions import QuestionCreate, Questions
 from flowfield.review_records import ReviewRecord, ReviewRecords
 from flowfield.reviewer_settings import EffectiveReviewer, Reviewers
-from flowfield.verification_models import MilestoneVerification, VerificationReport
+from flowfield.verification_models import (
+    DependencyAssessment,
+    DependencyResolution,
+    MilestoneVerification,
+    VerificationReport,
+)
 from flowfield.verification_plans import read as plan_read
 from flowfield.worker_settings import occupancy, read_project
 
@@ -40,6 +46,10 @@ class MilestoneVerdict(Record):
     report: VerificationReport | None = None
     correction_task_id: str | None = None
     correction_check: int | None = Field(default=None, ge=1, le=50)
+    dependency_assessments: list[DependencyAssessment] = Field(
+        default_factory=list, max_length=1000
+    )
+    limitations: str = Field(default="", max_length=4000)
 
     @model_validator(mode="after")
     def complete(self) -> "MilestoneVerdict":
@@ -52,6 +62,41 @@ class MilestoneVerdict(Record):
         if self.correction_task_id and (self.action != "report" or not self.correction_check):
             raise ValueError("Bind the correction to a failed or unverified check.")
         return self
+
+
+def validate_decision(value: MilestoneVerification, decision: MilestoneVerdict) -> None:
+    if not decision.report:
+        return
+    validate_report(value, decision.report)
+    passed = decision.report.coverage == "complete" and all(
+        finding.verdict == "passed" for finding in decision.report.findings
+    )
+    if not passed or decision.action != "report":
+        return
+    affected = {task.task_id: task for task in value.tasks if task.reconciliation_reason}
+    assessments = {item.task_id: item for item in decision.dependency_assessments}
+    if (
+        len(assessments) != len(decision.dependency_assessments)
+        or assessments.keys() != affected.keys()
+        or any(
+            task.project_id != value.project_id or task.reconciliation_reason != DEPENDENCY_CHANGED
+            for task in affected.values()
+        )
+        or any(
+            not item.evidence.strip()
+            or not any(
+                f.check == item.check and f.verdict == "passed" for f in decision.report.findings
+            )
+            for item in assessments.values()
+        )
+    ):
+        raise ApplicationError(
+            "dependency_assessment_required",
+            "Assess each changed prerequisite against its dependent task's unchanged agreement, "
+            "with a passed check and specific evidence. Request correction or ask about intent "
+            "when it cannot be resolved; a generic passing report cannot clear task changes.",
+            409,
+        )
 
 
 class MilestoneReview(ReviewRecord):
@@ -335,9 +380,10 @@ class MilestoneReviews(ReviewRecords[MilestoneReview]):
             elif self._fresh(db, review):
                 decision = MilestoneVerdict.model_validate(data["decision"])
                 value = read(db, review.workspace_id, review.verification_id)
+                validate_decision(value, decision)
                 if decision.report:
-                    validate_report(value, decision.report)
-                    value.report, value.limitations = decision.report, decision.evidence
+                    value.report, value.limitations = decision.report, decision.limitations
+                    value.summary = decision.summary
                 if decision.action == "ask_human":
                     self._question(db, review, value, decision)
                 else:
@@ -360,6 +406,24 @@ class MilestoneReviews(ReviewRecords[MilestoneReview]):
                                 "A passing outcome cannot request a correction.",
                                 409,
                             )
+                        tasks = [
+                            (
+                                self.store._task(db, review.project_id, item.task_id),
+                                f"Verified dependency impact in milestone review {value.id}: "
+                                f"{item.evidence}",
+                            )
+                            for item in decision.dependency_assessments
+                        ]
+                        self.store._reconcile_verified_dependencies(db, tasks)
+                        value.dependency_resolutions = [
+                            DependencyResolution(
+                                **item.model_dump(),
+                                revision=self.store._task(
+                                    db, review.project_id, item.task_id
+                                ).revision,
+                            )
+                            for item in decision.dependency_assessments
+                        ]
                         review.status, review.completed_at, review.applied_at = (
                             "decided",
                             now(),

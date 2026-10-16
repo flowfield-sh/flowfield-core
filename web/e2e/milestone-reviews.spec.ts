@@ -23,6 +23,7 @@ test("combined native-review evidence ends at exact human promotion", async ({
   await expect(
     page.getByRole("button", { name: "Accept and promote", exact: true }),
   ).toBeVisible();
+  await page.locator(".verification-checks summary").first().click();
   await expect(
     page.getByText("The feature file exists", { exact: false }),
   ).toBeVisible();

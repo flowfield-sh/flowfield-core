@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 PublicationStatus = Literal["draft", "published", "needs_reconciliation"]
 Readiness = Literal["ready", "blocked", "draft", "needs_reconciliation"]
+DEPENDENCY_CHANGED = "Prerequisites changed. Review recorded work with the coordinator."
 
 
 class Publication(BaseModel):

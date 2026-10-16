@@ -79,8 +79,19 @@ export function useRetainedState<T>(
   return [value, set];
 }
 export function retainDirty(key: string, dirty: boolean) {
+  if (dirtyEntries.has(key) === dirty) return;
   if (dirty) dirtyEntries.add(key);
   else dirtyEntries.delete(key);
+  queueMicrotask(() => {
+    for (const listener of listeners) listener();
+  });
+}
+export function useRetainedDraftKeys(prefix: string) {
+  const keys = useSyncExternalStore(
+    (listener) => subscribe(undefined, listener),
+    () => [...dirtyEntries].filter((key) => key.startsWith(prefix)).join("\n"),
+  );
+  return keys ? keys.split("\n") : [];
 }
 export function hasRetainedDrafts() {
   return dirtyEntries.size > 0;

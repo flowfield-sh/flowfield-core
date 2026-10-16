@@ -84,6 +84,15 @@ class OutcomeReviewer(FakeWorker):
                     }
                 ],
             },
+            "dependency_assessments": [
+                {
+                    "task_id": task["task_id"],
+                    "check": 1,
+                    "evidence": "Usage still matches the feature under its unchanged agreement.",
+                }
+                for task in value["tasks"]
+                if task.get("reconciliation_reason") and self.action == "pass"
+            ],
         }
         if self.action == "question":
             decision = {
@@ -156,6 +165,55 @@ def test_combined_review_reaches_human_promotion_without_a_verifier_task(tmp_pat
     MilestonePromotions(service.workspace).process("harbor")
     assert records.get("harbor", value.id).status == "accepted"
     assert git(repo, "rev-parse", "main").decode().strip() == value.promotion.candidate_commit
+
+
+@pytest.mark.parametrize(
+    "invalid", ["missing", "duplicate", "other_task", "other_check", "blank", "intent"]
+)
+def test_passing_summary_cannot_clear_unassessed_or_changed_work(tmp_path, invalid):
+    from flowfield.milestone_reviews import MilestoneVerdict, validate_decision
+    from flowfield.publication import DEPENDENCY_CHANGED
+
+    service, _, _, milestone, _, _ = fixture(tmp_path)
+    value = service.milestone_review_execution.reviews.prepare("harbor", milestone.id)
+    task = value.tasks[0]
+    task.reconciliation_reason = DEPENDENCY_CHANGED
+    assessment = {
+        "task_id": task.task_id,
+        "check": 1,
+        "evidence": "The exact changed prerequisite leaves this contribution correct.",
+    }
+    assessments = [assessment]
+    if invalid == "missing":
+        assessments = []
+    elif invalid == "duplicate":
+        assessments.append(dict(assessment))
+    elif invalid == "other_task":
+        assessment["task_id"] = "outside-the-assignment"
+    elif invalid == "other_check":
+        assessment["check"] = 2
+    elif invalid == "blank":
+        assessment["evidence"] = " "
+    else:
+        task.reconciliation_reason = (
+            "Requirements changed. Review recorded work with the coordinator."
+        )
+    decision = MilestoneVerdict.model_validate(
+        {
+            "action": "report",
+            "summary": "All good",
+            "evidence": "Generic passing claim",
+            "dependency_assessments": assessments,
+            "report": {
+                "verification_id": value.id,
+                "coverage": "complete",
+                "coverage_notes": "All checked",
+                "findings": [{"check": 1, "verdict": "passed", "evidence": "Feature checked"}],
+            },
+        }
+    )
+    with pytest.raises(ApplicationError, match="Assess each changed prerequisite"):
+        validate_decision(value, decision)
 
 
 def test_human_question_releases_capacity_and_resumes_saved_owner_once(tmp_path, monkeypatch):
@@ -320,6 +378,63 @@ def test_pause_restart_and_uncertain_cleanup_share_worker_capacity(tmp_path):
     assert reviews.retry("harbor", review.id, stopped.revision).status == "queued"
 
 
+def dependent_contribution(service, repo, milestone, prerequisite):
+    import os
+
+    from project_fixtures import fixture_stage_change, task_request
+
+    from flowfield.adapters.local_execution import LocalHost
+    from flowfield.application import TaskPublish
+    from flowfield.execution_models import WorkerResult
+
+    store = service.workspace
+    task = store.create_task(
+        "harbor",
+        task_request(
+            title="Usage",
+            body="Document the feature",
+            milestone_id=milestone.id,
+            dependencies=[store.task("harbor", prerequisite).key],
+            status="up_next",
+        ),
+    )
+    store.publish_task(
+        "harbor",
+        task.id,
+        TaskPublish(
+            expected_revision=task.revision,
+            completion="code",
+            stages=fixture_stage_change(store, "harbor", task.id),
+        ),
+    )
+    head = service.integrations.head("harbor", task.id)
+    branch = store.task("harbor", task.id).publication.target_branch
+    run = service.execution.claim(
+        "harbor",
+        head,
+        {head: service.integrations.available("harbor", head, branch)},
+        task_id=task.id,
+    )
+    service.execution.started("harbor", run.id)
+    env = LocalHost(os.environ).prepare(store.directory, repo, run.id, head)
+    (env.checkout / "USAGE.md").write_text("Use the combined feature.\n")
+    commit, _ = env.snapshot(head)
+    service.execution.finish(
+        "harbor",
+        run.id,
+        "in_review",
+        result=WorkerResult(summary="Usage documented", checks="true"),
+        commit=commit,
+    )
+    service.results.process("harbor")
+    result = service.results.page("harbor", task.id).items[0]
+    review = assess(store, result)
+    TaskReviews(store).delegate("harbor", review.id)
+    service.results.process("harbor")
+    assert service.results.get("harbor", result.id).status == "delivered"
+    return store.task("harbor", task.id)
+
+
 def test_correction_returns_through_task_review_and_fresh_whole_outcome(tmp_path, monkeypatch):
     import os
 
@@ -330,9 +445,11 @@ def test_correction_returns_through_task_review_and_fresh_whole_outcome(tmp_path
     from flowfield.execution_models import WorkerResult
 
     service, repo, _, milestone, _, result = fixture(tmp_path)
+    dependent = dependent_contribution(service, repo, milestone, result.task_id)
     install(monkeypatch, "correct")
     asyncio.run(step(service))
     failed = latest(service, milestone)
+    assert service.workspace.task("harbor", dependent.id).reconciliation_reason
     head = service.integrations.head("harbor", result.task_id)
     available = service.integrations.available("harbor", head)
     run = service.execution.claim("harbor", head, {head: available}, task_id=result.task_id)
@@ -359,6 +476,27 @@ def test_correction_returns_through_task_review_and_fresh_whole_outcome(tmp_path
     fresh = latest(service, milestone)
     assert fresh.id != failed.id and fresh.status == "ready", fresh.problem
     assert fresh.promotion.candidate_commit != failed.promotion.candidate_commit
+    resolved = service.workspace.task("harbor", dependent.id)
+    assert not resolved.reconciliation_reason and resolved.readiness == "ready"
+    assert resolved.publication == dependent.publication  # No source/intent adoption.
+    assert resolved.agreement_revision == dependent.agreement_revision
+    assert fresh.dependency_resolutions[0].task_id == dependent.id
+    assert next(t for t in fresh.tasks if t.task_id == dependent.id).reconciliation_reason
+    assert any(v.reconciliation_reason for v in resolved.revisions)
+    assert len(service.execution.page("harbor").items) == 3  # No extra documentation worker.
+    from flowfield.milestone_verification import current_problem
+
+    with service.workspace.connection() as db:
+        assert current_problem(db, fresh) is None
+    asyncio.run(step(service))
+    assert latest(service, milestone).id == fresh.id  # No self-invalidating review loop.
+    from flowfield.application import TaskEdit
+
+    service.workspace.edit_task(
+        "harbor", dependent.id, TaskEdit(expected_revision=resolved.revision, body="Changed intent")
+    )
+    with service.workspace.connection() as db:
+        assert current_problem(db, fresh)  # The receipt grants no future revision exemption.
     assert (
         MilestoneVerifications(service.workspace)
         .get("harbor", failed.id)

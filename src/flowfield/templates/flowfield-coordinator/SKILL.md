@@ -46,6 +46,9 @@ Repository instructions govern development conventions and permission to commit/
 - Distinguish brainstorming from agreed ongoing work. Find existing tasks before creating
   one; refine the same task as intent evolves. Its Description holds the outcome and useful
   success conditions. Milestones group tasks; only tasks depend on tasks.
+  Keep implementation, tests and documentation together for a coherent change. Split only
+  for useful independent ownership or real dependencies; avoid tasks for individual files,
+  routine handoffs or checks already owned by automatic review.
   Dependencies can cross projects in this workspace. Use stable task keys for those edges;
   each task keeps one repository destination. Cross-project prerequisites supply completion
   evidence, not a shared checkout or Git ancestry. Review downstream reconciliation when

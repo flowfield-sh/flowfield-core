@@ -172,7 +172,7 @@ test("milestone acceptance clears Inbox and Review column reflects the decision"
     card.getByLabel("Response").getByRole("textbox", { name: "Review note" }),
   ).toBeVisible();
   const headings = await card.getByRole("heading").allTextContents();
-  expect(headings.indexOf("Details")).toBeLessThan(headings.indexOf("Checks"));
+  expect(headings.indexOf("Checks")).toBeLessThan(headings.indexOf("Details"));
   await card.getByText("Verification context", { exact: true }).click();
   const revision = card.getByRole("link", { name: "revision 1", exact: true });
   await expect(revision).toHaveAttribute(
