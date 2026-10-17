@@ -1029,6 +1029,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/files/browse": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Browse */
+    get: operations["browse_api_workspaces__workspace_id__files_browse_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/files/work": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Work */
+    get: operations["work_api_workspaces__workspace_id__files_work_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/files/folders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Folder */
+    post: operations["folder_api_workspaces__workspace_id__files_folders_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/files/{identity}/location": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Move */
+    put: operations["move_api_workspaces__workspace_id__files__identity__location_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/workspaces/{workspace_id}/files/{identity}": {
     parameters: {
       query?: never;
@@ -4222,6 +4290,45 @@ export interface components {
       /** Next Offset */
       next_offset: number | null;
     };
+    /** FileDirectory */
+    FileDirectory: {
+      /** Items */
+      items: components["schemas"]["FileEntry"][];
+      /** Next Offset */
+      next_offset?: number | null;
+    };
+    /** FileEntry */
+    FileEntry: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Path */
+      path: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "folder" | "file";
+      /**
+       * Revision
+       * @default 1
+       */
+      revision: number;
+      file?: components["schemas"]["OutputFile"] | null;
+    };
+    /** FileFolder */
+    FileFolder: {
+      /** Path */
+      path: string;
+    };
+    /** FileLocation */
+    FileLocation: {
+      /** Path */
+      path: string;
+      /** Expected Revision */
+      expected_revision: number;
+    };
     /** FilePatch */
     FilePatch: {
       file: components["schemas"]["ChangedFile"];
@@ -4238,6 +4345,24 @@ export interface components {
       base_commit: string;
       /** Result Commit */
       result_commit: string;
+    };
+    /** FileWork */
+    FileWork: {
+      /** Id */
+      id: string;
+      /** Title */
+      title: string;
+      /** Task Key */
+      task_key?: string | null;
+      /** Milestone Id */
+      milestone_id?: string | null;
+    };
+    /** FileWorkPage */
+    FileWorkPage: {
+      /** Items */
+      items: components["schemas"]["FileWork"][];
+      /** Next Offset */
+      next_offset?: number | null;
     };
     /** GuidanceChange */
     GuidanceChange: {
@@ -10323,6 +10448,147 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["OutputPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  browse_api_workspaces__workspace_id__files_browse_get: {
+    parameters: {
+      query?: {
+        path?: string;
+        task_key?: string | null;
+        milestone_id?: string | null;
+        sort?: "name" | "newest" | "type";
+        offset?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FileDirectory"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  work_api_workspaces__workspace_id__files_work_get: {
+    parameters: {
+      query?: {
+        offset?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FileWorkPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  folder_api_workspaces__workspace_id__files_folders_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FileFolder"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FileFolder"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  move_api_workspaces__workspace_id__files__identity__location_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FileLocation"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FileEntry"];
         };
       };
       /** @description Validation Error */

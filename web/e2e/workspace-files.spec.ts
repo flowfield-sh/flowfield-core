@@ -25,14 +25,14 @@ test("workspace files link exact task and milestone handoffs without a project",
   await expect(
     files.getByText("checklist-draft.txt", { exact: true }),
   ).toBeVisible();
-  await expect(files).toContainText("Blocked");
+  await files.getByRole("button", { name: /launch-report.txt/ }).click();
+  const details = files.getByRole("region", {
+    name: "File details",
+    exact: true,
+  });
   expect(await (await request.get(`/api${base}/projects`)).json()).toEqual([]);
   const download = page.waitForEvent("download");
-  await files
-    .locator(".project-list-row")
-    .filter({ hasText: "launch-report.txt" })
-    .getByRole("link", { name: "Download", exact: true })
-    .click();
+  await details.getByRole("link", { name: "Download", exact: true }).click();
   expect((await download).suggestedFilename()).toBe("launch-report.txt");
   for (const [width, height, theme] of [
     [1440, 1000, "light"],
@@ -57,14 +57,34 @@ test("workspace files link exact task and milestone handoffs without a project",
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ colorScheme: "light" });
+  await files.getByRole("button", { name: "New folder", exact: true }).click();
+  await files.getByLabel("Folder name", { exact: true }).fill("Launch");
   await files
-    .locator(".project-list-row")
-    .filter({ hasText: "launch-report.txt" })
-    .getByRole("link", { name: /W-1: Prepare launch research/ })
+    .getByRole("button", { name: "Create folder", exact: true })
     .click();
-  await expect(page).toHaveURL(
-    `${base}/tasks/${value.task}/changes/${value.result}`,
-  );
+  await expect(
+    files.getByText("This folder is empty", { exact: true }),
+  ).toBeVisible();
+  await files.getByRole("button", { name: "Up", exact: true }).click();
+  await files.getByRole("button", { name: /launch-report.txt/ }).click();
+  await details
+    .getByRole("button", { name: "Rename or move", exact: true })
+    .click();
+  await details
+    .getByLabel("File path", { exact: true })
+    .fill("Launch/brief.txt");
+  await details.getByRole("button", { name: "Save", exact: true }).click();
+  await files.getByRole("button", { name: "Launch", exact: true }).click();
+  await files.getByRole("button", { name: /brief.txt/ }).click();
+  await expect(
+    details.getByRole("heading", { name: "brief.txt", exact: true }),
+  ).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("files-organized.png") });
+  await details
+    .getByRole("link", { name: /W-1 Prepare launch research/ })
+    .click();
+  await expect(page).toHaveURL(`${base}/tasks/${value.task}`);
+  await page.goto(`${base}/tasks/${value.task}/changes/${value.result}`);
   await expect(
     page.getByText("launch-report.txt", { exact: true }),
   ).toBeVisible();
@@ -125,6 +145,6 @@ test("workspace files link exact task and milestone handoffs without a project",
   });
   await openResource(page, "Files");
   await expect(
-    files.getByText("launch-report.txt", { exact: true }),
+    files.getByRole("button", { name: "Launch", exact: true }),
   ).toBeVisible();
 });

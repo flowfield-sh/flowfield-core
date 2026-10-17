@@ -2,11 +2,20 @@
 
 from collections.abc import Callable
 from pathlib import PurePosixPath
+from typing import Literal
 
 from fastapi import APIRouter, Query
 from fastapi.responses import FileResponse
 
 from flowfield.application import Workspace
+from flowfield.file_browser import (
+    FileBrowser,
+    FileDirectory,
+    FileEntry,
+    FileFolder,
+    FileLocation,
+    FileWorkPage,
+)
 from flowfield.output_models import OutputFile, OutputPage
 from flowfield.outputs import Outputs
 
@@ -39,6 +48,36 @@ def output_router(workspace: Callable[[], Workspace]) -> APIRouter:
             task_key=task_key,
             milestone_id=milestone_id,
         )
+
+    @router.get("/browse")
+    def browse(
+        workspace_id: str,
+        path: str = Query("", max_length=500),
+        task_key: str | None = None,
+        milestone_id: str | None = None,
+        sort: Literal["name", "newest", "type"] = "name",
+        offset: int = Query(0, ge=0),
+    ) -> FileDirectory:
+        return FileBrowser(workspace()).directory(
+            workspace_id,
+            path,
+            task_key=task_key,
+            milestone_id=milestone_id,
+            sort=sort,
+            offset=offset,
+        )
+
+    @router.get("/work")
+    def work(workspace_id: str, offset: int = Query(0, ge=0)) -> FileWorkPage:
+        return FileBrowser(workspace()).work(workspace_id, offset)
+
+    @router.post("/folders")
+    def folder(workspace_id: str, value: FileFolder) -> FileFolder:
+        return FileBrowser(workspace()).folder(workspace_id, value)
+
+    @router.put("/{identity}/location")
+    def move(workspace_id: str, identity: str, value: FileLocation) -> FileEntry:
+        return FileBrowser(workspace()).move(workspace_id, identity, value)
 
     @router.get("/{identity}")
     def file(workspace_id: str, identity: str) -> OutputFile:
