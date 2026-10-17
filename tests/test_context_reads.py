@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from project_fixtures import adopt, existing_directory, reconcile_fixture_stages, task_request
+from project_fixtures import adopt, existing_directory, task_request
 
 from flowfield.activity import ActivityCreate
 from flowfield.api import create_app
@@ -43,7 +43,6 @@ def test_context_growth_pagination_and_full_text(
         service.add_activity(
             "harbor", ActivityCreate(task_id="t15", kind="note", body='🦉\\"' * 50000)
         )
-    reconcile_fixture_stages(service, "harbor", "t15")
     reads = ContextReads(service)
     # Context reads must not silently route through the old full-board/task loaders.
     monkeypatch.setattr(service, "_task", lambda *a, **kw: pytest.fail("hydrated full task"))
@@ -153,7 +152,6 @@ def test_http_context_is_scoped_and_bounded(tmp_path: Path) -> None:
         client.post(
             "/api/projects/harbor/tasks",
             json={
-                "stages": task_request(title="Fixture").model_dump()["stages"],
                 "title": "Export",
                 "body": "x" * 200000,
             },

@@ -6,7 +6,6 @@ import {
   existingDirectory,
   state,
   projectWorkspace,
-  fixtureStages,
 } from "./support";
 
 test("failed resource reads and a broken event stream stay local while health is available", async ({
@@ -134,7 +133,7 @@ test("boards pan from empty space while cards keep navigation", async ({
   });
   const workspace = await projectWorkspace(request, id);
   await request.post(`/api/projects/${id}/tasks`, {
-    data: { title: "Open this task", stages: fixtureStages() },
+    data: { title: "Open this task" },
   });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`/workspaces/${workspace}/tasks`);

@@ -51,16 +51,6 @@ def enrich(db: sqlite3.Connection, run: Run, sections: dict[str, str]) -> None:
         if observations
         else "[]"
     )
-    plan = db.execute(
-        "SELECT data FROM stage_plans WHERE project_id=? AND task_id=? "
-        "ORDER BY revision DESC LIMIT 1",
-        (run.project_id, run.task_id),
-    ).fetchone()
-    sections["stages"] = (
-        plan[0]
-        if plan
-        else json.dumps({"revision": 0, "agreement_revision": run.agreement_revision, "stages": []})
-    )
     # The latest result is already present in full as predecessor. Earlier attempts get
     # summaries, with immutable submission evidence retained as separately retrievable text.
     rows = db.execute(
@@ -160,7 +150,6 @@ def brief_context(sections: dict[str, str]) -> dict[str, object]:
         "questions",
         "prior_concerns",
         *required,
-        "stages",
         "handoff",
         "predecessor",
         "human_testing",

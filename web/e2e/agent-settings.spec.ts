@@ -1,10 +1,4 @@
-import {
-  fixtureProject,
-  projectWorkspace,
-  choose,
-  fixtureStages,
-  test,
-} from "./support";
+import { fixtureProject, projectWorkspace, choose, test } from "./support";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
@@ -25,7 +19,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   const workspace = await projectWorkspace(request, "agent-settings");
   const task = await (
     await request.post("/api/projects/agent-settings/tasks", {
-      data: { stages: fixtureStages(), title: "Check project behavior" },
+      data: { title: "Check project behavior" },
     })
   ).json();
   const first = {
@@ -262,7 +256,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   await choose(picker.getByLabel("Reasoning effort"), "high");
   settings = { ...settings, revision: settings.revision + 1 };
   await request.post("/api/projects/agent-settings/tasks", {
-    data: { stages: fixtureStages(), title: "Cause settings refresh" },
+    data: { title: "Cause settings refresh" },
   });
   await expect(
     picker.getByText(
@@ -462,7 +456,6 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
       (
         await request.post("/api/projects/agent-settings/tasks", {
           data: {
-            stages: fixtureStages(),
             title: "Record scripted permission receipt",
           },
         })

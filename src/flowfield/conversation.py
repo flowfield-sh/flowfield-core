@@ -18,7 +18,6 @@ class ConversationItem(Record):
         "activity",
         "attempt",
         "result",
-        "plan",
         "approval",
         "delivery",
         "reply",
@@ -116,10 +115,6 @@ WITH definitions AS (
         'service', id, json_extract(data,'$.revision'), data
     FROM result_versions WHERE project_id=:project AND task_id=:task
         AND status='delivered' AND json_extract(data,'$.completed_at') IS NOT NULL
-    UNION ALL
-    SELECT 'plan:'||revision, 'plan', json_extract(data,'$.created_at'),
-        json_extract(data,'$.author'), :task, revision, data
-    FROM stage_plans WHERE project_id=:project AND task_id=:task
 )
 """
 COLUMNS = (

@@ -47,7 +47,6 @@ def test_board_grouping_order_archive_and_restart(tmp_path: Path) -> None:
         ).json()
         for task_id in ["serializer", "button", "rounding"]:
             payload = {
-                "stages": task_request(title=task_id).model_dump()["stages"],
                 "id": task_id,
                 "title": task_id,
                 "status": "up_next",
@@ -134,7 +133,6 @@ def test_validation_and_scoped_atomic_edits(tmp_path: Path) -> None:
             client.post(
                 base,
                 json={
-                    "stages": task_request(title="Fixture").model_dump()["stages"],
                     "title": "Bad",
                     "milestone_id": "foreign",
                 },
@@ -145,7 +143,6 @@ def test_validation_and_scoped_atomic_edits(tmp_path: Path) -> None:
         task = client.post(
             base,
             json={
-                "stages": task_request(title="Fixture").model_dump()["stages"],
                 "title": "New task",
                 "body": "Original",
             },
@@ -357,7 +354,6 @@ def test_priority_cannot_change_progress_and_times_survive_edits(tmp_path: Path)
             client.post(
                 base,
                 json={
-                    "stages": task_request(title="Fixture").model_dump()["stages"],
                     "id": identity,
                     "title": identity,
                     "status": "up_next",

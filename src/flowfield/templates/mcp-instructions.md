@@ -15,9 +15,9 @@ override purposes/revisions, not omitted project defaults. Preserve applicable o
 required sources or the task, citing source revisions; honor human reading requirements.
 Preparation pins sources. After edits use get_document_impact; notices do not alter assignments.
 
-Record outcomes, constraints and success conditions in staged tasks. Preparation is not
+Record outcomes, constraints and success conditions in tasks. Preparation is not
 scheduling: respect pauses and explicit model authority. After workers stop, edit/reconcile
-changed active work with reviewed stages, then get_task_input/reply_to_task. Reopen delivered
+changed active work when adopting the new requirements, then get_task_input/reply_to_task. Reopen delivered
 tasks before correction; preserve evidence. Managed answers continue without another apply
 step. Ask planning questions in your reply; use Flowfield questions for Inbox decisions.
 Native question forms are unsupported. Link asks through list_requests/get_request URLs.

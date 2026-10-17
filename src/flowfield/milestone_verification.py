@@ -494,7 +494,7 @@ class MilestoneVerifications:
             if missing:
                 raise ApplicationError(
                     "verification_prerequisites_required",
-                    "Add all contributing tasks as prerequisites and reconcile stages: "
+                    "Add all contributing tasks as prerequisites and reconcile the assignment: "
                     + ", ".join(missing),
                     409,
                 )

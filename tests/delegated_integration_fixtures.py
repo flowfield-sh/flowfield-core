@@ -3,7 +3,7 @@
 import os
 
 from milestone_delivery_fixtures import setup
-from project_fixtures import fixture_stage_change, task_request
+from project_fixtures import task_request
 from task_reviews_fixtures import verdict
 
 from flowfield.adapters.local_execution import LocalHost
@@ -56,7 +56,6 @@ def prepared(tmp_path, *, validate=True, prior_report=False):
         TaskPublish(
             expected_revision=task.revision,
             completion="code",
-            stages=fixture_stage_change(store, "harbor", task.id),
         ),
     )
     run = execution.claim("harbor", base, {base: set()}, task_id=task.id)

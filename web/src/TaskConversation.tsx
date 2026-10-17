@@ -35,7 +35,6 @@ import { TaskChanges } from "./TaskChanges";
 import { RunActivity } from "./RunActivity";
 import { useFeedScroll } from "./useFeedScroll";
 import { TaskActionHost, WorkerActions } from "./TaskActions";
-import { StageSequence } from "./StageSequence";
 
 type Gate = components["schemas"]["InputEligibility"];
 type Binding = components["schemas"]["ReplyCreate"]["binding"];
@@ -1100,9 +1099,6 @@ function MessageBody({ message, path }: { message: Message; path: string }) {
           <strong>{message.question}</strong>
         </p>
       )}
-      {!!message.stages.length && (
-        <StageSequence stages={message.stages} label="Stages at this update" />
-      )}
       {message.body && <Markdown>{source.data?.body ?? message.body}</Markdown>}
       <ResourceRetry resources={[source]} />
       {message.truncated && !source.data && (
@@ -1122,7 +1118,6 @@ function MessageBody({ message, path }: { message: Message; path: string }) {
 function hasBody(message: Message) {
   return !!(
     message.body ||
-    message.stages.length ||
     message.question_id ||
     message.earlier_id ||
     message.successor_id ||

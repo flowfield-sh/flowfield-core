@@ -1,4 +1,4 @@
-"""Thin conversation/plan interfaces over shared application operations."""
+"""Thin conversation interfaces over shared application operations."""
 
 import json
 from collections.abc import Callable
@@ -18,8 +18,6 @@ from flowfield.conversation import (
 )
 from flowfield.replies import Replies
 from flowfield.reply_models import Reply, ReplyCreate
-from flowfield.stage_models import StagePlan, StageUpdate
-from flowfield.stages import Stages
 from flowfield.thread_view import ThreadMessage, ThreadPage, ThreadView
 
 # FastMCP pre-parses JSON-looking optional strings as arrays. Restore the opaque
@@ -78,14 +76,6 @@ def conversation_router(workspace: Callable[[], Workspace]) -> APIRouter:
     ) -> InputEligibility:
         return Conversation(workspace()).eligibility(project_id, task_id, question_id)
 
-    @router.get("/stages")
-    def stages(project_id: str, task_id: str) -> StagePlan:
-        return Stages(workspace()).get(project_id, task_id)
-
-    @router.put("/stages")
-    def update(project_id: str, task_id: str, request: StageUpdate) -> StagePlan:
-        return Stages(workspace()).update(project_id, task_id, request)
-
     return router
 
 
@@ -142,28 +132,10 @@ def add_conversation_tools(mcp: FastMCP, workspace: Callable[[], Workspace]) -> 
         expected_revision: Annotated[int | None, Field(ge=1)] = None,
     ) -> ConversationSource:
         """Read a 6000-character page of the exact linked evidence JSON; never edit from excerpts.
-        Definition/question/plan revisions are immutable; attempt/result state remains current.
+        Definition/question revisions are immutable; attempt/result state remains current.
         For later pages of live attempt/result/approval/delivery sources, echo item.revision
         as expected_revision. If it changes, restart at offset 0; never splice revisions.
         """
         return Conversation(workspace()).source(
             project_id, task_id, item_id, offset, expected_revision
         )
-
-    @mcp.tool(annotations=read)
-    def get_task_stages(project_id: str, task_id: str) -> StagePlan:
-        """Read broad phases of agent work. An old agreement binding requires reconciliation.
-        Finished stages are neither task completion nor human approval/integration.
-        """
-        return Stages(workspace()).get(project_id, task_id)
-
-    @mcp.tool(annotations=write)
-    def update_task_stages(project_id: str, task_id: str, request: StageUpdate) -> StagePlan:
-        """Seed/refine broad work phases while idle, not an implementation checklist.
-        Adapt phases to the task; no mandatory template. Preserve outcomes and explain changes.
-        Workers own progress while executing. This does not change scope, priority or approval.
-        Human approval/integration/completion stay outside the agent-reported sequence.
-        On stale revision/ownership, reread; never blindly retry.
-        Scope changes require task reconciliation.
-        """
-        return Stages(workspace()).update(project_id, task_id, request)

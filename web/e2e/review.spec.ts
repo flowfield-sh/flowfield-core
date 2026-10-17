@@ -1301,19 +1301,6 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
       })
     ).ok(),
   ).toBe(true);
-  const currentPlan = await (await request.get(taskPath + "/stages")).json();
-  expect(
-    (
-      await request.put(taskPath + "/stages", {
-        data: {
-          expected_revision: currentPlan.revision,
-          agreement_revision: revisedTask.agreement_revision,
-          stages: currentPlan.stages,
-          reason: "Reconcile clarified outcome",
-        },
-      })
-    ).ok(),
-  ).toBe(true);
   await expect(
     actions.getByRole("button", { name: "Request correction" }),
   ).toBeVisible();

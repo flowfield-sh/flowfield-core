@@ -1,13 +1,7 @@
 import { join } from "node:path";
 import { expect, type Route } from "@playwright/test";
 import { pageWindow, nextPage, type Page } from "../src/pagination";
-import {
-  test,
-  fixtureProject,
-  existingDirectory,
-  fixtureStages,
-  state,
-} from "./support";
+import { test, fixtureProject, existingDirectory, state } from "./support";
 
 test("history refresh stops repeated and empty continuing cursors", async () => {
   for (const pages of [
@@ -75,7 +69,7 @@ test("service recovery cancels pending review pagination with an unchanged revie
   });
   const task = await (
     await request.post(`/api/projects/${project}/tasks`, {
-      data: { title: "Review recovery", stages: fixtureStages() },
+      data: { title: "Review recovery" },
     })
   ).json();
   await page.route("**/api/events", (route) => route.abort());

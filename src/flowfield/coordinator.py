@@ -161,9 +161,9 @@ Prepare upcoming Backlog/Up next assignments with create_task/edit_task when int
 Keep implementation, tests and documentation together when they form one coherent change.
 Split tasks for useful independent ownership or real dependencies, not one task per file or phase.
 For changed intent in progress/review, wait until no worker owns the task, edit without preparation
-with reviewed stages, then reconcile_task before get_task_input/reply_to_task follow-up.
+then reconcile_task before get_task_input/reply_to_task follow-up.
 For delivered work, use reopen_task with the current revision and reason. It retains results and
-approvals and returns Draft/Backlog. Edit with the resolved follow-up, fresh preparation and stages;
+approvals and returns Draft/Backlog. Edit with the resolved follow-up, fresh preparation;
 closed delivered results cannot receive change requests. New code requires fresh exact approval.
 Preparation does not start work. Prioritization and follow-up replies can make work eligible for
 an enabled queue; schedule only under the human's execution authorization.

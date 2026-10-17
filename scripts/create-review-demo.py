@@ -22,8 +22,6 @@ from flowfield.integration_models import IntegrationConfig
 from flowfield.questions import QuestionCreate, Questions
 from flowfield.result_models import ResultReview
 from flowfield.results import Results
-from flowfield.stage_models import StageUpdate
-from flowfield.stages import Stages
 from flowfield.workspaces import WorkspaceCreate, Workspaces
 
 
@@ -81,7 +79,6 @@ def main() -> None:
         task = workspace.create_task(
             project.id,
             TaskCreate(
-                stages=[{"id": "work", "title": title[:80], "outcome": title}],
                 id=identity,
                 title=title,
                 body="Review fixture: inspect the result and its reported checks.",
@@ -150,20 +147,6 @@ def main() -> None:
         subprocess.run([sys.executable, "-m", "unittest", "-v"], cwd=env.checkout, check=True)
         commit, _ = env.snapshot(run.base_commit)
         execution.usage(project.id, run.id, Usage())
-        progress = Stages(workspace).get(project.id, run.task_id)
-        Stages(workspace).update(
-            project.id,
-            run.task_id,
-            StageUpdate(
-                expected_revision=progress.revision,
-                agreement_revision=progress.agreement_revision,
-                stages=[
-                    stage.model_copy(update={"status": "completed"}) for stage in progress.stages
-                ],
-                reason="Demo implementation and checks completed",
-            ),
-            run_id=run.id,
-        )
         return execution.finish(
             project.id,
             run.id,

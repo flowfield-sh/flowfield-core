@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from project_fixtures import adopt, existing_directory, reconcile_fixture_stages, task_request
+from project_fixtures import adopt, existing_directory, task_request
 from service_fixtures import running_service
 from typer.testing import CliRunner
 
@@ -146,7 +146,6 @@ def test_added_dependency_preserves_work_and_explicit_replanning(tmp_path: Path)
     service.edit_task(
         "harbor", "b", TaskEdit(expected_revision=replanned.revision, dependencies=["a"])
     )
-    reconcile_fixture_stages(service, "harbor", "b")
     assert service.task("harbor", "b").readiness == "blocked"
 
 

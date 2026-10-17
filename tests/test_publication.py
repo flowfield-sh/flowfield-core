@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
-from project_fixtures import adopt, fixture_stage_change, task_request
+from project_fixtures import adopt, task_request
 
 from flowfield.activity import ActivityCreate
 from flowfield.application import (
@@ -47,7 +47,6 @@ def publish(workspace: Workspace, identity: str = "export"):
             completion="report",
             expected_revision=current.revision,
             author="coordinator",
-            stages=fixture_stage_change(workspace, "harbor", identity),
         ),
     )
 
@@ -125,7 +124,6 @@ def test_questions_must_be_applied_and_edits_race_with_publication(tmp_path: Pat
                     "export",
                     TaskPublish(
                         completion="report",
-                        stages=fixture_stage_change(workspace, "harbor", "export"),
                         expected_revision=current.revision,
                     ),
                 )

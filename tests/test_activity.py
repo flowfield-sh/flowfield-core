@@ -93,7 +93,7 @@ def test_http_activity_validates_and_preserves_scope(tmp_path: Path) -> None:
         )
         client.post(
             "/api/projects/harbor/tasks",
-            json={"stages": task_request(title="Fixture").model_dump()["stages"], "title": "CSV"},
+            json={"title": "CSV"},
         )
         endpoint = "/api/projects/harbor/activity"
         for entry in [

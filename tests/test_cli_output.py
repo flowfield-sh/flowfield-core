@@ -145,7 +145,6 @@ def test_human_reads_cover_real_service_shapes_and_json(tmp_path):
             (["status"], "Backlog"),
             (["task", "list"], "CSV export"),
             (["task", "show", "export"], "CSV export"),
-            (["task", "stages", "export"], "1. CSV export · Planned"),
             (["task", "activity", "export"], "CSV evidence"),
             (["task", "revisions", "export"], "Revision 1"),
             (["task", "relationships", "export"], "No items yet."),

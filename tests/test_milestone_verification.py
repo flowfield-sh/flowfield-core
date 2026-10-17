@@ -360,8 +360,6 @@ def test_cross_project_contributions_are_frozen_as_scoped_prerequisites(tmp_path
     from pathlib import Path
     from unittest.mock import patch
 
-    from project_fixtures import fixture_stage_change
-
     from flowfield.application import ProjectSetup, TaskPreparation
     from flowfield.results import Results
     from flowfield.workspaces import Workspaces
@@ -400,7 +398,6 @@ def test_cross_project_contributions_are_frozen_as_scoped_prerequisites(tmp_path
         TaskEdit(
             expected_revision=task.revision,
             dependencies=["task-0", contribution.key],
-            stages=fixture_stage_change(store, "harbor", task.id),
         ),
     )
     task = store.task("harbor", task.id)

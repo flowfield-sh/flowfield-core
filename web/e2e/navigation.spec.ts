@@ -5,7 +5,6 @@ import {
   fixtureProject,
   fixtureMcpProject,
   choose,
-  fixtureStages,
   test,
   existingDirectory,
   state,
@@ -39,7 +38,6 @@ test("task keys link to persistent selections with history and draft protection"
   const one = await call("create_task", {
     project_id: "navigation",
     task: {
-      stages: fixtureStages(),
       title: "Prepare the export",
       status: "up_next",
     },
@@ -47,7 +45,6 @@ test("task keys link to persistent selections with history and draft protection"
   const two = await call("create_task", {
     project_id: "navigation",
     task: {
-      stages: fixtureStages(),
       title: "Download the export",
       status: "up_next",
       dependencies: [one.key],
@@ -55,7 +52,7 @@ test("task keys link to persistent selections with history and draft protection"
   });
   const old = await call("create_task", {
     project_id: "navigation",
-    task: { stages: fixtureStages(), title: "Earlier experiment" },
+    task: { title: "Earlier experiment" },
   });
   await call("edit_task", {
     project_id: "navigation",
@@ -221,7 +218,7 @@ test("collections open and close entity details through the same routes", async 
   });
   await call("create_task", {
     project_id,
-    task: { stages: fixtureStages(), id: "retired", title: "Retired work" },
+    task: { id: "retired", title: "Retired work" },
   });
   await call("edit_task", {
     project_id,
@@ -269,7 +266,6 @@ test("task metadata and internal Markdown links stay inside the router", async (
   expect(milestone.ok()).toBe(true);
   await request.post(`/api/projects/${project_id}/tasks`, {
     data: {
-      stages: fixtureStages(),
       id: "export",
       title: "Export books",
       milestone_id: "questions",
@@ -318,7 +314,6 @@ test("shared panes preserve the workspace and related return paths on mobile", a
   });
   await request.post(`/api/projects/${id}/tasks`, {
     data: {
-      stages: fixtureStages(),
       id: "one",
       title: "A focused task",
       milestone_id: "group",
@@ -418,7 +413,7 @@ test("closing entity panes returns through history without duplicate collections
     ).ok(),
   ).toBeTruthy();
   await request.post(`/api/projects/${id}/tasks`, {
-    data: { stages: fixtureStages(), id: "one", title: "History task" },
+    data: { id: "one", title: "History task" },
   });
   const call = await connectMcp(request);
   await call("ask_question", {
@@ -509,7 +504,6 @@ test("entity identity and drafts persist across task and workspace tabs", async 
   });
   await request.post(`/api/projects/${project}/tasks`, {
     data: {
-      stages: fixtureStages(),
       id: "first",
       title: "First task",
       milestone_id: "first",
@@ -676,7 +670,6 @@ test("workspace selector names remain accessible and idle input opens deliberate
   const path = "/api/projects/sidebar-names";
   await request.post(path + "/tasks", {
     data: {
-      stages: fixtureStages(),
       id: "idle",
       title: "Read the current agreement",
       body: "Useful intent",
@@ -771,7 +764,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
     },
   });
   await request.post("/api/projects/workspace-frame/tasks", {
-    data: { stages: fixtureStages(), title: "Review the workspace layout" },
+    data: { title: "Review the workspace layout" },
   });
   const workspace = await projectWorkspace(request, "workspace-frame");
   await page.emulateMedia({ colorScheme: "dark" });
@@ -824,7 +817,10 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await expect(pane).toBeVisible();
   await expect(modelSettings).not.toBeVisible();
   await expect
-    .poll(async () => Math.abs((await pane.boundingBox())!.width - resized))
+    .poll(async () => {
+      const box = await pane.boundingBox();
+      return box ? Math.abs(box.width - resized) : Infinity;
+    })
     .toBeLessThan(2);
   const before = await pane.boundingBox();
   await divider.focus();
@@ -992,7 +988,6 @@ test("long task tooltips never expand the workspace scroll owners", async ({
   });
   await request.post("/api/projects/tooltip-overflow/tasks", {
     data: {
-      stages: fixtureStages(),
       title: "Long definition",
       body: Array.from(
         { length: 70 },

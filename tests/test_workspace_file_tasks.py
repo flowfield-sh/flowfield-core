@@ -209,7 +209,6 @@ def test_revisions_keep_exact_inputs_and_old_files(tmp_path):
 
     from file_delivery_fixtures import deliver, setup
     from file_delivery_fixtures import task as make_task
-    from project_fixtures import fixture_stage_change
 
     from flowfield.application import TaskPriority, TaskPublish, TaskReopen
     from flowfield.output_models import FileInput
@@ -244,7 +243,6 @@ def test_revisions_keep_exact_inputs_and_old_files(tmp_path):
         TaskPublish(
             expected_revision=current.revision,
             completion="report",
-            stages=fixture_stage_change(store, scope, task.id),
         ),
     )
     second = deliver(store, scope, task.id, {"report.txt": "Revised"})

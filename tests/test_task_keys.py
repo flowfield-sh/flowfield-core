@@ -146,7 +146,6 @@ def test_configurable_prefix_validation_and_atomic_lock(tmp_path: Path) -> None:
         task = client.post(
             "/api/projects/harbor/tasks",
             json={
-                "stages": task_request(title="Fixture").model_dump()["stages"],
                 "title": "First task",
             },
         ).json()

@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
-import { test, state, fixtureStages } from "./support";
+import { test, state } from "./support";
 
 test("milestone reading preserves prepared revisions and renders acceptance lists", async ({
   page,
@@ -37,7 +37,7 @@ test("milestone reading preserves prepared revisions and renders acceptance list
       body: "Verify installed executable discovery.",
       labels: ["feature"],
       milestone_id: milestone.id,
-      stages: fixtureStages(),
+
       preparation: { completion: "report" },
     },
   });

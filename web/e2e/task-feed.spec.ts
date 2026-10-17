@@ -5,7 +5,6 @@ import {
   fixtureProject,
   fixtureMcpProject,
   fixtureProgress,
-  fixtureStages,
   test,
   existingDirectory,
   state,
@@ -36,7 +35,7 @@ test("board failures use toasts and keep recovery beside retained work", async (
   expect(
     (
       await request.post("/api/projects/board-recovery/tasks", {
-        data: { stages: fixtureStages(), title: "Preserved board work" },
+        data: { title: "Preserved board work" },
       })
     ).ok(),
   ).toBe(true);
@@ -83,7 +82,7 @@ test("board failures use toasts and keep recovery beside retained work", async (
   expect(
     (
       await request.post("/api/projects/board-recovery/tasks", {
-        data: { stages: fixtureStages(), title: "New work after recovery" },
+        data: { title: "New work after recovery" },
       })
     ).ok(),
   ).toBe(true);
@@ -336,7 +335,6 @@ test("coordinator updates refresh the agreement while project editing retains co
   await call("create_task", {
     project_id: "live",
     task: {
-      stages: fixtureStages(),
       id: "one",
       title: "First task",
       body: "First description",
@@ -421,7 +419,6 @@ test("Conversation permalinks preserve message drafts while coordinator revision
   await call("create_task", {
     project_id: "tabs",
     task: {
-      stages: fixtureStages(),
       id: "one",
       title: "Tabbed task",
       body: "Original description",
@@ -502,7 +499,6 @@ test("archive preserves dated records and supports restore and mobile archiving"
     await call("create_task", {
       project_id: "archive-list",
       task: {
-        stages: fixtureStages(),
         id,
         title: `${id} task`,
         status: status === "done" ? "backlog" : status,
@@ -613,7 +609,6 @@ test("readable conversation preserves message drafts, revision links and legacy 
   });
   await request.post("/api/projects/readable/tasks", {
     data: {
-      stages: fixtureStages(),
       title: "Readable agreement",
       body: "## Outcome\n\nExport **all columns**.\n\n## Done when\n\n- [ ] Keep row order",
     },
@@ -723,7 +718,7 @@ test("task changes refresh their workspace without reloading the workspace catal
     expect(
       (
         await request.post(`/api/projects/${id}/tasks`, {
-          data: { stages: fixtureStages(), id: "one", title: "Original" },
+          data: { id: "one", title: "Original" },
         })
       ).ok(),
     ).toBe(true);
@@ -803,7 +798,6 @@ test("publication shares browser, CLI and MCP state without manual editing", asy
   });
   await request.post("/api/projects/publication/tasks", {
     data: {
-      stages: fixtureStages(),
       id: "export",
       title: "Export JSON",
       status: "up_next",
@@ -851,11 +845,7 @@ test("publication shares browser, CLI and MCP state without manual editing", asy
     task_id: "PRE-1",
     changes: {
       expected_revision: first.revision,
-      stages: {
-        expected_revision: 1,
-        stages: fixtureStages(),
-        reason: "Reconcile export scope",
-      },
+
       body: "Export filtered rows as JSON, capped at 500. Test Unicode, empty output and overflow.",
     },
   });
@@ -871,21 +861,12 @@ test("publication shares browser, CLI and MCP state without manual editing", asy
   ]);
   expect(fromCli.publication_status).toBe("published");
   await expect(draft).toHaveCount(0);
-  const plan = await call("get_task_stages", {
-    project_id: "publication",
-    task_id: "PRE-1",
-  });
   await call("edit_task", {
     project_id: "publication",
     task_id: "PRE-1",
     changes: {
       expected_revision: fromCli.revision,
       body: "Export filtered rows as JSON, capped at 500. Test Unicode, empty output and overflow. Use UTF-8.",
-      stages: {
-        expected_revision: plan.revision,
-        stages: fixtureStages(),
-        reason: "Cover the updated encoding requirement",
-      },
     },
   });
   await expect(draft).toBeVisible();
@@ -926,20 +907,6 @@ test("conversation capture prepares atomically while task defaults show only use
   const task = await call("create_task", {
     project_id,
     task: {
-      stages: [
-        {
-          id: "investigate",
-          title: "Investigate",
-          outcome: "Compare available formats",
-          status: "planned",
-        },
-        {
-          id: "report",
-          title: "Report",
-          outcome: "Present findings",
-          status: "planned",
-        },
-      ],
       title: "Investigate import formats",
       body: "Compare existing formats, evidence and a recommendation; deliver a report without changing repository files.",
       labels: ["investigation"],
@@ -975,90 +942,13 @@ test("conversation capture prepares atomically while task defaults show only use
   await expect(
     editor.getByRole("heading", { name: "Waiting on", exact: true }),
   ).toHaveCount(0);
-  const planTask = await call("get_task", { project_id, task_id: task.id });
-  const stages = page.getByRole("group", {
-    name: "Stages at this update",
-    exact: true,
-  });
-  await expect(page.getByRole("list", { name: "Task feed" })).toHaveCount(0);
-  await expect(stages).not.toBeVisible();
-  await page.getByRole("tab", { name: "Activity", exact: true }).click();
-  if (
-    !(await page
-      .getByRole("link", { name: "Stages defined", exact: true })
-      .isVisible())
-  )
-    await page.getByText("Technical history", { exact: true }).click();
-  await page.getByRole("link", { name: "Stages defined", exact: true }).click();
-  await expect(stages.getByRole("link")).toHaveCount(0);
-  await expect(page.getByRole("tooltip")).toHaveCount(0);
-  // Stage details are disclosed independently from the default outcome.
-  await expect(stages).toBeVisible();
-  await stages.locator(".task-stage").first().focus();
-  // Exercise keyboard focus on the visible stage sequence.
-  await page.keyboard.press("Tab");
-  await page.keyboard.press("Shift+Tab");
-  await expect(page.getByRole("tooltip")).toContainText(
-    "Compare available formats",
-  );
-  await page.getByRole("tab", { name: "Activity", exact: true }).click();
-  if (
-    !(await page
-      .getByRole("link", { name: "Stages defined", exact: true })
-      .isVisible())
-  )
-    await page.getByText("Technical history", { exact: true }).click();
-  await page.getByRole("link", { name: "Stages defined", exact: true }).click();
-  await expect(page).toHaveURL(/conversation\/plan%3A1$/);
-  await expect(page.locator('[data-message-id="plan:1"]')).toContainText(
-    "Initial task plan",
-  );
-  const stageSnapshot = await call("get_task_stages", {
-    project_id,
-    task_id: task.id,
-  });
-  await call("update_task_stages", {
-    project_id,
-    task_id: task.id,
-    request: {
-      expected_revision: stageSnapshot.revision,
-      agreement_revision: planTask.agreement_revision,
-      stages: stageSnapshot.stages.map((stage: { id: string }) => ({
-        ...stage,
-        status: stage.id === "investigate" ? "completed" : "active",
-      })),
-      reason: "Evidence gathered; writing findings.",
-    },
-  });
-  await page.getByRole("link", { name: "Stage changed", exact: true }).click();
-  const changedStages = page.locator('[data-message-id="plan:2"]');
-  await expect(changedStages).toContainText("Stage changed");
-  await expect(changedStages).not.toContainText(
-    "Investigate: Planned → Completed.",
-  );
-  await expect(changedStages.locator('[aria-current="step"]')).toHaveText(
-    "Report: Active",
-  );
-  await expect(
-    page.locator('[data-message-id="plan:1"] [aria-current="step"]'),
-  ).toHaveCount(0);
-  await expect(page.locator('[data-message-id="plan:1"]')).toHaveCount(0);
-  await page.reload();
-  await expect(changedStages.locator('[aria-current="step"]')).toHaveText(
-    "Report: Active",
-  );
-  await expect(page.locator('[data-message-id="plan:1"]')).toHaveCount(0);
   const current = await call("get_task", { project_id, task_id: task.id });
   const updated = await call("edit_task", {
     project_id,
     task_id: task.id,
     changes: {
       expected_revision: current.revision,
-      stages: {
-        expected_revision: 2,
-        stages: stageSnapshot.stages,
-        reason: "Reconcile clarified outcome",
-      },
+
       body: "Compare formats, include uncertainty and recommend one; report only with no file changes.",
       preparation: {
         completion: "report",
@@ -1088,7 +978,6 @@ test("conversation capture prepares atomically while task defaults show only use
   const related = await call("create_task", {
     project_id,
     task: {
-      stages: fixtureStages(),
       title: "Follow findings",
       dependencies: [task.id],
     },
@@ -1349,7 +1238,6 @@ test("task feed follows the live end but preserves reading position and timestam
   const path = "/api/projects/feed-reading";
   await request.post(`${path}/tasks`, {
     data: {
-      stages: fixtureStages(),
       id: "one",
       title: "Read a growing feed",
       body: "Keep the reader oriented.",
@@ -1444,7 +1332,6 @@ test("legacy task-question links resolve into the feed and preserve answers", as
   const path = "/api/projects/feed-question";
   await request.post(`${path}/tasks`, {
     data: {
-      stages: fixtureStages(),
       id: "one",
       title: "A question in its task",
     },

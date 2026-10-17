@@ -187,7 +187,6 @@ def test_workspace_tools_before_adoption_and_explicit_cross_project_planning(tmp
                         "title": f"Work in {name}",
                         "body": "Agreed work",
                         "author": "human",
-                        "stages": [{"id": "report", "title": "Report", "outcome": "Findings"}],
                     },
                 },
             )

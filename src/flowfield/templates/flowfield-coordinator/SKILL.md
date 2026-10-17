@@ -73,7 +73,7 @@ Repository instructions govern development conventions and permission to commit/
   saves the milestone description and criteria; workers keep that version across attempts and answers.
   Use `get_milestone_history` and revision reads to inspect retained intent. After milestone
   edits, page `get_milestone_impact`, assess affected work and explicitly prepare/reconcile it
-  with reviewed stages when it should adopt changes. Completing tasks does not establish
+  when it should adopt changes. Completing tasks does not establish
   whole-outcome acceptance. Verification still needs evidence against every relevant criterion.
 - Labels are optional, multiple and shared by workspace. Read `list_labels` for names,
   colors and usage guidance; use their IDs when assigning labels. Maintain agreed labels
@@ -100,8 +100,8 @@ Repository instructions govern development conventions and permission to commit/
   `get_document_impact`; task `document_updates` and Board/Inbox expose newer revisions.
   These are informational, not automatic invalidation. Assess relevance, then adopt changes
   only for affected work. Running attempts keep frozen sources. To adopt changes, prepare upcoming
-  tasks again with reviewed stages, or reconcile existing work with a note and then review
-  its stages. Changed references invalidate the old agreement and its result approval.
+  tasks again, or reconcile existing work with a note. Changed references invalidate the old
+  agreement and its result approval.
   Inspect prepared/attempt revisions and source sizes alongside reported harness usage;
   characters and bytes are not token counts or evidence that a worker understood the content.
 - Respect the project’s existing architecture, design, coding and testing records;
@@ -131,7 +131,7 @@ Repository instructions govern development conventions and permission to commit/
   milestone policy inherits the workspace default. Standalone integration remains exact human review.
   The milestone reviewer can request one scoped contribution correction or ask about intent/access.
   Passing whole-outcome evidence ends at human acceptance/promotion, never implicit final delivery.
-  Ordinary milestones without owned delivery can still use an explicit staged report task with all
+  Ordinary milestones without owned delivery can still use an explicit report task with all
   contributions as prerequisites and `prepare_milestone_verification` after their delivery.
   Failed preparation needs correction and new verification; source, destination, settings or
   criteria changes invalidate the old candidate. Do not merge again after verification.
@@ -243,17 +243,6 @@ Repository instructions govern development conventions and permission to commit/
   work can start when the queue is enabled; preserve pauses and do not enqueue unrelated work.
   Meaningful task-agreement changes invalidate assignments. Reconcile affected work
   before scheduling; this conversation does not wake automatically to do that.
-- Include one to eight broad phases in the create_task call, even for drafts, not implementation steps or files.
-  For example, Explore → Implement → Verify for a feature, or Investigate → Synthesize
-  for findings; adapt to the actual task, with no mandatory template. Put implementation
-  detail in the description or progress evidence. Keep stable stage IDs/outcomes; workers
-  own progress while executing and may refine within scope. Explain transitions and
-  reconcile scope before dropping unfinished outcomes. Keep human approval, integration
-  and task completion outside this agent-reported sequence: Flowfield tracks those facts.
-  Finishing stages never authorizes execution or marks the agreed outcome complete.
-  When changing an agreement, read `get_task_stages` and include the reconciled `stages`
-  in the same `edit_task` call, with its expected revision and reason. Scheduling waits
-  for a current plan; workers cannot adopt older outcomes on the coordinator's behalf.
 
 ## Input, results and recovery
 
@@ -294,14 +283,14 @@ Repository instructions govern development conventions and permission to commit/
   after a resolved checkout blocker; prepare_result makes a fresh unapproved version when
   needed. Corrections remain bounded and require fresh approval.
 - Keep feedback/corrections on the same task. For changed intent on work in progress or review, once no worker owns the task,
-  use `edit_task` without preparation, include reviewed stages, then `reconcile_task` before
+  use `edit_task` without preparation, then `reconcile_task` before
   requesting the follow-up with `get_task_input` and `reply_to_task`: an enabled queue can launch it immediately. Complete the
   agreed outcome, not just an attempt. Partial work stays unfinished or has explicitly revised
   scope. Complete report-only findings need no code approval and do not endorse recommendations;
   even a Markdown repository file is a code-changing result, regardless of its labels.
 - For follow-up to delivered work, read the current task/result and use `reopen_task` with
   its revision and a reason. It preserves the delivered version and approval and returns
-  the task to Draft/Backlog. Use `edit_task` with fresh preparation and reviewed stages,
+  the task to Draft/Backlog. Use `edit_task` with fresh preparation,
   then prioritize only under human execution authority. Do not send change requests to a
   closed delivered result. Follow-up code needs a new exact approval.
 

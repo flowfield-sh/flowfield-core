@@ -1727,24 +1727,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks/{task_id}/stages": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Stages */
-    get: operations["stages_api_projects__project_id__tasks__task_id__stages_get"];
-    /** Update */
-    put: operations["update_api_projects__project_id__tasks__task_id__stages_put"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/projects/{project_id}/questions": {
     parameters: {
       query?: never;
@@ -3670,7 +3652,6 @@ export interface components {
         | "activity"
         | "attempt"
         | "result"
-        | "plan"
         | "approval"
         | "delivery"
         | "reply";
@@ -6601,98 +6582,6 @@ export interface components {
       /** Expected Revision */
       expected_revision: number;
     };
-    /** Stage */
-    "Stage-Input": {
-      /** Id */
-      id: string;
-      /**
-       * Title
-       * @description Short phase, such as Explore, Implement or Verify; not a file/task checklist.
-       */
-      title: string;
-      /**
-       * Outcome
-       * @description Stable intended outcome of this phase. Progress evidence belongs in reason.
-       */
-      outcome: string;
-      /**
-       * Status
-       * @default planned
-       * @enum {string}
-       */
-      status: "planned" | "active" | "completed";
-    };
-    /** Stage */
-    "Stage-Output": {
-      /** Id */
-      id: string;
-      /**
-       * Title
-       * @description Short phase, such as Explore, Implement or Verify; not a file/task checklist.
-       */
-      title: string;
-      /**
-       * Outcome
-       * @description Stable intended outcome of this phase. Progress evidence belongs in reason.
-       */
-      outcome: string;
-      /**
-       * Status
-       * @default planned
-       * @enum {string}
-       */
-      status: "planned" | "active" | "completed";
-    };
-    /** StageChange */
-    StageChange: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Stages */
-      stages: components["schemas"]["Stage-Input"][];
-      /** Reason */
-      reason: string;
-    };
-    /** StagePlan */
-    StagePlan: {
-      /** Project Id */
-      project_id: string;
-      /** Task Id */
-      task_id: string;
-      /**
-       * Revision
-       * @default 0
-       */
-      revision: number;
-      /** Agreement Revision */
-      agreement_revision: number;
-      /** Stages */
-      stages: components["schemas"]["Stage-Output"][];
-      /**
-       * Reason
-       * @default
-       */
-      reason: string;
-      /**
-       * Author
-       * @default coordinator
-       */
-      author: string;
-      /** Run Id */
-      run_id: string | null;
-      /** Created At */
-      created_at: string | null;
-    };
-    /** StageUpdate */
-    StageUpdate: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Stages */
-      stages: components["schemas"]["Stage-Input"][];
-      /** Reason */
-      reason: string;
-      /** Agreement Revision */
-      agreement_revision: number;
-    };
     /** Task */
     Task: {
       /** Id */
@@ -6866,8 +6755,6 @@ export interface components {
       author: string;
       /** Input Files */
       input_files?: string[];
-      /** Stages */
-      stages: components["schemas"]["Stage-Input"][];
       preparation?: components["schemas"]["TaskPreparation"] | null;
       /** Labels */
       labels?: string[];
@@ -6985,7 +6872,6 @@ export interface components {
       author: string;
       /** Input Files */
       input_files?: string[] | null;
-      stages?: components["schemas"]["StageChange"] | null;
       preparation?: components["schemas"]["TaskPreparation"] | null;
       /** Title */
       title?: string | null;
@@ -7118,7 +7004,6 @@ export interface components {
        * @default human
        */
       author: string;
-      stages?: components["schemas"]["StageChange"] | null;
       /**
        * Completion
        * @enum {string}
@@ -7330,16 +7215,6 @@ export interface components {
        * @default []
        */
       choices: string[];
-      /**
-       * Stages
-       * @default []
-       */
-      stages: components["schemas"]["Stage-Output"][];
-      /**
-       * Stage Changes
-       * @default []
-       */
-      stage_changes: string[];
       /**
        * Technical
        * @default false
@@ -11987,74 +11862,6 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["InputEligibility"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  stages_api_projects__project_id__tasks__task_id__stages_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
-        task_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["StagePlan"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  update_api_projects__project_id__tasks__task_id__stages_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
-        task_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["StageUpdate"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["StagePlan"];
         };
       };
       /** @description Validation Error */

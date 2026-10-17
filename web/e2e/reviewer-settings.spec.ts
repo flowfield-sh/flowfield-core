@@ -1,12 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
-import {
-  test,
-  fixtureProject,
-  projectWorkspace,
-  fixtureStages,
-} from "./support";
+import { test, fixtureProject, projectWorkspace } from "./support";
 
 test("review defaults and task reset preserve explicit inheritance and missing setup", async ({
   page,
@@ -22,7 +17,7 @@ test("review defaults and task reset preserve explicit inheritance and missing s
   const workspace = await projectWorkspace(request, "review-settings");
   const task = await (
     await request.post("/api/projects/review-settings/tasks", {
-      data: { title: "Assess this contribution", stages: fixtureStages() },
+      data: { title: "Assess this contribution" },
     })
   ).json();
   await page.goto(`/workspaces/${workspace}/edit/reviewers`);

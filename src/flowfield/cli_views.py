@@ -1,4 +1,4 @@
-"""Human CLI views for host diagnostics, task stages and source-linked search."""
+"""Human CLI views for host diagnostics, source-linked search."""
 
 import shlex
 from typing import Any
@@ -56,21 +56,6 @@ def harness_status(value: dict[str, Any], port: int) -> None:
                     ]
                 )
             )
-
-
-def stages(value: dict[str, Any]) -> None:
-    typer.echo(
-        f"Stages for {value['task_id']} · revision {value['revision']} "
-        f"· agreement {value['agreement_revision']}"
-    )
-    if not value["stages"]:
-        typer.echo("No stages recorded.")
-    for index, stage in enumerate(value["stages"], 1):
-        typer.echo(f"\n{index}. {stage['title']} · {stage['status'].capitalize()}")
-        typer.echo(f"   {stage['outcome']}")
-        typer.echo(f"   ID: {stage['id']}")
-    if value.get("reason"):
-        typer.echo(f"\nLatest update: {value['reason']}")
 
 
 def search(value: dict[str, Any]) -> None:

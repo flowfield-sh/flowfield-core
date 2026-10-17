@@ -39,7 +39,6 @@ from flowfield.publication import (
     preparation_issue,
     publication_status,
     readiness,
-    stages_need_reconciliation,
     verification_issue,
 )
 from flowfield.questions import (
@@ -206,9 +205,6 @@ class BrowserReads:
                 task,
                 publication,
                 blocked=bool(blocked or questions or verification_issue(db, task, facts=facts)),
-                stages_stale=stages_need_reconciliation(
-                    db, task.project_id, task.id, task.agreement_revision, facts=facts
-                ),
             ),
             blocked_by=[TaskReference(**item.model_dump()) for item in blocked],
             blocking_questions=questions,

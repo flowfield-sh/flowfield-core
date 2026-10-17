@@ -12,8 +12,6 @@ from flowfield.execution import Execution
 from flowfield.execution_models import Record, Run, WorkerResult, WorkerSubmission
 from flowfield.questions import QuestionCreate
 from flowfield.run_activity import ActivityUpdate
-from flowfield.stage_models import StageUpdate
-from flowfield.stages import Stages
 
 
 class SearchContext(Record):
@@ -60,16 +58,6 @@ def worker_tools(*, verification: bool = False) -> list[dict[str, Any]]:
                 SearchContext,
             ),
             (
-                "update_stages",
-                "Report broad work phases, not file edits or implementation checklists. "
-                "Keep human approval/integration outside agent stages. Copy every existing "
-                "stage id and outcome verbatim; change status and put evidence in reason. "
-                "You may add stages, but cannot reword or remove existing outcomes. "
-                "Stages never grant approval or complete the task. "
-                "Use the frozen stages revision first, then the revision returned by this tool.",
-                StageUpdate,
-            ),
-            (
                 "ask_question",
                 (
                     "Ask a blocking human question on this task, then end your turn. "
@@ -85,8 +73,7 @@ def worker_tools(*, verification: bool = False) -> list[dict[str, Any]]:
                     "limitations. Keep summary focused on the user's outcome, technical "
                     "proof in checks, and only unresolved material caveats in limitations. "
                     "Explicitly choose complete or partial against the entire "
-                    "agreed outcome and name remaining_work for partial progress. Before a "
-                    "complete result, update any unfinished stages to reflect actual progress. "
+                    "agreed outcome and name remaining_work for partial progress. "
                     "Code delivery follows explicit approval policy; complete unchanged-tree "
                     "reports finish after configured review. Put deliverable files in "
                     "FLOWFIELD_OUTPUT_DIR "
@@ -133,7 +120,6 @@ class WorkerBridge:
             "run_project_checks": "Running project checks",
             "read_context": "Reading task context",
             "search_context": "Searching task context",
-            "update_stages": "Updating progress",
             "ask_question": "Asking a question",
             "submit_result": "Submitting an outcome",
         }
@@ -150,17 +136,6 @@ class WorkerBridge:
                     409,
                 )
             return await self.checks()
-        if name == "update_stages":
-            return (
-                Stages(self.execution.workspace)
-                .update(
-                    self.run.project_id,
-                    self.run.task_id,
-                    StageUpdate.model_validate(arguments),
-                    run_id=self.run.id,
-                )
-                .model_dump_json()
-            )
         if name == "read_context":
             request = ReadContext.model_validate(arguments)
             text = self.execution.context_section(self.run.project_id, self.run.id, request.section)

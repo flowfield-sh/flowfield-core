@@ -553,7 +553,7 @@ def create_mcp(
         milestone_id: MilestoneIdentifier,
         preparation: VerificationPrepare,
     ) -> CallToolResult:
-        """Freeze delivered contributions and checks; prepare an upcoming staged report task.
+        """Freeze delivered contributions and checks; prepare an upcoming report task.
         All contributions need complete delivered results. Use a Backlog verifier in the
         milestone, depending on those contributions; earlier verifiers are historical evidence.
         This operation prepares report completion and freezes full criteria and exact inputs.
@@ -945,7 +945,6 @@ def create_mcp(
     ) -> CallToolResult:
         """Capture agreed work, default feature in Backlog; first search for an existing task.
 
-        Include one to eight outcome stages in this same call, even for a draft.
         Use task keys (for example API-1) for dependencies across projects in this workspace;
         bare task IDs resolve only within the destination project.
         For actionable intent include preparation with completion. Capture and preparation
@@ -983,13 +982,11 @@ def create_mcp(
         Include preparation for actionable upcoming work, using completion, to save and prepare
         atomically. Failure leaves prior intent
         unchanged. Preparation applies only to Backlog/Up next. For work in progress or review,
-        once no worker owns the task, omit preparation, include reviewed stages, then reconcile_task
+        once no worker owns the task, omit preparation, then reconcile_task
         before requesting feedback continuation through get_task_input/reply_to_task.
-        For delivered work, first use reopen_task, then edit with fresh preparation/stages.
+        For delivered work, first use reopen_task, then edit with fresh preparation.
         Preserves priority/queue.
         Cross-project dependencies use task keys (for example API-1), not bare task IDs.
-        Read get_task_stages and include stages (expected_revision, stages, reason) here
-        to reconcile the plan with the new agreement atomically while idle.
         milestone_id=null clears grouping; archived=false restores.
         """
         return await mutate(
@@ -1035,7 +1032,7 @@ def create_mcp(
         """Return completed work to Draft/Backlog for an authorized follow-up on the same task.
 
         Preserve delivered results, approvals and history. Read current task/result first and
-        explain the new work in note. Then edit_task with fresh preparation and reviewed stages;
+        explain the new work in note. Then edit_task with fresh preparation;
         prioritize only when execution is authorized. Reopening does not start a worker or
         transfer approval. Use result feedback for work that has not yet been delivered.
         """

@@ -3,7 +3,6 @@
 import os
 
 import pytest
-from project_fixtures import reconcile_fixture_stages
 from pydantic import ValidationError
 from result_fixtures import approve, current, fixture
 
@@ -191,7 +190,6 @@ def test_reconciled_blocked_scope_offers_correction_without_approving_old_code(t
             note="Human clarified the remaining outcome",
         ),
     )
-    reconcile_fixture_stages(service.workspace, "harbor", task.id)
     value = current(service)
     assert value.next_action.action == "correct"
     assert value.approved_at is None
@@ -223,10 +221,8 @@ def test_report_reconciliation_does_not_offer_a_code_correction(tmp_path):
 
 
 @pytest.mark.parametrize("completion", ["code", "report"])
-def test_idle_correction_edits_scope_and_stages_before_reconciliation(tmp_path, completion):
+def test_idle_correction_edits_scope_before_reconciliation(tmp_path, completion):
     from flowfield.application import TaskReconcile
-    from flowfield.stage_models import Stage, StageChange
-    from flowfield.stages import Stages
 
     service, repo, old_run = fixture(
         tmp_path,
@@ -238,24 +234,15 @@ def test_idle_correction_edits_scope_and_stages_before_reconciliation(tmp_path, 
     service.results.process("harbor")
     original = current(service)
     task = service.workspace.task("harbor", "work")
-    before = Stages(service.workspace).get("harbor", task.id)
     edited = service.workspace.edit_task(
         "harbor",
         task.id,
         TaskEdit(
             expected_revision=task.revision,
             body="Verify the outcome with a one-time native permission request if needed.",
-            stages=StageChange(
-                expected_revision=before.revision,
-                stages=[Stage(id="verify", title="Verify", outcome="Execute with agreed access")],
-                reason="Human clarified the runtime access boundary",
-            ),
         ),
     )
-    plan = Stages(service.workspace).get("harbor", task.id)
     assert edited.reconciliation_reason
-    assert plan.agreement_revision == edited.agreement_revision
-    assert plan.stages[0].outcome == "Execute with agreed access"
     assert service.execution.claim("harbor", old_run.base_commit, {}) is None
     retained = service.results.get("harbor", original.id)
     assert retained.report == original.report and retained.approved_at is None
@@ -266,5 +253,4 @@ def test_idle_correction_edits_scope_and_stages_before_reconciliation(tmp_path, 
             expected_revision=edited.revision, completion=completion, note="Scope reviewed"
         ),
     )
-    assert Stages(service.workspace).get("harbor", task.id) == plan
     assert service.integrations.head("harbor") == old_run.base_commit

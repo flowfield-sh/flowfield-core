@@ -107,8 +107,6 @@ def task_state(
         return question_state(db, project, task["question_id"])
     if task["reason"]:
         return WorkState(label="Update task", tone="attention", href=href)
-    if not task["archived"] and task["status"] != "done" and facts.stages_stale:
-        return WorkState(label="Reconcile stages", tone="attention", href=href)
     if task["reply_pending"]:
         return WorkState(
             label="Reply queued" if facts.queue_enabled else "Reply paused",

@@ -4,7 +4,6 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-from conversation_fixtures import plan
 from execution_fixtures import BASE, RESULT, fixture, validate_report
 from input_continuation_fixtures import answer
 from project_fixtures import task_request
@@ -16,14 +15,15 @@ from flowfield.execution_models import RunAction, Usage, WorkerResult
 from flowfield.questions import QuestionCreate, Questions
 from flowfield.reads import ContextReads
 from flowfield.results import Results
-from flowfield.stages import Stages
 
 
-def test_changed_stage_agreement_blocks_only_its_task_until_coordinator_reconciles(tmp_path):
-    execution = fixture(tmp_path, count=2, cap=2, stages=plan().stages)
+def test_changed_agreement_blocks_only_its_task_until_coordinator_reconciles(tmp_path):
+    execution = fixture(
+        tmp_path,
+        count=2,
+        cap=2,
+    )
     workspace = execution.workspace
-    stages = Stages(workspace)
-    original = stages.get("harbor", "task-0")
     task = workspace.task("harbor", "task-0")
     task = workspace.edit_task(
         "harbor", task.id, TaskEdit(expected_revision=task.revision, body="Refined scope")
@@ -32,29 +32,21 @@ def test_changed_stage_agreement_blocks_only_its_task_until_coordinator_reconcil
         completion="report",
         expected_revision=task.revision,
     )
-    with pytest.raises(ApplicationError, match="current stages"):
-        workspace.publish_task("harbor", task.id, publication)
     task = workspace.task("harbor", task.id)
     card = BrowserReads(workspace).task("harbor", task.id)
     brief = ContextReads(workspace).task("harbor", task.id)
-    assert task.readiness == card.readiness == brief["readiness"] == "needs_reconciliation"
+    assert task.readiness == card.readiness == brief["readiness"] == "draft"
     assert task.preparation_issue == card.preparation_issue == brief["preparation_issue"]
-    assert "update its stages" in task.preparation_issue
-    assert card.state.label == "Reconcile stages"
+    assert "prepare" in task.preparation_issue
     board = BrowserReads(workspace).board("harbor")
     assert next(item for item in board.tasks if item.id == task.id).state == card.state
     independent = execution.claim("harbor", BASE, {BASE: set()})
     assert independent.task_id == "task-1"
     assert execution.claim("harbor", BASE, {BASE: set()}) is None
-    assert stages.get("harbor", task.id) == original
-    stages.update("harbor", task.id, plan(1, agreement=task.agreement_revision))
     workspace.publish_task("harbor", task.id, publication)
     assert workspace.task("harbor", task.id).readiness == "ready"
     resumed = execution.claim("harbor", BASE, {BASE: set()})
     assert resumed.task_id == task.id
-    frozen = json.loads(execution.assignment("harbor", resumed.id)["stages"])
-    assert frozen["agreement_revision"] == task.agreement_revision
-    assert frozen["stages"] == [stage.model_dump() for stage in original.stages]
     assert execution.get("harbor", independent.id).status == "preparing"
 
 

@@ -4,7 +4,6 @@ import {
   test,
   existingDirectory,
   state,
-  fixtureStages,
 } from "./support";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -37,7 +36,6 @@ async function setup(request: APIRequestContext, project: string) {
     (
       await request.post(`/api/projects/${project}/tasks`, {
         data: {
-          stages: fixtureStages(),
           id: "task",
           title: "Notification work",
         },

@@ -1,7 +1,5 @@
 """Reusable isolated setup and scripted peers; no collected test cases."""
 
-from project_fixtures import fixture_stage_change
-
 from flowfield.application import ProjectEdit, TaskPublish
 
 
@@ -13,7 +11,6 @@ def prepare(store, task_id="task-0"):
         TaskPublish(
             expected_revision=task.revision,
             completion="report",
-            stages=fixture_stage_change(store, "harbor", task.id),
         ),
     )
 

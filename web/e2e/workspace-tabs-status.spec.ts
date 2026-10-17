@@ -6,7 +6,6 @@ import {
   existingDirectory,
   state,
   projectWorkspace,
-  fixtureStages,
 } from "./support";
 import { openResource } from "./shell-navigation";
 
@@ -35,7 +34,6 @@ test("task card entry stays on Overview and milestone status agrees across views
         title: "Choose export format",
         milestone_id: milestone.id,
         status: "in_progress",
-        stages: fixtureStages(),
       },
     })
   ).json();
@@ -144,7 +142,6 @@ test("overflowing tabs scroll by wheel with directional fades and even gutters",
     await request.post(`/api/projects/${project}/tasks`, {
       data: {
         title: `A long task title for overflow ${i}`,
-        stages: fixtureStages(),
       },
     });
   await page.setViewportSize({ width: 1440, height: 1000 });

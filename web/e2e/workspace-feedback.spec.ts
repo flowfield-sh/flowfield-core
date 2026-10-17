@@ -7,7 +7,6 @@ import {
   existingDirectory,
   state,
   projectWorkspace,
-  fixtureStages,
   checkout,
 } from "./support";
 
@@ -29,7 +28,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
     base = `/workspaces/${workspace}`;
   for (const id of ["first", "second"])
     await request.post(`/api/projects/${project}/tasks`, {
-      data: { id, title: id, stages: fixtureStages() },
+      data: { id, title: id },
     });
   await page.goto(base);
   await expect(page).toHaveURL(base + "/inbox");

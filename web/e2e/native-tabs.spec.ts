@@ -4,7 +4,6 @@ import {
   existingDirectory,
   state,
   connectMcp,
-  fixtureStages,
 } from "./support";
 import { join } from "node:path";
 import { expect, type Response } from "@playwright/test";
@@ -26,7 +25,6 @@ test("task links open native tabs without losing the original selection or draft
   const first = await call("create_task", {
     project_id: projectId,
     task: {
-      stages: fixtureStages(),
       title: "Prepare export",
       status: "up_next",
     },
@@ -34,7 +32,6 @@ test("task links open native tabs without losing the original selection or draft
   const second = await call("create_task", {
     project_id: projectId,
     task: {
-      stages: fixtureStages(),
       title: "Download export",
       status: "up_next",
       dependencies: [first.key],

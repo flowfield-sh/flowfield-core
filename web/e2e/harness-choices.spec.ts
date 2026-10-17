@@ -6,7 +6,6 @@ import {
   hostStatus,
   existingDirectory,
   state,
-  fixtureStages,
 } from "./support";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
@@ -164,7 +163,7 @@ for (const onlyClaude of [false, true]) {
     expect(
       (
         await request.post(`/api/projects/${project}/tasks`, {
-          data: { title: "Refresh project settings", stages: fixtureStages() },
+          data: { title: "Refresh project settings" },
         })
       ).ok(),
     ).toBe(true);

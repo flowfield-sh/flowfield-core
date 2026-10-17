@@ -163,13 +163,6 @@ async def main():
                         "arguments": {
                             **({"project_id": "harbor"} if "workspace_id" in control else {}),
                             "task": {
-                                "stages": [
-                                    {
-                                        "id": "report",
-                                        "title": "Report",
-                                        "outcome": "Report the agreed findings",
-                                    }
-                                ],
                                 "id": "chat-task",
                                 "title": "Captured from Coordinator Chat",
                                 "body": "An agreed outcome",

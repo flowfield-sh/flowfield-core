@@ -3,7 +3,7 @@
 from pathlib import Path
 from unittest.mock import patch
 
-from project_fixtures import adopt, fixture_stage_change, task_request
+from project_fixtures import adopt, task_request
 
 from flowfield.agent_models import AgentChoice
 from flowfield.application import (
@@ -22,14 +22,13 @@ from flowfield.results import Results
 BASE, RESULT = "a" * 40, "b" * 40
 
 
-def fixture(tmp_path: Path, *, count: int = 1, cap: int = 1, stages=None) -> Execution:
+def fixture(tmp_path: Path, *, count: int = 1, cap: int = 1) -> Execution:
     workspace = Workspace(tmp_path / "state")
     adopt(workspace, ProjectSetup(path=str(tmp_path / "harbor")))
     for index in range(count):
         task = workspace.create_task(
             "harbor",
             task_request(
-                **({"stages": stages} if stages is not None else {}),
                 id=f"task-{index}",
                 title=f"Task {index}",
                 body="Implement and test the assigned behavior.",
@@ -40,7 +39,6 @@ def fixture(tmp_path: Path, *, count: int = 1, cap: int = 1, stages=None) -> Exe
             "harbor",
             task.id,
             TaskPublish(
-                stages=fixture_stage_change(workspace, "harbor", task.id),
                 completion="report",
                 expected_revision=task.revision,
             ),

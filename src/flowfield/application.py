@@ -48,12 +48,10 @@ from flowfield.publication import (
     preparation_issue,
     publication_status,
     readiness,
-    stages_need_reconciliation,
     verification_issue,
 )
 from flowfield.questions import QuestionReference, Questions, blocking_questions, pending_questions
 from flowfield.schema import SCHEMA, SCHEMA_VERSION
-from flowfield.stage_models import Stage, StageChange, StagePlan, StageUpdate
 from flowfield.storage import acquire_lock, initialize, require_current
 from flowfield.work_scopes import WorkScope
 
@@ -234,13 +232,6 @@ class TaskPreparation(Input):
 
 class TaskCreate(WorkCreate):
     input_files: list[Identifier] = Field(default_factory=list, max_length=32)
-    stages: list[Stage] = Field(min_length=1, max_length=8)
-
-    @field_validator("stages")
-    @classmethod
-    def valid_stages(cls, value: list[Stage]) -> list[Stage]:
-        return StageChange(expected_revision=0, stages=value, reason="Initial plan").stages
-
     preparation: TaskPreparation | None = None
     body: TaskDescription = ""
     labels: LabelIds = Field(default_factory=list)
@@ -257,7 +248,6 @@ class TaskCreate(WorkCreate):
 
 class TaskEdit(Edit):
     input_files: list[Identifier] | None = Field(default=None, max_length=32)
-    stages: StageChange | None = None
     preparation: TaskPreparation | None = None
     title: Title | None = None
     body: TaskDescription | None = None
@@ -300,19 +290,11 @@ class TaskReopen(Edit):
 
 
 class TaskPublish(Edit):
-    stages: StageChange | None = None
     completion: Literal["code", "report"]
 
 
 class TaskRevision(WorkRecord):
     input_files: list[str] = Field(default_factory=list)
-
-    @model_validator(mode="before")
-    @classmethod
-    def historical_classification(cls, value: Any) -> Any:
-        if isinstance(value, dict) and "labels" not in value and "task_type" in value:
-            return {**value, "labels": [value["task_type"]]}
-        return value
 
     agreement_revision: int = 1
     publication: Publication | None = None
@@ -1075,9 +1057,6 @@ class Workspace:
                 current,
                 publication,
                 blocked=bool(blocked or questions or verification_issue(db, current)),
-                stages_stale=stages_need_reconciliation(
-                    db, project_id, task_id, current.agreement_revision
-                ),
             ),
             blocked_by=[TaskReference(**item.model_dump()) for item in blocked],
             blocking_questions=questions,
@@ -1237,9 +1216,7 @@ class Workspace:
                 "SELECT COALESCE(MAX(number), 0) + 1 FROM tasks WHERE project_id=?", (project_id,)
             ).fetchone()[0]
             task = TaskRevision(
-                **request.model_dump(
-                    exclude={"id", "author", "dependencies", "preparation", "stages"}
-                ),
+                **request.model_dump(exclude={"id", "author", "dependencies", "preparation"}),
                 key=f"{project.task_prefix}-{number}",
                 dependencies=self._dependency_ids(db, project_id, request.dependencies),
                 id=request.id or generated_id(request.title),
@@ -1272,20 +1249,6 @@ class Workspace:
                     "task_blocked", "Complete prerequisites before recording work.", 409
                 )
             self._apply_task(db, task)
-            initial_plan = StagePlan(
-                project_id=project_id,
-                task_id=task.id,
-                revision=1,
-                agreement_revision=task.agreement_revision,
-                stages=request.stages,
-                reason="Initial task plan",
-                author=request.author,
-                created_at=now(),
-            )
-            db.execute(
-                "INSERT INTO stage_plans VALUES (?,?,?,?)",
-                (project_id, task.id, 1, initial_plan.model_dump_json()),
-            )
             if request.preparation:
                 return self._publish_task(
                     db,
@@ -1301,9 +1264,8 @@ class Workspace:
 
     def edit_task(self, project_id: str, task_id: str, request: TaskEdit) -> Task:
         preparation = request.preparation
-        stage_change = request.stages
         request = TaskEdit.model_validate(
-            request.model_dump(exclude_unset=True, exclude={"preparation", "stages"})
+            request.model_dump(exclude_unset=True, exclude={"preparation"})
         )
         with self.connection(write=True, project_id=project_id) as db:
             current = self._task(db, project_id, task_id)
@@ -1342,8 +1304,6 @@ class Workspace:
                         "UPDATE tasks SET position=? WHERE project_id=? AND id=?",
                         (self._append_position(db, project_id), project_id, task_id),
                     )
-            if stage_change and not preparation:
-                self._change_task_stages(db, task, stage_change)
             if preparation:
                 return self._publish_task(
                     db,
@@ -1354,7 +1314,6 @@ class Workspace:
                             **preparation.model_dump(),
                             "expected_revision": task.revision,
                             "author": request.author,
-                            **({"stages": stage_change} if stage_change is not None else {}),
                         }
                     ),
                 )
@@ -1389,21 +1348,6 @@ class Workspace:
             )
         return None
 
-    def _change_task_stages(
-        self, db: sqlite3.Connection, task: TaskRevision, change: StageChange
-    ) -> None:
-        from flowfield.stages import Stages
-
-        Stages(self)._update(
-            db,
-            task.project_id,
-            task.id,
-            StageUpdate(**change.model_dump(), agreement_revision=task.agreement_revision),
-            # Editing the agreement can itself require reconciliation. Save its reviewed
-            # plan atomically; reconciliation still gates publication/continuation.
-            revising_agreement=True,
-        )
-
     def publish_task(self, project_id: str, task_id: str, request: TaskPublish) -> Task:
         with self.connection(write=True, project_id=project_id) as db:
             return self._publish_task(db, project_id, task_id, request)
@@ -1433,18 +1377,6 @@ class Workspace:
             )
         documents, milestone = self._prepare_sources(db, current, request.author)
         current = self._task(db, project_id, current.id)
-        if request.stages:
-            self._change_task_stages(db, current, request.stages)
-            current = self._task(db, project_id, current.id)
-        from flowfield.stages import Stages
-
-        plan = Stages(self)._get(db, current)
-        if not plan.stages or plan.agreement_revision != current.agreement_revision:
-            raise ApplicationError(
-                "stages_required",
-                "Provide current stages with this preparation; at least one stage is required.",
-                409,
-            )
         from flowfield.milestone_delivery import effective_branch, for_milestone
 
         target_branch = (

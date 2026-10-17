@@ -4,7 +4,6 @@ import {
   test,
   existingDirectory,
   state,
-  fixtureStages,
 } from "./support";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
@@ -32,7 +31,6 @@ test("board columns scroll independently with fixed headings and reachable cards
         (
           await request.post(`/api/projects/${project}/tasks`, {
             data: {
-              stages: fixtureStages(),
               title: `${status} task ${i}`,
               status,
             },

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from execution_fixtures import BASE, RESULT, fixture, result, validate_report
-from project_fixtures import adopt, fixture_stage_change
+from project_fixtures import adopt
 
 from flowfield.agent_models import AgentChoice
 from flowfield.application import (
@@ -144,7 +144,6 @@ def test_review_is_bound_to_code_and_current_intent(tmp_path: Path) -> None:
         "harbor",
         task.id,
         TaskPublish(
-            stages=fixture_stage_change(execution.workspace, "harbor", task.id),
             completion="report",
             expected_revision=upcoming.revision,
         ),
@@ -167,7 +166,6 @@ def test_report_prerequisite_does_not_require_code_availability(tmp_path: Path) 
         "harbor",
         second.id,
         TaskPublish(
-            stages=fixture_stage_change(workspace, "harbor", second.id),
             completion="report",
             expected_revision=second.revision,
         ),
@@ -275,7 +273,6 @@ def test_followup_checks_prerequisites_in_its_own_base(tmp_path: Path) -> None:
         "harbor",
         task.id,
         TaskPublish(
-            stages=fixture_stage_change(execution.workspace, "harbor", task.id),
             completion="report",
             expected_revision=task.revision,
         ),

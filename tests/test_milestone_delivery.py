@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 from milestone_delivery_fixtures import contribute, setup
-from project_fixtures import fixture_stage_change, task_request
+from project_fixtures import task_request
 
 from flowfield.adapters.git_workspace import baseline
 from flowfield.application import MilestoneCreate, TaskPublish
@@ -35,7 +35,6 @@ def test_owned_task_question_uses_its_milestone_destination(tmp_path):
         TaskPublish(
             expected_revision=task.revision,
             completion="code",
-            stages=fixture_stage_change(store, "harbor", task.id),
         ),
     )
     run = execution.claim("harbor", base, {base: set()}, task_id=task.id)
@@ -151,7 +150,6 @@ def test_other_milestone_cannot_claim_unavailable_prerequisite(tmp_path):
         TaskPublish(
             expected_revision=task.revision,
             completion="code",
-            stages=fixture_stage_change(store, "harbor", task.id),
         ),
     )
     head = integrations.head("harbor", task.id)

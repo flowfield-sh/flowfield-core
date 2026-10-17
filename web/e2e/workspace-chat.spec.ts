@@ -2,7 +2,7 @@ import { openResource } from "./shell-navigation";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
-import { test, state, fixtureStages } from "./support";
+import { test, state } from "./support";
 
 test("member projects share coordinator history and a draft", async ({
   page,
@@ -36,7 +36,7 @@ test("member projects share coordinator history and a draft", async ({
     expect(
       (
         await request.post(`/api/projects/${id}/tasks`, {
-          data: { id: "same", title: `${id} task`, stages: fixtureStages() },
+          data: { id: "same", title: `${id} task` },
         })
       ).ok(),
     ).toBeTruthy();

@@ -31,8 +31,7 @@ from flowfield.questions import QuestionCreate
 from flowfield.result_models import ResultReview
 from flowfield.results import Results
 from flowfield.run_activity import ActivityUpdate, RunActivity
-from flowfield.stage_models import Stage, StageUpdate
-from flowfield.stages import Stages
+from flowfield.workspaces import WorkspaceCreate, Workspaces
 
 HTML = """<!doctype html><html>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width">
@@ -52,49 +51,6 @@ localStorage.setItem('plants',JSON.stringify(plants))}
 document.querySelector('form').onsubmit=e=>{e.preventDefault();
 let i=document.querySelector('input');plants.push(i.value);i.value='';render()};
 render();</script></html>"""
-
-
-def demo_stages(task_type, active=-1):
-    investigation = task_type == "investigation"
-    return [
-        Stage(
-            id=name,
-            title=title,
-            outcome=outcome,
-            status="completed" if i < active else "active" if i == active else "planned",
-        )
-        for i, (name, title, outcome) in enumerate(
-            [
-                (
-                    "understand",
-                    "Understand",
-                    "Confirm the requested experience and constraints.",
-                ),
-                (
-                    "build",
-                    "Explore" if investigation else "Build",
-                    "Gather evidence and alternatives."
-                    if investigation
-                    else "Implement the agreed small outcome.",
-                ),
-                ("check", "Check", "Verify behavior and report remaining limitations."),
-            ]
-        )
-    ]
-
-
-def plan(workspace, task, active=0):
-    current = Stages(workspace).get(task.project_id, task.id)
-    return Stages(workspace).update(
-        task.project_id,
-        task.id,
-        StageUpdate(
-            expected_revision=current.revision,
-            agreement_revision=task.agreement_revision,
-            stages=demo_stages(task.task_type, active),
-            reason="Demo progress plan; the agreed outcome still governs completion.",
-        ),
-    )
 
 
 def seed(root):
@@ -131,8 +87,11 @@ def seed(root):
         "Toy project baseline",
     )
     ws = Workspace(root / "state")
-    project = ws.setup_project(
-        ProjectSetup(path=str(repo), name="Pocket Garden · simulated workers", task_prefix="GRD")
+    spaces = Workspaces(ws)
+    owner = spaces.create(WorkspaceCreate(name="Pocket Garden"))
+    project = spaces.adopt(
+        owner.id,
+        ProjectSetup(path=str(repo), name="Pocket Garden · simulated workers", task_prefix="GRD"),
     )
     # Registration adds project identity; include it in the clean fixture baseline.
     git(repo, "add", ".flowfield")
@@ -182,7 +141,6 @@ def seed(root):
         item = ws.create_task(
             project.id,
             TaskCreate(
-                stages=demo_stages(kwargs.get("task_type", "feature")),
                 id=identity,
                 title=title,
                 body=body,
@@ -200,7 +158,6 @@ def seed(root):
                     completion=completion,
                 ),
             )
-            plan(ws, item)
         return item
 
     def capture(item, text, delivered=False):
@@ -251,7 +208,6 @@ def seed(root):
         results.process(project.id)
         version = results.page(project.id, item.id).items[0]
         assert version.status == "ready", version.problem
-        plan(ws, ws.task(project.id, item.id), 3 if delivered else 2)
         if delivered:
             results.review(
                 project.id,
@@ -312,14 +268,14 @@ def seed(root):
         "Inspect keyboard and screen-reader needs; deliver findings, "
         "uncertainty and a recommendation.",
         completion="report",
-        task_type="investigation",
+        labels=["investigation"],
     )
     task(
         "backup",
         "Describe a lightweight backup format",
         "Recommend a small export format. Deliver a report only.",
         completion="report",
-        task_type="investigation",
+        labels=["investigation"],
     )
     task(
         "reminder-copy",
@@ -345,6 +301,9 @@ class DemoWorker:
 
     supports_activity = True
     binary = Path("/usr/bin/true")
+    launch = None
+    input_tokens_available = None
+    max_prompt_bytes = None
 
     def __init__(self, directory, cwd, environment):
         self.cwd = cwd
@@ -378,14 +337,18 @@ class DemoWorker:
 
         self.on_tool = call
         self.tools = [{"name": tool.name} for tool in (await session.list_tools()).tools]
-        self.session = SimpleNamespace(session_id="fixture-" + self.cwd.parent.name)
+        self.session_id = "fixture-" + self.cwd.parent.name
         self.process = SimpleNamespace(pid=os.getpid())
 
     async def configure(self, choice, *, discussion=False):
         self.choice = choice
         return choice
 
-    async def prompt(self, text, on_permission):
+    def validate_attachments(self, attachments):
+        if attachments:
+            raise ValueError("The scripted demo does not inspect attachments.")
+
+    async def prompt(self, text, on_permission, *, attachments=None):
         return await self.run(self.choice.model, self.choice.effort, text, self.tools)
 
     async def run(self, model, effort, prompt, tools):
@@ -393,26 +356,6 @@ class DemoWorker:
         context = json.loads(await self.on_tool("read_context", {"section": "description"}))
         del context
         discussion = "read-only discussion" in brief["instructions"]
-        progress = None
-        if not discussion:
-            source = json.loads(await self.on_tool("read_context", {"section": "stages"}))
-            progress = json.loads(source["text"])
-            if progress.get("stages"):
-                for index, stage in enumerate(progress["stages"]):
-                    stage["status"] = (
-                        "completed" if index == 0 else "active" if index == 1 else "planned"
-                    )
-                progress = json.loads(
-                    await self.on_tool(
-                        "update_stages",
-                        {
-                            "expected_revision": progress["revision"],
-                            "agreement_revision": progress["agreement_revision"],
-                            "stages": progress["stages"],
-                            "reason": "Simulated worker started the focused inspection.",
-                        },
-                    )
-                )
         duration = 180 if "Investigate accessible" in brief["task"] and not discussion else 12
         messages = [
             "Reading the agreed outcome and existing controls.",
@@ -436,18 +379,6 @@ class DemoWorker:
             (self.cwd / "reminder-notes.md").write_text(
                 "# Reminder behavior\n\nDemo continuation recorded. This scripted "
                 "worker does not implement arbitrary requests.\n"
-            )
-        if progress and progress.get("stages"):
-            for stage in progress["stages"]:
-                stage["status"] = "completed"
-            await self.on_tool(
-                "update_stages",
-                {
-                    "expected_revision": progress["revision"],
-                    "agreement_revision": progress["agreement_revision"],
-                    "stages": progress["stages"],
-                    "reason": "Scripted demo findings are ready; no model competence claim.",
-                },
             )
         await self.on_tool(
             "submit_result",
@@ -491,8 +422,10 @@ def main():
             parser.error("Choose a new directory, or --resume an existing demo; nothing was reset.")
     else:
         seed(root)
-    worker_module.CodexAgent = DemoWorker
-    worker_module.model_options = demo_models
+    worker_module.create = lambda choice, directory, cwd, environment, **kwargs: DemoWorker(
+        directory, cwd, environment
+    )
+    worker_module.Supervisor.model_options = demo_models
     worker_module.process_stamp = lambda pid: "simulated-demo-process"
     app = create_app(data_dir=root / "state")
     original = app.router.lifespan_context

@@ -1,10 +1,4 @@
-import {
-  fixtureProject,
-  projectWorkspace,
-  choose,
-  fixtureStages,
-  test,
-} from "./support";
+import { fixtureProject, projectWorkspace, choose, test } from "./support";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
@@ -25,7 +19,7 @@ test("long definitions collapse with a fade and history loads only when expanded
     ).join("\n\n") + "\n\n[Reference](https://example.com)";
   const task = await (
     await request.post("/api/projects/definition-preview/tasks", {
-      data: { stages: fixtureStages(), title: "Read a long definition", body },
+      data: { title: "Read a long definition", body },
     })
   ).json();
   await page.goto(`/projects/definition-preview/tasks/${task.key}`);
@@ -182,7 +176,6 @@ test("definition revisions show focused word diffs and compact field values", as
   const task = await (
     await request.post(`/api/projects/${project}/tasks`, {
       data: {
-        stages: fixtureStages(),
         title: "Search café",
         labels: ["feature"],
         body: "Keep all rows. Preserve café labels.",

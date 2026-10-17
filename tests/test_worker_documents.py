@@ -11,7 +11,7 @@ from project_fixtures import task_request
 from worker_documents_fixtures import defaults, prepare
 
 from flowfield.agent_tools import workspace_scope
-from flowfield.application import TaskEdit, TaskPublish, TaskReconcile, Workspace
+from flowfield.application import TaskEdit, TaskReconcile, Workspace
 from flowfield.documents import DocumentCreate, DocumentEdit, Documents
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
@@ -97,11 +97,6 @@ def test_new_revisions_require_preparation_and_change_the_agreement_atomically(t
     assert current.model_dump(exclude={"document_updates"}) == first.model_dump(
         exclude={"document_updates"}
     )
-    with pytest.raises(ApplicationError, match="current stages"):
-        store.publish_task(
-            "harbor", first.id, TaskPublish(expected_revision=first.revision, completion="report")
-        )
-    assert store.task("harbor", first.id) == current  # Failed preparation rolls back scope too.
     refreshed = prepare(store)
     assert refreshed.agreement_revision == first.agreement_revision + 1
     assert refreshed.publication.documents[0].revision == 2
@@ -156,7 +151,7 @@ def test_reconciling_new_document_scope_does_not_rebind_old_attempt(tmp_path):
     assert updated.agreement_revision == run.agreement_revision + 1
     assert updated.publication.documents[0].revision == 2
     assert execution.get("harbor", run.id).documents[0].revision == 1
-    assert updated.readiness == "needs_reconciliation"  # Stages still need review.
+    assert updated.readiness == "ready"
 
 
 def test_adopting_document_changes_invalidates_the_old_result(tmp_path):

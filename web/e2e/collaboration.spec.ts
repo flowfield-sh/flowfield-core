@@ -4,7 +4,6 @@ import {
   fixtureProject,
   fixtureMcpProject,
   fixtureProgress,
-  fixtureStages,
   test,
   existingDirectory,
   state,
@@ -31,7 +30,6 @@ test("coordinator dependencies update blockers, links and reconciliation without
   const one = await call("create_task", {
     ...identity,
     task: {
-      stages: fixtureStages(),
       id: "serializer",
       title: "Serialize CSV",
       body: "Deliver CSV",
@@ -41,7 +39,6 @@ test("coordinator dependencies update blockers, links and reconciliation without
   const two = await call("create_task", {
     ...identity,
     task: {
-      stages: fixtureStages(),
       id: "download",
       title: "Download CSV",
       body: "Offer download",
@@ -52,7 +49,6 @@ test("coordinator dependencies update blockers, links and reconciliation without
   const three = await call("create_task", {
     ...identity,
     task: {
-      stages: fixtureStages(),
       title: "Prepare export settings",
       body: "Choose settings",
       status: "up_next",
@@ -64,11 +60,6 @@ test("coordinator dependencies update blockers, links and reconciliation without
     changes: {
       expected_revision: two.revision,
       dependencies: [one.id, three.id],
-      stages: {
-        expected_revision: 1,
-        stages: fixtureStages(),
-        reason: "Reconcile dependencies",
-      },
     },
   });
   const detail = page.getByRole("region", {
@@ -154,7 +145,6 @@ test("three-letter prefix setup, coordinator dependencies and immediate accessib
   const one = await call("create_task", {
     ...identity,
     task: {
-      stages: fixtureStages(),
       title:
         "Build a reliable serializer with a deliberately long descriptive title",
       status: "up_next",
@@ -190,7 +180,6 @@ test("three-letter prefix setup, coordinator dependencies and immediate accessib
   const prerequisite = await call("create_task", {
     ...identity,
     task: {
-      stages: fixtureStages(),
       title: "Provide export fixtures",
       status: "up_next",
     },
@@ -202,11 +191,7 @@ test("three-letter prefix setup, coordinator dependencies and immediate accessib
     changes: {
       expected_revision: one.revision,
       dependencies: [prerequisite.id],
-      stages: {
-        expected_revision: 1,
-        stages: fixtureStages(),
-        reason: "Reconcile dependencies",
-      },
+
       body: "Keep the agreed scope.",
     },
   });
@@ -272,7 +257,6 @@ test("task activity, Markdown and independently retrievable handoffs preserve th
   const task = await call("create_task", {
     ...identity,
     task: {
-      stages: fixtureStages(),
       title: "Download CSV",
       body: "Export filtered rows.\n\n## Done when\n\n- [ ] Preserve row order\n- [x] Quote commas",
     },
@@ -372,7 +356,6 @@ test("conversation pages exact revisions without hiding notes or superseded hand
   const path = "/api/projects/edit-feed";
   await request.post(`${path}/tasks`, {
     data: {
-      stages: fixtureStages(),
       id: "one",
       title: "Edit feed",
       body: "Original agreement",
@@ -471,7 +454,7 @@ test("cards keep one state while project questions remain in Inbox", async ({
   });
   await call("create_task", {
     project_id,
-    task: { stages: fixtureStages(), id: "one", title: "One task" },
+    task: { id: "one", title: "One task" },
   });
   await call("ask_question", {
     project_id,
@@ -522,7 +505,6 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   await call("create_task", {
     project_id,
     task: {
-      stages: fixtureStages(),
       id: "serializer",
       title: "Serialize CSV",
       status: "up_next",
@@ -531,7 +513,6 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   await call("create_task", {
     project_id,
     task: {
-      stages: fixtureStages(),
       id: "download",
       title: "Download CSV",
       body: "Export CSV",
@@ -757,7 +738,7 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
   });
   await call("create_task", {
     project_id,
-    task: { stages: fixtureStages(), id: "one", title: "Export" },
+    task: { id: "one", title: "Export" },
   });
   const q = cli([
     "inbox",
@@ -864,7 +845,7 @@ test("retracting answers reopens questions and preserves earlier responses", asy
   });
   await call("create_task", {
     project_id,
-    task: { stages: fixtureStages(), id: "export", title: "Export" },
+    task: { id: "export", title: "Export" },
   });
   await call("ask_question", {
     project_id,
@@ -940,7 +921,6 @@ test("project questions link affected tasks and reconcile through CLI and MCP", 
   await call("create_task", {
     project_id,
     task: {
-      stages: fixtureStages(),
       id: "first",
       title: "Catalog",
       status: "up_next",
@@ -949,7 +929,6 @@ test("project questions link affected tasks and reconcile through CLI and MCP", 
   await call("create_task", {
     project_id,
     task: {
-      stages: fixtureStages(),
       id: "second",
       title: "Report",
       status: "up_next",
@@ -1084,7 +1063,6 @@ test("selected handoff survives a fresh MCP connection and shows stale context",
   await call("create_task", {
     project_id,
     task: {
-      stages: fixtureStages(),
       id: "catalog",
       title: "Validate catalog",
       status: "in_progress",
@@ -1189,7 +1167,6 @@ test("related questions preserve the page, drafts, focus and router history", as
   await call("create_task", {
     project_id,
     task: {
-      stages: fixtureStages(),
       id: "export",
       title: "Export JSON",
       body: "Export selected books.",
@@ -1338,12 +1315,11 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   });
   await call("create_task", {
     project_id,
-    task: { stages: fixtureStages(), id: "one", title: "Validate CSV records" },
+    task: { id: "one", title: "Validate CSV records" },
   });
   await call("create_task", {
     project_id,
     task: {
-      stages: fixtureStages(),
       id: "two",
       title: "Document import options",
     },

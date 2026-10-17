@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
-import { test, state, fixtureStages } from "./support";
+import { test, state } from "./support";
 
 test("cross-project prerequisites link to their owner and refresh dependent views", async ({
   page,
@@ -32,7 +32,7 @@ test("cross-project prerequisites link to their owner and refresh dependent view
             id: "same",
             title: `${id} outcome`,
             body: "Agreed report",
-            stages: fixtureStages(),
+
             dependencies: prefix === "DPS" ? ["DPC-1"] : [],
           },
         })

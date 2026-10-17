@@ -25,7 +25,6 @@ from flowfield.execution_models import (
     WorkerSettings,
 )
 from flowfield.harness_models import HarnessLaunch
-from flowfield.publication import stages_need_reconciliation
 from flowfield.questions import Question, QuestionCreate, Questions
 
 
@@ -463,9 +462,6 @@ class Execution:
                     and not task.blocked_by
                     and all(q.id == pending_input.id for q in task.blocking_questions)
                 )
-                # A continuation also needs a stage plan reconciled to its frozen agreement.
-                if stages_need_reconciliation(db, project_id, task.id, task.agreement_revision):
-                    continue
                 if (
                     not continuation and (task.status != "up_next" or task.readiness != "ready")
                 ) or task.publication_status != "published":
@@ -726,20 +722,6 @@ class Execution:
             run = self._run(db, project_id, run_id)
             if run.status != "running" or run.result:
                 raise ApplicationError("worker_scope_closed", "This report is closed.", 409)
-            if result.outcome == "complete":
-                from flowfield.stages import Stages
-
-                task = self.workspace._task(db, project_id, run.task_id)
-                plan = Stages(self.workspace)._get(db, task)
-                unfinished = [stage.id for stage in plan.stages if stage.status != "completed"]
-                if unfinished:
-                    raise ApplicationError(
-                        "plan_progress_unfinished",
-                        "Before claiming a complete outcome, use update_stages to record actual "
-                        "progress for: " + ", ".join(unfinished) + ". Keep outcomes verbatim. "
-                        "If that work remains unfinished, submit a partial outcome instead.",
-                        409,
-                    )
             from flowfield.milestone_verification import validate_report
             from flowfield.verification_models import MilestoneVerification
 

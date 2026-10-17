@@ -1,6 +1,6 @@
 """Reusable isolated setup and scripted peers; no collected test cases."""
 
-from project_fixtures import existing_directory, fixture_stage_change, task_request
+from project_fixtures import existing_directory, task_request
 
 from flowfield.agent_models import AgentChoice
 from flowfield.application import ProjectSetup, TaskPublish, Workspace
@@ -27,7 +27,6 @@ def shared(tmp_path, *, cap=1):
             TaskPublish(
                 expected_revision=task.revision,
                 completion="report",
-                stages=fixture_stage_change(store, name, task.id),
             ),
         )
     saved = spaces.configure_workers(

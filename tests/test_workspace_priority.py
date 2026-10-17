@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 from execution_fixtures import BASE
-from project_fixtures import fixture_stage_change, task_request
+from project_fixtures import task_request
 from workspace_workers_fixtures import shared
 
 from flowfield.application import TaskPriority, TaskPublish
@@ -28,7 +28,6 @@ def test_scheduler_follows_shared_priority_and_skips_unavailable_repository(
         TaskPublish(
             expected_revision=extra.revision,
             completion="report",
-            stages=fixture_stage_change(store, "core", extra.id),
         ),
     )
     site = store.task("site", "work")

@@ -5,7 +5,7 @@ import json
 
 import pytest
 from execution_fixtures import BASE, fixture
-from project_fixtures import fixture_stage_change, task_request
+from project_fixtures import task_request
 from pydantic import ValidationError
 from worker_documents_fixtures import defaults, prepare
 from workspace_dependencies_fixtures import complete, shared
@@ -126,7 +126,6 @@ def test_updates_reach_board_inbox_and_coordinator_without_blocking_and_are_scop
         TaskPublish(
             expected_revision=current.revision,
             completion="report",
-            stages=fixture_stage_change(store, "core", current.id),
         ),
     )
     assert not updated.document_updates

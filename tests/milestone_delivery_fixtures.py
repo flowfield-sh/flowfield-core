@@ -4,7 +4,7 @@ import os
 
 from execution_fixtures import fixture
 from milestone_delivery_git_fixtures import commit
-from project_fixtures import fixture_stage_change, task_request
+from project_fixtures import task_request
 
 from flowfield.adapters.git_workspace import git
 from flowfield.adapters.local_execution import LocalHost
@@ -59,7 +59,6 @@ def contribute(execution, integrations, repo, milestone, name, dependencies=()):
         TaskPublish(
             expected_revision=task.revision,
             completion="code",
-            stages=fixture_stage_change(store, "harbor", task.id),
         ),
     )
     head = integrations.head("harbor", task.id)

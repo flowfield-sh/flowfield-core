@@ -5,7 +5,6 @@ import {
   test,
   state,
   fixtureProject,
-  fixtureStages,
   fixtureProgress,
   existingDirectory,
 } from "./support";
@@ -33,7 +32,7 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
   });
   const task = await (
     await request.post(`/api/projects/${project}/tasks`, {
-      data: { title: "Inspect delivery", stages: fixtureStages() },
+      data: { title: "Inspect delivery" },
     })
   ).json();
   const milestone = await (
@@ -69,7 +68,6 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
           title,
           milestone_id: group.id,
           status: status === "done" ? "backlog" : status,
-          stages: fixtureStages(),
         },
       })
     ).json();

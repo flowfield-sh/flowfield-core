@@ -6,7 +6,6 @@ import {
   fixtureMcpProject,
   choose,
   fixtureProgress,
-  fixtureStages,
   test,
   existingDirectory,
   state,
@@ -46,7 +45,6 @@ test("CLI adoption updates the browser, task creation and initial connection rec
         data: {
           title: "Investigate large exports",
           labels: ["investigation"],
-          stages: fixtureStages(),
         },
       })
     ).ok(),
@@ -106,7 +104,6 @@ test("milestones group tasks with linked details and long project intent stays o
   await call("create_task", {
     project_id,
     task: {
-      stages: fixtureStages(),
       id: "serializer",
       title: "Serialize CSV",
       milestone_id: "M-1",
@@ -120,7 +117,6 @@ test("milestones group tasks with linked details and long project intent stays o
   await call("create_task", {
     project_id,
     task: {
-      stages: fixtureStages(),
       id: "download",
       title: "Download CSV",
       milestone_id: "M-1",
@@ -129,7 +125,6 @@ test("milestones group tasks with linked details and long project intent stays o
   await call("create_task", {
     project_id,
     task: {
-      stages: fixtureStages(),
       id: "unrelated",
       title: "Independent bug",
       labels: ["bug"],

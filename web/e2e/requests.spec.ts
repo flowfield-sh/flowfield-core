@@ -6,7 +6,6 @@ import {
   existingDirectory,
   state,
   projectWorkspace,
-  fixtureStages,
 } from "./support";
 
 test("individual requests retain answers and drafts across independent tabs", async ({
@@ -29,7 +28,6 @@ test("individual requests retain answers and drafts across independent tabs", as
         title: "Export rates",
         body: "Export the agreed rates as CSV.",
         status: "in_progress",
-        stages: fixtureStages(),
       },
     })
   ).json();
@@ -256,7 +254,6 @@ test("Needs attention opens the milestone itself while requests remain directly 
       data: {
         title: "Build the export",
         milestone_id: milestone.id,
-        stages: fixtureStages(),
       },
     })
   ).json();

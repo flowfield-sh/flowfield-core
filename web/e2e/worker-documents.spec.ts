@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
-import { test, state, fixtureStages } from "./support";
+import { test, state } from "./support";
 
 test("project defaults prepare exact task documents and preserve revision links", async ({
   page,
@@ -82,7 +82,7 @@ test("project defaults prepare exact task documents and preserve revision links"
     data: {
       title: "Use documented conventions",
       body: "Review the public API",
-      stages: fixtureStages(),
+
       preparation: { completion: "report" },
     },
   });

@@ -50,7 +50,6 @@ def test_required_sources_precede_large_workflow_evidence_and_references_stay_re
         "description": "Current agreement",
         "feedback": "",
         "input": "[]",
-        "stages": "workflow " * 1000,
         "attempt_history": json.dumps({"items": [], "earlier_omitted": 0}),
         "document:required": "essential " * 600,
         "document:reference": "optional context",
@@ -65,7 +64,7 @@ def test_required_sources_precede_large_workflow_evidence_and_references_stay_re
     }
     brief = brief_context(sections)
     assert brief["context"]["document:required"] == sections["document:required"]
-    assert "stages" not in brief["context"] and "document:reference" not in brief["context"]
+    assert "document:reference" not in brief["context"]
     assert brief["sections"]["document:reference"] == len("optional context")
     assert "input" not in brief["sections"] and "attempt_history" not in brief["sections"]
     assert len(json.dumps(brief["context"])) <= 10000

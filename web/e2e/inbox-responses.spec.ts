@@ -6,7 +6,6 @@ import {
   state,
   fixtureProject,
   existingDirectory,
-  fixtureStages,
   projectWorkspace,
 } from "./support";
 
@@ -355,7 +354,7 @@ test("task and project questions accept suggested or free answers inside Inbox",
         data: {
           id: "export",
           title: "Export records",
-          stages: fixtureStages(),
+
           status: "up_next",
         },
       })

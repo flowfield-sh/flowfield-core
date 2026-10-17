@@ -1,123 +1,39 @@
-"""Canonical chronology, shared stage authority and deliberate frozen worker context."""
+"""Canonical chronology, deliberate frozen worker context."""
 
 import asyncio
 import json
-from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
 import pytest
-from conversation_fixtures import plan
 from execution_fixtures import BASE, fixture
 from input_continuation_fixtures import answer, question
 
 from flowfield.activity import ActivityCreate
-from flowfield.application import TaskEdit, TaskPriority, Workspace
+from flowfield.application import TaskPriority
 from flowfield.conversation import Conversation
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import WorkerResult
 from flowfield.questions import Questions
-from flowfield.stage_models import StageUpdate
-from flowfield.stages import Stages
 from flowfield.supervisor import WorkerBridge
 from flowfield.worker_context import brief_context, continue_input
 
 
-def test_stages_have_one_owner_and_cannot_complete_or_remove_scope(tmp_path):
-    execution = fixture(tmp_path, stages=plan().stages)
-    stages = Stages(execution.workspace)
-    initial = stages.get("harbor", "task-0")
-    run = execution.claim("harbor", BASE, {BASE: set()})
-    assert (
-        json.loads(execution.assignment("harbor", run.id)["stages"])["revision"] == initial.revision
-    )
-    execution.started("harbor", run.id)
-    with pytest.raises(ApplicationError, match="worker owns"):
-        stages.update("harbor", "task-0", plan(1))
-    updated = stages.update("harbor", "task-0", plan(1, status="active"), run_id=run.id)
-    assert updated.run_id == run.id and updated.author == "worker"
-    assert stages.update("harbor", "task-0", plan(1, status="active"), run_id=run.id) == updated
-    with pytest.raises(ApplicationError, match="Keep existing stage outcomes"):
-        stages.update(
-            "harbor",
-            "task-0",
-            StageUpdate(
-                expected_revision=2,
-                agreement_revision=1,
-                stages=[updated.stages[0]],
-                reason="Delete verification",
-            ),
-            run_id=run.id,
-        )
-    with pytest.raises(ApplicationError):
-        stages.update("harbor", "task-0", plan(2), run_id="another-worker")
-    reworded = plan(2, status="completed")
-    reworded.stages[0].outcome = "Delivered the requested behavior"
-    with pytest.raises(ApplicationError, match="Include stage 'implement'") as rejected:
-        stages.update("harbor", "task-0", reworded, run_id=run.id)
-    assert "Deliver the requested behavior" in str(rejected.value)
-    assert "put progress evidence in reason" in str(rejected.value)
-    assert stages.get("harbor", "task-0") == updated
-    complete = plan(2).model_copy(
-        update={"stages": [s.model_copy(update={"status": "completed"}) for s in updated.stages]}
-    )
-    stages.update("harbor", "task-0", complete, run_id=run.id)
-    assert execution.workspace.task("harbor", "task-0").status == "in_progress"
-    execution.finish("harbor", run.id, "failed", problem="fixture")
-    with pytest.raises(ApplicationError):
-        stages.update("harbor", "task-0", plan(3), run_id=run.id)
-    restored = Stages(Workspace(execution.workspace.directory)).get("harbor", "task-0")
-    assert restored.revision == 3
-    assert Conversation(execution.workspace).source("harbor", "task-0", "plan:1").item.revision == 1
-
-
-def test_plan_writes_and_claims_serialize_and_scope_changes_do_not_rebind(tmp_path):
-    execution = fixture(tmp_path, stages=plan().stages)
-    stages = Stages(execution.workspace)
-    with ThreadPoolExecutor(2) as pool:
-
-        def update(_):
-            try:
-                return stages.update("harbor", "task-0", plan(1, status="active"))
-            except ApplicationError:
-                return None
-
-        results = list(pool.map(update, range(2)))
-    assert sum(value is not None for value in results) == 1
-    task = execution.workspace.task("harbor", "task-0")
-    execution.workspace.edit_task(
-        "harbor", task.id, TaskEdit(expected_revision=task.revision, body="Changed scope")
-    )
-    with pytest.raises(ApplicationError):
-        stages.update("harbor", task.id, plan(1))
-    assert stages.get("harbor", task.id).agreement_revision == 1
-
-
 @pytest.mark.parametrize("outcome", ["complete", "partial"])
-def test_submission_reconciles_progress_without_closing_rejected_worker(tmp_path, outcome):
-    execution = fixture(tmp_path, stages=plan().stages)
-    stages = Stages(execution.workspace)
-    initial = stages.get("harbor", "task-0")
+def test_direct_worker_submits_without_a_separate_plan(tmp_path, outcome):
+    execution = fixture(tmp_path)
     run = execution.claim("harbor", BASE, {BASE: set()})
     execution.started("harbor", run.id)
     bridge = WorkerBridge(execution, run, SimpleNamespace())
     submission = {"outcome": outcome, "summary": "Findings", "checks": "Observed checks"}
     if outcome == "partial":
         submission["remaining_work"] = "Implementation remains unfinished"
-    else:
-        with pytest.raises(ApplicationError, match="implement, verify"):
-            asyncio.run(bridge.call("submit_result", submission))
-        assert bridge.result is None
-        assert execution.get("harbor", run.id).result is None
-        assert stages.get("harbor", "task-0") == initial
-        completed = plan(1).model_copy(
-            update={
-                "stages": [s.model_copy(update={"status": "completed"}) for s in initial.stages]
-            }
-        )
-        asyncio.run(bridge.call("update_stages", completed.model_dump()))
     asyncio.run(bridge.call("submit_result", submission))
-    assert bridge.result.outcome == outcome
-    assert execution.workspace.task("harbor", "task-0").status == "in_progress"
+    saved = execution.get("harbor", run.id)
+    assert saved.result.outcome == outcome
+    assert execution.workspace.task("harbor", run.task_id).status != "done"
+    assert "stages" not in execution.assignment("harbor", run.id)
+    with pytest.raises(ApplicationError):
+        asyncio.run(bridge.call("submit_result", submission))
 
 
 def test_conversation_paging_sources_questions_and_no_reorder_noise(tmp_path):
@@ -218,7 +134,6 @@ def test_brief_includes_complete_small_essentials_and_pages_large_constraints():
         "feedback": "Current feedback",
         "input": '{"answer":"Keep offline use"}',
         "milestone": "Constraint " * 1500,
-        "stages": '{"revision":3}',
         "questions": "[]",
         "project": "",
         "human_testing": '{"items":[]}',
@@ -226,15 +141,16 @@ def test_brief_includes_complete_small_essentials_and_pages_large_constraints():
     before = dict(sections)
     brief = brief_context(sections)
     assert brief["context"]["input"] == sections["input"]
-    assert brief["context"]["stages"] == sections["stages"]
     assert "milestone" not in brief["context"] and "questions" not in brief["context"]
     assert brief["sections"]["milestone"] == len(sections["milestone"])
     assert len(json.dumps(brief["context"])) <= 10000
     assert sections == before  # Full omitted constraints remain in the frozen source.
 
 
-def test_worker_reads_only_frozen_report_sources_and_stage_updates_are_scoped(tmp_path):
-    execution = fixture(tmp_path, stages=plan().stages)
+def test_worker_reads_only_frozen_report_sources(tmp_path):
+    execution = fixture(
+        tmp_path,
+    )
     old = execution.claim("harbor", BASE, {BASE: set()})
     execution.started("harbor", old.id)
     execution.finish(
@@ -264,10 +180,6 @@ def test_worker_reads_only_frozen_report_sources_and_stage_updates_are_scoped(tm
     )
     with pytest.raises(ApplicationError, match="not in the frozen context"):
         asyncio.run(bridge.call("read_context", {"section": f"attempt:{run.id}"}))
-    updated = json.loads(
-        asyncio.run(bridge.call("update_stages", plan(1, status="active").model_dump()))
-    )
-    assert updated["run_id"] == run.id
     with execution.workspace.connection(write=True) as db:
         db.execute(
             "UPDATE runs SET data=json_set(data,'$.result.summary','Changed later') WHERE id=?",

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from project_fixtures import adopt, reconcile_fixture_stages, task_request
+from project_fixtures import adopt, task_request
 from questions_fixtures import ask, setup
 
 from flowfield.api import create_app
@@ -72,7 +72,6 @@ def test_answer_is_not_application_and_other_gates_survive(tmp_path: Path) -> No
         "format",
         QuestionWithdraw(expected_revision=1, reason="Covered by the existing CSV standard."),
     )
-    reconcile_fixture_stages(workspace, "harbor", "HAR-2")
     assert workspace.task("harbor", "HAR-2").readiness == "blocked"  # dependency still applies
     workspace.record_progress(
         "harbor", "HAR-1", TaskProgress(expected_revision=1, status="done", completion="report")
@@ -380,8 +379,6 @@ def test_project_input_targets_and_atomic_stale_protection(tmp_path: Path) -> No
     request.expected_project_revision = 1
     applied = questions.apply("harbor", question.id, request)
     assert applied.applied_task_revisions == {"serializer": 2, "download": 3}
-    reconcile_fixture_stages(workspace, "harbor", "HAR-1")
-    reconcile_fixture_stages(workspace, "harbor", "HAR-2")
     assert workspace.task("harbor", "HAR-1").readiness == "draft"
     assert workspace.task("harbor", "HAR-2").readiness == "blocked"
     assert not workspace.task("harbor", "HAR-2").blocking_questions

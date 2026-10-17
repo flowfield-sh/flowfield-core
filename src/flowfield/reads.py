@@ -20,7 +20,6 @@ from flowfield.publication import (
     preparation_issue,
     publication_status,
     readiness,
-    stages_need_reconciliation,
 )
 from flowfield.questions import Questions, blocking_questions
 from flowfield.result_brief import result_brief
@@ -219,9 +218,6 @@ class ContextReads:
                     item,
                     publication,
                     blocked=bool(blocked or questions),
-                    stages_stale=stages_need_reconciliation(
-                        db, item.project_id, item.id, item.agreement_revision
-                    ),
                 ),
                 "publication_status": publication,
                 "preparation_issue": preparation_issue(db, item),

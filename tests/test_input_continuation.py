@@ -6,7 +6,6 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from execution_fixtures import BASE, RESULT, fixture
 from input_continuation_fixtures import answer, question, queue
-from project_fixtures import fixture_stage_change
 
 from flowfield.application import TaskEdit
 from flowfield.errors import ApplicationError
@@ -325,7 +324,6 @@ def test_explicit_retry_after_scope_revision_cannot_relabel_old_answer_as_new_as
         "harbor",
         task.id,
         TaskPublish(
-            stages=fixture_stage_change(execution.workspace, "harbor", task.id),
             expected_revision=task.revision,
             completion="report",
         ),

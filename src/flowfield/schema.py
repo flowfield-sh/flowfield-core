@@ -1,6 +1,6 @@
 """Current fresh-state schema. Older databases are not upgraded."""
 
-SCHEMA_VERSION = 82
+SCHEMA_VERSION = 83
 
 SCHEMA = """
 CREATE TABLE activity (
@@ -209,12 +209,6 @@ CREATE TABLE runs (
 CREATE VIRTUAL TABLE search_docs USING fts5(project_id UNINDEXED, entity UNINDEXED,
     identity UNINDEXED, revision UNINDEXED, kind UNINDEXED, task_id UNINDEXED,
     created_at UNINDEXED, title, body, workspace_id UNINDEXED, tokenize='unicode61');
-
-CREATE TABLE stage_plans (
- project_id TEXT NOT NULL, task_id TEXT NOT NULL, revision INTEGER NOT NULL, data
-    TEXT NOT NULL, PRIMARY KEY(project_id, task_id, revision), FOREIGN KEY(project_id,
-    task_id) REFERENCES tasks(project_id, id)
-);
 
 CREATE TABLE storage_metadata (id INTEGER PRIMARY KEY CHECK (id = 1), workspace_id
     TEXT NOT NULL, revision INTEGER NOT NULL CHECK (revision >= 0));
@@ -459,5 +453,5 @@ INSERT INTO storage_metadata VALUES (1, lower(hex(randomblob(16))), 0);
 INSERT INTO harness_settings VALUES ('codex', 1, NULL, NULL), ('claude-code', 1, NULL,
     NULL), ('pi', 1, NULL, NULL);
 
-PRAGMA user_version = 82;
+PRAGMA user_version = 83;
 """

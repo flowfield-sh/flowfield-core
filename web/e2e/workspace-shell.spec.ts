@@ -6,7 +6,6 @@ import {
   existingDirectory,
   state,
   projectWorkspace,
-  fixtureStages,
 } from "./support";
 
 test("resource tabs preserve exact history, shared drafts and workspace isolation", async ({
@@ -38,7 +37,6 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
       (
         await request.post("/api/projects/shell-tabs/tasks", {
           data: {
-            stages: fixtureStages(),
             title: `Standalone outcome ${i} with a long title that still stays compact`,
             ...(i === 0 ? { milestone_id: "outcome" } : {}),
           },
@@ -96,7 +94,6 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
       await request.post("/api/projects/shell-tabs/tasks", {
         data: {
           title: "A live update while the document is open",
-          stages: fixtureStages(),
         },
       })
     ).ok(),

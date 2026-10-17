@@ -218,7 +218,7 @@ def test_pause_restart_and_uncertain_cleanup_share_worker_capacity(tmp_path):
 def dependent_contribution(service, repo, milestone, prerequisite):
     import os
 
-    from project_fixtures import fixture_stage_change, task_request
+    from project_fixtures import task_request
 
     from flowfield.adapters.local_execution import LocalHost
     from flowfield.application import TaskPublish
@@ -241,7 +241,6 @@ def dependent_contribution(service, repo, milestone, prerequisite):
         TaskPublish(
             expected_revision=task.revision,
             completion="code",
-            stages=fixture_stage_change(store, "harbor", task.id),
         ),
     )
     head = service.integrations.head("harbor", task.id)

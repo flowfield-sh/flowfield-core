@@ -39,36 +39,15 @@ def publication_status(task: "TaskRevision") -> PublicationStatus:
     return "published"
 
 
-def stages_need_reconciliation(
-    db: sqlite3.Connection,
-    project_id: str,
-    task_id: str,
-    agreement_revision: int,
-    *,
-    facts: TaskReadFacts | None = None,
-) -> bool:
-    if facts is not None:
-        return facts.stages_stale
-    row = db.execute(
-        "SELECT json_extract(data,'$.agreement_revision'), json_array_length(data,'$.stages') "
-        "FROM stage_plans WHERE project_id=? AND task_id=? ORDER BY revision DESC LIMIT 1",
-        (project_id, task_id),
-    ).fetchone()
-    return bool(row and row[1] and row[0] != agreement_revision)
-
-
 def readiness(
     task: "TaskRevision",
     publication: PublicationStatus,
     *,
     blocked: bool,
-    stages_stale: bool = False,
 ) -> Readiness:
     if task.reconciliation_reason:
         return "needs_reconciliation"
     if publication == "needs_reconciliation" and task.status not in ("backlog", "up_next"):
-        return "needs_reconciliation"
-    if stages_stale and not task.archived and task.status != "done":
         return "needs_reconciliation"
     if blocked:
         return "blocked"
@@ -92,10 +71,6 @@ def preparation_issue(
         return task.reconciliation_reason
     if issue := verification_issue(db, task, facts=facts):
         return issue
-    if task.status != "done" and stages_need_reconciliation(
-        db, task.project_id, task.id, task.agreement_revision, facts=facts
-    ):
-        return "Task changed. Ask the coordinator to update its stages."
     state = publication_status(task)
     if state == "needs_reconciliation":
         return "Task changed. Review it with the coordinator before continuing."

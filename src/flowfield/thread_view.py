@@ -8,8 +8,6 @@ from flowfield.actors import Actor, actor
 from flowfield.conversation import COLUMNS, PROJECTION, Conversation, ConversationItem
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import Record
-from flowfield.stage_models import Stage, StagePlan
-from flowfield.stage_view import stage_changes
 from flowfield.work_state import WorkState, event_state, task_state
 
 
@@ -34,8 +32,6 @@ class ThreadMessage(Record):
     earlier_id: str | None = None
     successor_id: str | None = None
     choices: list[str] = []
-    stages: list[Stage] = []
-    stage_changes: list[str] = []
     technical: bool = False
 
 
@@ -63,8 +59,6 @@ class ThreadView(Conversation):
         data = json.loads(row[0])
         kind: str = item.kind
         body, title = "", ""
-        stages: list[Stage] = []
-        changes: list[str] = []
         if kind == "definition":
             before = db.execute(
                 "SELECT data FROM task_revisions WHERE project_id=? AND task_id=? AND revision=?",
@@ -141,17 +135,6 @@ class ThreadView(Conversation):
         elif kind == "result":
             title = "Result " + str(data["version"])
             body = data["report"]["summary"]
-        elif kind == "plan":
-            plan = StagePlan.model_validate(data)
-            prior = db.execute(
-                "SELECT data FROM stage_plans WHERE project_id=? AND task_id=? AND revision=?",
-                (project_id, task_id, plan.revision - 1),
-            ).fetchone()
-            title, changes = stage_changes(
-                plan, StagePlan.model_validate_json(prior[0]) if prior else None
-            )
-            stages = plan.stages
-            body = data["reason"]
         elif kind == "approval":
             title = "Approved for integration"
             body = data.get("approval_note", "")
@@ -191,8 +174,6 @@ class ThreadView(Conversation):
             earlier_id=data.get("supersedes") if kind == "activity" else None,
             successor_id=data.get("superseded_by") if kind == "activity" else None,
             choices=data.get("choices", []) if kind == "question" else [],
-            stages=stages,
-            stage_changes=changes,
             technical=kind == "plan" or (kind == "state" and title.startswith("Moved to ")),
         )
 

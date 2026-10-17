@@ -5,7 +5,6 @@ import os
 
 import pytest
 from fastapi.testclient import TestClient
-from project_fixtures import fixture_stage_change
 from result_fixtures import approve, current, fixture
 
 from flowfield.adapters.local_execution import LocalHost
@@ -57,7 +56,6 @@ def test_reopen_preserves_evidence_and_requires_new_preparation_scheduling_and_a
             expected_revision=reopened.revision,
             body="Deliver the result and cover another case",
             preparation=TaskPreparation(completion=completion),
-            stages=fixture_stage_change(store, "harbor", "work"),
         ),
     )
     assert prepared.publication_status == "published" and prepared.status == "backlog"

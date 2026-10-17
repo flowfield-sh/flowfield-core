@@ -3,7 +3,6 @@
 import asyncio
 import json
 
-import pytest
 from execution_fixtures import BASE, RESULT, fixture
 from input_continuation_fixtures import answer, question
 from worker_documents_fixtures import prepare
@@ -13,12 +12,10 @@ from flowfield.application import (
     MilestoneCreate,
     MilestoneEdit,
     TaskEdit,
-    TaskPublish,
     Workspace,
 )
 from flowfield.attention import attention_page
 from flowfield.browser import BrowserReads
-from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.milestones import Milestones
 from flowfield.questions import Questions
@@ -93,12 +90,6 @@ def test_adopting_milestone_revision_changes_task_agreement_atomically(tmp_path)
     milestones.edit(
         "harbor", initial.id, MilestoneEdit(expected_revision=1, acceptance_criteria="Second")
     )
-    with pytest.raises(ApplicationError, match="current stages"):
-        store.publish_task(
-            "harbor", first.id, TaskPublish(expected_revision=first.revision, completion="report")
-        )
-    unchanged = store.task("harbor", first.id)
-    assert unchanged.agreement_revision == first.agreement_revision
     adopted = prepare(store)
     assert adopted.agreement_revision == first.agreement_revision + 1
     assert adopted.publication.milestone.revision == 2 and adopted.milestone_update is None

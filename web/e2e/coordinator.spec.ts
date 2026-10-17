@@ -1,10 +1,4 @@
-import {
-  fixtureProject,
-  projectWorkspace,
-  choose,
-  fixtureStages,
-  test,
-} from "./support";
+import { fixtureProject, projectWorkspace, choose, test } from "./support";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
@@ -55,7 +49,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   expect(
     (
       await request.post("/api/projects/chat-browser/tasks", {
-        data: { stages: fixtureStages(), title: "Plan the chat experience" },
+        data: { title: "Plan the chat experience" },
       })
     ).ok(),
   ).toBeTruthy();
@@ -446,7 +440,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   expect(
     (
       await request.post("/api/projects/chat-browser/tasks", {
-        data: { stages: fixtureStages(), title: "Record the follow-up" },
+        data: { title: "Record the follow-up" },
       })
     ).ok(),
   ).toBe(true);
@@ -1023,7 +1017,7 @@ test("long project chat preserves loaded history while live pages advance", asyn
   await expect(messages).toHaveCount(40);
   count = 41;
   await request.post("/api/projects/long-chat-project/tasks", {
-    data: { stages: fixtureStages(), title: "Refresh project state" },
+    data: { title: "Refresh project state" },
   });
   await expect(
     page.getByText("Planning exchange 41", { exact: true }),
@@ -1037,7 +1031,7 @@ test("long project chat preserves loaded history while live pages advance", asyn
   ).toHaveCount(0);
   count = 100; // More than a page arrived while this browser was disconnected.
   await request.post("/api/projects/long-chat-project/tasks", {
-    data: { stages: fixtureStages(), title: "Reconnect with newer work" },
+    data: { title: "Reconnect with newer work" },
   });
   await expect(messages).toHaveCount(100);
   const scroll = page.locator(".coordinator-scroll");
@@ -1071,7 +1065,6 @@ test("automatic task context preserves one coordinator and immutable retry recei
       await (
         await request.post(`/api/projects/${project}/tasks`, {
           data: {
-            stages: fixtureStages(),
             title,
             body: "Keep the interaction simple.",
           },

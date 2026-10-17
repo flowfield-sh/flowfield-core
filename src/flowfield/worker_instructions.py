@@ -7,7 +7,7 @@ def completion_reminder(server: str) -> str:
     return (
         "Your turn ended without a recorded result or blocking question. "
         f"Finish reporting this attempt using only the {server} MCP connection. "
-        "Do not start new implementation work. Update unfinished stages to reflect actual "
+        "Do not start new implementation work. Report actual "
         "progress, then call submit_result with the outcome, checks actually run and limitations. "
         "Use partial with remaining_work if the agreed outcome is unfinished; do not claim "
         "completion merely to close the attempt. If blocked on human input, call ask_question "
@@ -105,18 +105,6 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
             "details, implement this task's contribution and report gaps you discover. "
             "Do not claim that completing your task accepts the whole milestone or authorizes "
             "work in another repository."
-        )
-    if present("stages"):
-        rules.append(
-            "Read stages and use update_stages at broad phase transitions. Preserve existing stage "
-            "IDs/outcomes; put progress evidence in reason. Refine phases within scope and explain "
-            "changes. Human approval, integration and task completion are service-owned, "
-            "not stages."
-        )
-    else:
-        rules.append(
-            "Define a few broad phases within the agreement with update_stages before work. "
-            "Stages track the process; completing them does not submit or approve work."
         )
     if present("input"):
         rules.append(

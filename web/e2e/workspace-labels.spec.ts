@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
-import { test, state, fixtureStages } from "./support";
+import { test, state } from "./support";
 
 test("coordinator labels update read-only task headers and preserve deletion history", async ({
   page,
@@ -32,7 +32,6 @@ test("coordinator labels update read-only task headers and preserve deletion his
       data: {
         title: "Prepare the release notes",
         labels: ["bug", custom.id],
-        stages: fixtureStages(),
       },
     })
   ).json();

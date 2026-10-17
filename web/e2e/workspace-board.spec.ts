@@ -2,7 +2,7 @@ import { openResource } from "./shell-navigation";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
-import { test, state, fixtureStages } from "./support";
+import { test, state } from "./support";
 
 test("shared workspace board, project filters, milestones, Inbox and settings", async ({
   page,
@@ -37,7 +37,7 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
             id: "same",
             title,
             milestone_id: milestone.id,
-            stages: fixtureStages(),
+
             labels: ["feature"],
           },
         })
@@ -123,7 +123,7 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
   expect(
     (
       await request.post("/api/projects/board-site/tasks", {
-        data: { title: "New site work", stages: fixtureStages() },
+        data: { title: "New site work" },
       })
     ).ok(),
   ).toBeTruthy();

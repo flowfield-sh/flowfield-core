@@ -306,7 +306,7 @@ export function resultMessage(v: {
     created_at: v.created_at,
     author: "service",
     actor: { role: "flowfield", label: "Flowfield", identity: "service" },
-    stages: [],
+
     stage_changes: [],
     state: { label: "Recorded", tone: "complete", href: null },
     title: "Result " + v.version,
@@ -316,17 +316,6 @@ export function resultMessage(v: {
     result_id: v.id,
     run_id: null,
   };
-}
-
-export function fixtureStages() {
-  return [
-    {
-      id: "fixture",
-      title: "Fixture setup",
-      outcome: "Prepare the isolated fixture",
-      status: "completed",
-    },
-  ];
 }
 
 // Model-free historical states are fixture setup, not coordinator MCP capabilities.

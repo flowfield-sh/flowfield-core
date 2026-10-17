@@ -124,13 +124,6 @@ def test_coordinator_captures_work_with_explicit_project(tmp_path):
                     "arguments": {
                         "project_id": "harbor",
                         "task": {
-                            "stages": [
-                                {
-                                    "id": "report",
-                                    "title": "Report",
-                                    "outcome": "Report the agreed findings",
-                                }
-                            ],
                             "id": "captured",
                             "title": "Captured in conversation",
                             "body": "Agreed outcome",
@@ -141,7 +134,7 @@ def test_coordinator_captures_work_with_explicit_project(tmp_path):
                 {"name": "get_board", "arguments": {"project_id": "elsewhere"}},
                 {"name": "initialize_project", "arguments": {}},
                 {
-                    "name": "get_task_stages",
+                    "name": "get_task",
                     "arguments": {"project_id": "harbor", "task_id": "task-0"},
                 },
             ],
@@ -525,7 +518,6 @@ def test_coordinator_controls_workers_and_preserves_worker_scope(tmp_path, monke
             "read_context",
             "search_context",
             "run_project_checks",
-            "update_stages",
             "ask_question",
             "submit_result",
         }

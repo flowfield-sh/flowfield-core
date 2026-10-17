@@ -3,7 +3,7 @@
 from pathlib import Path
 
 import pytest
-from project_fixtures import adopt, fixture_stage_change, task_request
+from project_fixtures import adopt, task_request
 
 from flowfield.agent_models import AgentChoice
 from flowfield.application import (
@@ -60,7 +60,6 @@ def test_capture_refinement_and_queue_are_separate(tmp_path: Path):
         TaskEdit(
             expected_revision=task.revision,
             body="Report evidence, uncertainty and recommendation.",
-            stages=fixture_stage_change(w, "project", task.id),
             preparation=preparation(),
         ),
     )
@@ -171,7 +170,7 @@ def test_preparation_keeps_dependency_gates_and_manual_edits_show_next_owner(tmp
         "project", second.id, TaskEdit(expected_revision=second.revision, body="Use new findings")
     )
     assert changed.publication_status == "draft"
-    assert "stages" in changed.preparation_issue.lower()
+    assert "prepare" in changed.preparation_issue.lower()
     browser = BrowserReads(w).board("project")
     assert (
         next(t for t in browser.tasks if t.id == second.id).preparation_issue
