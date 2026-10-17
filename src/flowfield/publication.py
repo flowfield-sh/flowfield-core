@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from flowfield.document_models import DocumentSnapshot
 from flowfield.milestone_models import MilestoneBinding
+from flowfield.task_read_facts import TaskReadFacts
 
 if TYPE_CHECKING:
     from flowfield.application import TaskRevision
@@ -39,8 +40,15 @@ def publication_status(task: "TaskRevision") -> PublicationStatus:
 
 
 def stages_need_reconciliation(
-    db: sqlite3.Connection, project_id: str, task_id: str, agreement_revision: int
+    db: sqlite3.Connection,
+    project_id: str,
+    task_id: str,
+    agreement_revision: int,
+    *,
+    facts: TaskReadFacts | None = None,
 ) -> bool:
+    if facts is not None:
+        return facts.stages_stale
     row = db.execute(
         "SELECT json_extract(data,'$.agreement_revision'), json_array_length(data,'$.stages') "
         "FROM stage_plans WHERE project_id=? AND task_id=? ORDER BY revision DESC LIMIT 1",
@@ -74,6 +82,7 @@ def preparation_issue(
     task: "TaskRevision",
     *,
     include_draft_hint: bool = True,
+    facts: TaskReadFacts | None = None,
 ) -> str | None:
     """Human next action without exposing the snapshot protocol or implying agent wake-up."""
     # Browser labels own the generic draft hint; concrete blockers stay visible everywhere.
@@ -81,10 +90,10 @@ def preparation_issue(
         return None
     if task.reconciliation_reason:
         return task.reconciliation_reason
-    if issue := verification_issue(db, task):
+    if issue := verification_issue(db, task, facts=facts):
         return issue
     if task.status != "done" and stages_need_reconciliation(
-        db, task.project_id, task.id, task.agreement_revision
+        db, task.project_id, task.id, task.agreement_revision, facts=facts
     ):
         return "Task changed. Ask the coordinator to update its stages."
     state = publication_status(task)
@@ -92,11 +101,15 @@ def preparation_issue(
         return "Task changed. Review it with the coordinator before continuing."
     if state == "published" or task.status not in ("backlog", "up_next"):
         return None
-    has_description = db.execute(
-        "SELECT length(trim(json_extract(data, '$.body'), char(9)||char(10)||char(13)||' ')) "
-        "FROM tasks WHERE project_id=? AND id=?",
-        (task.project_id, task.id),
-    ).fetchone()[0]
+    has_description = (
+        facts.row["has_description"]
+        if facts is not None
+        else db.execute(
+            "SELECT length(trim(json_extract(data, '$.body'), char(9)||char(10)||char(13)||' ')) "
+            "FROM tasks WHERE project_id=? AND id=?",
+            (task.project_id, task.id),
+        ).fetchone()[0]
+    )
     if not has_description:
         return "Describe the requested outcome with your coordinator."
     if task.publication:
@@ -104,11 +117,19 @@ def preparation_issue(
     return "Ask the coordinator to prepare this task." if include_draft_hint else None
 
 
-def verification_issue(db: sqlite3.Connection, task: "TaskRevision") -> str | None:
+def verification_issue(
+    db: sqlite3.Connection, task: "TaskRevision", *, facts: TaskReadFacts | None = None
+) -> str | None:
     binding = task.publication.verification_id if task.publication else None
     if not binding or task.status == "done" or task.archived:
         return None
-    row = db.execute("SELECT status FROM milestone_verifications WHERE id=?", (binding,)).fetchone()
-    if not row or row[0] != "verifying":
+    if facts is not None:
+        status = facts.row["verification_status"]
+    else:
+        row = db.execute(
+            "SELECT status FROM milestone_verifications WHERE id=?", (binding,)
+        ).fetchone()
+        status = row[0] if row else None
+    if status != "verifying":
         return "Ask the coordinator to prepare a new milestone verification."
     return None

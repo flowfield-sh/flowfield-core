@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel
 
 from flowfield.browser_links import project_href
+from flowfield.task_read_facts import TaskReadFacts, read_task_facts
 
 if TYPE_CHECKING:
     from flowfield.application import Workspace
@@ -74,39 +75,23 @@ def question_state(db: sqlite3.Connection, project: str, identity: str) -> WorkS
 
 
 def task_state(
-    workspace: "Workspace", db: sqlite3.Connection, project: str, task_id: str
+    workspace: "Workspace",
+    db: sqlite3.Connection,
+    project: str,
+    task_id: str,
+    *,
+    facts: TaskReadFacts | None = None,
 ) -> WorkState:
-    from flowfield.execution import Execution
-    from flowfield.publication import stages_need_reconciliation
     from flowfield.result_actions import result_action
     from flowfield.result_models import ResultVersion
 
-    task = db.execute(
-        "SELECT id,key,json_extract(data,'$.status') AS status, "
-        "json_extract(data,'$.archived') AS archived, "
-        "json_extract(data,'$.agreement_revision') AS agreement_revision, "
-        "json_extract(data,'$.reconciliation_reason') AS reason "
-        "FROM tasks WHERE project_id=? AND (id=? OR key=? COLLATE NOCASE) ORDER BY id=? DESC",
-        (project, task_id, task_id, task_id),
-    ).fetchone()
+    facts = facts or next(iter(read_task_facts(workspace, db, project, task_id).values()))
+    task = facts.row
     task_id = task["id"]
     href = f"{project_href(project)}/tasks/{task['key']}"
-    owner = db.execute(
-        "SELECT id,status,data FROM runs WHERE project_id=? AND task_id=? "
-        "AND status IN ('preparing','running','stopping','uncertain') ORDER BY number DESC LIMIT 1",
-        (project, task_id),
-    ).fetchone()
-    if owner:
-        status = owner["status"]
-        if (
-            status == "running"
-            and workspace.schema_version >= 32
-            and db.execute(
-                "SELECT 1 FROM agent_permissions WHERE project_id=? AND task_id=? "
-                "AND status='pending' LIMIT 1",
-                (project, task_id),
-            ).fetchone()
-        ):
+    if task["owner_id"]:
+        status = task["owner_status"]
+        if status == "running" and task["permission_pending"]:
             return WorkState(label="Review tool permission", tone="waiting", href=href)
         return WorkState(
             label={
@@ -116,40 +101,27 @@ def task_state(
                 "uncertain": "Check worker state",
             }[status],
             tone="attention" if status == "uncertain" else "active",
-            href=href + "/conversation/attempt:" + owner["id"],
+            href=href + "/conversation/attempt:" + task["owner_id"],
         )
-    question = db.execute(
-        "SELECT id,data,status FROM questions WHERE project_id=? AND task_id=? "
-        "AND status IN ('open','answered') ORDER BY number LIMIT 1",
-        (project, task_id),
-    ).fetchone()
-    if question:
-        return question_state(db, project, question["id"])
+    if task["question_id"]:
+        return question_state(db, project, task["question_id"])
     if task["reason"]:
         return WorkState(label="Update task", tone="attention", href=href)
-    if (
-        not task["archived"]
-        and task["status"] != "done"
-        and stages_need_reconciliation(db, project, task_id, task["agreement_revision"])
-    ):
+    if not task["archived"] and task["status"] != "done" and facts.stages_stale:
         return WorkState(label="Reconcile stages", tone="attention", href=href)
-    pending = db.execute(
-        "SELECT 1 FROM task_replies WHERE project_id=? AND task_id=? AND "
-        "json_extract(data,'$.status')='pending'",
-        (project, task_id),
-    ).fetchone()
-    settings = Execution(workspace)._settings(db, project)
-    if pending:
+    if task["reply_pending"]:
         return WorkState(
-            label="Reply queued" if settings.enabled else "Reply paused", tone="waiting", href=href
+            label="Reply queued" if facts.queue_enabled else "Reply paused",
+            tone="waiting",
+            href=href,
         )
-    version = db.execute(
-        "SELECT data FROM result_versions WHERE project_id=? AND task_id=? "
-        "ORDER BY version DESC LIMIT 1",
-        (project, task_id),
-    ).fetchone()
-    if version:
-        result = ResultVersion.model_validate_json(version[0])
+    if task["result_id"]:
+        # Load exact evidence only when the result owns the visible state.
+        result = ResultVersion.model_validate_json(
+            db.execute(
+                "SELECT data FROM result_versions WHERE id=?", (task["result_id"],)
+            ).fetchone()[0]
+        )
         action = result_action(workspace, db, result)
         if action.label != "Earlier result":
             tone: Literal["active", "attention", "waiting", "complete", "idle"] = "waiting"
@@ -168,38 +140,22 @@ def task_state(
                 tone=tone,
                 href=href + "/conversation/result:" + result.id,
             )
-    latest = db.execute(
-        "SELECT id,status FROM runs WHERE project_id=? AND task_id=? ORDER BY number DESC LIMIT 1",
-        (project, task_id),
-    ).fetchone()
-    if latest and latest["status"] in ("failed", "stopped") and task["status"] != "up_next":
+    if task["latest_status"] in ("failed", "stopped") and task["status"] != "up_next":
         return WorkState(
-            label="Worker failed" if latest["status"] == "failed" else "Work stopped",
-            tone="attention" if latest["status"] == "failed" else "waiting",
-            href=href + "/conversation/attempt:" + latest["id"],
+            label="Worker failed" if task["latest_status"] == "failed" else "Work stopped",
+            tone="attention" if task["latest_status"] == "failed" else "waiting",
+            href=href + "/conversation/attempt:" + task["latest_id"],
         )
     if task["archived"]:
         return WorkState(label="Archived")
     if task["status"] == "done":
         return WorkState(label="Done", tone="complete")
-    # Schema 62 stores service-unique task keys, including foreign member projects.
-    # Older supported states still use project-local IDs during migration checks.
-    dependency_join = (
-        "d.key=p.value"
-        if workspace.schema_version >= 62
-        else "d.project_id=t.project_id AND d.id=p.value"
-    )
-    if db.execute(
-        "SELECT 1 FROM tasks t,json_each(t.data,'$.dependencies') p "
-        f"JOIN tasks d ON {dependency_join} "
-        "WHERE t.project_id=? AND t.id=? AND json_extract(d.data,'$.status')!='done'",
-        (project, task_id),
-    ).fetchone():
+    if task["waiting_dependencies"]:
         return WorkState(
             label="Waiting on prerequisites", tone="waiting", href=href, reason="prerequisites"
         )
     if task["status"] == "up_next":
         return WorkState(
-            label="Queued" if settings.enabled else "Queue paused", tone="waiting", href=href
+            label="Queued" if facts.queue_enabled else "Queue paused", tone="waiting", href=href
         )
     return WorkState(label="Not scheduled" if task["status"] == "backlog" else "Idle", href=href)

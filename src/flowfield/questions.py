@@ -127,22 +127,33 @@ class QuestionReference(BaseModel):
     delivery: InputDelivery | None = None
 
 
+def _pending_question_rows(
+    db: sqlite3.Connection, project_id: str, task_id: str | None, *, blocking_only: bool
+) -> list[sqlite3.Row]:
+    return db.execute(
+        "SELECT id,task_id,status,json_extract(data,'$.revision') AS revision, "
+        "json_extract(data,'$.question') AS question, "
+        "json_extract(data,'$.blocking_scope') AS blocking_scope, "
+        "json_extract(data,'$.affected_task_ids') AS affected_task_ids FROM questions "
+        "WHERE project_id=? AND status IN ('open','answered') "
+        + (
+            "AND (task_id=? OR EXISTS (SELECT 1 FROM json_each(questions.data, "
+            "'$.affected_task_ids') WHERE value=?)) "
+            if task_id is not None
+            else ""
+        )
+        + ("AND json_extract(data,'$.blocking_scope') IS NOT NULL " if blocking_only else "")
+        + "ORDER BY number",
+        (project_id, task_id, task_id) if task_id is not None else (project_id,),
+    ).fetchall()
+
+
 def pending_questions(
     db: sqlite3.Connection, project_id: str, task_id: str, *, blocking_only: bool = False
 ) -> list[QuestionReference]:
     return [
-        QuestionReference(**dict(r), delivery=question_delivery(db, project_id, r["id"]))
-        for r in db.execute(
-            "SELECT id, task_id, status, json_extract(data, '$.revision') AS revision, "
-            "json_extract(data, '$.question') AS question, "
-            "json_extract(data, '$.blocking_scope') AS blocking_scope FROM questions "
-            "WHERE project_id=? AND (task_id=? OR EXISTS "
-            "(SELECT 1 FROM json_each(questions.data, '$.affected_task_ids') WHERE value=?)) "
-            "AND status IN ('open', 'answered') "
-            + ("AND json_extract(data, '$.blocking_scope') IS NOT NULL " if blocking_only else "")
-            + "ORDER BY number",
-            (project_id, task_id, task_id),
-        )
+        QuestionReference(**dict(row), delivery=question_delivery(db, project_id, row["id"]))
+        for row in _pending_question_rows(db, project_id, task_id, blocking_only=blocking_only)
     ]
 
 
@@ -150,6 +161,22 @@ def blocking_questions(
     db: sqlite3.Connection, project_id: str, task_id: str
 ) -> list[QuestionReference]:
     return pending_questions(db, project_id, task_id, blocking_only=True)
+
+
+def project_blocking_questions(
+    db: sqlite3.Connection, project_id: str
+) -> dict[str, list[QuestionReference]]:
+    result: dict[str, list[QuestionReference]] = {}
+    for row in _pending_question_rows(db, project_id, None, blocking_only=True):
+        question = QuestionReference(
+            **dict(row), delivery=question_delivery(db, project_id, row["id"])
+        )
+        tasks = set(json.loads(row["affected_task_ids"] or "[]"))
+        if row["task_id"] is not None:
+            tasks.add(row["task_id"])
+        for task in tasks:
+            result.setdefault(task, []).append(question)
+    return result
 
 
 class Questions:

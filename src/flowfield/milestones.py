@@ -21,11 +21,22 @@ if TYPE_CHECKING:
     from flowfield.application import TaskRevision
 
 
-def milestone_update(db: sqlite3.Connection, task: "TaskRevision") -> MilestoneUpdate | None:
+def milestone_update(
+    db: sqlite3.Connection,
+    task: "TaskRevision",
+    *,
+    current_milestones: dict[tuple[str, str], Milestone] | None = None,
+) -> MilestoneUpdate | None:
     binding = task.publication.milestone if task.publication else None
     if not binding or task.archived or task.status == "done" or binding.id != task.milestone_id:
         return None
-    current = Milestones.read(db, binding.workspace_id, binding.id)
+    current = (
+        current_milestones.get((binding.workspace_id, binding.id))
+        if current_milestones is not None
+        else Milestones.read(db, binding.workspace_id, binding.id)
+    )
+    if current is None:
+        raise ApplicationError("not_found", "Milestone not found in this workspace.", 404)
     if current.revision <= binding.revision:
         return None
     return MilestoneUpdate(

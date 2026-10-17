@@ -41,10 +41,20 @@ WHERE json_extract(t.data,'$.status')!='done'
 
 
 def task_updates(db: sqlite3.Connection, project: str, task: str) -> list[DocumentUpdate]:
-    return [
-        DocumentUpdate.model_validate(dict(row))
-        for row in db.execute(
-            "SELECT * FROM (" + UPDATED_SOURCES + ") WHERE project_id=? AND task_id=? ORDER BY id",
-            (project, task),
-        )
-    ]
+    return project_updates(db, project, task).get(task, [])
+
+
+def project_updates(
+    db: sqlite3.Connection, project: str, task: str | None = None
+) -> dict[str, list[DocumentUpdate]]:
+    updates: dict[str, list[DocumentUpdate]] = {}
+    for row in db.execute(
+        "SELECT * FROM ("
+        + UPDATED_SOURCES
+        + ") WHERE project_id=? "
+        + ("AND task_id=? " if task is not None else "")
+        + "ORDER BY id",
+        (project, task) if task is not None else (project,),
+    ):
+        updates.setdefault(row["task_id"], []).append(DocumentUpdate.model_validate(dict(row)))
+    return updates

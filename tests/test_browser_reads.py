@@ -11,6 +11,71 @@ from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 
 
+def test_batched_cards_preserve_question_scope_state_and_refresh(tmp_path):
+    from execution_fixtures import BASE, fixture
+
+    from flowfield.execution_models import QueueEdit
+    from flowfield.questions import QuestionCreate, Questions
+
+    execution = fixture(tmp_path, count=3)
+    store = execution.workspace
+    run = execution.claim("harbor", BASE, {BASE: set()}, task_id="task-0")
+    execution.started("harbor", run.id)
+    questions = Questions(store)
+    shared = questions.ask(
+        "harbor",
+        QuestionCreate(
+            affected_task_ids=["task-1", "task-2"],
+            blocking_scope="implementation",
+            question="Choose the format",
+            context="Both tasks need a shared format.",
+            recommendation="Use CSV",
+        ),
+    )
+    direct = questions.ask(
+        "harbor",
+        QuestionCreate(
+            task_id="task-1",
+            blocking_scope="implementation",
+            question="Choose a filename",
+            context="Name the output.",
+            recommendation="result.csv",
+        ),
+    )
+    other = adopt(store, ProjectSetup(path=str(tmp_path / "other"), task_prefix="OTH"))
+    store.create_task(other.id, task_request(id="task-1", title="Unrelated task"))
+    questions.ask(
+        other.id,
+        QuestionCreate(
+            task_id="task-1",
+            blocking_scope="implementation",
+            question="Other scope",
+            context="Another project",
+            recommendation="Keep isolated",
+        ),
+    )
+    reads = BrowserReads(store)
+    board = reads.board("harbor")
+    cards = {card.id: card for card in board.tasks}
+    assert cards["task-0"].state.label == "Working"
+    assert cards["task-1"].state.label == "Needs your answer"
+    assert cards["task-2"].state.label == "Queued"
+    assert [q.id for q in cards["task-1"].blocking_questions] == [shared.id, direct.id]
+    assert [q.id for q in cards["task-2"].blocking_questions] == [shared.id]
+    assert cards["task-2"].readiness == "blocked"
+    with store.connection() as db:
+        workspace = store._project_workspace(db, "harbor")
+    combined = reads.workspace_board(workspace)
+    assert combined.tasks == board.tasks
+    for card in board.tasks:
+        detail = reads.task("harbor", card.id)
+        assert detail.model_dump(include=set(type(card).model_fields)) == card.model_dump()
+    settings = execution.settings("harbor")
+    execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=False))
+    refreshed = {card.id: card for card in reads.workspace_board(workspace).tasks}
+    assert refreshed["task-2"].state.label == "Queue paused"
+
+
 def test_cards_and_current_details_never_hydrate_historical_text(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path / "state")
     project = adopt(workspace, ProjectSetup(path=str(tmp_path / "repo")))

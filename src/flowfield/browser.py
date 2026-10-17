@@ -2,6 +2,7 @@
 
 import sqlite3
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -25,6 +26,7 @@ from flowfield.attention import (
     workspace_attention_requests,
 )
 from flowfield.document_models import DocumentUpdate
+from flowfield.document_updates import project_updates
 from flowfield.errors import ApplicationError
 from flowfield.labels import Labels, WorkspaceLabel
 from flowfield.milestone_models import MilestoneUpdate
@@ -40,8 +42,14 @@ from flowfield.publication import (
     stages_need_reconciliation,
     verification_issue,
 )
-from flowfield.questions import QuestionReference, Questions, blocking_questions
+from flowfield.questions import (
+    QuestionReference,
+    Questions,
+    blocking_questions,
+    project_blocking_questions,
+)
 from flowfield.reads import task_metadata
+from flowfield.task_read_facts import TaskReadFacts, read_task_facts
 from flowfield.verification_models import MilestoneVerificationSummary
 from flowfield.work_state import WorkState, task_state
 from flowfield.workspaces import WorkspaceRecord, Workspaces
@@ -137,6 +145,14 @@ def task_timeline(
     }
 
 
+@dataclass(frozen=True)
+class CardReadBatch:
+    facts: dict[str, TaskReadFacts]
+    questions: dict[str, list[QuestionReference]]
+    documents: dict[str, list[DocumentUpdate]]
+    milestones: dict[tuple[str, str], Milestone]
+
+
 class BrowserReads:
     def __init__(self, workspace: Workspace):
         self.workspace = workspace
@@ -149,33 +165,49 @@ class BrowserReads:
         completed: set[str],
         position: int,
         timeline: sqlite3.Row,
+        batch: CardReadBatch | None = None,
     ) -> TaskCard:
         blocked = [records[key] for key in task.dependencies if key not in completed]
-        questions = blocking_questions(db, task.project_id, task.id)
+        questions = (
+            batch.questions.get(task.id, [])
+            if batch
+            else blocking_questions(db, task.project_id, task.id)
+        )
         publication = publication_status(task)
-        state = task_state(self.workspace, db, task.project_id, task.id)
+        facts = (
+            batch.facts[task.id]
+            if batch
+            else read_task_facts(self.workspace, db, task.project_id, task.id)[task.id]
+        )
+        state = task_state(self.workspace, db, task.project_id, task.id, facts=facts)
         from flowfield.document_updates import task_updates
 
         return TaskCard(
             **task.model_dump(exclude={"body", "change_note"}),
             position=position,
-            document_updates=task_updates(db, task.project_id, task.id)
+            document_updates=(
+                batch.documents.get(task.id, [])
+                if batch
+                else task_updates(db, task.project_id, task.id)
+            )
             if task.publication and task.publication.documents
             else [],
-            milestone_update=milestone_update(db, task)
+            milestone_update=milestone_update(
+                db, task, current_milestones=batch.milestones if batch else None
+            )
             if self.workspace.schema_version >= 68
             else None,
             status_changed_at=timeline["entered"],
             archived_at=timeline["archived_at"] if task.archived else None,
             archived_by=timeline["archived_by"] if task.archived else None,
             publication_status=publication,
-            preparation_issue=preparation_issue(db, task, include_draft_hint=False),
+            preparation_issue=preparation_issue(db, task, include_draft_hint=False, facts=facts),
             readiness=readiness(
                 task,
                 publication,
-                blocked=bool(blocked or questions or verification_issue(db, task)),
+                blocked=bool(blocked or questions or verification_issue(db, task, facts=facts)),
                 stages_stale=stages_need_reconciliation(
-                    db, task.project_id, task.id, task.agreement_revision
+                    db, task.project_id, task.id, task.agreement_revision, facts=facts
                 ),
             ),
             blocked_by=[TaskReference(**item.model_dump()) for item in blocked],
@@ -192,6 +224,19 @@ class BrowserReads:
         completed: set[str],
     ) -> tuple[list[TaskCard], dict[str, list[TaskReference]]]:
         timeline = task_timeline(db, project_id)
+        batch = CardReadBatch(
+            facts=read_task_facts(self.workspace, db, project_id),
+            questions=project_blocking_questions(db, project_id),
+            documents=project_updates(db, project_id)
+            if self.workspace.schema_version >= 64
+            else {},
+            milestones={
+                (item.workspace_id, item.id): item
+                for item in self.workspace._milestones(db, project_id)
+            }
+            if self.workspace.schema_version >= 68
+            else {},
+        )
         available = {
             row[0]
             for row in db.execute(
@@ -213,6 +258,7 @@ class BrowserReads:
                     completed,
                     positions[self.workspace._record_key(item)],
                     timeline[item.id],
+                    batch,
                 )
                 for item in records.values()
                 if item.project_id == project_id
