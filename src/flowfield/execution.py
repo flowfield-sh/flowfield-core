@@ -293,12 +293,11 @@ class Execution:
         """Freeze context once; input continuations reuse their original assignment."""
         project_id = task.project_id
         assert task.publication
-        if self.workspace.schema_version >= 72:
-            from flowfield.worker_checks import CheckPermissions
+        from flowfield.worker_checks import CheckPermissions
 
-            runtime_settings["worker_checks_enabled"] = (
-                CheckPermissions(self.workspace).read(db, project_id).enabled
-            )
+        runtime_settings["worker_checks_enabled"] = (
+            CheckPermissions(self.workspace).read(db, project_id).enabled
+        )
         if resume:
             assert predecessor
             run.documents = predecessor.documents
@@ -356,14 +355,13 @@ class Execution:
         from flowfield.task_files import freeze
 
         file_ids = list(task.input_files)
-        if self.workspace.schema_version >= 79:
-            from flowfield.outputs import Outputs
+        from flowfield.outputs import Outputs
 
-            if predecessor:
-                file_ids.extend(file.id for file in Outputs.for_run(db, predecessor.id))
-            for prerequisite in prerequisites:
-                if prerequisite.get("run_id"):
-                    file_ids.extend(file.id for file in Outputs.for_run(db, prerequisite["run_id"]))
+        if predecessor:
+            file_ids.extend(file.id for file in Outputs.for_run(db, predecessor.id))
+        for prerequisite in prerequisites:
+            if prerequisite.get("run_id"):
+                file_ids.extend(file.id for file in Outputs.for_run(db, prerequisite["run_id"]))
         assignment["files"] = (
             json.dumps(
                 [
@@ -380,10 +378,8 @@ class Execution:
         )
         from flowfield.milestone_verification import assignment as verification_assignment
 
-        assignment["milestone_verification"] = (
-            verification_assignment(db, project_id, task.id, task.agreement_revision)
-            if self.workspace.schema_version >= 69
-            else ""
+        assignment["milestone_verification"] = verification_assignment(
+            db, project_id, task.id, task.agreement_revision
         )
         from flowfield.worker_documents import sections as document_sections
 

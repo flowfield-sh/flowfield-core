@@ -26,26 +26,9 @@ def prepare(store: Workspace, workspace_id: str) -> Path:
         ) from error
 
 
-def for_project(store: Workspace, project_id: str) -> Path:
-    # Project entry remains transitional until the workspace UI/tool scope lands.
-    # Both entry paths must use the same home for a workspace member.
-    with store.connection() as db:
-        project = store._project(db, project_id)
-        membership = (
-            db.execute(
-                "SELECT workspace_id FROM workspace_projects WHERE project_id=?", (project_id,)
-            ).fetchone()
-            if store.schema_version >= 57
-            else None
-        )
-    return prepare(store, membership[0]) if membership else Path(project.path)
-
-
 def for_scope(store: Workspace, identity: str) -> Path:
-    return prepare(store, identity) if store.schema_version >= 59 else for_project(store, identity)
+    return prepare(store, identity)
 
 
 def repositories_for_scope(store: Workspace, identity: str) -> tuple[Path, ...]:
-    if store.schema_version < 59:
-        return ()  # Historical project coordinators already run in their repository.
     return tuple(sorted({Path(project.path) for project in Workspaces(store).projects(identity)}))

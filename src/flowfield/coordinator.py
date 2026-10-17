@@ -20,7 +20,6 @@ from flowfield.agent_models import AgentCommand
 from flowfield.agent_tools import workspace_scope
 from flowfield.attachments import Attachments
 from flowfield.coordinator_models import CoordinatorSend, CoordinatorTurn
-from flowfield.coordinator_ownership import column as owner_column
 from flowfield.coordinator_settings import CoordinatorSettings
 from flowfield.coordinator_store import CoordinatorStore
 from flowfield.documents import Documents
@@ -570,7 +569,7 @@ class Coordinator:
         for identity in list(self.jobs):
             with self.supervisor.workspace.connection() as db:
                 row = db.execute(
-                    f"SELECT {owner_column(db)} FROM coordinator_turns WHERE id=?", (identity,)
+                    "SELECT workspace_id FROM coordinator_turns WHERE id=?", (identity,)
                 ).fetchone()
             if row:
                 await self.stop(row[0], identity)

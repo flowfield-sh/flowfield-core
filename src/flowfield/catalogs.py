@@ -190,12 +190,12 @@ class Catalogs:
         record = CatalogOwnership(
             id=uuid4().hex,
             harness=registration.harness,
-            project_id=project_id if self.workspace.schema_version < 59 else None,
+            project_id=(None),
             status="running",
             started_at=now(),
             launch=launch,
             operation="commands",
-            workspace_id=project_id if self.workspace.schema_version >= 59 else None,
+            workspace_id=(project_id),
         )
         with self.workspace.connection(write=True) as db:
             row = db.execute(

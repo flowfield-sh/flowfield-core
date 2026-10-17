@@ -1,20 +1,15 @@
-"""Unified role defaults, absent controls and actual supported-state choice migration."""
+"""Unified role defaults, absent controls and explicit worker choices."""
 
 import asyncio
-import json
 import sys
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from execution_fixtures import BASE, fixture
 
-from flowfield import migrations, storage
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit
 from flowfield.agent_settings import AgentSettings
-from flowfield.application import Workspace
 from flowfield.errors import ApplicationError
-from flowfield.execution import Execution
 from flowfield.execution_models import ModelOption, SettingsEdit
 from flowfield.supervisor import Supervisor
 
@@ -193,56 +188,3 @@ def test_native_adapters_apply_absent_effort_only_when_control_is_absent(
         assert not (tmp_path / "prompt-marker").exists()
 
     asyncio.run(exercise())
-
-
-@pytest.mark.parametrize("fail_first", [False, True])
-def test_real_worker_choice_migration_preserves_and_restores_legacy_defaults(
-    tmp_path, monkeypatch, fail_first
-):
-    previous = tuple(m for m in migrations.MIGRATIONS if m.version <= 46)
-    migration = next(m for m in migrations.MIGRATIONS if m.version == 47)
-    with monkeypatch.context() as baseline:
-        baseline.setattr(migrations, "MIGRATIONS", previous)
-        workspace = fixture(tmp_path).workspace
-        legacy = dict(
-            project_id="harbor",
-            revision=17,
-            model="saved",
-            effort="high",
-            mode="read-only",
-            max_parallel=4,
-            enabled=True,
-            problem="Keep this blocker",
-        )
-        with workspace.connection(write=True) as db:
-            db.execute("UPDATE worker_settings SET data=?", (json.dumps(legacy),))
-    if fail_first:
-
-        def fail(db):
-            migration.apply(db)
-            raise RuntimeError("after worker choice rewrite")
-
-        with monkeypatch.context() as broken:
-            broken.setattr(migrations, "MIGRATIONS", (*previous, replace(migration, apply=fail)))
-            with pytest.raises(ApplicationError, match="rolled back"):
-                Workspace(workspace.directory)
-        with storage.connect(workspace.database) as db:
-            assert storage.version(db) == 46
-            assert (
-                json.loads(db.execute("SELECT data FROM worker_settings").fetchone()[0]) == legacy
-            )
-    upgraded = Workspace(workspace.directory)
-    data = Execution(upgraded).settings("harbor").model_dump()
-    assert data == {
-        **{key: value for key, value in legacy.items() if key not in {"model", "effort", "mode"}},
-        "selection": dict(
-            harness="codex", model="saved", effort="high", mode="read-only", fast=False
-        ),
-    }
-    assert AgentSettings(upgraded).get("harbor", "worker").effective.choice.model == "saved"
-    backup = storage.backups(upgraded.directory)[0]
-    storage.restore(upgraded.directory, backup["id"])
-    with storage.connect(workspace.database) as db:
-        assert storage.version(db) == 46
-        assert json.loads(db.execute("SELECT data FROM worker_settings").fetchone()[0]) == legacy
-    assert Workspace(workspace.directory).schema_version == migrations.current_version()

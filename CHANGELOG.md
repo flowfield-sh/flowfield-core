@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Breaking changes
+
+- Older Flowfield databases are no longer migrated. Start with a fresh data directory when the schema differs; existing databases are rejected without automatic deletion. The pre-upgrade database backup and restore commands have been removed. See [local storage](https://docs.flowfield.sh/storage).
+
 ## 0.5.0
 
 Bring related repositories into one workspace, with a shared Coordinator, plan and knowledge.

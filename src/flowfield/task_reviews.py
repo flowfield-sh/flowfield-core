@@ -367,15 +367,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
         """Explicit service entry; does not scan old results or start a model."""
         with self.store.connection(write=True, project_id=project) as db:
             owner, task, binding = self._binding(db, project, result_id)
-            # Complete code reviews retain their existing identity across this additive change.
-            legacy_fields = (
-                {"completion", "output_ids", "outcome"}
-                if binding.completion == "code" and binding.outcome == "complete"
-                else set()
-            )
-            digest = hashlib.sha256(
-                binding.model_dump_json(exclude=legacy_fields).encode()
-            ).hexdigest()
+            digest = hashlib.sha256(binding.model_dump_json().encode()).hexdigest()
             existing = db.execute(
                 "SELECT data FROM task_reviews WHERE result_id=? AND binding=?", (result_id, digest)
             ).fetchone()

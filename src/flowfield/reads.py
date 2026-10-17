@@ -12,7 +12,6 @@ from flowfield import worker_settings
 from flowfield.activity import EntryKind
 from flowfield.application import STATUSES, TaskRevision, Workspace, now
 from flowfield.attention import RequestKind
-from flowfield.coordinator_ownership import column as owner_column
 from flowfield.coordinator_ownership import validate
 from flowfield.coordinator_prose import read as read_prose
 from flowfield.errors import ApplicationError
@@ -137,7 +136,7 @@ def iter_coordinator_exchanges(
         "json_extract(data,'$.task_context') task_context, "
         "json_extract(data,'$.view_context') view_context, "
         "json_extract(data,'$.guidance_revision') guidance_revision FROM coordinator_turns "
-        f"WHERE {owner_column(db)}=? AND number<? ORDER BY number DESC LIMIT ?",
+        "WHERE workspace_id=? AND number<? ORDER BY number DESC LIMIT ?",
         (project, before, limit),
     )
     for row in rows:
@@ -164,13 +163,8 @@ def task_metadata(
     # Read graph/current metadata only; never hydrate descriptions or revision histories.
     rows = workspace._record_rows(db, project_id, metadata=True)
     return (
-        {
-            r["key"]
-            if workspace.schema_version >= 62
-            else r["id"]: TaskRevision.model_validate_json(r["data"])
-            for r in rows
-        },
-        {r["key"] if workspace.schema_version >= 62 else r["id"]: r["position"] for r in rows},
+        {r["key"]: TaskRevision.model_validate_json(r["data"]) for r in rows},
+        {r["key"]: r["position"] for r in rows},
     )
 
 
@@ -205,9 +199,7 @@ class ContextReads:
         from flowfield.document_updates import task_updates
         from flowfield.milestones import milestone_update
 
-        milestone_change = (
-            milestone_update(db, item) if self.workspace.schema_version >= 68 else None
-        )
+        milestone_change = milestone_update(db, item)
 
         return excerpt(
             {
@@ -308,22 +300,12 @@ class ContextReads:
     def milestones(
         self, project_id: str, *, after: str | None = None, limit: int = DEFAULT_LIMIT
     ) -> dict[str, Any]:
-        if self.workspace.schema_version >= 60:
-            from flowfield.milestones import Milestones
-            from flowfield.workspaces import Workspaces
+        from flowfield.milestones import Milestones
+        from flowfield.workspaces import Workspaces
 
-            return Milestones(self.workspace).page(
-                Workspaces(self.workspace).for_project(project_id).id, after=after, limit=limit
-            )
-        validate_page(limit)
-        with self.workspace.connection() as db:
-            self.workspace._work_scope(db, project_id)
-            rows = db.execute(
-                "SELECT json_remove(data, '$.body') FROM milestones WHERE project_id=? "
-                "AND id>? ORDER BY id LIMIT ?",
-                (project_id, after or "", limit + 1),
-            ).fetchall()
-            return page([excerpt(json.loads(r[0]), 500) for r in rows], limit, "id")
+        return Milestones(self.workspace).page(
+            Workspaces(self.workspace).for_project(project_id).id, after=after, limit=limit
+        )
 
     def milestone(self, project_id: str, milestone_id: str) -> dict[str, Any]:
         return excerpt(self.workspace.milestone(project_id, milestone_id).model_dump())
@@ -748,10 +730,7 @@ class ContextReads:
                     ("prerequisites", "blocked_by", "dependents"), key=lambda k: size(result[k])
                 )
                 result[largest].pop()
-            result["dependencies"] = [
-                p["key"] if self.workspace.schema_version >= 62 else p["id"]
-                for p in result["prerequisites"]
-            ]
+            result["dependencies"] = [p["key"] for p in result["prerequisites"]]
             result["dependencies_truncated"] = len(result["dependencies"]) < len(item.dependencies)
             return result
 
@@ -939,25 +918,24 @@ class ContextReads:
         value["report"] = excerpt(value["report"], 2000)
         if value["correction"]:
             value["correction"] = excerpt(value["correction"], 1500)
-        if self.workspace.schema_version >= 75:
-            with self.workspace.connection() as db:
-                row = db.execute(
-                    "SELECT data FROM task_reviews WHERE result_id=? ORDER BY number DESC LIMIT 1",
-                    (identity,),
-                ).fetchone()
-                if row:
-                    review = json.loads(row[0])
-                    value["independent_review"] = {
-                        key: review.get(key)
-                        for key in (
-                            "id",
-                            "status",
-                            "recipient",
-                            "verdict",
-                            "problem",
-                            "question_id",
-                        )
-                    }
+        with self.workspace.connection() as db:
+            row = db.execute(
+                "SELECT data FROM task_reviews WHERE result_id=? ORDER BY number DESC LIMIT 1",
+                (identity,),
+            ).fetchone()
+            if row:
+                review = json.loads(row[0])
+                value["independent_review"] = {
+                    key: review.get(key)
+                    for key in (
+                        "id",
+                        "status",
+                        "recipient",
+                        "verdict",
+                        "problem",
+                        "question_id",
+                    )
+                }
         return excerpt(value, 2000)
 
     def text(

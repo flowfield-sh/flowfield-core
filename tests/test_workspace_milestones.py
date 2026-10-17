@@ -4,15 +4,11 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-from execution_fixtures import BASE, fixture
 from project_fixtures import existing_directory, task_request
-from storage_fixtures import logical_data
 
-from flowfield import migrations, milestone_delivery
 from flowfield.agent_tools import workspace_scope
-from flowfield.application import MilestoneCreate, MilestoneEdit, ProjectSetup, TaskEdit, Workspace
+from flowfield.application import MilestoneCreate, MilestoneEdit, ProjectSetup, Workspace
 from flowfield.errors import ApplicationError
-from flowfield.migrations import Migration
 from flowfield.milestones import Milestones
 from flowfield.search import Search
 from flowfield.supervisor import Supervisor
@@ -95,78 +91,3 @@ def test_workspace_tools_work_before_adoption_and_guard_full_text(tmp_path):
         grant.revoke()
 
     asyncio.run(check())
-
-
-def test_upgrade_preserves_milestone_task_binding_and_frozen_assignment(tmp_path, monkeypatch):
-    with monkeypatch.context() as old:
-        # Reconstruct the older writer: milestone branch ownership did not exist.
-        old.setattr(milestone_delivery, "for_milestone", lambda *args: None)
-        old.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 60)
-        )
-        execution = fixture(tmp_path)
-        store = execution.workspace
-        original = store.create_milestone(
-            "harbor", MilestoneCreate(title="Orchid", body="Original intent")
-        )
-        task = store.task("harbor", "task-0")
-        store.edit_task(
-            "harbor", task.id, TaskEdit(expected_revision=task.revision, milestone_id=original.id)
-        )
-        run = execution.claim("harbor", BASE, {BASE: set()})
-        assignment = execution.assignment("harbor", run.id)
-        with store.connection() as db:
-            cursor = db.execute(
-                "SELECT rowid FROM search_docs WHERE entity='milestone'"
-            ).fetchone()[0]
-    upgraded = Workspace(store.directory)
-    current = Milestones(upgraded).get("harbor", original.id)
-    assert current == original
-    with upgraded.connection() as db:
-        assert (
-            db.execute("SELECT rowid FROM search_docs WHERE entity='milestone'").fetchone()[0]
-            == cursor
-        )
-    assert upgraded.task("harbor", "task-0").milestone_id == original.id
-    Milestones(upgraded).edit(
-        "harbor", original.id, MilestoneEdit(expected_revision=1, body="Later intent")
-    )
-    from flowfield.execution import Execution
-
-    assert Execution(upgraded).assignment("harbor", run.id) == assignment
-    assert assignment["milestone"] == "Original intent"
-    with upgraded.connection() as db:
-        assert not db.execute("PRAGMA foreign_key_check").fetchall()
-        assert (
-            db.execute("SELECT count(*) FROM search_docs WHERE entity='milestone'").fetchone()[0]
-            == 1
-        )
-    assert cursor > 0
-
-
-def test_failed_milestone_upgrade_restores_index_and_records(tmp_path, monkeypatch):
-    with monkeypatch.context() as old:
-        # Reconstruct the older writer: milestone branch ownership did not exist.
-        old.setattr(milestone_delivery, "for_milestone", lambda *args: None)
-        old.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 60)
-        )
-        store = fixture(tmp_path).workspace
-        store.create_milestone("harbor", MilestoneCreate(title="Orchid"))
-    before = logical_data(store.directory)
-    migration = next(m for m in migrations.MIGRATIONS if m.version == 60)
-
-    def fail(db):
-        migration.apply(db)
-        raise ValueError("fixture milestone migration failure")
-
-    with monkeypatch.context() as broken:
-        broken.setattr(
-            migrations,
-            "MIGRATIONS",
-            tuple(Migration(60, fail) if m.version == 60 else m for m in migrations.MIGRATIONS),
-        )
-        with pytest.raises(ApplicationError, match="rolled back"):
-            Workspace(store.directory)
-    assert logical_data(store.directory) == before
-    assert Search(Workspace(store.directory)).page("harbor", "Orchid")["items"]

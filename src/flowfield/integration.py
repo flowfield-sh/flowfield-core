@@ -538,17 +538,13 @@ class Integrations:
             if not valid or valid[0] != "integrated":
                 # The verifier runs the checked combined candidate, which may
                 # include destination changes absent from the milestone branch.
-                valid_promotion = (
-                    db.execute(
-                        "SELECT 1 FROM milestone_promotions WHERE project_id=? AND status='ready' "
-                        "AND json_extract(data,'$.candidate_commit')=? "
-                        "AND json_extract(data,'$.source_branch')=? "
-                        "AND json_extract(data,'$.settings_revision')=?",
-                        (project_id, head, branch, settings.revision),
-                    ).fetchone()
-                    if self.workspace.schema_version >= 71
-                    else None
-                )
+                valid_promotion = db.execute(
+                    "SELECT 1 FROM milestone_promotions WHERE project_id=? AND status='ready' "
+                    "AND json_extract(data,'$.candidate_commit')=? "
+                    "AND json_extract(data,'$.source_branch')=? "
+                    "AND json_extract(data,'$.settings_revision')=?",
+                    (project_id, head, branch, settings.revision),
+                ).fetchone()
                 if not valid_promotion:
                     return set()
         repository = Path(self.workspace.project(project_id).path)

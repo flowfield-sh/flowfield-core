@@ -4,14 +4,12 @@ import sqlite3
 from contextlib import closing
 
 import pytest
-from project_fixtures import existing_directory, task_request
+from project_fixtures import existing_directory
 
-from flowfield import migrations, storage
+from flowfield import storage
 from flowfield.agent_models import AgentChoice
 from flowfield.application import ProjectSetup, Workspace
-from flowfield.coordinator_store import CoordinatorStore
 from flowfield.errors import ApplicationError
-from flowfield.migrations import Migration
 from flowfield.workspaces import WorkspaceCreate, WorkspaceEdit, Workspaces
 
 
@@ -94,21 +92,6 @@ def test_failed_project_configuration_rolls_back_membership(tmp_path):
     assert workspaces.get(space.id) == space
 
 
-def legacy_store(tmp_path, monkeypatch):
-    with monkeypatch.context() as old:
-        old.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 55)
-        )
-        store = Workspace(tmp_path / "state")
-        for name in ("core", "site"):
-            store.setup_project(
-                ProjectSetup(path=existing_directory(tmp_path / name), name="X" * 200)
-            )
-            store.create_task(name, task_request(title="Keep task", id="work"))
-            CoordinatorStore(store).new(name)
-        return store
-
-
 def preserved_rows(store):
     with closing(storage.connect(store.database)) as db:
         return {
@@ -129,50 +112,3 @@ def preserved_rows(store):
                 "coordinator_sessions",
             )
         }
-
-
-def test_upgrade_creates_one_workspace_per_project_without_rewriting_evidence(
-    tmp_path, monkeypatch
-):
-    old = legacy_store(tmp_path, monkeypatch)
-    before = preserved_rows(old)
-    store = Workspace(old.directory)
-    workspaces = Workspaces(store)
-    assert len(workspaces.all()) == 2
-    for project in store.projects():
-        assert [ref.id for ref in project.worker_documents] == ["guidance"]
-        space = workspaces.for_project(project.id)
-        assert space.name == project.name + " Workspace"
-        assert workspaces.projects(space.id) == [project]
-    assert preserved_rows(store) == before
-    assert len(storage.backups(store.directory)) == 1
-    Workspace(store.directory)
-    assert preserved_rows(store) == before
-    assert len(Workspaces(store).all()) == 2
-    assert len(storage.backups(store.directory)) == 1
-
-
-def test_failed_workspace_upgrade_rolls_back_membership_and_retries(tmp_path, monkeypatch):
-    old = legacy_store(tmp_path, monkeypatch)
-    before = preserved_rows(old)
-    original = next(m for m in migrations.MIGRATIONS if m.version == 55)
-
-    def fail(db):
-        original.apply(db)
-        raise ValueError("workspace membership failure")
-
-    with monkeypatch.context() as broken:
-        broken.setattr(
-            migrations,
-            "MIGRATIONS",
-            tuple(Migration(55, fail) if m.version == 55 else m for m in migrations.MIGRATIONS),
-        )
-        with pytest.raises(ApplicationError, match="rolled back.*workspace membership failure"):
-            Workspace(old.directory)
-    with closing(storage.connect(old.database)) as db:
-        assert storage.version(db) == 54
-        assert (
-            db.execute("SELECT name FROM sqlite_master WHERE name='workspaces'").fetchone() is None
-        )
-    assert preserved_rows(old) == before
-    assert len(Workspaces(Workspace(old.directory)).all()) == 2

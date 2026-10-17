@@ -321,27 +321,24 @@ class MilestoneVerifications:
                 from flowfield.milestone_promotion import read as promotion_read
 
                 value.promotion = promotion_read(db, value.promotion_id)
-            if self.store.schema_version >= 79:
-                from flowfield.outputs import Outputs
+            from flowfield.outputs import Outputs
 
-                selected = value.report.output_ids if value.report else []
-                if value.result_id:
-                    result = db.execute(
-                        "SELECT run_id FROM result_versions WHERE id=?", (value.result_id,)
-                    ).fetchone()
-                    if result:
-                        value.files = Outputs.for_run(db, result[0])
-                for identity in selected:
-                    row = db.execute(
-                        "SELECT data FROM output_files WHERE workspace_id=? AND id=?",
-                        (workspace_id, identity),
-                    ).fetchone()
-                    if row:
-                        from flowfield.output_models import OutputFile
+            selected = value.report.output_ids if value.report else []
+            if value.result_id:
+                result = db.execute(
+                    "SELECT run_id FROM result_versions WHERE id=?", (value.result_id,)
+                ).fetchone()
+                if result:
+                    value.files = Outputs.for_run(db, result[0])
+            for identity in selected:
+                row = db.execute(
+                    "SELECT data FROM output_files WHERE workspace_id=? AND id=?",
+                    (workspace_id, identity),
+                ).fetchone()
+                if row:
+                    from flowfield.output_models import OutputFile
 
-                        value.files.append(
-                            Outputs._present(db, OutputFile.model_validate_json(row[0]))
-                        )
+                    value.files.append(Outputs._present(db, OutputFile.model_validate_json(row[0])))
             return value
 
     def testing(self, workspace_id: str, identity: str, offset: int = 0) -> MilestoneTestingPage:

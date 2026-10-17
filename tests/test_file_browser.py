@@ -57,7 +57,7 @@ def test_organization_rejects_invalid_paths(path):
         FileLocation(path=path, expected_revision=1)
 
 
-def test_directory_pagination_and_migration_preserve_files(tmp_path):
+def test_directory_pagination_and_restart_preserve_files(tmp_path):
     store, owner, scope = setup(tmp_path / "state")
     for index in range(2):
         current = task(store, scope, title=f"Task {index}")
@@ -73,12 +73,6 @@ def test_directory_pagination_and_migration_preserve_files(tmp_path):
     rest = browser.directory(owner.id, offset=page.next_offset)
     assert len(rest.items) == 10 and rest.next_offset is None
     assert not {e.id for e in page.items} & {e.id for e in rest.items}
-    # Rehearse the supported 80 -> 81 upgrade with existing retained outputs.
-    with store.connection(write=True) as db:
-        db.execute("DROP TABLE output_locations")
-        db.execute("DROP TABLE output_folders")
-        db.execute("DELETE FROM schema_migrations WHERE version=81")
-        db.execute("PRAGMA user_version=80")
     restarted = Workspace(store.directory)
     assert len(FileBrowser(restarted).directory(owner.id).items) == 50
     with restarted.connection() as db:

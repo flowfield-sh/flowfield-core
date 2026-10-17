@@ -53,18 +53,3 @@ class Inspection(Record):
     locally_changed: bool = False
     source_changed: bool = False
     instructions_changed: bool = False
-
-
-SCHEMA = """
-CREATE TABLE inspection_settings (
-    project_id TEXT PRIMARY KEY REFERENCES projects(id), data TEXT NOT NULL
-);
-CREATE TABLE inspections (
-    number INTEGER PRIMARY KEY AUTOINCREMENT,
-    id TEXT NOT NULL UNIQUE,
-    project_id TEXT NOT NULL REFERENCES projects(id),
-    result_id TEXT REFERENCES result_versions(id),
-    data TEXT NOT NULL
-);
-CREATE INDEX inspections_source ON inspections(project_id, result_id, number);
-"""

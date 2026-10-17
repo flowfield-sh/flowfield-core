@@ -314,7 +314,7 @@ def workspace_create(ctx: typer.Context, name: str, json_output: Json = False) -
 
 @workspace_app.command("list")
 def workspace_list(ctx: typer.Context, json_output: Json = False) -> None:
-    """List explicitly created and migrated workspaces."""
+    """List explicitly created workspaces."""
 
     def human(values: list[dict[str, Any]]) -> None:
         if not values:

@@ -7,18 +7,13 @@ from uuid import uuid4
 import pytest
 from coordinator_history_fixtures import saved_exchange
 from execution_fixtures import fixture
-from project_fixtures import adopt, finish_legacy_chat, prepare_legacy_chat
-from storage_fixtures import logical_data, raw
+from project_fixtures import adopt
 
-from flowfield import migrations, storage
-from flowfield.agent_models import AgentChoice, AgentSettingsEdit
-from flowfield.agent_settings import AgentSettings
-from flowfield.application import ProjectSetup, Workspace, now
+from flowfield.application import ProjectSetup, Workspace
 from flowfield.attachments import Attachments, AttachmentUpload
-from flowfield.coordinator_models import CoordinatorSend, CoordinatorTurn
+from flowfield.coordinator_models import CoordinatorSend
 from flowfield.coordinator_store import CoordinatorStore
 from flowfield.errors import ApplicationError
-from flowfield.migrations import Migration
 from flowfield.reads import size
 from flowfield.supervisor import Supervisor
 
@@ -137,104 +132,6 @@ def test_failed_snapshot_rolls_back_message_and_attachment_binding(tmp_path, mon
     assert store.handoff("harbor", turn.id) == snapshot
 
 
-def test_schema_47_upgrade_preserves_existing_chat_binding_and_failed_upgrade(
-    tmp_path, monkeypatch
-):
-    with monkeypatch.context() as previous:
-        previous.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version <= 47)
-        )
-        workspace = fixture(tmp_path).workspace
-        effective = (
-            AgentSettings(workspace)
-            .edit(
-                "harbor",
-                "coordinator",
-                AgentSettingsEdit(
-                    expected_revision=1,
-                    selection=AgentChoice(model="saved-model", effort="low"),
-                ),
-            )
-            .effective
-        )
-        prepare_legacy_chat(workspace)
-        conversation = CoordinatorStore(workspace).new("harbor")
-        old = CoordinatorTurn(
-            id=uuid4().hex,
-            project_id="harbor",
-            conversation_id=conversation.id,
-            text="Saved original intent",
-            created_at=now(),
-            settings=effective,
-            status="completed",
-            session="resumed",
-        )
-        with workspace.connection(write=True) as db:
-            result = db.execute(
-                "INSERT INTO coordinator_turns(id,project_id,conversation_id,status,data) "
-                "VALUES (?,?,?,?,?)",
-                (old.id, "harbor", conversation.id, old.status, old.model_dump_json()),
-            )
-            old.number = result.lastrowid
-            CoordinatorStore._save(db, old)
-            db.execute(
-                "INSERT INTO coordinator_sessions VALUES (?,?,?,?,?)",
-                ("harbor", "codex", "PRIVATE NATIVE ID", str(tmp_path), None),
-            )
-        finish_legacy_chat(workspace)
-    before = logical_data(workspace.directory)
-    original = next(m for m in migrations.MIGRATIONS if m.version == 48)
-
-    def fail(db):
-        original.apply(db)
-        raise ValueError("injected handoff migration failure")
-
-    with monkeypatch.context() as failure:
-        failure.setattr(
-            migrations,
-            "MIGRATIONS",
-            (*[m for m in migrations.MIGRATIONS if m.version < 48], Migration(48, fail)),
-        )
-        with pytest.raises(ApplicationError, match="rolled back"):
-            Workspace(workspace.directory)
-    assert logical_data(workspace.directory) == before
-    with raw(workspace.directory) as db:
-        assert storage.version(db) == 47
-        assert (
-            db.execute(
-                "SELECT name FROM sqlite_master WHERE name='coordinator_handoffs'"
-            ).fetchone()
-            is None
-        )
-    upgraded = Workspace(workspace.directory)
-    store = CoordinatorStore(upgraded)
-    assert store.get("harbor", old.id) == old
-    assert store.session("harbor", "codex", str(tmp_path)) is None
-    with upgraded.connection() as db:
-        source, fresh = store.sessions.current(db, "harbor")
-        assert fresh and source.session_id == "PRIVATE NATIVE ID"
-    with pytest.raises(ApplicationError, match="no frozen handoff"):
-        store.handoff("harbor", old.id)
-    backup = storage.backups(upgraded.directory)[0]
-    assert backup["schema_version"] == 47
-    storage.restore(upgraded.directory, backup["id"])
-    assert storage.status(upgraded.directory)["schema_version"] == 47
-    restored = Workspace(upgraded.directory)
-    store = CoordinatorStore(restored)
-    assert store.get("harbor", old.id) == old
-    new, _ = store.reserve(
-        "harbor", conversation.id, CoordinatorSend(id=uuid4().hex, text="Continue")
-    )
-    assert (
-        store.handoff("harbor", new.id, budget=200_000)["recent_conversation"][0]["human"]
-        == old.text
-    )
-    assert "PRIVATE NATIVE ID" not in json.dumps(store.handoff("harbor", new.id))
-    with pytest.raises(ApplicationError, match="Workspace changed"):
-        storage.restore(upgraded.directory, backup["id"])
-    assert store.get("harbor", new.id).text == "Continue"
-
-
 def test_unknown_or_exhausted_context_uses_history_tools_without_guessing(tmp_path):
     workspace = fixture(tmp_path).workspace
     saved_exchange(workspace, "An earlier requirement")
@@ -277,7 +174,7 @@ def test_history_boundary_does_not_copy_prose_and_excludes_later_or_late_updates
     assert store.handoff("harbor", turn.id, budget=200_000) == before
 
 
-def test_dispatched_budget_survives_restart_and_legacy_snapshots_stay_unchanged(tmp_path):
+def test_dispatched_budget_survives_restart(tmp_path):
     workspace = fixture(tmp_path).workspace
     saved_exchange(workspace, "Saved intent " + "界" * 15_000)
     store = CoordinatorStore(workspace)
@@ -289,10 +186,3 @@ def test_dispatched_budget_survives_restart_and_legacy_snapshots_stay_unchanged(
     assert restored.handoff("harbor", turn.id, budget=200_000) == selected
     assert restored.handoff("harbor", turn.id, budget=None, record=True) == selected
     assert size(selected) <= 5000 and selected["history_is_partial"]
-    legacy = {"version": 1, "recent_conversation": [{"human": "Original frozen text"}]}
-    with workspace.connection(write=True) as db:
-        db.execute(
-            "UPDATE coordinator_handoffs SET data=? WHERE turn_id=?",
-            (json.dumps(legacy), turn.id),
-        )
-    assert restored.handoff("harbor", turn.id, budget=1, record=True) == legacy

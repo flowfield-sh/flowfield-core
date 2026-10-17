@@ -34,9 +34,7 @@ def workspace_scope(identity: str) -> str:
 
 
 def read(store: "Workspace", db: sqlite3.Connection, identity: str) -> WorkScope:
-    if store.schema_version < 80:
-        project = store._project(db, identity)
-        return WorkScope(**project.model_dump(), project_id=project.id)
+
     row = db.execute("SELECT * FROM work_scopes WHERE id=?", (identity,)).fetchone()
     if row is None:
         raise ApplicationError("not_found", "Work scope not found.", 404)

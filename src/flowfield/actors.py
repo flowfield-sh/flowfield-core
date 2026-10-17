@@ -13,7 +13,6 @@ ACTOR_ROLES: dict[str, ActorRole] = {
     "reviewer": "reviewer",
     "flowfield": "flowfield",
     "service": "flowfield",
-    "migration": "flowfield",
 }
 ACTOR_LABELS = {
     "human": "You",
@@ -31,7 +30,7 @@ class Actor(Record):
 
 
 def actor(identity: str) -> Actor:
-    # agent is the legacy coordinator-interface default. Managed attempts use worker
+    # Coordinator tools use agent as their author identity. Managed attempts use worker
     # or worker:<attempt>; keep the original identity rather than rewriting evidence.
     role = ACTOR_ROLES.get(identity, "other")
     if identity.startswith("worker:"):

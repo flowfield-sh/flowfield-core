@@ -7,8 +7,7 @@ from execution_fixtures import BASE
 from project_fixtures import fixture_stage_change, task_request
 from workspace_workers_fixtures import shared
 
-from flowfield import migrations
-from flowfield.application import TaskPriority, TaskPublish, Workspace
+from flowfield.application import TaskPriority, TaskPublish
 from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 from flowfield.supervisor import Supervisor
@@ -84,34 +83,3 @@ def test_scheduler_follows_shared_priority_and_skips_unavailable_repository(
         assert BrowserReads(store).workspace_board(space).project_problems == {
             "site": "Site needs repository setup."
         }
-
-
-def test_priority_migration_only_changes_order_metadata(tmp_path, monkeypatch):
-    history = migrations.MIGRATIONS
-    with monkeypatch.context() as old:
-        old.setattr(migrations, "MIGRATIONS", tuple(item for item in history if item.version <= 62))
-        store, _, space, _ = shared(tmp_path)
-        with store.connection() as db:
-            before = [
-                tuple(row)
-                for row in db.execute("SELECT project_id,id,data FROM tasks ORDER BY project_id,id")
-            ]
-            revisions = [
-                tuple(row)
-                for row in db.execute(
-                    "SELECT * FROM task_revisions ORDER BY project_id,task_id,revision"
-                )
-            ]
-    upgraded = Workspace(store.directory)
-    with upgraded.connection() as db:
-        assert [
-            tuple(row)
-            for row in db.execute("SELECT project_id,id,data FROM tasks ORDER BY project_id,id")
-        ] == before
-        assert [
-            tuple(row)
-            for row in db.execute(
-                "SELECT * FROM task_revisions ORDER BY project_id,task_id,revision"
-            )
-        ] == revisions
-    assert len({task.position for task in BrowserReads(upgraded).workspace_board(space).tasks}) == 2

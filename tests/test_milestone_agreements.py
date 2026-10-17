@@ -6,10 +6,8 @@ import json
 import pytest
 from execution_fixtures import BASE, RESULT, fixture
 from input_continuation_fixtures import answer, question
-from storage_fixtures import logical_data
 from worker_documents_fixtures import prepare
 
-from flowfield import migrations, milestone_delivery
 from flowfield.agent_tools import workspace_scope
 from flowfield.application import (
     MilestoneCreate,
@@ -22,7 +20,6 @@ from flowfield.attention import attention_page
 from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
-from flowfield.migrations import Migration
 from flowfield.milestones import Milestones
 from flowfield.questions import Questions
 from flowfield.search import Search
@@ -171,62 +168,3 @@ def test_tools_read_history_and_criteria_without_expanding_worker_authority(tmp_
         "edit_milestone",
         "get_milestone_history",
     }
-
-
-def test_upgrade_freezes_effective_source_without_inventing_old_history(tmp_path, monkeypatch):
-    with monkeypatch.context() as old:
-        # Reconstruct the older writer: milestone branch ownership did not exist.
-        old.setattr(milestone_delivery, "for_milestone", lambda *args: None)
-        old.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 68)
-        )
-        execution = fixture(tmp_path)
-        store = execution.workspace
-        milestone = Milestones(store).create(
-            "harbor", MilestoneCreate(title="Original", body="First")
-        )
-        attach(store, milestone)
-        run = execution.claim("harbor", BASE, {BASE: set()})
-        frozen = execution.assignment("harbor", run.id)
-        Milestones(store).edit(
-            "harbor", milestone.id, MilestoneEdit(expected_revision=1, body="At upgrade")
-        )
-    upgraded = Workspace(store.directory)
-    binding = upgraded.task("harbor", "task-0").publication.milestone
-    assert binding.revision == 2 and binding.origin == "upgrade"
-    assert Execution(upgraded).assignment("harbor", run.id) == frozen
-    assert [
-        item["revision"] for item in Milestones(upgraded).history("harbor", milestone.id)["items"]
-    ] == [2]
-    with pytest.raises(ApplicationError, match="not retained"):
-        Milestones(upgraded).get("harbor", milestone.id, 1)
-    with upgraded.connection() as db:
-        assert not db.execute("PRAGMA foreign_key_check").fetchall()
-
-
-def test_failed_agreement_upgrade_restores_original_state(tmp_path, monkeypatch):
-    with monkeypatch.context() as old:
-        # Reconstruct the older writer: milestone branch ownership did not exist.
-        old.setattr(milestone_delivery, "for_milestone", lambda *args: None)
-        old.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 68)
-        )
-        store = fixture(tmp_path).workspace
-        milestone = Milestones(store).create("harbor", MilestoneCreate(title="Retain me"))
-        attach(store, milestone)
-    before = logical_data(store.directory)
-    migration = next(m for m in migrations.MIGRATIONS if m.version == 68)
-
-    def fail(db):
-        migration.apply(db)
-        raise ValueError("Interrupted milestone upgrade")
-
-    with monkeypatch.context() as broken:
-        broken.setattr(
-            migrations,
-            "MIGRATIONS",
-            tuple(Migration(68, fail) if m.version == 68 else m for m in migrations.MIGRATIONS),
-        )
-        with pytest.raises(ApplicationError, match="rolled back"):
-            Workspace(store.directory)
-    assert logical_data(store.directory) == before

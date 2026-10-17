@@ -47,14 +47,3 @@ class Reply(ReplyFields):
     created_at: str
     run_id: str | None = None
     status: Literal["pending", "assigned", "recorded", "cancelled"] = "pending"
-
-
-SCHEMA = """
-CREATE TABLE task_replies (
-    project_id TEXT NOT NULL, task_id TEXT NOT NULL, id TEXT PRIMARY KEY,
-    created_at TEXT NOT NULL, data TEXT NOT NULL,
-    FOREIGN KEY(project_id,task_id) REFERENCES tasks(project_id,id)
-);
-CREATE INDEX reply_scope ON task_replies(project_id,task_id,created_at);
-CREATE VIEW work_runs AS SELECT * FROM runs WHERE json_extract(data,'$.purpose')='work';
-"""

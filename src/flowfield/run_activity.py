@@ -18,12 +18,6 @@ Kind = Literal["agent", "tool", "command", "output", "status"]
 MAX_ENTRIES = 100
 MAX_TEXT = 6000
 MAX_TOTAL = 60000
-SCHEMA = """
-CREATE TABLE run_activity (
-    run_id TEXT PRIMARY KEY REFERENCES runs(id), revision INTEGER NOT NULL,
-    data TEXT NOT NULL
-);
-"""
 
 
 class ContextUsage(BaseModel):

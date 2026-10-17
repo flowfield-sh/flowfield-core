@@ -39,7 +39,7 @@ class SetupCheck(Record):
     workspace: str | None = None
     setup: list[CheckResult] = Field(default_factory=list)
     checks: list[CheckResult] = Field(default_factory=list)
-    settings: IntegrationSettings | None = None
+    settings: IntegrationSettings
     previous_check_id: str | None = None
     # Process transport remains local diagnostic evidence; never passed to a model.
     pid: int | None = None
@@ -151,8 +151,7 @@ class SetupValidation:
                     previous_check_id=previous.id if previous else None,
                 )
                 if previous:
-                    # Archive before replacing the current observation. Legacy single-file
-                    # evidence remains readable without inventing its missing settings.
+                    # Archive the exact observation before replacing the current check.
                     history = self._path(project_id).parent / "setup-history" / project_id
                     history.mkdir(parents=True, exist_ok=True)
                     archived = history / f"{previous.id}.json"

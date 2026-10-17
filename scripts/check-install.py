@@ -6,7 +6,6 @@ import os
 import re
 import shlex
 import socket
-import sqlite3
 import subprocess
 import sys
 import sysconfig
@@ -21,42 +20,27 @@ from mcp.client.streamable_http import streamable_http_client
 
 
 def check_storage(executable: str, cwd: str, env: dict[str, str]) -> None:
-    from flowfield import storage
-    from flowfield.application import SCHEMA, Workspace
-    from flowfield.migrations import BASELINE_VERSION, current_version
+    from flowfield.application import Workspace
+    from flowfield.schema import SCHEMA_VERSION
 
     directory = (Path(cwd) / "storage-state").resolve()
 
-    def command(*args: str) -> dict | list:
+    def command() -> dict:
         return json.loads(
             subprocess.check_output(
-                [executable, "--data-dir", str(directory), "storage", *args, "--json"],
+                [executable, "--data-dir", str(directory), "storage", "status", "--json"],
                 cwd=cwd,
                 env=env,
                 text=True,
             )
         )
 
-    assert command("status")["schema_version"] is None
+    assert command()["schema_version"] is None
     assert not directory.exists()
-    # Materialize the frozen public baseline using only installed package content.
-    # New-state initialization applies current migrations and has no old-schema backup.
-    directory.mkdir()
-    with sqlite3.connect(directory / storage.DATABASE) as db:
-        db.executescript(SCHEMA)
-        db.execute(f"PRAGMA user_version={BASELINE_VERSION}")
-    assert command("status")["schema_version"] == BASELINE_VERSION
-    with storage.maintenance(directory):
-        storage.snapshot(directory, reason="recovery")
-    saved = command("backups")[0]
-    assert saved["schema_version"] == BASELINE_VERSION
     Workspace(directory)
-    assert command("status")["migration_required"] is False
-    assert command("status")["schema_version"] == current_version()
-    assert command("restore", saved["id"], "--confirm")["restored"] == saved["id"]
-    assert command("status")["schema_version"] == BASELINE_VERSION
+    assert command()["schema_version"] == SCHEMA_VERSION
     Workspace(directory)
-    assert command("status")["schema_version"] == current_version()
+    assert command()["schema_version"] == SCHEMA_VERSION
 
 
 async def check_mcp(base: str, task: dict, workspace_id: str) -> None:
@@ -549,8 +533,8 @@ def main() -> None:
                         process.wait()
     print(
         "Installed package: project setup, CLI/API/MCP/UI, "
-        "task board, briefing/handoff, activity, revisions, restart "
-        "offline storage recovery, announcement preferences and update status passed."
+        "task board, briefing/handoff, activity, revisions, restart, "
+        "offline storage inspection, announcement preferences and update status passed."
     )
 
 

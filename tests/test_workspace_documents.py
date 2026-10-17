@@ -7,19 +7,15 @@ from uuid import uuid4
 
 import pytest
 from coordinator_fixtures import setup
-from execution_fixtures import BASE, fixture
+from execution_fixtures import fixture
 from fastapi.testclient import TestClient
-from storage_fixtures import logical_data
 
-from flowfield import migrations
 from flowfield.agent_tools import workspace_scope
 from flowfield.api import create_app
 from flowfield.application import Workspace
 from flowfield.coordinator_models import CoordinatorSend
 from flowfield.documents import DocumentCreate, DocumentEdit, DocumentRestore, Documents
 from flowfield.errors import ApplicationError
-from flowfield.execution import Execution
-from flowfield.migrations import Migration
 from flowfield.reads import PAGE_BYTES, ContextReads, size
 from flowfield.supervisor import Supervisor
 from flowfield.workspaces import WorkspaceCreate, Workspaces
@@ -160,40 +156,6 @@ def test_guidance_revision_is_frozen_at_send_and_retrievable_after_edit(tmp_path
     assert handoff["recent_conversation"][0]["guidance_revision"] == 2
 
 
-def test_document_upgrade_preserves_running_assignment_and_rolls_back(tmp_path, monkeypatch):
-    with monkeypatch.context() as old:
-        old.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 64)
-        )
-        execution = fixture(tmp_path)
-        run = execution.claim("harbor", BASE, {BASE: set()})
-        assignment = execution.assignment("harbor", run.id)
-        store = execution.workspace
-        original = store.task("harbor", "task-0")
-    before = logical_data(store.directory)
-    migration = next(m for m in migrations.MIGRATIONS if m.version == 64)
-
-    def fail(db):
-        migration.apply(db)
-        raise ValueError("fixture document migration failure")
-
-    with monkeypatch.context() as broken:
-        broken.setattr(
-            migrations,
-            "MIGRATIONS",
-            tuple(Migration(64, fail) if m.version == 64 else m for m in migrations.MIGRATIONS),
-        )
-        with pytest.raises(ApplicationError, match="rolled back"):
-            Workspace(store.directory)
-    assert logical_data(store.directory) == before
-    upgraded = Workspace(store.directory)
-    assert Documents(upgraded).get("harbor", "guidance").body == ""
-    assert upgraded.task("harbor", "task-0") == original
-    assert Execution(upgraded).assignment("harbor", run.id) == assignment
-    with upgraded.connection() as db:
-        assert not db.execute("PRAGMA foreign_key_check").fetchall()
-
-
 def test_document_view_binds_exact_revision_and_rejects_other_workspaces(tmp_path, monkeypatch):
     from flowfield.coordinator_models import CoordinatorViewSelection
 
@@ -275,35 +237,6 @@ def test_document_delete_restore_preserves_sources_and_guards_in_use(tmp_path):
     assert value.id in [item.id for item in docs.page("harbor").items]
 
 
-def test_document_deletion_upgrade_and_rollback(tmp_path, monkeypatch):
-    with monkeypatch.context() as old:
-        old.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 66)
-        )
-        store = Workspace(tmp_path / "state")
-        space = Workspaces(store).create(WorkspaceCreate(name="Existing"))
-    before = logical_data(store.directory)
-    migration = next(m for m in migrations.MIGRATIONS if m.version == 66)
-
-    def fail(db):
-        migration.apply(db)
-        raise ValueError("fixture rollback")
-
-    with monkeypatch.context() as broken:
-        broken.setattr(
-            migrations,
-            "MIGRATIONS",
-            tuple(Migration(66, fail) if m.version == 66 else m for m in migrations.MIGRATIONS),
-        )
-        with pytest.raises(ApplicationError, match="rolled back"):
-            Workspace(store.directory)
-    assert logical_data(store.directory) == before
-    upgraded = Workspace(store.directory)
-    assert Documents(upgraded).get(space.id, "guidance").deleted_at is None
-    with upgraded.connection() as db:
-        assert not db.execute("PRAGMA foreign_key_check").fetchall()
-
-
 def test_document_delete_tools_and_http_preserve_attribution_and_count(tmp_path):
     from flowfield.browser import BrowserReads
 
@@ -337,7 +270,7 @@ def test_document_attribution_uses_task_feed_actor_roles():
     from flowfield.actors import actor
     from flowfield.documents import DocumentHeader
 
-    for identity in ("human", "coordinator:session", "worker:attempt", "flowfield", "migration"):
+    for identity in ("human", "coordinator:session", "worker:attempt", "flowfield"):
         record = DocumentHeader(
             workspace_id="work",
             id="guidance",

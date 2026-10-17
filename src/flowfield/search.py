@@ -13,14 +13,6 @@ if TYPE_CHECKING:
 Entity = Literal["project", "milestone", "task", "activity", "question", "result"]
 History = Literal["current", "history", "all"]
 
-SCHEMA = """
-CREATE VIRTUAL TABLE search_docs USING fts5(
-    project_id UNINDEXED, entity UNINDEXED, identity UNINDEXED, revision UNINDEXED,
-    kind UNINDEXED, task_id UNINDEXED, created_at UNINDEXED, title, body,
-    tokenize='unicode61'
-);
-"""
-
 
 def _index(table: str, entity: str, values: str, *, mutable: bool = False) -> str:
     statement = f"INSERT INTO search_docs VALUES (new.project_id,'{entity}',{values});"
@@ -34,58 +26,6 @@ def _index(table: str, entity: str, values: str, *, mutable: bool = False) -> st
         )
     return result
 
-
-SCHEMA += """
-CREATE TRIGGER search_projects_insert AFTER INSERT ON projects BEGIN
-    INSERT INTO search_docs VALUES (new.id,'project',new.id,new.revision,'project',NULL,
-                                   new.updated_at,new.name,new.description);
-END;
-CREATE TRIGGER search_projects_update AFTER UPDATE ON projects BEGIN
-    DELETE FROM search_docs WHERE project_id=new.id AND entity='project';
-    INSERT INTO search_docs VALUES (new.id,'project',new.id,new.revision,'project',NULL,
-                                   new.updated_at,new.name,new.description);
-END;
-"""
-SCHEMA += _index(
-    "task_revisions",
-    "task",
-    "new.task_id,new.revision,json_extract(new.data,'$.task_type'),new.task_id,"
-    "json_extract(new.data,'$.updated_at'),json_extract(new.data,'$.title'),"
-    "json_extract(new.data,'$.body')",
-)
-SCHEMA += _index(
-    "question_revisions",
-    "question",
-    "new.question_id,new.revision,'question',json_extract(new.data,'$.task_id'),"
-    "json_extract(new.data,'$.updated_at'),json_extract(new.data,'$.question'),"
-    "coalesce(json_extract(new.data,'$.context'),'')||char(10)||"
-    "coalesce(json_extract(new.data,'$.recommendation'),'')||char(10)||"
-    "coalesce(json_extract(new.data,'$.answer'),'')",
-)
-SCHEMA += _index(
-    "activity",
-    "activity",
-    "new.id,new.sequence,new.kind,new.task_id,new.created_at,new.kind,new.body",
-)
-SCHEMA += _index(
-    "milestones",
-    "milestone",
-    "new.id,json_extract(new.data,'$.revision'),'milestone',NULL,"
-    "json_extract(new.data,'$.updated_at'),json_extract(new.data,'$.title'),"
-    "json_extract(new.data,'$.body')",
-    mutable=True,
-)
-SCHEMA += _index(
-    "result_versions",
-    "result",
-    "new.id,json_extract(new.data,'$.revision'),'result',new.task_id,"
-    "json_extract(new.data,'$.created_at'),json_extract(new.data,'$.report.summary'),"
-    "coalesce(json_extract(new.data,'$.report.checks'),'')||char(10)||"
-    "coalesce(json_extract(new.data,'$.report.limitations'),'')||char(10)||"
-    "coalesce(json_extract(new.data,'$.feedback'),'')||char(10)||"
-    "coalesce(json_extract(new.data,'$.problem'),'')",
-    mutable=True,
-)
 
 _CURRENT = """
 CASE entity
@@ -153,10 +93,9 @@ class Search:
                 task_id = self.workspace._task(db, project_id, task_id).id
             filters = ["search_docs MATCH ?", "d.project_id=?"]
             args: list[Any] = [terms(query), project_id]
-            if self.workspace.schema_version >= 60:
-                owner = self.workspace._project_workspace(db, project_id)
-                filters[1] = "(d.project_id=? OR (d.project_id IS NULL AND d.workspace_id=?))"
-                args.append(owner)
+            owner = self.workspace._project_workspace(db, project_id)
+            filters[1] = "(d.project_id=? OR (d.project_id IS NULL AND d.workspace_id=?))"
+            args.append(owner)
             for column, value in (("entity", entity), ("kind", kind), ("task_id", task_id)):
                 if value is not None:
                     filters.append(f"d.{column}=?")

@@ -53,7 +53,7 @@ class AttentionPage(BaseModel):
 
 # Projection only: select short titles, never worker reports or question bodies.
 _PROJECTION = """
-WITH scope_projects AS (SELECT id FROM projects WHERE id=:project), run_items AS (
+WITH scope_projects AS (SELECT id FROM work_scopes WHERE id=:project), run_items AS (
     SELECT r.*, NOT EXISTS (
         SELECT 1 FROM runs n WHERE n.project_id=r.project_id
         AND n.task_id=r.task_id AND n.number>r.number
@@ -119,7 +119,11 @@ WITH scope_projects AS (SELECT id FROM projects WHERE id=:project), run_items AS
              WHEN EXISTS (SELECT 1 FROM task_replies q WHERE q.project_id=v.project_id
                  AND q.task_id=v.task_id AND json_extract(q.data,'$.status')='pending')
                  THEN 'waiting'
-             /* review ownership */
+             WHEN (v.status='ready' OR
+                 json_extract(v.data,'$.problem_code')='partial_outcome') AND EXISTS (
+                 SELECT 1 FROM task_reviews review WHERE review.project_id=v.project_id
+                 AND review.task_id=v.task_id
+                 AND review.status IN ('queued','preparing','running','waiting')) THEN 'waiting'
              WHEN v.status IN ('ready','blocked','stale','cancelled') THEN 'action'
              WHEN v.status='delivered' AND json_extract(v.data,'$.completion')='code'
                 AND NOT (SELECT json_extract(data,'$.code_available') FROM runs WHERE id=v.run_id)
@@ -166,7 +170,7 @@ _WITH_DOCUMENTS = (
 )
 
 _WORKSPACE_PROJECTION = _WITH_DOCUMENTS.replace(
-    "SELECT id FROM projects WHERE id=:project",
+    "SELECT id FROM work_scopes WHERE id=:project",
     "SELECT project_id AS id FROM workspace_scopes WHERE workspace_id=:workspace "
     "AND (:project IS NULL OR project_id=:project)",
 ).replace(
@@ -200,7 +204,7 @@ _WORKSPACE_PROJECTION = (
 def workspace_attention_counts(db: sqlite3.Connection, workspace_id: str) -> dict[str, int]:
     return dict(
         db.execute(
-            review_projection(db, _WORKSPACE_PROJECTION)
+            _WORKSPACE_PROJECTION
             + "SELECT bucket,count(*) FROM items WHERE bucket IS NOT NULL GROUP BY bucket",
             {"workspace": workspace_id, "project": None},
         ).fetchall()
@@ -210,23 +214,20 @@ def workspace_attention_counts(db: sqlite3.Connection, workspace_id: str) -> dic
 def workspace_attention_requests(db: sqlite3.Connection, workspace_id: str) -> dict[str, str]:
     """Newest actionable Request per work identity, in canonical Inbox order."""
     from flowfield.requests import request_href
-    from flowfield.storage import version
 
-    identity = "task_key"
-    if version(db) >= 77:
-        identity = """coalesce(task_key,
-            (SELECT json_extract(v.data,'$.milestone_key') FROM questions q
-             JOIN milestone_reviews r ON r.id=json_extract(q.data,'$.origin_review_id')
-             JOIN milestone_verifications v ON v.id=r.verification_id
-             WHERE items.kind='question' AND q.id=items.id AND v.workspace_id=:workspace),
-            (SELECT m.key FROM milestone_deliveries d JOIN milestones m
-             ON m.workspace_id=d.workspace_id AND m.id=d.milestone_id
-             WHERE items.kind='question' AND d.workspace_id=:workspace AND
-             json_extract(d.data,'$.review_plan_question_id')=items.id))"""
+    identity = """coalesce(task_key,
+        (SELECT json_extract(v.data,'$.milestone_key') FROM questions q
+         JOIN milestone_reviews r ON r.id=json_extract(q.data,'$.origin_review_id')
+         JOIN milestone_verifications v ON v.id=r.verification_id
+         WHERE items.kind='question' AND q.id=items.id AND v.workspace_id=:workspace),
+        (SELECT m.key FROM milestone_deliveries d JOIN milestones m
+         ON m.workspace_id=d.workspace_id AND m.id=d.milestone_id
+         WHERE items.kind='question' AND d.workspace_id=:workspace AND
+         json_extract(d.data,'$.review_plan_question_id')=items.id))"""
     return {
         row[0]: request_href(workspace_id, row[1], row[2], row[3])
         for row in db.execute(
-            review_projection(db, _WORKSPACE_PROJECTION)
+            _WORKSPACE_PROJECTION
             + f", work_requests AS (SELECT {identity} AS work_key,kind,id,project_id,updated_at "
             "FROM items WHERE bucket='action'), ranked AS ("
             "SELECT *,row_number() OVER (PARTITION BY work_key "
@@ -242,7 +243,7 @@ def workspace_attention_requests(db: sqlite3.Connection, workspace_id: str) -> d
 def actionable_attention(db: sqlite3.Connection, project_id: str) -> Iterator[sqlite3.Row]:
     """Stream the complete actionable projection for transactional event observation."""
     yield from db.execute(
-        review_projection(db, _PROJECTION) + "SELECT * FROM items WHERE bucket='action'",
+        _PROJECTION + "SELECT * FROM items WHERE bucket='action'",
         {"project": project_id},
     )
 
@@ -251,7 +252,7 @@ def attention_counts(db: sqlite3.Connection, project_id: str) -> dict[str, int]:
     """The board badge and inbox use exactly the same current-work projection."""
     return dict(
         db.execute(
-            review_projection(db, _WITH_DOCUMENTS)
+            _WITH_DOCUMENTS
             + "SELECT bucket,count(*) FROM items WHERE bucket IS NOT NULL GROUP BY bucket",
             {"project": project_id},
         ).fetchall()
@@ -282,9 +283,7 @@ def attention_page(
             workspace._work_scope(db, project_id)
         else:
             raise ValueError("An attention scope is required")
-        projection = review_projection(
-            db, _WORKSPACE_PROJECTION if workspace_id is not None else _WITH_DOCUMENTS
-        )
+        projection = _WORKSPACE_PROJECTION if workspace_id is not None else _WITH_DOCUMENTS
         if request_id:
             # Exact links outlive Inbox visibility and later result creation.
             projection = (
@@ -431,21 +430,3 @@ def attention_page(
             next_offset=offset + limit if offset + limit < total else None,
             total=total,
         )
-
-
-def review_projection(db: sqlite3.Connection, projection: str) -> str:
-    from flowfield.storage import version
-
-    if version(db) >= 80:
-        projection = projection.replace(
-            "SELECT id FROM projects WHERE id=:project",
-            "SELECT id FROM work_scopes WHERE id=:project",
-        )
-    clause = ""
-    if version(db) >= 75:
-        clause = """WHEN (v.status='ready' OR
-            json_extract(v.data,'$.problem_code')='partial_outcome') AND EXISTS (
-            SELECT 1 FROM task_reviews review WHERE review.project_id=v.project_id
-            AND review.task_id=v.task_id
-            AND review.status IN ('queued','preparing','running','waiting')) THEN 'waiting'"""
-    return projection.replace("/* review ownership */", clause)

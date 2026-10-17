@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import AliasChoices, Field
+from pydantic import Field
 
 from flowfield.agent_models import AgentRecord, EffectiveAgent
 from flowfield.attention import RequestKind
@@ -86,7 +86,7 @@ class CoordinatorTurn(AgentRecord):
     task_context: CoordinatorTaskContext | None = None
     id: str
     number: int = 0
-    workspace_id: str = Field(validation_alias=AliasChoices("workspace_id", "project_id"))
+    workspace_id: str
     conversation_id: str
     text: str
     created_at: str

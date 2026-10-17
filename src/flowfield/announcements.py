@@ -118,15 +118,13 @@ def reconcile_attention(
 ) -> None:
     """Observe transitions in the domain transaction, including rapid resolve/reopen cycles."""
     timestamp = time.time() if timestamp is None else timestamp
-    from flowfield.storage import version
 
     owners = "SELECT id,name FROM projects"
-    if version(db) >= 80:
-        owners = (
-            "SELECT s.id,coalesce(p.name,w.name) AS name FROM work_scopes s "
-            "LEFT JOIN projects p ON p.id=s.project_id "
-            "LEFT JOIN workspaces w ON w.id=s.workspace_id"
-        )
+    owners = (
+        "SELECT s.id,coalesce(p.name,w.name) AS name FROM work_scopes s "
+        "LEFT JOIN projects p ON p.id=s.project_id "
+        "LEFT JOIN workspaces w ON w.id=s.workspace_id"
+    )
     projects = db.execute(
         "SELECT * FROM (" + owners + ")" + (" WHERE id=?" if project_id else ""),
         (project_id,) if project_id else (),

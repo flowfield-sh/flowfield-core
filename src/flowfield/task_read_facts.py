@@ -30,16 +30,10 @@ def read_task_facts(
     """
     from flowfield.execution import Execution
 
-    dependency_join = (
-        "d.key=p.value"
-        if workspace.schema_version >= 62
-        else "d.project_id=t.project_id AND d.id=p.value"
-    )
+    dependency_join = "d.key=p.value"
     verification = (
         "(SELECT status FROM milestone_verifications "
         "WHERE id=json_extract(t.data,'$.publication.verification_id'))"
-        if workspace.schema_version >= 69
-        else "NULL"
     )
     rows = db.execute(
         "SELECT t.id,t.key,json_extract(t.data,'$.status') AS status, "

@@ -3,7 +3,6 @@
 import asyncio
 import json
 import sys
-from dataclasses import replace
 
 import httpx
 import pytest
@@ -12,7 +11,6 @@ from execution_fixtures import BASE, fixture
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
-from flowfield import migrations, storage
 from flowfield.adapters import harness_host
 from flowfield.adapters.codex_agent import CodexAgent
 from flowfield.adapters.coordinator_sessions import CoordinatorSessions, NativeGeneration
@@ -341,7 +339,7 @@ def test_codex_override_launch_is_frozen_and_saved_session_rejects_redirect(tmp_
     with workspace.connection(write=True) as db:
         generation = NativeGeneration(
             id="a" * 32,
-            project_id="harbor",
+            workspace_id="harbor",
             created_at=now(),
             harness="codex",
             session_id="native-id",
@@ -406,10 +404,10 @@ def test_coordinator_config_path_change_requires_fresh_recovery_and_preserves_ch
             assert failed.status == "failed" and failed.session == "unavailable"
             assert not failed.native_started and failed.applied is None
             assert store.page("harbor").session_recovery_turn_id == failed.id
-            from flowfield.adapters.coordinator_directory import for_project
+            from flowfield.adapters.coordinator_directory import for_scope
 
             assert (
-                store.session("harbor", "codex", str(for_project(service.workspace, "harbor")))
+                store.session("harbor", "codex", str(for_scope(service.workspace, "harbor")))
                 == "test-session"
             )
             store.reset_session("harbor", failed.id)
@@ -432,114 +430,6 @@ def test_coordinator_config_path_change_requires_fresh_recovery_and_preserves_ch
             await service.close()
 
     asyncio.run(exercise())
-
-
-def test_schema_44_upgrade_preserves_choices_and_recovery_and_is_database_only(
-    tmp_path, monkeypatch
-):
-    with monkeypatch.context() as baseline:
-        baseline.setattr(migrations, "MIGRATIONS", ())
-        execution = fixture(tmp_path)
-        workspace = execution.workspace
-        AgentSettings(workspace).edit(
-            "harbor",
-            "coordinator",
-            AgentSettingsEdit(
-                expected_revision=1, selection=AgentChoice(model="saved-model", effort="high")
-            ),
-        )
-        before = AgentSettings(workspace).get("harbor", "coordinator")
-        with workspace.connection(write=True) as db:
-            db.execute(
-                "INSERT INTO coordinator_sessions VALUES (?,?,?,?)",
-                ("harbor", "codex", "old-session", str(tmp_path)),
-            )
-    # The actual migration cannot inspect host paths, executables or native accounts.
-    monkeypatch.setattr(
-        harness_host, "resolve", lambda *args: pytest.fail("native detection during migration")
-    )
-    upgraded = Workspace(workspace.directory)
-    assert upgraded.schema_version == migrations.current_version()
-    current = AgentSettings(upgraded).get("harbor", "coordinator")
-    assert current == before.model_copy(
-        update={"effective": before.effective.model_copy(update={"source": "workspace"})}
-    )
-    assert len(HarnessSettings(upgraded).all()) == 3
-    assert CoordinatorStore(upgraded).session("harbor", "codex", str(tmp_path)) is None
-    with upgraded.connection() as db:
-        source, fresh = CoordinatorStore(upgraded).sessions.current(db, "harbor")
-        assert fresh and source.session_id == "old-session"
-    backup = storage.backups(upgraded.directory)[0]
-    assert backup["schema_version"] == 44
-    storage.restore(upgraded.directory, backup["id"])
-    assert storage.status(upgraded.directory)["schema_version"] == 44
-    assert Workspace(upgraded.directory).schema_version == migrations.current_version()
-
-
-def test_real_registration_migration_failure_rolls_back_new_table_and_binding_column(
-    tmp_path, monkeypatch
-):
-    with monkeypatch.context() as baseline:
-        baseline.setattr(migrations, "MIGRATIONS", ())
-        workspace = Workspace(tmp_path / "state")
-    original = migrations.MIGRATIONS[0]
-
-    def fail(db):
-        original.apply(db)
-        raise RuntimeError("after real registration DDL")
-
-    monkeypatch.setattr(migrations, "MIGRATIONS", (replace(original, apply=fail),))
-    with pytest.raises(ApplicationError, match="rolled back"):
-        Workspace(workspace.directory)
-    with storage.connect(workspace.database) as db:
-        assert storage.version(db) == 44
-        assert (
-            db.execute("SELECT name FROM sqlite_master WHERE name='harness_settings'").fetchone()
-            is None
-        )
-        assert [row[1] for row in db.execute("PRAGMA table_info(coordinator_sessions)")] == [
-            "project_id",
-            "harness",
-            "session_id",
-            "cwd",
-        ]
-    monkeypatch.setattr(migrations, "MIGRATIONS", (original,))
-    assert Workspace(workspace.directory).schema_version == 45
-
-
-def test_catalog_migration_failure_preserves_registration_and_recovers(tmp_path, monkeypatch):
-    registration_migration, catalog_migration = migrations.MIGRATIONS[:2]
-    with monkeypatch.context() as baseline:
-        baseline.setattr(migrations, "MIGRATIONS", (registration_migration,))
-        workspace = Workspace(tmp_path / "state")
-        saved = HarnessSettings(workspace).edit(
-            "claude-code", HarnessEdit(expected_revision=1, executable="/host/claude")
-        )
-
-    def fail(db):
-        catalog_migration.apply(db)
-        raise RuntimeError("after catalog DDL")
-
-    with monkeypatch.context() as broken:
-        broken.setattr(
-            migrations,
-            "MIGRATIONS",
-            (registration_migration, replace(catalog_migration, apply=fail)),
-        )
-        with pytest.raises(ApplicationError, match="rolled back"):
-            Workspace(workspace.directory)
-    with storage.connect(workspace.database) as db:
-        assert storage.version(db) == 45
-        assert (
-            db.execute("SELECT 1 FROM sqlite_master WHERE name='harness_catalogs'").fetchone()
-            is None
-        )
-    upgraded = Workspace(workspace.directory)
-    assert HarnessSettings(upgraded).get("claude-code") == saved
-    backup = storage.backups(upgraded.directory)[0]
-    storage.restore(upgraded.directory, backup["id"])
-    assert storage.status(upgraded.directory)["schema_version"] == 45
-    assert Workspace(upgraded.directory).schema_version == migrations.current_version()
 
 
 def test_http_host_settings_are_independent_and_do_not_start_models(tmp_path, monkeypatch):
@@ -634,7 +524,7 @@ def test_offline_status_respects_saved_override_without_initializing_missing_sta
     assert status["registration"] == saved.model_dump() and status["launch"][
         "native_executable"
     ] == str(executable)
-    assert not log.exists() and storage.backups(workspace.directory) == []
+    assert not log.exists()
 
 
 def test_cli_host_configuration_targets_service_and_reset_is_revisioned(monkeypatch):

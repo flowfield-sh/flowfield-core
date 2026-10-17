@@ -7,7 +7,6 @@ from typing import Any
 from flowfield.activity_text import OMISSION, retain
 from flowfield.attachments import REFERENCE
 from flowfield.coordinator_models import CoordinatorTurn
-from flowfield.coordinator_ownership import column as owner_column
 from flowfield.reads import iter_coordinator_exchanges, size
 
 
@@ -23,12 +22,11 @@ def freeze(db: sqlite3.Connection, turn: CoordinatorTurn) -> dict[str, Any]:
     # text cannot change: the store rejects late writes. Freeze a boundary into those
     # canonical sources instead of copying a growing transcript on every native resume.
     count, latest = db.execute(
-        f"SELECT count(*),max(number) FROM coordinator_turns WHERE "
-        f"{owner_column(db)}=? AND number<?",
+        "SELECT count(*),max(number) FROM coordinator_turns WHERE workspace_id=? AND number<?",
         (turn.workspace_id, turn.number),
     ).fetchone()
     welcome = db.execute(
-        f"SELECT welcome FROM coordinator_conversations WHERE {owner_column(db)}=? AND id=?",
+        "SELECT welcome FROM coordinator_conversations WHERE workspace_id=? AND id=?",
         (turn.workspace_id, turn.conversation_id),
     ).fetchone()
     return {
@@ -48,8 +46,6 @@ def freeze(db: sqlite3.Connection, turn: CoordinatorTurn) -> dict[str, Any]:
 def select(
     db: sqlite3.Connection, project: str, snapshot: dict[str, Any], budget: int | None
 ) -> dict[str, Any]:
-    if snapshot["version"] == 1:
-        return snapshot  # Preserve already accepted historical snapshots verbatim.
     result = {**snapshot, "recent_conversation": [], "history_mode": "retrieve"}
     if budget is None or budget <= size(result):
         return result

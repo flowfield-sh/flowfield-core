@@ -3,18 +3,16 @@
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-from execution_fixtures import BASE, fixture
+from execution_fixtures import BASE
 from project_fixtures import existing_directory
 from workspace_workers_fixtures import shared
 
-from flowfield import migrations, storage
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit
 from flowfield.agent_settings import AgentSettings
 from flowfield.application import ProjectSetup, Workspace
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.execution_models import QueueEdit, SettingsEdit
-from flowfield.migrations import Migration
 from flowfield.questions import QuestionAnswer, QuestionCreate, Questions
 from flowfield.reads import ContextReads
 from flowfield.workspaces import WorkspaceCreate, Workspaces
@@ -175,78 +173,3 @@ def test_transitional_project_cannot_silently_lose_defaults_on_adoption(tmp_path
     with pytest.raises(ApplicationError, match="registered without a workspace"):
         spaces.adopt(identity, ProjectSetup(path=path))
     assert execution.settings("extra").selection.model == "private-default"
-
-
-@pytest.mark.parametrize("enabled", [True, False])
-def test_migration_preserves_defaults_overrides_problem_and_frozen_attempt(
-    tmp_path, monkeypatch, enabled
-):
-    with monkeypatch.context() as old:
-        old.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 55)
-        )
-        execution = fixture(tmp_path, count=2)
-        agents = AgentSettings(execution.workspace)
-        agents.edit(
-            "harbor",
-            "worker",
-            AgentSettingsEdit(expected_revision=1, selection=AgentChoice(model="special")),
-            "task-1",
-        )
-        run = execution.claim("harbor", BASE, {})
-        execution.queue_problem("harbor", "Keep recovery")
-        execution.queue(
-            "harbor",
-            QueueEdit(expected_revision=execution.settings("harbor").revision, enabled=enabled),
-        )
-        execution.queue_problem("harbor", "Keep recovery")
-        before = execution.settings("harbor")
-    store = Workspace(execution.workspace.directory)
-    spaces = Workspaces(store)
-    upgraded = Execution(store)
-    assert upgraded.settings("harbor") == before
-    assert spaces.workers("harbor").enabled == enabled
-    assert spaces.workers("harbor").revision == before.revision
-    assert upgraded.get("harbor", run.id) == run
-    assert run.agent_settings.source == "project"
-    assert (
-        AgentSettings(store).get("harbor", "worker", "task-1").effective.choice.model == "special"
-    )
-    with store.connection() as db:
-        assert db.execute("SELECT count(*) FROM worker_settings").fetchone()[0] == 0
-    assert spaces.occupancy("harbor").active == 1
-    assert len(storage.backups(store.directory)) == 1
-
-
-def test_failed_settings_migration_restores_prior_owner(tmp_path, monkeypatch):
-    with monkeypatch.context() as old:
-        old.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 55)
-        )
-        execution = fixture(tmp_path)
-        before = execution.settings("harbor")
-    original = next(m for m in migrations.MIGRATIONS if m.version == 56)
-
-    def fail(db):
-        original.apply(db)
-        raise ValueError("worker settings migration failure")
-
-    with monkeypatch.context() as broken:
-        broken.setattr(
-            migrations,
-            "MIGRATIONS",
-            tuple(Migration(56, fail) if m.version == 56 else m for m in migrations.MIGRATIONS),
-        )
-        with pytest.raises(ApplicationError, match="rolled back"):
-            Workspace(execution.workspace.directory)
-    with storage.connect(execution.workspace.database) as db:
-        assert storage.version(db) == 54
-        assert db.execute("SELECT count(*) FROM worker_settings").fetchone()[0] == 1
-        assert (
-            db.execute(
-                "SELECT name FROM sqlite_master WHERE name='workspace_worker_settings'"
-            ).fetchone()
-            is None
-        )
-    upgraded = Execution(Workspace(execution.workspace.directory))
-    assert upgraded.settings("harbor") == before

@@ -1,4 +1,4 @@
-"""Settings inheritance, frozen attempts, concurrent edits and migration preservation."""
+"""Settings inheritance, frozen attempts, concurrent edits and restart persistence."""
 
 from concurrent.futures import ThreadPoolExecutor
 

@@ -194,11 +194,9 @@ class BrowserReads:
             )
             if task.publication and task.publication.documents
             else [],
-            milestone_update=milestone_update(
-                db, task, current_milestones=batch.milestones if batch else None
-            )
-            if self.workspace.schema_version >= 68
-            else None,
+            milestone_update=(
+                milestone_update(db, task, current_milestones=batch.milestones if batch else None)
+            ),
             status_changed_at=timeline["entered"],
             archived_at=timeline["archived_at"] if task.archived else None,
             archived_by=timeline["archived_by"] if task.archived else None,
@@ -229,15 +227,13 @@ class BrowserReads:
         batch = CardReadBatch(
             facts=read_task_facts(self.workspace, db, project_id),
             questions=project_blocking_questions(db, project_id),
-            documents=project_updates(db, project_id)
-            if self.workspace.schema_version >= 64
-            else {},
-            milestones={
-                (item.workspace_id, item.id): item
-                for item in self.workspace._milestones(db, project_id)
-            }
-            if self.workspace.schema_version >= 68
-            else {},
+            documents=(project_updates(db, project_id)),
+            milestones=(
+                {
+                    (item.workspace_id, item.id): item
+                    for item in self.workspace._milestones(db, project_id)
+                }
+            ),
         )
         available = {
             row[0]

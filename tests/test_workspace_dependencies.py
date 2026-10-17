@@ -6,14 +6,11 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from project_fixtures import existing_directory, task_request
-from storage_fixtures import logical_data
 from workspace_dependencies_fixtures import complete, shared
 
-from flowfield import migrations
-from flowfield.application import ProjectSetup, TaskEdit, TaskPublish, Workspace
+from flowfield.application import ProjectSetup, TaskEdit, TaskPublish
 from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
-from flowfield.migrations import Migration
 from flowfield.reads import ContextReads
 from flowfield.workspaces import Workspaces
 
@@ -200,38 +197,3 @@ def test_foreign_code_is_frozen_evidence_without_local_ancestry_or_worker_scope(
         grant.revoke()
 
     asyncio.run(read_frozen_evidence())
-
-
-def test_upgrade_keeps_dependency_targets_agreements_and_history(tmp_path, monkeypatch):
-    with monkeypatch.context() as old:
-        old.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 62)
-        )
-        store = shared(tmp_path)
-        first = store.create_task("core", task_request(id="old", title="API"))
-        second = store.create_task("core", task_request(title="Ship", dependencies=[first.id]))
-        original = second.model_dump()
-    before = logical_data(store.directory)
-    upgrade = next(m for m in migrations.MIGRATIONS if m.version == 62)
-
-    def fail(db):
-        upgrade.apply(db)
-        raise ValueError("fixture dependency migration failure")
-
-    with monkeypatch.context() as broken:
-        broken.setattr(
-            migrations,
-            "MIGRATIONS",
-            tuple(Migration(62, fail) if m.version == 62 else m for m in migrations.MIGRATIONS),
-        )
-        with pytest.raises(ApplicationError, match="rolled back"):
-            Workspace(store.directory)
-    assert logical_data(store.directory) == before
-    upgraded = Workspace(store.directory)
-    migrated = upgraded.task("core", second.id)
-    assert migrated.dependencies == [first.key]
-    assert migrated.revision == original["revision"]
-    assert migrated.agreement_revision == original["agreement_revision"]
-    assert migrated.prerequisites[0].id == first.id
-    assert migrated.revisions[0].dependencies == [first.key]
-    assert migrated.blocked_by[0].project_id == "core"

@@ -96,18 +96,3 @@ class Integration(IntegrationSummary):
 class IntegrationPage(Record):
     items: list[IntegrationSummary]
     next_before: int | None = None
-
-
-SCHEMA = """
-CREATE TABLE integration_settings (
-    project_id TEXT PRIMARY KEY REFERENCES projects(id), data TEXT NOT NULL
-);
-CREATE TABLE integrations (
-    number INTEGER PRIMARY KEY AUTOINCREMENT,
-    id TEXT NOT NULL UNIQUE,
-    project_id TEXT NOT NULL REFERENCES projects(id),
-    run_id TEXT NOT NULL REFERENCES runs(id),
-    status TEXT NOT NULL, data TEXT NOT NULL
-);
-CREATE INDEX integrations_project ON integrations(project_id, number);
-"""

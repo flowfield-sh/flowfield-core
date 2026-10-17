@@ -216,7 +216,7 @@ class Questions:
                         f"/workspaces/{verification['workspace_id']}/milestones/"
                         f"{verification['milestone_key']}?verification={verification['id']}"
                     )
-            elif result.origin_review_id and self.workspace.schema_version >= 77:
+            elif result.origin_review_id:
                 row = db.execute(
                     "SELECT v.data FROM milestone_verifications v JOIN milestone_reviews r "
                     "ON r.verification_id=v.id WHERE r.project_id=? AND r.id=?",

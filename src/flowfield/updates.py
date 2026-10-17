@@ -126,8 +126,7 @@ def cached_status(directory: Path) -> UpdateStatus:
             closing(connect(directory / DATABASE, readonly=True)) as db,
         ):
             require_supported(version(db))
-            if version(db) >= 54:
-                data = state(db)
+            data = state(db)
     return status_from(data, __version__).model_copy(update={"cached": True})
 
 

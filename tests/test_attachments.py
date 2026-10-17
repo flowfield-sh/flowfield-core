@@ -10,13 +10,13 @@ from fastapi.testclient import TestClient
 from managed_local_fixtures import configured
 from replies_fixtures import message as reply_message
 
-from flowfield import migrations
 from flowfield.adapters.git_workspace import baseline
 from flowfield.api import create_app
 from flowfield.application import Workspace
 from flowfield.attachments import MAX_FILE, Attachments, AttachmentUpload
 from flowfield.errors import ApplicationError
 from flowfield.replies import Replies
+from flowfield.schema import SCHEMA_VERSION
 
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII="
@@ -143,7 +143,7 @@ def test_http_upload_size_limit_and_restart(tmp_path, monkeypatch):
     workspace = fixture(tmp_path).workspace
     before = workspace.task("harbor", "task-0")
     restored = Workspace(workspace.directory)
-    assert restored.schema_version == migrations.current_version()
+    assert restored.schema_version == SCHEMA_VERSION
     assert restored.task("harbor", "task-0") == before
     with TestClient(create_app(data_dir=restored.directory), base_url="http://localhost") as client:
         path = "/api/projects/harbor/attachments"

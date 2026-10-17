@@ -1,24 +1,20 @@
 """Native binding generations retain sources and reject obsolete authority."""
 
 import asyncio
-import json
 from uuid import uuid4
 
 import pytest
 from coordinator_generations_fixtures import CLAUDE, CODEX, finish_coordinator, start_coordinator
 from execution_fixtures import fixture
-from project_fixtures import adopt, finish_legacy_chat, prepare_legacy_chat
-from storage_fixtures import logical_data, raw
+from project_fixtures import adopt
 
-from flowfield import migrations, storage
 from flowfield.agent_models import AgentSettingsEdit
 from flowfield.agent_settings import AgentSettings
 from flowfield.agent_tools import workspace_scope
-from flowfield.application import ProjectSetup, Workspace
+from flowfield.application import ProjectSetup
 from flowfield.coordinator_models import CoordinatorSend
 from flowfield.coordinator_store import CoordinatorStore
 from flowfield.errors import ApplicationError
-from flowfield.migrations import Migration
 from flowfield.permission_models import PermissionAnswer, PermissionOption
 from flowfield.permissions import Permissions
 from flowfield.run_activity import ActivityUpdate
@@ -273,85 +269,3 @@ def test_only_measured_native_reconfiguration_retains_context(tmp_path, choice, 
     )
     assert (generation.id != original.id) == fresh
     assert next_turn.session == ("new" if fresh else "resumed")
-
-
-def test_schema_48_binding_upgrade_rolls_back_and_restores_exact_sources(tmp_path, monkeypatch):
-    with monkeypatch.context() as previous:
-        previous.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version <= 48)
-        )
-        workspace = fixture(tmp_path).workspace
-        AgentSettings(workspace).edit(
-            "harbor", "coordinator", AgentSettingsEdit(expected_revision=1, selection=CODEX)
-        )
-        prepare_legacy_chat(workspace)
-        store = CoordinatorStore(workspace)
-        turn, _ = store.reserve(
-            "harbor",
-            store.new("harbor").id,
-            CoordinatorSend(id=uuid4().hex, text="Original preserved sources"),
-        )
-        with workspace.connection(write=True) as db:
-            turn.status = "completed"
-            turn.session = "resumed"
-            store._save(db, turn)
-            db.execute(
-                "INSERT INTO coordinator_sessions VALUES (?,?,?,?,?)",
-                (
-                    "harbor",
-                    "codex",
-                    "private-retained-native",
-                    workspace.project("harbor").path,
-                    None,
-                ),
-            )
-        snapshot = store.handoff("harbor", turn.id)
-        snapshot.pop("welcome", None)
-        finish_legacy_chat(workspace)
-    before = logical_data(workspace.directory)
-    original = next(m for m in migrations.MIGRATIONS if m.version == 49)
-
-    def fail(db):
-        original.apply(db)
-        raise ValueError("after actual binding replacement")
-
-    with monkeypatch.context() as failure:
-        failure.setattr(
-            migrations,
-            "MIGRATIONS",
-            (*[m for m in migrations.MIGRATIONS if m.version < 49], Migration(49, fail)),
-        )
-        with pytest.raises(ApplicationError, match="rolled back"):
-            Workspace(workspace.directory)
-    assert logical_data(workspace.directory) == before
-    with raw(workspace.directory) as db:
-        assert storage.version(db) == 48
-        assert len(db.execute("PRAGMA table_info(coordinator_sessions)").fetchall()) == 5
-    # Database-only migration never launches or detects native tools/accounts.
-    monkeypatch.setattr(
-        "flowfield.adapters.harness_host.resolve",
-        lambda *a, **kw: pytest.fail("native detection during upgrade"),
-    )
-    upgraded = Workspace(workspace.directory)
-    store = CoordinatorStore(upgraded)
-    assert store.get("harbor", turn.id) == turn and store.handoff("harbor", turn.id) == snapshot
-    # The managed home requires a fresh native generation; its source stays intact.
-    assert store.session("harbor", "codex", upgraded.project("harbor").path) is None
-    with upgraded.connection() as db:
-        generation, fresh = store.sessions.current(db, "harbor")
-        assert fresh and generation.choice == CODEX and generation.created_by is None
-        assert generation.session_id == "private-retained-native"
-        assert generation.dispatched is None
-        assert (
-            db.execute(
-                "SELECT generation_id FROM coordinator_turns WHERE id=?", (turn.id,)
-            ).fetchone()[0]
-            is None
-        )
-    assert "private-retained-native" not in json.dumps(snapshot)
-    backup = storage.backups(upgraded.directory)[0]
-    assert backup["schema_version"] == 48
-    storage.restore(upgraded.directory, backup["id"])
-    assert storage.status(upgraded.directory)["schema_version"] == 48
-    restored = Workspace(upgraded.directory)
-    assert CoordinatorStore(restored).handoff("harbor", turn.id) == snapshot

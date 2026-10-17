@@ -6590,7 +6590,7 @@ export interface components {
       setup: components["schemas"]["CheckResult"][];
       /** Checks */
       checks: components["schemas"]["CheckResult"][];
-      settings: components["schemas"]["IntegrationSettings"] | null;
+      settings: components["schemas"]["IntegrationSettings"];
       /** Previous Check Id */
       previous_check_id: string | null;
       /** Pid */
@@ -15285,7 +15285,6 @@ export const actorRoles = {
   reviewer: "reviewer",
   flowfield: "flowfield",
   service: "flowfield",
-  migration: "flowfield",
 } as const;
 export const actorLabels = {
   human: "You",

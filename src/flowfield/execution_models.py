@@ -193,23 +193,3 @@ class RunLocation(Record):
     workspace: str | None = None
     diff_command: str | None = None
     try_command: str | None = None
-
-
-SCHEMA = """
-CREATE TABLE worker_settings (
-    project_id TEXT PRIMARY KEY REFERENCES projects(id), data TEXT NOT NULL
-);
-CREATE TABLE runs (
-    number INTEGER PRIMARY KEY AUTOINCREMENT,
-    id TEXT NOT NULL UNIQUE,
-    project_id TEXT NOT NULL REFERENCES projects(id), task_id TEXT NOT NULL,
-    status TEXT NOT NULL, data TEXT NOT NULL, assignment TEXT NOT NULL,
-    FOREIGN KEY(project_id, task_id) REFERENCES tasks(project_id, id)
-);
-CREATE INDEX runs_project ON runs(project_id, task_id, number);
-CREATE UNIQUE INDEX run_owner ON runs(project_id, task_id)
-WHERE status IN ('preparing', 'running', 'stopping', 'uncertain');
-CREATE TABLE execution_local (
-    run_id TEXT PRIMARY KEY REFERENCES runs(id), data TEXT NOT NULL
-);
-"""

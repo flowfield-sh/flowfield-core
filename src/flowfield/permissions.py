@@ -58,12 +58,8 @@ class PermissionTurn:
         created = now()
         record = PermissionRecord(
             id=uuid4().hex,
-            project_id=self.project
-            if self.role == "worker" or self.owner.workspace.schema_version < 59
-            else None,
-            workspace_id=self.project
-            if self.role == "coordinator" and self.owner.workspace.schema_version >= 59
-            else None,
+            project_id=self.project if self.role == "worker" else None,
+            workspace_id=self.project if self.role == "coordinator" else None,
             role=self.role,
             task_id=self.task_id,
             run_id=self.run_id,

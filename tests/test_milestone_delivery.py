@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import pytest
-from execution_fixtures import fixture
 from milestone_delivery_fixtures import contribute, setup
 from project_fixtures import fixture_stage_change, task_request
 
@@ -159,47 +158,6 @@ def test_other_milestone_cannot_claim_unavailable_prerequisite(tmp_path):
     assert version.source_commit not in integrations.available("harbor", head, destination.branch)
     with pytest.raises(ApplicationError, match="prerequisite code"):
         execution.claim("harbor", head, {head: set()}, task_id=task.id)
-
-
-@pytest.mark.parametrize("version", [70, 71])
-def test_delivery_migrations_preserve_existing_work_and_rollback(tmp_path, monkeypatch, version):
-    from storage_fixtures import logical_data
-
-    from flowfield import migrations
-    from flowfield.application import Workspace
-    from flowfield.migrations import Migration
-
-    with monkeypatch.context() as old:
-        old.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < version)
-        )
-        store = fixture(tmp_path, count=0).workspace
-        milestone = Milestones(store).create("harbor", MilestoneCreate(title="Existing outcome"))
-    before = logical_data(store.directory)
-    step = next(m for m in migrations.MIGRATIONS if m.version == version)
-
-    def fail(db):
-        step.apply(db)
-        raise ValueError("Interrupted delivery upgrade")
-
-    with monkeypatch.context() as broken:
-        broken.setattr(
-            migrations,
-            "MIGRATIONS",
-            tuple(
-                Migration(version, fail) if m.version == version else m
-                for m in migrations.MIGRATIONS
-            ),
-        )
-        with pytest.raises(ApplicationError, match="rolled back"):
-            Workspace(store.directory)
-    assert logical_data(store.directory) == before
-    upgraded = Workspace(store.directory)
-    assert Milestones(upgraded).get("harbor", milestone.id) == milestone
-    assert MilestoneDeliveries(upgraded).get("harbor", milestone.id) is None
-    with upgraded.connection() as db:
-        assert not db.execute("PRAGMA foreign_key_check").fetchall()
-        assert db.execute("SELECT count(*) FROM milestone_promotions").fetchone()[0] == 0
 
 
 def test_unowned_collision_can_choose_another_name_without_deleting_branch(tmp_path):

@@ -19,7 +19,7 @@ flowfield project init /absolute/path/reader-app --workspace WORKSPACE_ID --pref
 
 Replace `WORKSPACE_ID` with the returned workspace ID. Registration writes project identity to `.flowfield/config.toml`; it starts neither a model nor the queue. Before managed implementation, establish a committed repository baseline and [validate its integration settings](/worker-setup).
 
-Existing registrations stay in their current workspace. Moving projects between workspaces and merging conversations are not available. See [storage and upgrades](/storage#upgrades) for how earlier installations become workspaces.
+Existing registrations stay in their current workspace. Moving projects between workspaces and merging conversations are not available. Older database schemas require [starting with a fresh data directory](/storage#starting-fresh).
 
 ## Find the work
 
@@ -50,7 +50,7 @@ Describe the intended outcome and, when useful, add **Acceptance criteria** for 
 
 The **Revisions** sidebar opens earlier descriptions and acceptance criteria at stable links. Ask the Coordinator to revise the outcome or criteria; the pane preserves each saved version. When the Coordinator prepares a task, Flowfield saves the current milestone details as context for that worker. The task's description defines its specific contribution to the outcome.
 
-Later milestone edits leave prepared tasks intact and show **Milestone details changed** on affected unfinished work in Tasks and Inbox. The task header links directly to the milestone revision used at preparation; its tooltip identifies that revision. Ask the Coordinator to assess whether the task needs updating. Existing installations retain the effective milestone details when upgraded; earlier unsaved revisions are unavailable.
+Later milestone edits leave prepared tasks intact and show **Milestone details changed** on affected unfinished work in Tasks and Inbox. The task header links directly to the milestone revision used at preparation; its tooltip identifies that revision. Ask the Coordinator to assess whether the task needs updating.
 
 ### Verify and accept an outcome
 

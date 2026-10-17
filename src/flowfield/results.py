@@ -34,32 +34,29 @@ class Results:
             return self._present(db, self._get(db, project_id, identity))
 
     def _present(self, db: sqlite3.Connection, value: ResultVersion) -> ResultVersion:
+        from flowfield.outputs import Outputs
         from flowfield.result_actions import result_action
 
-        if self.workspace.schema_version >= 79:
-            from flowfield.outputs import Outputs
-
-            value.files = Outputs.for_run(db, value.run_id)
+        value.files = Outputs.for_run(db, value.run_id)
         value.next_action = result_action(self.workspace, db, value)
         value.recheck_of = db.execute(
             "SELECT min(version) FROM result_versions WHERE run_id=? AND version<?",
             (value.run_id, value.version),
         ).fetchone()[0]
-        if self.workspace.schema_version >= 75:
-            row = db.execute(
-                "SELECT data FROM task_reviews WHERE result_id=? ORDER BY number DESC LIMIT 1",
-                (value.id,),
-            ).fetchone()
-            if row:
-                review = json.loads(row[0])
-                verdict = review.get("verdict") or {}
-                value.independent_review = IndependentAssessment(
-                    id=review["id"],
-                    status=review["status"],
-                    summary=verdict.get("summary", ""),
-                    evidence=verdict.get("evidence", ""),
-                    request=verdict.get("request", ""),
-                )
+        row = db.execute(
+            "SELECT data FROM task_reviews WHERE result_id=? ORDER BY number DESC LIMIT 1",
+            (value.id,),
+        ).fetchone()
+        if row:
+            review = json.loads(row[0])
+            verdict = review.get("verdict") or {}
+            value.independent_review = IndependentAssessment(
+                id=review["id"],
+                status=review["status"],
+                summary=verdict.get("summary", ""),
+                evidence=verdict.get("evidence", ""),
+                request=verdict.get("request", ""),
+            )
         return value
 
     def page(
@@ -141,7 +138,7 @@ class Results:
             report=run.result,
             created_at=now(),
             target_branch=run.target_branch,
-            review_requested=self.workspace.schema_version >= 75,
+            review_requested=True,
         )
         db.execute(
             "INSERT INTO result_versions(id,project_id,task_id,run_id,version,status,data) "
@@ -213,14 +210,11 @@ class Results:
         if request.action == "approve" and version.approved_at:
             return self._present(db, version)
         self.workspace._current(version.revision, request.expected_revision)
-        if (
-            self.workspace.schema_version >= 75
-            and db.execute(
-                "SELECT 1 FROM task_reviews WHERE project_id=? AND task_id=? AND status IN "
-                "('queued','preparing','running','waiting','uncertain')",
-                (project_id, version.task_id),
-            ).fetchone()
-        ):
+        if db.execute(
+            "SELECT 1 FROM task_reviews WHERE project_id=? AND task_id=? AND status IN "
+            "('queued','preparing','running','waiting','uncertain')",
+            (project_id, version.task_id),
+        ).fetchone():
             raise ApplicationError(
                 "review_owns_result",
                 "Wait for the review or stop it before responding to this result.",

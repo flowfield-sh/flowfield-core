@@ -131,37 +131,6 @@ def test_disabled_review_does_not_authorize_unreviewed_delivery(tmp_path):
     assert git(repo, "rev-parse", delivery.branch).decode().strip() == base
 
 
-def test_policy_migration_defaults_off_and_rolls_back(tmp_path, monkeypatch):
-    from flowfield import migrations, storage
-    from flowfield.application import Workspace
-    from flowfield.migrations import Migration
-    from flowfield.migrations.v076_delegated_integration import apply
-
-    old_chain = tuple(m for m in migrations.MIGRATIONS if m.version <= 75)
-    with monkeypatch.context() as old:
-        old.setattr(migrations, "MIGRATIONS", old_chain)
-        store, _, _, milestone, _, _, _ = prepared(tmp_path)
-
-    def interrupted(db):
-        apply(db)
-        raise RuntimeError("Interrupted policy migration")
-
-    with monkeypatch.context() as broken:
-        broken.setattr(migrations, "MIGRATIONS", (*old_chain, Migration(76, interrupted)))
-        with pytest.raises(Exception, match="Interrupted policy migration"):
-            Workspace(store.directory)
-    with storage.connect(store.directory / storage.DATABASE) as db:
-        assert storage.version(db) == 75
-        assert not db.execute(
-            "SELECT 1 FROM sqlite_master WHERE name='milestone_integration_policy_history'"
-        ).fetchone()
-    upgraded = Workspace(store.directory)
-    delivery = MilestoneDeliveries(upgraded).get("harbor", milestone.id)
-    assert not delivery.integration_policy.enabled
-    with upgraded.connection() as db:
-        assert db.execute("PRAGMA foreign_key_check").fetchall() == []
-
-
 def test_sibling_delivery_reassembles_and_requires_fresh_review(tmp_path):
     from milestone_delivery_git_fixtures import commit
 
@@ -247,39 +216,6 @@ def test_override_survives_defaults_and_reset_inherits_current_policy(tmp_path):
     assert MilestoneDeliveries(store).policy_view("harbor", milestone.id).effective_enabled
 
 
-def test_workspace_policy_migration_preserves_overrides_and_recovers(tmp_path, monkeypatch):
-    from flowfield import migrations, storage
-    from flowfield.application import Workspace
-    from flowfield.migrations import Migration
-    from flowfield.migrations.v078_workspace_integration import apply
-
-    old_chain = tuple(m for m in migrations.MIGRATIONS if m.version <= 77)
-    with monkeypatch.context() as old:
-        old.setattr(migrations, "MIGRATIONS", old_chain)
-        store, _, _, milestone, delivery, _, _ = prepared(tmp_path)
-        delivery = policy(store, milestone, delivery, True)
-
-    def interrupted(db):
-        apply(db)
-        raise RuntimeError("Interrupted default migration")
-
-    with monkeypatch.context() as broken:
-        broken.setattr(migrations, "MIGRATIONS", (*old_chain, Migration(78, interrupted)))
-        with pytest.raises(Exception, match="Interrupted default migration"):
-            Workspace(store.directory)
-    with storage.connect(store.directory / storage.DATABASE) as db:
-        assert storage.version(db) == 77
-        assert not db.execute(
-            "SELECT 1 FROM sqlite_master WHERE name='workspace_integration_policies'"
-        ).fetchone()
-    upgraded = Workspace(store.directory)
-    view = MilestoneDeliveries(upgraded).policy_view("harbor", milestone.id)
-    assert view.enabled is True and view.effective_enabled
-    assert view.revision == delivery.integration_policy.revision
-    workspace_policy(upgraded, False)
-    assert MilestoneDeliveries(upgraded).policy_view("harbor", milestone.id).effective_enabled
-
-
 def test_workspace_defaults_are_isolated_and_revision_guarded(tmp_path):
     from flowfield.delivery_models import WorkspaceIntegrationPolicyEdit
     from flowfield.workspaces import WorkspaceCreate, Workspaces
@@ -298,41 +234,3 @@ def test_workspace_defaults_are_isolated_and_revision_guarded(tmp_path):
     assert owner.workspace_policy(other.id).enabled
     with pytest.raises(ApplicationError, match="not found"):
         owner.policy_view(other.id, milestone.id)
-
-
-def test_migration_distinguishes_untouched_policy_from_explicit_off(tmp_path, monkeypatch):
-    import json
-
-    from flowfield import migrations
-    from flowfield.application import MilestoneCreate, Workspace
-    from flowfield.delivery_models import DeliveryConfigure
-    from flowfield.milestones import Milestones
-
-    with monkeypatch.context() as old:
-        old.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version <= 77)
-        )
-        store, _, _, milestone, delivery, _, _ = prepared(tmp_path)
-        other = Milestones(store).create("harbor", MilestoneCreate(title="Explicit off"))
-        second = MilestoneDeliveries(store).configure(
-            "harbor", other.id, DeliveryConfigure(expected_revision=1, project_id="harbor")
-        )
-        policy(store, other, second, False)
-        # The previous model stored False for an untouched revision-one policy.
-        with store.connection(write=True) as db:
-            data = json.loads(
-                db.execute(
-                    "SELECT data FROM milestone_deliveries WHERE id=?", (delivery.id,)
-                ).fetchone()[0]
-            )
-            data["integration_policy"]["enabled"] = False
-            db.execute(
-                "UPDATE milestone_deliveries SET data=? WHERE id=?", (json.dumps(data), delivery.id)
-            )
-    upgraded = Workspace(store.directory)
-    workspace_policy(upgraded, True)
-    owner = MilestoneDeliveries(upgraded)
-    assert owner.policy_view("harbor", milestone.id).enabled is None
-    assert owner.policy_view("harbor", milestone.id).effective_enabled
-    assert owner.policy_view("harbor", other.id).enabled is False
-    assert not owner.policy_view("harbor", other.id).effective_enabled

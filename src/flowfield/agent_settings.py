@@ -3,8 +3,6 @@
 import sqlite3
 
 from flowfield import worker_settings
-from flowfield.adapters.coordinator_sessions import CoordinatorSessions
-from flowfield.adapters.session_continuity import retains_session
 from flowfield.agent_models import (
     AgentChoice,
     AgentRole,
@@ -26,7 +24,7 @@ class AgentSettings:
         self, db: sqlite3.Connection, project: str, role: AgentRole, scope: str = ""
     ) -> AgentSettingsView:
         self.workspace._work_scope(db, project)
-        if role == "coordinator" and self.workspace.schema_version >= 58:
+        if role == "coordinator":
             owner = worker_settings.workspace_id(db, project)
             if owner:
                 return CoordinatorSettings.read(db, owner)
@@ -38,8 +36,7 @@ class AgentSettings:
                 revision=current.revision,
                 selection=current.selection,
             )
-        if self.workspace.schema_version < 32:
-            return AgentSettingsView()  # Baseline construction for migration verification.
+
         row = db.execute(
             "SELECT revision,selection FROM agent_settings WHERE project_id=? AND role=? "
             "AND scope=?",
@@ -70,8 +67,7 @@ class AgentSettings:
                     "override"
                     if override and override.selection
                     else "workspace"
-                    if worker_settings.workspace_id(db, project)
-                    and (role == "worker" or self.workspace.schema_version >= 58)
+                    if (worker_settings.workspace_id(db, project))
                     else "project"
                 ),
                 default_revision=defaults.revision,
@@ -84,8 +80,7 @@ class AgentSettings:
             return self.resolve(db, project, role, scope)
 
     def freeze(self, db: sqlite3.Connection, effective: EffectiveAgent) -> EffectiveAgent:
-        if self.workspace.schema_version < 45:
-            return effective  # Frozen schema-44 fixture construction for migration evidence.
+
         return effective.model_copy(
             update={"registration": HarnessSettings.read(db, effective.choice.harness)}
         )
@@ -107,41 +102,19 @@ class AgentSettings:
         scope: str = "",
     ) -> AgentSettingsView:
         request = request.model_copy(update={"selection": self.normalize(request.selection, role)})
-        if role == "coordinator" and self.workspace.schema_version >= 58:
+        if role == "coordinator":
             owner = worker_settings.workspace_id(db, project)
             if owner:
                 return CoordinatorSettings(self.workspace).write(db, owner, request)
-            if self.workspace.schema_version >= 59:
-                raise ApplicationError(
-                    "workspace_required", "Add this project to an explicit workspace first.", 409
-                )
+            raise ApplicationError(
+                "workspace_required", "Add this project to an explicit workspace first.", 409
+            )
         if role == "worker" and not scope:
             raise ApplicationError("worker_defaults", "Use worker settings to edit defaults.")
-        if role == "coordinator":
-            scope = ""
-        if role == "worker" and scope:
+        if scope:
             scope = self.workspace._task(db, project, scope).id
         current = self._read(db, project, role, scope)
         self.workspace._current(current.revision, request.expected_revision)
-        if (
-            role == "coordinator"
-            and self.workspace.schema_version >= 49
-            and current.selection != request.selection
-            and not retains_session(current.selection, request.selection)
-        ):
-            active = db.execute(
-                "SELECT id FROM coordinator_turns WHERE project_id=? "
-                "AND status IN ('starting','running','stopping','uncertain')",
-                (project,),
-            ).fetchone()
-            if active:
-                raise ApplicationError(
-                    "coordinator_busy",
-                    "Stop the coordinator and confirm cleanup before "
-                    "changing harness or settings that need a fresh session.",
-                    409,
-                )
-            CoordinatorSessions.fresh(db, project)
         db.execute(
             "INSERT INTO agent_settings VALUES (?,?,?,?,?) "
             "ON CONFLICT(project_id,role,scope) DO UPDATE SET "

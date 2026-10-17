@@ -575,35 +575,3 @@ def test_milestone_review_scope_cannot_mutate_intent_or_other_contributions(tmp_
         assert denied.isError
 
     asyncio.run(check())
-
-
-def test_milestone_review_migration_preserves_old_state_and_recovers(tmp_path, monkeypatch):
-    from flowfield import migrations, storage
-    from flowfield.application import Workspace
-    from flowfield.migrations import Migration
-    from flowfield.migrations.v077_milestone_reviews import apply
-
-    old_chain = tuple(m for m in migrations.MIGRATIONS if m.version <= 76)
-    with monkeypatch.context() as old:
-        old.setattr(migrations, "MIGRATIONS", old_chain)
-        store, _, _, _, _, results, result = prepared(tmp_path)
-        saved = results.get("harbor", result.id)
-
-    def interrupted(db):
-        apply(db)
-        raise RuntimeError("Interrupted milestone review migration")
-
-    with monkeypatch.context() as broken:
-        broken.setattr(migrations, "MIGRATIONS", (*old_chain, Migration(77, interrupted)))
-        with pytest.raises(Exception, match="Interrupted milestone review migration"):
-            Workspace(store.directory)
-    with storage.connect(store.directory / storage.DATABASE) as db:
-        assert storage.version(db) == 76
-        assert not db.execute(
-            "SELECT 1 FROM sqlite_master WHERE name='milestone_reviews'"
-        ).fetchone()
-    upgraded = Supervisor(Workspace(store.directory))
-    assert upgraded.results.get("harbor", result.id) == saved
-    with upgraded.workspace.connection() as db:
-        assert db.execute("SELECT count(*) FROM milestone_review_plans").fetchone()[0] == 0
-        assert db.execute("PRAGMA foreign_key_check").fetchall() == []

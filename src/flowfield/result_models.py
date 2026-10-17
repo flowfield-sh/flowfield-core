@@ -98,20 +98,3 @@ class ResultReview(Record):
         if self.action == "request_changes" and not self.note.strip():
             raise ValueError("Describe the requested change.")
         return self
-
-
-SCHEMA = """
-CREATE TABLE result_versions (
-    number INTEGER PRIMARY KEY AUTOINCREMENT,
-    id TEXT NOT NULL UNIQUE,
-    project_id TEXT NOT NULL REFERENCES projects(id),
-    task_id TEXT NOT NULL,
-    run_id TEXT NOT NULL REFERENCES runs(id),
-    version INTEGER NOT NULL,
-    status TEXT NOT NULL,
-    data TEXT NOT NULL,
-    UNIQUE(project_id, task_id, version),
-    FOREIGN KEY(project_id, task_id) REFERENCES tasks(project_id, id)
-);
-CREATE INDEX result_work ON result_versions(project_id, status, number);
-"""

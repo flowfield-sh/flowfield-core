@@ -11,7 +11,6 @@ from typing import Annotated, Any, Literal, Self
 from uuid import uuid4
 
 from pydantic import (
-    AliasChoices,
     BaseModel,
     ConfigDict,
     Field,
@@ -39,10 +38,6 @@ from flowfield.document_models import (
 )
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import ACTIVE, SettingsEdit
-from flowfield.execution_models import SCHEMA as EXECUTION_SCHEMA
-from flowfield.inspection_models import SCHEMA as INSPECTION_SCHEMA
-from flowfield.integration_models import SCHEMA as INTEGRATION_SCHEMA
-from flowfield.migrations import current_version
 from flowfield.milestone_models import MilestoneBinding, MilestoneUpdate
 from flowfield.project_config import Identifier, ProjectConfig, Title, read_config, write_config
 from flowfield.publication import (
@@ -57,11 +52,7 @@ from flowfield.publication import (
     verification_issue,
 )
 from flowfield.questions import QuestionReference, Questions, blocking_questions, pending_questions
-from flowfield.reply_models import SCHEMA as REPLY_SCHEMA
-from flowfield.result_models import SCHEMA as RESULT_SCHEMA
-from flowfield.run_activity import SCHEMA as ACTIVITY_SCHEMA
-from flowfield.search import SCHEMA as SEARCH_SCHEMA
-from flowfield.stage_models import SCHEMA as STAGE_SCHEMA
+from flowfield.schema import SCHEMA, SCHEMA_VERSION
 from flowfield.stage_models import Stage, StageChange, StagePlan, StageUpdate
 from flowfield.storage import acquire_lock, initialize, require_current
 from flowfield.work_scopes import WorkScope
@@ -232,7 +223,7 @@ class WorkRecord(ContentRecord):
 
 
 class Milestone(ContentRecord):
-    workspace_id: str = Field(validation_alias=AliasChoices("workspace_id", "project_id"))
+    workspace_id: str
     key: str
     acceptance_criteria: Markdown = ""
 
@@ -402,105 +393,6 @@ class Board(BaseModel):
     awaiting_application_count: int = 0
 
 
-# Initialization baseline for schema 44. New database changes belong in migrations/.
-SCHEMA = """
-CREATE TABLE projects (
-    id TEXT PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL UNIQUE,
-    description TEXT NOT NULL, revision INTEGER NOT NULL,
-    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT NOT NULL,
-    task_prefix TEXT NOT NULL UNIQUE CHECK(task_prefix GLOB '[A-Z][A-Z][A-Z]')
-);
-CREATE TABLE milestones (
-    project_id TEXT NOT NULL REFERENCES projects(id), id TEXT NOT NULL, data TEXT NOT NULL,
-    number INTEGER NOT NULL, key TEXT NOT NULL,
-    PRIMARY KEY (project_id, id), UNIQUE(project_id, number), UNIQUE(project_id, key)
-);
-CREATE TABLE tasks (
-    project_id TEXT NOT NULL REFERENCES projects(id), id TEXT NOT NULL,
-    position INTEGER NOT NULL, data TEXT NOT NULL, number INTEGER NOT NULL,
-    key TEXT NOT NULL UNIQUE, PRIMARY KEY (project_id, id), UNIQUE(project_id, number)
-);
-CREATE TABLE task_revisions (
-    project_id TEXT NOT NULL, task_id TEXT NOT NULL, revision INTEGER NOT NULL, data TEXT NOT NULL,
-    PRIMARY KEY (project_id, task_id, revision),
-    FOREIGN KEY (project_id, task_id) REFERENCES tasks(project_id, id)
-);
-CREATE TABLE activity (
-    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
-    id TEXT NOT NULL UNIQUE,
-    project_id TEXT NOT NULL REFERENCES projects(id), task_id TEXT,
-    kind TEXT NOT NULL CHECK(kind IN ('note', 'handoff', 'event')),
-    body TEXT NOT NULL, author TEXT NOT NULL, created_at TEXT NOT NULL,
-    supersedes TEXT UNIQUE REFERENCES activity(id), task_revision INTEGER, question_id TEXT,
-    FOREIGN KEY (project_id, task_id) REFERENCES tasks(project_id, id)
-);
-CREATE INDEX activity_scope ON activity(project_id, task_id, sequence);
-CREATE TABLE questions (
-    number INTEGER PRIMARY KEY AUTOINCREMENT,
-    project_id TEXT NOT NULL REFERENCES projects(id), id TEXT NOT NULL,
-    task_id TEXT, status TEXT NOT NULL, data TEXT NOT NULL,
-    UNIQUE(project_id, id),
-    FOREIGN KEY (project_id, task_id) REFERENCES tasks(project_id, id)
-);
-CREATE INDEX question_scope ON questions(project_id, task_id, status);
-CREATE TABLE question_revisions (
-    project_id TEXT NOT NULL, question_id TEXT NOT NULL,
-    revision INTEGER NOT NULL, data TEXT NOT NULL,
-    PRIMARY KEY(project_id, question_id, revision),
-    FOREIGN KEY (project_id, question_id) REFERENCES questions(project_id, id)
-);
-PRAGMA user_version = 44;
-"""
-SCHEMA += EXECUTION_SCHEMA + INTEGRATION_SCHEMA
-
-SCHEMA += RESULT_SCHEMA + SEARCH_SCHEMA + INSPECTION_SCHEMA + STAGE_SCHEMA
-SCHEMA += REPLY_SCHEMA
-SCHEMA += ACTIVITY_SCHEMA
-SCHEMA += (
-    "\n"
-    "CREATE TABLE storage_metadata (id INTEGER PRIMARY KEY CHECK (id = 1), workspace_id "
-    "TEXT NOT NULL, revision INTEGER NOT NULL CHECK (revision >= 0));\n"
-    "CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL,"
-    " app_version TEXT NOT NULL, backup TEXT);\n"
-    "CREATE TABLE notifications (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL "
-    "UNIQUE, source TEXT NOT NULL, data TEXT NOT NULL, created_at TEXT NOT NULL, "
-    "dismissed_at TEXT, resolved_at TEXT);\n"
-    "CREATE TABLE notification_deliveries (notification_id INTEGER NOT NULL REFERENCES "
-    "notifications(id) ON DELETE CASCADE, channel TEXT NOT NULL, claimed_at TEXT NOT NULL, "
-    "PRIMARY KEY(notification_id, channel));\n"
-    "CREATE TABLE notification_state (name TEXT PRIMARY KEY, data TEXT NOT NULL);\n"
-    "CREATE TABLE agent_settings (project_id TEXT NOT NULL REFERENCES projects(id), role "
-    "TEXT NOT NULL CHECK(role IN ('worker','coordinator')), scope TEXT NOT NULL, revision "
-    "INTEGER NOT NULL, selection TEXT, PRIMARY KEY(project_id,role,scope));\n"
-    "CREATE TABLE agent_permissions (number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT "
-    "NULL UNIQUE, project_id TEXT NOT NULL REFERENCES projects(id), task_id TEXT, binding "
-    "TEXT NOT NULL, status TEXT NOT NULL, data TEXT NOT NULL, FOREIGN "
-    "KEY(project_id,task_id) REFERENCES tasks(project_id,id));\n"
-    "CREATE INDEX permissions_project ON agent_permissions(project_id,task_id,number);\n"
-    "CREATE INDEX permissions_binding ON agent_permissions(binding,status);\n"
-    "CREATE TABLE coordinator_conversations (number INTEGER PRIMARY KEY AUTOINCREMENT, id "
-    "TEXT NOT NULL UNIQUE, project_id TEXT NOT NULL REFERENCES projects(id), created_at "
-    "TEXT NOT NULL);\n"
-    "CREATE TABLE coordinator_turns (number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT "
-    "NULL UNIQUE, project_id TEXT NOT NULL REFERENCES projects(id), conversation_id TEXT "
-    "NOT NULL REFERENCES coordinator_conversations(id), status TEXT NOT NULL, data TEXT NOT"
-    " NULL);\n"
-    "CREATE INDEX coordinator_projects ON coordinator_conversations(project_id,number);\n"
-    "CREATE INDEX coordinator_history ON coordinator_turns(conversation_id,number);\n"
-    "CREATE UNIQUE INDEX coordinator_active ON coordinator_turns(project_id) WHERE status "
-    "IN ('starting','running','stopping','uncertain');\n"
-    "CREATE INDEX coordinator_project_messages ON coordinator_turns(project_id,number);\n"
-    "CREATE TABLE attachments (id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES "
-    "projects(id), task_id TEXT, name TEXT NOT NULL, mime TEXT NOT NULL, created_at TEXT "
-    "NOT NULL, content BLOB NOT NULL, size INTEGER NOT NULL, bound INTEGER NOT NULL DEFAULT"
-    " 0, FOREIGN KEY(project_id,task_id) REFERENCES tasks(project_id,id));\n"
-    "CREATE INDEX attachment_project ON attachments(project_id,task_id);\n"
-    "CREATE TABLE coordinator_sessions (project_id TEXT PRIMARY KEY REFERENCES "
-    "projects(id), harness TEXT NOT NULL, session_id TEXT NOT NULL, cwd TEXT NOT NULL);\n"
-    "INSERT INTO storage_metadata VALUES (1, lower(hex(randomblob(16))), 0);\n"
-)
-
-
 def now() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -524,7 +416,7 @@ class Workspace:
         self.on_change = on_change
         self.directory = directory.expanduser().resolve()
         self.database = self.directory / "workspace.sqlite3"
-        self.schema_version = current_version()
+        self.schema_version = SCHEMA_VERSION
         initialize(self.directory, SCHEMA)
         (self.directory / "artifacts").mkdir(mode=0o700, exist_ok=True)
 
@@ -540,7 +432,7 @@ class Workspace:
                 db.execute("BEGIN IMMEDIATE" if write else "BEGIN")
                 require_current(db, self.schema_version)
                 yield db
-                if write and notify and db.total_changes and self.schema_version >= 69:
+                if write and notify and db.total_changes:
                     from flowfield.milestone_verification import reconcile
 
                     reconcile(db, project_id)
@@ -555,7 +447,7 @@ class Workspace:
                     changed_projects.update(
                         row[0] for row in db.execute("SELECT project_id FROM changed_task_projects")
                     )
-                if write and changed and notify and self.schema_version >= 54:
+                if write and changed and notify:
                     from flowfield.announcements import reconcile_attention
 
                     for changed_project in changed_projects:
@@ -899,18 +791,11 @@ class Workspace:
                 project_id,
             ),
         )
-        if self.schema_version >= 65:
-            db.execute(
-                "UPDATE projects SET worker_documents=? WHERE id=?",
-                (json.dumps([item.model_dump() for item in project.worker_documents]), project_id),
-            )
+        db.execute(
+            "UPDATE projects SET worker_documents=? WHERE id=?",
+            (json.dumps([item.model_dump() for item in project.worker_documents]), project_id),
+        )
         return project
-
-    @staticmethod
-    def _legacy_milestone(value: Milestone) -> str:
-        data = value.model_dump(mode="json")
-        data["project_id"] = data.pop("workspace_id")
-        return json.dumps(data, ensure_ascii=False)
 
     @staticmethod
     def _project_workspace(db: sqlite3.Connection, project_id: str) -> str:
@@ -924,34 +809,18 @@ class Workspace:
         return str(row[0])
 
     def _milestone(self, db: sqlite3.Connection, project_id: str, milestone_id: str) -> Milestone:
-        if self.schema_version >= 60:
-            from flowfield.milestones import Milestones
+        from flowfield.milestones import Milestones
 
-            return Milestones.read(db, self._project_workspace(db, project_id), milestone_id)
-        row = db.execute(
-            "SELECT data FROM milestones WHERE project_id=? "
-            "AND (id=? OR key=? COLLATE NOCASE) ORDER BY id=? DESC",
-            (project_id, milestone_id, milestone_id, milestone_id),
-        ).fetchone()
-        if not row:
-            raise ApplicationError("not_found", "Milestone not found in this project.", 404)
-        return Milestone.model_validate_json(row[0])
+        return Milestones.read(db, self._project_workspace(db, project_id), milestone_id)
 
     def milestone(self, project_id: str, milestone_id: str) -> Milestone:
         with self.connection() as db:
             return self._milestone(db, project_id, milestone_id)
 
     def _milestones(self, db: sqlite3.Connection, project_id: str) -> list[Milestone]:
-        if self.schema_version >= 60:
-            from flowfield.milestones import Milestones
+        from flowfield.milestones import Milestones
 
-            return Milestones.read_all(db, self._project_workspace(db, project_id))
-        return [
-            Milestone.model_validate_json(row[0])
-            for row in db.execute(
-                "SELECT data FROM milestones WHERE project_id=? ORDER BY number", (project_id,)
-            )
-        ]
+        return Milestones.read_all(db, self._project_workspace(db, project_id))
 
     def milestones(self, project_id: str) -> list[Milestone]:
         with self.connection() as db:
@@ -959,82 +828,33 @@ class Workspace:
             return self._milestones(db, project_id)
 
     def create_milestone(self, project_id: str, request: MilestoneCreate) -> Milestone:
-        if self.schema_version >= 60:
-            from flowfield.milestones import Milestones
-            from flowfield.workspaces import Workspaces
+        from flowfield.milestones import Milestones
+        from flowfield.workspaces import Workspaces
 
-            return Milestones(self).create(Workspaces(self).for_project(project_id).id, request)
-        with self.connection(write=True, project_id=project_id) as db:
-            self._project(db, project_id)
-            number = db.execute(
-                "SELECT COALESCE(MAX(number), 0) + 1 FROM milestones WHERE project_id=?",
-                (project_id,),
-            ).fetchone()[0]
-            milestone = Milestone(
-                workspace_id=project_id,
-                id=request.id or generated_id(request.title),
-                key=f"M-{number}",
-                title=request.title,
-                body=request.body,
-                revision=1,
-                created_at=now(),
-                updated_at=now(),
-                updated_by=request.author,
-            )
-            try:
-                db.execute(
-                    "INSERT INTO milestones VALUES (?, ?, ?, ?, ?)",
-                    (
-                        project_id,
-                        milestone.id,
-                        self._legacy_milestone(milestone),
-                        number,
-                        milestone.key,
-                    ),
-                )
-            except sqlite3.IntegrityError as error:
-                raise ApplicationError(
-                    "milestone_exists", "Milestone ID already exists.", 409
-                ) from error
-            return milestone
+        return Milestones(self).create(Workspaces(self).for_project(project_id).id, request)
 
     def edit_milestone(
         self, project_id: str, milestone_id: str, request: MilestoneEdit
     ) -> Milestone:
-        if self.schema_version >= 60:
-            from flowfield.milestones import Milestones
-            from flowfield.workspaces import Workspaces
+        from flowfield.milestones import Milestones
+        from flowfield.workspaces import Workspaces
 
-            return Milestones(self).edit(
-                Workspaces(self).for_project(project_id).id, milestone_id, request
-            )
-        with self.connection(write=True, project_id=project_id) as db:
-            milestone = Milestone(
-                **self._patch(self._milestone(db, project_id, milestone_id), request)
-            )
-            db.execute(
-                "UPDATE milestones SET data=? WHERE project_id=? AND id=?",
-                (self._legacy_milestone(milestone), project_id, milestone.id),
-            )
-            return milestone
+        return Milestones(self).edit(
+            Workspaces(self).for_project(project_id).id, milestone_id, request
+        )
 
     def _record_key(self, task: TaskRevision) -> str:
-        return task.key if self.schema_version >= 62 else task.id
+        return task.key
 
     def _record_rows(
         self, db: sqlite3.Connection, project_id: str, *, metadata: bool = False
     ) -> list[sqlite3.Row]:
         data = "json_set(t.data,'$.body','','$.change_note','')" if metadata else "t.data"
-        if self.schema_version >= 62:
-            owner = self._project_workspace(db, project_id)
-            return db.execute(
-                f"SELECT t.id,t.key,t.position,{data} AS data FROM tasks t "
-                "JOIN workspace_scopes p ON p.project_id=t.project_id WHERE p.workspace_id=?",
-                (owner,),
-            ).fetchall()
+        owner = self._project_workspace(db, project_id)
         return db.execute(
-            f"SELECT t.id,t.key,t.position,{data} AS data FROM tasks t WHERE t.project_id=?",
-            (project_id,),
+            f"SELECT t.id,t.key,t.position,{data} AS data FROM tasks t "
+            "JOIN workspace_scopes p ON p.project_id=t.project_id WHERE p.workspace_id=?",
+            (owner,),
         ).fetchall()
 
     def _records(self, db: sqlite3.Connection, project_id: str) -> dict[str, TaskRevision]:
@@ -1047,31 +867,18 @@ class Workspace:
     def _dependency_ids(
         self, db: sqlite3.Connection, project_id: str, references: list[str]
     ) -> list[str]:
-        if self.schema_version >= 62:
-            owner = self._project_workspace(db, project_id)
-            rows = db.execute(
-                "SELECT t.id,t.key,t.project_id FROM tasks t "
-                "JOIN workspace_scopes p ON p.project_id=t.project_id WHERE p.workspace_id=?",
-                (owner,),
-            ).fetchall()
-            local = {r["id"]: r["key"] for r in rows if r["project_id"] == project_id}
-            workspace_keys = {r["key"] for r in rows}
-            return sorted(
-                {
-                    local.get(ref, ref.upper() if ref.upper() in workspace_keys else ref)
-                    for ref in references
-                }
-            )
-        # Historical fixtures keep the prior local-ID representation.
-        keys = {
-            row["key"]: row["id"]
-            for row in db.execute("SELECT id, key FROM tasks WHERE project_id=?", (project_id,))
-        }
-        identities = set(keys.values())
+        owner = self._project_workspace(db, project_id)
+        rows = db.execute(
+            "SELECT t.id,t.key,t.project_id FROM tasks t "
+            "JOIN workspace_scopes p ON p.project_id=t.project_id WHERE p.workspace_id=?",
+            (owner,),
+        ).fetchall()
+        local = {r["id"]: r["key"] for r in rows if r["project_id"] == project_id}
+        workspace_keys = {r["key"] for r in rows}
         return sorted(
             {
-                reference if reference in identities else keys.get(reference.upper(), reference)
-                for reference in references
+                local.get(ref, ref.upper() if ref.upper() in workspace_keys else ref)
+                for ref in references
             }
         )
 
@@ -1256,7 +1063,7 @@ class Workspace:
         return Task(
             **current.model_dump(),
             position=row["position"],
-            milestone_update=milestone_update(db, current) if self.schema_version >= 68 else None,
+            milestone_update=milestone_update(db, current),
             document_updates=task_updates(db, project_id, task_id)
             if current.publication and current.publication.documents
             else [],
@@ -1396,18 +1203,11 @@ class Workspace:
         )
 
     def _append_position(self, db: sqlite3.Connection, project_id: str) -> int:
-        if self.schema_version >= 63:
-            return int(
-                db.execute(
-                    "SELECT coalesce(max(t.position),-1)+1 FROM tasks t "
-                    "JOIN workspace_scopes p USING(project_id) WHERE workspace_id=?",
-                    (self._project_workspace(db, project_id),),
-                ).fetchone()[0]
-            )
         return int(
             db.execute(
-                "SELECT COALESCE(MAX(position), -1) + 1 FROM tasks WHERE project_id=?",
-                (project_id,),
+                "SELECT coalesce(max(t.position),-1)+1 FROM tasks t "
+                "JOIN workspace_scopes p USING(project_id) WHERE workspace_id=?",
+                (self._project_workspace(db, project_id),),
             ).fetchone()[0]
         )
 
@@ -1424,10 +1224,9 @@ class Workspace:
                 from flowfield.worker_documents import validate_references
 
                 validate_references(db, self._project_workspace(db, project_id), request.documents)
-            if self.schema_version >= 61:
-                from flowfield.labels import Labels
+            from flowfield.labels import Labels
 
-                Labels.validate(db, self._project_workspace(db, project_id), request.labels)
+            Labels.validate(db, self._project_workspace(db, project_id), request.labels)
             if request.milestone_id is not None:
                 request = request.model_copy(
                     update={
@@ -1513,7 +1312,7 @@ class Workspace:
                 from flowfield.worker_documents import validate_references
 
                 validate_references(db, self._project_workspace(db, project_id), request.documents)
-            if request.labels is not None and self.schema_version >= 61:
+            if request.labels is not None:
                 from flowfield.labels import Labels
 
                 Labels.validate(db, self._project_workspace(db, project_id), request.labels)
@@ -1705,19 +1504,15 @@ class Workspace:
 
         milestone = (
             self._milestone(db, current.project_id, current.milestone_id)
-            if current.milestone_id and self.schema_version >= 68
+            if current.milestone_id
             else None
         )
         binding = MilestoneBinding(**milestone.model_dump()) if milestone else None
-        documents = (
-            select(
-                db,
-                self._project_workspace(db, current.project_id),
-                self._work_scope(db, current.project_id).worker_documents,
-                current.documents,
-            )
-            if self.schema_version >= 65
-            else []
+        documents = select(
+            db,
+            self._project_workspace(db, current.project_id),
+            self._work_scope(db, current.project_id).worker_documents,
+            current.documents,
         )
         # A newly adopted revision is a scope change, even if the prose description
         # stayed the same. Old runs/results can never satisfy this newer agreement.
@@ -1749,8 +1544,6 @@ class Workspace:
                 request = request.model_copy(
                     update={
                         "before_id": self._dependency_ids(db, project_id, [request.before_id])[0]
-                        if self.schema_version >= 63
-                        else self._activity_scope(db, project_id, request.before_id)
                     }
                 )
             self._current(current.revision, request.expected_revision)
@@ -1768,12 +1561,8 @@ class Workspace:
                 TaskRevision.model_validate_json(row["data"])
                 for row in sorted(rows, key=lambda row: (row["position"], row["key"]))
             ]
-            scope = {
-                (item.key if self.schema_version >= 63 else item.id): item
-                for item in ordered
-                if self.schema_version >= 63 or item.project_id == project_id
-            }
-            identity = current.key if self.schema_version >= 63 else current.id
+            scope = {item.key: item for item in ordered}
+            identity = current.key
             destination = [
                 key
                 for key, item in scope.items()

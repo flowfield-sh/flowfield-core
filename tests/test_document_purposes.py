@@ -7,20 +7,16 @@ import pytest
 from execution_fixtures import BASE, fixture
 from project_fixtures import fixture_stage_change, task_request
 from pydantic import ValidationError
-from storage_fixtures import logical_data
 from worker_documents_fixtures import defaults, prepare
 from workspace_dependencies_fixtures import complete, shared
 
-from flowfield import migrations
 from flowfield.agent_tools import workspace_scope
-from flowfield.application import ProjectEdit, TaskEdit, TaskPublish, Workspace
+from flowfield.application import ProjectEdit, TaskPublish
 from flowfield.attention import attention_page
 from flowfield.browser import BrowserReads
 from flowfield.document_models import DocumentReference
 from flowfield.documents import DocumentCreate, DocumentEdit, Documents
 from flowfield.errors import ApplicationError
-from flowfield.execution import Execution
-from flowfield.migrations import Migration
 from flowfield.reads import ContextReads
 from flowfield.supervisor import Supervisor
 from flowfield.worker_context import brief_context
@@ -137,64 +133,3 @@ def test_updates_reach_board_inbox_and_coordinator_without_blocking_and_are_scop
     complete(store, "site", "same")
     assert not docs.impact(space, doc.id)["items"]
     assert attention_page(store, None, "waiting", workspace_id=space).total == 0
-
-
-def test_purpose_upgrade_rolls_back_and_preserves_running_context(tmp_path, monkeypatch):
-    with monkeypatch.context() as old:
-        old.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 67)
-        )
-        execution = fixture(tmp_path)
-        store = execution.workspace
-        doc = Documents(store).create("harbor", DocumentCreate(title="Policy", body="Original"))
-        defaults(store, [{"id": doc.id}])
-        task = store.task("harbor", "task-0")
-        store.edit_task(
-            "harbor", task.id, TaskEdit(expected_revision=task.revision, documents=[{"id": doc.id}])
-        )
-        prepare(store)
-        run = execution.claim("harbor", BASE, {BASE: set()})
-        assignment = execution.assignment("harbor", run.id)
-        with store.connection(write=True) as db:
-            db.execute(
-                "UPDATE projects SET worker_documents=? WHERE id='harbor'",
-                (json.dumps([{"id": doc.id}]),),
-            )
-            row = db.execute(
-                "SELECT data FROM tasks WHERE project_id='harbor' AND id='task-0'"
-            ).fetchone()
-            data = json.loads(row[0])
-            data["documents"] = [{"id": doc.id}]
-            db.execute(
-                "UPDATE tasks SET data=? WHERE project_id='harbor' AND id='task-0'",
-                (json.dumps(data),),
-            )
-            histories = list(
-                db.execute("SELECT data FROM task_revisions ORDER BY project_id,task_id,revision")
-            )
-    before = logical_data(store.directory)
-    migration = next(m for m in migrations.MIGRATIONS if m.version == 67)
-
-    def fail(db):
-        migration.apply(db)
-        raise RuntimeError("Interrupted purpose upgrade")
-
-    with monkeypatch.context() as broken:
-        broken.setattr(
-            migrations,
-            "MIGRATIONS",
-            tuple(Migration(67, fail) if m.version == 67 else m for m in migrations.MIGRATIONS),
-        )
-        with pytest.raises(ApplicationError):
-            Workspace(store.directory)
-    assert logical_data(store.directory) == before
-    upgraded = Workspace(store.directory)
-    assert all(d.purpose == "required" for d in upgraded.project("harbor").worker_documents)
-    assert upgraded.task("harbor", "task-0").documents[0].purpose == "required"
-    assert Execution(upgraded).assignment("harbor", run.id) == assignment
-    assert Execution(upgraded).get("harbor", run.id) == run
-    with upgraded.connection() as db:
-        assert (
-            list(db.execute("SELECT data FROM task_revisions ORDER BY project_id,task_id,revision"))
-            == histories
-        )

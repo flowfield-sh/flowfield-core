@@ -198,23 +198,6 @@ def test_revalidation_preserves_exact_failed_evidence_and_settings(tmp_path, mon
         restarted.get("project", "a" * 32)
 
 
-def test_legacy_setup_evidence_survives_first_revalidation(tmp_path, monkeypatch):
-    import json
-
-    _, service, settings = configured(tmp_path, monkeypatch)
-    old = asyncio.run(
-        service.check("project", SetupCheckRequest(expected_revision=settings.revision))
-    )
-    data = old.model_dump(exclude={"settings", "previous_check_id"})
-    service._path("project").write_text(json.dumps(data))
-    fresh = asyncio.run(
-        service.check("project", SetupCheckRequest(expected_revision=settings.revision))
-    )
-    assert fresh.previous_check_id == old.id
-    assert service.get("project", old.id).settings is None
-    assert service.get("project", old.id).checks == old.checks
-
-
 @pytest.mark.parametrize(
     ("command", "hint"),
     [

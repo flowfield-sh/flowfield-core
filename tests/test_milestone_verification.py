@@ -311,39 +311,6 @@ def test_reopened_contribution_invalidates_review(tmp_path):
     assert records.get("harbor", verification.id).status == "stale"
 
 
-def test_schema_68_upgrade_and_failure_recovery(tmp_path, monkeypatch):
-    from storage_fixtures import logical_data
-
-    from flowfield import migrations
-    from flowfield.migrations import Migration
-
-    with monkeypatch.context() as old:
-        old.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 69)
-        )
-        store = fixture(tmp_path).workspace
-    before = logical_data(store.directory)
-    migration = next(m for m in migrations.MIGRATIONS if m.version == 69)
-
-    def fail(db):
-        migration.apply(db)
-        raise ValueError("Interrupted verification upgrade")
-
-    with monkeypatch.context() as broken:
-        broken.setattr(
-            migrations,
-            "MIGRATIONS",
-            tuple(Migration(69, fail) if m.version == 69 else m for m in migrations.MIGRATIONS),
-        )
-        with pytest.raises(ApplicationError, match="rolled back"):
-            Workspace(store.directory)
-    assert logical_data(store.directory) == before
-    upgraded = Workspace(store.directory)
-    with upgraded.connection() as db:
-        assert db.execute("SELECT count(*) FROM milestone_verifications").fetchone()[0] == 0
-    assert upgraded.task("harbor", "task-0").publication.verification_id is None
-
-
 def test_duplicate_delivery_announces_review_once_and_scopes_reads(tmp_path):
     execution, records, verification = setup(tmp_path)
     complete(execution, verification)

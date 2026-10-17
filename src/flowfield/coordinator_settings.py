@@ -7,7 +7,6 @@ from flowfield.adapters.session_continuity import retains_session
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit, AgentSettingsView, EffectiveAgent
 from flowfield.application import Workspace
 from flowfield.errors import ApplicationError
-from flowfield.storage import version
 
 
 class CoordinatorSettings:
@@ -50,13 +49,8 @@ class CoordinatorSettings:
         choice = AgentSettings.normalize(request.selection, "coordinator")
         if current.selection != choice and not retains_session(current.selection, choice):
             if db.execute(
-                (
-                    "SELECT 1 FROM coordinator_turns t WHERE t.workspace_id=? "
-                    if version(db) >= 59
-                    else "SELECT 1 FROM coordinator_turns t JOIN workspace_projects p "
-                    "ON p.project_id=t.project_id WHERE p.workspace_id=? "
-                )
-                + "AND t.status IN ('starting','running','stopping','uncertain') LIMIT 1",
+                "SELECT 1 FROM coordinator_turns t WHERE t.workspace_id=? "
+                "AND t.status IN ('starting','running','stopping','uncertain') LIMIT 1",
                 (identity,),
             ).fetchone():
                 raise ApplicationError(
@@ -65,15 +59,7 @@ class CoordinatorSettings:
                     "changing harness or settings that need a fresh session.",
                     409,
                 )
-            owners = (
-                [(identity,)]
-                if version(db) >= 59
-                else db.execute(
-                    "SELECT project_id FROM workspace_projects WHERE workspace_id=?", (identity,)
-                ).fetchall()
-            )
-            for row in owners:
-                CoordinatorSessions.fresh(db, row[0])
+            CoordinatorSessions.fresh(db, identity)
         db.execute(
             "INSERT INTO workspace_coordinator_settings VALUES (?,?,?) "
             "ON CONFLICT(workspace_id) DO UPDATE SET revision=excluded.revision,"

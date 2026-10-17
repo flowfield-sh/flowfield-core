@@ -33,4 +33,4 @@ Use `list_workspace_files` for bounded browsing, optionally filtered by task key
 
 Submitted bytes live under `<data-root>/workspaces/<workspace-id>/outputs/`, separately from disposable attempt directories. Files survive task archiving, attempt cleanup and service restart. New versions have new identities; no automatic output deletion is performed.
 
-Back up the entire service data directory to retain both metadata and files. Migration database snapshots alone do not contain the file bytes. If a retained file is missing or changed, Flowfield preserves its metadata and reports the problem; restore the original bytes from backup. See [local storage](/storage#full-backups).
+Back up the entire service data directory to retain both metadata and files. A database copy alone does not contain the file bytes. If a retained file is missing or changed, Flowfield preserves its metadata and reports the problem; restore the original bytes from backup. See [local storage](/storage#full-backups).

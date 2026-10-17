@@ -89,14 +89,13 @@ class Supervisor:
     async def start(self) -> None:
         self.lock = acquire_lock(self.workspace.directory, ".execution.lock")
         try:
-            # A different build may have upgraded between Workspace construction and start.
+            # Storage may have changed between Workspace construction and start.
             # connection() rechecks the schema under the shared maintenance lock.
             with self.workspace.connection():
                 pass
             self.execution.restart()
             self.review_execution.reviews.restart()
-            if self.workspace.schema_version >= 77:
-                self.milestone_review_execution.reviews.restart()
+            self.milestone_review_execution.reviews.restart()
             self.permissions.restart()
             self.coordinator.store.restart()
             self.catalogs.restart()
@@ -225,14 +224,7 @@ class Supervisor:
             logging.getLogger(__name__).exception("Scheduling stopped unexpectedly")
             try:
                 with self.workspace.connection() as db:
-                    scopes = [
-                        row[0]
-                        for row in db.execute(
-                            "SELECT id FROM work_scopes"
-                            if self.workspace.schema_version >= 80
-                            else "SELECT id FROM projects"
-                        )
-                    ]
+                    scopes = [row[0] for row in db.execute("SELECT id FROM work_scopes")]
                 for scope in scopes:
                     self.execution.queue_problem(
                         scope,
@@ -244,10 +236,8 @@ class Supervisor:
             raise
 
     async def _schedule_once(self) -> None:
-        if self.workspace.schema_version >= 75:
-            await self.review_execution.schedule()
-        if self.workspace.schema_version >= 77:
-            await self.milestone_review_execution.schedule()
+        await self.review_execution.schedule()
+        await self.milestone_review_execution.schedule()
         # Repository preparation remains project-local. A failed repository cannot
         # consume the shared queue; fresh claims follow workspace board order.
         ready: dict[str, Path | None] = {}
@@ -273,20 +263,17 @@ class Supervisor:
                     "before retrying."
                 )
         started: set[str] = set()
-        if self.workspace.schema_version >= 80:
-            from flowfield.work_scopes import workspace_scope
+        from flowfield.work_scopes import workspace_scope
 
-            for owner in Workspaces(self.workspace).all():
-                scope_id = workspace_scope(owner.id)
-                if scope_id not in self.delivery_jobs:
-                    delivery = asyncio.create_task(
-                        asyncio.to_thread(self.results.process, scope_id)
-                    )
-                    self.delivery_jobs[scope_id] = delivery
-                    delivery.add_done_callback(partial(self._delivery_finished, scope_id))
-                if self.execution.settings(scope_id).enabled:
-                    ready[scope_id] = None
-                    problems[scope_id] = None
+        for owner in Workspaces(self.workspace).all():
+            scope_id = workspace_scope(owner.id)
+            if scope_id not in self.delivery_jobs:
+                delivery = asyncio.create_task(asyncio.to_thread(self.results.process, scope_id))
+                self.delivery_jobs[scope_id] = delivery
+                delivery.add_done_callback(partial(self._delivery_finished, scope_id))
+            if self.execution.settings(scope_id).enabled:
+                ready[scope_id] = None
+                problems[scope_id] = None
         for project_id, task_id in self.execution.scheduling_candidates():
             if self.closing:
                 break
@@ -817,11 +804,6 @@ class Supervisor:
         if self.jobs:
             for identity in list(self.jobs):
                 for owner in (self.review_execution, self.milestone_review_execution):
-                    if (
-                        owner is self.milestone_review_execution
-                        and self.workspace.schema_version < 77
-                    ):
-                        continue
                     with self.workspace.connection() as db:
                         row = db.execute(
                             f"SELECT project_id FROM {owner.reviews.job_table} WHERE id=?",

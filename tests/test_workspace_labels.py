@@ -7,15 +7,12 @@ import pytest
 from execution_fixtures import BASE, fixture
 from fastapi.testclient import TestClient
 from project_fixtures import existing_directory, task_request
-from storage_fixtures import logical_data
 
-from flowfield import migrations
 from flowfield.agent_tools import workspace_scope
 from flowfield.api import create_app
 from flowfield.application import Edit, ProjectSetup, TaskEdit, Workspace
 from flowfield.errors import ApplicationError
 from flowfield.labels import LabelCreate, LabelEdit, Labels
-from flowfield.migrations import Migration
 from flowfield.reads import PAGE_BYTES, ContextReads, size
 from flowfield.supervisor import Supervisor
 from flowfield.workspaces import WorkspaceCreate, Workspaces
@@ -161,46 +158,6 @@ def test_label_http_and_coordinator_tools_are_revision_guarded_and_bounded(tmp_p
             grant.revoke()
 
         asyncio.run(check())
-
-
-def test_classification_upgrade_keeps_original_revisions_and_rolls_back(tmp_path, monkeypatch):
-    with monkeypatch.context() as old:
-        old.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 61)
-        )
-        store = fixture(tmp_path).workspace
-        with store.connection(write=True) as db:
-            for table in ("tasks", "task_revisions"):
-                db.execute(
-                    f"UPDATE {table} SET data=json_set("
-                    "json_remove(data,'$.labels'),'$.task_type','bug')"
-                )
-        with store.connection() as db:
-            original = [tuple(row) for row in db.execute("SELECT * FROM task_revisions")]
-    before = logical_data(store.directory)
-    migration = next(m for m in migrations.MIGRATIONS if m.version == 61)
-
-    def fail(db):
-        migration.apply(db)
-        raise ValueError("fixture label migration failure")
-
-    with monkeypatch.context() as broken:
-        broken.setattr(
-            migrations,
-            "MIGRATIONS",
-            tuple(Migration(61, fail) if m.version == 61 else m for m in migrations.MIGRATIONS),
-        )
-        with pytest.raises(ApplicationError, match="rolled back"):
-            Workspace(store.directory)
-    assert logical_data(store.directory) == before
-    upgraded = Workspace(store.directory)
-    assert upgraded.task("harbor", "task-0").labels == ["bug"]
-    with upgraded.connection() as db:
-        assert [tuple(row) for row in db.execute("SELECT * FROM task_revisions")] == original
-        assert not db.execute("PRAGMA foreign_key_check").fetchall()
-    Labels(upgraded).delete("harbor", "bug", Edit(expected_revision=1))
-    current = upgraded.task("harbor", "task-0")
-    assert current.labels == [] and current.revisions[0].labels == ["bug"]
 
 
 def test_cli_repeated_labels_clear_and_discover(monkeypatch):

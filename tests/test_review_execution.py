@@ -308,55 +308,6 @@ def test_uncertain_review_is_not_replayed_after_restart(tmp_path):
     assert reviews.attempt(confirmed.attempt_id)["cleanup_confirmed_by"] == "human"
 
 
-def test_upgrade_keeps_old_candidates_unscheduled(tmp_path, monkeypatch):
-    from flowfield import migrations, storage
-    from flowfield.application import Workspace
-    from flowfield.supervisor import Supervisor
-
-    with monkeypatch.context() as old:
-        old.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version <= 74)
-        )
-        service, _, run, _, _ = configured(tmp_path)
-        before = current(service)
-        queue = service.execution.settings("harbor")
-    upgraded = Supervisor(Workspace(service.workspace.directory))
-    install(monkeypatch)
-    asyncio.run(round_trip(upgraded))
-    assert upgraded.review_execution.reviews.latest("harbor", run.task_id) is None
-    assert current(upgraded) == before and not before.review_requested
-    assert upgraded.execution.settings("harbor") == queue
-    assert storage.backups(upgraded.workspace.directory)[0]["schema_version"] == 74
-
-
-def test_review_migration_rolls_back_and_recovers(tmp_path, monkeypatch):
-    from flowfield import migrations, storage
-    from flowfield.application import Workspace
-    from flowfield.migrations import Migration
-    from flowfield.migrations.v075_native_reviews import apply
-
-    old_chain = tuple(m for m in migrations.MIGRATIONS if m.version <= 74)
-    with monkeypatch.context() as old:
-        old.setattr(migrations, "MIGRATIONS", old_chain)
-        service, _, _, _, _ = configured(tmp_path)
-
-    def interrupted(db):
-        apply(db)
-        raise RuntimeError("Interrupted native review migration")
-
-    with monkeypatch.context() as broken:
-        broken.setattr(migrations, "MIGRATIONS", (*old_chain, Migration(75, interrupted)))
-        with pytest.raises(Exception, match="Interrupted native review migration"):
-            Workspace(service.workspace.directory)
-    with storage.connect(service.workspace.directory / storage.DATABASE) as db:
-        assert storage.version(db) == 74
-        assert not db.execute("SELECT 1 FROM sqlite_master WHERE name='review_attempts'").fetchone()
-    upgraded = Workspace(service.workspace.directory)
-    with upgraded.connection() as db:
-        assert storage.version(db) == migrations.current_version()
-        assert db.execute("PRAGMA foreign_key_check").fetchall() == []
-
-
 def test_policy_change_stales_old_verdict_and_schedules_fresh_assessment(tmp_path, monkeypatch):
     from flowfield.agent_models import AgentChoice
     from flowfield.reviewer_settings import ReviewerEdit

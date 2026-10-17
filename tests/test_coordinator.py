@@ -11,7 +11,6 @@ from execution_fixtures import BASE, fixture
 from fastapi.testclient import TestClient
 from project_fixtures import task_request
 
-from flowfield import migrations
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit
 from flowfield.agent_settings import AgentSettings
 from flowfield.api import create_app
@@ -21,6 +20,7 @@ from flowfield.coordinator_store import CoordinatorStore
 from flowfield.errors import ApplicationError
 from flowfield.permission_models import PermissionAnswer
 from flowfield.run_activity import MAX_TOTAL, ActivityUpdate, ContextUsage
+from flowfield.schema import SCHEMA_VERSION
 from flowfield.supervisor import Supervisor
 
 
@@ -75,10 +75,10 @@ def test_real_native_capture_continuity_and_duplicate_send(tmp_path, monkeypatch
         assert next(item for item in completed.activity.items if item.key == "session").text == (
             "New agent session started."
         )
-        from flowfield.adapters.coordinator_directory import for_project
+        from flowfield.adapters.coordinator_directory import for_scope
 
         native = service.coordinator.store.session(
-            "harbor", "codex", str(for_project(service.workspace, "harbor"))
+            "harbor", "codex", str(for_scope(service.workspace, "harbor"))
         )
         assert native == "test-session"
         with pytest.raises(ApplicationError, match="different harness or project directory"):
@@ -178,7 +178,7 @@ def test_saved_history_bootstraps_native_session_once(tmp_path, monkeypatch):
         old.status = "completed"
         service.coordinator.store._save(db, old)
     restored = Supervisor(Workspace(service.workspace.directory))
-    assert restored.workspace.schema_version == migrations.current_version()
+    assert restored.workspace.schema_version == SCHEMA_VERSION
     assert restored.coordinator.store.get("harbor", old.id) == old
     assert restored.coordinator.store.session("harbor", "codex", str(tmp_path / "harbor")) is None
 
@@ -338,10 +338,7 @@ def test_crash_recovery_never_replays(tmp_path, monkeypatch):
     workspace = fixture(tmp_path).workspace
     project = workspace.project("harbor")
     upgraded = Workspace(workspace.directory)
-    assert (
-        upgraded.schema_version == migrations.current_version()
-        and upgraded.project("harbor") == project
-    )
+    assert upgraded.schema_version == SCHEMA_VERSION and upgraded.project("harbor") == project
     service = Supervisor(upgraded)
     # No native launch or model selection occurs when history is read/created.
     conversation = service.coordinator.store.new("harbor")

@@ -50,7 +50,7 @@ class Attachments:
             raise ApplicationError(
                 "scope_mismatch", "Workspace attachments belong to coordinator chat.", 403
             )
-        if not workspace_scope and request.task_id is None and self.workspace.schema_version >= 59:
+        if not workspace_scope and request.task_id is None:
             project = Workspaces(self.workspace).for_project(project).id
             workspace_scope = True
         if any(ord(c) < 32 or c in "/\\" for c in request.name):
@@ -142,8 +142,6 @@ class Attachments:
             ).fetchone()
             expected_kind = "workspaces" if workspace_scope else "projects"
             matches = kind == expected_kind and owner == project
-            if workspace_scope and row and kind == "projects":
-                matches = row["legacy_project_id"] == owner
             if not matches or not row or row["task_id"] != task:
                 raise ApplicationError(
                     "attachment_missing",
@@ -216,10 +214,9 @@ def attachment_router(
                 (
                     "SELECT name,mime,content FROM attachments WHERE workspace_id=? AND id=?"
                     if workspace_scope
-                    else "SELECT name,mime,content FROM attachments "
-                    "WHERE (project_id=? OR legacy_project_id=?) AND id=?"
+                    else "SELECT name,mime,content FROM attachments WHERE project_id=? AND id=?"
                 ),
-                (project_id, identity) if workspace_scope else (project_id, project_id, identity),
+                (project_id, identity),
             ).fetchone()
             if not row:
                 raise ApplicationError("attachment_missing", "Attachment not found.", 404)

@@ -27,11 +27,7 @@ def offline_registration(directory: Path, harness: HarnessKind) -> HarnessRegist
         db.execute("BEGIN")
         actual = version(db)
         require_supported(actual)
-        return (
-            HarnessSettings.read(db, harness)
-            if actual >= (52 if harness == "pi" else 45)
-            else HarnessRegistration(harness=harness)
-        )
+        return HarnessSettings.read(db, harness)
 
 
 class HarnessSettings:

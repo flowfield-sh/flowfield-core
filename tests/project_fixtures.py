@@ -12,15 +12,12 @@ def existing_directory(path: str | Path) -> str:
 
 def adopt(workspace: Workspace, request: ProjectSetup) -> Project:
     existing_directory(request.path)
-    if workspace.schema_version < 58:
-        return workspace.setup_project(request)
     from flowfield.agent_models import AgentSettingsEdit
     from flowfield.execution_models import SettingsEdit
     from flowfield.workspaces import WorkspaceCreate, Workspaces
 
-    # Latest-schema fixtures explicitly create their workspace. Keep readable IDs,
-    # matching the supported one-project-to-one-workspace migration, while shared
-    # workspace tests use independently generated IDs and multiple member projects.
+    # Fixtures explicitly create workspaces with readable IDs. Shared-workspace
+    # tests use independently generated IDs and multiple member projects.
     defaults = workspace.project_setup_defaults(request)
     project_id = request.id or defaults.id
     spaces = Workspaces(workspace)
@@ -36,22 +33,19 @@ def adopt(workspace: Workspace, request: ProjectSetup) -> Project:
         with workspace.connection(write=True) as db:
             db.execute("PRAGMA defer_foreign_keys=ON")
             db.execute("UPDATE workspaces SET id=? WHERE id=?", (identity, space.id))
-            if workspace.schema_version >= 80:
+            db.execute(
+                "UPDATE work_scopes SET id=?,workspace_id=? WHERE workspace_id=?",
+                ("workspace_" + identity, identity, space.id),
+            )
+            db.execute(
+                "UPDATE workspace_labels SET workspace_id=? WHERE workspace_id=?",
+                (identity, space.id),
+            )
+            for table in ("workspace_documents", "workspace_document_revisions"):
                 db.execute(
-                    "UPDATE work_scopes SET id=?,workspace_id=? WHERE workspace_id=?",
-                    ("workspace_" + identity, identity, space.id),
-                )
-            if workspace.schema_version >= 61:
-                db.execute(
-                    "UPDATE workspace_labels SET workspace_id=? WHERE workspace_id=?",
+                    f"UPDATE {table} SET workspace_id=? WHERE workspace_id=?",
                     (identity, space.id),
                 )
-            if workspace.schema_version >= 64:
-                for table in ("workspace_documents", "workspace_document_revisions"):
-                    db.execute(
-                        f"UPDATE {table} SET workspace_id=? WHERE workspace_id=?",
-                        (identity, space.id),
-                    )
     project = spaces.adopt(
         identity, request.model_copy(update={"coordinator": None, "worker": None})
     )
@@ -116,21 +110,3 @@ def reconcile_fixture_stages(workspace, project_id, task_id):
         task_id,
         StageUpdate(**change.model_dump(), agreement_revision=task.agreement_revision),
     )
-
-
-def prepare_legacy_chat(workspace):
-    """Let current test writers seed old chat records; finish_legacy_chat freezes old shape."""
-    with workspace.connection(write=True) as db:
-        db.execute(
-            "ALTER TABLE coordinator_conversations ADD COLUMN welcome TEXT NOT NULL DEFAULT ''"
-        )
-
-
-def finish_legacy_chat(workspace):
-    """Remove fixture-only welcome fields before exercising a pre-53 migration."""
-    with workspace.connection(write=True) as db:
-        db.execute("ALTER TABLE coordinator_conversations DROP COLUMN welcome")
-        if db.execute(
-            "SELECT name FROM sqlite_master WHERE name='coordinator_handoffs'"
-        ).fetchone():
-            db.execute("UPDATE coordinator_handoffs SET data=json_remove(data,'$.welcome')")

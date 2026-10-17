@@ -282,14 +282,11 @@ class Conversation:
             )
         if task["archived"] or task["reconciliation_reason"]:
             result.enabled, result.reason = False, "reconcile_task"
-        if (
-            self.workspace.schema_version >= 75
-            and db.execute(
-                "SELECT 1 FROM task_reviews WHERE project_id=? AND task_id=? "
-                "AND status IN ('queued','preparing','running','uncertain')",
-                (project_id, task_id),
-            ).fetchone()
-        ):
+        if db.execute(
+            "SELECT 1 FROM task_reviews WHERE project_id=? AND task_id=? "
+            "AND status IN ('queued','preparing','running','uncertain')",
+            (project_id, task_id),
+        ).fetchone():
             result.enabled, result.reason = False, "review_owns_result"
         question = db.execute(
             "SELECT id,data FROM questions WHERE project_id=? AND task_id=? "

@@ -1,6 +1,6 @@
 ---
 title: Local storage
-description: Locate your data, upgrade safely and recover a supported database.
+description: Locate your data, inspect storage and start with a fresh store.
 ---
 
 One service data directory stores all your Flowfield workspaces. Project repositories and installed native harness configuration remain separate.
@@ -17,35 +17,26 @@ One service data directory stores all your Flowfield workspaces. Project reposit
 
 Choose another data directory with `FLOWFIELD_DATA_DIR` or `flowfield --data-dir /absolute/path serve`. This changes the service's store, not an individual workspace's repository locations.
 
-## Upgrades
+## Starting fresh
 
-Supported databases from 0.2.0 through 0.4.0 upgrade automatically. When upgrading from project-owned coordination, each project gets a separate workspace named **Project name Workspace**. Its conversation, milestones and queue settings move with it; task history, approvals, repository identity and execution ownership remain associated with the same work. New installations create no workspace until you choose to create one.
+This build requires a fresh data directory when your existing database has a different schema version. It does not upgrade older databases. Stop the old service, choose a new directory and create a workspace:
 
-Stop the service before updating. Startup saves a verified database snapshot under the data directory's `backups/`, then runs migrations in one transaction. Failure or interruption rolls back the upgrade; errors stop startup with recovery instructions. Unsupported state is rejected without modification, and an older application cannot downgrade a newer database.
+```sh
+flowfield --data-dir /absolute/path/to/new-flowfield-data serve
+```
 
-Each workspace keeps its saved queue choice. Pause queues before shutdown if you want to review work before new starts resume; interrupted workers still need recovery. Upgrades preserve project files and installed guidance. Update optional guidance separately using [agent setup](/agents/overview#standalone-conversations).
+Existing repositories and native harness configuration remain separate. Startup rejects incompatible databases without modifying or deleting them. Reopening the current schema preserves saved work and queue choices; pause queues before shutdown if you want to review work before new starts resume. Interrupted workers still need recovery.
 
-## Inspect and recover
+## Inspect storage
 
-These commands need no running service and do not initialize or migrate data:
+This command runs offline without creating or modifying application data:
 
 ```sh
 flowfield storage status
-flowfield storage backups
 ```
 
 Add `--json` for structured output. To inspect another store, place `--data-dir /absolute/path` before `storage`.
 
-A failed migration normally needs a corrected build and another start. To restore a pre-upgrade snapshot explicitly, stop the service and choose a backup ID:
-
-```sh
-flowfield storage restore BACKUP_ID --confirm
-```
-
-Recovery verifies the snapshot and saves the current database before replacement. It refuses a running service, incompatible schema, different store or writes made since the snapshot, preserving newer work. Keep the data directory at the same path when using these snapshots; restart to retry the upgrade.
-
 ## Full backups
 
-Flowfield retains up to three database snapshots for migration recovery. They exclude execution artifacts, managed directories and repositories, and cannot repair an unreadable current database.
-
-For a full backup, stop the service and copy the entire data directory together with relevant project repositories. Preserve those files together when recovering from disk loss or corruption. Native accounts and session data stay with their harness; back them up separately if needed for native continuation.
+For a full backup, stop the service and copy the entire data directory together with relevant project repositories. Preserve those files together when recovering from disk loss or corruption. A backup requires a build supporting its schema; it cannot be imported into an incompatible schema. Native accounts and session data stay with their harness; back them up separately if needed for native continuation.

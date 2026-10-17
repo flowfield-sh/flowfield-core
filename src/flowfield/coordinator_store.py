@@ -19,7 +19,6 @@ from flowfield.coordinator_models import (
     CoordinatorTaskContext,
     CoordinatorTurn,
 )
-from flowfield.coordinator_ownership import column as owner_column
 from flowfield.coordinator_ownership import serialized, validate
 from flowfield.coordinator_prose import write as write_prose
 from flowfield.coordinator_settings import CoordinatorSettings
@@ -46,8 +45,8 @@ class CoordinatorStore:
     def _recovery(db: sqlite3.Connection, project: str) -> str | None:
         row = db.execute(
             "SELECT t.id FROM coordinator_turns t JOIN coordinator_sessions s "
-            f"ON s.{owner_column(db)}=t.{owner_column(db)} WHERE t.{owner_column(db)}=? "
-            f"AND t.number=(SELECT MAX(number) FROM coordinator_turns WHERE {owner_column(db)}=?) "
+            "ON s.workspace_id=t.workspace_id WHERE t.workspace_id=? "
+            "AND t.number=(SELECT MAX(number) FROM coordinator_turns WHERE workspace_id=?) "
             "AND json_extract(t.data,'$.session')='unavailable' "
             "AND s.generation_id IS NOT NULL AND s.fresh=0",
             (project, project),
@@ -71,7 +70,7 @@ class CoordinatorStore:
     ) -> CoordinatorConversation:
         row = db.execute(
             "SELECT id,number,created_at,welcome FROM coordinator_conversations "
-            f"WHERE {owner_column(db)}=? AND id=?",
+            "WHERE workspace_id=? AND id=?",
             (project, identity),
         ).fetchone()
         if row is None:
@@ -81,7 +80,7 @@ class CoordinatorStore:
     @staticmethod
     def _get(db: sqlite3.Connection, project: str, identity: str) -> CoordinatorTurn:
         row = db.execute(
-            f"SELECT data FROM coordinator_turns WHERE {owner_column(db)}=? AND id=?",
+            "SELECT data FROM coordinator_turns WHERE workspace_id=? AND id=?",
             (project, identity),
         ).fetchone()
         if row is None:
@@ -98,7 +97,7 @@ class CoordinatorStore:
     @staticmethod
     def _active(db: sqlite3.Connection, project: str) -> CoordinatorTurn | None:
         row = db.execute(
-            f"SELECT data FROM coordinator_turns WHERE {owner_column(db)}=? "
+            "SELECT data FROM coordinator_turns WHERE workspace_id=? "
             "AND status IN ('starting','running','stopping','uncertain')",
             (project,),
         ).fetchone()
@@ -108,7 +107,7 @@ class CoordinatorStore:
         with self.workspace.connection(write=True) as db:
             validate(db, self.workspace, project)
             existing = db.execute(
-                f"SELECT id FROM coordinator_conversations WHERE {owner_column(db)}=? "
+                "SELECT id FROM coordinator_conversations WHERE workspace_id=? "
                 "ORDER BY number DESC LIMIT 1",
                 (project,),
             ).fetchone()
@@ -116,7 +115,7 @@ class CoordinatorStore:
                 return self._conversation(db, project, existing[0])
             identity = uuid4().hex
             db.execute(
-                f"INSERT INTO coordinator_conversations(id,{owner_column(db)},created_at,welcome) "
+                "INSERT INTO coordinator_conversations(id,workspace_id,created_at,welcome) "
                 "VALUES (?,?,?,?)",
                 (identity, project, now(), WELCOME),
             )
@@ -137,13 +136,13 @@ class CoordinatorStore:
             owner = self._conversation(db, project, conversation) if conversation else None
             if after is not None:
                 rows = db.execute(
-                    f"SELECT data FROM coordinator_turns WHERE {owner_column(db)}=? AND number>=? "
+                    "SELECT data FROM coordinator_turns WHERE workspace_id=? AND number>=? "
                     "ORDER BY number LIMIT 20",
                     (project, after),
                 ).fetchall()
             else:
                 rows = db.execute(
-                    f"SELECT data FROM coordinator_turns WHERE {owner_column(db)}=? "
+                    "SELECT data FROM coordinator_turns WHERE workspace_id=? "
                     "AND (? IS NULL OR number<?) ORDER BY number DESC LIMIT 21",
                     (project, before, before),
                 ).fetchall()
@@ -158,14 +157,14 @@ class CoordinatorStore:
             # but never carry it across an explicitly started replacement session.
             context = db.execute(
                 "SELECT json_extract(data,'$.activity.context') FROM coordinator_turns "
-                f"WHERE {owner_column(db)}=? AND (json_type(data,'$.activity.context')='object' "
+                "WHERE workspace_id=? AND (json_type(data,'$.activity.context')='object' "
                 "OR json_extract(data,'$.session')='new') "
                 "ORDER BY number DESC LIMIT 1",
                 (project,),
             ).fetchone()
             welcome = db.execute(
                 "SELECT welcome FROM coordinator_conversations "
-                f"WHERE {owner_column(db)}=? ORDER BY number LIMIT 1",
+                "WHERE workspace_id=? ORDER BY number LIMIT 1",
                 (project,),
             ).fetchone()
             return CoordinatorPage(
@@ -185,7 +184,7 @@ class CoordinatorStore:
     ) -> tuple[CoordinatorTurn, bool]:
         with self.workspace.connection(write=True) as db:
             self._conversation(db, project, conversation)
-            if request.task_context and self.workspace.schema_version >= 59:
+            if request.task_context:
                 Workspaces.check_scope(db, project, request.task_context.project_id)
             task = (
                 self.workspace._task(
@@ -195,7 +194,7 @@ class CoordinatorStore:
                 else None
             )
             row = db.execute(
-                f"SELECT {owner_column(db)} FROM coordinator_turns WHERE id=?", (request.id,)
+                "SELECT workspace_id FROM coordinator_turns WHERE id=?", (request.id,)
             ).fetchone()
             if row:
                 if row[0] != project:
@@ -270,11 +269,7 @@ class CoordinatorStore:
                 )
             if not request.text.strip():
                 raise ApplicationError("empty_message", "Write a message first.")
-            settings = (
-                CoordinatorSettings.read(db, project)
-                if self.workspace.schema_version >= 59
-                else AgentSettings(self.workspace).resolve(db, project, "coordinator")
-            ).effective
+            settings = (CoordinatorSettings.read(db, project)).effective
             if settings is None:
                 raise ApplicationError(
                     "coordinator_settings",
@@ -283,9 +278,7 @@ class CoordinatorStore:
                 )
             settings = AgentSettings(self.workspace).freeze(db, settings)
             turn = CoordinatorTurn(
-                guidance_revision=Documents.read(db, project, "guidance").revision
-                if self.workspace.schema_version >= 64
-                else None,
+                guidance_revision=(Documents.read(db, project, "guidance").revision),
                 view_context=view_context,
                 task_context=CoordinatorTaskContext(
                     project_id=task.project_id,
@@ -310,10 +303,10 @@ class CoordinatorStore:
                 None,
                 request.text,
                 bind=True,
-                workspace_scope=self.workspace.schema_version >= 59,
+                workspace_scope=True,
             )
             result = db.execute(
-                f"INSERT INTO coordinator_turns(id,{owner_column(db)},conversation_id,status,data) "
+                "INSERT INTO coordinator_turns(id,workspace_id,conversation_id,status,data) "
                 "VALUES (?,?,?,?,?)",
                 (turn.id, project, conversation, turn.status, serialized(db, turn)),
             )
@@ -336,20 +329,19 @@ class CoordinatorStore:
             if row is None:
                 raise ApplicationError(
                     "handoff_unavailable",
-                    "This older message has no frozen handoff. "
+                    "This message has no frozen handoff. "
                     "Send a new message to continue; interrupted prompts are not replayed.",
                     409,
                 )
             value: dict[str, Any] = json.loads(row[0])
-            if value["version"] == 2:
-                if "budget_bytes" in value:
-                    budget = value["budget_bytes"]
-                elif record:
-                    value["budget_bytes"] = budget
-                    db.execute(
-                        "UPDATE coordinator_handoffs SET data=? WHERE turn_id=?",
-                        (json.dumps(value, ensure_ascii=False), identity),
-                    )
+            if "budget_bytes" in value:
+                budget = value["budget_bytes"]
+            elif record:
+                value["budget_bytes"] = budget
+                db.execute(
+                    "UPDATE coordinator_handoffs SET data=? WHERE turn_id=?",
+                    (json.dumps(value, ensure_ascii=False), identity),
+                )
             return select(db, project, value, budget)
 
     def get(self, project: str, identity: str) -> CoordinatorTurn:
@@ -370,8 +362,7 @@ class CoordinatorStore:
                 return
             if generation_id is not None:
                 row = db.execute(
-                    f"SELECT generation_id FROM coordinator_turns WHERE "
-                    f"{owner_column(db)}=? AND id=?",
+                    "SELECT generation_id FROM coordinator_turns WHERE workspace_id=? AND id=?",
                     (project, identity),
                 ).fetchone()
                 if row is None or row[0] != generation_id:
@@ -419,8 +410,7 @@ class CoordinatorStore:
         db: sqlite3.Connection, project: str, identity: str, generation_id: str | None
     ) -> bool:
         row = db.execute(
-            f"SELECT status,generation_id FROM coordinator_turns WHERE "
-            f"{owner_column(db)}=? AND id=?",
+            "SELECT status,generation_id FROM coordinator_turns WHERE workspace_id=? AND id=?",
             (project, identity),
         ).fetchone()
         return bool(

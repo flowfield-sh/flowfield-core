@@ -17,12 +17,11 @@ flowfield --port 8770 project list
 flowfield update status
 flowfield update check
 flowfield storage status
-flowfield storage backups
 ```
 
 `serve` opens the browser in an interactive terminal; `serve --no-open` prints the URL without opening it. Global `--port` or `FLOWFIELD_PORT` selects the service; `--data-dir` or `FLOWFIELD_DATA_DIR` selects its data directory.
 
-Update status reads the shared result or offline cache; a manual check requires the running service. These commands install nothing. Storage inspection/recovery runs offline without initializing or migrating data. See [installation](/installation#update) and [storage](/storage#inspect-and-recover).
+Update status reads the shared result or offline cache; a manual check requires the running service. These commands install nothing. Storage inspection runs offline without initializing or modifying data. See [installation](/installation#update) and [storage](/storage#inspect-storage).
 
 ## Workspaces and projects
 

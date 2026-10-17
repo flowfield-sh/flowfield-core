@@ -4,13 +4,12 @@ import sqlite3
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import BaseModel, Field
 
 from flowfield.adapters.harness_host import same_session_location
 from flowfield.adapters.session_continuity import retains_session
 from flowfield.agent_models import AgentChoice
 from flowfield.application import Workspace, now
-from flowfield.coordinator_ownership import column as owner_column
 from flowfield.coordinator_ownership import serialized
 from flowfield.errors import ApplicationError
 from flowfield.harness_models import HarnessKind, HarnessLaunch
@@ -18,7 +17,7 @@ from flowfield.harness_models import HarnessKind, HarnessLaunch
 
 class NativeGeneration(BaseModel):
     id: str
-    workspace_id: str = Field(validation_alias=AliasChoices("workspace_id", "project_id"))
+    workspace_id: str
     source_id: str | None = None
     created_at: str
     created_by: str | None = None
@@ -40,7 +39,7 @@ class CoordinatorSessions:
     @staticmethod
     def get(db: sqlite3.Connection, project: str, identity: str) -> NativeGeneration:
         row = db.execute(
-            f"SELECT data FROM coordinator_session_generations WHERE {owner_column(db)}=? AND id=?",
+            "SELECT data FROM coordinator_session_generations WHERE workspace_id=? AND id=?",
             (project, identity),
         ).fetchone()
         if row is None:
@@ -58,7 +57,7 @@ class CoordinatorSessions:
     @staticmethod
     def current(db: sqlite3.Connection, project: str) -> tuple[NativeGeneration | None, bool]:
         row = db.execute(
-            f"SELECT generation_id,fresh FROM coordinator_sessions WHERE {owner_column(db)}=?",
+            "SELECT generation_id,fresh FROM coordinator_sessions WHERE workspace_id=?",
             (project,),
         ).fetchone()
         return (
@@ -72,7 +71,7 @@ class CoordinatorSessions:
         # switching preference must not destroy it or silently resume it on switch-back.
         db.execute(
             "INSERT INTO coordinator_sessions VALUES (?,NULL,1) "
-            f"ON CONFLICT({owner_column(db)}) DO UPDATE SET fresh=1",
+            "ON CONFLICT(workspace_id) DO UPDATE SET fresh=1",
             (project,),
         )
 
@@ -121,8 +120,7 @@ class CoordinatorSessions:
         statuses: tuple[str, ...] = ("starting",),
     ) -> None:
         row = db.execute(
-            f"SELECT status,generation_id FROM coordinator_turns WHERE "
-            f"{owner_column(db)}=? AND id=?",
+            "SELECT status,generation_id FROM coordinator_turns WHERE workspace_id=? AND id=?",
             (project, turn),
         ).fetchone()
         if row is None or row[0] not in statuses or row[1] != generation:
@@ -143,7 +141,7 @@ class CoordinatorSessions:
     ) -> tuple[NativeGeneration, bool]:
         actor = db.execute(
             "SELECT status,generation_id,json_extract(data,'$.native_started') "
-            f"FROM coordinator_turns WHERE {owner_column(db)}=? AND id=?",
+            "FROM coordinator_turns WHERE workspace_id=? AND id=?",
             (project, turn),
         ).fetchone()
         if actor is None or actor[0] != "starting" or actor[2]:
@@ -184,7 +182,7 @@ class CoordinatorSessions:
             )
             self.save(db, generation)
         db.execute(
-            f"UPDATE coordinator_turns SET generation_id=? WHERE {owner_column(db)}=? AND id=?",
+            "UPDATE coordinator_turns SET generation_id=? WHERE workspace_id=? AND id=?",
             (generation.id, project, turn),
         )
         return generation, resumed
@@ -238,7 +236,7 @@ class CoordinatorSessions:
         if not command:
             db.execute(
                 "INSERT INTO coordinator_sessions VALUES (?,?,0) "
-                f"ON CONFLICT({owner_column(db)}) DO UPDATE SET "
+                "ON CONFLICT(workspace_id) DO UPDATE SET "
                 "generation_id=excluded.generation_id,fresh=0",
                 (project, generation),
             )
@@ -253,8 +251,7 @@ class CoordinatorSessions:
         generation_id: str | None = None,
     ) -> None:
         row = db.execute(
-            f"SELECT generation_id,status FROM coordinator_turns WHERE "
-            f"{owner_column(db)}=? AND id=?",
+            "SELECT generation_id,status FROM coordinator_turns WHERE workspace_id=? AND id=?",
             (project, turn),
         ).fetchone()
         if (

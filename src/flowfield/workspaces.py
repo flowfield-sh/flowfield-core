@@ -28,7 +28,6 @@ from flowfield.execution_models import (
 )
 from flowfield.project_config import Identifier, Title
 
-# A migrated 200-character project name also retains the complete " Workspace" suffix.
 WorkspaceName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=240)
 ]
@@ -118,14 +117,12 @@ class Workspaces:
                     record.updated_by,
                 ),
             )
-            if self.store.schema_version >= 61:
-                from flowfield.labels import Labels
+            from flowfield.labels import Labels
 
-                Labels.seed(db, record.id, request.author, timestamp)
-            if self.store.schema_version >= 64:
-                from flowfield.documents import Documents
+            Labels.seed(db, record.id, request.author, timestamp)
+            from flowfield.documents import Documents
 
-                Documents.seed(db, record.id, request.author, timestamp)
+            Documents.seed(db, record.id, request.author, timestamp)
         return record
 
     def edit(self, identity: str, request: WorkspaceEdit) -> WorkspaceRecord:

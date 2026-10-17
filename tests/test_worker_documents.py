@@ -8,16 +8,13 @@ import pytest
 from execution_fixtures import BASE, RESULT, fixture, result, validate_report
 from input_continuation_fixtures import answer, question
 from project_fixtures import task_request
-from storage_fixtures import logical_data
 from worker_documents_fixtures import defaults, prepare
 
-from flowfield import migrations
 from flowfield.agent_tools import workspace_scope
 from flowfield.application import TaskEdit, TaskPublish, TaskReconcile, Workspace
 from flowfield.documents import DocumentCreate, DocumentEdit, Documents
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
-from flowfield.migrations import Migration
 from flowfield.questions import Questions
 from flowfield.results import Results
 from flowfield.supervisor import Supervisor
@@ -251,38 +248,6 @@ def test_scoped_coordinator_can_select_and_prepare_without_document_body_echo(tm
         grant.revoke()
 
     asyncio.run(select())
-
-
-def test_upgrade_preserves_prepared_and_running_context_and_rolls_back(tmp_path, monkeypatch):
-    with monkeypatch.context() as old:
-        old.setattr(
-            migrations, "MIGRATIONS", tuple(m for m in migrations.MIGRATIONS if m.version < 65)
-        )
-        execution = fixture(tmp_path)
-        run = execution.claim("harbor", BASE, {BASE: set()})
-        assignment = execution.assignment("harbor", run.id)
-        task = execution.workspace.task("harbor", run.task_id)
-    before = logical_data(execution.workspace.directory)
-    migration = next(m for m in migrations.MIGRATIONS if m.version == 65)
-
-    def fail(db):
-        migration.apply(db)
-        raise ValueError("fixture migration failure")
-
-    with monkeypatch.context() as broken:
-        broken.setattr(
-            migrations,
-            "MIGRATIONS",
-            tuple(Migration(65, fail) if m.version == 65 else m for m in migrations.MIGRATIONS),
-        )
-        with pytest.raises(ApplicationError):
-            Workspace(execution.workspace.directory)
-    assert logical_data(execution.workspace.directory) == before
-    upgraded = Workspace(execution.workspace.directory)
-    assert [item.id for item in upgraded.project("harbor").worker_documents] == ["guidance"]
-    assert upgraded.task("harbor", run.task_id) == task
-    assert Execution(upgraded).get("harbor", run.id) == run
-    assert Execution(upgraded).assignment("harbor", run.id) == assignment
 
 
 def test_selected_document_policy_reaches_native_turn_unchanged(tmp_path):

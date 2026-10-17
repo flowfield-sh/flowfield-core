@@ -51,12 +51,3 @@ class StagePlan(Record):
     author: str = "coordinator"
     run_id: str | None = None
     created_at: str | None = None
-
-
-SCHEMA = """
-CREATE TABLE stage_plans (
-    project_id TEXT NOT NULL, task_id TEXT NOT NULL, revision INTEGER NOT NULL,
-    data TEXT NOT NULL, PRIMARY KEY(project_id,task_id,revision),
-    FOREIGN KEY(project_id,task_id) REFERENCES tasks(project_id,id)
-);
-"""
