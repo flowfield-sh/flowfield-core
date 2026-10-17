@@ -28,30 +28,32 @@ export function ProjectList({
           </Button>
         </div>
         {!projects.length && (
-          <p>Add your first project, or start planning with the Coordinator.</p>
+          <p className="collection-empty">No projects yet</p>
         )}
-        <div className="project-list">
-          {projects.map((project) => (
-            <WorkspaceLink
-              key={project.id}
-              to={boardHref(workspaceId, { project: project.id })}
-              className="project-list-row"
-            >
-              <ProjectBadge id={project.id} name={project.name} />
-              <ContentStack space="tight" className="min-w-0">
-                <strong>{project.name}</strong>
-                <span className="detail-metadata break-all">
-                  {project.path}
-                </span>
-                {problems[project.id] && (
-                  <span className="text-destructive text-sm">
-                    {problems[project.id]}
+        {!!projects.length && (
+          <div className="project-list">
+            {projects.map((project) => (
+              <WorkspaceLink
+                key={project.id}
+                to={boardHref(workspaceId, { project: project.id })}
+                className="project-list-row"
+              >
+                <ProjectBadge id={project.id} name={project.name} />
+                <ContentStack space="tight" className="min-w-0">
+                  <strong>{project.name}</strong>
+                  <span className="detail-metadata break-all">
+                    {project.path}
                   </span>
-                )}
-              </ContentStack>
-            </WorkspaceLink>
-          ))}
-        </div>
+                  {problems[project.id] && (
+                    <span className="text-destructive text-sm">
+                      {problems[project.id]}
+                    </span>
+                  )}
+                </ContentStack>
+              </WorkspaceLink>
+            ))}
+          </div>
+        )}
       </ContentStack>
     </section>
   );

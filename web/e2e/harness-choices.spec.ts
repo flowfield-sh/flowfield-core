@@ -76,14 +76,21 @@ for (const onlyClaude of [false, true]) {
       name: "Worker settings",
       exact: true,
     });
+    await expect(form.getByLabel("Harness", { exact: true })).toHaveAttribute(
+      "data-value",
+      "",
+    );
+    expect(discoveries).toEqual([]);
+    await choose(
+      form.getByLabel("Harness", { exact: true }),
+      onlyClaude ? "claude-code" : "codex",
+    );
     await expect(
       form.getByRole("combobox", { name: "Harness", exact: true }),
     ).toContainText(onlyClaude ? "Claude Code" : "Codex");
     await expect
       .poll(() => discoveries)
-      .toEqual(
-        onlyClaude ? ["claude-code", "claude-code"] : ["codex", "codex"],
-      );
+      .toEqual(onlyClaude ? ["claude-code"] : ["codex"]);
     if (!onlyClaude) {
       await choose(form.getByLabel("Model", { exact: true }), "codex-model");
       await choose(form.getByLabel("Reasoning effort"), "low");
@@ -101,9 +108,7 @@ for (const onlyClaude of [false, true]) {
       );
       await expect(form.getByLabel("Reasoning effort")).toHaveCount(0);
       await expect(form.getByLabel("Access mode")).toHaveCount(0);
-      await expect
-        .poll(() => discoveries)
-        .toEqual(["codex", "codex", "claude-code"]);
+      await expect.poll(() => discoveries).toEqual(["codex", "claude-code"]);
     }
     await choose(
       form.getByLabel("Model", { exact: true }),
@@ -172,8 +177,8 @@ for (const onlyClaude of [false, true]) {
     // The service coalesces/caches these reads; the open editor retains its model.
     expect(discoveries).toEqual(
       onlyClaude
-        ? ["claude-code", "claude-code", "claude-code"]
-        : ["codex", "codex", "claude-code", "claude-code"],
+        ? ["claude-code", "claude-code"]
+        : ["codex", "claude-code", "claude-code"],
     );
     await page.setViewportSize({ width: 390, height: 844 });
     expect(
@@ -255,6 +260,10 @@ test("Claude-only coordinator saves native choices independently of worker defau
     name: "Coordinator model settings",
     exact: true,
   });
+  await expect(picker).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Model settings", exact: true })
+    .click();
   await expect(picker).toBeVisible();
   let commandDiscoveries = 0;
   await page.route("**/coordinator/commands/discover*", (route) => {
@@ -284,10 +293,11 @@ test("Claude-only coordinator saves native choices independently of worker defau
   await page
     .getByRole("button", { name: "Model settings", exact: true })
     .click();
+  await choose(picker.getByLabel("Harness", { exact: true }), "claude-code");
   await expect(
     picker.getByRole("combobox", { name: "Harness", exact: true }),
   ).toContainText("Claude Code");
-  await expect.poll(() => discoveries).toBe(2);
+  await expect.poll(() => discoveries).toBe(1);
   await choose(
     picker.getByLabel("Model", { exact: true }),
     "claude-sonnet-5-5",
@@ -317,7 +327,7 @@ test("Claude-only coordinator saves native choices independently of worker defau
     await request.get(`/api/workspaces/${workspace}/workers`)
   ).json();
   expect(workers.selection).toBeNull();
-  expect(discoveries).toBe(2);
+  expect(discoveries).toBe(1);
   expect(commandDiscoveries).toBe(0);
   await page
     .getByRole("button", {
@@ -412,6 +422,7 @@ test("switching harnesses disables dependent controls and ignores late catalogs"
     exact: true,
   });
   const harness = form.getByLabel("Harness", { exact: true });
+  await choose(harness, "codex");
   const model = form.getByLabel("Model", { exact: true });
   await expect(model).toBeEnabled();
   await choose(model, "codex-model");

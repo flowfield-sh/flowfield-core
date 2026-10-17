@@ -53,7 +53,6 @@ export function CoordinatorChat({
   drafts,
   onSettingsDirty,
   controlsActive = true,
-  offerInitialSetup = true,
 }: {
   workspaceId: string;
   viewPath: string;
@@ -62,7 +61,6 @@ export function CoordinatorChat({
   drafts: ChatDrafts;
   onSettingsDirty: (dirty: boolean) => void;
   controlsActive?: boolean;
-  offerInitialSetup?: boolean;
 }) {
   const contextPending = !adjacent;
   const taskContext = adjacent?.task;
@@ -83,7 +81,7 @@ export function CoordinatorChat({
   const [loadingEarlier, setLoadingEarlier] = useState(false);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState<boolean | undefined>();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [controlsWereActive, setControlsWereActive] = useState(controlsActive);
   if (controlsWereActive !== controlsActive) {
     setControlsWereActive(controlsActive);
@@ -486,17 +484,7 @@ export function CoordinatorChat({
                 refresh={refresh}
                 coordinator
                 coordinatorActive={!!active}
-                open={
-                  controlsActive &&
-                  (settingsOpen ??
-                    (offerInitialSetup && !choice && !taskContext))
-                }
-                autoOpened={
-                  offerInitialSetup &&
-                  settingsOpen === undefined &&
-                  !choice &&
-                  !taskContext
-                }
+                open={controlsActive && settingsOpen}
                 onOpenChange={setSettingsOpen}
                 onDirty={dirty}
                 onReady={setChoice}

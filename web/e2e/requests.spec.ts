@@ -232,7 +232,7 @@ test("individual requests retain answers and drafts across independent tabs", as
   }
 });
 
-test("Needs attention opens the newest milestone member request and advances after answers", async ({
+test("Needs attention opens the milestone itself while requests remain directly accessible", async ({
   page,
   request,
 }) => {
@@ -278,9 +278,13 @@ test("Needs attention opens the newest milestone member request and advances aft
   });
   for (const id of ["newer", "earlier"]) {
     const href = `${base}/requests/question/${id}?project_id=${project}`;
-    await expect(entry).toHaveAttribute("href", href);
+    await expect(entry).toHaveAttribute(
+      "href",
+      `${base}/milestones/${milestone.key}`,
+    );
     await entry.click();
-    await expect(page).toHaveURL(href);
+    await expect(page).toHaveURL(`${base}/milestones/${milestone.key}`);
+    await page.goto(href);
     const detail = page.getByRole("region", { name: "Request", exact: true });
     await expect(detail).toContainText(`${id} choice`);
     await detail

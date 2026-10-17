@@ -235,7 +235,9 @@ test("worker models load automatically and retry without replacing setting draft
   });
   await page.goto(`/workspaces/${workspace}/edit/workers`);
   const settings = page.getByRole("region", { name: "Worker settings" });
-  await expect.poll(() => calls).toBe(2);
+  expect(calls).toBe(0);
+  await choose(settings.getByLabel("Harness", { exact: true }), "codex");
+  await expect.poll(() => calls).toBe(1);
   await expect(
     page.locator("[data-sonner-toast][data-type=error]"),
   ).toContainText("Catalog temporarily unavailable");

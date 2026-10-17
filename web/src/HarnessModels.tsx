@@ -59,9 +59,7 @@ export function useHarnessModels(
     return () => window.removeEventListener("flowfield:reconnected", reconnect);
   }, []);
   const hosts = useResource<Status[]>("harnesses", refresh);
-  const kind =
-    requested ??
-    hosts.data?.find((item) => item.selectable)?.registration.harness;
+  const kind = requested;
   const host = hosts.data?.find((item) => item.registration.harness === kind);
   const key = JSON.stringify([
     workspaceId,

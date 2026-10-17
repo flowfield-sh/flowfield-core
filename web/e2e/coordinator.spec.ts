@@ -788,7 +788,11 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
   await expect(
     page.getByRole("dialog", { name: "Coordinator model settings" }),
-  ).toBeVisible();
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Model settings", exact: true })
+    .click();
+  await choose(page.getByLabel("Harness", { exact: true }), "codex");
   await page.setViewportSize({ width: 1440, height: 1000 });
   const model = page.getByRole("combobox", { name: "Model", exact: true });
   const effort = page.getByRole("combobox", {
@@ -820,6 +824,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   await page
     .getByRole("button", { name: "Model settings", exact: true })
     .click();
+  await choose(page.getByLabel("Harness", { exact: true }), "codex");
   await expect(model).toBeEnabled();
   await expect(model).toHaveText("Choose a model");
   await expect(effort).toBeDisabled();
@@ -835,6 +840,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   await page
     .getByRole("button", { name: "Model settings", exact: true })
     .click();
+  await choose(page.getByLabel("Harness", { exact: true }), "codex");
   await expect(model).toHaveAttribute("data-value", "");
   await choose(model, "second");
   await choose(effort, "high");

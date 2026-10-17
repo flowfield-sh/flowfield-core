@@ -82,6 +82,11 @@ test("Pi shares automatic discovery and preserves provider-qualified model choic
     name: "Coordinator model settings",
     exact: true,
   });
+  await expect(picker).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Model settings", exact: true })
+    .click();
+  await choose(picker.getByLabel("Harness", { exact: true }), "pi");
   await expect(picker).toBeVisible();
   await expect(picker.getByLabel("Model", { exact: true })).toBeDisabled();
   await expect(

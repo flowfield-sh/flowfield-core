@@ -89,15 +89,7 @@ export function MilestoneList({
             {cards
               .filter((card) => card.column === column)
               .map(
-                ({
-                  milestone,
-                  tasks,
-                  done,
-                  archived,
-                  verification,
-                  column,
-                  workState,
-                }) => (
+                ({ milestone, tasks, done, archived, column, workState }) => (
                   <WorkCard key={milestone.id}>
                     <div className="work-card-heading">
                       <MilestoneBadge milestone={milestone} linked={false} />
@@ -106,7 +98,7 @@ export function MilestoneList({
                       <strong>
                         <WorkspaceLink
                           className="task-card-link"
-                          to={`${workspaceHref(milestone.workspace_id)}/milestones/${milestone.key}${verification ? `?tab=activity&verification=${verification.id}` : ""}`}
+                          to={`${workspaceHref(milestone.workspace_id)}/milestones/${milestone.key}`}
                         >
                           {milestone.title}
                         </WorkspaceLink>

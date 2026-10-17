@@ -48,7 +48,23 @@ test("explicit workspace creation, project adoption and shared draft navigation"
   await page.screenshot({
     path: testInfo.outputPath("workspace-empty-desktop-light.png"),
   });
+  await openResource(page, "Tasks");
+  await expect(
+    page.getByRole("dialog", { name: "Coordinator model settings" }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Model settings", exact: true })
+    .click();
+  await expect(page.getByLabel("Harness", { exact: true })).toHaveAttribute(
+    "data-value",
+    "",
+  );
+  await page.keyboard.press("Escape");
   await openResource(page, "Projects");
+  await expect(
+    page.getByText("No projects yet", { exact: true }),
+  ).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("projects-empty.png") });
   await page.getByRole("link", { name: "Add project", exact: true }).click();
   await expect(
     page.getByRole("region", { name: "Add a project", exact: true }),

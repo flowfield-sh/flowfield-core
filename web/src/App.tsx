@@ -489,7 +489,6 @@ export function App() {
                       drafts={chatDrafts}
                       onSettingsDirty={setChatSettingsDirty}
                       controlsActive={visible}
-                      offerInitialSetup={pathname === boardHref(workspaceId)}
                     />
                   )
                 : undefined

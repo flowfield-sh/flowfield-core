@@ -23,31 +23,12 @@ import type { WorkspaceBoard } from "./workspace";
 
 export function workItems(board: WorkspaceBoard) {
   const attention = new Set(board.attention_work_keys ?? []);
-  // The projection orders the newest request for each work item as Inbox does.
-  const requests = new Map(
-    Object.entries(board.attention_requests ?? {}).map(([key, href], order) => [
-      key,
-      { href, order },
-    ]),
-  );
-  const requestFor = (keys: string[]) => {
-    let first: { href: string; order: number } | undefined;
-    for (const key of keys) {
-      const request = requests.get(key);
-      if (request && (!first || request.order < first.order)) first = request;
-    }
-    return first?.href;
-  };
   return [
     ...milestoneCards(board).map(
       ({ milestone, column, tasks, archived, workState }) => ({
         key: milestone.key,
         title: milestone.title,
-        href:
-          (!archived
-            ? requestFor([milestone.key, ...tasks.map((task) => task.key)])
-            : undefined) ??
-          `${workspaceHref(board.workspace.id)}/milestones/${milestone.key}`,
+        href: `${workspaceHref(board.workspace.id)}/milestones/${milestone.key}`,
         complete: column === "Complete",
         archived,
         planned: column === "Planned",
@@ -62,9 +43,7 @@ export function workItems(board: WorkspaceBoard) {
       .map((t) => ({
         key: t.key,
         title: t.title,
-        href:
-          (!t.archived ? requestFor([t.key]) : undefined) ??
-          taskHref(t.project_id, t),
+        href: taskHref(t.project_id, t),
         complete: t.status === "done",
         archived: t.archived,
         planned: t.status === "backlog" || t.status === "up_next",
