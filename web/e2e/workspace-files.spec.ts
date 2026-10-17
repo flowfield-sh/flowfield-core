@@ -47,6 +47,7 @@ test("workspace files link exact task and milestone handoffs without a project",
     else await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
     await page.screenshot({
       path: testInfo.outputPath(`files-${width}-${theme}.png`),
+      animations: "disabled",
     });
     expect(
       await page.evaluate(
