@@ -146,7 +146,7 @@ def test_checkout_retry_cannot_transfer_approval_to_changed_destination(tmp_path
             ),
         )
     else:
-        from test_result_recovery import target_change
+        from result_recovery_fixtures import target_change
 
         target_change(service, repo, run.base_commit)
     before = baseline(repo)

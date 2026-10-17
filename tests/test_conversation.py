@@ -6,8 +6,9 @@ from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
 import pytest
+from conversation_fixtures import plan
 from execution_fixtures import BASE, fixture
-from test_input_continuation import answer, question
+from input_continuation_fixtures import answer, question
 
 from flowfield.activity import ActivityCreate
 from flowfield.application import TaskEdit, TaskPriority, Workspace
@@ -15,27 +16,10 @@ from flowfield.conversation import Conversation
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import WorkerResult
 from flowfield.questions import Questions
-from flowfield.stage_models import Stage, StageUpdate
+from flowfield.stage_models import StageUpdate
 from flowfield.stages import Stages
 from flowfield.supervisor import WorkerBridge
 from flowfield.worker_context import brief_context, continue_input
-
-
-def plan(revision=0, agreement=1, status="planned"):
-    return StageUpdate(
-        expected_revision=revision,
-        agreement_revision=agreement,
-        stages=[
-            Stage(
-                id="implement",
-                title="Implement",
-                outcome="Deliver the requested behavior",
-                status=status,
-            ),
-            Stage(id="verify", title="Verify", outcome="Demonstrate the agreed outcome"),
-        ],
-        reason="Initial sequence" if revision == 0 else "Implementation started",
-    )
 
 
 def test_stages_have_one_owner_and_cannot_complete_or_remove_scope(tmp_path):

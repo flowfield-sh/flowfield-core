@@ -4,7 +4,7 @@ import asyncio
 from pathlib import Path
 
 import pytest
-from test_guidance import setup
+from setup_validation_fixtures import configured
 
 from flowfield.adapters import local_checks
 from flowfield.adapters.git_workspace import git
@@ -12,27 +12,6 @@ from flowfield.errors import ApplicationError
 from flowfield.integration import Integrations
 from flowfield.integration_models import IntegrationConfig
 from flowfield.setup_validation import SetupCheckRequest, SetupValidation
-
-
-def configured(tmp_path, monkeypatch, **changes):
-    root, guidance = setup(tmp_path)
-    git(root, "init", "-b", "main")
-    (root / "base.txt").write_text("base")
-    git(root, "add", ".")
-    git(root, "-c", "user.name=Test", "-c", "user.email=test@invalid", "commit", "-m", "base")
-    service = SetupValidation(guidance.workspace)
-    settings = Integrations(guidance.workspace).configure(
-        "project",
-        IntegrationConfig(
-            runtime="local",
-            expected_revision=1,
-            target_branch="delivery",
-            create_from="HEAD",
-            checks=changes.pop("checks", ["test -f base.txt"]),
-            **changes,
-        ),
-    )
-    return root, service, settings
 
 
 def test_setup_uses_host_tools_and_retains_evidence_without_enabling_queue(tmp_path, monkeypatch):

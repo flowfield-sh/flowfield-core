@@ -4,7 +4,7 @@ import asyncio
 
 import httpx
 from execution_fixtures import BASE, fixture
-from test_permissions import OPTIONS, pending
+from permissions_fixtures import OPTIONS, pending
 
 from flowfield.api import create_app
 from flowfield.errors import ApplicationError

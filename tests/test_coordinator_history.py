@@ -5,12 +5,11 @@ import json
 from uuid import uuid4
 
 import pytest
+from coordinator_history_fixtures import saved_exchange
 from execution_fixtures import BASE, fixture
 from fastapi.testclient import TestClient
 from project_fixtures import adopt
 
-from flowfield.agent_models import AgentChoice, AgentSettingsEdit
-from flowfield.agent_settings import AgentSettings
 from flowfield.agent_tools import worker_scope, workspace_scope
 from flowfield.api import create_app
 from flowfield.application import ProjectSetup
@@ -20,37 +19,6 @@ from flowfield.errors import ApplicationError
 from flowfield.reads import PAGE_BYTES, ContextReads, size
 from flowfield.run_activity import ActivityUpdate
 from flowfield.supervisor import Supervisor, WorkerBridge
-
-
-def saved_exchange(workspace, text, *, finish=True):
-    settings = AgentSettings(workspace).get("harbor", "coordinator")
-    if settings.effective is None:
-        AgentSettings(workspace).edit(
-            "harbor",
-            "coordinator",
-            AgentSettingsEdit(
-                expected_revision=settings.revision,
-                selection=AgentChoice(model="test-model", effort="low"),
-            ),
-        )
-    store = CoordinatorStore(workspace)
-    conversation = store.new("harbor")
-    turn, _ = store.reserve("harbor", conversation.id, CoordinatorSend(id=uuid4().hex, text=text))
-    store.write(
-        "harbor",
-        turn.id,
-        [
-            ActivityUpdate(key="reply", kind="agent", text="Public reply " + text),
-            ActivityUpdate(key="tool", kind="tool", text="PRIVATE TOOL DETAILS"),
-            ActivityUpdate(key="status", kind="status", text="PRIVATE STATUS DETAILS"),
-        ],
-    )
-    if finish:
-        with workspace.connection(write=True) as db:
-            turn = store._get(db, "harbor", turn.id)
-            turn.status = "completed"
-            store._save(db, turn)
-    return store.get("harbor", turn.id)
 
 
 def test_older_exchanges_and_exact_text_survive_paging_and_restart(tmp_path):

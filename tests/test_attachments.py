@@ -4,11 +4,11 @@ import asyncio
 import base64
 
 import pytest
+from coordinator_fixtures import message, settled, setup
 from execution_fixtures import fixture
 from fastapi.testclient import TestClient
-from test_coordinator import message, settled, setup
-from test_managed_local import configured
-from test_replies import message as reply_message
+from managed_local_fixtures import configured
+from replies_fixtures import message as reply_message
 
 from flowfield import migrations
 from flowfield.adapters.git_workspace import baseline
@@ -74,7 +74,7 @@ def test_worker_answer_delivers_attachments_through_existing_reply_binding(tmp_p
     service, repo, _ = configured(
         tmp_path, monkeypatch, scenario="normal", flags=("expect-attachments",)
     )
-    from test_input_continuation import question
+    from input_continuation_fixtures import question
 
     base = baseline(repo)
     run, _ = question(service.execution)

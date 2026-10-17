@@ -1,9 +1,9 @@
 """Real Git combination, exact verifier baseline and independent promotion approval."""
 
 import pytest
+from milestone_delivery_fixtures import contribute, setup
+from milestone_delivery_git_fixtures import commit
 from project_fixtures import task_request
-from test_milestone_delivery import contribute, setup
-from test_milestone_delivery_git import commit
 
 from flowfield.adapters.git_workspace import baseline
 from flowfield.errors import ApplicationError

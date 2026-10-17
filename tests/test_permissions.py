@@ -6,19 +6,15 @@ from contextlib import suppress
 
 import pytest
 from execution_fixtures import BASE, fixture
-from test_native_adapters import start
+from native_adapters_fixtures import start
+from permissions_fixtures import OPTIONS, pending
 
 from flowfield.adapters.agent_permissions import permission_handler
 from flowfield.attention import attention_page
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import RunAction
-from flowfield.permission_models import PermissionAnswer, PermissionOption
+from flowfield.permission_models import PermissionAnswer
 from flowfield.permissions import Permissions
-
-OPTIONS = [
-    PermissionOption(id="yes", label="Allow once", kind="allow_once"),
-    PermissionOption(id="no", label="Reject once", kind="reject_once"),
-]
 
 
 def setup(tmp_path):
@@ -26,13 +22,6 @@ def setup(tmp_path):
     run = execution.claim("harbor", BASE, {BASE: set()})
     execution.started("harbor", run.id)
     return execution, run, Permissions(execution.workspace)
-
-
-async def pending(owner, *, workspace_scope=False):
-    async with asyncio.timeout(4):
-        while not (items := owner.page("harbor", workspace_scope=workspace_scope).pending):
-            await asyncio.sleep(0.01)
-        return items[0]
 
 
 @pytest.mark.parametrize("option", ["yes", "no"])
@@ -150,7 +139,7 @@ def test_stop_rejects_answer_and_new_turn_does_not_replay(tmp_path):
             with pytest.raises(asyncio.CancelledError):
                 await task
         assert owner.page("harbor").items[0].status == "cancelled"
-        from test_coordinator_generations import start_coordinator
+        from coordinator_generations_fixtures import start_coordinator
 
         _, coordinator, generation = start_coordinator(execution.workspace)
         async with owner.turn(

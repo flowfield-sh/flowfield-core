@@ -4,12 +4,12 @@ import asyncio
 from unittest.mock import patch
 
 import pytest
+from coordinator_generations_fixtures import start_coordinator
 from execution_fixtures import fixture
 from fastapi.testclient import TestClient
+from permissions_fixtures import OPTIONS
 from project_fixtures import task_request
-from test_coordinator_generations import start_coordinator
-from test_permissions import OPTIONS
-from test_workspace_dependencies import shared
+from workspace_dependencies_fixtures import shared
 
 from flowfield.api import create_app
 from flowfield.application import MilestoneCreate

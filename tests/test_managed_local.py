@@ -9,69 +9,18 @@ from pathlib import Path
 
 import pytest
 from execution_fixtures import fixture
+from managed_local_fixtures import configured
 from result_fixtures import approve
 
 from flowfield.adapters.git_workspace import baseline, git
 from flowfield.agent_models import AgentChoice
-from flowfield.application import TaskPublish
-from flowfield.execution_models import RunAction, SettingsEdit
+from flowfield.execution_models import RunAction
 from flowfield.inspection import Inspections
 from flowfield.inspection_models import InspectionConfig, InspectionPrepare
 from flowfield.integration_models import IntegrationConfig
 from flowfield.permission_models import PermissionAnswer
 from flowfield.setup_validation import SetupCheckRequest
 from flowfield.supervisor import Supervisor
-
-FAKE = Path(__file__).with_name("fake_native_codex.py")
-
-
-def configured(tmp_path, monkeypatch, *, count=1, scenario="normal", flags=()):
-    execution = fixture(tmp_path, count=count, cap=count)
-    repo = tmp_path / "harbor"
-    git(repo, "init", "-b", "main")
-    (repo / "base.txt").write_text("base")
-    git(repo, "add", ".")
-    git(repo, "-c", "user.name=Test", "-c", "user.email=test@invalid", "commit", "-m", "base")
-    monkeypatch.setenv("FLOWFIELD_TEST_SCENARIO", scenario)
-    monkeypatch.setenv("CODEX_PATH", sys.executable)  # Native discovery remains model-free in CI.
-    monkeypatch.setenv("FLOWFIELD_TEST_SECRET", "do-not-persist-host-secrets")
-    monkeypatch.setattr(
-        "flowfield.adapters.codex_agent.command",
-        lambda directory, env: (
-            [sys.executable, str(FAKE), "managed", "cleanup", "close-session", *flags],
-            dict(env),
-        ),
-    )
-    service = Supervisor(execution.workspace)
-    settings = service.integrations.configure(
-        "harbor",
-        IntegrationConfig(
-            expected_revision=1,
-            target_branch="main",
-            runtime="local",
-            checks=["test -f base.txt"],
-            setup_commands=['test -n "$HOME" && test -n "$FLOWFIELD_RUNTIME_DIR"'],
-        ),
-    )
-    workers = execution.settings("harbor")
-    execution.configure(
-        "harbor",
-        SettingsEdit(
-            expected_revision=workers.revision,
-            max_parallel=count,
-            selection=AgentChoice(model="test-model", effort="low", mode="workspace-write"),
-        ),
-    )
-    for task in execution.workspace.tasks("harbor"):
-        execution.workspace.publish_task(
-            "harbor",
-            task.id,
-            TaskPublish(
-                completion="code",
-                expected_revision=task.revision,
-            ),
-        )
-    return service, repo, settings
 
 
 def test_local_workers_validate_and_inspect_with_host_tools(tmp_path, monkeypatch):
@@ -388,7 +337,7 @@ def test_local_commits_capture_original_base_without_moving_shared_branch(tmp_pa
 
 
 def test_public_permission_projection_keeps_commands_but_not_private_inputs(tmp_path):
-    from test_native_adapters import start
+    from native_adapters_fixtures import start
 
     async def exercise():
         agent = await start(tmp_path, [])
@@ -490,7 +439,6 @@ def test_stop_during_local_setup_stops_owned_command_before_freeing_slot(tmp_pat
 
 
 def test_native_mode_discovery_needs_no_environment_activation(tmp_path, monkeypatch):
-    from flowfield.agent_models import AgentChoice
     from flowfield.execution_models import ModelOption
 
     service = Supervisor(fixture(tmp_path).workspace)

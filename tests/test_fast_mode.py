@@ -4,8 +4,8 @@ import asyncio
 import sys
 
 import pytest
+from coordinator_fixtures import message, settled, setup
 from execution_fixtures import BASE, fixture
-from test_coordinator import message, settled, setup
 
 from flowfield.adapters.codex_agent import CodexAgent
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit

@@ -7,33 +7,15 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from project_fixtures import existing_directory, task_request
 from storage_fixtures import logical_data
+from workspace_dependencies_fixtures import complete, shared
 
 from flowfield import migrations
-from flowfield.application import ProjectSetup, TaskEdit, TaskProgress, TaskPublish, Workspace
+from flowfield.application import ProjectSetup, TaskEdit, TaskPublish, Workspace
 from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 from flowfield.migrations import Migration
 from flowfield.reads import ContextReads
-from flowfield.workspaces import WorkspaceCreate, Workspaces
-
-
-def shared(tmp_path):
-    store = Workspace(tmp_path / "state")
-    spaces = Workspaces(store)
-    space = spaces.create(WorkspaceCreate(name="Product"))
-    other = spaces.create(WorkspaceCreate(name="Other"))
-    for project, owner in (("core", space.id), ("site", space.id), ("elsewhere", other.id)):
-        spaces.adopt(owner, ProjectSetup(path=existing_directory(tmp_path / project)))
-    return store
-
-
-def complete(store, project, identity):
-    task = store.task(project, identity)
-    return store.record_progress(
-        project,
-        task.id,
-        TaskProgress(expected_revision=task.revision, status="done", completion="report"),
-    )
+from flowfield.workspaces import Workspaces
 
 
 @pytest.mark.parametrize("destination", ["core", "site"])

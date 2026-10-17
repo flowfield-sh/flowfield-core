@@ -5,40 +5,13 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from execution_fixtures import BASE, RESULT, fixture
+from input_continuation_fixtures import answer, question, queue
 from project_fixtures import fixture_stage_change
 
 from flowfield.application import TaskEdit
 from flowfield.errors import ApplicationError
-from flowfield.execution_models import QueueEdit, RunAction
+from flowfield.execution_models import RunAction
 from flowfield.questions import QuestionAnswer, QuestionCreate, Questions
-
-
-def question(execution):
-    run = execution.claim("harbor", BASE, {BASE: set()})
-    execution.started("harbor", run.id)
-    q = execution.ask_question(
-        "harbor",
-        run.id,
-        QuestionCreate(
-            task_id=run.task_id,
-            question="Which rows?",
-            context="Two product behaviors are possible.",
-            recommendation="Use all filtered rows.",
-            blocking_scope="Export scope",
-        ),
-    )
-    return run, q
-
-
-def queue(execution, enabled):
-    settings = execution.settings("harbor")
-    execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=enabled))
-
-
-def answer(questions, q, value="All filtered rows"):
-    return questions.answer(
-        "harbor", q.id, QuestionAnswer(expected_revision=q.revision, answer=value)
-    )
 
 
 def test_answer_survives_restart_and_claims_once_with_frozen_evidence(tmp_path):

@@ -5,7 +5,7 @@ import json
 import pytest
 from execution_fixtures import BASE, RESULT, fixture, result, validate_report
 from project_fixtures import task_request
-from test_worker_documents import prepare
+from worker_documents_fixtures import prepare
 
 from flowfield.application import MilestoneCreate, MilestoneEdit, TaskEdit, Workspace
 from flowfield.attention import attention_page, workspace_attention_counts

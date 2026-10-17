@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from project_fixtures import adopt, reconcile_fixture_stages, task_request
+from questions_fixtures import ask, setup
 
 from flowfield.api import create_app
 from flowfield.application import ProjectSetup, TaskEdit, TaskProgress, Workspace
@@ -19,40 +20,6 @@ from flowfield.questions import (
     QuestionWithdraw,
 )
 from flowfield.reads import PAGE_BYTES, ContextReads, size
-
-
-def setup(tmp_path: Path):
-    workspace = Workspace(tmp_path / "state")
-    adopt(workspace, ProjectSetup(path=str(tmp_path / "harbor")))
-    workspace.create_task(
-        "harbor", task_request(id="serializer", title="Serialize CSV", status="up_next")
-    )
-    workspace.create_task(
-        "harbor",
-        task_request(
-            id="download",
-            title="Download",
-            body="Export CSV",
-            dependencies=["HAR-1"],
-            status="up_next",
-        ),
-    )
-    return workspace, Questions(workspace)
-
-
-def ask(questions: Questions, identity: str = "scope", blocking: bool = True):
-    return questions.ask(
-        "harbor",
-        QuestionCreate(
-            id=identity,
-            task_id="HAR-2",
-            question="Which rows?",
-            context="The table is paginated.",
-            recommendation="All filtered rows, capped at 10,000.",
-            choices=["All filtered rows", "Visible page"],
-            blocking_scope="Choosing the export contract" if blocking else None,
-        ),
-    )
 
 
 def test_answer_is_not_application_and_other_gates_survive(tmp_path: Path) -> None:

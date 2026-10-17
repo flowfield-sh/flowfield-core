@@ -2,8 +2,8 @@
 
 import asyncio
 
+from agent_tools_fixtures import journey
 from project_fixtures import existing_directory
-from test_agent_tools import journey
 
 from flowfield.agent_tools import workspace_scope
 from flowfield.application import ProjectSetup, Workspace

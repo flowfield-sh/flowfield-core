@@ -4,12 +4,12 @@ import base64
 from uuid import uuid4
 
 import pytest
+from coordinator_fixtures import message
+from coordinator_generations_fixtures import CODEX, finish_coordinator, start_coordinator
 from execution_fixtures import fixture
 from fastapi.testclient import TestClient
 from project_fixtures import existing_directory
 from storage_fixtures import logical_data
-from test_coordinator import message
-from test_coordinator_generations import CODEX, finish_coordinator, start_coordinator
 
 from flowfield import migrations
 from flowfield.agent_models import AgentSettingsEdit
@@ -151,7 +151,7 @@ def test_empty_workspace_chat_and_explicit_project_context(tmp_path):
             workspace.id, ProjectSetup(id=identity, path=existing_directory(tmp_path / identity))
         )
     assert owner.new(space.id).id == conversation.id
-    from test_task_preparation import task_request
+    from project_fixtures import task_request
 
     for project in ("core", "site", "outside"):
         store.create_task(project, task_request(id="same", title=project))

@@ -4,10 +4,10 @@ from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 import pytest
+from coordinator_generations_fixtures import CLAUDE, CODEX, finish_coordinator, start_coordinator
 from execution_fixtures import fixture
 from project_fixtures import existing_directory
 from storage_fixtures import logical_data
-from test_coordinator_generations import CLAUDE, CODEX, finish_coordinator, start_coordinator
 
 from flowfield import migrations
 from flowfield.agent_models import AgentSettingsEdit

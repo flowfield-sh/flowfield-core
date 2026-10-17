@@ -8,8 +8,8 @@ from execution_fixtures import BASE, fixture
 from project_fixtures import fixture_stage_change, task_request
 from pydantic import ValidationError
 from storage_fixtures import logical_data
-from test_worker_documents import defaults, prepare
-from test_workspace_dependencies import complete, shared
+from worker_documents_fixtures import defaults, prepare
+from workspace_dependencies_fixtures import complete, shared
 
 from flowfield import migrations
 from flowfield.agent_tools import workspace_scope

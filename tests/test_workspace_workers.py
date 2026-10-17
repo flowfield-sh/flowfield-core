@@ -4,12 +4,13 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from execution_fixtures import BASE, fixture
-from project_fixtures import existing_directory, fixture_stage_change, task_request
+from project_fixtures import existing_directory
+from workspace_workers_fixtures import shared
 
 from flowfield import migrations, storage
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit
 from flowfield.agent_settings import AgentSettings
-from flowfield.application import ProjectSetup, TaskPublish, Workspace
+from flowfield.application import ProjectSetup, Workspace
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.execution_models import QueueEdit, SettingsEdit
@@ -17,35 +18,6 @@ from flowfield.migrations import Migration
 from flowfield.questions import QuestionAnswer, QuestionCreate, Questions
 from flowfield.reads import ContextReads
 from flowfield.workspaces import WorkspaceCreate, Workspaces
-
-
-def shared(tmp_path, *, cap=1):
-    store = Workspace(tmp_path / "state")
-    spaces = Workspaces(store)
-    space = spaces.create(WorkspaceCreate(name="Product"))
-    for name in ("core", "site"):
-        spaces.adopt(space.id, ProjectSetup(path=existing_directory(tmp_path / name)))
-        task = store.create_task(
-            name,
-            task_request(
-                id="work", title="Work", body="Investigate and report findings.", status="up_next"
-            ),
-        )
-        store.publish_task(
-            name,
-            task.id,
-            TaskPublish(
-                expected_revision=task.revision,
-                completion="report",
-                stages=fixture_stage_change(store, name, task.id),
-            ),
-        )
-    saved = spaces.configure_workers(
-        space.id,
-        SettingsEdit(expected_revision=1, selection=AgentChoice(model="shared"), max_parallel=cap),
-    )
-    spaces.queue(space.id, QueueEdit(expected_revision=saved.revision, enabled=True))
-    return store, spaces, space.id, Execution(store)
 
 
 def test_empty_workspace_has_explicit_paused_default_and_guarded_edits(tmp_path):

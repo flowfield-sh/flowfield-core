@@ -4,10 +4,10 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from conversation_fixtures import plan
 from execution_fixtures import BASE, RESULT, fixture, validate_report
+from input_continuation_fixtures import answer
 from project_fixtures import task_request
-from test_conversation import plan
-from test_input_continuation import answer
 
 from flowfield.application import TaskEdit, TaskPublish
 from flowfield.browser import BrowserReads

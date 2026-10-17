@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from project_fixtures import reconcile_fixture_stages
 from result_fixtures import approve, current, fixture
-from test_result_recovery import target_change
+from result_recovery_fixtures import target_change
 
 from flowfield.adapters.git_workspace import baseline, git
 from flowfield.adapters.local_execution import LocalHost

@@ -4,8 +4,8 @@ import asyncio
 import json
 
 import httpx
+from agent_tools_fixtures import journey
 from execution_fixtures import BASE, fixture
-from test_native_adapters import start
 
 from flowfield.adapters.agent_mcp import serve_scope
 from flowfield.agent_tools import worker_scope, workspace_scope
@@ -102,24 +102,6 @@ def test_coordinator_reads_overlap_with_bounded_revocable_access(tmp_path):
         assert grant._reading == 0
 
     asyncio.run(exercise())
-
-
-async def journey(tmp_path, grant, calls):
-    events = []
-    async with serve_scope(grant) as server:
-        client = await start(tmp_path, events, servers=[server])
-        try:
-            assert (await client.prompt(json.dumps({"calls": calls}), None))[
-                "status"
-            ] == "completed"
-        finally:
-            assert await client.stop()
-    assert grant.revoked
-    return [
-        json.loads(event.text)
-        for event in events
-        if event.kind == "agent" and event.text.startswith("{")
-    ]
 
 
 def test_coordinator_captures_work_with_explicit_project(tmp_path):
@@ -322,7 +304,7 @@ def test_pending_workflow_operation_blocks_report_and_revocation_prevents_late_w
 
 
 def test_coordinator_configures_and_validates_only_its_project(tmp_path, monkeypatch):
-    from test_setup_validation import configured
+    from setup_validation_fixtures import configured
 
     _, validation, settings = configured(tmp_path, monkeypatch)
     service = Supervisor(validation.workspace)
@@ -575,7 +557,7 @@ def test_coordinator_controls_workers_and_preserves_worker_scope(tmp_path, monke
 
 
 def test_coordinator_relays_bound_answer_once_without_enabling_queue(tmp_path):
-    from test_input_continuation import question, queue
+    from input_continuation_fixtures import question, queue
 
     from flowfield.questions import Questions
     from flowfield.reply_models import ReplyBinding

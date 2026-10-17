@@ -6,13 +6,14 @@ from types import SimpleNamespace
 
 import pytest
 from execution_fixtures import BASE, RESULT, fixture, result, validate_report
-from project_fixtures import fixture_stage_change, task_request
+from input_continuation_fixtures import answer, question
+from project_fixtures import task_request
 from storage_fixtures import logical_data
-from test_input_continuation import answer, question
+from worker_documents_fixtures import defaults, prepare
 
 from flowfield import migrations
 from flowfield.agent_tools import workspace_scope
-from flowfield.application import ProjectEdit, TaskEdit, TaskPublish, TaskReconcile, Workspace
+from flowfield.application import TaskEdit, TaskPublish, TaskReconcile, Workspace
 from flowfield.documents import DocumentCreate, DocumentEdit, Documents
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
@@ -23,30 +24,6 @@ from flowfield.supervisor import Supervisor
 from flowfield.worker_context import brief_context
 from flowfield.worker_tools import WorkerBridge, worker_tools
 from flowfield.workspaces import WorkspaceCreate, Workspaces
-
-
-def prepare(store, task_id="task-0"):
-    task = store.task("harbor", task_id)
-    return store.publish_task(
-        "harbor",
-        task.id,
-        TaskPublish(
-            expected_revision=task.revision,
-            completion="report",
-            stages=fixture_stage_change(store, "harbor", task.id),
-        ),
-    )
-
-
-def defaults(store, references):
-    project = store.project("harbor")
-    return store.edit_project(
-        "harbor",
-        ProjectEdit(
-            expected_revision=project.revision,
-            worker_documents=references,
-        ),
-    )
 
 
 def test_preparation_freezes_union_and_workers_page_only_selected_revisions(tmp_path):
@@ -309,7 +286,7 @@ def test_upgrade_preserves_prepared_and_running_context_and_rolls_back(tmp_path,
 
 
 def test_selected_document_policy_reaches_native_turn_unchanged(tmp_path):
-    from test_native_adapters import start
+    from native_adapters_fixtures import start
 
     execution = fixture(tmp_path)
     store = execution.workspace

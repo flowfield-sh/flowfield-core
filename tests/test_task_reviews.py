@@ -3,8 +3,10 @@
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from execution_fixtures import fixture as execution_fixture
 from pydantic import ValidationError
 from result_fixtures import current, fixture
+from task_reviews_fixtures import configured, verdict
 
 from flowfield.adapters.git_workspace import git
 from flowfield.agent_models import AgentChoice
@@ -17,36 +19,19 @@ from flowfield.task_reviews import ReviewVerdict, TaskReviews
 from flowfield.worker_settings import occupancy
 
 
-def configured(tmp_path):
-    service, repo, run = fixture(tmp_path)
-    service.results.process("harbor")
-    reviewers = Reviewers(service.workspace)
+def test_defaults_inheritance_disable_and_reset_are_independent(tmp_path):
+    # Policy inheritance needs a task identity, not a Git candidate and delivery checks.
+    workspace = execution_fixture(tmp_path, count=1).workspace
+    task_id = workspace.tasks("harbor")[0].id
+    reviewers = Reviewers(workspace)
     reviewers.configure(
         "harbor",
         "task",
         ReviewerEdit(
-            expected_revision=1,
-            enabled=True,
-            selection=AgentChoice(model="review-fixture"),
+            expected_revision=1, enabled=True, selection=AgentChoice(model="review-fixture")
         ),
     )
-    settings = service.execution.settings("harbor")
-    service.execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=True))
-    return service, repo, run, reviewers, TaskReviews(service.workspace)
-
-
-def verdict(action="approve"):
-    return ReviewVerdict(
-        action=action,
-        summary="Checked the agreed outcome",
-        evidence="Candidate checks passed; diff matches the requested result.",
-        request="" if action == "approve" else "Explain the error-handling case.",
-    )
-
-
-def test_defaults_inheritance_disable_and_reset_are_independent(tmp_path):
-    service, _, run, reviewers, _ = configured(tmp_path)
-    scope = {"project": "harbor", "entity": run.task_id}
+    scope = {"project": "harbor", "entity": task_id}
     task = reviewers.get("harbor", "task", **scope)
     assert task.enabled is None and task.effective.enabled
     assert task.effective.agent.choice.model == "review-fixture"
@@ -84,15 +69,13 @@ def test_defaults_inheritance_disable_and_reset_are_independent(tmp_path):
         reviewers.configure(
             "harbor", "task", ReviewerEdit(expected_revision=disabled.revision), **scope
         )
-    milestone = Milestones(service.workspace).create(
-        "harbor", MilestoneCreate(title="Combined outcome")
-    )
+    milestone = Milestones(workspace).create("harbor", MilestoneCreate(title="Combined outcome"))
     reviewers.configure(
         "harbor", "milestone", ReviewerEdit(expected_revision=1, enabled=False), entity=milestone.id
     )
     assert reviewers.get("harbor", "task", **scope).effective.enabled
     with pytest.raises(ApplicationError, match="outside"):
-        reviewers.get("harbor", "task", project="other", entity=run.task_id)
+        reviewers.get("harbor", "task", project="other", entity=task_id)
     with pytest.raises(ApplicationError, match="requires a task"):
         reviewers.get("harbor", "task", project="harbor")
 

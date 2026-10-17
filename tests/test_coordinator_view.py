@@ -4,8 +4,8 @@ import json
 from uuid import uuid4
 
 import pytest
+from coordinator_fixtures import setup
 from project_fixtures import existing_directory, task_request
-from test_coordinator import setup
 
 from flowfield.application import Edit, MilestoneCreate, ProjectSetup
 from flowfield.coordinator_models import (

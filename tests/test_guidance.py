@@ -5,25 +5,17 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from project_fixtures import adopt
+from guidance_fixtures import setup
 from typer.testing import CliRunner
 
 import flowfield.guidance as guidance
 from flowfield.api import create_app
-from flowfield.application import ProjectSetup, Workspace
+from flowfield.application import Workspace
 from flowfield.cli import app
 from flowfield.errors import ApplicationError
 from flowfield.guidance import GUIDE, MANIFEST, Guidance, GuidanceChange, template
 from flowfield.integration import Integrations
 from flowfield.integration_models import IntegrationConfig
-
-
-def setup(tmp_path: Path) -> tuple[Path, Guidance]:
-    root = tmp_path / "project"
-    root.mkdir()
-    workspace = Workspace(tmp_path / "state")
-    adopt(workspace, ProjectSetup(path=str(root)))
-    return root, Guidance(workspace)
 
 
 def change(service: Guidance, action: str = "install"):

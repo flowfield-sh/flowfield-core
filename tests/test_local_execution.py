@@ -7,7 +7,7 @@ import signal
 import sys
 
 import pytest
-from test_native_adapters import start
+from native_adapters_fixtures import start
 
 from flowfield.adapters.git_integration import candidate
 from flowfield.adapters.git_workspace import baseline, git

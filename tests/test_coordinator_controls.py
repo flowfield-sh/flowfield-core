@@ -3,8 +3,8 @@
 import asyncio
 
 import pytest
-from test_coordinator import message, settled, setup
-from test_permissions import pending
+from coordinator_fixtures import message, settled, setup
+from permissions_fixtures import pending
 
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit
 from flowfield.agent_settings import AgentSettings

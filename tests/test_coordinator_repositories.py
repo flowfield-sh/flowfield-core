@@ -3,8 +3,8 @@
 import sys
 from uuid import uuid4
 
+from coordinator_fixtures import setup
 from project_fixtures import existing_directory
-from test_coordinator import setup
 
 from flowfield.adapters.agent_selection import create
 from flowfield.adapters.coordinator_directory import for_scope, repositories_for_scope

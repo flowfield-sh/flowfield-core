@@ -1,62 +1,17 @@
 """Native lifecycle contract using model-free peers, real MCP and real candidate Git."""
 
 import asyncio
-import json
 
 import pytest
-from fake_worker import FakeWorker
 from result_fixtures import current
-from test_task_reviews import configured
+from review_execution_fixtures import Reviewer, install, round_trip
+from task_reviews_fixtures import configured
 
 from flowfield.adapters.git_workspace import git
 from flowfield.errors import ApplicationError
 from flowfield.questions import QuestionAnswer, Questions
 from flowfield.result_models import ResultReview
 from flowfield.worker_settings import occupancy
-
-
-class Reviewer(FakeWorker):
-    decision = "approve"
-    observed = []
-
-    async def run(self, model, effort, prompt, tools):
-        brief = json.loads(prompt)
-        self.observed.append(brief)
-        names = {tool["name"] for tool in tools}
-        assert "submit_result" not in names and "run_project_checks" not in names
-        assert "review" not in names
-        assert git(self.cwd, "rev-parse", "HEAD").decode().strip() == brief["candidate_commit"]
-        context = json.loads(await self.on_tool("read_context", {"section": "result"}))
-        assert len(context["text"]) <= 6000
-        action = self.decision if brief["purpose"] == "reviewer" else "answer"
-        await self.on_tool(
-            "submit_review" if brief["purpose"] == "reviewer" else "answer_review",
-            {
-                "action": action,
-                "summary": "Independent finding",
-                "evidence": "Read the exact candidate and agreement.",
-                "request": ""
-                if action in ("approve", "answer")
-                else "Explain the agreed edge case.",
-            },
-        )
-        return {"status": "completed"}
-
-
-def install(monkeypatch, decision="approve"):
-    Reviewer.decision = decision
-    Reviewer.observed = []
-    monkeypatch.setattr(
-        "flowfield.native_review_execution.create",
-        lambda choice, directory, cwd, environment, **kw: Reviewer(
-            directory, cwd, environment, **kw
-        ),
-    )
-
-
-async def round_trip(service):
-    await service.review_execution.schedule()
-    await asyncio.gather(*list(service.jobs.values()))
 
 
 def test_native_assessment_does_not_integrate_and_shares_capacity(tmp_path, monkeypatch):

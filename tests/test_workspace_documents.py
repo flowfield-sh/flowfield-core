@@ -6,10 +6,10 @@ from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 import pytest
+from coordinator_fixtures import setup
 from execution_fixtures import BASE, fixture
 from fastapi.testclient import TestClient
 from storage_fixtures import logical_data
-from test_coordinator import setup
 
 from flowfield import migrations
 from flowfield.agent_tools import workspace_scope

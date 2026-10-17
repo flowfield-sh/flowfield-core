@@ -5,9 +5,9 @@ import json
 
 import pytest
 from execution_fixtures import BASE, RESULT, fixture
+from input_continuation_fixtures import answer, question
 from storage_fixtures import logical_data
-from test_input_continuation import answer, question
-from test_worker_documents import prepare
+from worker_documents_fixtures import prepare
 
 from flowfield import migrations, milestone_delivery
 from flowfield.agent_tools import workspace_scope

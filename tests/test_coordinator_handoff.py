@@ -5,10 +5,10 @@ import json
 from uuid import uuid4
 
 import pytest
+from coordinator_history_fixtures import saved_exchange
 from execution_fixtures import fixture
 from project_fixtures import adopt, finish_legacy_chat, prepare_legacy_chat
 from storage_fixtures import logical_data, raw
-from test_coordinator_history import saved_exchange
 
 from flowfield import migrations, storage
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit

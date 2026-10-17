@@ -7,27 +7,12 @@ These tests do not establish milestone approval, scheduling or restart behavior.
 from pathlib import Path
 
 import pytest
+from milestone_delivery_git_fixtures import commit
 
 from flowfield.adapters import git_checkout
 from flowfield.adapters import git_integration as gitops
 from flowfield.adapters.git_workspace import baseline, git
 from flowfield.errors import ApplicationError
-
-
-def commit(repository: Path, filename: str, content: str) -> str:
-    (repository / filename).write_text(content)
-    git(repository, "add", filename)
-    git(
-        repository,
-        "-c",
-        "user.name=Test",
-        "-c",
-        "user.email=test@example.invalid",
-        "commit",
-        "-m",
-        filename,
-    )
-    return baseline(repository)
 
 
 def checkout(repository: Path, path: Path, source: str, branch: str | None = None) -> Path:

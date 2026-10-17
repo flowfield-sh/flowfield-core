@@ -152,7 +152,7 @@ def test_absent_effort_is_valid_only_when_catalog_offers_no_efforts(tmp_path, mo
 def test_native_adapters_apply_absent_effort_only_when_control_is_absent(
     tmp_path, monkeypatch, kind, absent
 ):
-    from test_claude_agent import CHOICE, installed_candidate
+    from claude_agent_fixtures import CHOICE, installed_candidate
 
     from flowfield.adapters.codex_agent import CodexAgent
 

@@ -6,7 +6,7 @@ import threading
 
 import pytest
 from execution_fixtures import BASE, fixture
-from test_input_continuation import question
+from input_continuation_fixtures import question
 
 from flowfield.application import Workspace
 from flowfield.attention import attention_page

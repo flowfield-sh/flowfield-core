@@ -4,11 +4,11 @@ import asyncio
 import json
 
 import pytest
+from coordinator_fixtures import message, settled, setup
+from coordinator_generations_fixtures import CODEX, finish_coordinator, start_coordinator
 from execution_fixtures import fixture
 from project_fixtures import existing_directory
 from storage_fixtures import logical_data
-from test_coordinator import message, settled, setup
-from test_coordinator_generations import CODEX, finish_coordinator, start_coordinator
 
 from flowfield import migrations
 from flowfield.adapters.coordinator_directory import for_project, prepare

@@ -3,27 +3,14 @@
 import asyncio
 import json
 import sys
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from native_adapters_fixtures import CHOICE, FAKE, start
 
 from flowfield.adapters.codex_agent import CodexAgent
 from flowfield.adapters.json_rpc import MAX_FRAME, MAX_INPUT, JsonRpc, NativeError
-from flowfield.agent_models import AgentChoice
 from flowfield.errors import ApplicationError
-
-FAKE = Path(__file__).with_name("fake_native_codex.py")
-CHOICE = AgentChoice(model="test-model", effort="low", mode="read-only", fast=False)
-
-
-async def start(tmp_path, events, *flags, servers=None, resume=None):
-    client = CodexAgent(tmp_path, tmp_path, {"CODEX_PATH": sys.executable, "HOME": str(tmp_path)})
-    client.command = [sys.executable, str(FAKE), *flags]
-    client.on_activity = events.append
-    await client.start(servers or [], resume=resume, persistent=True)
-    await client.configure(CHOICE)
-    return client
 
 
 def test_public_activity_excludes_private_reasoning_inputs_and_wrong_sessions(tmp_path):

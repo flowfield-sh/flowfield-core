@@ -1,92 +1,16 @@
 """Human policy, exact review and Git recovery use the existing delivery owner."""
 
-import os
 from pathlib import Path
 
 import pytest
-from project_fixtures import fixture_stage_change, task_request
-from test_milestone_delivery import setup
-from test_task_reviews import verdict
+from delegated_integration_fixtures import assess, policy, prepared, workspace_policy
 
 from flowfield.adapters.git_workspace import git
-from flowfield.adapters.local_execution import LocalHost
-from flowfield.agent_models import AgentChoice
-from flowfield.application import TaskPublish
-from flowfield.delivery_models import TaskIntegrationPolicyEdit
 from flowfield.errors import ApplicationError
-from flowfield.execution_models import RunAction, WorkerResult
+from flowfield.execution_models import RunAction
 from flowfield.milestone_delivery import MilestoneDeliveries
-from flowfield.results import Results
 from flowfield.reviewer_settings import ReviewerEdit, Reviewers
 from flowfield.task_reviews import TaskReviews
-
-
-def prepared(tmp_path, *, validate=True, prior_report=False):
-    execution, integrations, repo, base, milestone, delivery = setup(tmp_path)
-    store = execution.workspace
-    if prior_report:
-        report = store.create_task(
-            "harbor",
-            task_request(
-                title="Earlier report", body="Report repository findings", status="up_next"
-            ),
-        )
-        store.publish_task(
-            "harbor",
-            report.id,
-            TaskPublish(expected_revision=report.revision, completion="report"),
-        )
-        attempt = execution.claim("harbor", base, {base: set()}, task_id=report.id)
-        assert attempt
-        execution.started("harbor", attempt.id)
-        execution.finish(
-            "harbor",
-            attempt.id,
-            "in_review",
-            commit=base,
-            result=WorkerResult(summary="Earlier findings", checks="Read the repository"),
-        )
-        Results(store).process("harbor")
-        assert execution.get("harbor", attempt.id).status == "accepted"
-    task = store.create_task(
-        "harbor",
-        task_request(
-            title="Contribution", body="Add a file", milestone_id=milestone.id, status="up_next"
-        ),
-    )
-    store.publish_task(
-        "harbor",
-        task.id,
-        TaskPublish(
-            expected_revision=task.revision,
-            completion="code",
-            stages=fixture_stage_change(store, "harbor", task.id),
-        ),
-    )
-    run = execution.claim("harbor", base, {base: set()}, task_id=task.id)
-    execution.started("harbor", run.id)
-    env = LocalHost(os.environ).prepare(store.directory, repo, run.id, base)
-    (env.checkout / "feature.txt").write_text("Combined feature\n")
-    candidate, _ = env.snapshot(base)
-    execution.finish(
-        "harbor",
-        run.id,
-        "in_review",
-        result=WorkerResult(summary="Feature", checks="true"),
-        commit=candidate,
-    )
-    results = Results(store)
-    if validate:
-        results.process("harbor")
-    result = results.page("harbor", task.id).items[0]
-    Reviewers(store).configure(
-        "harbor",
-        "task",
-        ReviewerEdit(
-            expected_revision=1, enabled=True, selection=AgentChoice(model="review-fixture")
-        ),
-    )
-    return store, repo, base, milestone, delivery, results, result
 
 
 def test_refresh_does_not_invalidate_a_milestone_candidate_prepared_during_observation(
@@ -113,27 +37,6 @@ def test_refresh_does_not_invalidate_a_milestone_candidate_prepared_during_obser
     assert integrations.get("harbor", current.integration_id).target_branch == delivery.branch
     integrations.refresh_availability("harbor")
     assert results.get("harbor", result.id).status == "ready"
-
-
-def policy(store, milestone, delivery, enabled):
-    return MilestoneDeliveries(store).integration_policy(
-        "harbor",
-        milestone.id,
-        TaskIntegrationPolicyEdit(
-            expected_revision=delivery.integration_policy.revision,
-            delivery_id=delivery.id,
-            branch=delivery.branch,
-            enabled=enabled,
-        ),
-    )
-
-
-def assess(store, result):
-    reviews = TaskReviews(store)
-    review = reviews.prepare("harbor", result.id)
-    review = reviews.claim("harbor", review.id, review.revision)
-    review = reviews.started("harbor", review.id, review.revision)
-    return reviews.conclude("harbor", review.id, review.revision, verdict(), cleanup_confirmed=True)
 
 
 def test_explicit_grant_delivers_once_only_to_owned_branch(tmp_path):
@@ -260,7 +163,7 @@ def test_policy_migration_defaults_off_and_rolls_back(tmp_path, monkeypatch):
 
 
 def test_sibling_delivery_reassembles_and_requires_fresh_review(tmp_path):
-    from test_milestone_delivery_git import commit
+    from milestone_delivery_git_fixtures import commit
 
     store, repo, base, milestone, delivery, results, result = prepared(tmp_path)
     policy(store, milestone, delivery, True)
@@ -285,7 +188,7 @@ def test_sibling_delivery_reassembles_and_requires_fresh_review(tmp_path):
 def test_native_conclusion_is_followed_by_one_delegated_decision(tmp_path, monkeypatch):
     import asyncio
 
-    from test_review_execution import install, round_trip
+    from review_execution_fixtures import install, round_trip
 
     from flowfield.supervisor import Supervisor
 
@@ -302,14 +205,6 @@ def test_native_conclusion_is_followed_by_one_delegated_decision(tmp_path, monke
     assert results.get("harbor", result.id).status == "delivered"
     assert TaskReviews(store).get("harbor", review.id).integration_applied_at
     assert git(repo, "rev-parse", "main").decode().strip() == base
-
-
-def workspace_policy(store, enabled, revision=1):
-    from flowfield.delivery_models import WorkspaceIntegrationPolicyEdit
-
-    return MilestoneDeliveries(store).configure_workspace_policy(
-        "harbor", WorkspaceIntegrationPolicyEdit(expected_revision=revision, enabled=enabled)
-    )
 
 
 def test_workspace_default_delegates_only_owned_branch(tmp_path):

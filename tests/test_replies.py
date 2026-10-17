@@ -5,10 +5,11 @@ import json
 
 import pytest
 from execution_fixtures import BASE, fixture, result
+from input_continuation_fixtures import question
 from project_fixtures import task_request
+from replies_fixtures import message
 from result_fixtures import approve, current
 from result_fixtures import fixture as result_fixture
-from test_input_continuation import question
 
 from flowfield.application import TaskEdit, TaskPublish, Workspace
 from flowfield.conversation import Conversation
@@ -19,17 +20,6 @@ from flowfield.replies import Replies
 from flowfield.reply_models import ReplyBinding, ReplyCreate
 from flowfield.results import Results
 from flowfield.thread_view import ThreadView
-
-
-def message(workspace, task="task-0", action="observation", body="Why this approach?"):
-    gate = Conversation(workspace).eligibility("harbor", task)
-    return ReplyCreate(
-        binding=ReplyBinding.model_validate(
-            gate.model_dump(include=set(ReplyBinding.model_fields))
-        ),
-        action=action,
-        body=body,
-    )
 
 
 def queue(execution, enabled):

@@ -3,8 +3,8 @@
 import asyncio
 
 import pytest
-from test_milestone_reviews import fixture, install, latest, step
-from test_replies import message
+from milestone_reviews_fixtures import fixture, install, latest, step
+from replies_fixtures import message
 
 from flowfield.errors import ApplicationError
 from flowfield.milestone_verification import MilestoneVerifications

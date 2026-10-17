@@ -14,10 +14,10 @@ from threading import Event
 import pytest
 from execution_fixtures import BASE, RESULT
 from execution_fixtures import fixture as execution_fixture
+from input_continuation_fixtures import answer, question, queue
 from result_fixtures import approve, current
 from result_fixtures import fixture as result_fixture
 from storage_fixtures import logical_data, raw
-from test_input_continuation import answer, question, queue
 from typer.testing import CliRunner
 
 from flowfield import migrations, storage

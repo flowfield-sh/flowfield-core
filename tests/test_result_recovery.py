@@ -8,6 +8,7 @@ from threading import Event
 
 import pytest
 from result_fixtures import approve, current, fixture
+from result_recovery_fixtures import target_change
 
 from flowfield.adapters import git_integration as gitops
 from flowfield.adapters.git_workspace import contains, git
@@ -22,16 +23,6 @@ from flowfield.integration_models import IntegrationConfig
 
 def action(version):
     return RunAction(expected_revision=version.revision, author="human")
-
-
-def target_change(service, repo, base, name="target.txt", content="target change\n"):
-    env = LocalHost(os.environ).prepare(
-        service.workspace.directory, repo, "target-" + name.replace(".", "-"), base
-    )
-    (env.checkout / name).write_text(content)
-    commit, _ = env.snapshot(base)
-    git(repo, "merge", "--ff-only", commit)
-    return commit
 
 
 def claim_correction(service, repo):

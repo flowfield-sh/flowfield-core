@@ -1,8 +1,8 @@
 """Stage history describes exact changes; it cannot advance execution or delivery."""
 
 import pytest
+from conversation_fixtures import plan
 from execution_fixtures import fixture
-from test_conversation import plan
 
 from flowfield.errors import ApplicationError
 from flowfield.stage_models import Stage, StagePlan

@@ -2,15 +2,14 @@
 
 import asyncio
 import json
-import sys
 from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 import pytest
+from coordinator_fixtures import message, settled, setup
 from execution_fixtures import BASE, fixture
 from fastapi.testclient import TestClient
 from project_fixtures import task_request
-from test_managed_local import FAKE, configured
 
 from flowfield import migrations
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit
@@ -23,38 +22,6 @@ from flowfield.errors import ApplicationError
 from flowfield.permission_models import PermissionAnswer
 from flowfield.run_activity import MAX_TOTAL, ActivityUpdate, ContextUsage
 from flowfield.supervisor import Supervisor
-
-
-def setup(tmp_path, monkeypatch, scenario="normal", flags=()):
-    service, repo, _ = configured(tmp_path, monkeypatch, scenario=scenario)
-    monkeypatch.setattr(
-        "flowfield.adapters.codex_agent.command",
-        lambda directory, env: (
-            [
-                sys.executable,
-                str(FAKE),
-                "managed",
-                "coordinator",
-                "cleanup",
-                "close-session",
-                *flags,
-            ],
-            dict(env),
-        ),
-    )
-    AgentSettings(service.workspace).edit(
-        "harbor",
-        "coordinator",
-        AgentSettingsEdit(
-            expected_revision=1, selection=AgentChoice(model="test-model", effort="low")
-        ),
-    )
-    conversation = service.coordinator.store.new("harbor")
-    return service, conversation
-
-
-def message(text="Capture the agreed task"):
-    return CoordinatorSend(id=uuid4().hex, text=text)
 
 
 def test_context_report_survives_restart_and_reportless_turns_outside_page(tmp_path, monkeypatch):
@@ -90,13 +57,6 @@ def test_context_report_survives_restart_and_reportless_turns_outside_page(tmp_p
         active.session = "new"
         restored._save(db, active)
     assert restored.page("harbor").context is None
-
-
-async def settled(service, turn):
-    job = service.coordinator.jobs.get(turn.id)
-    if job:
-        await asyncio.wait_for(asyncio.shield(job), 15)
-    return service.coordinator.store.get("harbor", turn.id)
 
 
 def test_real_native_capture_continuity_and_duplicate_send(tmp_path, monkeypatch):
@@ -454,8 +414,8 @@ def test_history_pages_and_duplicate_retry_at_capacity(tmp_path, monkeypatch):
 
 
 def test_scoped_coordinator_applies_saved_answer_without_granting_code_approval(tmp_path):
-    from test_questions import ask
-    from test_questions import setup as questions_setup
+    from questions_fixtures import ask
+    from questions_fixtures import setup as questions_setup
 
     from flowfield.agent_tools import workspace_scope
     from flowfield.questions import QuestionAnswer

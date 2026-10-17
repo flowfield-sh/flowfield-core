@@ -5,7 +5,7 @@ import asyncio
 import pytest
 from execution_fixtures import BASE
 from project_fixtures import fixture_stage_change, task_request
-from test_workspace_workers import shared
+from workspace_workers_fixtures import shared
 
 from flowfield import migrations
 from flowfield.application import TaskPriority, TaskPublish, Workspace
