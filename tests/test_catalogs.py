@@ -13,6 +13,31 @@ from flowfield.harness_models import HarnessEdit
 from flowfield.harness_settings import HarnessSettings
 
 
+def test_repository_free_task_model_discovery_uses_workspace_home(tmp_path, monkeypatch):
+    from file_delivery_fixtures import setup
+
+    workspace, owner, scope = setup(tmp_path)
+    catalogs = Catalogs(workspace)
+
+    async def discover(directory, *, cwd, on_cleanup, **kwargs):
+        assert cwd == workspace.directory / "coordinators" / owner.id
+        assert cwd.is_dir()
+        on_cleanup(True)
+        return [ModelOption(id="fixture", name="Fixture", efforts=[])]
+
+    monkeypatch.setattr("flowfield.catalogs.model_options", discover)
+
+    async def exercise():
+        try:
+            values = await catalogs.run(HarnessSettings(workspace).get("codex"), project_id=scope)
+            assert values[0].id == "fixture"
+            assert workspace.projects() == []
+        finally:
+            await catalogs.close()
+
+    asyncio.run(exercise())
+
+
 @pytest.mark.parametrize("count", [65, 2048, 2049])
 def test_multi_provider_catalogs_reach_selector_with_bounded_cache(tmp_path, monkeypatch, count):
     workspace = fixture(tmp_path).workspace

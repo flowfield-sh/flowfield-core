@@ -549,15 +549,17 @@ class Results:
         run = self._current(db, version)
         task = self.workspace._task(db, project, version.task_id)
         self.execution._current_assignment(run, task)
-        if (
-            version.status != "delivered"
-            or version.completion != "code"
-            or task.status != "done"
-            or task.archived
-        ):
+        if version.status != "delivered" or task.status != "done" or task.archived:
             raise ApplicationError(
                 "correction_unavailable", "The contribution changed; reconcile the milestone.", 409
             )
+        if version.completion == "report":
+            run.status, run.feedback = "changes_requested", note
+            self.execution._save(db, run)
+            self.execution._task_state(
+                db, task, "up_next", f"Milestone review requested correction: {note}", "reviewer"
+            )
+            return
         assert version.source_commit
         target = Integrations(self.workspace).head(project, task.id)
         run.next_correction = Correction(
@@ -580,6 +582,46 @@ class Results:
         self.execution._task_state(
             db, task, "up_next", f"Milestone review requested correction: {note}", "reviewer"
         )
+
+    def _finish_report(self, db: sqlite3.Connection, value: ResultVersion) -> None:
+        """Complete retained findings, optionally after independent assessment."""
+        from flowfield.outputs import Outputs
+
+        if value.completion != "report" or value.report.outcome != "complete":
+            raise ApplicationError("report_incomplete", "Only complete findings can finish.", 409)
+        run = self._current(db, value)
+        task = self.workspace._task(db, value.project_id, run.task_id)
+        self.execution._current_assignment(run, task)
+        for file in Outputs.for_run(db, run.id):
+            Outputs(self.workspace).content(file)
+        value.status, value.completed_at = "delivered", now()
+        run.status = "accepted"
+        run.accepted_at, run.accepted_by = value.completed_at, "flowfield"
+        self.execution._save(db, run)
+        self.execution._task_state(db, task, "done", "Files and findings delivered.")
+        self._save(db, value)
+
+    def finish_unreviewed_report(self, project: str, identity: str) -> bool:
+        from flowfield.reviewer_settings import Reviewers
+        from flowfield.worker_settings import workspace_id
+
+        with self.workspace.connection(write=True, project_id=project) as db:
+            value = self._get(db, project, identity)
+            if value.completion != "report" or value.status != "ready":
+                return False
+            owner = workspace_id(db, project)
+            assert owner
+            reviewer = Reviewers.resolved(db, owner, "task", project, value.task_id).effective
+            if reviewer.enabled and reviewer.agent:
+                return False
+            if db.execute(
+                "SELECT 1 FROM task_reviews WHERE result_id=? "
+                "AND status IN ('preparing','running','uncertain')",
+                (identity,),
+            ).fetchone():
+                return False
+            self._finish_report(db, value)
+            return True
 
     def process(self, project_id: str) -> None:
         """One bounded local operation; called by the service even with worker queue paused."""
@@ -636,18 +678,19 @@ class Results:
                                 current.problem_code = "partial_outcome"
                                 current.problem = current.report.remaining_work
                             else:
-                                current.status, current.completed_at = "delivered", now()
-                                # Internal accepted run means a completed report, not code approval.
-                                run.status = "accepted"
-                                run.accepted_at, run.accepted_by = current.completed_at, "flowfield"
-                                self.execution._save(db, run)
-                                self.execution._task_state(
-                                    db,
-                                    task,
-                                    "done",
-                                    f"Findings delivered in result version {current.version}; "
-                                    "completion does not endorse the recommendation.",
+                                from flowfield.reviewer_settings import Reviewers
+                                from flowfield.worker_settings import workspace_id
+
+                                owner = workspace_id(db, project_id)
+                                assert owner
+                                reviewer = Reviewers.resolved(
+                                    db, owner, "task", project_id, task.id
                                 )
+                                if reviewer.effective.enabled and reviewer.effective.agent:
+                                    current.status = "ready"
+                                else:
+                                    self._finish_report(db, current)
+                                    return
                             self._save(db, current)
                     return
                 integration = service.prepare(

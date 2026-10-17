@@ -426,6 +426,7 @@ class Supervisor:
                 environment.launch_environment(),
                 registration=run.agent_settings.registration if run.agent_settings else None,
             )
+            client.output_directory = environment.runtime / "output"
             self.clients[run.id] = client
             checks = WorkerChecks(self.execution, run, environment)
             self.check_jobs[run.id] = checks

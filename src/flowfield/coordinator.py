@@ -135,7 +135,8 @@ tasks; only tasks have dependencies. Respect repository-owned instructions and d
 Flowfield does not replace the project’s architecture/design/convention records.
 Milestone acceptance criteria describe the whole outcome. Read current intent and verification
 history before claiming completion or addressing feedback. Follow verification next_offset with
-the returned revision until all JSON evidence pages are read. For owned milestone delivery, save
+the returned revision until all JSON evidence pages are read. For file outcomes and owned code
+milestone delivery, save
 plan_milestone_verification during preparation, binding current criteria and observable checks
 with procedures/examples in its instructions. The service binds delivered inputs and runs the
 configured milestone reviewer; do not create a verifier task. Read reviewer and integration defaults
@@ -143,12 +144,15 @@ from get_workspace; do not ask the human to confirm settings already present the
 remain separate; a null milestone integration policy inherits the workspace default.
 Human reviewer settings and
 task-integration policy grant separate authority; you cannot grant it yourself. Final promotion
-remains human. Ordinary groups can still use prepare_milestone_verification with an explicit
-staged report task depending on all delivered contributions. Confirm scoped reviewers can observe
+remains human. File milestones use the same saved plan and reviewer without a repository,
+owned branch or verification task. Configured task reviewers also assess files/reports before
+completion and handle incomplete outcomes with scoped follow-up or a focused human question.
+Confirm scoped reviewers can observe
 the required evidence. Separate
 product outcomes from permissions/workflow obligations; resolve inaccessible evidence or human
 judgment with the human, without inventing a pass or silently dropping agreed requirements.
-A Done verifier may report failed/unverified checks. Read findings, limitations and review notes;
+A completed assessment may report failed/unverified checks. Read findings, limitations and review
+notes;
 correct affected contributions within scope and reconcile the verification plan when needed.
 Preserve previous reports/decisions. Consequential ambiguity returns to the human. Current passing
 evidence reaches Inbox acceptance. Accept and promote delivers the exact owned milestone

@@ -631,7 +631,7 @@ test.describe("relative timestamps", () => {
       timeZone: "America/Denver",
     }).format(new Date(created));
     // Initial feed layout follows its last entry; settle its animation frames before hover.
-    await expect(page.locator('[data-message-id="plan:1"]')).toBeVisible();
+    await expect(card).toBeVisible();
     await page.clock.runFor(1000);
     await time.hover();
     await page.clock.runFor(100);
@@ -707,7 +707,7 @@ test("workspace selector names remain accessible and idle input opens deliberate
     name: "Coordinator model settings",
     exact: true,
   });
-  await settings.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(settings).not.toBeVisible();
   await expect(settings).not.toBeVisible();
   const selector = page.getByLabel("Workspace", { exact: true });
   await expect(selector.locator("option:checked")).toContainText(name);
@@ -793,9 +793,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   const modelSettings = page.getByRole("dialog", {
     name: "Coordinator model settings",
   });
-  await modelSettings
-    .getByRole("button", { name: "Cancel", exact: true })
-    .click();
+  await expect(modelSettings).not.toBeVisible();
   const divider = page.getByRole("separator", {
     name: "Resize coordinator and work",
   });
@@ -823,9 +821,8 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await dragDivider([20, 50]);
   const resized = (await pane.boundingBox())!.width;
   await page.reload();
-  await modelSettings
-    .getByRole("button", { name: "Cancel", exact: true })
-    .click();
+  await expect(pane).toBeVisible();
+  await expect(modelSettings).not.toBeVisible();
   await expect
     .poll(async () => Math.abs((await pane.boundingBox())!.width - resized))
     .toBeLessThan(2);
@@ -1024,7 +1021,7 @@ test("long task tooltips never expand the workspace scroll owners", async ({
   });
   await expect(detail).toBeVisible();
 
-  await expect(detail.locator(".activity-entry > summary")).toHaveCount(3);
+  await expect(detail.locator(".activity-entry > summary")).toHaveCount(2);
   for (const row of await detail.locator(".activity-entry > summary").all())
     await row.click();
   await expect(detail.locator(".task-changes")).toHaveCount(2);
@@ -1047,7 +1044,7 @@ test("long task tooltips never expand the workspace scroll owners", async ({
     "overflow",
     "hidden",
   );
-  for (const time of await detail.locator("time").all()) {
+  for (const time of await detail.locator("time:visible").all()) {
     await time.scrollIntoViewIfNeeded();
     await page.evaluate(() => new Promise(requestAnimationFrame));
     await time.hover();

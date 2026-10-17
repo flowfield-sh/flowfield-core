@@ -258,6 +258,15 @@ class Conversation:
             result.result_id, result.result_revision = value["id"], value["revision"]
             if value["status"] in ("preparing", "delivering"):
                 result.enabled, result.reason = False, "processing_result"
+            elif value["completion"] == "report":
+                from flowfield.result_actions import result_action
+                from flowfield.result_models import ResultVersion
+
+                if (
+                    result_action(self.workspace, db, ResultVersion.model_validate(value)).owner
+                    == "reviewer"
+                ):
+                    result.enabled, result.reason = False, "review_owns_result"
         if run:
             result.enabled, result.reason, result.run_id = False, "worker_owns_work", run[0]
         pending = db.execute(

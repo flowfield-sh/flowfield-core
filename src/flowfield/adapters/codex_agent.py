@@ -208,9 +208,13 @@ class CodexAgent(Agent):
                 "serviceTier": "fast" if choice.fast else "default",
                 "config": {"mcp_servers": mcp, "model_reasoning_effort": choice.effort},
             }
-            if self.project_directories and access["sandbox"] == "workspace-write":
+            directories = (
+                *self.project_directories,
+                *((self.output_directory,) if self.output_directory else ()),
+            )
+            if directories and access["sandbox"] == "workspace-write":
                 params["config"]["sandbox_workspace_write.writable_roots"] = [
-                    str(path) for path in self.project_directories
+                    str(path) for path in directories
                 ]
             if self.session_id:
                 # Coordinator clients are created afresh per turn, so reconfiguration
@@ -247,17 +251,15 @@ class CodexAgent(Agent):
                 or (not choice.fast and response.get("serviceTier") in {"fast", "priority"})
             ):
                 raise NativeError("Native choices were not confirmed")
-            if self.project_directories and access["sandbox"] == "workspace-write":
+            if directories and access["sandbox"] == "workspace-write":
                 roots = response.get("sandbox", {}).get("writableRoots")
                 if not isinstance(roots, list) or not all(
                     isinstance(value, str) for value in roots
                 ):
-                    raise NativeError("Member repository access was not confirmed")
+                    raise NativeError("Assigned directory access was not confirmed")
                 applied_roots = {Path(value).resolve() for value in roots}
-                if not {path.resolve() for path in self.project_directories}.issubset(
-                    applied_roots
-                ):
-                    raise NativeError("Member repository access was not confirmed")
+                if not {path.resolve() for path in directories}.issubset(applied_roots):
+                    raise NativeError("Assigned directory access was not confirmed")
             if self.stopping:
                 raise NativeError("Agent stopped while configuring")
             self.choice = choice.model_copy(deep=True)

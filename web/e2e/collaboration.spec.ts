@@ -115,7 +115,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
   ).toHaveCount(1);
   await expect(
     card.getByText("Needs code from DEP-1", { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
 });
 
 test("three-letter prefix setup, coordinator dependencies and immediate accessible tooltips", async ({
@@ -458,7 +458,7 @@ test("conversation pages exact revisions without hiding notes or superseded hand
     .toContain("Description 1");
 });
 
-test("question-only cards omit empty needs while project questions remain visible", async ({
+test("cards keep one state while project questions remain in Inbox", async ({
   page,
   request,
 }) => {
@@ -501,10 +501,10 @@ test("question-only cards omit empty needs while project questions remain visibl
       blocking_scope: "Project constraint",
     },
   });
+  await expect(card.locator(".task-needs")).toHaveCount(0);
+  await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(
-    card
-      .locator(".task-needs")
-      .getByRole("link", { name: "Which project constraint?", exact: true }),
+    page.getByText("Which project constraint?", { exact: true }),
   ).toBeVisible();
 });
 
@@ -592,7 +592,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   await expect(
     questionEntry.locator(".conversation-message-body strong"),
   ).toHaveText("What should the export include?");
-  await expect(page.locator('[data-message-id="plan:1"]')).toBeAttached();
+  await expect(page.locator('[data-message-id="plan:1"]')).toHaveCount(0);
   const questionStatus = questionEntry.getByRole("img", {
     name: "Needs your answer",
   });
@@ -1462,7 +1462,9 @@ test("review journey preserves feedback, navigates complete files and reviews a 
             reason:
               "The service will start the requested follow-up when capacity is available.",
           }
-        : null,
+        : run.status === "in_review"
+          ? { owner: "human", action: "review_result", label: "Review changes" }
+          : null,
   });
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -1905,7 +1907,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     .click();
   await expect(
     dialog.locator('[data-message-id="result:successor"]'),
-  ).toContainText("Task complete.");
+  ).not.toContainText("Task complete.");
   await dialog
     .getByRole("button", {
       name: /^(Close editor|Back)$/,

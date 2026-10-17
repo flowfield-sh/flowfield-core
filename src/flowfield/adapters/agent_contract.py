@@ -65,6 +65,8 @@ COMMANDS = [
 class Agent(ABC):
     # Coordinator member repositories; workers keep their single isolated cwd.
     project_directories: tuple[Path, ...] = ()
+    # Worker-owned deliverables live outside the checkout; reviewers receive no grant.
+    output_directory: Path | None = None
     supports_activity = True
     input_tokens_available: int | None = None
     max_prompt_bytes: int | None = None

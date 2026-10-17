@@ -55,13 +55,19 @@ class ReviewBridge:
                 text = self.reviews.read_context(self.review, request.section)
                 result = request.page(text)
             else:
-                self.decision = model.model_validate(arguments)
-                if self.decision.action == "ask_human" and not self.decision.request.strip():
-                    self.decision = None
+                decision = model.model_validate(arguments)
+                if decision.action == "ask_human" and not decision.request.strip():
                     raise ApplicationError("request_required", "State the human question.")
+                if decision.action == "approve" and self.review.binding.outcome == "partial":
+                    raise ApplicationError(
+                        "partial_outcome",
+                        "Request the remaining work or ask a focused question; "
+                        "partial outcomes cannot be approved.",
+                    )
                 self.reviews.save_decision(
-                    self.review.project_id, self.review.id, self.attempt, self.decision.model_dump()
+                    self.review.project_id, self.review.id, self.attempt, decision.model_dump()
                 )
+                self.decision = decision
                 result = (
                     "Round retained. End your turn; the service will verify cleanup and bindings."
                 )

@@ -196,8 +196,9 @@ test("milestone acceptance clears Inbox and Review column reflects the decision"
     card.locator(".conversation-message, .detail-group"),
   ).toHaveCount(0);
   const headings = await card.getByRole("heading").allTextContents();
-  expect(headings.indexOf("Checks")).toBeLessThan(headings.indexOf("Details"));
-  await card.getByText("Verification context", { exact: true }).click();
+  expect(headings).toContain("Checks");
+  await card.getByText("Review evidence", { exact: true }).click();
+  await card.getByText("Requirements checked", { exact: true }).click();
   const revision = card.getByRole("link", { name: "revision 1", exact: true });
   await expect(revision).toHaveAttribute(
     "href",
@@ -206,7 +207,7 @@ test("milestone acceptance clears Inbox and Review column reflects the decision"
   await expect(
     card.getByRole("link", { name: /Criteria checked/ }),
   ).toHaveCount(0);
-  await card.getByText("Verification context", { exact: true }).click();
+  await card.getByText("Requirements checked", { exact: true }).click();
   for (const [width, height, theme] of [
     [1440, 1000, "light"],
     [1440, 1000, "dark"],

@@ -368,6 +368,10 @@ function title(
   );
   if (milestone)
     return `${milestone.key} ${settings ? "Settings" : milestone.title}`;
+  const project = board?.projects.find(
+    (p) => location.pathname === `/projects/${p.id}/overview`,
+  );
+  if (project) return project.name;
   return (
     (
       {

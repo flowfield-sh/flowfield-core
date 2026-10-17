@@ -49,8 +49,8 @@ test("Inbox review accepts exact milestone evidence and keeps history", async ({
   ).toBeVisible();
   const tasks = page
     .getByRole("tabpanel", { name: "Activity", exact: true })
-    .getByLabel("Verification tasks", { exact: true });
-  await expect(tasks.getByRole("link")).toHaveCount(2);
+    .getByLabel("Contributing tasks", { exact: true });
+  await expect(tasks.getByRole("link")).toHaveCount(1);
   const record = await (
     await request.get(`/api${base}/verifications/${value.verification_id}`)
   ).json();
@@ -61,11 +61,11 @@ test("Inbox review accepts exact milestone evidence and keeps history", async ({
         .filter({ has: page.getByText(task.task_key, { exact: true }) }),
     ).toHaveAttribute(
       "href",
-      `/projects/${task.project_id}/tasks/${task.task_key}/result/${task.result_id}`,
+      `/projects/${task.project_id}/tasks/${task.task_key}`,
     );
     await expect(tasks).toContainText(record.task_titles[task.result_id]);
   }
-  await expect(tasks).toContainText("Verification");
+  await expect(tasks).not.toContainText("Verification");
   await expect(tasks).not.toContainText("aaaaaaaaaaaa");
   for (const [width, height, theme] of [
     [1440, 1000, "light"],
@@ -173,7 +173,8 @@ test("a completed verifier with a failed criterion never offers acceptance", asy
       exact: true,
     })
     .click();
-  await expect(page).toHaveURL(/tab=activity/);
+  await expect(page).toHaveURL(/milestones\/M-1$/);
+  await page.getByRole("tab", { name: "Activity", exact: true }).click();
   await expect(
     page
       .getByRole("list", { name: "Checks" })

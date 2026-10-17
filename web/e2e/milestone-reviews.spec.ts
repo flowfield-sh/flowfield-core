@@ -41,9 +41,9 @@ test("combined native-review evidence ends at exact human promotion", async ({
     page.getByRole("heading", { name: "Tasks", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByLabel("Verification tasks").getByRole("link"),
+    page.getByLabel("Contributing tasks").getByRole("link"),
   ).toHaveCount(1);
-  await expect(page.getByLabel("Verification tasks")).toContainText(
+  await expect(page.getByLabel("Contributing tasks")).toContainText(
     "Implement the combined feature",
   );
   const human = page.getByRole("region", {
@@ -53,6 +53,7 @@ test("combined native-review evidence ends at exact human promotion", async ({
   await expect(human).toContainText("Coordinator");
   await human.locator("summary").click();
   await expect(human).toContainText("19 cases passed");
+  await page.getByText("Review evidence", { exact: true }).click();
   await page
     .getByText("Review rounds and diagnostics", { exact: true })
     .click();

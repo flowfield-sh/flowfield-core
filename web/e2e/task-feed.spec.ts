@@ -983,9 +983,13 @@ test("conversation capture prepares atomically while task defaults show only use
   await expect(page.getByRole("list", { name: "Task feed" })).toHaveCount(0);
   await expect(stages).not.toBeVisible();
   await page.getByRole("tab", { name: "Activity", exact: true }).click();
-  await page
-    .getByRole("link", { name: "Permalink: Stages defined", exact: true })
-    .click();
+  if (
+    !(await page
+      .getByRole("link", { name: "Stages defined", exact: true })
+      .isVisible())
+  )
+    await page.getByText("Technical history", { exact: true }).click();
+  await page.getByRole("link", { name: "Stages defined", exact: true }).click();
   await expect(stages.getByRole("link")).toHaveCount(0);
   await expect(page.getByRole("tooltip")).toHaveCount(0);
   // Stage details are disclosed independently from the default outcome.
@@ -998,9 +1002,13 @@ test("conversation capture prepares atomically while task defaults show only use
     "Compare available formats",
   );
   await page.getByRole("tab", { name: "Activity", exact: true }).click();
-  await page
-    .getByRole("link", { name: "Permalink: Stages defined", exact: true })
-    .click();
+  if (
+    !(await page
+      .getByRole("link", { name: "Stages defined", exact: true })
+      .isVisible())
+  )
+    await page.getByText("Technical history", { exact: true }).click();
+  await page.getByRole("link", { name: "Stages defined", exact: true }).click();
   await expect(page).toHaveURL(/conversation\/plan%3A1$/);
   await expect(page.locator('[data-message-id="plan:1"]')).toContainText(
     "Initial task plan",
@@ -1022,6 +1030,7 @@ test("conversation capture prepares atomically while task defaults show only use
       reason: "Evidence gathered; writing findings.",
     },
   });
+  await page.getByRole("link", { name: "Stage changed", exact: true }).click();
   const changedStages = page.locator('[data-message-id="plan:2"]');
   await expect(changedStages).toContainText("Stage changed");
   await expect(changedStages).not.toContainText(
@@ -1033,16 +1042,12 @@ test("conversation capture prepares atomically while task defaults show only use
   await expect(
     page.locator('[data-message-id="plan:1"] [aria-current="step"]'),
   ).toHaveCount(0);
-  await expect(page.locator('[data-message-id="plan:1"]')).toContainText(
-    "Investigate: Planned",
-  );
+  await expect(page.locator('[data-message-id="plan:1"]')).toHaveCount(0);
   await page.reload();
   await expect(changedStages.locator('[aria-current="step"]')).toHaveText(
     "Report: Active",
   );
-  await expect(page.locator('[data-message-id="plan:1"]')).toContainText(
-    "Investigate: Planned",
-  );
+  await expect(page.locator('[data-message-id="plan:1"]')).toHaveCount(0);
   const current = await call("get_task", { project_id, task_id: task.id });
   const updated = await call("edit_task", {
     project_id,

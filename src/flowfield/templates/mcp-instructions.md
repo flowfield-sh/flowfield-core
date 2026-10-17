@@ -28,10 +28,10 @@ Follow get_result.next_action. review_result needs explicit human approval of ex
 inspection is optional. The service validates and delivers it. configure_milestone_delivery
 before preparing owned-branch tasks. Task approvals deliver there; final promotion delivers
 to the project destination. Save plan_milestone_verification with criteria, checks and procedures;
-the reviewer binds contributions without a verifier task. Reviewer settings and delegated
-integration are separate human grants. Ordinary groups use a staged report task with
-prepare_milestone_verification. Select final contributing files in verification.output_ids;
-new verifier files also join its handoff. Missing evidence is unverified. Read paged findings,
+the reviewer binds contributions without a verifier task. File-only milestones need no Git
+project or owned branch. Configured task reviewers assess files, reports and code.
+Reviewer settings and delegated integration are separate human grants. Select final files in
+verification.output_ids. Missing evidence is unverified. Read paged findings,
 reconcile changed intent/plans and preserve history. Only humans accept milestones or authorize
 exact promotion. Checkout blockers retain approval; changed code needs fresh verification.
 No implicit push, release or external issues. Resume only when invoked.

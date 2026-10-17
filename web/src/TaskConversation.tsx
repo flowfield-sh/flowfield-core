@@ -21,7 +21,7 @@ import { Composer } from "./Composer";
 import { AgentSettingsControl } from "./AgentSettings";
 import { choiceLabel } from "./HarnessModels";
 import { ArrowUp } from "lucide-react";
-import { ContentStack, DetailSection } from "./DetailLayout";
+import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
 import { request, type Task, type Board } from "./workspace";
@@ -492,6 +492,9 @@ export function TaskConversation({
   }
   const showInputFooter =
     (!requestTarget || matchesRequest || !!draft) &&
+    (gate.data?.reason !== "review_owns_result" ||
+      !!draft ||
+      !!gate.data?.question_id) &&
     (task.status !== "done" ||
       task.state?.tone === "attention" ||
       !!task.reconciliation_reason ||
@@ -553,13 +556,13 @@ export function TaskConversation({
               {messages
                 .filter(
                   (message) =>
-                    !requestTarget ||
+                    (!requestTarget && !message.technical) ||
                     message.id === target ||
                     message.id === selected.data?.id,
                 )
                 .map((message, index) => (
                   <Fragment key={message.id}>
-                    {!requestTarget && index === 1 && cursor && (
+                    {!requestTarget && index === 0 && cursor && (
                       <li>
                         <LoadMore
                           variant="outline"
@@ -762,6 +765,29 @@ export function TaskConversation({
                 ))}
             </ol>
           )}
+          {!overview &&
+            !requestTarget &&
+            messages.some((message) => message.technical) && (
+              <Disclosure summary="Technical history">
+                <ContentStack>
+                  {messages
+                    .filter((message) => message.technical)
+                    .map((message) => (
+                      <div
+                        key={message.id}
+                        className="flex flex-wrap items-center justify-between gap-2"
+                      >
+                        <WorkspaceLink
+                          to={messageHref(projectId, task, message.id)}
+                        >
+                          {message.title}
+                        </WorkspaceLink>
+                        <Timestamp date={message.created_at} />
+                      </div>
+                    ))}
+                </ContentStack>
+              </Disclosure>
+            )}
         </ContentStack>
         <PaneFooter>
           {showInputFooter && (
@@ -793,7 +819,8 @@ export function TaskConversation({
                 (showComposer ||
                   (!requestTarget &&
                     matchesRequest &&
-                    replyResult?.status === "ready")) && (
+                    replyResult?.status === "ready" &&
+                    inputEnabled)) && (
                   <div className="task-input-context">
                     <strong>
                       {replyBinding?.question_id

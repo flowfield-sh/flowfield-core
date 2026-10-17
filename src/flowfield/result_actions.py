@@ -111,28 +111,35 @@ def result_action(
                     "coordinator with this task link before requesting revised work."
                 ),
             )
-    if value.status == "ready":
+    if value.status == "ready" or value.problem_code == "partial_outcome":
         if workspace.schema_version >= 75:
             review = db.execute(
                 "SELECT status FROM task_reviews WHERE project_id=? AND task_id=? "
-                "AND status IN ('queued','preparing','running','waiting','uncertain') "
+                "AND (result_id=? OR status IN ('preparing','running','uncertain')) "
+                "AND status IN ('queued','preparing','running','waiting','uncertain',"
+                "'failed','stopped') "
                 "ORDER BY number DESC LIMIT 1",
-                (value.project_id, value.task_id),
+                (value.project_id, value.task_id, value.id),
             ).fetchone()
-            if review and review[0] in ("queued", "preparing", "running", "waiting", "uncertain"):
+            if review and (value.completion == "report" or review[0] not in ("failed", "stopped")):
                 return ResultAction(
                     owner="reviewer",
                     action="wait",
                     label={
                         "queued": "Review queued" if settings.enabled else "Review paused",
                         "preparing": "Preparing reviewer",
-                        "running": "Reviewing changes",
+                        "running": "Reviewing result",
                         "waiting": "Waiting for review answer",
                         "uncertain": "Check reviewer state",
+                        "failed": "Retry review",
+                        "stopped": "Review stopped",
                     }[review[0]],
                     reason="Open the task for review evidence and recovery.",
                 )
-        return ResultAction(owner="human", action="review_result", label="Review changes")
+        if value.status == "ready" and value.completion == "report":
+            return ResultAction(owner="reviewer", action="wait", label="Awaiting review")
+        if value.status == "ready":
+            return ResultAction(owner="human", action="review_result", label="Review changes")
     if value.approved_at and value.problem_code in DELIVERY_BLOCKERS:
         return ResultAction(
             owner="human",
@@ -157,10 +164,10 @@ def result_action(
         return ResultAction(
             owner="human",
             action="request_changes",
-            label="Continue work",
+            label="Request follow-up",
             reason=(
-                "The agreed outcome is unfinished. Continue on this task, or revise "
-                "its scope with the coordinator."
+                "Describe what the worker should finish on this task. "
+                "Discuss changes to its scope with the Coordinator."
             ),
         )
     if value.problem_code == "output_unavailable":

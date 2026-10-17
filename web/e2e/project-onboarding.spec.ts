@@ -145,8 +145,6 @@ test("registration conflicts retain the selected directory and allow identity co
   expect(existsSync(join(selected, "AGENTS.md"))).toBe(false);
   await openResource(page, "Projects");
   await expect(
-    page.locator(
-      `a[href="/workspaces/${workspace}/tasks?project=picked-unique"]`,
-    ),
+    page.locator(`a[href="/projects/picked-unique/overview"]`),
   ).toBeVisible();
 });

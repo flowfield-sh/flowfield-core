@@ -67,6 +67,11 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
     revision: run.revision,
     run_id: run.id,
     completion: "code",
+    next_action: {
+      owner: "human",
+      action: "review_result",
+      label: "Review changes",
+    },
     source_commit: run.result_commit,
     candidate_commit: run.result_commit,
     report: run.result,
@@ -514,7 +519,7 @@ test("validated result approval delivers real Git code with the worker queue pau
       { timeout: 15000 },
     )
     .toBe("done");
-  await expect(result).toContainText("Delivered to integration.");
+  await expect(result).not.toContainText("Delivered to integration.");
   const task = await (await request.get(`${base}/tasks/INT-1`)).json();
   expect(task.status).toBe("done");
   const replay = await mcp("review_result", {
@@ -537,7 +542,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   expect(existsSync(join(seed.repository, "catalog.py"))).toBe(true);
   expect(git("status", "--porcelain")).toBe("");
   await page.reload();
-  await expect(result).toContainText("Task complete.");
+  await expect(result).not.toContainText("Task complete.");
   await expect(
     page.getByRole("button", { name: "Approve and integrate" }),
   ).toHaveCount(0);
@@ -617,7 +622,7 @@ test("validated result approval delivers real Git code with the worker queue pau
     page.getByRole("button", { name: "Check destination" }),
   ).toHaveCount(0);
   expect(git("rev-parse", "integration")).toBe(advanced);
-  await expect(result).toContainText("Task complete.");
+  await expect(result).not.toContainText("Task complete.");
   await result
     .getByRole("region", { name: "Current branch checks" })
     .locator(":scope > summary")
@@ -1031,7 +1036,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   }).toPass({ timeout: 30000 });
   await expect(
     page.getByText("Delivered to delivery.", { exact: false }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await page.goto(`/projects/${project}`);
   await expect(
     page.getByRole("button", { name: "Try project", exact: true }),
@@ -1222,7 +1227,7 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   await page.goto("/projects/outcome-report/tasks/ORP-1/changes");
   await expect(
     page.getByText("Findings delivered.", { exact: false }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Approve and integrate" }),
   ).toHaveCount(0);
@@ -1238,7 +1243,7 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     page.getByRole("button", { name: "Approve and integrate" }),
   ).toHaveCount(0);
   await page
-    .getByRole("button", { name: "Continue work", exact: true })
+    .getByRole("button", { name: "Request follow-up", exact: true })
     .click();
   await page
     .getByLabel("Feedback for this result", { exact: true })

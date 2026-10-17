@@ -27,8 +27,8 @@ class WorkerQuestion(Record):
     recommendation: str = Field(min_length=1, max_length=8000)
 
 
-def worker_tools() -> list[dict[str, Any]]:
-    return [
+def worker_tools(*, verification: bool = False) -> list[dict[str, Any]]:
+    tools: list[dict[str, Any]] = [
         {
             "type": "function",
             "name": name,
@@ -82,11 +82,14 @@ def worker_tools() -> list[dict[str, Any]]:
                 "submit_result",
                 (
                     "Submit this attempt's summary, checks actually run and "
-                    "limitations. Explicitly choose complete or partial against the entire "
+                    "limitations. Keep summary focused on the user's outcome, technical "
+                    "proof in checks, and only unresolved material caveats in limitations. "
+                    "Explicitly choose complete or partial against the entire "
                     "agreed outcome and name remaining_work for partial progress. Before a "
                     "complete result, update any unfinished stages to reflect actual progress. "
                     "Code delivery follows explicit approval policy; complete unchanged-tree "
-                    "reports finish on delivery. Put deliverable files in FLOWFIELD_OUTPUT_DIR "
+                    "reports finish after configured review. Put deliverable files in "
+                    "FLOWFIELD_OUTPUT_DIR "
                     "and list their relative paths and descriptions in files. The service "
                     "retains those bytes independently of attempt cleanup. At most 32 files, "
                     "128 MiB each and 512 MiB total."
@@ -95,6 +98,12 @@ def worker_tools() -> list[dict[str, Any]]:
             ),
         )
     ]
+    if not verification:
+        schema = next(tool["inputSchema"] for tool in tools if tool["name"] == "submit_result")
+        schema["properties"].pop("verification")
+        for name in ("VerificationReport", "CriterionFinding"):
+            schema["$defs"].pop(name)
+    return tools
 
 
 class WorkerBridge:

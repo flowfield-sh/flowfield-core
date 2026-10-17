@@ -13,13 +13,13 @@ Choose **Open** for browser-supported PDF, text and image files, or **Download**
 
 Use **New folder** to organize the library. Select a file and choose **Rename or move**, then enter its path; `/` separates folders. Organization changes preserve the submitted filename, exact bytes and original task/result references. **Submitted version** links to that original result. Folder organization survives service restart.
 
-Complete file/report tasks finish after their files are retained. Partial results remain unfinished and offer **Continue work**. Completion records delivery; it does not endorse the report's conclusions. Independent Task reviewer settings apply to code candidates. Ask the Coordinator for an explicit verification task when file work needs a separate assessment.
+Complete file/report tasks finish after their files are retained and any configured task reviewer signs off. Reviewers can request corrections or ask a focused question about missing input. Without a configured reviewer, incomplete results offer **Request follow-up** to send specific instructions to the worker. Completion records delivery; it does not endorse the report's conclusions.
 
 ## Inputs and later versions
 
 The Coordinator can select sent message attachments or previously submitted files as task inputs. Workers receive separate copies of those exact bytes. Delivered prerequisite files are also supplied automatically. Later edits or successor results cannot silently replace the inputs of an existing attempt. Reopening a completed task preserves its previous files and result history.
 
-For a milestone, the Coordinator prepares a report task that depends on the delivered contributions. Its verification can select the final files from those exact results and submit additional files. Review those files alongside the checks, then accept the milestone or request changes. Changed contributions make the verification outdated while its earlier files remain accessible.
+For a milestone, the Coordinator saves the review plan against its agreed criteria. The configured milestone reviewer inspects exact delivered contributions and selects the final files. This creates a review within the milestone, without a separate verification task. Review those files alongside the checks, then accept the milestone or request changes. Changed contributions make the verification outdated while its earlier files remain accessible.
 
 ## Worker and coordinator tools
 
@@ -27,7 +27,7 @@ Create repository-free work with `create_task(workspace_id=…, task=…)`, omit
 
 Workers write final files in the supplied `output_directory`, also available as `FLOWFIELD_OUTPUT_DIR`, and include relative paths and optional descriptions in `submit_result.files`. Only explicitly submitted files are retained. A submission supports up to 32 regular files, 128 MiB per file and 512 MiB total. Symlinks, hardlinks and paths outside the output directory are rejected. Finish writing files before submitting; a failed capture leaves the result unsubmitted so the worker can correct it.
 
-Use `list_workspace_files` for bounded browsing, optionally filtered by task key or milestone ID. `get_workspace_file` returns metadata and a verified local path. Inputs are limited to 32 explicitly selected files; with prerequisite and predecessor files, an attempt can receive up to 256 files and 512 MiB. Milestone verification selects final contributing file IDs in `verification.output_ids`.
+Use `list_workspace_files` for bounded browsing, optionally filtered by task key or milestone ID. `get_workspace_file` returns metadata and a verified local path. Inputs are limited to 32 explicitly selected files; with prerequisite and predecessor files, an attempt can receive up to 256 files and 512 MiB. The milestone reviewer selects final contributing file IDs in `submit_milestone_review.report.output_ids`.
 
 ## Retention and backup
 

@@ -149,7 +149,8 @@ class ClaudeAgent(Agent):
                     "start",
                     {
                         "cwd": str(self.cwd),
-                        "directories": [str(path) for path in self.project_directories],
+                        "directories": [str(path) for path in self.project_directories]
+                        + ([str(self.output_directory)] if self.output_directory else []),
                         "executable": self.launch.native_executable if self.launch else None,
                         "resume": resume,
                         "persistent": persistent,

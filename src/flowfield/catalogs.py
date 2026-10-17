@@ -81,7 +81,14 @@ class Catalogs:
         if self.closing:
             raise ApplicationError("service_stopping", "The service is stopping.", 409)
         self._current(registration)
-        cwd = Path(self.workspace.project(project_id).path).resolve() if project_id else None
+        cwd = None
+        if project_id:
+            scope = self.workspace.work_scope(project_id)
+            cwd = (
+                Path(scope.path).resolve()
+                if scope.project_id
+                else coordinator_directory(self.workspace, scope.workspace_id or "")
+            )
         if project_path is not None:
             if project_id is not None:
                 raise ApplicationError(

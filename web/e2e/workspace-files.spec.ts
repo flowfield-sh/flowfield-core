@@ -84,6 +84,10 @@ test("workspace files link exact task and milestone handoffs without a project",
     .getByRole("link", { name: /W-1 Prepare launch research/ })
     .click();
   await expect(page).toHaveURL(`${base}/tasks/${value.task}`);
+  await openResource(page, "Files");
+  await expect(
+    details.getByRole("heading", { name: "brief.txt", exact: true }),
+  ).toBeVisible();
   await page.goto(`${base}/tasks/${value.task}/changes/${value.result}`);
   await expect(
     page.getByText("launch-report.txt", { exact: true }),
@@ -98,7 +102,7 @@ test("workspace files link exact task and milestone handoffs without a project",
     page.getByText("checklist-draft.txt", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Continue work", exact: true }),
+    page.getByRole("button", { name: "Request follow-up", exact: true }),
   ).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("file-task-partial.png") });
   await page.goto(`${base}/milestones/${value.milestone}`);
@@ -147,4 +151,17 @@ test("workspace files link exact task and milestone handoffs without a project",
   await expect(
     files.getByRole("button", { name: "Launch", exact: true }),
   ).toBeVisible();
+  await page.goto(
+    `${base}/tasks/${value.review_task}/result/${value.review_result}`,
+  );
+  await expect(
+    page.getByRole("button", { name: "Retry review", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Approve and integrate", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText("assessment.txt", { exact: true })).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("file-review-stopped.png"),
+  });
 });

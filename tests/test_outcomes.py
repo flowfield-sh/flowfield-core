@@ -21,6 +21,12 @@ from flowfield.worker_tools import worker_tools
 def test_model_must_explicitly_account_for_the_agreed_outcome():
     schema = next(t["inputSchema"] for t in worker_tools() if t["name"] == "submit_result")
     assert "outcome" in schema["required"]
+    assert "verification" not in schema["properties"]
+    assert "VerificationReport" not in schema["$defs"]
+    verifier = next(
+        t["inputSchema"] for t in worker_tools(verification=True) if t["name"] == "submit_result"
+    )
+    assert "verification" in verifier["properties"]
     for fields in (
         {},
         {"outcome": "partial"},

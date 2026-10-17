@@ -13,6 +13,7 @@ import {
 import { Markdown } from "./Markdown";
 import { ResultFiles } from "./Files";
 import { WorkState } from "./WorkState";
+import { taskHref } from "./navigation";
 import { Inspection } from "./Inspection";
 import type { DiffViewState } from "./CodeDiff";
 import { CheckEvidence } from "./Integration";
@@ -318,12 +319,12 @@ export function MilestoneReport({ value }: { value: Verification }) {
         <DetailSection title="Checks">{checks}</DetailSection>
         <MilestoneHumanTesting value={value} />
         <DetailSection title="Tasks">
-          <ul className="work-resource-list" aria-label="Verification tasks">
+          <ul className="work-resource-list" aria-label="Contributing tasks">
             {value.tasks.map((task) => (
               <li key={task.result_id}>
                 <WorkspaceLink
                   className="work-navigation-row"
-                  to={`/projects/${task.project_id}/tasks/${task.task_key}/result/${task.result_id}`}
+                  to={taskHref(task.project_id, { key: task.task_key })}
                 >
                   <WorkIdentity
                     state={{ label: "Delivered result", tone: "complete" }}
@@ -336,20 +337,22 @@ export function MilestoneReport({ value }: { value: Verification }) {
                 </WorkspaceLink>
               </li>
             ))}
-            {value.task_key && (
-              <li>
-                <WorkspaceLink
-                  className="work-navigation-row"
-                  to={`/projects/${value.project_id}/tasks/${value.task_key}${value.result_id ? `/result/${value.result_id}` : ""}`}
-                >
-                  <WorkIdentity itemKey={value.task_key} title="Verification" />
-                </WorkspaceLink>
-              </li>
-            )}
           </ul>
         </DetailSection>
-        <DetailSection title="Details">
+        <Disclosure summary="Review evidence">
           <ContentStack>
+            <Disclosure summary="Submitted results">
+              <ContentStack>
+                {value.tasks.map((task) => (
+                  <WorkspaceLink
+                    key={task.result_id}
+                    to={`${taskHref(task.project_id, { key: task.task_key }, "result")}/${task.result_id}`}
+                  >
+                    {task.task_key} · Submitted result
+                  </WorkspaceLink>
+                ))}
+              </ContentStack>
+            </Disclosure>
             {promotion?.candidate_commit && (
               <>
                 <Inspection
@@ -404,7 +407,7 @@ export function MilestoneReport({ value }: { value: Verification }) {
                 </ContentStack>
               </Disclosure>
             )}
-            <Disclosure summary="Verification context">
+            <Disclosure summary="Requirements checked">
               <ContentStack>
                 <p>
                   Criteria checked:{" "}
@@ -432,7 +435,14 @@ export function MilestoneReport({ value }: { value: Verification }) {
               />
             )}
           </ContentStack>
-        </DetailSection>
+          {value.task_key && (
+            <WorkspaceLink
+              to={taskHref(value.project_id, { key: value.task_key })}
+            >
+              Earlier verification task {value.task_key}
+            </WorkspaceLink>
+          )}
+        </Disclosure>
       </ContentStack>
     </article>
   );

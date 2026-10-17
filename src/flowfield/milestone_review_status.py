@@ -9,6 +9,7 @@ from flowfield.milestone_verification import delivered_tasks
 from flowfield.milestones import Milestones
 from flowfield.reviewer_settings import Reviewers, ReviewerSettingsView
 from flowfield.verification_plans import VerificationPlan, read
+from flowfield.work_scopes import workspace_scope
 from flowfield.worker_settings import read_project
 
 
@@ -21,6 +22,7 @@ class MilestoneReviewStatus(Record):
 
 def status(store: Workspace, workspace: str, identity: str) -> MilestoneReviewStatus:
     delivery = MilestoneDeliveries(store).get(workspace, identity)
+    scope = delivery.project_id if delivery else workspace_scope(workspace)
     with store.connection() as db:
         milestone = Milestones.read(db, workspace, identity)
         plan = read(db, workspace, milestone.id)
@@ -35,9 +37,6 @@ def status(store: Workspace, workspace: str, identity: str) -> MilestoneReviewSt
         review = MilestoneReview.model_validate_json(row[0]) if row else None
         if not reviewer.effective.enabled:
             message = "Automatic milestone assessment is off."
-        elif not delivery:
-            message = "Ask the Coordinator to prepare owned milestone delivery "
-            message += "for automatic verification."
         elif not reviewer.effective.agent:
             message = "Choose a milestone reviewer below to run automatic verification."
         elif not plan:
@@ -69,22 +68,32 @@ def status(store: Workspace, workspace: str, identity: str) -> MilestoneReviewSt
             "waiting",
             "running",
             "preparing",
+            "stale",
         ):
             message = review.problem or {
                 "waiting": "Waiting for your answer",
                 "running": "Reviewing the combined outcome",
                 "preparing": "Preparing milestone review",
             }.get(review.status, "Milestone review needs attention")
-        elif not read_project(db, delivery.project_id).enabled:
+        elif not read_project(db, scope).enabled:
             message = "The queue is paused. Saved verification starts when the queue resumes."
         else:
             try:
-                delivered_tasks(db, workspace, milestone.id, (delivery.project_id, None))
+                tasks = delivered_tasks(db, workspace, milestone.id, (scope, None))
                 message = (
                     "Combined assessment recorded."
                     if review and review.status == "decided"
                     else "Preparing combined verification."
                 )
+                if not delivery and any(
+                    db.execute(
+                        "SELECT json_extract(data,'$.completion') FROM result_versions WHERE id=?",
+                        (task.result_id,),
+                    ).fetchone()[0]
+                    != "report"
+                    for task in tasks
+                ):
+                    message = "Configure milestone delivery before reviewing combined code."
             except ApplicationError as error:
                 message = str(error)
         return MilestoneReviewStatus(plan=plan, reviewer=reviewer, review=review, message=message)

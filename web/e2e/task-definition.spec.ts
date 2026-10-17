@@ -160,6 +160,7 @@ test("workspace worker defaults have no speed setting even when the model suppor
   ).toBe(422);
   await page.goto(`/workspaces/${workspace}/edit/workers`);
   const form = page.getByRole("region", { name: "Worker settings" });
+  await choose(form.getByLabel("Harness", { exact: true }), "codex");
   await choose(form.getByLabel("Model", { exact: true }), "test");
   await expect(form.getByRole("button", { name: "Fast mode" })).toHaveCount(0);
 });

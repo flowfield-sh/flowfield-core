@@ -127,7 +127,7 @@ def task_state(
             tone: Literal["active", "attention", "waiting", "complete", "idle"] = "waiting"
             if result.status in ("preparing", "delivering"):
                 tone = "active"
-            elif action.label in ("Reviewing changes", "Preparing reviewer"):
+            elif action.label in ("Reviewing changes", "Reviewing result", "Preparing reviewer"):
                 tone = "active"
             elif action.label == "Check reviewer state":
                 tone = "attention"

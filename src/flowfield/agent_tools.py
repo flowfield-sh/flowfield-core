@@ -107,6 +107,8 @@ def failure(code: str, message: str) -> CallToolResult:
 
 
 def worker_scope(bridge: WorkerBridge) -> ScopedTools:
+    assignment = bridge.execution.assignment(bridge.run.project_id, bridge.run.id)
+
     async def call(name: str, arguments: dict[str, Any]) -> CallToolResult:
         result = await bridge.call(name, arguments)
         return CallToolResult(content=[TextContent(type="text", text=result)])
@@ -123,7 +125,7 @@ def worker_scope(bridge: WorkerBridge) -> ScopedTools:
                     openWorldHint=item["name"] == "run_project_checks",
                 ),
             )
-            for item in worker_tools()
+            for item in worker_tools(verification=bool(assignment.get("milestone_verification")))
         ],
         call,
     )

@@ -21,10 +21,11 @@ import { Toaster } from "@/components/ui/sonner";
 import { LabelCatalog } from "./labelContext";
 import { MilestoneBadge } from "./MilestoneBadge";
 import { AnnouncementProvider } from "./Announcements";
-import { TaskNeeds, TaskState, hasTaskNeeds } from "./TaskNeeds";
+import { TaskState } from "./TaskNeeds";
 import { WorkspaceList, NewWorkspace } from "./WorkspaceEntry";
 import { Documents } from "./Documents";
 import { Files } from "./Files";
+import { ProjectOverview } from "./ProjectOverview";
 import { ProjectList } from "./ProjectList";
 import { SetupInstructions } from "./SetupInstructions";
 import { canonicalHref } from "./navigation";
@@ -693,7 +694,8 @@ function WorkspaceResource({
         : params.milestoneId
           ? { kind: "milestone", id: params.milestoneId! }
           : projectId &&
-              (pathname === `${projectHref(projectId)}/edit` ||
+              (pathname === `${projectHref(projectId)}/overview` ||
+                pathname === `${projectHref(projectId)}/edit` ||
                 pathname.startsWith(`${projectHref(projectId)}/edit/`))
             ? { kind: "project", id: projectId }
             : null;
@@ -706,6 +708,8 @@ function WorkspaceResource({
         background.startsWith(`${projectHref(projectId)}/${view}/`)));
   const projectsView =
     background === `${base}/projects` || background === `${base}/projects/new`;
+  const projectOverview =
+    !!projectId && pathname === `${projectHref(projectId)}/overview`;
   const allWorkView = pathname === `${base}/work`;
   const documentsView = pathname.startsWith(`${base}/documents`);
   const filesView = pathname === `${base}/files`;
@@ -738,17 +742,19 @@ function WorkspaceResource({
       ? "milestone"
       : taskRef
         ? "task"
-        : projectsView
-          ? "projects"
-          : filesView
-            ? "files"
-            : milestonesView
-              ? "milestones"
-              : showInbox
-                ? "inbox"
-                : archive
-                  ? "archive"
-                  : "board";
+        : projectOverview
+          ? "project"
+          : projectsView
+            ? "projects"
+            : filesView
+              ? "files"
+              : milestonesView
+                ? "milestones"
+                : showInbox
+                  ? "inbox"
+                  : archive
+                    ? "archive"
+                    : "board";
   const filtered = surface === "board" || surface === "archive";
   useEffect(() => {
     if (
@@ -771,7 +777,7 @@ function WorkspaceResource({
           view: {
             surface,
             project_id:
-              surface === "task"
+              surface === "task" || surface === "project"
                 ? projectId
                 : filtered || surface === "inbox"
                   ? projectFilter || null
@@ -959,16 +965,26 @@ function WorkspaceResource({
       {selection &&
         incoming &&
         (selection.kind === "project" && incoming ? (
-          <ProjectEditor
-            workspaceId={board.workspace.id}
-            key={selection.id}
-            incoming={incoming as Project}
-            path={projectPath}
-            hasTasks={board.tasks.some((task) => task.project_id === projectId)}
-            onDirty={setUnsaved}
-            saved={savedProject}
-            close={() => choose(null)}
-          />
+          projectOverview ? (
+            <ProjectOverview
+              project={incoming as Project}
+              board={board}
+              close={() => closeEntity(`${base}/projects`)}
+            />
+          ) : (
+            <ProjectEditor
+              workspaceId={board.workspace.id}
+              key={selection.id}
+              incoming={incoming as Project}
+              path={projectPath}
+              hasTasks={board.tasks.some(
+                (task) => task.project_id === projectId,
+              )}
+              onDirty={setUnsaved}
+              saved={savedProject}
+              close={() => choose(null)}
+            />
+          )
         ) : selection.kind === "milestone" ? (
           <MilestoneDetail
             board={board}
@@ -1221,17 +1237,10 @@ function WorkspaceResource({
                                               (m) => m.id === task.milestone_id,
                                             )}
                                           />
-                                          <DraftBadge
-                                            publicationStatus={
-                                              task.publication_status
-                                            }
-                                          />
                                         </>
                                       }
                                     />
-                                    {(task.state?.tone !== "idle" ||
-                                      !!task.document_updates?.length ||
-                                      !!task.milestone_update) && (
+                                    {task.state?.tone !== "complete" && (
                                       <TaskState
                                         task={task}
                                         projectId={task.project_id}
@@ -1249,33 +1258,6 @@ function WorkspaceResource({
                                           })
                                         }
                                         linked
-                                      />
-                                    )}
-                                    {hasTaskNeeds(
-                                      task,
-                                      board.pending_code[task.key],
-                                      !task.state,
-                                    ) && (
-                                      <TaskNeeds
-                                        task={task}
-                                        projectId={task.project_id}
-                                        pendingCode={
-                                          board.pending_code[task.key]
-                                        }
-                                        showQuestions={!task.state}
-                                        open={(id) =>
-                                          choose({
-                                            kind: "task",
-                                            id:
-                                              board.tasks.find(
-                                                (item) =>
-                                                  item.project_id ===
-                                                    task.project_id &&
-                                                  (item.id === id ||
-                                                    item.key === id),
-                                              )?.key ?? id,
-                                          })
-                                        }
                                       />
                                     )}
                                   </WorkCard>

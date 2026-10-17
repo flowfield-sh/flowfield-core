@@ -39,7 +39,7 @@ export function TaskReview({
               {review.status === "decided"
                 ? review.verdict?.summary
                 : review.status === "running"
-                  ? "Reviewing changes"
+                  ? "Reviewing result"
                   : review.status === "queued"
                     ? "Review queued"
                     : review.status === "waiting"

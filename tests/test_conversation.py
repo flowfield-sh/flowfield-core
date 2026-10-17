@@ -332,7 +332,7 @@ def test_result_feedback_keeps_consumed_answers_within_the_same_agreement(tmp_pa
     results = Results(execution.workspace)
     validate_report(execution)
     partial = results.page("harbor", "task-0").items[0]
-    assert state().label == "Continue work"
+    assert state().label == "Request follow-up"
     results.review(
         "harbor",
         partial.id,

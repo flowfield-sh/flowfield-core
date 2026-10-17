@@ -489,7 +489,7 @@ def test_mcp_user_input_approval_requires_observed_scoped_call(tmp_path):
     asyncio.run(exercise())
 
 
-@pytest.mark.parametrize("mode", ["read-only", "agent", "agent-full-access"])
+@pytest.mark.parametrize("mode", ["read-only", "workspace-write", "agent", "agent-full-access"])
 def test_member_directories_respect_codex_native_access_mode(tmp_path, mode):
     async def exercise():
         managed, core, site = (tmp_path / name for name in ("managed", "core", "site"))
@@ -500,6 +500,8 @@ def test_member_directories_respect_codex_native_access_mode(tmp_path, mode):
         )
         client.command = [sys.executable, str(FAKE)]
         client.project_directories = (core, site)
+        client.output_directory = tmp_path / "output"
+        client.output_directory.mkdir()
         calls = []
         original = client.rpc.call
 
@@ -515,7 +517,11 @@ def test_member_directories_respect_codex_native_access_mode(tmp_path, mode):
             params = next(params for method, params in calls if method == "thread/start")
             assert params["cwd"] == str(managed)
             roots = params["config"].get("sandbox_workspace_write.writable_roots")
-            assert roots == ([str(core), str(site)] if mode == "agent" else None)
+            assert roots == (
+                [str(core), str(site), str(client.output_directory)]
+                if mode in ("agent", "workspace-write")
+                else None
+            )
             assert all(method != "turn/start" for method, _ in calls)
         finally:
             assert await client.stop()

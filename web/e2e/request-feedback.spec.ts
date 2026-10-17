@@ -120,6 +120,7 @@ test("worker and coordinator settings report failed saves with their own action 
   );
   await page.goto(`/workspaces/${workspace}/edit/workers`);
   const workers = page.getByRole("region", { name: "Worker settings" });
+  await choose(workers.getByLabel("Harness", { exact: true }), "codex");
   await choose(workers.getByLabel("Model", { exact: true }), "fixture");
   await choose(workers.getByLabel("Reasoning effort"), "low");
   await workers.getByLabel("Maximum parallel workers").fill("3");
@@ -135,7 +136,11 @@ test("worker and coordinator settings report failed saves with their own action 
   const settings = page.getByRole("dialog", {
     name: "Coordinator model settings",
   });
+  await page
+    .getByRole("button", { name: "Model settings", exact: true })
+    .click();
   await expect(settings).toBeVisible();
+  await choose(settings.getByLabel("Harness", { exact: true }), "codex");
   await choose(settings.getByLabel("Model", { exact: true }), "fixture");
   await choose(settings.getByLabel("Reasoning effort"), "low");
   await page.route(

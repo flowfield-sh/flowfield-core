@@ -1,12 +1,13 @@
 """Shared native review lifecycle; purpose owners supply frozen context and scoped tools."""
 
 import asyncio
+import hashlib
 import json
 import os
 import sqlite3
 from abc import ABC, abstractmethod
 from contextlib import AsyncExitStack
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar
@@ -20,6 +21,7 @@ from flowfield.agent_models import EffectiveAgent
 from flowfield.agent_tools import ScopedTools
 from flowfield.application import now
 from flowfield.errors import ApplicationError
+from flowfield.output_models import FileInput
 from flowfield.run_activity import ActivityRecorder, ActivityUpdate
 
 if TYPE_CHECKING:
@@ -41,6 +43,7 @@ ReviewStatus = Literal[
 class ReviewJob(Protocol):
     id: str
     project_id: str
+    workspace_id: str
     revision: int
     status: ReviewStatus
     attempt_id: str | None
@@ -79,10 +82,11 @@ class ReviewOwner(Protocol[J]):
 
 @dataclass
 class ReviewLaunch:
-    candidate_commit: str
+    candidate_commit: str | None
     agent: EffectiveAgent
     scope: ScopedTools
     brief: dict[str, Any]
+    files: list[FileInput] = field(default_factory=list)
 
 
 class NativeReviewExecution[J: ReviewJob](ABC):
@@ -164,16 +168,21 @@ class NativeReviewExecution[J: ReviewJob](ABC):
 
         try:
             launch = self.launch(review, attempt)
-            project = service.workspace.project(review.project_id)
-            preparing = asyncio.create_task(
-                asyncio.to_thread(
-                    LocalHost(os.environ).prepare,
+            host = LocalHost(os.environ)
+            prepare = (
+                partial(
+                    host.prepare,
                     service.workspace.directory,
-                    Path(project.path),
+                    Path(service.workspace.project(review.project_id).path),
                     attempt,
                     launch.candidate_commit,
                 )
+                if launch.candidate_commit
+                else partial(
+                    host.prepare_files, service.workspace.directory, review.workspace_id, attempt
+                )
             )
+            preparing = asyncio.create_task(asyncio.to_thread(prepare))
             try:
                 environment = await asyncio.shield(preparing)
             except asyncio.CancelledError:
@@ -187,6 +196,15 @@ class NativeReviewExecution[J: ReviewJob](ABC):
                 save(checkout=str(environment.checkout), runtime=str(environment.runtime))
                 raise
             frozen = launch.agent
+            from flowfield.task_files import materialize
+
+            files = await asyncio.to_thread(
+                materialize,
+                service.workspace,
+                review.workspace_id,
+                launch.files,
+                environment.runtime / "input",
+            )
             choice = frozen.choice
             client = create(
                 choice,
@@ -231,13 +249,23 @@ class NativeReviewExecution[J: ReviewJob](ABC):
                 service.workspace, review.project_id, attempt, store=self.reviews
             )
             client.on_activity = activity.emit
-            brief = {**launch.brief, "flowfield_connection": server.name}
+            brief = {**launch.brief, "flowfield_connection": server.name, "input_files": files}
             outcome = await client.prompt(json.dumps(brief, ensure_ascii=False), permission)
             if outcome.get("status") != "completed":
                 problem = "Review turn did not complete. Evidence is retained; retry explicitly."
             scope.revoke()
             confirmed = await client.stop()
-            if environment and confirmed:
+            if confirmed:
+                for expected, copied in zip(launch.files, files, strict=True):
+                    path = Path(copied["path"])
+                    with path.open("rb") as incoming:
+                        if (
+                            path.is_symlink()
+                            or hashlib.file_digest(incoming, "sha256").hexdigest()
+                            != expected.sha256
+                        ):
+                            problem = "Review changed a supplied file. No conclusion was applied."
+            if environment and confirmed and launch.candidate_commit:
                 # Clarification and assessment cannot quietly become an implementation candidate.
                 dirty = await asyncio.to_thread(git, environment.checkout, "status", "--porcelain")
                 head = await asyncio.to_thread(git, environment.checkout, "rev-parse", "HEAD")

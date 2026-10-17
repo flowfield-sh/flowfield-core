@@ -61,7 +61,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   });
   await expect(work.getByRole("link").first()).toHaveAttribute(
     "href",
-    `${base}/requests/question/attention?project_id=${project}`,
+    `/projects/${project}/tasks/FDB-2`,
   );
   await expect(
     work.getByText("Needs attention", { exact: true }),

@@ -1,3 +1,9 @@
+import { useRetainedState } from "./retainedState";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useState } from "react";
 import {
   Download,
@@ -51,15 +57,20 @@ export function OutputFiles({ files }: { files: OutputFile[] }) {
           <span className="detail-metadata shrink-0">
             {sizeLabel(file.size)}
           </span>
-          <Button size="icon-sm" variant="ghost" asChild>
-            <a
-              href={`${contentHref(file)}?download=true`}
-              download
-              aria-label={`Download ${file.name}`}
-            >
-              <Download />
-            </a>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon-sm" variant="ghost" asChild>
+                <a
+                  href={`${contentHref(file)}?download=true`}
+                  download
+                  aria-label={`Download ${file.name}`}
+                >
+                  <Download />
+                </a>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Download {file.name}</TooltipContent>
+          </Tooltip>
         </li>
       ))}
     </ul>
@@ -203,10 +214,16 @@ export function Files({
   workspaceId: string;
   refresh: string;
 }) {
-  const [work, setWork] = useState<FileWork | null>(null);
-  const [path, setPath] = useState("");
-  const [sort, setSort] = useState("name");
-  const [selected, setSelected] = useState<string | null>(null);
+  const [work, setWork] = useRetainedState<FileWork | null>(
+    `files:${workspaceId}:work`,
+    null,
+  );
+  const [path, setPath] = useRetainedState(`files:${workspaceId}:path`, "");
+  const [sort, setSort] = useRetainedState(`files:${workspaceId}:sort`, "name");
+  const [selected, setSelected] = useRetainedState<string | null>(
+    `files:${workspaceId}:chosen`,
+    null,
+  );
   const [creating, setCreating] = useState(false);
   const [folder, setFolder] = useState("");
   const [pending, setPending] = useState(false);

@@ -3,6 +3,7 @@
 import json
 import sqlite3
 import time
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
@@ -108,7 +109,7 @@ def validate_decision(value: MilestoneVerification, decision: MilestoneVerdict) 
 class MilestoneReview(ReviewRecord):
     verification_id: str
     milestone_id: str
-    candidate_commit: str
+    candidate_commit: str | None
     reviewer: EffectiveReviewer
     verdict: MilestoneVerdict | None = None
     applied_at: str | None = None
@@ -184,7 +185,7 @@ class MilestoneReviews(ReviewRecords[MilestoneReview]):
             return
         verification.review_status = value.status
         if verification.current:
-            if value.status in ("failed", "uncertain", "stopped"):
+            if value.status in ("failed", "uncertain", "stopped", "stale"):
                 verification.status, verification.problem = "failed", value.problem
             elif value.status in ("queued", "preparing", "running", "waiting"):
                 verification.status, verification.problem = "verifying", None
@@ -193,13 +194,17 @@ class MilestoneReviews(ReviewRecords[MilestoneReview]):
         save(db, verification)
 
     def prepare(self, workspace: str, milestone_id: str) -> MilestoneVerification | None:
+        from flowfield.work_scopes import workspace_scope
+
         delivery = MilestoneDeliveries(self.store).get(workspace, milestone_id)
-        if not delivery or delivery.status != "ready":
+        if delivery and delivery.status != "ready":
             return None
+        scope = delivery.project_id if delivery else workspace_scope(workspace)
         with self.store.connection() as db:
-            if not read_project(db, delivery.project_id).enabled:
+            if not read_project(db, scope).enabled:
                 return None
-        with gitops.lock(Path(self.store.project(delivery.project_id).path)):
+        boundary = gitops.lock(Path(self.store.project(scope).path)) if delivery else nullcontext()
+        with boundary:
             with self.store.connection(write=True) as db:
                 milestone = Milestones.read(db, workspace, milestone_id)
                 plan = plan_read(db, workspace, milestone.id)
@@ -213,10 +218,19 @@ class MilestoneReviews(ReviewRecords[MilestoneReview]):
                     or plan.milestone_revision != milestone.revision
                     or not reviewer.enabled
                     or not reviewer.agent
-                    or not read_project(db, delivery.project_id).enabled
+                    or not read_project(db, scope).enabled
                 ):
                     return None
-                tasks = delivered_tasks(db, workspace, milestone.id, (delivery.project_id, None))
+                tasks = delivered_tasks(db, workspace, milestone.id, (scope, None))
+                if not delivery and any(
+                    db.execute(
+                        "SELECT json_extract(data,'$.completion') FROM result_versions WHERE id=?",
+                        (task.result_id,),
+                    ).fetchone()[0]
+                    != "report"
+                    for task in tasks
+                ):
+                    return None  # Code still requires an explicitly owned delivery branch.
                 previous = db.execute(
                     "SELECT data FROM milestone_verifications WHERE workspace_id=? AND "
                     "milestone_id=? "
@@ -255,7 +269,7 @@ class MilestoneReviews(ReviewRecords[MilestoneReview]):
                     checks=plan.checks,
                     instructions=plan.instructions,
                     tasks=tasks,
-                    project_id=delivery.project_id,
+                    project_id=scope,
                     created_at=now(),
                     updated_at=now(),
                     author=plan.author,
@@ -269,22 +283,25 @@ class MilestoneReviews(ReviewRecords[MilestoneReview]):
                     "VALUES (?,?,?,?,?)",
                     (value.id, workspace, milestone.id, value.status, value.model_dump_json()),
                 )
-                MilestonePromotions(self.store).create(db, value)
+                if delivery:
+                    MilestonePromotions(self.store).create(db, value)
                 save(db, value)
                 return value
 
     def enqueue(self, workspace: str, verification_id: str) -> MilestoneReview | None:
         with self.store.connection(write=True) as db:
             value = read(db, workspace, verification_id)
-            if value.purpose != "review" or not value.current or not value.promotion_id:
+            if value.purpose != "review" or not value.current:
                 return None
             existing = db.execute(
                 "SELECT data FROM milestone_reviews WHERE verification_id=?", (value.id,)
             ).fetchone()
             if existing:
                 return MilestoneReview.model_validate_json(existing[0])
-            promotion = promotion_read(db, value.promotion_id)
-            if promotion.status not in ("ready", "failed") or not promotion.candidate_commit:
+            promotion = promotion_read(db, value.promotion_id) if value.promotion_id else None
+            if promotion and (
+                promotion.status not in ("ready", "failed") or not promotion.candidate_commit
+            ):
                 return None
             assert value.reviewer
             review = MilestoneReview(
@@ -293,7 +310,7 @@ class MilestoneReviews(ReviewRecords[MilestoneReview]):
                 workspace_id=workspace,
                 milestone_id=value.milestone_id,
                 verification_id=value.id,
-                candidate_commit=promotion.candidate_commit,
+                candidate_commit=promotion.candidate_commit if promotion else None,
                 reviewer=value.reviewer,
                 created_at=now(),
             )
@@ -310,6 +327,16 @@ class MilestoneReviews(ReviewRecords[MilestoneReview]):
     def _fresh(self, db: sqlite3.Connection, review: MilestoneReview) -> bool:
         value = read(db, review.workspace_id, review.verification_id)
         problem = current_problem(db, value)
+        if not problem:
+            from flowfield.outputs import Outputs
+
+            try:
+                outputs = Outputs(self.store)
+                for task in value.tasks:
+                    for identity in task.output_ids:
+                        outputs.content(outputs.get(review.workspace_id, identity))
+            except ApplicationError as error:
+                problem = error.message
         if not problem and value.promotion_id:
             try:
                 promotion = promotion_read(db, value.promotion_id)
@@ -401,7 +428,7 @@ class MilestoneReviews(ReviewRecords[MilestoneReview]):
                     promotion = (
                         promotion_read(db, value.promotion_id) if value.promotion_id else None
                     )
-                    passed = passed and bool(promotion and promotion.status == "ready")
+                    passed = passed and (not promotion or promotion.status == "ready")
                     value.status, value.problem = (
                         ("ready", None) if passed else ("failed", decision.summary)
                     )
@@ -503,20 +530,14 @@ class MilestoneReviews(ReviewRecords[MilestoneReview]):
         finding = next(
             (f for f in decision.report.findings if f.check == decision.correction_check), None
         )
-        contribution = next(
-            (
-                t
-                for t in value.tasks
-                if t.task_id == decision.correction_task_id and t.project_id == review.project_id
-            ),
-            None,
-        )
-        if not finding or finding.verdict == "passed" or not contribution:
+        contributions = [t for t in value.tasks if t.task_id == decision.correction_task_id]
+        if not finding or finding.verdict == "passed" or len(contributions) != 1:
             raise ApplicationError(
                 "invalid_correction",
-                "Choose a bound contribution and a failed or unverified check.",
+                "Choose one unambiguous bound contribution and a failed or unverified check.",
                 409,
             )
+        contribution = contributions[0]
         Results(self.store).milestone_correction(
             db,
             contribution.project_id,
@@ -547,12 +568,12 @@ class MilestoneReviews(ReviewRecords[MilestoneReview]):
                 )
             if section.startswith("contribution:"):
                 identity = section.removeprefix("contribution:")
-                task = next((t for t in value.tasks if t.task_id == identity), None)
-                if task:
+                tasks = [t for t in value.tasks if identity in (t.task_id, t.result_id)]
+                if len(tasks) == 1:
                     row = db.execute(
                         "SELECT r.assignment FROM runs r JOIN result_versions v ON "
                         "v.run_id=r.id WHERE v.id=?",
-                        (task.result_id,),
+                        (tasks[0].result_id,),
                     ).fetchone()
                     return str(row[0])
         if section.startswith("exchanges:"):

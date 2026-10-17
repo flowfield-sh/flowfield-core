@@ -36,6 +36,7 @@ class CoordinatorViewSelection(AgentRecord):
         "inbox",
         "archive",
         "projects",
+        "project",
         "milestones",
         "milestone",
         "task",

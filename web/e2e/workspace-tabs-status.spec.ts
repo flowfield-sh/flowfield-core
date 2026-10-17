@@ -76,7 +76,7 @@ test("task card entry stays on Overview and milestone status agrees across views
   const tone = await row.locator(".work-state").getAttribute("data-tone");
   await row.click();
   await expect(
-    page.getByRole("region", { name: "Request", exact: true }),
+    page.getByRole("region", { name: "Milestone details", exact: true }),
   ).toBeVisible();
   await openResource(page, "Milestones");
   await page

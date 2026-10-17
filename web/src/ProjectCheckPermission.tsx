@@ -26,7 +26,7 @@ export function ProjectCheckPermission({
     <DetailSection title="Check execution">
       <SettingsCheckbox
         checked={pending ?? resource.data?.enabled ?? false}
-        disabled={disabled || busy || !resource.data}
+        disabled={disabled || busy || resource.loading || !resource.data}
         hint="Runs these commands on worker-edited code with Flowfield’s machine access, outside the worker’s sandbox. Saves immediately; changes to integration settings require permission again. Turning this off blocks new runs."
         onChange={async (event) => {
           if (!resource.data) return;

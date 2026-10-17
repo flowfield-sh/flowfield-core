@@ -1,11 +1,9 @@
 import { useLocation } from "react-router";
-import { ReviewRounds } from "./TaskReview";
-import { requestHref } from "./requestLinks";
-import { ProjectOwners } from "./WorkspaceLink";
+import { ReviewRounds, TaskReview } from "./TaskReview";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
-import { lazy, Suspense, useState, useContext, useMemo } from "react";
+import { lazy, Suspense, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { components } from "./api-schema";
@@ -45,7 +43,6 @@ export function Result({
   inputEnabled: boolean;
   overview?: boolean;
 }) {
-  const owners = useContext(ProjectOwners);
   const { pathname } = useLocation();
   // Returning to a retained result rechecks external branch movement too.
   const observed = useMemo(() => ({ refresh, pathname }), [refresh, pathname]);
@@ -173,24 +170,17 @@ export function Result({
                 <Markdown>{worker.data.feedback}</Markdown>
               </Disclosure>
             )}
-            {overview && (
-              <Button size="sm" variant="outline" asChild>
-                <WorkspaceLink
-                  to={requestHref(
-                    owners[projectId],
-                    "result",
-                    version.id,
-                    projectId,
-                  )}
-                >
-                  View result
-                </WorkspaceLink>
-              </Button>
-            )}
           </DetailSection>
           <ResultFiles files={version.files} />
-          {!overview && version.independent_review?.summary && (
-            <DetailSection title="Independent review">
+          {current && !overview && (
+            <TaskReview
+              projectId={projectId}
+              taskId={taskId}
+              refresh={refresh}
+            />
+          )}
+          {version.independent_review?.summary && (
+            <DetailSection title="Reviewer">
               {version.independent_review.status === "stale" && (
                 <p>
                   This assessment is outdated. Changed inputs need a fresh
@@ -202,7 +192,7 @@ export function Result({
                 <Markdown>{version.independent_review.evidence}</Markdown>
               </Disclosure>
               <Disclosure
-                summary="Review rounds and diagnostics"
+                summary="Review history"
                 onToggle={(event) => setReviewOpen(event.currentTarget.open)}
               >
                 {reviewOpen && (
@@ -217,111 +207,108 @@ export function Result({
               </Disclosure>
             </DetailSection>
           )}
-          {(!overview ||
-            ["preparing", "delivering"].includes(version.status)) && (
-            <DetailSection
-              title={version.completion === "code" ? "Delivery" : "Report"}
-            >
-              {version.status !== "delivered" && (
-                <p>
-                  <strong>
-                    {!current
-                      ? "Earlier result"
-                      : {
-                          ready: "Ready for review",
-                          preparing: "Checking result",
-                          delivering:
-                            version.completion === "code"
-                              ? "Integrating changes"
-                              : "Delivering findings",
-                          delivered:
-                            version.completion === "code"
-                              ? "Integrated"
-                              : "Findings delivered",
-                          blocked: "Needs attention",
-                          stale: "Needs attention",
-                          cancelled: "Review stopped",
-                          changes_requested: "Changes requested",
-                        }[version.status]}
-                  </strong>
-                </p>
-              )}
-              {version.completion === "code" &&
-                version.status !== "delivered" && (
+          {version.status !== "delivered" &&
+            !(
+              current &&
+              version.completion === "report" &&
+              version.status === "ready"
+            ) &&
+            (!overview ||
+              ["preparing", "delivering"].includes(version.status)) && (
+              <DetailSection
+                title={version.completion === "code" ? "Delivery" : "Report"}
+              >
+                {
+                  <p>
+                    <strong>
+                      {!current
+                        ? "Earlier result"
+                        : {
+                            ready: "Ready for review",
+                            preparing: "Checking result",
+                            delivering:
+                              version.completion === "code"
+                                ? "Integrating changes"
+                                : "Delivering findings",
+                            delivered:
+                              version.completion === "code"
+                                ? "Integrated"
+                                : "Findings delivered",
+                            blocked: "Needs attention",
+                            stale: "Needs attention",
+                            cancelled: "Review stopped",
+                            changes_requested: "Changes requested",
+                          }[version.status]}
+                    </strong>
+                  </p>
+                }
+                {version.completion === "code" && (
                   <p>
                     Destination: <strong>{version.target_branch}</strong>
                   </p>
                 )}
-              {version.recheck_of != null && (
-                <p className="muted">
-                  Updated checks for review {version.recheck_of}; the worker
-                  submission is unchanged.
-                </p>
-              )}
-              {!current && (
-                <Alert>
-                  <AlertDescription>
-                    Earlier checked revision.{" "}
-                    {page.data?.current_id !== version.id ? (
-                      <WorkspaceLink to={`${href}/${page.data?.current_id}`}>
-                        Open current changes
-                      </WorkspaceLink>
-                    ) : (
-                      <>
-                        A newer worker attempt is{" "}
-                        {label(successor.data?.status ?? "pending")}. Its result
-                        will appear here when submitted.
-                      </>
-                    )}
-                  </AlertDescription>
-                </Alert>
-              )}
-              {current &&
-                ["preparing", "delivering"].includes(version.status) && (
-                  <>
-                    <p>
-                      {version.status === "preparing"
-                        ? version.completion === "code"
-                          ? "Combining changes and running checks. Stopping keeps code and output."
-                          : "Retaining and checking submitted outputs."
-                        : "Approved; waiting to update the branch. You can cancel until delivery starts."}
-                    </p>
-                    <ResultActions version={version.version}>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() => void recover("cancel")}
-                      >
-                        {version.status === "preparing"
-                          ? "Stop checks"
-                          : "Cancel delivery"}
-                      </Button>
-                    </ResultActions>
-                  </>
+                {version.recheck_of != null && (
+                  <p className="muted">
+                    Updated checks for review {version.recheck_of}; the worker
+                    submission is unchanged.
+                  </p>
                 )}
-              {version.status === "delivered" && (
-                <p>
-                  {version.completion === "code"
-                    ? `Delivered to ${version.target_branch}.`
-                    : "Findings delivered."}{" "}
-                  Task complete.
-                </p>
-              )}
-              {version.status === "changes_requested" && current && (
-                <p>{version.next_action?.reason || "Changes requested."}</p>
-              )}
-              {version.status === "cancelled" ? (
-                <p>Code and check output were kept.</p>
-              ) : (
-                version.problem &&
-                version.problem_code !== "partial_outcome" && (
-                  <FailureEvidence problem={version.problem} />
-                )
-              )}
-            </DetailSection>
-          )}
+                {!current && (
+                  <Alert>
+                    <AlertDescription>
+                      Earlier checked revision.{" "}
+                      {page.data?.current_id !== version.id ? (
+                        <WorkspaceLink to={`${href}/${page.data?.current_id}`}>
+                          Open current changes
+                        </WorkspaceLink>
+                      ) : (
+                        <>
+                          A newer worker attempt is{" "}
+                          {label(successor.data?.status ?? "pending")}. Its
+                          result will appear here when submitted.
+                        </>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {current &&
+                  ["preparing", "delivering"].includes(version.status) && (
+                    <>
+                      <p>
+                        {version.status === "preparing"
+                          ? version.completion === "code"
+                            ? "Combining changes and running checks. Stopping keeps code and output."
+                            : "Retaining and checking submitted outputs."
+                          : "Approved; waiting to update the branch. You can cancel until delivery starts."}
+                      </p>
+                      <ResultActions version={version.version}>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => void recover("cancel")}
+                        >
+                          {version.status === "preparing"
+                            ? "Stop checks"
+                            : "Cancel delivery"}
+                        </Button>
+                      </ResultActions>
+                    </>
+                  )}
+                {version.status === "changes_requested" && current && (
+                  <p>{version.next_action?.reason || "Changes requested."}</p>
+                )}
+                {version.status === "cancelled" ? (
+                  <p>Code and check output were kept.</p>
+                ) : (
+                  version.problem &&
+                  version.problem_code !== "partial_outcome" && (
+                    <FailureEvidence problem={version.problem} />
+                  )
+                )}
+              </DetailSection>
+            )}
           {current &&
             version.next_action &&
             !["none", "wait", "review_result"].includes(
@@ -444,27 +431,30 @@ export function Result({
                 )}
               </DetailSection>
             )}
-          {current && version.status === "ready" && (
-            <ResultActions version={version.version}>
-              <Button
-                type="button"
-                size="sm"
-                disabled={busy || !inputEnabled}
-                onClick={() => onApprove(version)}
-              >
-                Approve and integrate
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={busy || !inputEnabled}
-                onClick={() => onReply(version)}
-              >
-                Request changes
-              </Button>
-            </ResultActions>
-          )}
+          {current &&
+            version.completion === "code" &&
+            version.next_action?.action === "review_result" &&
+            version.status === "ready" && (
+              <ResultActions version={version.version}>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busy || !inputEnabled}
+                  onClick={() => onApprove(version)}
+                >
+                  Approve and integrate
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy || !inputEnabled}
+                  onClick={() => onReply(version)}
+                >
+                  Request changes
+                </Button>
+              </ResultActions>
+            )}
         </>
       )}
     </ContentStack>

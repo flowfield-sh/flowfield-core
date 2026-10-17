@@ -45,8 +45,8 @@ class ReviewBinding(Record):
     result_revision: int
     run_id: str
     agreement_revision: int
-    candidate_commit: str
-    source_commit: str
+    candidate_commit: str | None
+    source_commit: str | None
     target_branch: str
     target_before: str
     integration_id: str
@@ -59,6 +59,9 @@ class ReviewBinding(Record):
     delivery_id: str | None = None
     integration_policy_revision: int | None = None
     workspace_integration_policy_revision: int | None = None
+    completion: Literal["code", "report"] = "code"
+    output_ids: list[str] = Field(default_factory=list)
+    outcome: Literal["complete", "partial"] = "complete"
 
 
 class TaskReview(ReviewRecord):
@@ -103,13 +106,18 @@ class TaskReviews(ReviewRecords[TaskReview]):
         run = results._current(db, result)
         task = self.store._task(db, project, result.task_id)
         Execution(self.store)._current_assignment(run, task)
-        if (
-            result.status != ("delivering" if delivering else "ready")
+        partial = result.status == "blocked" and result.problem_code == "partial_outcome"
+        if not partial and (
+            result.status
+            not in (
+                ("ready", "delivered")
+                if result.completion == "report"
+                else (("delivering",) if delivering else ("ready",))
+            )
             or result.report.outcome != "complete"
-            or result.completion != "code"
         ):
             raise ApplicationError(
-                "review_not_ready", "Review requires a complete, validated code candidate.", 409
+                "review_not_ready", "Review requires a complete result with retained evidence.", 409
             )
         owner = workspace_id(db, project)
         if not owner:
@@ -124,6 +132,41 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 "reviewer_required",
                 "Choose a workspace or task reviewer before scheduling review.",
                 409,
+            )
+        if result.completion == "report":
+            from flowfield.outputs import Outputs
+
+            outputs = Outputs(self.store)
+            files = Outputs.for_run(db, run.id)
+            for file in files:
+                outputs.content(file)
+            milestone = Milestones.read(db, owner, task.milestone_id) if task.milestone_id else None
+            return (
+                owner,
+                task.id,
+                ReviewBinding(
+                    result_revision=result.revision,
+                    run_id=run.id,
+                    agreement_revision=run.agreement_revision,
+                    candidate_commit=result.candidate_commit,
+                    source_commit=result.source_commit,
+                    target_branch="",
+                    target_before="",
+                    integration_id="",
+                    integration_revision=0,
+                    settings_revision=0,
+                    milestone_id=milestone.id if milestone else None,
+                    milestone_revision=milestone.revision if milestone else None,
+                    reviewer=reviewer,
+                    assignment_digest=hashlib.sha256(
+                        json.dumps(
+                            Execution(self.store).assignment(project, run.id), sort_keys=True
+                        ).encode()
+                    ).hexdigest(),
+                    completion="report",
+                    output_ids=[file.id for file in files],
+                    outcome=result.report.outcome,
+                ),
             )
         assert result.integration_id
         integrations = Integrations(self.store)
@@ -181,6 +224,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 workspace_integration_policy_revision=workspace_policy(db, owner).revision
                 if delivery and delivery.integration_policy.enabled is None
                 else None,
+                outcome=result.report.outcome,
                 integration_policy_revision=delivery.integration_policy.revision
                 if delivery
                 else None,
@@ -195,7 +239,8 @@ class TaskReviews(ReviewRecords[TaskReview]):
         with self.store.connection(write=True, project_id=project) as db:
             review = self._get(db, project, identity)
             if (
-                review.integration_applied_at
+                review.binding.completion == "report"
+                or review.integration_applied_at
                 or review.status != "decided"
                 or not review.verdict
                 or review.verdict.action != "approve"
@@ -238,6 +283,8 @@ class TaskReviews(ReviewRecords[TaskReview]):
         results = Results(self.store)
         with self.store.connection() as db:
             result = results._get(db, project, result_id)
+            if result.completion == "report":
+                return False
             task = self.store._task(db, project, result.task_id)
             delivery = for_milestone(db, project, task.milestone_id)
             if (
@@ -320,7 +367,15 @@ class TaskReviews(ReviewRecords[TaskReview]):
         """Explicit service entry; does not scan old results or start a model."""
         with self.store.connection(write=True, project_id=project) as db:
             owner, task, binding = self._binding(db, project, result_id)
-            digest = hashlib.sha256(binding.model_dump_json().encode()).hexdigest()
+            # Complete code reviews retain their existing identity across this additive change.
+            legacy_fields = (
+                {"completion", "output_ids", "outcome"}
+                if binding.completion == "code" and binding.outcome == "complete"
+                else set()
+            )
+            digest = hashlib.sha256(
+                binding.model_dump_json(exclude=legacy_fields).encode()
+            ).hexdigest()
             existing = db.execute(
                 "SELECT data FROM task_reviews WHERE result_id=? AND binding=?", (result_id, digest)
             ).fetchone()
@@ -361,6 +416,13 @@ class TaskReviews(ReviewRecords[TaskReview]):
     def _fresh(self, db: sqlite3.Connection, review: TaskReview) -> bool:
         try:
             owner, task, current = self._binding(db, review.project_id, review.result_id)
+            if (
+                current.completion == "report"
+                and review.applied_at
+                and review.verdict
+                and review.verdict.action == "approve"
+            ):
+                current.result_revision = review.binding.result_revision
             if (
                 owner == review.workspace_id
                 and task == review.task_id
@@ -447,6 +509,8 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 Execution(self.store).assignment(project, review.binding.run_id), ensure_ascii=False
             )
         if section == "validation":
+            if review.binding.completion == "report":
+                return "No Git validation. Inspect the submitted report and exact input_files."
             return (
                 Integrations(self.store)
                 .get(project, review.binding.integration_id)
@@ -544,6 +608,9 @@ class TaskReviews(ReviewRecords[TaskReview]):
                                 author="reviewer",
                             ),
                         )
+                    elif action == "approve" and review.binding.completion == "report":
+                        results = Results(self.store)
+                        results._finish_report(db, results._get(db, project, review.result_id))
                     review.applied_at = now()
                 self.store._insert_activity(
                     db,

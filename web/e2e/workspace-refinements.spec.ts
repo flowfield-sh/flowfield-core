@@ -93,9 +93,10 @@ test("URL-backed board views, milestone reading and document lifecycle", async (
   const projectLink = page.getByRole("link", { name: /Core service/ });
   await expect(projectLink).toHaveAttribute(
     "href",
-    `${base}/tasks?project=${project}`,
+    `/projects/${project}/overview`,
   );
   await projectLink.click();
+  await page.getByRole("link", { name: "View board", exact: true }).click();
   await expect(page).toHaveURL(`${base}/tasks?project=${project}`);
   await expect(page.getByLabel("Filter by project")).toHaveValue(project);
   await expect(

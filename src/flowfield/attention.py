@@ -443,7 +443,8 @@ def review_projection(db: sqlite3.Connection, projection: str) -> str:
         )
     clause = ""
     if version(db) >= 75:
-        clause = """WHEN v.status='ready' AND EXISTS (
+        clause = """WHEN (v.status='ready' OR
+            json_extract(v.data,'$.problem_code')='partial_outcome') AND EXISTS (
             SELECT 1 FROM task_reviews review WHERE review.project_id=v.project_id
             AND review.task_id=v.task_id
             AND review.status IN ('queued','preparing','running','waiting')) THEN 'waiting'"""

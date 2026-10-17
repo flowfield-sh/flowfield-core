@@ -100,7 +100,7 @@ test("member projects share coordinator history and a draft", async ({
     .getByRole("textbox", { name: "Message coordinator" })
     .fill("Keep this workspace draft");
   await openProject("shared-site");
-  await expect(page).toHaveURL(/\?project=shared-site$/);
+  await expect(page).toHaveURL(/\/projects\/shared-site\/overview$/);
   await expect(
     page.getByRole("textbox", { name: "Message coordinator" }),
   ).toHaveValue("Keep this workspace draft");

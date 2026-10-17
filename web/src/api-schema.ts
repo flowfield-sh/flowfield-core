@@ -3831,6 +3831,7 @@ export interface components {
         | "inbox"
         | "archive"
         | "projects"
+        | "project"
         | "milestones"
         | "milestone"
         | "task"
@@ -3908,6 +3909,7 @@ export interface components {
         | "inbox"
         | "archive"
         | "projects"
+        | "project"
         | "milestones"
         | "milestone"
         | "task"
@@ -5218,7 +5220,7 @@ export interface components {
       /** Milestone Id */
       milestone_id: string;
       /** Candidate Commit */
-      candidate_commit: string;
+      candidate_commit: string | null;
       reviewer: components["schemas"]["EffectiveReviewer"];
       verdict: components["schemas"]["MilestoneVerdict"] | null;
       /** Applied At */
@@ -6238,9 +6240,9 @@ export interface components {
       /** Agreement Revision */
       agreement_revision: number;
       /** Candidate Commit */
-      candidate_commit: string;
+      candidate_commit: string | null;
       /** Source Commit */
-      source_commit: string;
+      source_commit: string | null;
       /** Target Branch */
       target_branch: string;
       /** Target Before */
@@ -6267,6 +6269,20 @@ export interface components {
       integration_policy_revision: number | null;
       /** Workspace Integration Policy Revision */
       workspace_integration_policy_revision: number | null;
+      /**
+       * Completion
+       * @default code
+       * @enum {string}
+       */
+      completion: "code" | "report";
+      /** Output Ids */
+      output_ids: string[];
+      /**
+       * Outcome
+       * @default complete
+       * @enum {string}
+       */
+      outcome: "complete" | "partial";
     };
     /** ReviewVerdict */
     ReviewVerdict: {
@@ -7324,6 +7340,11 @@ export interface components {
        * @default []
        */
       stage_changes: string[];
+      /**
+       * Technical
+       * @default false
+       */
+      technical: boolean;
     };
     /** ThreadPage */
     ThreadPage: {

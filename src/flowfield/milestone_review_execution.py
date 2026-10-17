@@ -103,7 +103,7 @@ class MilestoneReviewExecution(NativeReviewExecution[MilestoneReview]):
                 if verdict.correction_task_id:
                     assert verdict.report
                     if verdict.correction_task_id not in {
-                        t.task_id for t in value.tasks if t.project_id == review.project_id
+                        t.task_id for t in value.tasks
                     } or not any(
                         f.check == verdict.correction_check and f.verdict != "passed"
                         for f in verdict.report.findings
@@ -152,6 +152,14 @@ class MilestoneReviewExecution(NativeReviewExecution[MilestoneReview]):
             call,
             parallel_reads=True,
         )
+        from flowfield.task_files import freeze
+
+        with self.supervisor.workspace.connection() as db:
+            files = freeze(
+                db,
+                review.workspace_id,
+                [identity for task in value.tasks for identity in task.output_ids],
+            )
         return ReviewLaunch(
             review.candidate_commit,
             review.reviewer.agent,
@@ -164,6 +172,8 @@ class MilestoneReviewExecution(NativeReviewExecution[MilestoneReview]):
                 "sections": ["verification", "validation", "human_answer", "exchanges:0"],
                 "instructions": (
                     "Assess the exact combined outcome against every agreed criterion. "
+                    "Inspect input_files as exact retained deliverables using read-only "
+                    "document/image inspection tools. Select final file IDs in report.output_ids. "
                     "First read the full verification and validation sections, then "
                     "relevant contribution:<task_id> assignments listed there. "
                     "Follow the Coordinator's saved verification procedures. Inspect the "
@@ -201,4 +211,5 @@ class MilestoneReviewExecution(NativeReviewExecution[MilestoneReview]):
                     "review; it never promotes code."
                 ),
             },
+            files=files,
         )

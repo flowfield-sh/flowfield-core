@@ -27,6 +27,7 @@ def freeze_view(
     filtered = selection.surface in {"board", "archive"}
     if (
         (bool(task) != (selection.surface == "task"))
+        or (selection.surface == "project" and not selection.project_id)
         or (task and task.project_id != selection.project_id)
         or (selection.milestone_id and selection.without_milestone)
         or (

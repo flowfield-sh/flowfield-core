@@ -36,6 +36,7 @@ class ThreadMessage(Record):
     choices: list[str] = []
     stages: list[Stage] = []
     stage_changes: list[str] = []
+    technical: bool = False
 
 
 class ThreadPage(Record):
@@ -100,6 +101,18 @@ class ThreadView(Conversation):
             body = data["answer"] or ""
         elif kind == "activity":
             title = "Independent review" if item.author == "reviewer" else data["kind"].capitalize()
+            if item.author == "reviewer" and data.get("run_id"):
+                decision = db.execute(
+                    "SELECT json_extract(data,'$.decision.action') FROM review_attempts WHERE id=?",
+                    (data["run_id"],),
+                ).fetchone()
+                if decision:
+                    title = {
+                        "approve": "Reviewer signed off",
+                        "request_changes": "Reviewer requested changes",
+                        "ask_human": "Reviewer asked a question",
+                        "ask_worker": "Reviewer asked the worker",
+                    }.get(decision[0], title)
             body = data["body"]
             if data["kind"] == "handoff":
                 task = self.workspace._task(db, project_id, task_id)
@@ -123,7 +136,7 @@ class ThreadView(Conversation):
                 ).fetchone()
                 title += f" · Result {version[0]}"
         elif kind == "attempt":
-            title = "Worker attempt"
+            title = "Work started"
             body = data.get("problem") or ""
         elif kind == "result":
             title = "Result " + str(data["version"])
@@ -180,6 +193,7 @@ class ThreadView(Conversation):
             choices=data.get("choices", []) if kind == "question" else [],
             stages=stages,
             stage_changes=changes,
+            technical=kind == "plan" or (kind == "state" and title.startswith("Moved to ")),
         )
 
     def page_view(self, project_id: str, task_id: str, cursor: str | None = None) -> ThreadPage:
