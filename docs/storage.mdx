@@ -9,6 +9,8 @@ One service data directory stores all your Flowfield workspaces. Project reposit
 | --- | --- |
 | `~/.flowfield/` | Database, execution artifacts and isolated task directories |
 | `~/.flowfield/coordinators/` | Managed working directories for workspace Coordinators |
+| `~/.flowfield/workspaces/<workspace-id>/outputs/` | Durable submitted file bytes; include these in full backups |
+| `~/.flowfield/workspaces/<workspace-id>/attempts/` | Isolated working directories for repository-free tasks |
 | `project/.flowfield/config.toml` | Registered project identity |
 | `project/.flowfield/guidance.json` | Ownership of optional installed guidance |
 | `project/.agents/skills/flowfield-coordinator/SKILL.md` | Optional guidance for standalone coordination |

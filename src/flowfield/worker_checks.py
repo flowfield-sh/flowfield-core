@@ -42,6 +42,8 @@ class CheckPermissions:
             return self.read(db, project)
 
     def read(self, db: sqlite3.Connection, project: str) -> CheckPermission:
+        if self.store._work_scope(db, project).project_id is None:
+            return CheckPermission()
         current = self.store._project(db, project)
         row = db.execute(
             "SELECT data FROM worker_check_grants WHERE project_id=?", (project,)

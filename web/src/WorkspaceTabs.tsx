@@ -374,6 +374,7 @@ function title(
         inbox: "Inbox",
         tasks: "Tasks",
         documents: "Documents",
+        files: "Files",
         projects: "Projects",
         milestones: "Milestones",
         archive: "Archive",

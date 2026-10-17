@@ -4,6 +4,7 @@ import {
   Archive,
   Columns3,
   FileText,
+  Files,
   Flag,
   Folder,
   Settings,
@@ -197,6 +198,7 @@ export function WorkNavigation({
     { name: "Milestones", href: base + "/milestones", Icon: Flag },
     { name: "Tasks", href: base + "/tasks", Icon: Columns3 },
     { name: "Documents", href: base + "/documents", Icon: FileText },
+    { name: "Files", href: base + "/files", Icon: Files },
     { name: "Archive", href: base + "/archive", Icon: Archive },
   ];
   return (

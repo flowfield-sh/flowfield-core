@@ -51,6 +51,7 @@ from flowfield.questions import (
 from flowfield.reads import task_metadata
 from flowfield.task_read_facts import TaskReadFacts, read_task_facts
 from flowfield.verification_models import MilestoneVerificationSummary
+from flowfield.work_scopes import WorkScope, workspace_scope
 from flowfield.work_state import WorkState, task_state
 from flowfield.workspaces import WorkspaceRecord, Workspaces
 
@@ -88,7 +89,7 @@ class TaskDetail(TaskRevision, TaskCard):
 
 class BrowserBoard(BaseModel):
     labels: list[WorkspaceLabel]
-    project: Project
+    project: Project | WorkScope
     milestone_verifications: dict[str, MilestoneVerificationSummary] = Field(default_factory=dict)
     milestones: list[Milestone]
     tasks: list[TaskCard]
@@ -98,6 +99,7 @@ class BrowserBoard(BaseModel):
 
 
 class BrowserWorkspaceBoard(BaseModel):
+    workspace_work: WorkScope
     document_count: int
     workspace: WorkspaceRecord
     projects: list[Project]
@@ -278,7 +280,7 @@ class BrowserReads:
 
     def board(self, project_id: str) -> BrowserBoard:
         with self.workspace.connection() as db:
-            project = self.workspace._project(db, project_id)
+            project = self.workspace._work_scope(db, project_id)
             records, positions = task_metadata(self.workspace, db, project_id)
             cards, pending = self._project_cards(
                 db, project_id, records, positions, self.workspace._completed(records, db)
@@ -308,19 +310,26 @@ class BrowserReads:
                     (workspace_id,),
                 )
             ]
+            scopes = [
+                row[0]
+                for row in db.execute(
+                    "SELECT project_id FROM workspace_scopes WHERE workspace_id=?", (workspace_id,)
+                )
+            ]
             records, positions = (
-                task_metadata(self.workspace, db, projects[0].id) if projects else ({}, {})
+                task_metadata(self.workspace, db, scopes[0]) if scopes else ({}, {})
             )
             completed = self.workspace._completed(records, db)
             cards: list[TaskCard] = []
             pending: dict[str, list[TaskReference]] = {}
-            for project in projects:
-                items, blocked = self._project_cards(db, project.id, records, positions, completed)
+            for scope in scopes:
+                items, blocked = self._project_cards(db, scope, records, positions, completed)
                 cards.extend(items)
                 pending.update({item.key: blocked.get(item.id, []) for item in items})
             counts = workspace_attention_counts(db, workspace_id)
             attention_requests = workspace_attention_requests(db, workspace_id)
             return BrowserWorkspaceBoard(
+                workspace_work=self.workspace._work_scope(db, workspace_scope(workspace_id)),
                 document_count=db.execute(
                     "SELECT count(*) FROM workspace_documents WHERE workspace_id=? "
                     "AND deleted_at IS NULL",
@@ -331,7 +340,7 @@ class BrowserReads:
                 project_problems=dict(
                     db.execute(
                         "SELECT p.project_id,p.problem FROM project_worker_problems p "
-                        "JOIN workspace_projects w USING(project_id) WHERE w.workspace_id=?",
+                        "JOIN workspace_scopes w USING(project_id) WHERE w.workspace_id=?",
                         (workspace_id,),
                     ).fetchall()
                 ),

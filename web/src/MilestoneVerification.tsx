@@ -11,6 +11,7 @@ import {
   ResponseInput,
 } from "./DetailLayout";
 import { Markdown } from "./Markdown";
+import { ResultFiles } from "./Files";
 import { WorkState } from "./WorkState";
 import { Inspection } from "./Inspection";
 import type { DiffViewState } from "./CodeDiff";
@@ -313,6 +314,7 @@ export function MilestoneReport({ value }: { value: Verification }) {
             <Markdown>{value.limitations}</Markdown>
           </DetailSection>
         )}
+        <ResultFiles files={value.files} />
         <DetailSection title="Checks">{checks}</DetailSection>
         <MilestoneHumanTesting value={value} />
         <DetailSection title="Tasks">

@@ -186,7 +186,7 @@ class CoordinatorStore:
         with self.workspace.connection(write=True) as db:
             self._conversation(db, project, conversation)
             if request.task_context and self.workspace.schema_version >= 59:
-                Workspaces.check_project(db, project, request.task_context.project_id)
+                Workspaces.check_scope(db, project, request.task_context.project_id)
             task = (
                 self.workspace._task(
                     db, request.task_context.project_id, request.task_context.task_id

@@ -36,6 +36,11 @@ def adopt(workspace: Workspace, request: ProjectSetup) -> Project:
         with workspace.connection(write=True) as db:
             db.execute("PRAGMA defer_foreign_keys=ON")
             db.execute("UPDATE workspaces SET id=? WHERE id=?", (identity, space.id))
+            if workspace.schema_version >= 80:
+                db.execute(
+                    "UPDATE work_scopes SET id=?,workspace_id=? WHERE workspace_id=?",
+                    ("workspace_" + identity, identity, space.id),
+                )
             if workspace.schema_version >= 61:
                 db.execute(
                     "UPDATE workspace_labels SET workspace_id=? WHERE workspace_id=?",

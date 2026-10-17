@@ -58,6 +58,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
     usage: { total_tokens: 100, cached_input_tokens: 50, complete: true },
   };
   const version = () => ({
+    files: [],
     id: run.id,
     project_id: run.project_id,
     task_id: run.task_id,

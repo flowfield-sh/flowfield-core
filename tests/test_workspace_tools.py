@@ -160,7 +160,7 @@ def test_workspace_tools_before_adoption_and_explicit_cross_project_planning(tmp
         assert set(grant.tools) == {tool.name for tool in await canonical.list_tools()}
         assert "initialize_project" not in grant.tools and "list_projects" not in grant.tools
         assert "workspace_id" not in grant.tools["get_workspace"].inputSchema["properties"]
-        assert "project_id" in grant.tools["create_task"].inputSchema["required"]
+        assert "project_id" not in grant.tools["create_task"].inputSchema["required"]
         assert (await grant.call("list_workspace_projects", {})).structuredContent["items"] == []
         assert not (await grant.call("get_workspace_workers", {})).isError
         assert (await grant.call("get_project", {})).structuredContent["error"][

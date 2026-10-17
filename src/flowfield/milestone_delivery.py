@@ -48,7 +48,7 @@ def for_milestone(
     if not milestone_id:
         return None
     row = db.execute(
-        "SELECT d.data FROM milestone_deliveries d JOIN workspace_projects w "
+        "SELECT d.data FROM milestone_deliveries d JOIN workspace_scopes w "
         "ON w.workspace_id=d.workspace_id WHERE w.project_id=? AND d.milestone_id=?",
         (project_id, milestone_id),
     ).fetchone()
@@ -256,7 +256,7 @@ class MilestoneDeliveries:
                         return value
                 else:
                     tasks = db.execute(
-                        "SELECT t.project_id,t.id,t.data FROM tasks t JOIN workspace_projects w "
+                        "SELECT t.project_id,t.id,t.data FROM tasks t JOIN workspace_scopes w "
                         "ON w.project_id=t.project_id WHERE w.workspace_id=? "
                         "AND json_extract(t.data,'$.milestone_id')=?",
                         (workspace_id, milestone.id),

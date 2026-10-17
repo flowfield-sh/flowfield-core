@@ -18,6 +18,16 @@ Repository instructions govern development conventions and permission to commit/
   discover the intended workspace with `list_workspaces` and its member paths; clarify ambiguous
   destinations. Read `get_workspace` and relevant `get_project`/`get_board` records on entry,
   resume and before planning across projects. Use returned URLs, not guessed ports.
+- For files/reports without repository changes, omit `project_id` on `create_task` and use
+  the workspace binding. `get_workspace.workspace_task_scope` is the opaque owner for later
+  task tools; prepare `completion=report`. Workspace tasks use local `W-1` keys. Select sent
+  attachment or retained output IDs in `input_files`; workers receive exact copies, including
+  delivered prerequisite files. Browse retained files with `list_workspace_files` and
+  `get_workspace_file`. Workers submit paths inside `FLOWFIELD_OUTPUT_DIR` through
+  `submit_result.files`; earlier outputs survive later results and scratch cleanup. Ordinary
+  milestone verification selects final contributing IDs in `verification.output_ids`, alongside
+  its own newly submitted files. Complete file/report delivery needs no Git approval;
+  partial work stays unfinished. Independent task review currently assesses code candidates.
 - The adjacent browser view is captured when the human sends a message. It guides relevance,
   not authority. A task includes its project and exact optional result; a document includes its
   saved revision. Never carry an earlier view forward when the current message has none.

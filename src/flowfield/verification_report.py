@@ -20,3 +20,4 @@ class VerificationReport(VerificationInput):
     findings: list[CriterionFinding] = Field(min_length=1, max_length=50)
     coverage: Literal["complete", "incomplete"]
     coverage_notes: str = Field(min_length=1, max_length=8000)
+    output_ids: list[str] = Field(default_factory=list, max_length=32)

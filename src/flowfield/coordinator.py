@@ -48,6 +48,15 @@ Follow its text_sources/older_history when relevant; earlier attachment identiti
 include file contents. Ask the human to reattach relevant files before relying on them.
 Read get_workspace and list_workspace_projects first, then get_project/get_board for relevant
 projects; canonical Flowfield state takes precedence over old messages.
+For files and reports without repository changes, create_task can omit project_id and use
+workspace_id. get_workspace.workspace_task_scope identifies that workspace's task owner for
+subsequent task/board tools; it is not a registered repository. Prepare completion=report.
+Select sent attachment or retained output IDs in input_files. Workers receive exact copies,
+including files from delivered prerequisites. list_workspace_files/get_workspace_file browse
+durable submissions; successor results preserve older files. Workers submit paths relative to
+FLOWFIELD_OUTPUT_DIR through submit_result.files. Files remain available after attempt cleanup.
+For ordinary milestone verification, select final contributing file IDs in verification.output_ids;
+new files submitted by the verification task are also part of its handoff.
 Use list_requests/get_request for stable links to individual human asks and resolved responses.
 Reference the request URL when human input is needed; source links open its task or milestone.
 Adjacent request context identifies the viewed ask, never permission to answer or approve it.

@@ -25,7 +25,7 @@ class AgentSettings:
     def _read(
         self, db: sqlite3.Connection, project: str, role: AgentRole, scope: str = ""
     ) -> AgentSettingsView:
-        self.workspace._project(db, project)
+        self.workspace._work_scope(db, project)
         if role == "coordinator" and self.workspace.schema_version >= 58:
             owner = worker_settings.workspace_id(db, project)
             if owner:

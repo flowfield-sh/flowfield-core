@@ -19,7 +19,7 @@ def workspace_id(db: sqlite3.Connection, project: str) -> str | None:
     if version(db) < 56:
         return None
     row = db.execute(
-        "SELECT workspace_id FROM workspace_projects WHERE project_id=?", (project,)
+        "SELECT workspace_id FROM workspace_scopes WHERE project_id=?", (project,)
     ).fetchone()
     return row[0] if row else None
 
@@ -119,7 +119,7 @@ def occupancy(
         workspace = workspace_id(db, project)
     if workspace is not None:
         rows = db.execute(
-            "SELECT r.status,count(*) FROM runs r JOIN workspace_projects m "
+            "SELECT r.status,count(*) FROM runs r JOIN workspace_scopes m "
             "ON m.project_id=r.project_id WHERE m.workspace_id=? "
             "AND r.status IN ('preparing','running','stopping','uncertain') GROUP BY r.status",
             (workspace,),
@@ -133,7 +133,7 @@ def occupancy(
     counts = dict(rows.fetchall())
     if version(db) >= 73:
         reviews = db.execute(
-            "SELECT r.status,count(*) FROM task_reviews r JOIN workspace_projects m "
+            "SELECT r.status,count(*) FROM task_reviews r JOIN workspace_scopes m "
             "ON m.project_id=r.project_id WHERE (? IS NOT NULL AND m.workspace_id=? "
             "OR ? IS NULL AND r.project_id=?) AND r.status IN ('preparing','running','uncertain') "
             "GROUP BY r.status",
@@ -143,7 +143,7 @@ def occupancy(
             counts[status] = counts.get(status, 0) + count
     if version(db) >= 77:
         reviews = db.execute(
-            "SELECT r.status,count(*) FROM milestone_reviews r JOIN workspace_projects m "
+            "SELECT r.status,count(*) FROM milestone_reviews r JOIN workspace_scopes m "
             "ON m.project_id=r.project_id WHERE (? IS NOT NULL AND m.workspace_id=? "
             "OR ? IS NULL AND r.project_id=?) AND r.status IN ('preparing','running','uncertain') "
             "GROUP BY r.status",

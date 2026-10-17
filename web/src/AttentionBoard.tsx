@@ -37,7 +37,14 @@ type Page = components["schemas"]["AttentionPage"];
 type Tab = "needs_me" | "history";
 const columns = { needs_me: "action", history: "history" };
 const identityOf = (item: Item) => `${item.project_id}:${item.kind}:${item.id}`;
-function itemHref(item: Item) {
+function itemHref(item: Item, workspaceId: string) {
+  if (item.kind === "permission")
+    return (
+      item.state?.href ??
+      (item.project_id
+        ? `/projects/${item.project_id}/permissions/${item.id}`
+        : `/workspaces/${workspaceId}/permissions/${item.id}`)
+    );
   return (
     item.state?.href ??
     (item.kind === "question"
@@ -122,7 +129,7 @@ export function RequestCard({
     [id, markDirty],
   );
   const kind = requestTitle(item);
-  const href = itemHref(item);
+  const href = itemHref(item, workspaceId);
   const content = (
     <>
       {item.kind === "result" && <h3 className="detail-title">{item.title}</h3>}
@@ -220,7 +227,7 @@ export function RequestSource({
   const project = board.projects.find((p) => p.id === item.project_id);
   return (
     <WorkspaceLink
-      to={item.source_href ?? itemHref(item)}
+      to={item.source_href ?? itemHref(item, board.workspace.id)}
       aria-label={`${item.source_key ?? item.task_key ?? project?.name ?? "Workspace"}: ${item.title}`}
     >
       <Badge variant="outline">
@@ -384,7 +391,7 @@ function InboxList({
                 <ContentStack>
                   <WorkspaceLink
                     className="work-navigation-row inbox-history-row"
-                    to={item.request_href ?? itemHref(item)}
+                    to={item.request_href ?? itemHref(item, workspaceId)}
                   >
                     <WorkIdentity
                       state={

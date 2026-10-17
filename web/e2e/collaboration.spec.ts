@@ -1430,6 +1430,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     },
   ];
   const version = (run: typeof first | typeof failure) => ({
+    files: [],
     id: run.id,
     project_id: run.project_id,
     task_id: run.task_id,

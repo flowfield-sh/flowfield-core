@@ -18,7 +18,7 @@ from flowfield.adapters.agent_selection import create
 from flowfield.adapters.coordinator_directory import prepare as coordinator_directory
 from flowfield.adapters.git_workspace import GitWorkspace, contains
 from flowfield.adapters.harness_host import HarnessChecks
-from flowfield.adapters.local_execution import LocalAttempt, LocalHost
+from flowfield.adapters.local_execution import FileWorkspace, LocalAttempt, LocalHost
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit, AgentSettingsView
 from flowfield.application import Workspace
 from flowfield.attachments import Attachments
@@ -224,9 +224,18 @@ class Supervisor:
         except Exception:
             logging.getLogger(__name__).exception("Scheduling stopped unexpectedly")
             try:
-                for project in self.workspace.projects():
+                with self.workspace.connection() as db:
+                    scopes = [
+                        row[0]
+                        for row in db.execute(
+                            "SELECT id FROM work_scopes"
+                            if self.workspace.schema_version >= 80
+                            else "SELECT id FROM projects"
+                        )
+                    ]
+                for scope in scopes:
                     self.execution.queue_problem(
-                        project.id,
+                        scope,
                         "Scheduling stopped unexpectedly. Inspect the service log and restart "
                         "Flowfield before continuing. Active work and evidence are preserved.",
                     )
@@ -241,7 +250,7 @@ class Supervisor:
             await self.milestone_review_execution.schedule()
         # Repository preparation remains project-local. A failed repository cannot
         # consume the shared queue; fresh claims follow workspace board order.
-        ready: dict[str, Path] = {}
+        ready: dict[str, Path | None] = {}
         problems: dict[str, str | None] = {}
         for project in self.workspace.projects():
             try:
@@ -264,6 +273,20 @@ class Supervisor:
                     "before retrying."
                 )
         started: set[str] = set()
+        if self.workspace.schema_version >= 80:
+            from flowfield.work_scopes import workspace_scope
+
+            for owner in Workspaces(self.workspace).all():
+                scope_id = workspace_scope(owner.id)
+                if scope_id not in self.delivery_jobs:
+                    delivery = asyncio.create_task(
+                        asyncio.to_thread(self.results.process, scope_id)
+                    )
+                    self.delivery_jobs[scope_id] = delivery
+                    delivery.add_done_callback(partial(self._delivery_finished, scope_id))
+                if self.execution.settings(scope_id).enabled:
+                    ready[scope_id] = None
+                    problems[scope_id] = None
         for project_id, task_id in self.execution.scheduling_candidates():
             if self.closing:
                 break
@@ -271,11 +294,14 @@ class Supervisor:
                 continue
             repository = ready[project_id]
             try:
-                settings = self.integrations.for_task(project_id, task_id)
-                head = await asyncio.to_thread(self.integrations.head, project_id, task_id)
-                available = await asyncio.to_thread(
-                    self._available, project_id, repository, head, settings.target_branch
-                )
+                if repository is None:
+                    head, available = "", {}
+                else:
+                    settings = self.integrations.for_task(project_id, task_id)
+                    head = await asyncio.to_thread(self.integrations.head, project_id, task_id)
+                    available = await asyncio.to_thread(
+                        self._available, project_id, repository, head, settings.target_branch
+                    )
                 run = self.execution.claim(project_id, head, available, task_id=task_id)
                 if run:
                     task = asyncio.create_task(self._execute(run, repository))
@@ -309,7 +335,7 @@ class Supervisor:
                 "Result processing failed; inspect the service and preserved result.",
             )
 
-    async def _execute(self, run: Run, repository: Path) -> None:
+    async def _execute(self, run: Run, repository: Path | None) -> None:
         client: Agent | None = None
         from flowfield.worker_checks import WorkerChecks
 
@@ -329,6 +355,7 @@ class Supervisor:
             for prerequisite in json.loads(sections["prerequisites"]):
                 if (
                     prerequisite.get("project_id", run.project_id) == run.project_id
+                    and repository is not None
                     and prerequisite["commit"]
                     and not await asyncio.to_thread(
                         contains, repository, prerequisite["commit"], starting_commit
@@ -342,21 +369,51 @@ class Supervisor:
             from flowfield.adapters.agent_mcp import serve_scope
             from flowfield.agent_tools import worker_scope
 
-            environment = await asyncio.to_thread(
-                LocalHost(os.environ).prepare,
-                self.workspace.directory,
-                repository,
-                run.id,
-                starting_commit,
-            )
+            if repository is None:
+                scope = self.workspace.work_scope(run.project_id)
+                assert scope.workspace_id
+                predecessor = self.environment(run.predecessor_id) if run.predecessor_id else None
+                if predecessor and not predecessor.checkout.is_dir():
+                    prior = self.execution.get(run.project_id, predecessor.run_id)
+                    if prior.result:
+                        predecessor = None  # Submitted files are already frozen as inputs.
+                environment = await asyncio.to_thread(
+                    LocalHost(os.environ).prepare_files,
+                    self.workspace.directory,
+                    scope.workspace_id,
+                    run.id,
+                    predecessor,
+                )
+            else:
+                environment = await asyncio.to_thread(
+                    LocalHost(os.environ).prepare,
+                    self.workspace.directory,
+                    repository,
+                    run.id,
+                    starting_commit,
+                )
             metadata: dict[str, Any] = {
                 "runtime_kind": "local",
                 "root": str(environment.root),
                 "checkout": str(environment.checkout),
                 "runtime": str(environment.runtime),
-                "common_git": str(environment.common_git),
+                "common_git": str(environment.common_git) if environment.common_git else None,
             }
             self.execution.save_local(run.id, metadata)
+            from flowfield.output_models import FileInput
+            from flowfield.task_files import materialize
+
+            scope = self.workspace.work_scope(run.project_id)
+            input_files = [
+                FileInput.model_validate(value) for value in json.loads(sections.get("files", "[]"))
+            ]
+            inputs = await asyncio.to_thread(
+                materialize,
+                self.workspace,
+                scope.workspace_id or "",
+                input_files,
+                environment.runtime / "inputs",
+            )
             choice = (
                 run.agent_settings.choice
                 if run.agent_settings
@@ -427,6 +484,8 @@ class Supervisor:
             )
             sections = self.execution.assignment(run.project_id, run.id)
             brief: dict[str, Any] = {
+                "output_directory": str(environment.runtime / "output"),
+                "input_files": inputs,
                 "task": sections["title"],
                 "task_id": run.task_id,
                 "task_key": run.task_key,
@@ -507,7 +566,10 @@ class Supervisor:
             elif outcome.get("status") == "completed" and bridge.result:
                 result = bridge.result
                 commit, ignored = await asyncio.to_thread(environment.snapshot, starting_commit)
-                assert commit
+                if repository is None:
+                    commit = None
+                else:
+                    assert commit
                 # Generated-file evidence belongs to execution diagnostics, not user limitations.
                 self.execution.excluded_files(run.project_id, run.id, ignored)
                 terminal = "in_review"
@@ -585,7 +647,7 @@ class Supervisor:
                     ) + " Snapshot unavailable; inspect the preserved checkout before retrying."
             if activity:
                 captured = commit or input_checkpoint
-                if environment and captured:
+                if environment and environment.common_git and captured:
                     from flowfield.adapters.activity_diff import captured_changes
 
                     try:
@@ -713,7 +775,9 @@ class Supervisor:
         if data.get("runtime_kind") == "local":
             return LocalHost(os.environ).restore(
                 run_id,
-                GitWorkspace(Path(data["root"]), Path(data["checkout"]), Path(data["common_git"])),
+                GitWorkspace(Path(data["root"]), Path(data["checkout"]), Path(data["common_git"]))
+                if data.get("common_git")
+                else FileWorkspace(Path(data["root"]), Path(data["checkout"])),
                 Path(data["runtime"]),
             )
         return None

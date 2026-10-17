@@ -1,0 +1,34 @@
+---
+title: Files
+description: Browse durable outputs and follow them back to exact tasks and milestone results.
+---
+
+Ask the Coordinator for the files you need and how they should be checked. A workspace task can produce a report, image, dataset or binary without registering a repository. Project tasks can submit files alongside their code results.
+
+## Browse and use results
+
+Open **Files** in the workspace sidebar. Each row shows its filename, description, size, submission time and producing task/result, with a milestone link when applicable. Earlier versions remain separate files with their original attribution. Files from partial or blocked results retain that result's status.
+
+Choose **Open** for browser-supported PDF, text and image files, or **Download** to save a copy. Other types download. Active HTML and SVG content downloads rather than running inside Flowfield. The same file rows appear in exact task results and selected milestone handoffs.
+
+Complete file/report tasks finish after their files are retained. Partial results remain unfinished and offer **Continue work**. Completion records delivery; it does not endorse the report's conclusions. Independent Task reviewer settings apply to code candidates. Ask the Coordinator for an explicit verification task when file work needs a separate assessment.
+
+## Inputs and later versions
+
+The Coordinator can select sent message attachments or previously submitted files as task inputs. Workers receive separate copies of those exact bytes. Delivered prerequisite files are also supplied automatically. Later edits or successor results cannot silently replace the inputs of an existing attempt. Reopening a completed task preserves its previous files and result history.
+
+For a milestone, the Coordinator prepares a report task that depends on the delivered contributions. Its verification can select the final files from those exact results and submit additional files. Review those files alongside the checks, then accept the milestone or request changes. Changed contributions make the verification outdated while its earlier files remain accessible.
+
+## Worker and coordinator tools
+
+Create repository-free work with `create_task(workspace_id=…, task=…)`, omitting `project_id`, and prepare it with `completion="report"`. Built-in Coordinator tools already bind the workspace. `get_workspace.workspace_task_scope` identifies its task owner for subsequent task tools; it is not a repository registration. Select immutable file IDs with `task.input_files`.
+
+Workers write final files in the supplied `output_directory`, also available as `FLOWFIELD_OUTPUT_DIR`, and include relative paths and optional descriptions in `submit_result.files`. Only explicitly submitted files are retained. A submission supports up to 32 regular files, 128 MiB per file and 512 MiB total. Symlinks, hardlinks and paths outside the output directory are rejected. Finish writing files before submitting; a failed capture leaves the result unsubmitted so the worker can correct it.
+
+Use `list_workspace_files` for bounded browsing, optionally filtered by task key or milestone ID. `get_workspace_file` returns metadata and a verified local path. Inputs are limited to 32 explicitly selected files; with prerequisite and predecessor files, an attempt can receive up to 256 files and 512 MiB. Milestone verification selects final contributing file IDs in `verification.output_ids`.
+
+## Retention and backup
+
+Submitted bytes live under `<data-root>/workspaces/<workspace-id>/outputs/`, separately from disposable attempt directories. Files survive task archiving, attempt cleanup and service restart. New versions have new identities; no automatic output deletion is performed.
+
+Back up the entire service data directory to retain both metadata and files. Migration database snapshots alone do not contain the file bytes. If a retained file is missing or changed, Flowfield preserves its metadata and reports the problem; restore the original bytes from backup. See [local storage](/storage#full-backups).

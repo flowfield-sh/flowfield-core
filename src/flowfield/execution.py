@@ -34,7 +34,7 @@ class Execution:
         self.workspace = workspace
 
     def _settings(self, db: sqlite3.Connection, project_id: str) -> WorkerSettings:
-        self.workspace._project(db, project_id)
+        self.workspace._work_scope(db, project_id)
         return worker_settings.read_project(db, project_id)
 
     def settings(self, project_id: str) -> WorkerSettings:
@@ -43,7 +43,7 @@ class Execution:
 
     def occupancy(self, project_id: str) -> WorkerOccupancy:
         with self.workspace.connection() as db:
-            self.workspace._project(db, project_id)
+            self.workspace._work_scope(db, project_id)
             return worker_settings.occupancy(db, project=project_id)
 
     def _save_settings(self, db: sqlite3.Connection, settings: WorkerSettings) -> None:
@@ -123,7 +123,7 @@ class Execution:
     ) -> RunPage:
         limit = max(1, min(limit, 50))
         with self.workspace.connection() as db:
-            self.workspace._project(db, project_id)
+            self.workspace._work_scope(db, project_id)
             if task_id:
                 task_id = self.workspace._task(db, project_id, task_id).id
             rows = db.execute(
@@ -313,7 +313,7 @@ class Execution:
                 correction=run.correction.model_dump_json() if run.correction else "",
             )
             return assignment
-        project = self.workspace._project(db, project_id)
+        project = self.workspace._work_scope(db, project_id)
         milestone = (
             self.workspace._milestone(db, project_id, task.milestone_id)
             if task.milestone_id
@@ -331,6 +331,7 @@ class Execution:
                     "task_revision": task.revision,
                     "agreement_revision": task.agreement_revision,
                     "completion": task.publication.completion,
+                    "repository": project.project_id is not None,
                     "target_branch": task.publication.target_branch,
                     "base_commit": run.base_commit,
                     "scope": "Frozen at claim; discoveries do not change intent.",
@@ -352,6 +353,31 @@ class Execution:
             "correction": run.correction.model_dump_json() if run.correction else "",
             "validation": json.dumps(runtime_settings),
         }
+        from flowfield.task_files import freeze
+
+        file_ids = list(task.input_files)
+        if self.workspace.schema_version >= 79:
+            from flowfield.outputs import Outputs
+
+            if predecessor:
+                file_ids.extend(file.id for file in Outputs.for_run(db, predecessor.id))
+            for prerequisite in prerequisites:
+                if prerequisite.get("run_id"):
+                    file_ids.extend(file.id for file in Outputs.for_run(db, prerequisite["run_id"]))
+        assignment["files"] = (
+            json.dumps(
+                [
+                    file.model_dump()
+                    for file in freeze(
+                        db,
+                        self.workspace._project_workspace(db, project_id),
+                        file_ids,
+                    )
+                ]
+            )
+            if file_ids
+            else "[]"
+        )
         from flowfield.milestone_verification import assignment as verification_assignment
 
         assignment["milestone_verification"] = (
@@ -740,6 +766,9 @@ class Execution:
                 validate_report(
                     MilestoneVerification.model_validate_json(frozen), result.verification
                 )
+            from flowfield.outputs import Outputs
+
+            Outputs(self.workspace).capture(db, run, result.files)
             run.result = result
             self._save(db, run)
 
@@ -803,7 +832,8 @@ class Execution:
                     "stopped",
                     "Stopped before result submission completed. Work preserved.",
                 )
-            if status == "in_review" and (not result or not commit):
+            repository = self.workspace._work_scope(db, project_id).project_id
+            if status == "in_review" and (not result or (repository and not commit)):
                 raise ApplicationError(
                     "result_missing", "Review requires a result and immutable code reference."
                 )
@@ -822,7 +852,7 @@ class Execution:
                     db,
                     task,
                     "in_review",
-                    f"Attempt {run.id[:8]} submitted {commit}. "
+                    f"Attempt {run.id[:8]} submitted its result. "
                     "Preparing the proposed result for review.",
                 )
             return run

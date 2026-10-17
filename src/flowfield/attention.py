@@ -167,7 +167,7 @@ _WITH_DOCUMENTS = (
 
 _WORKSPACE_PROJECTION = _WITH_DOCUMENTS.replace(
     "SELECT id FROM projects WHERE id=:project",
-    "SELECT project_id AS id FROM workspace_projects WHERE workspace_id=:workspace "
+    "SELECT project_id AS id FROM workspace_scopes WHERE workspace_id=:workspace "
     "AND (:project IS NULL OR project_id=:project)",
 ).replace(
     "WHERE p.project_id IN (SELECT id FROM scope_projects)",
@@ -277,9 +277,9 @@ def attention_page(
 
             Workspaces.read(db, workspace_id)
             if project_id is not None:
-                Workspaces.check_project(db, workspace_id, project_id)
+                Workspaces.check_scope(db, workspace_id, project_id)
         elif project_id is not None:
-            workspace._project(db, project_id)
+            workspace._work_scope(db, project_id)
         else:
             raise ValueError("An attention scope is required")
         projection = review_projection(
@@ -436,6 +436,11 @@ def attention_page(
 def review_projection(db: sqlite3.Connection, projection: str) -> str:
     from flowfield.storage import version
 
+    if version(db) >= 80:
+        projection = projection.replace(
+            "SELECT id FROM projects WHERE id=:project",
+            "SELECT id FROM work_scopes WHERE id=:project",
+        )
     clause = ""
     if version(db) >= 75:
         clause = """WHEN v.status='ready' AND EXISTS (

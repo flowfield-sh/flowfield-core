@@ -122,6 +122,7 @@ def create_mcp(
             purposes: tuple[ReviewPurpose, ...] = ("task", "milestone")
             return {
                 **excerpt(Workspaces(store).get(workspace_id).model_dump()),
+                "workspace_task_scope": "workspace_" + workspace_id,
                 "integration_policy": MilestoneDeliveries(store)
                 .workspace_policy(workspace_id)
                 .model_dump(),
@@ -134,6 +135,44 @@ def create_mcp(
             }
 
         return await invoke(load)
+
+    @mcp.tool(annotations=read)
+    async def list_workspace_files(
+        workspace_id: Identifier,
+        before: int | None = None,
+        limit: PageLimit = 20,
+        task_key: str | None = None,
+        milestone_id: str | None = None,
+    ) -> CallToolResult:
+        """Browse retained files with exact source task/result and captured milestone metadata."""
+        from flowfield.outputs import Outputs
+
+        return await invoke(
+            lambda: (
+                Outputs(workspace())
+                .page(
+                    workspace_id,
+                    before=before,
+                    limit=limit,
+                    task_key=task_key,
+                    milestone_id=milestone_id,
+                )
+                .model_dump()
+            )
+        )
+
+    @mcp.tool(annotations=read)
+    async def get_workspace_file(workspace_id: Identifier, file_id: Identifier) -> CallToolResult:
+        """Read retained file metadata and its verified local path. Selecting input_files on a "
+        "task grants its fresh worker an exact copy; browsing does not broaden worker access."""
+        from flowfield.outputs import Outputs
+
+        def load_file() -> dict[str, Any]:
+            outputs = Outputs(workspace())
+            file = outputs.get(workspace_id, file_id)
+            return {**file.model_dump(), "path": str(outputs.content(file))}
+
+        return await invoke(load_file)
 
     @mcp.tool(annotations=read)
     async def get_workspace_text(
@@ -899,7 +938,11 @@ def create_mcp(
         return await invoke(lambda: reads().activity_entry(project_id, entry_id))
 
     @mcp.tool(annotations=write)
-    async def create_task(project_id: Identifier, task: TaskCreate) -> CallToolResult:
+    async def create_task(
+        task: TaskCreate,
+        project_id: Identifier | None = None,
+        workspace_id: Identifier | None = None,
+    ) -> CallToolResult:
         """Capture agreed work, default feature in Backlog; first search for an existing task.
 
         Include one to eight outcome stages in this same call, even for a draft.
@@ -910,10 +953,26 @@ def create_mcp(
         code destination/check settings first; if genuinely missing, save intent without
         preparation and explain the setup blocker. Never label code as report to bypass setup.
         Does not enable the queue. Only choose Up next with human execution authorization.
+        Omit project_id and supply workspace_id for repository-free file/report work.
+        Its returned project_id is the opaque task scope for subsequent task operations,
+        not a registered repository. Workspace tasks use completion=report.
         """
-        return await mutate(
-            lambda: workspace().create_task(project_id, attributed(task)).model_dump()
-        )
+
+        def create() -> dict[str, Any]:
+            from flowfield.work_scopes import workspace_scope
+
+            if project_id is not None:
+                if workspace_id:
+                    Workspaces(workspace()).require_scope(workspace_id, project_id)
+                scope = project_id
+            elif workspace_id:
+                Workspaces(workspace()).get(workspace_id)
+                scope = workspace_scope(workspace_id)
+            else:
+                raise ApplicationError("workspace_required", "Choose a workspace or project.")
+            return workspace().create_task(scope, attributed(task)).model_dump()
+
+        return await mutate(create)
 
     @mcp.tool(annotations=write)
     async def edit_task(

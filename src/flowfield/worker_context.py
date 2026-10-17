@@ -156,6 +156,7 @@ def brief_context(sections: dict[str, str]) -> dict[str, object]:
         "milestone_verification",
         "milestone_agreement",
         "prerequisites",
+        "files",
         "questions",
         "prior_concerns",
         *required,

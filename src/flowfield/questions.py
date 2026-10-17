@@ -269,7 +269,7 @@ class Questions:
                 "Choose active, resolved, open, answered, assigned, applied, or withdrawn.",
             )
         with self.workspace.connection() as db:
-            self.workspace._project(db, project_id)
+            self.workspace._work_scope(db, project_id)
             where = "project_id=? AND number>?"
             args: list[Any] = [project_id, after or 0]
             if task_id:
@@ -396,7 +396,7 @@ class Questions:
         origin_run_id: str | None = None,
         origin_review_id: str | None = None,
     ) -> Question:
-        self.workspace._project(db, project_id)
+        self.workspace._work_scope(db, project_id)
         task = self.workspace._task(db, project_id, request.task_id) if request.task_id else None
         affected = [self.workspace._task(db, project_id, key) for key in request.affected_task_ids]
         affected = sorted({item.id: item for item in affected}.values(), key=lambda item: item.id)

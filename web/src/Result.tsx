@@ -19,6 +19,7 @@ import { FailureEvidence } from "./Integration";
 import { ReviewChecks } from "./ReviewChecks";
 import { Inspection } from "./Inspection";
 import { ResultActions } from "./TaskActions";
+import { ResultFiles } from "./Files";
 
 const CodeDiff = lazy(() => import("./CodeDiff"));
 type Version = components["schemas"]["ResultVersion"];
@@ -187,6 +188,7 @@ export function Result({
               </Button>
             )}
           </DetailSection>
+          <ResultFiles files={version.files} />
           {!overview && version.independent_review?.summary && (
             <DetailSection title="Independent review">
               {version.independent_review.status === "stale" && (
@@ -279,7 +281,9 @@ export function Result({
                   <>
                     <p>
                       {version.status === "preparing"
-                        ? "Combining changes and running checks. Stopping keeps code and output."
+                        ? version.completion === "code"
+                          ? "Combining changes and running checks. Stopping keeps code and output."
+                          : "Retaining and checking submitted outputs."
                         : "Approved; waiting to update the branch. You can cancel until delivery starts."}
                     </p>
                     <ResultActions version={version.version}>

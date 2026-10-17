@@ -321,7 +321,9 @@ class Integrations:
                     raise ApplicationError(
                         "result_changed", "Revalidate the current delivered version.", 409
                     )
-                if not contains(repository, version.source_commit, before):
+                if not version.source_commit or not contains(
+                    repository, version.source_commit, before
+                ):
                     raise ApplicationError(
                         "delivered_code_missing",
                         "The target lost delivered code. Review restoration with the coordinator.",

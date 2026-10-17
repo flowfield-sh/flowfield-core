@@ -74,6 +74,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
     "Milestones",
     "Tasks",
     "Documents",
+    "Files",
     "Archive",
     "Settings",
   ]);

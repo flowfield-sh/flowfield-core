@@ -15,6 +15,7 @@ import { DetailTabs } from "./Presentation";
 import { DetailHeader } from "./Presentation";
 import { MilestoneActivity } from "./MilestoneActivity";
 import { Markdown } from "./Markdown";
+import { ResultFiles } from "./Files";
 import { ContentStack, DetailSection } from "./DetailLayout";
 import { MilestoneSettings } from "./MilestoneSettings";
 import { RevisionHistory } from "./RevisionHistory";
@@ -175,6 +176,7 @@ export function MilestoneDetail({
               <Markdown>{latestReview.data.summary}</Markdown>
             </DetailSection>
           )}
+          {latestReview.data && <ResultFiles files={latestReview.data.files} />}
           <DetailSection title="Contributing work">
             {!!card?.tasks.length && (
               <ul className="work-resource-list">

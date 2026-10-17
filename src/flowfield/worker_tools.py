@@ -86,7 +86,10 @@ def worker_tools() -> list[dict[str, Any]]:
                     "agreed outcome and name remaining_work for partial progress. Before a "
                     "complete result, update any unfinished stages to reflect actual progress. "
                     "Code delivery follows explicit approval policy; complete unchanged-tree "
-                    "reports finish on delivery."
+                    "reports finish on delivery. Put deliverable files in FLOWFIELD_OUTPUT_DIR "
+                    "and list their relative paths and descriptions in files. The service "
+                    "retains those bytes independently of attempt cleanup. At most 32 files, "
+                    "128 MiB each and 512 MiB total."
                 ),
                 WorkerSubmission,
             ),
@@ -187,7 +190,7 @@ class WorkerBridge:
             self.result = result
             return (
                 "Result received for this attempt. End your turn so the service "
-                "can stop execution and capture code for review."
+                "can stop execution and finish capturing this result."
             )
         raise ApplicationError(
             "worker_operation_denied", "This operation is outside the worker's task scope.", 403

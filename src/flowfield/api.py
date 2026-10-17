@@ -52,6 +52,7 @@ from flowfield.inspection_api import inspection_router
 from flowfield.integration_api import integration_router
 from flowfield.mcp import create_mcp
 from flowfield.notification_api import NotificationService, notification_router
+from flowfield.output_api import output_router
 from flowfield.question_api import question_router
 from flowfield.result_api import result_router
 from flowfield.reviewer_api import reviewer_router
@@ -245,6 +246,7 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
     app.get("/api/health", response_model=Health)(health)
     app.include_router(router)
     app.include_router(workspace_router(supervisor))
+    app.include_router(output_router(workspace))
     app.include_router(browser_router(workspace))
     app.include_router(context_router(workspace))
     app.include_router(workspace_context_router(workspace))

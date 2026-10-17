@@ -188,7 +188,7 @@ async def workspace_scope(
                 raise ApplicationError(
                     "project_required", "Choose an explicit project for this operation.", 409
                 )
-            Workspaces(workspace).require_project(workspace_id, destination)
+            Workspaces(workspace).require_scope(workspace_id, destination)
         # Attribute every authored request, including omitted model defaults, to
         # its service-owned coordinator turn rather than impersonating the human.
         for key in authored_arguments[name]:

@@ -21,7 +21,7 @@ def request_href(workspace_id: str, kind: str, identity: str, project_id: str | 
 def bind_links(db: sqlite3.Connection, item: AttentionItem, workspace_id: str | None) -> None:
     if workspace_id is None and item.project_id:
         row = db.execute(
-            "SELECT workspace_id FROM workspace_projects WHERE project_id=?", (item.project_id,)
+            "SELECT workspace_id FROM workspace_scopes WHERE project_id=?", (item.project_id,)
         ).fetchone()
         workspace_id = row[0] if row else None
     if not workspace_id:

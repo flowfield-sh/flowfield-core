@@ -153,6 +153,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 "review_milestone_changed", "Reconcile the changed milestone before review.", 409
             )
         assert result.candidate_commit and result.target_before and result.target_branch
+        assert result.source_commit
         assert result.settings_revision is not None
         return (
             owner,

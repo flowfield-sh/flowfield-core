@@ -8,6 +8,7 @@ Local uses the service host and isolates ordinary edits in Git worktrees.
 
 import re
 import shlex
+import shutil
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,9 +19,23 @@ from flowfield.execution_models import RunLocation
 
 
 @dataclass(frozen=True)
+class FileWorkspace:
+    """Attempt-local files; retained deliverables are captured by the output owner."""
+
+    root: Path
+    checkout: Path
+    common_git: Path | None = None
+
+    def snapshot(self, parent: str, *, allow_local_commits: bool = False) -> tuple[str, list[str]]:
+        # The stopped attempt is the continuation source. This is an attempt identity,
+        # not a Git commit; submitted outputs have separate immutable identities.
+        return self.root.name, []
+
+
+@dataclass(frozen=True)
 class LocalAttempt:
     run_id: str
-    workspace: GitWorkspace
+    workspace: GitWorkspace | FileWorkspace
     runtime: Path
     # May include credentials. Never serialize/log the host process environment.
     _environment: Mapping[str, str] = field(repr=False)
@@ -38,13 +53,15 @@ class LocalAttempt:
         return self.workspace.checkout
 
     @property
-    def common_git(self) -> Path:
+    def common_git(self) -> Path | None:
         return self.workspace.common_git
 
     def snapshot(self, parent: str) -> tuple[str, list[str]]:
         return self.workspace.snapshot(parent, allow_local_commits=True)
 
     def location(self, base: str, result: str | None) -> RunLocation:
+        if self.common_git is None:
+            return RunLocation(workspace=str(self.checkout))
         prefix = f"git -C {shlex.quote(str(self.checkout))}"
         return RunLocation(
             workspace=str(self.checkout),
@@ -77,13 +94,38 @@ class LocalHost:
             (runtime / name).mkdir(parents=True)
         return self.restore(run_id, workspace, runtime)
 
-    def restore(self, run_id: str, workspace: GitWorkspace, runtime: Path) -> LocalAttempt:
+    def prepare_files(
+        self,
+        directory: Path,
+        workspace_id: str,
+        run_id: str,
+        predecessor: LocalAttempt | None = None,
+    ) -> LocalAttempt:
+        for identity in (workspace_id, run_id):
+            if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}", identity):
+                raise ValueError("Work identity must be a simple name")
+        root = directory.resolve() / "workspaces" / workspace_id / "attempts" / run_id
+        root.mkdir(parents=True, exist_ok=False)
+        checkout, runtime = root / "work", root / "runtime"
+        if predecessor:
+            shutil.copytree(predecessor.checkout, checkout, symlinks=True)
+            shutil.copytree(predecessor.runtime / "output", runtime / "output", symlinks=True)
+        else:
+            checkout.mkdir()
+            (runtime / "output").mkdir(parents=True)
+        (runtime / "tmp").mkdir(parents=True)
+        return self.restore(run_id, FileWorkspace(root, checkout), runtime)
+
+    def restore(
+        self, run_id: str, workspace: GitWorkspace | FileWorkspace, runtime: Path
+    ) -> LocalAttempt:
         """Rebuild launch variables from the current host without persisting credentials."""
         variables = self.launch_environment(workspace.checkout, runtime / "tmp")
         variables.update(
             FLOWFIELD_RUN_ID=run_id,
             FLOWFIELD_WORKSPACE=str(workspace.checkout),
             FLOWFIELD_RUNTIME_DIR=str(runtime),
+            FLOWFIELD_OUTPUT_DIR=str(runtime / "output"),
         )
         return LocalAttempt(run_id, workspace, runtime, MappingProxyType(variables))
 

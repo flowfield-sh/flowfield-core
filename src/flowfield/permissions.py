@@ -198,7 +198,7 @@ class Permissions:
             if role == "coordinator":
                 validate(db, self.workspace, project)
             else:
-                self.workspace._project(db, project)
+                self.workspace._work_scope(db, project)
             if run_id:
                 row = db.execute(
                     "SELECT task_id,status FROM runs WHERE id=? AND project_id=?", (run_id, project)
@@ -339,7 +339,7 @@ class Permissions:
                         "scope_mismatch", "Coordinator permissions have workspace scope.", 403
                     )
             else:
-                self.workspace._project(db, project)
+                self.workspace._work_scope(db, project)
             owner = "workspace_id" if workspace_scope else "project_id"
             if task_id:
                 task_id = self.workspace._task(db, project, task_id).id

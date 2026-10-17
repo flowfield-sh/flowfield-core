@@ -29,7 +29,7 @@ def delivered_tasks(
     db: sqlite3.Connection, workspace_id: str, milestone_id: str, verifier: tuple[str, str | None]
 ) -> list[DeliveredTask]:
     rows = db.execute(
-        "SELECT t.project_id,t.id,t.key,t.data FROM tasks t JOIN workspace_projects w "
+        "SELECT t.project_id,t.id,t.key,t.data FROM tasks t JOIN workspace_scopes w "
         "ON w.project_id=t.project_id WHERE w.workspace_id=? "
         "AND json_extract(t.data,'$.milestone_id')=? "
         "AND NOT (t.project_id=? AND t.id=?) AND NOT EXISTS ("
@@ -84,6 +84,15 @@ def delivered_tasks(
                 result_revision=result["revision"],
                 settings_revision=settings[0] if settings else None,
                 commit=result.get("candidate_commit") or result["source_commit"],
+                output_ids=[
+                    file[0]
+                    for file in db.execute(
+                        "SELECT id FROM output_files WHERE run_id=? ORDER BY number",
+                        (result["run_id"],),
+                    )
+                ]
+                if db.execute("SELECT 1 FROM sqlite_master WHERE name='output_files'").fetchone()
+                else [],
                 target_branch=result.get("target_branch"),
                 reconciliation_reason=task.get("reconciliation_reason"),
             )
@@ -104,11 +113,25 @@ def read(db: sqlite3.Connection, workspace_id: str, identity: str) -> MilestoneV
 def save(db: sqlite3.Connection, value: MilestoneVerification) -> None:
     db.execute(
         "UPDATE milestone_verifications SET status=?,data=? WHERE id=?",
-        (value.status, value.model_dump_json(exclude={"promotion", "task_titles"}), value.id),
+        (
+            value.status,
+            value.model_dump_json(exclude={"promotion", "task_titles", "files"}),
+            value.id,
+        ),
     )
 
 
 def validate_report(value: MilestoneVerification, report: VerificationReport) -> None:
+    available = {identity for task in value.tasks for identity in task.output_ids}
+    if (
+        len(set(report.output_ids)) != len(report.output_ids)
+        or not set(report.output_ids) <= available
+    ):
+        raise ApplicationError(
+            "verification_output_invalid",
+            "Select each final file once, from the exact contributing results.",
+            409,
+        )
     if report.verification_id != value.id or sorted(f.check for f in report.findings) != list(
         range(1, len(value.checks) + 1)
     ):
@@ -204,7 +227,7 @@ def reconcile(db: sqlite3.Connection, project_id: str | None = None) -> None:
         "SELECT data FROM milestone_verifications WHERE status IN "
         "('verifying','ready','accepted') AND json_extract(data,'$.current')=1 "
         "AND (? IS NULL OR workspace_id IN "
-        "(SELECT workspace_id FROM workspace_projects WHERE project_id=?))",
+        "(SELECT workspace_id FROM workspace_scopes WHERE project_id=?))",
         (project_id, project_id),
     ).fetchall():
         value = MilestoneVerification.model_validate_json(row[0])
@@ -231,6 +254,7 @@ def reconcile(db: sqlite3.Connection, project_id: str | None = None) -> None:
             if not frozen or json.loads(frozen)["id"] != value.id:
                 continue
             value.result_id = result["id"]
+            value.summary = result["report"]["summary"]
             value.limitations = result["report"].get("limitations", "")
             report = result["report"].get("verification")
             if report:
@@ -297,6 +321,27 @@ class MilestoneVerifications:
                 from flowfield.milestone_promotion import read as promotion_read
 
                 value.promotion = promotion_read(db, value.promotion_id)
+            if self.store.schema_version >= 79:
+                from flowfield.outputs import Outputs
+
+                selected = value.report.output_ids if value.report else []
+                if value.result_id:
+                    result = db.execute(
+                        "SELECT run_id FROM result_versions WHERE id=?", (value.result_id,)
+                    ).fetchone()
+                    if result:
+                        value.files = Outputs.for_run(db, result[0])
+                for identity in selected:
+                    row = db.execute(
+                        "SELECT data FROM output_files WHERE workspace_id=? AND id=?",
+                        (workspace_id, identity),
+                    ).fetchone()
+                    if row:
+                        from flowfield.output_models import OutputFile
+
+                        value.files.append(
+                            Outputs._present(db, OutputFile.model_validate_json(row[0]))
+                        )
             return value
 
     def testing(self, workspace_id: str, identity: str, offset: int = 0) -> MilestoneTestingPage:
@@ -427,7 +472,7 @@ class MilestoneVerifications:
         with self.store.connection(write=True) as db:
             milestone = Milestones.read(db, workspace_id, milestone_id)
             self.store._current(milestone.revision, request.expected_revision)
-            Workspaces.check_project(db, workspace_id, request.project_id)
+            Workspaces.check_scope(db, workspace_id, request.project_id)
             task = self.store._task(db, request.project_id, request.task_id)
             self.store._current(task.revision, request.expected_task_revision)
             if not milestone.acceptance_criteria.strip():
@@ -526,6 +571,11 @@ class MilestoneVerifications:
             else nullcontext()
         )
         with boundary:
+            if request.action == "accept":
+                from flowfield.outputs import Outputs
+
+                for file in value.files:
+                    Outputs(self.store).content(file)
             if value.promotion and request.action != "request_changes":
                 MilestonePromotions(self.store).inputs(value.promotion)
             self._review(workspace_id, identity, request)

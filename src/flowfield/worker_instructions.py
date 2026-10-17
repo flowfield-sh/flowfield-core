@@ -17,6 +17,8 @@ def completion_reminder(server: str) -> str:
 
 
 def instructions(sections: dict[str, str], *, server: str, completion: str) -> str:
+    repository = json.loads(sections.get("agreement", "{}")).get("repository", True)
+
     def present(name: str) -> bool:
         return sections.get(name, "").strip() not in ("", "[]", "{}")
 
@@ -32,16 +34,31 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
         "scope changes. Read complete description/feedback pages when listed as truncated; "
         "context_policy explains which frozen sources need retrieval. task_id and task_key "
         "identify the same assigned task.",
-        "Inspect AGENTS.md and relevant source files with native tools, starting at the worktree "
-        "root, not parent directories. Use the host's installed tools and native permissions. "
-        "Install project dependencies in this checkout/runtime when needed; keep manifests and "
-        "setup reproducible. Ask about missing machine-wide tools or access. Keep this detached "
-        "checkout; do not switch branches or change shared refs. Local commits are allowed.",
+        (
+            "Inspect AGENTS.md and relevant source files with native tools, starting at the "
+            "worktree "
+            "root, not parent directories. Use the host's installed tools and native permissions. "
+            "Install project dependencies in this checkout/runtime when needed; keep manifests and "
+            "setup reproducible. Ask about missing machine-wide tools or access. Keep this "
+            "detached "
+            "checkout; do not switch branches or change shared refs. Local commits are allowed."
+            if repository
+            else "This task belongs to the workspace and has no repository. Work in the supplied "
+            "isolated directory; do not initialize Git or create a project. Use native tools "
+            "and permissions, "
+            "and ask about missing tools or external access."
+        ),
         "Verify the complete outcome with meaningful checks. Keep the result summary to a few "
         "sentences about the outcome; put command output, paths, hashes and detailed evidence "
         "in checks, with unresolved constraints in limitations. "
         "Partial progress is not completion.",
     ]
+    rules.append(
+        "Selected input_files are exact copies in this attempt; their names and paths are in "
+        "the brief. Put deliverables in output_directory (also FLOWFIELD_OUTPUT_DIR), finish "
+        "writing them, and list relative paths/descriptions in submit_result.files. Only "
+        "listed files are retained as outputs. Never overwrite original inputs or prior outputs."
+    )
     if completion == "code":
         rules.append(
             "The service captures the tracked/nonignored tree after execution stops and checks it "
@@ -49,12 +66,12 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
             "separately granted milestone-branch integration policy. Final milestone promotion "
             "requires human approval. Do not approve or integrate code yourself."
         )
-    else:
+    elif repository:
         rules.append(
             "This is report-only work: return findings, evidence and uncertainty without changing "
             "the repository tree. Report delivery does not imply human endorsement."
         )
-    if present("validation"):
+    if repository and present("validation"):
         rules.append(
             "Read validation and use its frozen commands; report their observed results. "
             "When validation.worker_checks_enabled is true, run saved checks through "
@@ -75,7 +92,8 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
             "the complete frozen acceptance criteria against the exact delivered task results. "
             "Submit verification with verification_id, one finding per check (check, verdict: "
             "passed/failed/unverified, evidence), coverage: complete/incomplete, "
-            "and coverage_notes. "
+            "and coverage_notes. Select final contributing files in output_ids using IDs from "
+            "the frozen tasks' output_ids; submit newly produced final files in files. "
             "A completed verification task may report failed criteria; task completion is not "
             "milestone acceptance. Mark inaccessible or untested outcomes unverified. Report "
             "omitted requirements as incomplete coverage. Do not access sibling repositories "

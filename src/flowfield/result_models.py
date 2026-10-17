@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from flowfield.execution_models import Correction, Record, WorkerResult
+from flowfield.output_models import OutputFile
 
 
 class ResultAction(Record):
@@ -35,6 +36,7 @@ class IndependentAssessment(Record):
 
 
 class ResultVersion(Record):
+    files: list[OutputFile] = Field(default_factory=list)
     id: str
     project_id: str
     task_id: str
@@ -43,7 +45,7 @@ class ResultVersion(Record):
     revision: int = 1
     run_id: str
     completion: Literal["code", "report"]
-    source_commit: str
+    source_commit: str | None
     report: WorkerResult
     created_at: str
     status: Literal[
@@ -86,7 +88,7 @@ class ResultPage(Record):
 
 class ResultReview(Record):
     expected_revision: int = Field(ge=1)
-    candidate_commit: str
+    candidate_commit: str | None
     action: Literal["approve", "request_changes"]
     note: str = Field(default="", max_length=8000)
     author: str = Field(default="human", min_length=1, max_length=200)

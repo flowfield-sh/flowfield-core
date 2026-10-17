@@ -413,7 +413,8 @@ export function TaskConversation({
         body: "",
         binding: target,
         action: "approve",
-        candidate: version.candidate_commit ?? version.source_commit,
+        candidate:
+          version.candidate_commit ?? version.source_commit ?? undefined,
       },
     }));
   }

@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from flowfield.actors import Actor
+from flowfield.output_models import OutputFile
 from flowfield.promotion_models import MilestonePromotion
 from flowfield.reviewer_settings import EffectiveReviewer
 from flowfield.verification_report import (
@@ -43,7 +44,8 @@ class DeliveredTask(VerificationInput):
     result_id: str
     result_revision: int
     settings_revision: int | None
-    commit: str
+    commit: str | None
+    output_ids: list[str] = Field(default_factory=list)
     target_branch: str | None
     reconciliation_reason: str | None = None
 
@@ -112,6 +114,7 @@ class MilestoneVerification(VerificationInput):
     # Read projection; the independent promotion record owns delivery authority.
     promotion: MilestonePromotion | None = None
     task_titles: dict[str, str] = Field(default_factory=dict)
+    files: list[OutputFile] = Field(default_factory=list)
     purpose: Literal["task", "review"] = "task"
     plan_revision: int | None = None
     reviewer: EffectiveReviewer | None = None

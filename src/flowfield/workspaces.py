@@ -161,9 +161,9 @@ class Workspaces:
 
     def for_project(self, project_id: str) -> WorkspaceRecord:
         with self.store.connection() as db:
-            self.store._project(db, project_id)
+            self.store._work_scope(db, project_id)
             row = db.execute(
-                "SELECT workspace_id FROM workspace_projects WHERE project_id=?", (project_id,)
+                "SELECT workspace_id FROM workspace_scopes WHERE project_id=?", (project_id,)
             ).fetchone()
             if row is None:
                 raise ApplicationError(
@@ -175,6 +175,19 @@ class Workspaces:
         """A coordinator's current view cannot grant access to another workspace."""
         with self.store.connection() as db:
             self.check_project(db, identity, project_id)
+
+    def require_scope(self, identity: str, scope_id: str) -> None:
+        with self.store.connection() as db:
+            self.check_scope(db, identity, scope_id)
+
+    @staticmethod
+    def check_scope(db: sqlite3.Connection, identity: str, scope_id: str) -> None:
+        Workspaces.read(db, identity)
+        if not db.execute(
+            "SELECT 1 FROM workspace_scopes WHERE workspace_id=? AND project_id=?",
+            (identity, scope_id),
+        ).fetchone():
+            raise ApplicationError("scope_mismatch", "Choose work in this workspace.", 403)
 
     @staticmethod
     def check_project(db: sqlite3.Connection, identity: str, project_id: str) -> None:

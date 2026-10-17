@@ -34,7 +34,9 @@ def result_action(
         return ResultAction(
             owner="service",
             action="wait",
-            label="Checking changes" if value.status == "preparing" else "Integrating changes",
+            label=("Retaining results" if value.completion == "report" else "Checking changes")
+            if value.status == "preparing"
+            else "Integrating changes",
         )
     replying = db.execute(
         "SELECT 1 FROM task_replies WHERE project_id=? AND task_id=? "
@@ -160,6 +162,13 @@ def result_action(
                 "The agreed outcome is unfinished. Continue on this task, or revise "
                 "its scope with the coordinator."
             ),
+        )
+    if value.problem_code == "output_unavailable":
+        return ResultAction(
+            owner="human",
+            action="prepare",
+            label="Retry file delivery",
+            reason="Restore the retained file's original bytes from backup, then retry delivery.",
         )
     if value.problem_code in ("runtime_setup_failed", "runtime_changed_source"):
         current = db.execute(

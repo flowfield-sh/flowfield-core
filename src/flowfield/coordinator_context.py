@@ -38,7 +38,8 @@ def freeze_view(
             )
         )
         or (
-            selection.surface in {"projects", "milestones", "milestone", "documents", "document"}
+            selection.surface
+            in {"projects", "milestones", "milestone", "documents", "document", "files"}
             and selection.project_id
         )
         or (
@@ -87,8 +88,9 @@ def freeze_view(
         )
         value.document_title = document.title
     if selection.project_id:
-        Workspaces.check_project(db, workspace_id, selection.project_id)
-        project = store._project(db, selection.project_id)
+        project = store._work_scope(db, selection.project_id)
+        if project.workspace_id != workspace_id:
+            raise ApplicationError("scope_mismatch", "Choose work in this workspace.", 403)
         value.project_name, value.project_revision = project.name, project.revision
     if selection.milestone_id:
         milestone = (

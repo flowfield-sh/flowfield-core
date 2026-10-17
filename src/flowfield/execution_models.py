@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from flowfield.agent_models import AgentChoice, EffectiveAgent
 from flowfield.document_models import DocumentSnapshot
 from flowfield.harness_models import HarnessLaunch
+from flowfield.output_models import OutputSelection
 from flowfield.verification_report import VerificationReport
 
 ACTIVE = ("preparing", "running", "stopping", "uncertain")
@@ -68,6 +69,7 @@ class RunAction(Record):
 
 
 class WorkerResult(Record):
+    files: list[OutputSelection] = Field(default_factory=list, max_length=32)
     verification: VerificationReport | None = None
     summary: str = Field(min_length=1, max_length=8000)
     checks: str = Field(min_length=1, max_length=8000)

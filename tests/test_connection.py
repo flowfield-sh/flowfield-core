@@ -71,6 +71,7 @@ def test_mcp_board_parity_and_restart(tmp_path: Path) -> None:
                         "list_worker_models",
                         "list_workspaces",
                         "create_workspace",
+                        "create_task",  # Either explicit workspace or project destination.
                     }:
                         assert {"project_id", "workspace_id"}.intersection(
                             tool.inputSchema["required"]

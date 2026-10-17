@@ -180,7 +180,15 @@ class ContextReads:
         self.browser_origin = browser_origin.rstrip("/")
 
     def url(self, project_id: str, *segments: str) -> str:
-        path = "/".join(quote(s, safe="") for s in ("projects", project_id, *segments))
+        parts = ("projects", project_id, *segments)
+        if (
+            project_id.startswith("workspace_")
+            and len(segments) >= 2
+            and segments[0] == "tasks"
+            and segments[1].startswith("W-")
+        ):
+            parts = ("workspaces", project_id.removeprefix("workspace_"), *segments)
+        path = "/".join(quote(s, safe="") for s in parts)
         return f"{self.browser_origin}/{path}"
 
     def _summary(
@@ -309,7 +317,7 @@ class ContextReads:
             )
         validate_page(limit)
         with self.workspace.connection() as db:
-            self.workspace._project(db, project_id)
+            self.workspace._work_scope(db, project_id)
             rows = db.execute(
                 "SELECT json_remove(data, '$.body') FROM milestones WHERE project_id=? "
                 "AND id>? ORDER BY id LIMIT ?",
@@ -344,7 +352,7 @@ class ContextReads:
         ):
             raise ApplicationError("invalid_request", "Unknown readiness.")
         with self.workspace.connection() as db:
-            self.workspace._project(db, project_id)
+            self.workspace._work_scope(db, project_id)
             records, positions = task_metadata(self.workspace, db, project_id)
             if label_id:
                 from flowfield.labels import Labels
@@ -381,7 +389,7 @@ class ContextReads:
     def overview(self, project_id: str) -> dict[str, Any]:
         with self.workspace.connection() as db:
             project = {
-                **excerpt(self.workspace._project(db, project_id).model_dump()),
+                **excerpt(self.workspace._work_scope(db, project_id).model_dump()),
                 "url": self.url(project_id),
             }
             records, positions = task_metadata(self.workspace, db, project_id)
@@ -597,7 +605,7 @@ class ContextReads:
                     recommendation["action"] = candidates[0]["next_action"]
                     recommendation["owner"] = candidates[0]["owner"]
                 break
-        root = Path(self.workspace._project(db, project_id).path)
+        root = Path(self.workspace._work_scope(db, project_id).path)
         guidance = [
             name
             for name in (
@@ -924,6 +932,10 @@ class ContextReads:
         from flowfield.results import Results
 
         value = Results(self.workspace).get(project_id, identity).model_dump()
+        value["files"] = [
+            {key: file[key] for key in ("id", "workspace_id", "name", "size")}
+            for file in value["files"]
+        ]
         value["report"] = excerpt(value["report"], 2000)
         if value["correction"]:
             value["correction"] = excerpt(value["correction"], 1500)

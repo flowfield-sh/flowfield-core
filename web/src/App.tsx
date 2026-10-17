@@ -24,6 +24,7 @@ import { AnnouncementProvider } from "./Announcements";
 import { TaskNeeds, TaskState, hasTaskNeeds } from "./TaskNeeds";
 import { WorkspaceList, NewWorkspace } from "./WorkspaceEntry";
 import { Documents } from "./Documents";
+import { Files } from "./Files";
 import { ProjectList } from "./ProjectList";
 import { SetupInstructions } from "./SetupInstructions";
 import { canonicalHref } from "./navigation";
@@ -123,7 +124,11 @@ export function App() {
     chatSettingsDirty,
     knownOwners,
   );
-  const projectId = params.projectId;
+  const projectId =
+    params.projectId ??
+    (params.workspaceId && params.taskKey
+      ? `workspace_${params.workspaceId}`
+      : undefined);
   const {
     data: projectWorkspace,
     error: projectWorkspaceError,
@@ -191,14 +196,17 @@ export function App() {
   );
   if (
     board &&
-    board.projects.some(
+    [board.workspace_work, ...board.projects].some(
       (project) => knownOwners[project.id] !== board.workspace.id,
     )
   )
     setKnownOwners((previous) => ({
       ...previous,
       ...Object.fromEntries(
-        board.projects.map((project) => [project.id, board.workspace.id]),
+        [board.workspace_work, ...board.projects].map((project) => [
+          project.id,
+          board.workspace.id,
+        ]),
       ),
     }));
   const connectionStatus = unavailable
@@ -701,10 +709,16 @@ function WorkspaceResource({
     background === `${base}/projects` || background === `${base}/projects/new`;
   const allWorkView = pathname === `${base}/work`;
   const documentsView = pathname.startsWith(`${base}/documents`);
+  const filesView = pathname === `${base}/files`;
   const addingProject = pathname.endsWith("/projects/new");
   const selectedProject = board?.projects.find(
     (project) => project.id === projectId,
   );
+  const selectedTaskScope =
+    selectedProject ??
+    (board?.workspace_work.id === projectId
+      ? board?.workspace_work
+      : undefined);
   const location = useLocation();
   const query = new URLSearchParams(location.search);
   const projectFilter = query.get("project") ?? "";
@@ -727,13 +741,15 @@ function WorkspaceResource({
         ? "task"
         : projectsView
           ? "projects"
-          : milestonesView
-            ? "milestones"
-            : showInbox
-              ? "inbox"
-              : archive
-                ? "archive"
-                : "board";
+          : filesView
+            ? "files"
+            : milestonesView
+              ? "milestones"
+              : showInbox
+                ? "inbox"
+                : archive
+                  ? "archive"
+                  : "board";
   const filtered = surface === "board" || surface === "archive";
   useEffect(() => {
     if (
@@ -966,7 +982,7 @@ function WorkspaceResource({
             path={path}
             close={() => choose(null)}
           />
-        ) : incoming && selectedProject ? (
+        ) : incoming && selectedTaskScope ? (
           <TaskDetail
             workspaceId={board.workspace.id}
             key={selection.id}
@@ -974,7 +990,7 @@ function WorkspaceResource({
             board={
               {
                 ...board,
-                project: selectedProject,
+                project: selectedTaskScope,
                 tasks: board.tasks.filter(
                   (task) => task.project_id === projectId,
                 ),
@@ -1016,9 +1032,9 @@ function WorkspaceResource({
         !questionSelected &&
         !requestSelected && (
           <div
-            className={`${documentsView && params.documentId ? "workspace-detail-content " : ""}workspace-work-content ${!allWorkView && !projectsView && !documentsView && !showInbox && !archive ? "workspace-task-board" : ""}`}
+            className={`${documentsView && params.documentId ? "workspace-detail-content " : ""}workspace-work-content ${!allWorkView && !projectsView && !documentsView && !filesView && !showInbox && !archive ? "workspace-task-board" : ""}`}
           >
-            {!allWorkView && !projectsView && !documentsView && (
+            {!allWorkView && !projectsView && !documentsView && !filesView && (
               <div className="board-toolbar">
                 {!milestonesView && (
                   <div className="actions board-filters">
@@ -1100,6 +1116,8 @@ function WorkspaceResource({
                 problems={board.project_problems}
                 workspaceId={workspaceId}
               />
+            ) : filesView ? (
+              <Files workspaceId={workspaceId} refresh={refresh} />
             ) : documentsView ? (
               <Documents
                 key={workspaceId}
@@ -1141,17 +1159,6 @@ function WorkspaceResource({
                   >
                     Refresh board
                   </Button>
-                )}
-                {!board.projects.length && !archive && (
-                  <div className="actions px-4">
-                    <p>Add a project to start creating tasks.</p>
-                    <Button
-                      size="sm"
-                      onClick={() => changeLocation(`${base}/projects/new`)}
-                    >
-                      Add project
-                    </Button>
-                  </div>
                 )}
                 <div className={archive ? "collection-layout" : "board-layout"}>
                   {archive ? (

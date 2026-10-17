@@ -64,6 +64,7 @@ from flowfield.search import SCHEMA as SEARCH_SCHEMA
 from flowfield.stage_models import SCHEMA as STAGE_SCHEMA
 from flowfield.stage_models import Stage, StageChange, StagePlan, StageUpdate
 from flowfield.storage import acquire_lock, initialize, require_current
+from flowfield.work_scopes import WorkScope
 
 Markdown = Annotated[str, StringConstraints(max_length=200_000)]
 TaskDescription = Annotated[str, StringConstraints(max_length=400_020)]
@@ -71,7 +72,8 @@ ProjectPrefix = Annotated[
     str, StringConstraints(to_upper=True, strip_whitespace=True, pattern=r"^[A-Za-z]{3}$")
 ]
 TaskIdentifier = Annotated[
-    str, StringConstraints(pattern=r"^(?:[a-z0-9][a-z0-9_-]{0,63}|[A-Za-z]{3}-[1-9][0-9]*)$")
+    str,
+    StringConstraints(pattern=r"^(?:[a-z0-9][a-z0-9_-]{0,63}|(?:[A-Za-z]{3}|[Ww])-[1-9][0-9]*)$"),
 ]
 MilestoneIdentifier = Annotated[
     str, StringConstraints(pattern=r"^(?:[a-z0-9][a-z0-9_-]{0,63}|[Mm]-[1-9][0-9]*)$")
@@ -240,6 +242,7 @@ class TaskPreparation(Input):
 
 
 class TaskCreate(WorkCreate):
+    input_files: list[Identifier] = Field(default_factory=list, max_length=32)
     stages: list[Stage] = Field(min_length=1, max_length=8)
 
     @field_validator("stages")
@@ -262,6 +265,7 @@ class TaskCreate(WorkCreate):
 
 
 class TaskEdit(Edit):
+    input_files: list[Identifier] | None = Field(default=None, max_length=32)
     stages: StageChange | None = None
     preparation: TaskPreparation | None = None
     title: Title | None = None
@@ -310,6 +314,8 @@ class TaskPublish(Edit):
 
 
 class TaskRevision(WorkRecord):
+    input_files: list[str] = Field(default_factory=list)
+
     @model_validator(mode="before")
     @classmethod
     def historical_classification(cls, value: Any) -> Any:
@@ -675,7 +681,7 @@ class Workspace:
                         )
                     membership = (
                         db.execute(
-                            "SELECT workspace_id FROM workspace_projects WHERE project_id=?",
+                            "SELECT workspace_id FROM workspace_scopes WHERE project_id=?",
                             (existing.id,),
                         ).fetchone()
                         if existing
@@ -831,6 +837,15 @@ class Workspace:
         with self.connection() as db:
             return self._project(db, project_id)
 
+    def _work_scope(self, db: sqlite3.Connection, identity: str) -> WorkScope:
+        from flowfield.work_scopes import read
+
+        return read(self, db, identity)
+
+    def work_scope(self, identity: str) -> WorkScope:
+        with self.connection() as db:
+            return self._work_scope(db, identity)
+
     def _patch(self, current: BaseModel, request: Edit) -> dict[str, Any]:
         values = current.model_dump()
         self._current(values["revision"], request.expected_revision)
@@ -900,7 +915,7 @@ class Workspace:
     @staticmethod
     def _project_workspace(db: sqlite3.Connection, project_id: str) -> str:
         row = db.execute(
-            "SELECT workspace_id FROM workspace_projects WHERE project_id=?", (project_id,)
+            "SELECT workspace_id FROM workspace_scopes WHERE project_id=?", (project_id,)
         ).fetchone()
         if not row:
             raise ApplicationError(
@@ -1014,7 +1029,7 @@ class Workspace:
             owner = self._project_workspace(db, project_id)
             return db.execute(
                 f"SELECT t.id,t.key,t.position,{data} AS data FROM tasks t "
-                "JOIN workspace_projects p ON p.project_id=t.project_id WHERE p.workspace_id=?",
+                "JOIN workspace_scopes p ON p.project_id=t.project_id WHERE p.workspace_id=?",
                 (owner,),
             ).fetchall()
         return db.execute(
@@ -1036,7 +1051,7 @@ class Workspace:
             owner = self._project_workspace(db, project_id)
             rows = db.execute(
                 "SELECT t.id,t.key,t.project_id FROM tasks t "
-                "JOIN workspace_projects p ON p.project_id=t.project_id WHERE p.workspace_id=?",
+                "JOIN workspace_scopes p ON p.project_id=t.project_id WHERE p.workspace_id=?",
                 (owner,),
             ).fetchall()
             local = {r["id"]: r["key"] for r in rows if r["project_id"] == project_id}
@@ -1108,6 +1123,10 @@ class Workspace:
         records = self._records(db, first.project_id)
         changed = {self._record_key(task) for task in tasks}
         for task in tasks:
+            if task.input_files:
+                from flowfield.task_files import freeze
+
+                freeze(db, self._project_workspace(db, task.project_id), task.input_files)
             if self._record_key(task) not in records:
                 raise ApplicationError("invalid_dependency", "Task is outside this workspace.")
             previous_row = db.execute(
@@ -1119,6 +1138,7 @@ class Workspace:
                 previous.body != task.body
                 or previous.dependencies != task.dependencies
                 or previous.documents != task.documents
+                or previous.input_files != task.input_files
             ):
                 task.agreement_revision = previous.agreement_revision + 1
                 if task.status not in PLANNING:
@@ -1380,7 +1400,7 @@ class Workspace:
             return int(
                 db.execute(
                     "SELECT coalesce(max(t.position),-1)+1 FROM tasks t "
-                    "JOIN workspace_projects p USING(project_id) WHERE workspace_id=?",
+                    "JOIN workspace_scopes p USING(project_id) WHERE workspace_id=?",
                     (self._project_workspace(db, project_id),),
                 ).fetchone()[0]
             )
@@ -1399,7 +1419,7 @@ class Workspace:
                 409,
             )
         with self.connection(write=True, project_id=project_id) as db:
-            project = self._project(db, project_id)
+            project = self._work_scope(db, project_id)
             if request.documents:
                 from flowfield.worker_documents import validate_references
 
@@ -1634,6 +1654,13 @@ class Workspace:
             else None
         )
         if request.completion == "code":
+            if self._work_scope(db, project_id).project_id is None:
+                raise ApplicationError(
+                    "repository_required",
+                    "Workspace tasks deliver files and reports. "
+                    "Choose an existing project for repository changes.",
+                    409,
+                )
             if not target_branch:
                 raise ApplicationError(
                     "integration_target_required",
@@ -1686,7 +1713,7 @@ class Workspace:
             select(
                 db,
                 self._project_workspace(db, current.project_id),
-                self._project(db, current.project_id).worker_documents,
+                self._work_scope(db, current.project_id).worker_documents,
                 current.documents,
             )
             if self.schema_version >= 65
@@ -2080,7 +2107,7 @@ class Workspace:
         project_id: str,
         task_id: str | None,
     ) -> str | None:
-        self._project(db, project_id)
+        self._work_scope(db, project_id)
         if task_id is None:
             return None
         row = db.execute(

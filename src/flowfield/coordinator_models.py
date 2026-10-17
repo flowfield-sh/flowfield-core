@@ -40,6 +40,7 @@ class CoordinatorViewSelection(AgentRecord):
         "milestone",
         "task",
         "documents",
+        "files",
         "document",
         "request",
     ]

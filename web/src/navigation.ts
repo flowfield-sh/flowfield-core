@@ -9,7 +9,9 @@ const pagePaths = [
   "new-workspace",
   "workspaces/:workspaceId",
   "workspaces/:workspaceId/tasks",
+  "workspaces/:workspaceId/tasks/:taskKey/:tab?/:runId?",
   "workspaces/:workspaceId/documents",
+  "workspaces/:workspaceId/files",
   "workspaces/:workspaceId/work",
   "workspaces/:workspaceId/documents/:documentId",
   "workspaces/:workspaceId/documents/:documentId/revisions/:documentRevision",
@@ -66,6 +68,16 @@ export function canonicalHref(path: string, owners: Record<string, string>) {
     /^\/workspaces\/([^/]+)(\/projects\/([^/]+)(?:\/.*)?)$/,
   );
   if (nested && nested[3] !== "new") url.pathname = nested[2];
+  const workspaceTask = url.pathname.match(
+    /^\/projects\/(workspace_([^/]+))(\/tasks\/W-[1-9][0-9]*(?:\/.*)?)$/,
+  );
+  if (
+    workspaceTask &&
+    owners[decodeURIComponent(workspaceTask[1])] ===
+      decodeURIComponent(workspaceTask[2])
+  ) {
+    url.pathname = `${workspaceHref(decodeURIComponent(workspaceTask[2]))}${workspaceTask[3]}`;
+  }
   const project = url.pathname.match(
     /^\/projects\/([^/]+)(\/(?:archive|inbox|milestones))?\/?$/,
   );
@@ -115,7 +127,11 @@ export function taskHref(
   tab:
     TaskTab | "info" | "dependencies" | "result" | "activity" | "runs" = "task",
 ) {
-  return `${projectHref(projectId)}/tasks/${encodeURIComponent(task.key)}${taskTab(tab) === "task" ? "" : `/${taskTab(tab)}`}`;
+  const owner =
+    projectId.startsWith("workspace_") && task.key.startsWith("W-")
+      ? workspaceHref(projectId.slice("workspace_".length))
+      : projectHref(projectId);
+  return `${owner}/tasks/${encodeURIComponent(task.key)}${taskTab(tab) === "task" ? "" : `/${taskTab(tab)}`}`;
 }
 function editorIdentity(path: string) {
   return withoutRelatedQuestion(path)

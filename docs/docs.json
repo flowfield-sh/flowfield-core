@@ -22,6 +22,7 @@
           "workspaces",
           "coordinator",
           "documents",
+          "files",
           "tasks",
           "worker-setup"
         ]

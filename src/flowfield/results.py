@@ -36,6 +36,10 @@ class Results:
     def _present(self, db: sqlite3.Connection, value: ResultVersion) -> ResultVersion:
         from flowfield.result_actions import result_action
 
+        if self.workspace.schema_version >= 79:
+            from flowfield.outputs import Outputs
+
+            value.files = Outputs.for_run(db, value.run_id)
         value.next_action = result_action(self.workspace, db, value)
         value.recheck_of = db.execute(
             "SELECT min(version) FROM result_versions WHERE run_id=? AND version<?",
@@ -100,14 +104,26 @@ class Results:
             (
                 version.status,
                 version.model_dump_json(
-                    exclude={"next_action", "recheck_of", "independent_review"}
+                    exclude={"next_action", "recheck_of", "independent_review", "files"}
                 ),
                 version.id,
             ),
         )
 
     def capture(self, db: sqlite3.Connection, run: Run) -> ResultVersion:
-        assert run.result and run.result_commit
+        assert run.result
+        if self.workspace._work_scope(db, run.project_id).project_id and not run.result_commit:
+            raise ApplicationError("result_missing", "Repository results require captured code.")
+        if run.result.files:
+            from flowfield.outputs import Outputs
+
+            retained = Outputs.for_run(db, run.id)
+            if [item.name for item in retained] != [item.path for item in run.result.files]:
+                raise ApplicationError(
+                    "output_not_captured",
+                    "Retain every submitted file before capturing a result.",
+                    409,
+                )
         number = db.execute(
             "SELECT coalesce(max(version),0)+1 FROM result_versions "
             "WHERE project_id=? AND task_id=?",
@@ -457,6 +473,7 @@ class Results:
                         409,
                     )
                 number = self.execution._correction_count(db, project_id, task.id) + 1
+            assert version.source_commit
             seed, conflicts = gitops.correction_seed(
                 repository, target, version.source_commit, uuid4().hex
             )
@@ -541,6 +558,7 @@ class Results:
             raise ApplicationError(
                 "correction_unavailable", "The contribution changed; reconcile the milestone.", 409
             )
+        assert version.source_commit
         target = Integrations(self.workspace).head(project, task.id)
         run.next_correction = Correction(
             result_id=version.id,
@@ -577,6 +595,11 @@ class Results:
             return
         version = self.get(project_id, row[0])
         try:
+            if version.files:
+                from flowfield.outputs import Outputs
+
+                for output in version.files:
+                    Outputs(self.workspace).content(output)
             service = Integrations(self.workspace)
             if version.integration_id:
                 interrupted = service.get(project_id, version.integration_id)
@@ -590,10 +613,11 @@ class Results:
                 )
             if version.status == "preparing":
                 if version.completion == "report":
-                    repo = Path(self.workspace.project(project_id).path)
-                    if git(repo, "rev-parse", run.base_commit + "^{tree}") != git(
-                        repo, "rev-parse", version.source_commit + "^{tree}"
-                    ):
+                    scope = self.workspace.work_scope(project_id)
+                    repo = Path(scope.path)
+                    if scope.project_id and git(
+                        repo, "rev-parse", run.base_commit + "^{tree}"
+                    ) != git(repo, "rev-parse", (version.source_commit or "") + "^{tree}"):
                         raise ApplicationError(
                             "report_changes_code",
                             "This report includes code changes. "

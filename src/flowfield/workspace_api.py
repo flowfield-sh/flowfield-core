@@ -15,6 +15,8 @@ from flowfield.application import (
     MilestoneEdit,
     Project,
     ProjectSetup,
+    Task,
+    TaskCreate,
 )
 from flowfield.attention import (
     AttentionColumn,
@@ -141,6 +143,13 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     @router.get("/{workspace_id}/projects")
     def projects(workspace_id: str) -> list[Project]:
         return spaces().projects(workspace_id)
+
+    @router.post("/{workspace_id}/tasks", status_code=201)
+    def create_workspace_task(workspace_id: str, request: TaskCreate) -> Task:
+        from flowfield.work_scopes import workspace_scope
+
+        spaces().get(workspace_id)
+        return supervisor().workspace.create_task(workspace_scope(workspace_id), request)
 
     @router.post("/{workspace_id}/projects", status_code=201)
     def adopt(workspace_id: str, request: ProjectAdoption) -> Project:

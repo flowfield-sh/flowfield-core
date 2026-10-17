@@ -135,7 +135,7 @@ class Milestones:
                 "json_extract(t.data,'$.status') AS task_status,"
                 "json_extract(t.data,'$.publication.milestone.revision') AS prepared_revision,"
                 "t.project_id||'/'||t.id AS cursor FROM tasks t "
-                "JOIN workspace_projects w ON w.project_id=t.project_id "
+                "JOIN workspace_scopes w ON w.project_id=t.project_id "
                 "WHERE w.workspace_id=? AND json_extract(t.data,'$.milestone_id')=? "
                 "AND json_extract(t.data,'$.publication.milestone.id')=? "
                 "AND json_extract(t.data,'$.publication.milestone.revision')<? "

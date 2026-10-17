@@ -87,7 +87,7 @@ class Attachments:
             if workspace_scope:
                 Workspaces.read(db, project)
             else:
-                self.workspace._project(db, project)
+                self.workspace._work_scope(db, project)
             owner = "workspace_id" if workspace_scope else "project_id"
             task = (
                 self.workspace._task(db, project, request.task_id).id if request.task_id else None

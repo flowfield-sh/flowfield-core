@@ -39,6 +39,8 @@ from flowfield.migrations import (
     v076_delegated_integration,
     v077_milestone_reviews,
     v078_workspace_integration,
+    v079_durable_outputs,
+    v080_work_scopes,
 )
 
 BASELINE_VERSION = 44
@@ -85,6 +87,8 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(76, v076_delegated_integration.apply),
     Migration(77, v077_milestone_reviews.apply),
     Migration(78, v078_workspace_integration.apply),
+    Migration(79, v079_durable_outputs.apply),
+    Migration(80, v080_work_scopes.apply),
 )
 
 
