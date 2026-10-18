@@ -88,6 +88,9 @@ export function projectHref(id: string) {
 export function workspaceHref(id: string) {
   return `/workspaces/${encodeURIComponent(id)}`;
 }
+export function resultHref(workspaceId: string, resultId: string) {
+  return `${workspaceHref(workspaceId)}/requests/result/${encodeURIComponent(resultId)}`;
+}
 export function taskHref(
   projectId: string,
   task: { key: string },

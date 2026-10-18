@@ -293,7 +293,7 @@ test("Needs attention opens the task itself while requests remain directly acces
       detail.getByRole("textbox", { name: "Your answer", exact: true }),
     ).toHaveCount(0);
   }
-  await expect(entry).toHaveAttribute("href", `${base}/tasks/${task.key}`);
+  await expect(entry).toHaveCount(0);
   await expect(work.getByText("Needs attention", { exact: true })).toHaveCount(
     0,
   );

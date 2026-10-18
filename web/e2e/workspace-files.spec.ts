@@ -17,8 +17,61 @@ test("workspace files organize retained task outputs without a project", async (
   );
   const base = `/workspaces/${value.workspace}`;
   await page.setViewportSize({ width: 1440, height: 1000 });
+  const failedReads: string[] = [];
+  page.on("response", (response) => {
+    if (response.url().includes("/api/") && response.status() === 404)
+      failedReads.push(response.url());
+  });
+  await page.goto(`${base}/tasks/${value.waiting_task}`);
+  const footer = page.locator(".entity-pane-footer");
+  await expect(footer).toContainText(
+    "Which viewport should the screenshot use?",
+  );
+  await expect(
+    footer.getByRole("button", { name: "Stop review", exact: true }),
+  ).toBeVisible();
+  const reviewHistory = page.waitForResponse((response) =>
+    response.url().endsWith(`/reviews/${value.waiting_review}/attempts`),
+  );
+  await page
+    .locator('[data-kind="review"] details.activity-entry > summary')
+    .click();
+  expect((await reviewHistory).ok()).toBe(true);
+  await footer
+    .getByRole("textbox", { name: "Your answer", exact: true })
+    .fill("Use a 1024 pixel viewport.");
+  await footer
+    .getByRole("button", { name: "Send answer", exact: true })
+    .click();
+  await expect(page.getByLabel("Task feed")).toContainText(
+    "Use a 1024 pixel viewport.",
+  );
+  await page.reload();
+  await expect(page.getByLabel("Task feed")).toContainText(
+    "Use a 1024 pixel viewport.",
+  );
+  expect(failedReads).toEqual([]);
   await page.goto(`${base}/files`);
   const files = page.getByRole("region", { name: "Files", exact: true });
+  await files.getByRole("button", { name: "evidence", exact: true }).click();
+  const firstPage = await (
+    await request.get(`/api${base}/files/browse?path=evidence&sort=newest`)
+  ).json();
+  expect(firstPage.next_offset).not.toBeNull();
+  expect(firstPage.items.length).toBeLessThan(55);
+  await expect(
+    files.getByRole("list", { name: "Folder contents" }).locator("li"),
+  ).toHaveCount(firstPage.items.length);
+  await files
+    .getByRole("button", { name: "Load more files", exact: true })
+    .click();
+  await expect(
+    files.getByRole("list", { name: "Folder contents" }).locator("li"),
+  ).toHaveCount(55);
+  await files
+    .getByRole("navigation", { name: "Files by work" })
+    .getByRole("button", { name: "All files", exact: true })
+    .click();
   await expect(
     files.getByText("launch-report.txt", { exact: true }),
   ).toBeVisible();

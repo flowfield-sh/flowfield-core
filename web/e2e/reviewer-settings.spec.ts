@@ -30,10 +30,8 @@ test("review defaults and task reset preserve explicit inheritance and missing s
     }),
   ).toHaveCount(0);
   await defaults.getByLabel("Automatically assess task outcomes").uncheck();
-  await defaults.getByRole("button", { name: "Save reviewer" }).click();
-  await expect(
-    defaults.getByRole("button", { name: "Save reviewer" }),
-  ).toBeDisabled();
+  await defaults.getByRole("button", { name: "Save" }).click();
+  await expect(defaults.getByRole("button", { name: "Save" })).toBeDisabled();
   const saved = await (
     await request.get(`/api/workspaces/${workspace}/reviewer`)
   ).json();
@@ -47,24 +45,18 @@ test("review defaults and task reset preserve explicit inheritance and missing s
     override.getByLabel("Automatically assess task outcomes"),
   ).not.toBeChecked();
   await override.getByLabel("Automatically assess task outcomes").check();
-  await expect(
-    override.getByRole("button", { name: "Save reviewer" }),
-  ).toBeDisabled();
+  await expect(override.getByRole("button", { name: "Save" })).toBeDisabled();
   await override.getByLabel("Automatically assess task outcomes").uncheck();
-  await override.getByRole("button", { name: "Save reviewer" }).click();
-  await expect(
-    override.getByRole("button", { name: "Reset to workspace" }),
-  ).toBeEnabled();
+  await override.getByRole("button", { name: "Save" }).click();
+  await expect(override.getByRole("button", { name: "Reset" })).toBeEnabled();
   const resetSaved = page.waitForResponse(
     (response) =>
       response.url().includes("/reviewer?") &&
       response.request().method() === "PUT",
   );
-  await override.getByRole("button", { name: "Reset to workspace" }).click();
+  await override.getByRole("button", { name: "Reset" }).click();
   expect((await resetSaved).ok()).toBe(true);
-  await expect(
-    override.getByRole("button", { name: "Reset to workspace" }),
-  ).toBeDisabled();
+  await expect(override.getByRole("button", { name: "Reset" })).toBeDisabled();
   const reset = await (
     await request.get(`/api/workspaces/${workspace}/reviewer?entity=${task.id}`)
   ).json();

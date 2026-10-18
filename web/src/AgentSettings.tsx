@@ -15,6 +15,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Popover } from "radix-ui";
 import { ChevronDown, Zap } from "lucide-react";
+import { SettingsCheckbox } from "./SettingsCheckbox";
 import { ContentStack } from "./DetailLayout";
 import {
   HarnessModelSource,
@@ -37,6 +38,7 @@ export function AgentModelFields({
   loading,
   change,
   compact = false,
+  showFast = false,
 }: {
   model: string;
   effort: string;
@@ -46,10 +48,11 @@ export function AgentModelFields({
   loading: boolean;
   change: (model: string, effort: string, mode: string, fast: boolean) => void;
   compact?: boolean;
+  showFast?: boolean;
 }) {
   const selected = models.find((item) => item.id === model);
   return (
-    <>
+    <ContentStack space={compact ? "content" : "section"}>
       <Label className="field block">
         Model
         <ChoiceSelect
@@ -143,7 +146,18 @@ export function AgentModelFields({
           />
         </Label>
       )}
-    </>
+      {showFast && (selected?.fast || fast) && (
+        <SettingsCheckbox
+          checked={fast}
+          disabled={loading || !selected?.fast}
+          onChange={(event) =>
+            change(model, effort, mode, event.target.checked)
+          }
+        >
+          Fast mode
+        </SettingsCheckbox>
+      )}
+    </ContentStack>
   );
 }
 
@@ -351,6 +365,7 @@ function useAgentSettingsContent({
             loading={source.loading || !data}
             change={change}
             compact={compact}
+            showFast={showFast && !compact}
           />
           <div className="actions">
             <Button
@@ -380,41 +395,35 @@ function useAgentSettingsContent({
               </Button>
             )}
             <RefreshModels source={source} />
-            {showFast && fastControl}
-            {(draft || error || resource.error) &&
-              (!compact || stale || error || resource.error) && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={busy}
-                  onClick={async () => {
-                    if (!stale && !error && !resource.error) {
-                      setDraft(null);
-                      return;
-                    }
-                    if (
-                      draft &&
-                      !window.confirm(
-                        "Discard your edits and load the saved settings?",
-                      )
+            {(stale || error || resource.error) && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={async () => {
+                  if (
+                    draft &&
+                    !window.confirm(
+                      "Discard your edits and load the saved settings?",
                     )
-                      return;
-                    try {
-                      resource.invalidate();
-                      resource.setData(await request<Settings>(path));
-                      resource.setError("");
-                      setDraft(null);
-                      setError("");
-                    } catch (error) {
-                      setError((error as Error).message);
-                      reportError(error, "Could not reload model settings");
-                    }
-                  }}
-                >
-                  {stale || error || resource.error ? "Reload" : "Cancel"}
-                </Button>
-              )}
+                  )
+                    return;
+                  try {
+                    resource.invalidate();
+                    resource.setData(await request<Settings>(path));
+                    resource.setError("");
+                    setDraft(null);
+                    setError("");
+                  } catch (error) {
+                    setError((error as Error).message);
+                    reportError(error, "Could not reload model settings");
+                  }
+                }}
+              >
+                Reload
+              </Button>
+            )}
             {compact && (
               <Button
                 type="button"

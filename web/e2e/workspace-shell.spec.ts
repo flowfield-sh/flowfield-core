@@ -47,6 +47,18 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
         )
       ).ok(),
     ).toBeTruthy();
+  // Sidebar navigation contains actionable or running work, not planning cards.
+  for (let i = 1; i <= 14; i++) {
+    const asked = await request.post(`/api/workspaces/${workspace}/questions`, {
+      data: {
+        task_id: `T-${i}`,
+        question: `Confirm scope ${i}?`,
+        context: "Choose the output scope.",
+        recommendation: "Use the current definition.",
+      },
+    });
+    expect(asked.ok()).toBe(true);
+  }
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(base);
@@ -105,6 +117,18 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
       )
     ).ok(),
   ).toBeTruthy();
+  expect(
+    (
+      await request.post(`/api/workspaces/${workspace}/questions`, {
+        data: {
+          task_id: "T-15",
+          question: "Confirm the new scope?",
+          context: "A live question while the document is open.",
+          recommendation: "Use the current definition.",
+        },
+      })
+    ).ok(),
+  ).toBe(true);
   await expect(work.getByRole("link", { name: /T-15 / })).toBeVisible();
   expect(inactiveReads).toEqual([]);
   await taskTab.click();

@@ -57,11 +57,17 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await deliveries
     .getByRole("link", { name: /T-1 Create a launch brief/ })
     .click();
-  await expect(page).toHaveURL(`${base}/tasks/T-1`);
-  await expect(page.locator(".entity-pane-footer .task-result")).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`${base}/requests/result/`));
+  await expect(page.locator(".task-result")).toBeVisible();
+  await page.goto(`${base}/tasks/T-1`);
+  await expect(
+    page
+      .locator(".entity-pane-footer")
+      .getByRole("link", { name: "View result" }),
+  ).toBeVisible();
   await expect(
     page.locator('[aria-label="Task feed"] .task-result'),
-  ).toHaveCount(0);
+  ).not.toBeVisible();
   await page.goto(`${base}?inbox=delivered`);
   await expect(deliveries.locator("article")).toHaveCount(1);
   await page.goto(`${base}/tasks`);
@@ -138,7 +144,9 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
     detail.getByRole("button", { name: "Cancel delivery", exact: true }),
   ).toHaveCount(0);
   await expect(
-    detail.getByText("Integrated into main", { exact: true }).first(),
+    detail
+      .locator(".entity-pane-footer")
+      .getByRole("link", { name: "View result" }),
   ).toBeVisible();
   await expect(detail.getByText(/This assessment is outdated/)).toHaveCount(0);
   await page.screenshot({
@@ -170,13 +178,17 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto(`${base}/tasks/${value.report}`);
+  await detail
+    .locator(".entity-pane-footer")
+    .getByRole("link", { name: "View result" })
+    .click();
   await expect(
-    detail
+    page
       .getByRole("region", { name: "Proposed result", exact: true })
       .getByText("The outcome meets the task criteria.", { exact: true }),
   ).toBeVisible();
   await expect(
-    detail.getByRole("link", { name: /launch-brief.pdf/ }).first(),
+    page.getByRole("link", { name: /launch-brief.pdf/ }).first(),
   ).toBeVisible();
   await openResource(page, "Files");
   const files = page.getByRole("region", { name: "Files", exact: true });
@@ -222,15 +234,18 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   });
   expect(archived.ok()).toBe(true);
   await page.goto(`${base}/work`);
+  const allWork = page.getByTestId("work");
   await expect(
-    page.getByRole("region", { name: "Completed", exact: true }),
+    allWork.getByRole("region", { name: "Delivered", exact: true }),
   ).toContainText("T-2");
   await expect(
-    page.getByRole("region", { name: "Archived", exact: true }),
-  ).toContainText("T-1");
-  await expect(
-    page.getByRole("region", { name: "Completed", exact: true }),
+    allWork.getByRole("region", { name: "Delivered", exact: true }),
   ).not.toContainText("T-1");
+  await expect(
+    allWork.getByRole("region", { name: "Archived", exact: true }),
+  ).toHaveCount(0);
+  await page.goto(`${base}/archive`);
+  await expect(page.getByTestId("work")).toContainText("T-1");
   await page.goto(`${base}?inbox=delivered`);
   await expect(deliveries.locator("article")).toHaveCount(1);
   await expect(deliveries.locator("article")).toContainText("T-2");

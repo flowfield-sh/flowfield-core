@@ -5,6 +5,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Download, File, Folder, ChevronRight, ArrowUp } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChoiceSelect } from "@/components/ui/choice-select";
 import type { components } from "./api-schema";
@@ -73,10 +74,9 @@ function FileDetails({ entry }: { entry: FileEntry }) {
     <DetailSection title={entry.name} aria-label="File details">
       <p className="detail-metadata">
         {sizeLabel(file.size)} · <Timestamp date={file.created_at} />
-        {file.result_version ? " · Version " + file.result_version : ""}
       </p>
       <WorkspaceLink to={taskHref(file.workspace_id, { key: file.task_key })}>
-        {file.task_key}
+        <Badge variant="outline">{file.task_key}</Badge>
       </WorkspaceLink>
       <div className="actions">
         <Button size="sm" asChild>
@@ -136,13 +136,13 @@ export function Files({
   const parts = path.split("/").filter(Boolean);
   return (
     <section className="setup-page @container" aria-label="Files">
-      <div className="grid min-h-0 grid-cols-[4rem_minmax(0,1fr)] gap-3 @lg:grid-cols-[4rem_minmax(9rem,1fr)_minmax(0,2fr)]">
+      <div className="grid min-h-0 grid-cols-[6rem_minmax(0,1fr)] gap-3 @2xl:grid-cols-[7rem_minmax(10rem,1fr)_minmax(0,2fr)]">
         <nav aria-label="Files by work" className="min-w-0 border-r pr-2">
           <ContentStack>
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 justify-start px-1 text-xs"
+              className="h-8 w-full justify-start px-2 text-sm"
               onClick={() => {
                 setWork(null);
                 navigate("");
@@ -155,14 +155,14 @@ export function Files({
               <Tooltip key={item.id}>
                 <TooltipTrigger asChild>
                   <button
-                    className="block w-full rounded px-1 py-1 text-left text-xs hover:bg-accent focus-visible:outline-ring aria-pressed:bg-accent aria-pressed:font-medium"
+                    className="block w-full rounded px-2 py-2 text-left text-sm hover:bg-accent focus-visible:outline-ring aria-pressed:bg-accent aria-pressed:font-medium"
                     aria-pressed={work?.id === item.id}
                     onClick={() => {
                       setWork(item);
                       navigate("");
                     }}
                   >
-                    <span className="truncate">{item.task_key}</span>
+                    <Badge variant="outline">{item.task_key}</Badge>
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
@@ -187,7 +187,11 @@ export function Files({
               className="flex min-w-0 flex-1 flex-wrap items-center gap-1"
             >
               <Button size="sm" variant="ghost" onClick={() => navigate("")}>
-                {work ? (work.task_key ?? work.title) : "All files"}
+                {work ? (
+                  <Badge variant="outline">{work.task_key ?? work.title}</Badge>
+                ) : (
+                  "All files"
+                )}
               </Button>
               {parts.map((part, index) => (
                 <span key={index} className="inline-flex min-w-0 items-center">
@@ -264,10 +268,16 @@ export function Files({
                         </span>
                         {item.file && (
                           <span className="detail-metadata">
-                            {!work ? item.file.task_key + " · " : ""}
-                            {item.file.result_version
-                              ? "v" + item.file.result_version
-                              : sizeLabel(item.file.size)}
+                            {!work && (
+                              <>
+                                <Badge variant="outline">
+                                  {item.file.task_key}
+                                </Badge>
+                                {" · "}
+                              </>
+                            )}
+                            {sizeLabel(item.file.size)} ·{" "}
+                            <Timestamp date={item.file.created_at} />
                           </span>
                         )}
                       </span>
@@ -294,7 +304,7 @@ export function Files({
         </ContentStack>
         <aside
           aria-label="Selected file"
-          className="col-span-2 min-w-0 border-t pt-4 @lg:col-span-1 @lg:border-t-0 @lg:border-l @lg:pt-0 @lg:pl-4"
+          className="col-span-2 min-w-0 border-t pt-4 @2xl:col-span-1 @2xl:border-t-0 @2xl:border-l @2xl:pt-0 @2xl:pl-4"
         >
           {entry?.file && <FileDetails key={entry.id} entry={entry} />}
           {!entry?.file && (

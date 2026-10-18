@@ -26,7 +26,7 @@ import type { components } from "./api-schema";
 import { useResource } from "./useResource";
 import { request, type Task, type WorkspaceBoard } from "./workspace";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { taskHref } from "./navigation";
+import { taskHref, resultHref } from "./navigation";
 import { Markdown } from "./Markdown";
 import { Timestamp, ExactTimeTooltip } from "./Timestamp";
 import { Result } from "./Result";
@@ -303,7 +303,7 @@ export function TaskConversation({
     .reverse()
     .find((message) => message.kind === "review");
   const activeReview =
-    latestReview && !["decided", "stale"].includes(latestReview.status ?? "")
+    latestReview && ["preparing", "running"].includes(latestReview.status ?? "")
       ? latestReview
       : null;
   const footerResult =
@@ -510,9 +510,10 @@ export function TaskConversation({
       !!gate.data?.pending_reply_id);
   const hasFeedBody = (message: Message) =>
     hasBody(message) &&
-    message.id !== footerResult?.id &&
+    (message.id !== footerResult?.id || footerResult.status === "delivered") &&
     !(
       !requestTarget &&
+      target !== message.id &&
       showInputFooter &&
       showComposer &&
       replyBinding?.question_id === message.source_id &&
@@ -581,9 +582,7 @@ export function TaskConversation({
                                     (item) =>
                                       item.source_id === gate.data?.question_id,
                                   )?.id
-                              : gate.data?.result_id
-                                ? "result:" + gate.data.result_id
-                                : undefined))
+                              : undefined))
                         }
                         alwaysOpen={
                           message.kind === "answer" || message.kind === "reply"
@@ -786,19 +785,29 @@ export function TaskConversation({
           )}
           {(showInputFooter || footerResult) && (
             <ContentStack className="task-input">
-              {footerResult && (
-                <Result
-                  projectId={projectId}
-                  taskId={task.id}
-                  taskKey={task.key}
-                  versionId={footerResult.source_id}
-                  refresh={tick}
-                  onReply={requestChanges}
-                  onApprove={approve}
-                  inputEnabled={inputEnabled}
-                  reviewControls={false}
-                />
-              )}
+              {footerResult &&
+                (footerResult.status === "delivered" ? (
+                  <p>
+                    Work delivered.{" "}
+                    <WorkspaceLink
+                      to={resultHref(projectId, footerResult.source_id)}
+                    >
+                      View result
+                    </WorkspaceLink>
+                  </p>
+                ) : (
+                  <Result
+                    projectId={projectId}
+                    taskId={task.id}
+                    taskKey={task.key}
+                    versionId={footerResult.source_id}
+                    refresh={tick}
+                    onReply={requestChanges}
+                    onApprove={approve}
+                    inputEnabled={inputEnabled}
+                    reviewControls={false}
+                  />
+                ))}
               {!requestTarget && (
                 <TaskReview
                   projectId={projectId}

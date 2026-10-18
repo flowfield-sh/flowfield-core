@@ -187,7 +187,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
       .poll(async () => {
         const tops = await Promise.all(
           (width === 1280
-            ? ["Save", "Reset", "Refresh models", "Cancel"]
+            ? ["Save", "Reset", "Refresh models"]
             : ["Save", "Reset"]
           ).map(
             async (name) =>
@@ -200,7 +200,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
       })
       .toBeLessThan(1);
     const bounds = await Promise.all(
-      ["Save", "Reset", "Refresh models", "Cancel"].map(
+      ["Save", "Reset", "Refresh models"].map(
         async (name) =>
           (await picker
             .getByRole("button", { name, exact: true })
@@ -218,7 +218,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     }
   }
   await page.setViewportSize({ width: 1280, height: 900 });
-  await picker.getByRole("button", { name: "Cancel", exact: true }).click();
+  await picker.getByRole("button", { name: "Reset", exact: true }).click();
   await expect(picker.getByLabel("Model", { exact: true })).toHaveAttribute(
     "data-value",
     "first",
@@ -232,11 +232,13 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   await choose(picker.getByLabel("Access mode"), "read-only");
   await picker.getByLabel("Access mode").scrollIntoViewIfNeeded();
   await page.screenshot({ path: "/tmp/flowfield-slice3-native-modes.png" });
+  await picker
+    .getByRole("checkbox", { name: "Fast mode", exact: true })
+    .check();
   await picker.getByRole("button", { name: "Save" }).click();
-  await page.getByRole("button", { name: "Fast mode", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Fast mode", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
+    picker.getByRole("checkbox", { name: "Fast mode", exact: true }),
+  ).toBeChecked();
 
   await expect(
     picker.getByText("Overrides workspace defaults for the next worker run.", {

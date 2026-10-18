@@ -89,9 +89,10 @@ export function Result({
   const settingsHref =
     version?.next_action?.settings === "reviewer"
       ? `${taskHref(projectId, { key: taskKey })}/settings`
-      : version?.next_action?.settings === "integration" &&
-          worker.data?.project_id
-        ? `/projects/${worker.data.project_id}/edit/integration`
+      : version?.next_action?.settings === "integration"
+        ? worker.data?.project_id
+          ? `/projects/${worker.data.project_id}/edit/integration`
+          : null
         : `/workspaces/${projectId}/edit/workers`;
   const href = taskHref(projectId, { key: taskKey }, "changes");
   async function recover(
@@ -328,7 +329,8 @@ export function Result({
                         .
                       </p>
                     )}
-                    {version.next_action.settings &&
+                    {settingsHref &&
+                      version.next_action.settings &&
                       version.next_action.action !== "settings" && (
                         <WorkspaceLink to={settingsHref}>
                           Project setup
@@ -338,11 +340,17 @@ export function Result({
                 }
               >
                 {version.next_action.action === "settings" ? (
-                  <Button size="sm" asChild>
-                    <WorkspaceLink to={settingsHref}>
+                  settingsHref ? (
+                    <Button size="sm" asChild>
+                      <WorkspaceLink to={settingsHref}>
+                        {version.next_action.label}
+                      </WorkspaceLink>
+                    </Button>
+                  ) : (
+                    <Button size="sm" disabled>
                       {version.next_action.label}
-                    </WorkspaceLink>
-                  </Button>
+                    </Button>
+                  )
                 ) : version.next_action.action === "coordinator" ? null : (
                   <Button
                     type="button"

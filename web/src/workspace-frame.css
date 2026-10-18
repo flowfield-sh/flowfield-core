@@ -111,6 +111,25 @@
 }
 .workspace-work-only {
   flex: 1;
+  padding: 12px;
+}
+.workspace-standalone-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 48rem;
+  min-height: 0;
+  flex: 1;
+  align-self: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+}
+.workspace-standalone-content > .setup-page {
+  position: relative;
+  overflow-y: auto;
+  padding: 24px;
 }
 .workspace-mobile-bar {
   align-items: center;
@@ -151,14 +170,7 @@
   flex: 1;
   min-height: 0;
 }
-.workspace-pane > .welcome {
-  overflow-y: auto;
-  padding: 24px;
-}
-.workspace-pane > .setup-page {
-  position: relative;
-  flex: 1;
-  min-height: 0;
+.workspace-standalone-content > .welcome {
   overflow-y: auto;
   padding: 24px;
 }

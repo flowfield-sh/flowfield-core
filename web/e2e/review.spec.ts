@@ -1211,8 +1211,10 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     .getByRole("link", { name: "T-1 Report outcome", exact: true })
     .click();
   await expect(
-    page.getByRole("region", { name: "Proposed result", exact: true }),
-  ).toContainText("A detailed finding.");
+    page
+      .locator(".entity-pane-footer")
+      .getByRole("link", { name: "View result" }),
+  ).toBeVisible();
   await expect.poll(reportAtBottom).toBe(true);
   const reportStamp = page
     .locator('[data-kind="result"]')
@@ -1247,7 +1249,7 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     .toBe(0);
   expect(
     await page
-      .locator(".entity-pane-footer")
+      .locator(".entity-pane-body")
       .evaluate((el) => el.scrollHeight > el.clientHeight),
   ).toBe(true);
   const originalViewport = startingViewport;
@@ -1349,9 +1351,23 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   await expect(async () =>
     expect((await result("setup"))?.problem_code).toBe("runtime_setup_failed"),
   ).toPass();
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, "outcome-setup")}/tasks/T-1/changes`,
+  let releaseRun!: () => void;
+  const runReady = new Promise<void>((resolve) => {
+    releaseRun = resolve;
+  });
+  const setupWorkspace = await projectWorkspace(page.request, "outcome-setup");
+  await page.route(
+    `**/api/workspaces/${setupWorkspace}/runs/*`,
+    async (route) => {
+      await runReady;
+      await route.continue();
+    },
   );
+  await page.goto(`/workspaces/${setupWorkspace}/tasks/T-1/changes`);
+  await expect(
+    actions.getByRole("button", { name: "Fix project setup" }),
+  ).toBeDisabled();
+  releaseRun();
   await actions.getByRole("link", { name: "Fix project setup" }).click();
   await expect(page).toHaveURL(/edit\/integration/);
 });

@@ -4,23 +4,34 @@ import * as React from "react";
 import { cn } from "cn";
 import { Tooltip as TooltipPrimitive } from "radix-ui";
 
+const TooltipOptions = React.createContext<
+  Omit<React.ComponentProps<typeof TooltipPrimitive.Provider>, "children">
+>({ delayDuration: 0 });
+
 function TooltipProvider({
   delayDuration = 0,
+  children,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
   return (
-    <TooltipPrimitive.Provider
-      data-slot="tooltip-provider"
-      delayDuration={delayDuration}
-      {...props}
-    />
+    <TooltipOptions.Provider value={{ delayDuration, ...props }}>
+      {children}
+    </TooltipOptions.Provider>
   );
 }
 
 function Tooltip({
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />;
+  const options = React.useContext(TooltipOptions);
+  // Keep pointer-transit suppression local to each trigger. A neighboring
+  // tooltip can open immediately while content remains hoverable and delayed
+  // tooltips retain their configured delay.
+  return (
+    <TooltipPrimitive.Provider {...options}>
+      <TooltipPrimitive.Root data-slot="tooltip" {...props} />
+    </TooltipPrimitive.Provider>
+  );
 }
 
 function TooltipTrigger({

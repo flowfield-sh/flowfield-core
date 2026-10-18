@@ -29,7 +29,7 @@ export function AgentChoiceFields({
   return (
     <fieldset aria-label={label} className="content-stack">
       <legend className="detail-title mb-2">{label}</legend>
-      <ContentStack>
+      <ContentStack space="section">
         <HarnessModelSource
           source={source}
           change={(harness) =>

@@ -84,7 +84,7 @@ def result_action(
                     "work can use it. This does not change the branch."
                 ),
             )
-        return ResultAction(owner="none", action="none", label="Completed")
+        return ResultAction(owner="none", action="none", label="Delivered")
     task = workspace._task(db, value.workspace_id, value.task_id)
     revised_assignment = False
     try:

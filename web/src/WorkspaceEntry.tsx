@@ -3,6 +3,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { ContentStack, DetailHeading } from "./DetailLayout";
 import { ProjectBadge } from "./ProjectBadge";
 import { WorkspaceLink } from "./WorkspaceLink";
@@ -37,26 +38,28 @@ export function WorkspaceList({
             and follow progress.
           </p>
         )}
-        <div className="project-list">
-          {workspaces.map((workspace) => (
-            <WorkspaceLink
-              key={workspace.id}
-              to={workspaceHref(workspace.id)}
-              className="project-list-row workspace-list-row"
-            >
-              <ProjectBadge id={workspace.id} name={workspace.name} />
-              <strong>{workspace.name}</strong>
-              {!!attentionCounts?.[workspace.id] && (
-                <span className="workspace-inbox-count">
-                  <span className="nav-count needs-attention">
-                    {attentionCounts[workspace.id]}
+        {!!workspaces.length && (
+          <div className="project-list">
+            {workspaces.map((workspace) => (
+              <WorkspaceLink
+                key={workspace.id}
+                to={workspaceHref(workspace.id)}
+                className="project-list-row workspace-list-row"
+              >
+                <ProjectBadge id={workspace.id} name={workspace.name} />
+                <strong>{workspace.name}</strong>
+                {!!attentionCounts?.[workspace.id] && (
+                  <span className="workspace-inbox-count">
+                    <span className="nav-count needs-attention">
+                      {attentionCounts[workspace.id]}
+                    </span>
+                    <span>in Inbox</span>
                   </span>
-                  <span>in Inbox</span>
-                </span>
-              )}
-            </WorkspaceLink>
-          ))}
-        </div>
+                )}
+              </WorkspaceLink>
+            ))}
+          </div>
+        )}
       </ContentStack>
     </section>
   );
@@ -128,18 +131,21 @@ export function NewWorkspace({
                 onChange={(event) => setName(event.target.value)}
               />
             </Label>
+            <Separator />
             <AgentChoiceFields
               label="Coordinator"
               value={coordinator}
               change={setCoordinator}
               onReady={setCoordinatorReady}
             />
+            <Separator />
             <AgentChoiceFields
               label="Worker"
               value={worker}
               change={setWorker}
               onReady={setWorkerReady}
             />
+            <Separator />
             <AgentChoiceFields
               label="Reviewer"
               value={reviewer}

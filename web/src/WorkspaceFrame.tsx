@@ -210,7 +210,7 @@ export function WorkspaceFrame({
               <SidebarTrigger aria-label="Open workspaces" />
               <span>Flowfield</span>
             </div>
-            {work}
+            <div className="workspace-standalone-content">{work}</div>
           </div>
         ) : (
           <Tabs

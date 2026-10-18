@@ -47,10 +47,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   await expect(page).toHaveURL(base + "/tasks?project=" + project);
   await expect(page.getByLabel("Filter by project")).toHaveValue(project);
   const work = page.getByRole("navigation", { name: "Work", exact: true });
-  await expect(work.getByRole("link").first()).toHaveAttribute(
-    "href",
-    `/workspaces/${await projectWorkspace(request, project)}/tasks/T-2`,
-  );
+  await expect(work.getByRole("link")).toHaveCount(0);
   await request.post(
     `/api/workspaces/${await projectWorkspace(request, project)}/questions`,
     {

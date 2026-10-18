@@ -20,7 +20,7 @@ import { WorkspaceLink } from "./WorkspaceLink";
 import { canonicalResourceRoot } from "./WorkspaceTabs";
 import type { WorkspaceBoard } from "./workspace";
 
-export function workItems(board: WorkspaceBoard) {
+function workItems(board: WorkspaceBoard) {
   const attention = new Set(board.attention_work_keys ?? []);
   return [
     ...board.tasks.map((t) => ({
@@ -34,12 +34,7 @@ export function workItems(board: WorkspaceBoard) {
       attention: attention.has(t.key),
       state: t.state ?? { label: t.status, tone: "idle" as const },
     })),
-  ].sort(
-    (a, b) =>
-      Number(b.attention) - Number(a.attention) ||
-      Number(a.planned) - Number(b.planned) ||
-      a.key.localeCompare(b.key, undefined, { numeric: true }),
-  );
+  ];
 }
 export function WorkList({
   board,
@@ -54,25 +49,11 @@ export function WorkList({
 }) {
   const [count, setCount] = useState(40);
   const items = workItems(board).filter(
-    (item) => all || ((!item.complete || item.attention) && !item.archived),
+    (item) =>
+      !item.archived && (item.attention || (!item.complete && !item.planned)),
   );
-  const group = (item: (typeof items)[number]) =>
-    item.attention && !item.archived
-      ? 0
-      : item.archived
-        ? 4
-        : item.complete
-          ? 3
-          : item.planned
-            ? 2
-            : 1;
-  const groups = [
-    "Needs attention",
-    "In progress",
-    "Planned",
-    "Completed",
-    "Archived",
-  ];
+  const group = (item: (typeof items)[number]) => (item.attention ? 0 : 2);
+  const groups = ["Needs attention", "Delivered", "In progress"];
   items.sort(
     (a, b) =>
       group(a) - group(b) ||
@@ -83,14 +64,29 @@ export function WorkList({
     <>
       <div className={all ? "work-resource-groups" : "work-navigation-list"}>
         {groups.map((name, index) => {
+          if (index === 1)
+            return (
+              <DeliveredNavigation
+                key={name}
+                workspaceId={board.workspace.id}
+                refresh={board}
+                current={current}
+                open={open}
+                all={all}
+              />
+            );
           const members = items
-            .slice(0, count)
-            .filter((item) => group(item) === index);
-          if (!members.length) return null;
+            .filter((item) => group(item) === index)
+            .slice(0, count);
+          if (!all && !members.length) return null;
           return (
             <section key={name} aria-label={all ? name : undefined}>
               <h3 className="work-group-label">{name}</h3>
-              <div className={all ? "work-resource-list" : undefined}>
+              <div
+                className={
+                  all && members.length ? "work-resource-list" : undefined
+                }
+              >
                 {members.map((item) => (
                   <div key={item.key}>
                     <Tooltip open={all ? false : undefined}>
@@ -122,22 +118,25 @@ export function WorkList({
                       </TooltipTrigger>
                       <TooltipContent side="right">
                         {item.key} {item.title} · {item.state.label}
-                        {item.archived ? " · Archived" : ""}
                       </TooltipContent>
                     </Tooltip>
                   </div>
                 ))}
               </div>
+              {!members.length && (
+                <p className="collection-empty">
+                  {index === 0
+                    ? "Nothing needs attention"
+                    : "No work in progress"}
+                </p>
+              )}
             </section>
           );
         })}
-        {!items.length && (
-          <p className="collection-empty">
-            {all ? "No work yet" : "No active work"}
-          </p>
-        )}
       </div>
-      {count < items.length && (
+      {[0, 2].some(
+        (index) => items.filter((item) => group(item) === index).length > count,
+      ) && (
         <LoadMore size="sm" onClick={() => setCount((n) => n + 40)}>
           Load more work
         </LoadMore>
@@ -194,12 +193,6 @@ export function WorkNavigation({
       </div>
       <nav className="work-navigation-scroll" aria-label="Work">
         <WorkList board={board} current={current} open={open} />
-        <DeliveredNavigation
-          workspaceId={board.workspace.id}
-          refresh={board}
-          current={current}
-          open={open}
-        />
       </nav>
     </>
   );

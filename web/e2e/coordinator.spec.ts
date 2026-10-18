@@ -867,6 +867,20 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   await expect(page.getByRole("tooltip")).toContainText(
     "Fast mode off. Faster responses, increased usage",
   );
+  // Moving straight between adjacent triggers must open each tooltip without
+  // a second hover, while the tooltip itself remains hoverable.
+  const contextRing = page.locator(".composer-toolbar .context-ring");
+  await expect(contextRing).toBeVisible();
+  for (let i = 0; i < 3; i++) {
+    await contextRing.hover();
+    await expect(page.getByRole("tooltip")).toContainText("context usage");
+    await fastButton.hover();
+    await expect(page.getByRole("tooltip")).toContainText("Fast mode off");
+  }
+  await page.getByRole("tooltip").hover();
+  await expect(page.getByRole("tooltip")).toContainText("Fast mode off");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
   await fastButton.click();
   await expect(fastButton).toHaveAttribute("aria-pressed", "true");
   expect(settings.effective?.choice.fast).toBe(true);

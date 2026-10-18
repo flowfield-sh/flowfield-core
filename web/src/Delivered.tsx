@@ -7,8 +7,8 @@ import { ResourceRetry } from "./ResourceRetry";
 import { Timestamp } from "./Timestamp";
 import { WorkIdentity } from "./WorkIdentity";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { followLink, taskHref, workspaceHref } from "./navigation";
-import { usePage, useResource } from "./useResource";
+import { followLink, resultHref } from "./navigation";
+import { usePage } from "./useResource";
 import {
   Tooltip,
   TooltipContent,
@@ -43,7 +43,7 @@ export function Delivered({
           <div className="flex flex-wrap items-center gap-2 bg-muted px-3 py-2">
             <WorkspaceLink
               className="min-w-0 flex-1"
-              to={taskHref(workspaceId, { key: item.task_key })}
+              to={resultHref(workspaceId, item.id)}
             >
               <WorkIdentity
                 state={state}
@@ -64,7 +64,7 @@ export function Delivered({
             )}
             {!!item.files.length && <OutputFiles files={item.files} />}
             {item.file_count > item.files.length && (
-              <WorkspaceLink to={taskHref(workspaceId, { key: item.task_key })}>
+              <WorkspaceLink to={resultHref(workspaceId, item.id)}>
                 View all {item.file_count} files
               </WorkspaceLink>
             )}
@@ -90,57 +90,72 @@ export function DeliveredNavigation({
   refresh,
   current,
   open,
+  all = false,
 }: {
   workspaceId: string;
   refresh: unknown;
-  current: string;
-  open: (url: string) => void;
+  current?: string;
+  open?: (url: string) => void;
+  all?: boolean;
 }) {
-  const page = useResource<Page>(
-    `workspaces/${workspaceId}/view/delivered?limit=5`,
+  const page = usePage<Page>(
+    `workspaces/${workspaceId}/view/delivered?limit=${all ? 20 : 5}`,
     refresh,
   );
-  const href = workspaceHref(workspaceId) + "?inbox=delivered";
+  if (!all && !page.data?.items.length && !page.error) return null;
   return (
     <section aria-label="Delivered">
-      <div className="work-navigation-heading">
-        <h3 className="work-group-label">Delivered</h3>
-        <a href={href} onClick={(event) => followLink(event, () => open(href))}>
-          View all
-        </a>
-      </div>
+      <h3 className="work-group-label">Delivered</h3>
       <ResourceRetry resources={[page]} />
-      {page.data?.items.map((item) => {
-        const url = taskHref(workspaceId, { key: item.task_key });
-        return (
-          <Tooltip key={item.id}>
-            <TooltipTrigger asChild>
-              <WorkspaceLink
-                to={url}
-                className="work-navigation-row"
-                aria-current={
-                  current === url || current.startsWith(url + "/")
-                    ? "page"
-                    : undefined
-                }
-                aria-label={`${item.task_key} ${item.title}`}
-                onClick={(event) => followLink(event, () => open(url))}
-              >
-                <WorkIdentity
-                  state={state}
-                  itemKey={item.task_key}
-                  title={item.title}
-                  decorative
-                />
-              </WorkspaceLink>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              {item.task_key} {item.title} · Delivered{" "}
-              <Timestamp date={item.delivered_at} tooltip={false} />
-            </TooltipContent>
-          </Tooltip>
-        );
-      })}
+      <div
+        className={
+          all && page.data?.items.length ? "work-resource-list" : undefined
+        }
+      >
+        {page.data?.items.map((item) => {
+          const url = resultHref(workspaceId, item.id);
+          return (
+            <Tooltip key={item.id} open={all ? false : undefined}>
+              <TooltipTrigger asChild>
+                <WorkspaceLink
+                  to={url}
+                  className="work-navigation-row"
+                  aria-current={
+                    current === url || current?.startsWith(url + "/")
+                      ? "page"
+                      : undefined
+                  }
+                  aria-label={`${item.task_key} ${item.title}`}
+                  onClick={
+                    open
+                      ? (event) => followLink(event, () => open(url))
+                      : undefined
+                  }
+                >
+                  <WorkIdentity
+                    state={state}
+                    itemKey={item.task_key}
+                    title={item.title}
+                    decorative={!all}
+                  />
+                </WorkspaceLink>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                {item.task_key} {item.title} · Delivered{" "}
+                <Timestamp date={item.delivered_at} tooltip={false} />
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </div>
+      {all && page.data?.next_cursor && (
+        <LoadMore
+          disabled={page.loading || page.loadingMore}
+          onClick={() => void page.older()}
+        >
+          Earlier deliveries
+        </LoadMore>
+      )}
       {page.data && !page.data.items.length && (
         <p className="collection-empty">No delivered work yet</p>
       )}

@@ -29,12 +29,23 @@ test("overflowing tabs scroll by wheel with directional fades and even gutters",
         },
       },
     );
+  for (let i = 1; i <= 9; i++) {
+    const asked = await request.post(`/api/workspaces/${workspace}/questions`, {
+      data: {
+        task_id: `T-${i}`,
+        question: `Confirm scope ${i}?`,
+        context: "Choose the output scope.",
+        recommendation: "Use the current definition.",
+      },
+    });
+    expect(asked.ok()).toBe(true);
+  }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`/workspaces/${workspace}/tasks`);
   const work = page.getByRole("navigation", { name: "Work", exact: true });
   for (let i = 0; i < 9; i++) await work.getByRole("link").nth(i).click();
   const strip = page.locator(".workspace-tab-strip");
-  const inbox = strip.getByRole("tab", { name: "Inbox", exact: true });
+  const inbox = strip.getByRole("tab", { name: /^Inbox(?: \d+)?$/ });
   await inbox.click();
   await expect(strip).toHaveAttribute("data-overflow-left", "false");
   await expect(strip).toHaveAttribute("data-overflow-right", "true");

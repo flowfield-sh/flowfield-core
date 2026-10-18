@@ -74,6 +74,8 @@ export function EntityPane({
   }, [identity, body]);
   useLayoutEffect(
     () => () => {
+      // Installing the body ref is not navigation away from the pane.
+      if (!body) return;
       const scope = body?.closest(".workspace-pane");
       requestAnimationFrame(() => {
         // History can reopen a task while the prior tab/button has focus. Return
@@ -88,16 +90,20 @@ export function EntityPane({
               link.pathname.startsWith(returnFocusHref + "/")) &&
             link.getClientRects().length > 0,
         );
-        const target =
-          opener.current?.isConnected &&
-          opener.current.getClientRects().length > 0
-            ? opener.current
-            : entry;
         const currentPane = [...document.querySelectorAll(".entity-pane")]
           .filter((pane) => pane.getClientRects().length > 0)
           .at(-1);
-        if (currentPane && !currentPane.contains(target ?? null)) return;
-        if (target?.isConnected) target.focus({ preventScroll: true });
+        // A routed pane may mount after the clicked link lost focus. An old
+        // body/outside-pane opener must not suppress the matching return link.
+        const target = [opener.current, entry].find(
+          (candidate) =>
+            candidate &&
+            candidate !== document.body &&
+            candidate.isConnected &&
+            candidate.getClientRects().length > 0 &&
+            (!currentPane || currentPane.contains(candidate)),
+        );
+        target?.focus({ preventScroll: true });
       });
     },
     [body, returnFocusHref],

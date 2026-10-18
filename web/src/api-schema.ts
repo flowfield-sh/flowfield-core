@@ -2225,7 +2225,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/workspaces/{project}/tasks/{task}/review": {
+  "/api/workspaces/{workspace}/tasks/{task}/review": {
     parameters: {
       query?: never;
       header?: never;
@@ -2233,7 +2233,7 @@ export interface paths {
       cookie?: never;
     };
     /** Current */
-    get: operations["current_api_workspaces__project__tasks__task__review_get"];
+    get: operations["current_api_workspaces__workspace__tasks__task__review_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2242,7 +2242,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/workspaces/{project}/reviews/{identity}": {
+  "/api/workspaces/{workspace}/reviews/{identity}": {
     parameters: {
       query?: never;
       header?: never;
@@ -2250,7 +2250,7 @@ export interface paths {
       cookie?: never;
     };
     /** Review */
-    get: operations["review_api_workspaces__project__reviews__identity__get"];
+    get: operations["review_api_workspaces__workspace__reviews__identity__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2259,7 +2259,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/workspaces/{project}/reviews/{identity}/attempts": {
+  "/api/workspaces/{workspace}/reviews/{identity}/attempts": {
     parameters: {
       query?: never;
       header?: never;
@@ -2267,7 +2267,7 @@ export interface paths {
       cookie?: never;
     };
     /** Attempts */
-    get: operations["attempts_api_workspaces__project__reviews__identity__attempts_get"];
+    get: operations["attempts_api_workspaces__workspace__reviews__identity__attempts_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2276,7 +2276,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/workspaces/{project}/reviews/{identity}/stop": {
+  "/api/workspaces/{workspace}/reviews/{identity}/stop": {
     parameters: {
       query?: never;
       header?: never;
@@ -2286,14 +2286,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Stop */
-    post: operations["stop_api_workspaces__project__reviews__identity__stop_post"];
+    post: operations["stop_api_workspaces__workspace__reviews__identity__stop_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/workspaces/{project}/reviews/{identity}/activity": {
+  "/api/workspaces/{workspace}/reviews/{identity}/activity": {
     parameters: {
       query?: never;
       header?: never;
@@ -2301,7 +2301,7 @@ export interface paths {
       cookie?: never;
     };
     /** Activity */
-    get: operations["activity_api_workspaces__project__reviews__identity__activity_get"];
+    get: operations["activity_api_workspaces__workspace__reviews__identity__activity_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2310,7 +2310,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/workspaces/{project}/reviews/{identity}/attempts/{attempt}/activity": {
+  "/api/workspaces/{workspace}/reviews/{identity}/attempts/{attempt}/activity": {
     parameters: {
       query?: never;
       header?: never;
@@ -2318,7 +2318,7 @@ export interface paths {
       cookie?: never;
     };
     /** Attempt Activity */
-    get: operations["attempt_activity_api_workspaces__project__reviews__identity__attempts__attempt__activity_get"];
+    get: operations["attempt_activity_api_workspaces__workspace__reviews__identity__attempts__attempt__activity_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2327,7 +2327,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/workspaces/{project}/reviews/{identity}/retry": {
+  "/api/workspaces/{workspace}/reviews/{identity}/retry": {
     parameters: {
       query?: never;
       header?: never;
@@ -2337,14 +2337,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Retry */
-    post: operations["retry_api_workspaces__project__reviews__identity__retry_post"];
+    post: operations["retry_api_workspaces__workspace__reviews__identity__retry_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/workspaces/{project}/reviews/{identity}/confirm-stopped": {
+  "/api/workspaces/{workspace}/reviews/{identity}/confirm-stopped": {
     parameters: {
       query?: never;
       header?: never;
@@ -2354,7 +2354,7 @@ export interface paths {
     get?: never;
     put?: never;
     /** Confirm Stopped */
-    post: operations["confirm_stopped_api_workspaces__project__reviews__identity__confirm_stopped_post"];
+    post: operations["confirm_stopped_api_workspaces__workspace__reviews__identity__confirm_stopped_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -11628,12 +11628,12 @@ export interface operations {
       };
     };
   };
-  current_api_workspaces__project__tasks__task__review_get: {
+  current_api_workspaces__workspace__tasks__task__review_get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project: string;
+        workspace: string;
         task: string;
       };
       cookie?: never;
@@ -11660,12 +11660,12 @@ export interface operations {
       };
     };
   };
-  review_api_workspaces__project__reviews__identity__get: {
+  review_api_workspaces__workspace__reviews__identity__get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project: string;
+        workspace: string;
         identity: string;
       };
       cookie?: never;
@@ -11692,14 +11692,14 @@ export interface operations {
       };
     };
   };
-  attempts_api_workspaces__project__reviews__identity__attempts_get: {
+  attempts_api_workspaces__workspace__reviews__identity__attempts_get: {
     parameters: {
       query?: {
         before?: number | null;
       };
       header?: never;
       path: {
-        project: string;
+        workspace: string;
         identity: string;
       };
       cookie?: never;
@@ -11726,12 +11726,12 @@ export interface operations {
       };
     };
   };
-  stop_api_workspaces__project__reviews__identity__stop_post: {
+  stop_api_workspaces__workspace__reviews__identity__stop_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project: string;
+        workspace: string;
         identity: string;
       };
       cookie?: never;
@@ -11762,12 +11762,12 @@ export interface operations {
       };
     };
   };
-  activity_api_workspaces__project__reviews__identity__activity_get: {
+  activity_api_workspaces__workspace__reviews__identity__activity_get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project: string;
+        workspace: string;
         identity: string;
       };
       cookie?: never;
@@ -11794,12 +11794,12 @@ export interface operations {
       };
     };
   };
-  attempt_activity_api_workspaces__project__reviews__identity__attempts__attempt__activity_get: {
+  attempt_activity_api_workspaces__workspace__reviews__identity__attempts__attempt__activity_get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project: string;
+        workspace: string;
         identity: string;
         attempt: string;
       };
@@ -11827,12 +11827,12 @@ export interface operations {
       };
     };
   };
-  retry_api_workspaces__project__reviews__identity__retry_post: {
+  retry_api_workspaces__workspace__reviews__identity__retry_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project: string;
+        workspace: string;
         identity: string;
       };
       cookie?: never;
@@ -11863,12 +11863,12 @@ export interface operations {
       };
     };
   };
-  confirm_stopped_api_workspaces__project__reviews__identity__confirm_stopped_post: {
+  confirm_stopped_api_workspaces__workspace__reviews__identity__confirm_stopped_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project: string;
+        workspace: string;
         identity: string;
       };
       cookie?: never;

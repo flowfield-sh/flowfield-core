@@ -48,8 +48,7 @@ export function ReviewerSettings({
       resource.setData(record);
     },
   });
-  const { values, loaded, change, run, busy, dirty, newer, element, cancel } =
-    state;
+  const { values, loaded, change, run, busy, dirty, newer, element } = state;
   const choice = values.selection ?? loaded?.effective.agent?.choice;
   const enabled = values.enabled ?? loaded?.effective.enabled ?? true;
   const source = useHarnessModels(
@@ -58,13 +57,18 @@ export function ReviewerSettings({
     refresh,
     active && enabled && !!loaded,
   );
-  const setChoice = (model: string, effort: string, mode: string) =>
+  const setChoice = (
+    model: string,
+    effort: string,
+    mode: string,
+    fast: boolean,
+  ) =>
     change("selection", {
       harness: source.kind!,
       model,
       effort: effort || null,
       mode: mode || null,
-      fast: false,
+      fast,
     });
   return (
     <section ref={element} aria-label="Reviewer settings">
@@ -115,7 +119,8 @@ export function ReviewerSettings({
                   model={choice?.model ?? ""}
                   effort={choice?.effort ?? ""}
                   mode={choice?.mode ?? ""}
-                  fast={false}
+                  fast={choice?.fast ?? false}
+                  showFast={!!entity}
                   models={source.models}
                   loading={source.loading}
                   change={setChoice}
@@ -132,7 +137,7 @@ export function ReviewerSettings({
                     (!choice || !modelSupports(choice, source.models)))
                 }
               >
-                {busy ? "Saving…" : "Save reviewer"}
+                {busy ? "Saving…" : "Save"}
               </Button>
               {entity && (
                 <Button
@@ -151,19 +156,10 @@ export function ReviewerSettings({
                     })
                   }
                 >
-                  Reset to workspace
+                  Reset
                 </Button>
               )}
               {enabled && <RefreshModels source={source} />}
-              <Button
-                size="sm"
-                type="button"
-                variant="outline"
-                disabled={!dirty}
-                onClick={cancel}
-              >
-                Cancel
-              </Button>
             </div>
           </fieldset>
         </form>

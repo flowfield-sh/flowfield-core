@@ -184,6 +184,7 @@ test("member projects share coordinator history and a draft", async ({
   await expect.poll(() => messages.length).toBe(3);
   expect(messages[2]).toEqual(messages[1]);
   await page.getByRole("button", { name: "Back", exact: true }).click();
+  await openResource(page, "Tasks");
   await page.getByLabel("Filter by project").selectOption("");
   await page.getByLabel("Filter by label").selectOption("bug");
   await page.getByRole("button", { name: "Send", exact: true }).click();
