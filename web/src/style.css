@@ -748,7 +748,7 @@
     display: grid;
     grid-template-columns: minmax(140px, 22%) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
-    height: min(60dvh, 36rem);
+    height: var(--evidence-frame-height, min(60dvh, 36rem));
     border: 1px solid var(--border);
     border-radius: 8px;
     overflow: hidden;

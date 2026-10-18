@@ -54,7 +54,7 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
     name: "Workspace resources",
   });
   const work = page.getByRole("navigation", { name: "Work", exact: true });
-  await expect(work.getByRole("link")).toHaveCount(14);
+  await expect(work.locator(".work-navigation-row")).toHaveCount(14);
   await expect(work.getByRole("link", { name: /T-1 / })).toHaveCount(1);
   await page.setViewportSize({ width: 1440, height: 700 });
   await work.hover();

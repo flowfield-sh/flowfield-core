@@ -361,7 +361,11 @@ test("code review in Inbox approves the exact result and delivers without naviga
   await expect(
     page.getByRole("heading", { name: "Outcome", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".entity-pane-footer")).toBeEmpty();
+  await expect(page.locator(".entity-pane-footer .task-result")).toBeVisible();
+  await expect(page.locator(".entity-pane-footer textarea")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Approve and integrate", exact: true }),
+  ).toHaveCount(0);
 });
 
 test("resolved requests disappear without losing later-page drafts or failed answers", async ({

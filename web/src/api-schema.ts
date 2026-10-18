@@ -367,6 +367,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/view/delivered": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Delivered */
+    get: operations["delivered_api_workspaces__workspace_id__view_delivered_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/workspaces/{workspace_id}/requests/{kind}/{identity}": {
     parameters: {
       query?: never;
@@ -2955,6 +2972,7 @@ export interface components {
         | "answer"
         | "activity"
         | "attempt"
+        | "review"
         | "result"
         | "approval"
         | "delivery"
@@ -3201,6 +3219,41 @@ export interface components {
       details: string;
       /** Number */
       number: number;
+    };
+    /** DeliveredPage */
+    DeliveredPage: {
+      /** Items */
+      items: components["schemas"]["DeliveredTask"][];
+      /** Next Cursor */
+      next_cursor: string | null;
+    };
+    /** DeliveredTask */
+    DeliveredTask: {
+      /** Id */
+      id: string;
+      /** Task Id */
+      task_id: string;
+      /** Task Key */
+      task_key: string;
+      /** Title */
+      title: string;
+      /** Version */
+      version: number;
+      /** Delivered At */
+      delivered_at: string;
+      /**
+       * Completion
+       * @enum {string}
+       */
+      completion: "code" | "report";
+      /** Summary */
+      summary: string;
+      /** Target Branch */
+      target_branch: string | null;
+      /** Files */
+      files: components["schemas"]["OutputFile"][];
+      /** File Count */
+      file_count: number;
     };
     /** Delivery */
     Delivery: {
@@ -7064,6 +7117,41 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AttentionPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delivered_api_workspaces__workspace_id__view_delivered_get: {
+    parameters: {
+      query?: {
+        project_id?: string | null;
+        before?: string | null;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeliveredPage"];
         };
       };
       /** @description Validation Error */

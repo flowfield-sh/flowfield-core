@@ -1,5 +1,8 @@
 import { LoadMore } from "./LoadMore";
-import { useState } from "react";
+import { useContext, useState } from "react";
+import { ActivityBodyVisible } from "./ActivityEntry";
+import { WorkspaceLink } from "./WorkspaceLink";
+import { taskHref } from "./navigation";
 import type { components } from "./api-schema";
 import { usePage, useResource } from "./useResource";
 import { request } from "./workspace";
@@ -11,21 +14,49 @@ import { RunActivity } from "./RunActivity";
 import { Timestamp } from "./Timestamp";
 import { ResourceRetry } from "./ResourceRetry";
 
+export function ReviewActivity({
+  projectId,
+  reviewId,
+  refresh,
+}: {
+  projectId: string;
+  reviewId: string;
+  refresh: unknown;
+}) {
+  const visible = useContext(ActivityBodyVisible);
+  const resource = useResource<Review>(
+    visible ? `workspaces/${projectId}/reviews/${reviewId}` : null,
+    refresh,
+  );
+  return (
+    <ContentStack>
+      <ResourceRetry resources={[resource]} />
+      {resource.data && (
+        <>
+          {resource.data.problem && <p>{resource.data.problem}</p>}
+          <ReviewRounds projectId={projectId} review={resource.data} />
+        </>
+      )}
+    </ContentStack>
+  );
+}
+
 type Review = components["schemas"]["TaskReview"];
 export function TaskReview({
   projectId,
   taskId,
+  taskKey,
   refresh,
 }: {
   projectId: string;
   taskId: string;
+  taskKey: string;
   refresh: unknown;
 }) {
   const resource = useResource<Review | null>(
     `workspaces/${projectId}/tasks/${taskId}/review`,
     refresh,
   );
-  const [historyOpen, setHistoryOpen] = useState(false);
   const review = resource.data;
   if (review && ["decided", "stale"].includes(review.status)) return null;
   if (!review && !resource.error) return null;
@@ -61,18 +92,11 @@ export function TaskReview({
               saved={resource.setData}
             />
             {["uncertain", "failed", "stopped"].includes(review.status) && (
-              <Disclosure
-                summary="Review rounds and diagnostics"
-                onToggle={(event) => setHistoryOpen(event.currentTarget.open)}
+              <WorkspaceLink
+                to={`${taskHref(projectId, { key: taskKey })}/conversation/review:${review.id}`}
               >
-                {historyOpen && (
-                  <ReviewRounds
-                    key={review.id}
-                    projectId={projectId}
-                    review={review}
-                  />
-                )}
-              </Disclosure>
+                Review rounds and diagnostics
+              </WorkspaceLink>
             )}
           </>
         )}
@@ -81,17 +105,15 @@ export function TaskReview({
   );
 }
 
-export function ReviewRounds({
+function ReviewRounds({
   projectId,
   review,
-  kind = "reviews",
 }: {
   projectId: string;
   review: { id: string; revision: number };
-  kind?: "reviews";
 }) {
   const page = usePage<components["schemas"]["ReviewAttemptPage"]>(
-    `workspaces/${projectId}/${kind}/${review.id}/attempts`,
+    `workspaces/${projectId}/reviews/${review.id}/attempts`,
     review.revision,
     true,
   );
@@ -102,7 +124,6 @@ export function ReviewRounds({
         <ReviewRound
           key={attempt.id}
           projectId={projectId}
-          kind={kind}
           reviewId={review.id}
           attempt={attempt}
         />
@@ -123,25 +144,35 @@ export function ReviewRounds({
 
 function ReviewRound({
   projectId,
-  kind,
   reviewId,
   attempt,
 }: {
   projectId: string;
   reviewId: string;
-  kind: "reviews";
   attempt: components["schemas"]["ReviewAttemptInfo"];
 }) {
-  const [open, setOpen] = useState(false);
+  const [manual, setManual] = useState<boolean | null>(null);
+  const open =
+    manual ??
+    ["preparing", "running", "waiting", "uncertain"].includes(attempt.status);
   return (
     <Disclosure
+      open={open}
       summary={
         <>
           {attempt.role === "reviewer" ? "Reviewer" : "Implementer"} ·{" "}
           <Timestamp date={attempt.created_at} />
         </>
       }
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      onClick={(event) => {
+        if (
+          (event.target as Element).closest("summary")?.parentElement ===
+          event.currentTarget
+        ) {
+          event.preventDefault();
+          setManual(!open);
+        }
+      }}
     >
       {open && (
         <ContentStack>
@@ -150,7 +181,6 @@ function ReviewRound({
             projectId={projectId}
             runId={reviewId}
             review
-            reviewKind={kind}
             reviewAttemptId={attempt.id}
           />
           {attempt.status === "uncertain" && !attempt.cleanup_confirmed && (
@@ -181,7 +211,7 @@ function ReviewRound({
   );
 }
 
-export function ReviewControls<R extends { revision: number; status: string }>({
+function ReviewControls<R extends { revision: number; status: string }>({
   review,
   path,
   saved: onSaved,

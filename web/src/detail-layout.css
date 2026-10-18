@@ -359,6 +359,7 @@
     font-size: 12px;
   }
   .entity-pane-footer {
+    --evidence-frame-height: min(35dvh, 24rem);
     flex-shrink: 1;
     min-height: 0;
     max-height: 45dvh;

@@ -19,6 +19,7 @@ from flowfield.attention import (
     workspace_attention_counts,
 )
 from flowfield.browser import BrowserReads, BrowserWorkspaceBoard
+from flowfield.deliveries import DeliveredPage, delivery_page
 from flowfield.document_usage import DocumentUsage, DocumentUsageEdit, DocumentUsageView
 from flowfield.documents import (
     Document,
@@ -92,6 +93,15 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
             include_answered=include_answered,
             project_id=project_id,
         )
+
+    @router.get("/{workspace_id}/view/delivered")
+    def delivered(
+        workspace_id: str,
+        project_id: str | None = None,
+        before: str | None = None,
+        limit: int = Query(20, ge=1, le=50),
+    ) -> DeliveredPage:
+        return delivery_page(supervisor().workspace, workspace_id, project_id, before, limit)
 
     @router.get("/{workspace_id}/requests/{kind}/{identity}")
     def request_detail(workspace_id: str, kind: RequestKind, identity: str) -> AttentionItem:

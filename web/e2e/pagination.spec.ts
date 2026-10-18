@@ -66,7 +66,7 @@ test("history refresh handles shrinking collections and zero offset cursors", as
 test("service recovery cancels pending review pagination with an unchanged review revision", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const project = "pagination-recovery";
   await fixtureProject(request, {
     data: {
@@ -87,6 +87,35 @@ test("service recovery cancels pending review pagination with an unchanged revie
     progress: { status: "done", expected_revision: task.revision },
   });
   await page.route("**/api/events", (route) => route.abort());
+  await page.route(
+    `**/api/workspaces/*/tasks/${task.id}/thread/review*`,
+    (route) =>
+      route.fulfill({
+        json: {
+          id: "review:review",
+          kind: "review",
+          source_id: "review",
+          revision: 1,
+          created_at: "2026-10-16T12:00:00Z",
+          author: "reviewer",
+          actor: { kind: "reviewer", label: "Reviewer" },
+          state: { label: "Review failed", tone: "attention" },
+          title: "Reviewing results",
+          body: "",
+          status: "failed",
+        },
+      }),
+  );
+  await page.route("**/api/workspaces/*/reviews/review", (route) =>
+    route.fulfill({
+      json: {
+        id: "review",
+        revision: 1,
+        status: "failed",
+        problem: "Retained review failure",
+      },
+    }),
+  );
   await page.route(`**/api/workspaces/*/tasks/${task.id}/review`, (route) =>
     route.fulfill({
       json: {
@@ -128,6 +157,15 @@ test("service recovery cancels pending review pagination with an unchanged revie
   await page
     .getByText("Review rounds and diagnostics", { exact: true })
     .click();
+  await expect(
+    page
+      .locator(".entity-pane-footer")
+      .getByRole("button", { name: "Retry review", exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("review-recovery-desktop.png"),
+    animations: "disabled",
+  });
   await page.getByRole("button", { name: "Earlier rounds" }).click();
   await expect.poll(() => !!pending).toBe(true);
   recovering = true;
@@ -150,4 +188,11 @@ test("service recovery cancels pending review pagination with an unchanged revie
   await expect(
     page.getByRole("button", { name: "Earlier rounds" }),
   ).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await page.screenshot({
+    path: testInfo.outputPath("review-recovery-narrow-dark.png"),
+    animations: "disabled",
+  });
 });

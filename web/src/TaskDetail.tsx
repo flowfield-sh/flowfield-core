@@ -17,7 +17,6 @@ import { ExpandableMarkdown } from "./ExpandableMarkdown";
 import { BlockedBy } from "./TaskLinks";
 import { TaskNeeds, hasTaskNeeds } from "./TaskNeeds";
 import { TaskConversation } from "./TaskConversation";
-import { AgentPermissions } from "./AgentPermissions";
 import { type WorkspaceBoard, type Task } from "./workspace";
 export function TaskDetail({
   task,
@@ -86,11 +85,6 @@ export function TaskDetail({
       </ContentStack>
       {!settings && (
         <ContentStack space="section" className="task-context">
-          <AgentPermissions
-            workspaceId={workspaceId}
-            taskId={task.id}
-            refresh={board}
-          />
           <div
             className="task-definition content-stack"
             aria-label="Current task definition"

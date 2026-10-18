@@ -41,6 +41,21 @@ def event_state(kind: str, status: str | None, identity: str, current: WorkState
         return WorkState(
             label="Earlier result", tone="complete" if status == "delivered" else "idle"
         )
+    if kind == "review":
+        return WorkState(
+            label={"decided": "Review complete", "running": "Reviewing results"}.get(
+                status or "", (status or "Review").capitalize()
+            ),
+            tone="active"
+            if status in ("preparing", "running")
+            else "complete"
+            if status == "decided"
+            else "attention"
+            if status in ("failed", "uncertain")
+            else "idle"
+            if status == "stale"
+            else "waiting",
+        )
     if kind in ("approval", "delivery"):
         return WorkState(label="Recorded", tone="complete")
     if status and (kind in ("activity", "reply") or (kind == "question" and status == "withdrawn")):

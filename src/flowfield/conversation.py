@@ -17,6 +17,7 @@ class ConversationItem(Record):
         "answer",
         "activity",
         "attempt",
+        "review",
         "result",
         "approval",
         "delivery",
@@ -101,6 +102,10 @@ WITH definitions AS (
     SELECT 'attempt:'||id, 'attempt', json_extract(data,'$.created_at'), 'worker', id,
         json_extract(data,'$.revision'), data
     FROM runs WHERE workspace_id=:project AND task_id=:task
+    UNION ALL
+    SELECT 'review:'||id, 'review', json_extract(data,'$.created_at'), 'reviewer', id,
+        json_extract(data,'$.revision'), data
+    FROM task_reviews WHERE workspace_id=:project AND task_id=:task
     UNION ALL
     SELECT 'result:'||id, 'result', json_extract(data,'$.created_at'), 'service', id,
         json_extract(data,'$.revision'), data
@@ -201,7 +206,7 @@ class Conversation:
             data = dict(row)
             text = data.pop("text")
             item = ConversationItem.model_validate(data)
-            if item.kind in ("attempt", "result", "approval", "delivery"):
+            if item.kind in ("attempt", "review", "result", "approval", "delivery"):
                 if (
                     offset > 0 or expected_revision is not None
                 ) and item.revision != expected_revision:

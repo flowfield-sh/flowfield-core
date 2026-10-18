@@ -281,7 +281,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   );
   await expect(files.getByRole("button")).toHaveCount(40);
   await files.evaluate((element) => (element.scrollTop = 0));
-  const pane = page.locator(".entity-pane-body");
+  const pane = page.locator(".entity-pane-footer");
   const geometry = () =>
     browser.evaluate((el) => el.getBoundingClientRect().height);
   const height = await geometry();
@@ -311,7 +311,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   );
   for (const offset of [100, 160]) {
     await browser.evaluate((el, offset) => {
-      const pane = el.closest(".entity-pane-body")!;
+      const pane = el.closest(".entity-pane-footer")!;
       pane.scrollTop +=
         el.getBoundingClientRect().top -
         pane.getBoundingClientRect().top -
@@ -714,7 +714,7 @@ test("managed answers show durable pause, safe edits and immutable correction in
     `/workspaces/${await projectWorkspace(page.request, "input-browser")}/tasks/T-1`,
   );
   const inputArea = page.getByRole("form", { name: "Task input", exact: true });
-  await expect(inputArea).toContainText("Answer the question");
+  await expect(inputArea).toContainText("Which records?");
   await expect(
     page.getByRole("button", { name: "Stop task", exact: true }),
   ).toHaveCount(0);
@@ -882,7 +882,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   let selectedPreview = first!.id;
   const preview = () =>
     page
-      .locator(`[data-message-id="result:${selectedPreview}"]`)
+      .locator(`.task-result[data-result-id="${selectedPreview}"]`)
       .getByRole("region", { name: "Try result", exact: true });
   await expect(
     preview()
@@ -1240,7 +1240,16 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     page.getByRole("region", { name: "Proposed result", exact: true }),
   ).toContainText("A detailed finding.");
   await expect(reportStamp).toBeInViewport();
-  await expect.poll(reportAtBottom).toBe(false);
+  await expect
+    .poll(() =>
+      page.locator(".entity-pane-footer").evaluate((el) => el.scrollTop),
+    )
+    .toBe(0);
+  expect(
+    await page
+      .locator(".entity-pane-footer")
+      .evaluate((el) => el.scrollHeight > el.clientHeight),
+  ).toBe(true);
   const originalViewport = startingViewport;
   await page.setViewportSize({ width: 600, height: 500 });
   await expect(reportStamp).toBeInViewport();

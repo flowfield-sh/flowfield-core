@@ -156,6 +156,9 @@ class ThreadView(Conversation):
         elif kind == "result":
             title = "Result " + str(data["version"])
             body = data["report"]["summary"]
+        elif kind == "review":
+            title = "Reviewing results"
+            body = data.get("problem") or ""
         elif kind == "approval":
             title = "Approved for integration"
             body = data.get("approval_note", "")

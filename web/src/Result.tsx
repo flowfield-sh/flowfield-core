@@ -1,5 +1,5 @@
 import { useLocation } from "react-router";
-import { ReviewRounds, TaskReview } from "./TaskReview";
+import { TaskReview } from "./TaskReview";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
@@ -16,7 +16,7 @@ import { taskHref } from "./navigation";
 import { FailureEvidence } from "./Integration";
 import { ReviewChecks } from "./ReviewChecks";
 import { Inspection } from "./Inspection";
-import { ResultActions } from "./TaskActions";
+import { ResultActions, TaskActionContext } from "./TaskActions";
 import { ResultFiles } from "./Files";
 
 const CodeDiff = lazy(() => import("./CodeDiff"));
@@ -31,6 +31,7 @@ export function Result({
   onReply,
   onApprove,
   inputEnabled,
+  reviewControls = true,
 }: {
   projectId: string;
   taskId: string;
@@ -40,6 +41,7 @@ export function Result({
   onReply: (version: Version) => void;
   onApprove: (version: Version) => void;
   inputEnabled: boolean;
+  reviewControls?: boolean;
 }) {
   const { pathname } = useLocation();
   // Returning to a retained result rechecks external branch movement too.
@@ -58,7 +60,6 @@ export function Result({
       : incoming;
   const [views, setViews] = useState<Record<string, DiffViewState>>({});
   const [diffOpen, setDiffOpen] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const evidence = useResource<components["schemas"]["Integration"]>(
     version?.integration_id
@@ -125,6 +126,7 @@ export function Result({
       role="region"
       aria-label="Proposed result"
       className="task-result"
+      data-result-id={versionId}
     >
       <ResourceRetry
         resources={[page, detail, evidence, availability, worker, successor]}
@@ -173,12 +175,15 @@ export function Result({
             )}
           </DetailSection>
           <ResultFiles files={version.files} />
-          {current && (
-            <TaskReview
-              projectId={projectId}
-              taskId={taskId}
-              refresh={refresh}
-            />
+          {current && reviewControls && (
+            <TaskActionContext>
+              <TaskReview
+                projectId={projectId}
+                taskId={taskId}
+                taskKey={taskKey}
+                refresh={refresh}
+              />
+            </TaskActionContext>
           )}
           {version.independent_review?.summary && (
             <DetailSection title="Reviewer">
@@ -192,20 +197,11 @@ export function Result({
               <Disclosure summary="Review evidence">
                 <Markdown>{version.independent_review.evidence}</Markdown>
               </Disclosure>
-              <Disclosure
-                summary="Review history"
-                onToggle={(event) => setReviewOpen(event.currentTarget.open)}
+              <WorkspaceLink
+                to={`${taskHref(projectId, { key: taskKey })}/conversation/review:${version.independent_review.id}`}
               >
-                {reviewOpen && (
-                  <ReviewRounds
-                    projectId={projectId}
-                    review={{
-                      id: version.independent_review.id,
-                      revision: version.revision,
-                    }}
-                  />
-                )}
-              </Disclosure>
+                Review history
+              </WorkspaceLink>
             </DetailSection>
           )}
           {version.status !== "delivered" &&

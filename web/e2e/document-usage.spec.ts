@@ -43,12 +43,17 @@ test("Documents shares project defaults and opts projectless tasks into exact so
   await expect(
     page.getByRole("button", { name: "Save usage", exact: true }),
   ).toBeDisabled();
-  const project = await (await request.get(`/api/projects/${id}`)).json();
-  expect(project.worker_documents).toContainEqual({
-    id: doc.id,
-    revision: null,
-    purpose: "reference",
-  });
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get(`/api/projects/${id}`)).json())
+          .worker_documents,
+    )
+    .toContainEqual({
+      id: doc.id,
+      revision: null,
+      purpose: "reference",
+    });
   const taskResponse = await request.post(
     `/api/workspaces/${workspace}/tasks`,
     {
@@ -89,6 +94,13 @@ test("Documents shares project defaults and opts projectless tasks into exact so
   ).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("document-usage-conflict.png"),
+  });
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await page.screenshot({
+    path: testInfo.outputPath("document-usage-conflict-narrow-dark.png"),
+    animations: "disabled",
   });
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Load latest", exact: true }).click();

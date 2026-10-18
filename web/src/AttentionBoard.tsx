@@ -30,6 +30,7 @@ import { ResourceRetry } from "./ResourceRetry";
 import { RequestFrame } from "./RequestFrame";
 import { Timestamp } from "./Timestamp";
 import { EntityPane, PaneFooter } from "./EntityPane";
+import { Delivered } from "./Delivered";
 
 type Item = components["schemas"]["AttentionItem"];
 type Page = components["schemas"]["AttentionPage"];
@@ -337,6 +338,7 @@ function InboxList({
       tabIndex={-1}
       space="section"
       role="tabpanel"
+      id={`inbox-${tab}`}
       aria-label={label(tab)}
       className="inbox-list"
     >
@@ -451,7 +453,10 @@ export function AttentionBoard(props: {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const requested = params.get("inbox");
-  const tab: Tab = requested === "history" ? requested : "needs_me";
+  const tab =
+    requested === "history" || requested === "delivered"
+      ? requested
+      : "needs_me";
   const permission = params.get("permission");
   const closePermission = () => {
     const next = new URLSearchParams(params);
@@ -484,7 +489,7 @@ export function AttentionBoard(props: {
       <DetailTabs
         id="inbox"
         title="Inbox views"
-        tabs={["needs_me", "history"]}
+        tabs={["needs_me", "delivered", "history"]}
         active={tab}
         change={(value) => {
           const next = new URLSearchParams(params);
@@ -492,11 +497,25 @@ export function AttentionBoard(props: {
           setParams(next, { state: location.state });
         }}
       />
-      <InboxList
-        key={`${props.workspaceId}:${props.projectId}:${tab}`}
-        {...props}
-        tab={tab}
-      />
+      {tab === "delivered" ? (
+        <div
+          role="tabpanel"
+          id="inbox-delivered"
+          aria-labelledby="inbox-delivered-tab"
+        >
+          <Delivered
+            workspaceId={props.workspaceId}
+            projectId={props.projectId}
+            refresh={props.refresh}
+          />
+        </div>
+      ) : (
+        <InboxList
+          key={`${props.workspaceId}:${props.projectId}:${tab}`}
+          {...props}
+          tab={tab}
+        />
+      )}
     </ContentStack>
   );
 }

@@ -527,7 +527,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   });
   await expect(
     detail
-      .locator(".conversation-message-body strong")
+      .locator(".entity-pane-footer .question-prompt h3")
       .filter({ hasText: "What should the export include?" }),
   ).toBeVisible();
   await expect(detail.getByRole("form", { name: "Task input" })).toContainText(
@@ -1797,9 +1797,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   await expect(page.getByLabel("Feedback for this result")).toHaveValue(
     "Include the source path in validation errors.",
   );
-  await page
-    .locator('[data-message-id="result:first"] .activity-entry > summary')
-    .click();
+  await expect(page.locator(".entity-pane-footer .task-result")).toBeVisible();
   await expect(
     runs.getByRole("button", {
       name: "Added tests/test_loader.py",
@@ -1812,13 +1810,18 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   await page
     .getByRole("button", { name: "Send feedback", exact: true })
     .click();
+  await dialog
+    .locator('[data-message-id="result:first"] .activity-entry > summary')
+    .click();
+  await dialog
+    .locator('[data-message-id="result:first"]')
+    .getByRole("link", { name: "Inspect earlier result", exact: true })
+    .click();
   await expect(
     dialog.locator('[data-message-id="result:first"]'),
   ).toContainText("Review request");
   await page.reload();
-  await page
-    .locator('[data-message-id="result:successor"] .activity-entry > summary')
-    .click();
+  await expect(page.locator(".entity-pane-footer .task-result")).toBeVisible();
   await runs
     .getByText("Requested in the previous review", { exact: true })
     .click();
@@ -1852,7 +1855,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
       exact: true,
     })
     .click();
-  await expect(page).toHaveURL(/changes\/first$/);
+  await expect(page).toHaveURL(/conversation\/result%3Aolder$/);
   await page.getByRole("tab", { name: /^Inbox/ }).click();
   await expect(page).toHaveURL(
     `/workspaces/${await projectWorkspace(request, project_id)}/inbox`,

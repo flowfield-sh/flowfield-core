@@ -17,8 +17,10 @@ export function PermissionControl({
   record,
   answered,
   inRequest = false,
+  flat = false,
 }: {
   inRequest?: boolean;
+  flat?: boolean;
   record: Permission;
   answered: () => void;
 }) {
@@ -26,7 +28,7 @@ export function PermissionControl({
   return (
     <DetailSection
       className={
-        record.status === "pending" && !inRequest
+        record.status === "pending" && !inRequest && !flat
           ? "rounded-md border border-border bg-muted p-4"
           : undefined
       }
@@ -107,12 +109,14 @@ export function AgentPermissions({
   role,
   refresh,
   onPendingTurns,
+  inTask = false,
 }: {
   workspaceId: string;
   taskId?: string;
   role?: "worker" | "coordinator";
   refresh: unknown;
   onPendingTurns?: (ids: string[]) => void;
+  inTask?: boolean;
 }) {
   const [retry, setRetry] = useState(0);
   const path = `workspaces/${workspaceId}/permissions?retry=${retry}${taskId ? `&task_id=${encodeURIComponent(taskId)}` : ""}${role ? `&role=${role}` : ""}`;
@@ -132,11 +136,16 @@ export function AgentPermissions({
         </Button>
       )}
       {!!pending.length && (
-        <ContentStack space="section" aria-label="Tool permissions">
+        <ContentStack
+          space="section"
+          aria-label="Tool permissions"
+          className={inTask ? "task-input" : undefined}
+        >
           {pending.map((record) => (
             <PermissionControl
               key={record.id}
               record={record}
+              flat={inTask}
               answered={() => setRetry((n) => n + 1)}
             />
           ))}

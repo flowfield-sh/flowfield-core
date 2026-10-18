@@ -1,4 +1,5 @@
 import { LoadMore } from "./LoadMore";
+import { DeliveredNavigation } from "./Delivered";
 import { useState } from "react";
 import {
   Archive,
@@ -58,16 +59,19 @@ export function WorkList({
   const group = (item: (typeof items)[number]) =>
     item.attention && !item.archived
       ? 0
-      : item.complete || item.archived
-        ? 3
-        : item.planned
-          ? 2
-          : 1;
+      : item.archived
+        ? 4
+        : item.complete
+          ? 3
+          : item.planned
+            ? 2
+            : 1;
   const groups = [
     "Needs attention",
     "In progress",
     "Planned",
-    "Completed and archived",
+    "Completed",
+    "Archived",
   ];
   items.sort(
     (a, b) =>
@@ -190,6 +194,12 @@ export function WorkNavigation({
       </div>
       <nav className="work-navigation-scroll" aria-label="Work">
         <WorkList board={board} current={current} open={open} />
+        <DeliveredNavigation
+          workspaceId={board.workspace.id}
+          refresh={board}
+          current={current}
+          open={open}
+        />
       </nav>
     </>
   );
