@@ -33,7 +33,7 @@ class PermissionRecord(AgentRecord):
     answer: str | None = None
     created_at: str
     updated_at: str
-    expires_at: str
+    expires_at: str | None = None
     released_at: str | None = None
 
 

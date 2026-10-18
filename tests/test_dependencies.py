@@ -10,6 +10,7 @@ from lifecycle_fixtures import run_report
 from project_fixtures import adopt, existing_directory, task_request
 from service_fixtures import running_service
 from typer.testing import CliRunner
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.api import create_app
 from flowfield.application import ProjectSetup, TaskEdit, TaskReconcile, Workspace
@@ -197,6 +198,10 @@ def test_concurrent_edges_and_completion_are_serialized(tmp_path: Path) -> None:
 
 def test_http_reconciliation_and_cli_dependencies(tmp_path: Path) -> None:
     runner = CliRunner()
+    choices = tmp_path / "agents.json"
+    choices.write_text(
+        json.dumps({role: choice.model_dump() for role, choice in TEST_AGENTS.items()})
+    )
     with running_service(tmp_path / "state") as base:
         args = ["--data-dir", str(tmp_path / "state"), "--port", base.rsplit(":", 1)[1]]
 
@@ -205,7 +210,9 @@ def test_http_reconciliation_and_cli_dependencies(tmp_path: Path) -> None:
             assert result.exit_code == 0, result.output
             return result.output
 
-        space = json.loads(cli("workspace", "create", "Product", "--json"))
+        space = json.loads(
+            cli("workspace", "create", "Product", "--agents", str(choices), "--json")
+        )
         cli(
             "project",
             "init",

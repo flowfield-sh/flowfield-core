@@ -61,6 +61,9 @@ class FileReviewer(FakeWorker):
 def install(monkeypatch, *, action="approve", mutate=False, remove=None, partial=False):
     FileReviewer.action, FileReviewer.mutate = action, mutate
     FileReviewer.remove, FileReviewer.partial = remove, partial
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr("flowfield.supervisor.Supervisor.validate_agent_choice", AsyncMock())
     monkeypatch.setattr(
         "flowfield.native_review_execution.create",
         lambda choice, directory, cwd, environment, **kw: FileReviewer(
@@ -113,6 +116,8 @@ def test_report_review_gates_completion_and_preserves_files(tmp_path, monkeypatc
     assert result.approved_at is None
     assert Outputs(store).content(result.files[0]).read_text() == "Agreed report"
     if action == "approve" and not mutate:
+        assert TaskReviews(store).prepare(scope, result.id).id == review.id
+        assert TaskReviews(store).latest(scope, current.id).id == review.id
         assert store.task(scope, current.id).status == "done"
         assert TaskReviews(store).check(scope, review.id).status == "decided"
         from flowfield.thread_view import ThreadView
@@ -120,7 +125,7 @@ def test_report_review_gates_completion_and_preserves_files(tmp_path, monkeypatc
         messages = ThreadView(store).page_view(scope, current.id).items
         signoff = next(item for item in messages if item.title == "Reviewer signed off")
         delivery = next(item for item in messages if item.kind == "delivery")
-        assert not signoff.technical and signoff.created_at < delivery.created_at
+        assert signoff.created_at < delivery.created_at
     assert store.projects() == []
 
 

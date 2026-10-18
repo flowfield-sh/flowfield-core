@@ -10,6 +10,7 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from project_fixtures import existing_directory
 from service_fixtures import running_service
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.api import create_app
 
@@ -91,7 +92,18 @@ def test_mcp_board_parity_and_restart(tmp_path: Path) -> None:
                 if first:
                     assert await call("list_projects") == {"items": [], "next_cursor": None}
                     assert await call("list_workspaces") == {"items": [], "next_cursor": None}
-                    space = await call("create_workspace", {"request": {"name": "Product"}})
+                    space = await call(
+                        "create_workspace",
+                        {
+                            "request": {
+                                "name": "Product",
+                                **{
+                                    role: {"harness": "codex", "model": "test-model"}
+                                    for role in ("coordinator", "worker", "reviewer")
+                                },
+                            }
+                        },
+                    )
                     space_id = space["id"]
                     identity["workspace_id"] = space_id
                     created = await call(
@@ -242,9 +254,15 @@ def test_sse_mutations_and_reconnection(tmp_path: Path) -> None:
     async def exercise(base: str) -> None:
         with anyio.fail_after(15):
             async with httpx.AsyncClient(base_url=base, trust_env=False) as client:
-                space = (await client.post("/api/workspaces", json={"name": "Fixture"})).json()[
-                    "id"
-                ]
+                space = (
+                    await client.post(
+                        "/api/workspaces",
+                        json={
+                            **{role: choice.model_dump() for role, choice in TEST_AGENTS.items()},
+                            "name": "Fixture",
+                        },
+                    )
+                ).json()["id"]
                 async with client.stream("GET", "/api/events") as response:
                     assert response.headers["content-type"].startswith("text/event-stream")
                     lines = response.aiter_lines()

@@ -21,7 +21,7 @@ import { Composer } from "./Composer";
 import { AgentSettingsControl } from "./AgentSettings";
 import { choiceLabel } from "./HarnessModels";
 import { ArrowUp } from "lucide-react";
-import { ContentStack, Disclosure } from "./DetailLayout";
+import { ContentStack } from "./DetailLayout";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
 import { request, type Task, type WorkspaceBoard } from "./workspace";
@@ -510,7 +510,7 @@ export function TaskConversation({
               {messages
                 .filter(
                   (message) =>
-                    (!requestTarget && !message.technical) ||
+                    !requestTarget ||
                     message.id === target ||
                     message.id === selected.data?.id,
                 )
@@ -539,25 +539,38 @@ export function TaskConversation({
                       data-message-id={message.id}
                       data-kind={message.kind}
                       className={
-                        requestTarget ? "request-content" : "task-activity-item"
+                        requestTarget
+                          ? "request-content"
+                          : "task-activity-item" +
+                            (inputEnabled &&
+                            ((message.kind === "question" &&
+                              message.source_id === gate.data?.question_id) ||
+                              (message.kind === "result" &&
+                                message.status !== "delivered" &&
+                                message.source_id === gate.data?.result_id))
+                              ? " rounded-md border border-border bg-muted p-3"
+                              : "")
                       }
                     >
                       <ActivityEntry
                         identity={path + ":" + message.id}
                         selected={
-                          target === message.id ||
-                          message === activeAttempt ||
-                          (!target &&
-                            !requestTarget &&
-                            message.kind === "result" &&
-                            message.source_id === gate.data?.result_id) ||
-                          (!target &&
-                            !requestTarget &&
-                            message.kind === "question" &&
-                            message.source_id === gate.data?.question_id) ||
-                          (!route.runId &&
-                            route.tab === "changes" &&
-                            message.source_id === gate.data?.result_id)
+                          message.id ===
+                          (target ??
+                            activeAttempt?.id ??
+                            (gate.data?.question_id
+                              ? [...messages]
+                                  .reverse()
+                                  .find(
+                                    (item) =>
+                                      item.source_id === gate.data?.question_id,
+                                  )?.id
+                              : gate.data?.result_id
+                                ? "result:" + gate.data.result_id
+                                : undefined))
+                        }
+                        alwaysOpen={
+                          message.kind === "answer" || message.kind === "reply"
                         }
                         title={message.title}
                         state={message.state}
@@ -608,17 +621,29 @@ export function TaskConversation({
                               <>
                                 {requestTarget?.kind === "question"
                                   ? currentQuestion.data && (
-                                      <QuestionPrompt
-                                        question={currentQuestion.data.question}
-                                        context={currentQuestion.data.context}
-                                        reviewContext={
-                                          !!currentQuestion.data
-                                            .origin_review_id
-                                        }
-                                        recommendation={
-                                          currentQuestion.data.recommendation
-                                        }
-                                      />
+                                      <>
+                                        <QuestionPrompt
+                                          question={
+                                            currentQuestion.data.question
+                                          }
+                                          context={currentQuestion.data.context}
+                                          reviewContext={
+                                            !!currentQuestion.data
+                                              .origin_review_id
+                                          }
+                                          recommendation={
+                                            currentQuestion.data.recommendation
+                                          }
+                                        />
+                                        {currentQuestion.data.answer && (
+                                          <ContentStack>
+                                            <strong>Your answer</strong>
+                                            <Markdown>
+                                              {currentQuestion.data.answer}
+                                            </Markdown>
+                                          </ContentStack>
+                                        )}
+                                      </>
                                     )
                                   : message.kind !== "definition" && (
                                       <MessageBody
@@ -723,27 +748,6 @@ export function TaskConversation({
                 ))}
             </ol>
           }
-          {!requestTarget && messages.some((message) => message.technical) && (
-            <Disclosure summary="Technical history">
-              <ContentStack>
-                {messages
-                  .filter((message) => message.technical)
-                  .map((message) => (
-                    <div
-                      key={message.id}
-                      className="flex flex-wrap items-center justify-between gap-2"
-                    >
-                      <WorkspaceLink
-                        to={messageHref(projectId, task, message.id)}
-                      >
-                        {message.title}
-                      </WorkspaceLink>
-                      <Timestamp date={message.created_at} />
-                    </div>
-                  ))}
-              </ContentStack>
-            </Disclosure>
-          )}
         </ContentStack>
         <PaneFooter>
           {showInputFooter && (

@@ -54,7 +54,7 @@ def test_inheritance_override_reset_and_frozen_claim(tmp_path):
 def test_coordinator_has_one_selection_independent_of_workers(tmp_path):
     execution = fixture(tmp_path)
     settings = AgentSettings(execution.workspace)
-    assert settings.get("harbor", "coordinator").effective is None
+    assert settings.get("harbor", "coordinator").effective.choice.model == "test-model"
     saved = settings.edit("harbor", "coordinator", edit())
     assert saved.effective.choice.model == "other"
     settings.edit("harbor", "coordinator", edit(revision=2, model="updated"))

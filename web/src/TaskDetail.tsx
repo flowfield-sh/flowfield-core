@@ -1,13 +1,14 @@
+import { Separator } from "@/components/ui/separator";
 import { useParams } from "react-router";
 import { useContext } from "react";
+import { WorkspaceLink } from "./WorkspaceLink";
+import { StatusNotice } from "./StatusNotice";
 import { ResourceNavigation } from "./WorkspaceTabs";
 import { ReviewerSettings } from "./ReviewerSettings";
-import { AgentSettingsControl } from "./AgentSettings";
-import { choiceLabel } from "./HarnessModels";
-import type { components } from "./api-schema";
+import { AgentSettingsForm } from "./AgentSettings";
 import type { DirtyCallback } from "./retainedState";
 import { useCallback, useEffect, useState } from "react";
-import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
+import { ContentStack, DetailSection } from "./DetailLayout";
 import { TaskLabels } from "./TaskLabels";
 import { DetailHeader, DetailTabs, DraftBadge } from "./Presentation";
 import { WorkIdentity } from "./WorkIdentity";
@@ -44,10 +45,6 @@ export function TaskDetail({
   }, []);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [reviewerDirty, setReviewerDirty] = useState(false);
-  const [modelOpen, setModelOpen] = useState(false);
-  const [choice, setChoice] = useState<
-    components["schemas"]["AgentChoice-Output"] | null
-  >(null);
   useEffect(() => {
     setUnsaved(
       dirty || settingsDirty || reviewerDirty,
@@ -146,14 +143,40 @@ export function TaskDetail({
               )}
             </ContentStack>
           )}
+          {task.state?.reason === "scheduling" && (
+            <StatusNotice
+              title="Task cannot start"
+              tone="attention"
+              actions={
+                <WorkspaceLink to={`/workspaces/${workspaceId}/edit`}>
+                  Workspace settings
+                </WorkspaceLink>
+              }
+            >
+              <p>{task.state.label}</p>
+            </StatusNotice>
+          )}
           {!!task.subtasks.length && (
-            <Disclosure summary="Work">
+            <DetailSection title="Subtasks">
               <div className="work-resource-list">
                 {task.subtasks.map((child) => (
                   <div key={child.id} className="content-stack p-2">
                     <WorkIdentity
                       itemKey={child.key}
                       title={child.title}
+                      detail={
+                        task.subtasks.some((item) =>
+                          item.dependencies?.includes(child.id),
+                        )
+                          ? "Needed by: " +
+                            task.subtasks
+                              .filter((item) =>
+                                item.dependencies?.includes(child.id),
+                              )
+                              .map((item) => item.key)
+                              .join(", ")
+                          : undefined
+                      }
                       state={{
                         label: child.status,
                         tone:
@@ -166,38 +189,25 @@ export function TaskDetail({
                                 : "idle",
                       }}
                     />
-                    {!!(child.dependencies ?? []).length && (
-                      <p className="text-xs text-muted-foreground">
-                        After{" "}
-                        {(child.dependencies ?? [])
-                          .map(
-                            (id) =>
-                              task.subtasks.find((item) => item.id === id)?.key,
-                          )
-                          .join(", ")}
-                      </p>
-                    )}
                   </div>
                 ))}
               </div>
-            </Disclosure>
+            </DetailSection>
           )}
         </ContentStack>
       )}
       {settings && (
         <ContentStack space="section">
-          <DetailSection title="Worker">
-            <AgentSettingsControl
+          <DetailSection title="Worker" aria-label="Worker">
+            <AgentSettingsForm
+              showFast
               workspaceId={workspaceId}
               path={`workspaces/${workspaceId}/tasks/${task.id}/agent-settings`}
               refresh={board}
-              open={modelOpen}
-              onOpenChange={setModelOpen}
               onDirty={setSettingsDirty}
-              onReady={setChoice}
-              label={choice ? choiceLabel(choice) : "Worker settings"}
             />
           </DetailSection>
+          <Separator />
           <DetailSection title="Reviewer">
             <ReviewerSettings
               workspaceId={workspaceId}

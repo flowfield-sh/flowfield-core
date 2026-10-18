@@ -25,6 +25,7 @@ export function workItems(board: WorkspaceBoard) {
     ...board.tasks.map((t) => ({
       key: t.key,
       title: t.title,
+      updatedAt: t.activity_at,
       href: taskHref(t.workspace_id, t),
       complete: t.status === "done",
       archived: t.archived,
@@ -50,16 +51,10 @@ export function WorkList({
   current?: string;
   open?: (url: string) => void;
 }) {
-  const [order, setOrder] = useState<string[]>([]);
   const [count, setCount] = useState(40);
   const items = workItems(board).filter(
     (item) => all || ((!item.complete || item.attention) && !item.archived),
   );
-  const added = items
-    .filter((item) => !order.includes(item.key))
-    .map((item) => item.key);
-  const ordering = added.length ? [...order, ...added] : order;
-  if (added.length) setOrder(ordering);
   const group = (item: (typeof items)[number]) =>
     item.attention && !item.archived
       ? 0
@@ -76,7 +71,9 @@ export function WorkList({
   ];
   items.sort(
     (a, b) =>
-      group(a) - group(b) || ordering.indexOf(a.key) - ordering.indexOf(b.key),
+      group(a) - group(b) ||
+      b.updatedAt.localeCompare(a.updatedAt) ||
+      b.key.localeCompare(a.key, undefined, { numeric: true }),
   );
   return (
     <>

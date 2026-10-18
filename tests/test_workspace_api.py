@@ -5,6 +5,7 @@ from pathlib import Path
 from click import unstyle
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.api import create_app
 from flowfield.cli import app
@@ -27,7 +28,13 @@ def test_explicit_creation_adoption_scope_and_no_implicit_resources(tmp_path, mo
             headers={"origin": "https://elsewhere.example"},
         )
         assert denied.status_code == 403
-        created = client.post("/api/workspaces", json={"name": "Product"})
+        created = client.post(
+            "/api/workspaces",
+            json={
+                **{role: choice.model_dump() for role, choice in TEST_AGENTS.items()},
+                "name": "Product",
+            },
+        )
         assert created.status_code == 201
         space = created.json()["id"]
         base = f"/api/workspaces/{space}"
@@ -65,7 +72,9 @@ def test_explicit_creation_adoption_scope_and_no_implicit_resources(tmp_path, mo
             f"/api/context/workspaces/{space}/text?resource=task&identity=T-1&field=body&revision=1"
         )
         assert retained.status_code == 200 and retained.json()["text"] == "Shared intent"
-        assert client.get(base + "/coordinator-settings").json()["selection"] is None
+        assert (
+            client.get(base + "/coordinator-settings").json()["selection"]["model"] == "test-model"
+        )
         assert client.get(base + "/workers").json()["enabled"] is False
         assert client.get(base + "/workers/occupancy").json()["active"] == 0
         assert not (state / "coordinators").exists()
@@ -84,7 +93,13 @@ def test_explicit_creation_adoption_scope_and_no_implicit_resources(tmp_path, mo
             assert not (root / ".git").exists()
             assert (root / "AGENTS.md").read_text() == "Existing project conventions"
         assert {p["id"] for p in client.get(base + "/projects").json()} == {"core", "site"}
-        second = client.post("/api/workspaces", json={"name": "Other"}).json()["id"]
+        second = client.post(
+            "/api/workspaces",
+            json={
+                **{role: choice.model_dump() for role, choice in TEST_AGENTS.items()},
+                "name": "Other",
+            },
+        ).json()["id"]
         for _name in ("core", "site"):
             asked = client.post(
                 base + "/questions",
@@ -115,7 +130,13 @@ def test_shared_role_settings_validate_in_managed_home_and_preserve_queue(tmp_pa
     monkeypatch.setattr("flowfield.catalogs.model_options", discover)
     state = tmp_path / "state"
     with TestClient(create_app(data_dir=state), base_url="http://localhost") as client:
-        space = client.post("/api/workspaces", json={"name": "Product"}).json()["id"]
+        space = client.post(
+            "/api/workspaces",
+            json={
+                **{role: choice.model_dump() for role, choice in TEST_AGENTS.items()},
+                "name": "Product",
+            },
+        ).json()["id"]
         base = f"/api/workspaces/{space}"
         assert client.get(base + "/models").status_code == 200
         assert calls == [Path(state / "coordinators" / space)]

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from project_fixtures import existing_directory, task_request
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.application import ProjectSetup, TaskEdit, Workspace
 from flowfield.changes import Changes
@@ -39,7 +40,7 @@ def test_only_committed_writes_publish_project(tmp_path: Path) -> None:
     published: list[str | None] = []
     workspace = Workspace(tmp_path / "state", on_change=published.append)
     spaces = Workspaces(workspace)
-    space = spaces.create(WorkspaceCreate(name="Product"))
+    space = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     published.clear()
     spaces.adopt(space.id, ProjectSetup(path=existing_directory(tmp_path / "repo")))
     assert published == [None]

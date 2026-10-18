@@ -76,9 +76,8 @@ for (const onlyClaude of [false, true]) {
     });
     await expect(form.getByLabel("Harness", { exact: true })).toHaveAttribute(
       "data-value",
-      "",
+      "codex",
     );
-    expect(discoveries).toEqual([]);
     await choose(
       form.getByLabel("Harness", { exact: true }),
       onlyClaude ? "claude-code" : "codex",
@@ -88,7 +87,7 @@ for (const onlyClaude of [false, true]) {
     ).toContainText(onlyClaude ? "Claude Code" : "Codex");
     await expect
       .poll(() => discoveries)
-      .toEqual(onlyClaude ? ["claude-code"] : ["codex"]);
+      .toEqual(onlyClaude ? ["claude-code"] : ["codex", "codex"]);
     if (!onlyClaude) {
       await choose(form.getByLabel("Model", { exact: true }), "codex-model");
       await choose(form.getByLabel("Reasoning effort"), "low");
@@ -106,7 +105,9 @@ for (const onlyClaude of [false, true]) {
       );
       await expect(form.getByLabel("Reasoning effort")).toHaveCount(0);
       await expect(form.getByLabel("Access mode")).toHaveCount(0);
-      await expect.poll(() => discoveries).toEqual(["codex", "claude-code"]);
+      await expect
+        .poll(() => discoveries)
+        .toEqual(["codex", "codex", "claude-code"]);
     }
     await choose(
       form.getByLabel("Model", { exact: true }),
@@ -174,12 +175,9 @@ for (const onlyClaude of [false, true]) {
       "data-value",
       "claude-sonnet-5-5",
     );
-    // Saving the first defaults also activates the board's background preload.
-    // The service coalesces/caches these reads; the open editor retains its model.
+    // Inactive settings and queue controls start no duplicate discovery.
     expect(discoveries).toEqual(
-      onlyClaude
-        ? ["claude-code", "claude-code"]
-        : ["codex", "claude-code", "claude-code"],
+      onlyClaude ? ["claude-code"] : ["codex", "codex", "claude-code"],
     );
     await page.setViewportSize({ width: 390, height: 844 });
     expect(
@@ -327,7 +325,7 @@ test("Claude-only coordinator saves native choices independently of worker defau
   const workers = await (
     await request.get(`/api/workspaces/${workspace}/workers`)
   ).json();
-  expect(workers.selection).toBeNull();
+  expect(workers.selection.model).toBe("test-model");
   expect(discoveries).toBe(1);
   expect(commandDiscoveries).toBe(0);
   await page
@@ -448,7 +446,7 @@ test("switching harnesses disables dependent controls and ignores late catalogs"
   ).toHaveCount(0);
 });
 
-test("configured project choices preload and unknown harness status stays loading", async ({
+test("coordinator choices preload while queue stays model-free and unknown harness status stays loading", async ({
   page,
   request,
   context,
@@ -556,9 +554,7 @@ test("configured project choices preload and unknown harness status stays loadin
   ).toBeDisabled();
   await picker.getByRole("button", { name: "Cancel", exact: true }).click();
   releaseHosts();
-  await expect
-    .poll(() => discovered.slice().sort())
-    .toEqual(["claude-code", "codex"]);
+  await expect.poll(() => discovered.slice().sort()).toEqual(["codex"]);
   await expect(picker).toHaveCount(0);
   releaseModels();
   await expect(
@@ -571,10 +567,10 @@ test("configured project choices preload and unknown harness status stays loadin
     picker.getByRole("combobox", { name: "Model", exact: true }),
   ).toHaveText("Saved model");
   await expect(picker.getByText("Fast mode", { exact: true })).toHaveCount(0);
-  expect(discovered).toHaveLength(2);
+  expect(discovered).toHaveLength(1);
   await picker.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.reload();
-  await expect.poll(() => discovered.length).toBe(4);
+  await expect.poll(() => discovered.length).toBe(2);
   await expect(picker).toHaveCount(0);
   // Reconnection warms the active project's choices again without opening a picker.
   await context.setOffline(true);
@@ -582,6 +578,6 @@ test("configured project choices preload and unknown harness status stays loadin
     page.getByRole("dialog", { name: "Connection lost", exact: true }),
   ).toBeVisible();
   await context.setOffline(false);
-  await expect.poll(() => discovered.length).toBe(6);
+  await expect.poll(() => discovered.length).toBe(3);
   await expect(picker).toHaveCount(0);
 });

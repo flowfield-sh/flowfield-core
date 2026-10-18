@@ -55,23 +55,15 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   ).toBeVisible();
   await expect(
     detail.locator(".work-identity-title").filter({ hasText: /^Release API$/ }),
-  ).not.toBeVisible();
-  await detail
-    .locator("summary")
-    .filter({ hasText: /^Work$/ })
-    .click();
-  await expect(
-    detail.locator(".work-identity-title").filter({ hasText: /^Release API$/ }),
   ).toBeVisible();
   await expect(
     detail
       .locator(".work-identity-title")
       .filter({ hasText: /^Capture deliverables$/ }),
   ).toBeVisible();
-  await detail
-    .locator("summary")
-    .filter({ hasText: /^Work$/ })
-    .click();
+  await expect(
+    detail.getByRole("img", { name: "launch-preview.png", exact: true }),
+  ).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("assembled-ready.png") });
   const waiting = await (
     await request.get(`/api${base}/tasks/${value.dependent}`)

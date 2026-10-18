@@ -90,7 +90,15 @@ class Catalogs:
                     "invalid_scope", "Choose a project ID or directory, not both."
                 )
             cwd = self.workspace._setup_path(project_path)
-        launch = status(self.workspace.directory, registration, os.environ).launch
+        observed = status(self.workspace.directory, registration, os.environ)
+        if not observed.selectable:
+            raise ApplicationError(
+                "harness_unavailable",
+                " ".join(observed.problems)
+                or "The harness is unavailable. Check Harnesses in global settings.",
+                409,
+            )
+        launch = observed.launch
         signature = repr((project_id, str(cwd), launch.model_dump_json()))
         kind = registration.harness
         live = self.jobs.get(kind)

@@ -7,6 +7,7 @@ import pytest
 from coordinator_generations_fixtures import CLAUDE, CODEX
 from project_fixtures import existing_directory
 from pydantic import ValidationError
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.agent_models import AgentSettingsEdit
 from flowfield.agent_settings import AgentSettings
@@ -20,8 +21,8 @@ from flowfield.workspaces import WorkspaceCreate, Workspaces
 def test_empty_workspace_selection_shared_by_adopted_projects_and_guarded(tmp_path):
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
-    space = spaces.create(WorkspaceCreate(name="Product"))
-    assert spaces.coordinator(space.id).effective is None
+    space = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
+    assert spaces.coordinator(space.id).effective.choice == TEST_AGENTS["coordinator"]
     selected = spaces.configure_coordinator(
         space.id, AgentSettingsEdit(expected_revision=1, selection=CODEX)
     )
@@ -47,14 +48,14 @@ def test_empty_workspace_selection_shared_by_adopted_projects_and_guarded(tmp_pa
             == 0
         )
         assert db.execute("SELECT count(*) FROM workspace_coordinator_settings").fetchone()[0] == 1
-    other = spaces.create(WorkspaceCreate(name="Other"))
-    assert spaces.coordinator(other.id).selection is None
+    other = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Other"))
+    assert spaces.coordinator(other.id).selection == TEST_AGENTS["coordinator"]
 
 
 def test_shared_choice_change_observes_active_sibling_and_keeps_frozen_turn(tmp_path):
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
-    space = spaces.create(WorkspaceCreate(name="Product"))
+    space = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     for name in ("core", "site"):
         spaces.adopt(space.id, ProjectSetup(path=existing_directory(tmp_path / name)))
     spaces.configure_coordinator(space.id, AgentSettingsEdit(expected_revision=1, selection=CODEX))
@@ -83,7 +84,7 @@ def test_shared_choice_change_observes_active_sibling_and_keeps_frozen_turn(tmp_
 def test_adoption_cannot_change_workspace_coordinator(tmp_path):
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
-    space = spaces.create(WorkspaceCreate(name="Product"))
+    space = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     with pytest.raises(ValidationError, match="Extra inputs"):
         spaces.adopt(
             space.id, ProjectSetup(path=existing_directory(tmp_path / "core"), coordinator=CODEX)
@@ -95,7 +96,7 @@ def test_adoption_cannot_change_workspace_coordinator(tmp_path):
 def test_competing_workspace_and_project_settings_edits_have_one_winner(tmp_path):
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
-    space = spaces.create(WorkspaceCreate(name="Product"))
+    space = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     spaces.adopt(space.id, ProjectSetup(path=existing_directory(tmp_path / "core")))
 
     def save(project_view):

@@ -1,6 +1,7 @@
 """Reusable isolated setup and scripted peers; no collected test cases."""
 
 from project_fixtures import existing_directory, task_request
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.agent_models import AgentChoice
 from flowfield.application import ProjectSetup, TaskPublish, Workspace
@@ -12,7 +13,7 @@ from flowfield.workspaces import WorkspaceCreate, Workspaces
 def shared(tmp_path, *, cap=1):
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
-    space = spaces.create(WorkspaceCreate(name="Product"))
+    space = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     for name in ("core", "site"):
         spaces.adopt(space.id, ProjectSetup(path=existing_directory(tmp_path / name)))
         task = store.create_task(

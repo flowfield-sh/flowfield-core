@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from project_fixtures import adopt
 from pydantic import ValidationError
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.adapters import directory_picker
 from flowfield.agent_models import AgentChoice
@@ -39,7 +40,13 @@ def test_creation_configures_workspace_roles_separately_from_adoption(tmp_path, 
     monkeypatch.setattr("flowfield.catalogs.model_options", discover)
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
         choice = {"harness": "codex", "model": "fixture", "effort": "low", "mode": "read-only"}
-        workspace = client.post("/api/workspaces", json={"name": "Agents ready"}).json()["id"]
+        workspace = client.post(
+            "/api/workspaces",
+            json={
+                **{role: choice.model_dump() for role, choice in TEST_AGENTS.items()},
+                "name": "Agents ready",
+            },
+        ).json()["id"]
         base = f"/api/workspaces/{workspace}"
         assert client.get(base + "/models").status_code == 200
         assert calls == [(tmp_path / "state" / "coordinators" / workspace, "codex")]
@@ -190,7 +197,13 @@ def test_local_is_automatic_before_git_or_delivery(tmp_path: Path) -> None:
 
 def test_related_project_identity_suggestions_are_available(tmp_path: Path) -> None:
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
-        space = client.post("/api/workspaces", json={"name": "Orders"}).json()["id"]
+        space = client.post(
+            "/api/workspaces",
+            json={
+                **{role: choice.model_dump() for role, choice in TEST_AGENTS.items()},
+                "name": "Orders",
+            },
+        ).json()["id"]
         for name, _prefix in [
             ("orders-api", "ORD"),
             ("orders-dashboard", "DAS"),
@@ -215,7 +228,13 @@ def test_setup_defaults_are_read_only_and_preserve_existing_identity(tmp_path: P
     root = tmp_path / "Project with spaces 🚢"
     root.mkdir()
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
-        space = client.post("/api/workspaces", json={"name": "Fixture"}).json()["id"]
+        space = client.post(
+            "/api/workspaces",
+            json={
+                **{role: choice.model_dump() for role, choice in TEST_AGENTS.items()},
+                "name": "Fixture",
+            },
+        ).json()["id"]
         preview = client.post("/api/projects/setup-defaults", json={"path": str(root)})
         assert preview.status_code == 200
         assert preview.json() == {

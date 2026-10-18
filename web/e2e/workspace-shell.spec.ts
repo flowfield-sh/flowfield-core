@@ -22,7 +22,17 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
   const workspace = await projectWorkspace(request, "shell-tabs");
   const base = `/workspaces/${workspace}`;
   const other = await (
-    await request.post("/api/workspaces", { data: { name: "Other shell" } })
+    await request.post("/api/workspaces", {
+      data: {
+        name: "Other shell",
+        ...Object.fromEntries(
+          ["coordinator", "worker", "reviewer"].map((role) => [
+            role,
+            { harness: "codex", model: "test-model" },
+          ]),
+        ),
+      },
+    })
   ).json();
   for (let i = 0; i < 14; i++)
     expect(

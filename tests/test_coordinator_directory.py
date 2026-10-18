@@ -5,6 +5,7 @@ import asyncio
 import pytest
 from coordinator_generations_fixtures import CODEX
 from project_fixtures import existing_directory
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.adapters.coordinator_directory import for_scope, prepare
 from flowfield.application import ProjectSetup, Workspace
@@ -17,8 +18,8 @@ from flowfield.workspaces import WorkspaceCreate, WorkspaceEdit, Workspaces
 def test_home_is_lazy_stable_and_independent_of_repository_locations(tmp_path):
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
-    first = spaces.create(WorkspaceCreate(name="Product"))
-    second = spaces.create(WorkspaceCreate(name="Product"))
+    first = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
+    second = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     assert not (store.directory / "coordinators").exists()
     home = prepare(store, first.id)
     assert home == store.directory / "coordinators" / first.id
@@ -41,7 +42,7 @@ def test_unknown_workspace_and_unsafe_home_fail_without_touching_projects(tmp_pa
     with pytest.raises(ApplicationError, match="Workspace not found"):
         prepare(store, "../outside")
     assert not (store.directory / "coordinators").exists()
-    space = Workspaces(store).create(WorkspaceCreate(name="Product"))
+    space = Workspaces(store).create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     outside = tmp_path / "outside"
     outside.mkdir()
     (store.directory / "coordinators").symlink_to(outside, target_is_directory=True)
@@ -58,7 +59,7 @@ def test_unknown_workspace_and_unsafe_home_fail_without_touching_projects(tmp_pa
 def test_command_discovery_uses_same_home_as_coordinator(tmp_path, monkeypatch):
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
-    space = spaces.create(WorkspaceCreate(name="Product"))
+    space = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     spaces.adopt(space.id, ProjectSetup(path=existing_directory(tmp_path / "core")))
     service = Supervisor(store)
     captured = []

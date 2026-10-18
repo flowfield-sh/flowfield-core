@@ -11,9 +11,6 @@ from flowfield.application import Workspace
 from flowfield.file_browser import (
     FileBrowser,
     FileDirectory,
-    FileEntry,
-    FileFolder,
-    FileLocation,
     FileWorkPage,
 )
 from flowfield.output_models import OutputFile, OutputPage
@@ -66,14 +63,6 @@ def output_router(workspace: Callable[[], Workspace]) -> APIRouter:
     @router.get("/work")
     def work(workspace_id: str, offset: int = Query(0, ge=0)) -> FileWorkPage:
         return FileBrowser(workspace()).work(workspace_id, offset)
-
-    @router.post("/folders")
-    def folder(workspace_id: str, value: FileFolder) -> FileFolder:
-        return FileBrowser(workspace()).folder(workspace_id, value)
-
-    @router.put("/{identity}/location")
-    def move(workspace_id: str, identity: str, value: FileLocation) -> FileEntry:
-        return FileBrowser(workspace()).move(workspace_id, identity, value)
 
     @router.get("/{identity}")
     def file(workspace_id: str, identity: str) -> OutputFile:

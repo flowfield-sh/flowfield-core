@@ -3,6 +3,7 @@
 import asyncio
 from typing import TYPE_CHECKING
 
+from flowfield.agent_models import EffectiveAgent
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.native_review_execution import NativeReviewExecution, ReviewLaunch
@@ -70,11 +71,24 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
         self.queue_cursor = queued[-1][0] if queued else 0
         for _, project, identity in queued:
             try:
+                review = self.reviews.get(project, identity)
+                if not service.execution.settings(project).enabled:
+                    continue
+                await service.check_task_agents(project, review.task_id)
+                agent = self.assigned_agent(review)
+                from flowfield.adapters.coordinator_directory import prepare
+
+                await service.validate_agent_choice(
+                    agent.choice,
+                    project_path=str(prepare(service.workspace, project)),
+                )
                 await self.start_queued(project, identity)
-            except ApplicationError:
+                service.execution.task_problem(project, review.task_id, None)
+            except ApplicationError as error:
+                service.execution.task_problem(project, review.task_id, error.message)
                 continue
 
-    def launch(self, review: TaskReview, attempt: str) -> ReviewLaunch:
+    def assigned_agent(self, review: TaskReview) -> EffectiveAgent:
         service = self.supervisor
         frozen = review.binding.reviewer.agent
         if review.recipient == "implementer":
@@ -93,6 +107,11 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
             frozen = Execution(service.workspace).get(review.workspace_id, run_id).agent_settings
         if not frozen:
             raise ApplicationError("reviewer_required", "Choose a reviewer before continuing.", 409)
+        return frozen
+
+    def launch(self, review: TaskReview, attempt: str) -> ReviewLaunch:
+        service = self.supervisor
+        frozen = self.assigned_agent(review)
         sections = service.execution.assignment(review.workspace_id, review.binding.run_id)
         exchanges = self.reviews.attempts(review.workspace_id, review.id)
         brief = {

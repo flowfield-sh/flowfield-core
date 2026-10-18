@@ -10,7 +10,17 @@ test("shared workspace board, project filters, Inbox and settings", async ({
   request,
 }, testInfo) => {
   const workspace = await (
-    await request.post("/api/workspaces", { data: { name: "Shared delivery" } })
+    await request.post("/api/workspaces", {
+      data: {
+        name: "Shared delivery",
+        ...Object.fromEntries(
+          ["coordinator", "worker", "reviewer"].map((role) => [
+            role,
+            { harness: "codex", model: "test-model" },
+          ]),
+        ),
+      },
+    })
   ).json();
   const base = `/workspaces/${workspace.id}`;
   for (const [id, title] of [

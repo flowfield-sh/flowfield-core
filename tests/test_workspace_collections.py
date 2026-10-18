@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from permissions_fixtures import OPTIONS
 from project_fixtures import task_request
 from workspace_dependencies_fixtures import shared
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.api import create_app
 from flowfield.attention import attention_page
@@ -62,7 +63,7 @@ def test_shared_board_and_attention_keep_owner_scope_and_same_local_ids(tmp_path
     with pytest.raises(ApplicationError) as rejected:
         attention_page(store, space, "action", project_id="elsewhere")
     assert rejected.value.code == "scope_mismatch"
-    empty = Workspaces(store).create(WorkspaceCreate(name="Empty"))
+    empty = Workspaces(store).create(WorkspaceCreate(**TEST_AGENTS, name="Empty"))
     assert BrowserReads(store).workspace_board(empty.id).tasks == []
     assert attention_page(store, empty.id, "action").total == 0
     with TestClient(create_app(data_dir=store.directory), base_url="http://localhost") as client:

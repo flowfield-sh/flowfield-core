@@ -13,6 +13,32 @@ from flowfield.harness_models import HarnessEdit
 from flowfield.harness_settings import HarnessSettings
 
 
+def test_cached_models_do_not_hide_a_disconnected_harness(tmp_path, monkeypatch):
+    workspace = fixture(tmp_path).workspace
+    catalogs = Catalogs(workspace)
+    registration = HarnessSettings(workspace).get("codex")
+
+    async def discover(directory, *, on_cleanup, **kwargs):
+        on_cleanup(True)
+        return [ModelOption(id="fixture", name="Fixture", efforts=[])]
+
+    monkeypatch.setattr("flowfield.catalogs.model_options", discover)
+
+    async def exercise():
+        from flowfield.catalogs import status
+
+        assert await catalogs.run(registration)
+        observed = status(workspace.directory, registration, {})
+        observed.selectable = False
+        observed.problems = ["Native harness disconnected"]
+        monkeypatch.setattr("flowfield.catalogs.status", lambda *args: observed)
+        with pytest.raises(ApplicationError, match="disconnected"):
+            await catalogs.run(registration)
+        await catalogs.close()
+
+    asyncio.run(exercise())
+
+
 def test_repository_free_task_model_discovery_uses_workspace_home(tmp_path, monkeypatch):
     from file_delivery_fixtures import setup
 

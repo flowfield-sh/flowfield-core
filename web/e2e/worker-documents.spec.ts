@@ -9,7 +9,17 @@ test("project defaults prepare exact task documents and preserve revision links"
   request,
 }, testInfo) => {
   const workspace = await (
-    await request.post("/api/workspaces", { data: { name: "Worker guidance" } })
+    await request.post("/api/workspaces", {
+      data: {
+        name: "Worker guidance",
+        ...Object.fromEntries(
+          ["coordinator", "worker", "reviewer"].map((role) => [
+            role,
+            { harness: "codex", model: "test-model" },
+          ]),
+        ),
+      },
+    })
   ).json();
   const path = join(state, "documented-core");
   mkdirSync(path, { recursive: true });

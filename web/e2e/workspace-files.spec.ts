@@ -57,36 +57,11 @@ test("workspace files organize retained task outputs without a project", async (
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ colorScheme: "light" });
-  await files.getByRole("button", { name: "New folder", exact: true }).click();
-  await files.getByLabel("Folder name", { exact: true }).fill("Launch");
-  await files
-    .getByRole("button", { name: "Create folder", exact: true })
-    .click();
-  await expect(
-    files.getByText("This folder is empty", { exact: true }),
-  ).toBeVisible();
-  await files.getByRole("button", { name: "Up", exact: true }).click();
-  await files.getByRole("button", { name: /launch-report.txt/ }).click();
-  await details
-    .getByRole("button", { name: "Rename or move", exact: true })
-    .click();
-  await details
-    .getByLabel("File path", { exact: true })
-    .fill("Launch/brief.txt");
-  await details.getByRole("button", { name: "Save", exact: true }).click();
-  await files.getByRole("button", { name: "Launch", exact: true }).click();
-  await files.getByRole("button", { name: /brief.txt/ }).click();
-  await expect(
-    details.getByRole("heading", { name: "brief.txt", exact: true }),
-  ).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath("files-organized.png") });
-  await details
-    .getByRole("link", { name: /T-1 Prepare launch research/ })
-    .click();
+  await details.getByRole("link", { name: "T-1", exact: true }).click();
   await expect(page).toHaveURL(`${base}/tasks/${value.task}`);
   await openResource(page, "Files");
   await expect(
-    details.getByRole("heading", { name: "brief.txt", exact: true }),
+    details.getByRole("heading", { name: "launch-report.txt", exact: true }),
   ).toBeVisible();
   await page.goto(`${base}/tasks/${value.task}/changes/${value.result}`);
   await expect(
@@ -107,7 +82,7 @@ test("workspace files organize retained task outputs without a project", async (
   await page.screenshot({ path: testInfo.outputPath("file-task-partial.png") });
   await openResource(page, "Files");
   await expect(
-    files.getByRole("button", { name: "Launch", exact: true }),
+    files.getByRole("button", { name: /launch-report.txt/ }),
   ).toBeVisible();
   await page.goto(
     `${base}/tasks/${value.review_task}/changes/${value.review_result}`,

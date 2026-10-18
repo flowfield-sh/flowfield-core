@@ -49,7 +49,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   const work = page.getByRole("navigation", { name: "Work", exact: true });
   await expect(work.getByRole("link").first()).toHaveAttribute(
     "href",
-    `/workspaces/${await projectWorkspace(request, project)}/tasks/T-1`,
+    `/workspaces/${await projectWorkspace(request, project)}/tasks/T-2`,
   );
   await request.post(
     `/api/workspaces/${await projectWorkspace(request, project)}/questions`,

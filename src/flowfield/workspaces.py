@@ -7,7 +7,7 @@ from uuid import uuid4
 from pydantic import StringConstraints
 
 from flowfield import worker_settings
-from flowfield.agent_models import AgentSettingsEdit, AgentSettingsView
+from flowfield.agent_models import AgentChoice, AgentSettingsEdit, AgentSettingsView
 from flowfield.application import (
     Edit,
     Input,
@@ -34,6 +34,9 @@ WorkspaceName = Annotated[
 
 class WorkspaceCreate(Input):
     name: WorkspaceName
+    coordinator: AgentChoice
+    worker: AgentChoice
+    reviewer: AgentChoice
     author: Title = "human"
 
 
@@ -121,6 +124,25 @@ class Workspaces:
             from flowfield.documents import Documents
 
             Documents.seed(db, record.id, request.author, timestamp)
+            db.execute(
+                "INSERT INTO workspace_coordinator_settings VALUES (?,1,?)",
+                (record.id, request.coordinator.model_dump_json()),
+            )
+            workers = WorkspaceWorkerSettings(
+                workspace_id=record.id,
+                selection=request.worker.model_copy(update={"fast": False}),
+            )
+            db.execute(
+                "INSERT INTO workspace_worker_settings VALUES (?,?)",
+                (record.id, workers.model_dump_json()),
+            )
+            from flowfield.reviewer_settings import ReviewerSettings
+
+            reviewer = ReviewerSettings(enabled=True, selection=request.reviewer)
+            db.execute(
+                "INSERT INTO reviewer_settings VALUES (?,'',?)",
+                (record.id, reviewer.model_dump_json()),
+            )
         return record
 
     def edit(self, identity: str, request: WorkspaceEdit) -> WorkspaceRecord:

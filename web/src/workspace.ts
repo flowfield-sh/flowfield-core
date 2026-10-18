@@ -125,11 +125,7 @@ export const isUpcoming = (status: WorkStatus) =>
 export function compareTasks(a: TaskCard, b: TaskCard) {
   const order = isUpcoming(a.status)
     ? a.position - b.position
-    : (a.status_changed_at === b.status_changed_at
-        ? 0
-        : a.status_changed_at < b.status_changed_at
-          ? -1
-          : 1) * (a.status === "done" ? -1 : 1);
+    : b.activity_at.localeCompare(a.activity_at);
   return order || (a.key === b.key ? 0 : a.key < b.key ? -1 : 1);
 }
 

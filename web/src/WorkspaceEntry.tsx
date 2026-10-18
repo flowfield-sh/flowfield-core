@@ -9,6 +9,8 @@ import { WorkspaceLink } from "./WorkspaceLink";
 import { workspaceHref } from "./navigation";
 import { request, type WorkspaceRecord } from "./workspace";
 import { reportError } from "./requestFeedback";
+import { AgentChoiceFields } from "./AgentChoiceFields";
+import type { components } from "./api-schema";
 
 export function WorkspaceList({
   workspaces,
@@ -68,10 +70,23 @@ export function NewWorkspace({
   onDirty: (dirty: boolean) => void;
 }) {
   const [name, setName] = useState("");
+  const [coordinator, setCoordinator] = useState<
+    components["schemas"]["AgentChoice-Output"] | null
+  >(null);
+  const [worker, setWorker] = useState<
+    components["schemas"]["AgentChoice-Output"] | null
+  >(null);
+  const [reviewer, setReviewer] = useState<
+    components["schemas"]["AgentChoice-Output"] | null
+  >(null);
+  const [coordinatorReady, setCoordinatorReady] = useState(false);
+  const [workerReady, setWorkerReady] = useState(false);
+  const [reviewerReady, setReviewerReady] = useState(false);
+  const ready = coordinatorReady && workerReady && reviewerReady;
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    onDirty(!!name);
-  }, [name, onDirty]);
+    onDirty(!!name || !!coordinator || !!worker || !!reviewer);
+  }, [name, coordinator, worker, reviewer, onDirty]);
   return (
     <section className="editor" aria-label="New workspace form">
       <ContentStack space="section" className="pane-form">
@@ -82,13 +97,13 @@ export function NewWorkspace({
         <form
           onSubmit={async (event) => {
             event.preventDefault();
-            if (busy || !name.trim()) return;
+            if (busy || !name.trim() || !ready) return;
             setBusy(true);
             try {
               const workspace = await request<WorkspaceRecord>(
                 "workspaces",
                 "POST",
-                { name: name.trim() },
+                { name: name.trim(), coordinator, worker, reviewer },
               );
               onDirty(false);
               created(workspace);
@@ -113,8 +128,26 @@ export function NewWorkspace({
                 onChange={(event) => setName(event.target.value)}
               />
             </Label>
+            <AgentChoiceFields
+              label="Coordinator"
+              value={coordinator}
+              change={setCoordinator}
+              onReady={setCoordinatorReady}
+            />
+            <AgentChoiceFields
+              label="Worker"
+              value={worker}
+              change={setWorker}
+              onReady={setWorkerReady}
+            />
+            <AgentChoiceFields
+              label="Reviewer"
+              value={reviewer}
+              change={setReviewer}
+              onReady={setReviewerReady}
+            />
             <div className="actions">
-              <Button type="submit">
+              <Button type="submit" disabled={!name.trim() || !ready}>
                 {busy ? "Creating workspace…" : "Create workspace"}
               </Button>
             </div>

@@ -10,7 +10,15 @@ test("cross-project prerequisites link to their owner and refresh dependent view
 }, testInfo) => {
   const workspace = await (
     await request.post("/api/workspaces", {
-      data: { name: "Shared dependencies" },
+      data: {
+        name: "Shared dependencies",
+        ...Object.fromEntries(
+          ["coordinator", "worker", "reviewer"].map((role) => [
+            role,
+            { harness: "codex", model: "test-model" },
+          ]),
+        ),
+      },
     })
   ).json();
   for (const [id, prefix] of [

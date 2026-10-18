@@ -374,6 +374,9 @@ def test_stop_during_preparation_waits_for_owned_git_work(tmp_path, monkeypatch)
 
 
 def test_missing_setup_failure_is_retained_and_retry_is_explicit(tmp_path, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr("flowfield.supervisor.Supervisor.validate_agent_choice", AsyncMock())
     service, _, run, _, reviews = configured(tmp_path)
 
     def missing(*args, **kwargs):
@@ -392,6 +395,9 @@ def test_missing_setup_failure_is_retained_and_retry_is_explicit(tmp_path, monke
 
 
 def test_review_cannot_modify_candidate_or_call_coordinator_tools(tmp_path, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr("flowfield.supervisor.Supervisor.validate_agent_choice", AsyncMock())
     service, repo, run, _, reviews = configured(tmp_path)
 
     class EditingReviewer(Reviewer):

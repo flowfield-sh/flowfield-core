@@ -102,9 +102,7 @@ test("worker models load automatically and retry without replacing setting draft
   });
   await page.goto(`/workspaces/${workspace}/edit/workers`);
   const settings = page.getByRole("region", { name: "Worker settings" });
-  expect(calls).toBe(0);
-  await choose(settings.getByLabel("Harness", { exact: true }), "codex");
-  await expect.poll(() => calls).toBe(1);
+  await expect.poll(() => calls).toBe(2);
   await expect(
     page.locator("[data-sonner-toast][data-type=error]"),
   ).toContainText("Catalog temporarily unavailable");
@@ -122,7 +120,7 @@ test("worker models load automatically and retry without replacing setting draft
     page.getByRole("option", { name: "Model one", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(model).toHaveAttribute("data-value", "");
+  await expect(model).toHaveAttribute("data-value", "test-model");
   await expect(settings.getByLabel("Maximum parallel workers")).toHaveValue(
     "3",
   );

@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 from coordinator_fixtures import setup
 from project_fixtures import existing_directory, task_request
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.application import Edit, ProjectSetup
 from flowfield.coordinator_models import (
@@ -78,7 +79,7 @@ def test_view_membership_and_task_identity_are_validated_before_reserving(tmp_pa
     service, conversation = setup(tmp_path, monkeypatch)
     ws, store = service.workspace, service.coordinator.store
     spaces = Workspaces(ws)
-    foreign = spaces.create(WorkspaceCreate(name="Other workspace"))
+    foreign = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Other workspace"))
     spaces.adopt(
         foreign.id, ProjectSetup(id="foreign", path=existing_directory(tmp_path / "foreign"))
     )

@@ -32,7 +32,6 @@ class ThreadMessage(Record):
     earlier_id: str | None = None
     successor_id: str | None = None
     choices: list[str] = []
-    technical: bool = False
 
 
 class ThreadPage(Record):
@@ -196,12 +195,6 @@ class ThreadView(Conversation):
             earlier_id=data.get("supersedes") if kind == "activity" else None,
             successor_id=data.get("superseded_by") if kind == "activity" else None,
             choices=data.get("choices", []) if kind == "question" else [],
-            technical=internal_plan
-            or (kind == "state" and title.startswith("Moved to "))
-            or (
-                kind == "attempt"
-                and bool(data.get("subtask_id") or data.get("purpose") == "assembly")
-            ),
         )
 
     def page_view(self, workspace_id: str, task_id: str, cursor: str | None = None) -> ThreadPage:

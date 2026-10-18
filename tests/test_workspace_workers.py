@@ -6,6 +6,7 @@ import pytest
 from execution_fixtures import BASE
 from project_fixtures import existing_directory
 from pydantic import ValidationError
+from workspace_fixtures import TEST_AGENTS
 from workspace_workers_fixtures import shared
 
 from flowfield.agent_models import AgentChoice, AgentSettingsEdit
@@ -21,11 +22,9 @@ from flowfield.workspaces import WorkspaceCreate, Workspaces
 
 def test_empty_workspace_has_explicit_paused_default_and_guarded_edits(tmp_path):
     spaces = Workspaces(Workspace(tmp_path / "state"))
-    space = spaces.create(WorkspaceCreate(name="Product"))
-    assert spaces.workers(space.id).selection is None
+    space = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
+    assert spaces.workers(space.id).selection == TEST_AGENTS["worker"]
     assert not spaces.workers(space.id).enabled
-    with pytest.raises(ApplicationError, match="Choose a worker"):
-        spaces.queue(space.id, QueueEdit(expected_revision=1, enabled=True))
     with pytest.raises(ApplicationError, match="task override"):
         spaces.configure_workers(
             space.id, SettingsEdit(expected_revision=1, selection=AgentChoice(model="x", fast=True))
@@ -101,7 +100,7 @@ def test_pause_stale_edits_and_repository_problems_are_scoped(tmp_path):
         spaces.queue(identity, QueueEdit(expected_revision=revision, enabled=True))
     spaces.queue(identity, QueueEdit(expected_revision=paused.revision, enabled=True))
     assert execution.claim(identity, BASE, {}, task_id="site") is not None
-    other = spaces.create(WorkspaceCreate(name="Other"))
+    other = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Other"))
     assert spaces.occupancy(other.id).active == 0
     assert not spaces.workers(other.id).enabled
 

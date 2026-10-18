@@ -48,10 +48,10 @@ class PermissionTurn:
         title: str,
         options: list[PermissionOption],
         *,
-        timeout: float = 300,
+        timeout: float | None = None,
         details: str = "",
     ) -> str | None:
-        if not self.open or self.pending or not 0 < timeout <= 3600:
+        if not self.open or self.pending or (timeout is not None and not 0 < timeout <= 3600):
             raise ApplicationError("permission_unavailable", "Permission turn is unavailable.", 409)
         if len({option.id for option in options}) != len(options):
             raise ValueError("Permission option IDs must be unique")
@@ -71,7 +71,9 @@ class PermissionTurn:
             options=options,
             created_at=created,
             updated_at=created,
-            expires_at=(datetime.now(UTC) + timedelta(seconds=timeout)).isoformat(),
+            expires_at=(datetime.now(UTC) + timedelta(seconds=timeout)).isoformat()
+            if timeout is not None
+            else None,
         )
         future: asyncio.Future[str] = asyncio.get_running_loop().create_future()
         self.pending[record.id] = future
@@ -287,7 +289,7 @@ class Permissions:
                     "permission_stale", "This request is no longer waiting.", 409
                 )
             self._live(db, turn)
-            if datetime.fromisoformat(record.expires_at) <= datetime.now(UTC):
+            if record.expires_at and datetime.fromisoformat(record.expires_at) <= datetime.now(UTC):
                 raise ApplicationError(
                     "permission_expired", "This permission request expired.", 409
                 )

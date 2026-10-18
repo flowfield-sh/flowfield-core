@@ -3,6 +3,7 @@
 import json
 
 import pytest
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.agent_models import AgentChoice
 from flowfield.application import (
@@ -28,7 +29,7 @@ from flowfield.workspaces import WorkspaceCreate, Workspaces
 
 def workspace(tmp_path, *, review=False):
     store = Workspace(tmp_path / "state")
-    owner = Workspaces(store).create(WorkspaceCreate(name="Outcomes"))
+    owner = Workspaces(store).create(WorkspaceCreate(**TEST_AGENTS, name="Outcomes"))
     if not review:
         Reviewers(store).configure(owner.id, ReviewerEdit(expected_revision=1, enabled=False))
     execution = Execution(store)
@@ -129,8 +130,8 @@ def test_task_and_subtask_graphs_are_distinct_and_transactional(tmp_path):
         (message for message in messages if message.kind == "definition"),
         key=lambda message: message.revision or 0,
     )
-    assert definitions[0].title == "Task defined" and not definitions[0].technical
-    assert all(message.technical for message in definitions[1:])
+    assert definitions[0].title == "Task defined"
+    assert all(message.title == "Work plan updated" for message in definitions[1:])
     assert all(message.title == "Work plan updated" for message in definitions[1:])
     with pytest.raises(ApplicationError):
         children.create(
@@ -140,7 +141,7 @@ def test_task_and_subtask_graphs_are_distinct_and_transactional(tmp_path):
                 title="Invalid", body="Cross-parent", completion="report", dependencies=[a.id]
             ),
         )
-    other = Workspaces(store).create(WorkspaceCreate(name="Other"))
+    other = Workspaces(store).create(WorkspaceCreate(**TEST_AGENTS, name="Other"))
     own = store.create_task(other.id, TaskCreate(title="Independent"))
     assert own.key == "T-1"
     with pytest.raises(ApplicationError):

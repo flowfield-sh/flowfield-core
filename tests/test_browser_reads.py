@@ -12,6 +12,32 @@ from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 
 
+def test_recent_activity_tracks_notes_and_answers_without_editing_task(tmp_path):
+    from execution_fixtures import fixture
+
+    from flowfield.activity import ActivityCreate
+    from flowfield.questions import QuestionAnswer, QuestionCreate, Questions
+
+    store = fixture(tmp_path, count=2).workspace
+    reads = BrowserReads(store)
+    first = reads.task("harbor", "task-0")
+    note = store.add_activity("harbor", ActivityCreate(task_id="task-0", body="Latest update"))
+    assert reads.task("harbor", "task-0").activity_at == note.created_at
+    assert reads.task("harbor", "task-0").activity_at > reads.task("harbor", "task-1").activity_at
+    questions = Questions(store)
+    question = questions.ask(
+        "harbor",
+        QuestionCreate(
+            task_id="task-1", question="Format?", context="Report", recommendation="PDF"
+        ),
+    )
+    answered = questions.answer(
+        "harbor", question.id, QuestionAnswer(expected_revision=1, answer="PDF, please")
+    )
+    assert reads.task("harbor", "task-1").activity_at >= answered.updated_at
+    assert reads.task("harbor", "task-0").revision == first.revision
+
+
 def test_batched_cards_preserve_question_scope_state_and_refresh(tmp_path):
     from execution_fixtures import BASE, fixture
 
@@ -115,8 +141,10 @@ def test_cards_and_current_details_never_hydrate_historical_text(tmp_path: Path)
         for card in board.tasks:
             original = next(t for t in full.tasks if t.id == card.id)
             assert card.state is not None
-            assert card.model_dump(exclude={"state"}) == {
-                key: original.model_dump()[key] for key in card.model_dump() if key != "state"
+            assert card.model_dump(exclude={"state", "activity_at"}) == {
+                key: original.model_dump()[key]
+                for key in card.model_dump()
+                if key not in {"state", "activity_at"}
             }
         detail = reads.task(project.id, task.key)
         assert detail.body == task.body

@@ -292,10 +292,24 @@ def init(
 
 
 @workspace_app.command("create")
-def workspace_create(ctx: typer.Context, name: str, json_output: Json = False) -> None:
+def workspace_create(
+    ctx: typer.Context,
+    name: str,
+    agents: Annotated[
+        Path,
+        typer.Option(
+            exists=True,
+            dir_okay=False,
+            help="JSON file with coordinator, worker and reviewer choices.",
+        ),
+    ],
+    json_output: Json = False,
+) -> None:
     """Create an empty workspace, then add existing projects with project init --workspace."""
     output(
-        lambda: ctx.obj.request("POST", "workspaces", {"name": name}),
+        lambda: ctx.obj.request(
+            "POST", "workspaces", {**json.loads(agents.read_text()), "name": name}
+        ),
         json_output,
         lambda value: typer.echo(
             f"Created {value['name']} · {value['id']}\n"

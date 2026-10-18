@@ -54,6 +54,7 @@ class TaskCard(TaskReference):
     revision: int
     created_at: str
     updated_at: str
+    activity_at: str
     updated_by: str
     position: int
     status_changed_at: str
@@ -109,14 +110,30 @@ def task_timeline(
             "times AS (SELECT task_id, "
             "max(CASE WHEN status IS NOT previous_status THEN updated_at END) AS entered, "
             "max(CASE WHEN archived=1 AND coalesce(previous_archived,0)=0 "
-            "THEN revision END) AS archive_revision FROM steps GROUP BY task_id) "
-            "SELECT times.task_id, entered, json_extract(r.data, '$.updated_at') AS archived_at, "
+            "THEN revision END) AS archive_revision FROM steps GROUP BY task_id), "
+            "events AS (SELECT task_id,created_at timestamp FROM activity WHERE workspace_id=? "
+            "UNION ALL SELECT id,json_extract(data,'$.updated_at') FROM tasks WHERE workspace_id=? "
+            "UNION ALL SELECT task_id,json_extract(data,'$.updated_at') FROM questions WHERE"
+            " workspace_id=? "
+            "UNION ALL SELECT task_id,json_extract(data,'$.updated_at') FROM agent_permissions"
+            " WHERE workspace_id=? "
+            "UNION ALL SELECT"
+            " task_id,coalesce(json_extract(data,'$.ended_at'),json_extract(data,'$.started_at'),"
+            "json_extract(data,'$.created_at')) FROM runs WHERE workspace_id=? "
+            "UNION ALL SELECT"
+            " task_id,coalesce(json_extract(data,'$.completed_at'),json_extract(data,"
+            "'$.created_at')) FROM task_reviews WHERE workspace_id=? "
+            "UNION ALL SELECT task_id,json_extract(data,'$.created_at') FROM task_replies WHERE"
+            " workspace_id=?), "
+            "recent AS (SELECT task_id,max(timestamp) activity_at FROM events GROUP BY task_id) "
+            "SELECT times.task_id, entered, recent.activity_at, json_extract(r.data,"
+            " '$.updated_at') AS archived_at, "
             "json_extract(r.data, '$.updated_by') AS archived_by FROM times "
-            "LEFT JOIN task_revisions r ON r.workspace_id=? AND r.task_id=times.task_id "
+            "JOIN recent ON recent.task_id=times.task_id LEFT JOIN task_revisions r ON"
+            " r.workspace_id=? AND r.task_id=times.task_id "
             "AND r.revision=times.archive_revision",
-            (workspace_id, task_id, workspace_id)
-            if task_id is not None
-            else (workspace_id, workspace_id),
+            ((workspace_id, task_id) if task_id is not None else (workspace_id,))
+            + (workspace_id,) * 8,
         )
     }
 
@@ -167,6 +184,7 @@ class BrowserReads:
             )
             if task.publication and task.publication.documents
             else [],
+            activity_at=timeline["activity_at"],
             status_changed_at=timeline["entered"],
             archived_at=timeline["archived_at"] if task.archived else None,
             archived_by=timeline["archived_by"] if task.archived else None,

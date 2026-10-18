@@ -4,6 +4,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from workspace_fixtures import TEST_AGENTS
+
 from flowfield.application import Project, ProjectSetup, Workspace
 
 
@@ -38,7 +40,7 @@ def adopt(
         # Publish the final identity atomically: a running service can observe it
         # immediately, so never create then rename the workspace behind its back.
         with patch("flowfield.workspaces.uuid4", return_value=SimpleNamespace(hex=identity)):
-            spaces.create(WorkspaceCreate(name=defaults.name + " Workspace"))
+            spaces.create(WorkspaceCreate(**TEST_AGENTS, name=defaults.name + " Workspace"))
     project = spaces.adopt(identity, request)
     if coordinator:
         spaces.configure_coordinator(

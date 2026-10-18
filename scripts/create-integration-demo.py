@@ -35,7 +35,15 @@ def main() -> None:
     repo = root / "harbor-integration"
     repo.mkdir()
     spaces = Workspaces(workspace)
-    space = spaces.create(WorkspaceCreate(name="Harbor integration workspace"))
+    space = spaces.create(
+        WorkspaceCreate(
+            name="Harbor integration workspace",
+            **{
+                role: AgentChoice(harness="codex", model="offline-fixture")
+                for role in ("coordinator", "worker", "reviewer")
+            },
+        )
+    )
     project = spaces.adopt(
         space.id,
         ProjectSetup(path=str(repo), name="Harbor · Integration trial"),
@@ -181,7 +189,7 @@ def main() -> None:
     (repo / "README.md").write_text("# Harbor\n\nUnsaved human planning notes: preserve me.\n")
     with workspace.connection(write=True, workspace_id=space.id) as db:
         settings = execution._settings(db, space.id)
-        settings.enabled, settings.selection = False, None
+        settings.enabled = False
         execution._save_settings(db, settings)
     print(
         json.dumps(

@@ -28,7 +28,7 @@ def reviewer_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
         owner = Reviewers(service.workspace)
         current = owner.get(workspace, entity=entity)
         service.workspace._current(current.revision, request.expected_revision)
-        if request.selection:
+        if request.selection and request.enabled is not False:
             from flowfield.adapters.coordinator_directory import prepare
 
             await service.validate_agent_choice(

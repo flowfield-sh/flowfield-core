@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from execution_fixtures import fixture, result
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.agent_tools import workspace_scope
 from flowfield.attention import attention_page
@@ -47,7 +48,7 @@ def test_scope_and_exact_source_family_are_checked(tmp_path):
         "harbor",
         QuestionCreate(id="ask", question="Which format?", context="Export", recommendation="CSV"),
     )
-    foreign = Workspaces(ws).create(WorkspaceCreate(name="Elsewhere"))
+    foreign = Workspaces(ws).create(WorkspaceCreate(**TEST_AGENTS, name="Elsewhere"))
     for workspace, kind, identity in [
         (foreign.id, "question", q.id),
         ("harbor", "result", q.id),

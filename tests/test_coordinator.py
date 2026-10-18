@@ -342,8 +342,8 @@ def test_crash_recovery_never_replays(tmp_path, monkeypatch):
     # No native launch or model selection occurs when history is read/created.
     conversation = service.coordinator.store.new("harbor")
     assert service.coordinator.store.page("harbor", conversation.id).items == []
-    with pytest.raises(ApplicationError, match="model and effort"):
-        service.coordinator.store.reserve("harbor", conversation.id, message())
+    reserved, _ = service.coordinator.store.reserve("harbor", conversation.id, message())
+    assert not reserved.native_started
     with upgraded.connection(write=True) as db:
         db.execute("UPDATE integration_settings SET data=json_set(data,'$.runtime','local')")
     # A separate configured fixture produces real native-start recovery evidence.
@@ -360,6 +360,10 @@ def test_crash_recovery_never_replays(tmp_path, monkeypatch):
 
 def test_browser_reads_are_model_free_and_cross_project_scoped(tmp_path, monkeypatch):
     execution = fixture(tmp_path)
+    settings = execution.settings("harbor")
+    from flowfield.execution_models import QueueEdit
+
+    execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=False))
     monkeypatch.setattr(
         "flowfield.adapters.codex_agent.command",
         lambda *args: pytest.fail("Read launched a harness"),
@@ -376,7 +380,6 @@ def test_browser_reads_are_model_free_and_cross_project_scoped(tmp_path, monkeyp
         path = f"/api/workspaces/harbor/coordinator/{conversation['id']}"
         assert client.get(path).json()["items"] == []
         assert client.get(path.replace("harbor", "elsewhere")).status_code == 404
-        assert client.post(path + "/messages", json=message().model_dump()).status_code == 409
         assert client.get(path + "/settings").status_code == 200
 
 

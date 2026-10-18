@@ -8,7 +8,15 @@ test("workspace documents preserve drafts, exact history and restore as a new re
 }, testInfo) => {
   const workspace = await (
     await request.post("/api/workspaces", {
-      data: { name: "Product guidance" },
+      data: {
+        name: "Product guidance",
+        ...Object.fromEntries(
+          ["coordinator", "worker", "reviewer"].map((role) => [
+            role,
+            { harness: "codex", model: "test-model" },
+          ]),
+        ),
+      },
     })
   ).json();
   const base = `/workspaces/${workspace.id}`;
@@ -163,7 +171,15 @@ test("document conversation context keeps an uncertain receipt until navigation 
 }) => {
   const workspace = await (
     await request.post("/api/workspaces", {
-      data: { name: "Document context" },
+      data: {
+        name: "Document context",
+        ...Object.fromEntries(
+          ["coordinator", "worker", "reviewer"].map((role) => [
+            role,
+            { harness: "codex", model: "test-model" },
+          ]),
+        ),
+      },
     })
   ).json();
   const root = `/workspaces/${workspace.id}`;

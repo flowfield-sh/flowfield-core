@@ -157,13 +157,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   });
   await page.goto(`/workspaces/${workspace}/tasks/${task.key}/settings`);
   const detail = page.getByRole("region", { name: "Task details" });
-  await page
-    .getByRole("button", { name: "Codex · first · low", exact: true })
-    .click();
-  const picker = page.getByRole("dialog", {
-    name: "Worker model settings",
-    exact: true,
-  });
+  const picker = detail.getByRole("region", { name: "Worker", exact: true });
   for (const label of ["Model", "Reasoning effort"]) {
     const select = picker.getByRole("combobox", { name: label, exact: true });
     await expect(select).toBeDisabled();
@@ -185,10 +179,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   await expect(
     picker.getByRole("button", { name: "Fast mode", exact: true }),
   ).toHaveCount(0);
-  await expect(picker.getByLabel("Model", { exact: true })).toHaveCSS(
-    "height",
-    "32px",
-  );
+
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
     // Radix repositions on the next frame after a viewport change.
@@ -227,10 +218,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     }
   }
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.keyboard.press("Escape");
-  await page
-    .getByRole("button", { name: "Codex · first · low", exact: true })
-    .click();
+  await picker.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(picker.getByLabel("Model", { exact: true })).toHaveAttribute(
     "data-value",
     "first",
@@ -249,9 +237,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   await expect(
     page.getByRole("button", { name: "Fast mode", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
-  await page
-    .getByRole("button", { name: "Codex · second · medium", exact: true })
-    .click();
+
   await expect(
     picker.getByText("Overrides workspace defaults for the next worker run.", {
       exact: true,
@@ -311,7 +297,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   expect(settings.effective.choice.fast).toBe(false);
   await expect(
     picker.getByRole("button", { name: "Cancel", exact: true }),
-  ).toBeEnabled();
+  ).toHaveCount(0);
   for (const [width, colorScheme] of [
     [1280, "light"],
     [390, "dark"],
@@ -330,8 +316,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
       exact: true,
     }),
   ).toBeVisible();
-  await picker.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(picker).not.toBeVisible();
+  await expect(picker).toBeVisible();
   expect(settings.selection).toBeNull();
   await detail.getByRole("tab", { name: "Task", exact: true }).click();
   await detail

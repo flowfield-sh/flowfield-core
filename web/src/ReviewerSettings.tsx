@@ -72,7 +72,7 @@ export function ReviewerSettings({
         <p>
           {entity
             ? "Inherits workspace reviewer settings until overridden."
-            : "Assessment is independent of permission to integrate code."}
+            : "Reviewers check task results before delivery. Tasks inherit these settings unless overridden."}
         </p>
         <EditorFeedback state={state} />
         {resource.error && (

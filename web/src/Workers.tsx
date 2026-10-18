@@ -44,12 +44,6 @@ export function QueueControls({
     `${path}/workers/occupancy`,
     refresh,
   );
-  useHarnessModels(
-    { workspaceId },
-    resource.data?.selection?.harness,
-    refresh,
-    !!resource.data?.selection,
-  );
   const [busy, setBusy] = useState(false);
   const data = resource.data;
   const problem = data?.problem;
@@ -121,11 +115,6 @@ export function QueueControls({
               </Button>
             </ActionTooltip>
           </div>
-          {!data.selection && (
-            <Button size="xs" variant="outline" asChild>
-              <Link to={settingsHref + "/edit/workers"}>Choose model</Link>
-            </Button>
-          )}
         </>
       )}
       {problem && (
@@ -173,10 +162,12 @@ export function WorkerSettings({
   workspaceId,
   onDirty,
   refresh,
+  active = true,
 }: {
   refresh: unknown;
   workspaceId: string;
   onDirty: (value: boolean) => void;
+  active?: boolean;
 }) {
   const path = `workspaces/${workspaceId}/workers`;
   const resource = useResource<Settings>(path, refresh);
@@ -192,7 +183,7 @@ export function WorkerSettings({
     { workspaceId },
     draft?.harness ?? resource.data?.selection?.harness,
     refresh,
-    !!resource.data,
+    active && !!resource.data,
   );
   const { catalog, models } = source;
   const harness = source.kind;

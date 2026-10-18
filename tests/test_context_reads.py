@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from lifecycle_fixtures import run_report
 from project_fixtures import adopt, existing_directory, task_request
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.activity import ActivityCreate
 from flowfield.api import create_app
@@ -136,7 +137,13 @@ def test_context_readiness_matches_domain_and_invalid_input(tmp_path: Path) -> N
 
 def test_http_context_is_scoped_and_bounded(tmp_path: Path) -> None:
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
-        space = client.post("/api/workspaces", json={"name": "Fixture"}).json()["id"]
+        space = client.post(
+            "/api/workspaces",
+            json={
+                **{role: choice.model_dump() for role, choice in TEST_AGENTS.items()},
+                "name": "Fixture",
+            },
+        ).json()["id"]
         client.post(
             f"/api/workspaces/{space}/projects",
             json={"path": existing_directory(str(tmp_path / "harbor"))},

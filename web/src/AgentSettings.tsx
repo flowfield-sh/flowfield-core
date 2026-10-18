@@ -161,6 +161,8 @@ type AgentSettingsProps = {
   onCancel?: () => void;
   compact?: boolean;
   open?: boolean;
+  active?: boolean;
+  showFast?: boolean;
 };
 
 function useAgentSettingsContent({
@@ -177,6 +179,8 @@ function useAgentSettingsContent({
   onCancel,
   compact = false,
   open = true,
+  active = true,
+  showFast = false,
 }: AgentSettingsProps) {
   const resource = useResource<Settings>(path, refresh);
   const [draft, setDraft] = useState<{
@@ -200,7 +204,7 @@ function useAgentSettingsContent({
     workspaceId ? { workspaceId } : projectId,
     choice?.harness,
     refresh,
-    !!data && (open || (coordinator && !!data.effective?.choice)),
+    active && !!data && (open || (coordinator && !!data.effective?.choice)),
   );
   const { catalog } = source;
   const model = choice?.model ?? "";
@@ -276,6 +280,42 @@ function useAgentSettingsContent({
       setBusy(false);
     }
   }
+  const saved = data?.effective?.choice;
+  const selected =
+    saved?.harness === source.kind
+      ? source.models.find((item) => item.id === saved?.model)
+      : undefined;
+  const fastControl =
+    saved && (selected?.fast || saved.fast) ? (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant={saved.fast ? "secondary" : "ghost"}
+            aria-label="Fast mode"
+            aria-pressed={saved.fast ?? false}
+            disabled={
+              !selected?.fast ||
+              !!draft ||
+              busy ||
+              catalog.loading ||
+              resource.loading ||
+              !!resource.error
+            }
+            onClick={() => void save(false, { ...saved, fast: !saved.fast })}
+          >
+            <Zap size={14} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          Fast mode {saved.fast ? "on" : "off"}.{" "}
+          {selected?.fast
+            ? selected.fast_description || "Faster responses, increased usage."
+            : "Open model settings to verify Fast support."}
+        </TooltipContent>
+      </Tooltip>
+    ) : null;
   const fields = (
     <ContentStack space="section">
       <p>
@@ -340,6 +380,7 @@ function useAgentSettingsContent({
               </Button>
             )}
             <RefreshModels source={source} />
+            {showFast && fastControl}
             {(draft || error || resource.error) &&
               (!compact || stale || error || resource.error) && (
                 <Button
@@ -401,42 +442,6 @@ function useAgentSettingsContent({
       )}
     </ContentStack>
   );
-  const saved = data?.effective?.choice;
-  const selected =
-    saved?.harness === source.kind
-      ? source.models.find((item) => item.id === saved?.model)
-      : undefined;
-  const fastControl =
-    saved && (selected?.fast || saved.fast) ? (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            size="icon-sm"
-            variant={saved.fast ? "secondary" : "ghost"}
-            aria-label="Fast mode"
-            aria-pressed={saved.fast ?? false}
-            disabled={
-              !selected?.fast ||
-              !!draft ||
-              busy ||
-              catalog.loading ||
-              resource.loading ||
-              !!resource.error
-            }
-            onClick={() => void save(false, { ...saved, fast: !saved.fast })}
-          >
-            <Zap size={14} />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          Fast mode {saved.fast ? "on" : "off"}.{" "}
-          {selected?.fast
-            ? selected.fast_description || "Faster responses, increased usage."
-            : "Open model settings to verify Fast support."}
-        </TooltipContent>
-      </Tooltip>
-    ) : null;
   return { fields, fastControl };
 }
 

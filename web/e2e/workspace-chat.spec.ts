@@ -17,7 +17,17 @@ test("member projects share coordinator history and a draft", async ({
       .click();
   }
   const workspace = await (
-    await request.post("/api/workspaces", { data: { name: "Shared chat" } })
+    await request.post("/api/workspaces", {
+      data: {
+        name: "Shared chat",
+        ...Object.fromEntries(
+          ["coordinator", "worker", "reviewer"].map((role) => [
+            role,
+            { harness: "codex", model: "test-model" },
+          ]),
+        ),
+      },
+    })
   ).json();
   for (const id of ["shared-core", "shared-site"]) {
     const path = join(state, id);

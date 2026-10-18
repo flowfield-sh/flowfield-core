@@ -4,6 +4,7 @@ import pytest
 from coordinator_fixtures import message
 from coordinator_generations_fixtures import CODEX
 from project_fixtures import existing_directory
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.agent_models import AgentSettingsEdit
 from flowfield.application import ProjectSetup, Workspace
@@ -16,8 +17,8 @@ from flowfield.workspaces import WorkspaceCreate, Workspaces
 def test_empty_workspace_chat_and_explicit_project_context(tmp_path):
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
-    space = spaces.create(WorkspaceCreate(name="Product"))
-    other = spaces.create(WorkspaceCreate(name="Other"))
+    space = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
+    other = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Other"))
     spaces.configure_coordinator(space.id, AgentSettingsEdit(expected_revision=1, selection=CODEX))
     owner = CoordinatorStore(store)
     conversation = owner.new(space.id)

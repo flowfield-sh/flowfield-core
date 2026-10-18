@@ -1,6 +1,6 @@
 """Current fresh-state schema. Older databases are not upgraded."""
 
-SCHEMA_VERSION = 84
+SCHEMA_VERSION = 85
 
 SCHEMA = """
 CREATE TABLE activity (
@@ -112,11 +112,6 @@ CREATE TABLE output_files (number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT
     UNIQUE, workspace_id TEXT NOT NULL REFERENCES workspaces(id), run_id TEXT NOT
     NULL REFERENCES runs(id), data TEXT NOT NULL);
 
-CREATE TABLE output_folders (workspace_id TEXT NOT NULL REFERENCES workspaces(id),
-    path TEXT NOT NULL, PRIMARY KEY(workspace_id, path));
-
-CREATE TABLE output_locations (file_id TEXT PRIMARY KEY REFERENCES output_files(id),
-    path TEXT NOT NULL, revision INTEGER NOT NULL);
 
 
 
@@ -397,5 +392,5 @@ INSERT INTO storage_metadata VALUES (1, lower(hex(randomblob(16))), 0);
 INSERT INTO harness_settings VALUES ('codex', 1, NULL, NULL), ('claude-code', 1, NULL,
     NULL), ('pi', 1, NULL, NULL);
 
-PRAGMA user_version = 84;
+PRAGMA user_version = 85;
 """

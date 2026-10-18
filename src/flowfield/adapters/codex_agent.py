@@ -516,17 +516,9 @@ class CodexAgent(Agent):
                     ]
                 ).strip()
             )
-            offered = data.get("availableDecisions")
-            if offered is not None and (not isinstance(offered, list) or len(offered) > 16):
-                return {"decision": "cancel"}
-            options = tuple(
-                option
-                for decision, option in (
-                    ("accept", ("allow", "Allow once", "allow_once")),
-                    ("decline", ("deny", "Deny", "reject_once")),
-                )
-                if offered is None or decision in offered
-            )
+            from flowfield.adapters.codex_permissions import command_decisions
+
+            options, decisions = command_decisions(data)
             if not options:
                 return {"decision": "cancel"}
             selection = await self._permission(
@@ -538,8 +530,8 @@ class CodexAgent(Agent):
                 )
             )
             return {
-                "decision": {"allow": "accept", "deny": "decline"}[selection]
-                if selection in {option[0] for option in options} and eligible()
+                "decision": decisions[selection]
+                if selection in decisions and eligible()
                 else "cancel"
             }
         if method == "item/permissions/requestApproval":

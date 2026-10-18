@@ -42,7 +42,16 @@ def test_init_preserves_files_and_registered_identity(tmp_path: Path) -> None:
 def test_adopt_and_conflicts_do_not_overwrite(tmp_path: Path) -> None:
     root = tmp_path / "harbor"
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://127.0.0.1") as client:
-        space = client.post("/api/workspaces", json={"name": "Fixture"}).json()["id"]
+        space = client.post(
+            "/api/workspaces",
+            json={
+                "name": "Fixture",
+                **{
+                    role: {"harness": "codex", "model": "test-model"}
+                    for role in ("coordinator", "worker", "reviewer")
+                },
+            },
+        ).json()["id"]
         assert client.post("/api/projects/create", json={"path": str(root)}).status_code == 404
         assert not root.exists()
         root.mkdir()

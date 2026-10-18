@@ -1,5 +1,6 @@
-import { createContext, useEffect, type ReactNode } from "react";
+import { createContext, type ReactNode } from "react";
 import { Disclosure } from "./DetailLayout";
+import { useState } from "react";
 import { useRetainedState } from "./retainedState";
 import { WorkState } from "./WorkState";
 import type { components } from "./api-schema";
@@ -16,6 +17,7 @@ export function ActivityEntry({
   children,
   inline = false,
   hasBody,
+  alwaysOpen = false,
 }: {
   identity: string;
   selected: boolean;
@@ -25,11 +27,18 @@ export function ActivityEntry({
   children: ReactNode;
   inline?: boolean;
   hasBody: boolean;
+  alwaysOpen?: boolean;
 }) {
-  const [open, setOpen] = useRetainedState(`activity:${identity}`, selected);
-  useEffect(() => {
-    if (selected) setOpen(true);
-  }, [selected, setOpen]);
+  const [manual, setManual] = useRetainedState<boolean | null>(
+    `activity:${identity}:manual`,
+    null,
+  );
+  const [previous, setPrevious] = useState({ selected, identity });
+  if (previous.selected !== selected || previous.identity !== identity) {
+    setPrevious({ selected, identity });
+    if (selected) setManual(null);
+  }
+  const open = manual ?? selected;
   if (inline) return children;
   const heading = (
     <span className="activity-entry-heading">
@@ -40,13 +49,29 @@ export function ActivityEntry({
       <span className="activity-entry-meta">{metadata}</span>
     </span>
   );
+  if (alwaysOpen)
+    return (
+      <div className="activity-entry">
+        {heading}
+        {children}
+      </div>
+    );
   return hasBody ? (
     <Disclosure
       className="activity-entry"
       chevron={false}
       summary={heading}
       open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      onClick={(event) => {
+        if ((event.target as Element).closest("a,button")) return;
+        if (
+          (event.target as Element).closest("summary")?.parentElement ===
+          event.currentTarget
+        ) {
+          event.preventDefault();
+          setManual(!open);
+        }
+      }}
     >
       <ActivityBodyVisible.Provider value={open}>
         {children}

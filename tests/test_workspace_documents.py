@@ -9,6 +9,7 @@ import pytest
 from coordinator_fixtures import setup
 from execution_fixtures import fixture
 from fastapi.testclient import TestClient
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.agent_tools import workspace_scope
 from flowfield.api import create_app
@@ -24,7 +25,7 @@ from flowfield.workspaces import WorkspaceCreate, Workspaces
 def test_document_history_restores_and_concurrent_edits_preserve_sources(tmp_path):
     store = Workspace(tmp_path / "state")
     assert Workspaces(store).all() == []
-    space = Workspaces(store).create(WorkspaceCreate(name="Product"))
+    space = Workspaces(store).create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     docs = Documents(store)
     main = docs.get(space.id, "guidance")
     assert main.body == "" and main.revision == 1
@@ -53,7 +54,7 @@ def test_document_history_restores_and_concurrent_edits_preserve_sources(tmp_pat
     )
     with pytest.raises(ApplicationError, match="stale"):
         docs.restore(space.id, initial.id, DocumentRestore(expected_revision=2, revision=1))
-    other = Workspaces(store).create(WorkspaceCreate(name="Other"))
+    other = Workspaces(store).create(WorkspaceCreate(**TEST_AGENTS, name="Other"))
     with pytest.raises(ApplicationError, match="not found"):
         docs.get(other.id, initial.id)
     assert Documents(Workspace(store.directory)).get(space.id, initial.id) == restored
@@ -61,7 +62,7 @@ def test_document_history_restores_and_concurrent_edits_preserve_sources(tmp_pat
 
 def test_document_http_and_scoped_tools_are_bounded_and_attributed(tmp_path):
     store = Workspace(tmp_path / "state")
-    space = Workspaces(store).create(WorkspaceCreate(name="Product"))
+    space = Workspaces(store).create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     docs = Documents(store)
     with TestClient(create_app(data_dir=store.directory), base_url="http://localhost") as client:
         base = f"/api/workspaces/{space.id}/documents"
@@ -173,7 +174,7 @@ def test_document_view_binds_exact_revision_and_rejects_other_workspaces(tmp_pat
     turn, _ = service.coordinator.store.reserve("harbor", conversation.id, request)
     assert turn.view_context.document_title == "Architecture"
     assert turn.view_context.document_revision == 1
-    other = Workspaces(service.workspace).create(WorkspaceCreate(name="Other"))
+    other = Workspaces(service.workspace).create(WorkspaceCreate(**TEST_AGENTS, name="Other"))
     foreign = docs.create(other.id, DocumentCreate(title="Private"))
     for view in [
         CoordinatorViewSelection(surface="document", document_id=foreign.id, document_revision=1),
@@ -241,7 +242,7 @@ def test_document_delete_tools_and_http_preserve_attribution_and_count(tmp_path)
     from flowfield.browser import BrowserReads
 
     store = Workspace(tmp_path / "state")
-    space = Workspaces(store).create(WorkspaceCreate(name="Product"))
+    space = Workspaces(store).create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     docs = Documents(store)
     doc = docs.create(space.id, DocumentCreate(title="Removable", body="Keep history"))
 
@@ -288,7 +289,7 @@ def test_restore_respects_capacity_atomically_without_blocking_active_revisions(
     from flowfield.application import Edit
 
     store = Workspace(tmp_path / "state")
-    space = Workspaces(store).create(WorkspaceCreate(name="Product"))
+    space = Workspaces(store).create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     docs = Documents(store)
     retired = docs.create(space.id, DocumentCreate(title="Retired", body="Keep this evidence"))
     deleted = docs.delete(space.id, retired.id, Edit(expected_revision=1))

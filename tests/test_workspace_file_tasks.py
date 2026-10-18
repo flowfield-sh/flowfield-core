@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from project_fixtures import task_request
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_models import AgentChoice
@@ -61,7 +62,7 @@ def test_managed_files_and_dependency_inputs_use_one_queue(tmp_path, monkeypatch
     monkeypatch.setattr("flowfield.supervisor.process_stamp", lambda pid: "fixture-process")
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
-    owner = spaces.create(WorkspaceCreate(name="Files"))
+    owner = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Files"))
     Reviewers(store).configure(owner.id, ReviewerEdit(expected_revision=1, enabled=False))
     scope = owner.id
     first = store.create_task(
@@ -92,6 +93,9 @@ def test_managed_files_and_dependency_inputs_use_one_queue(tmp_path, monkeypatch
     )
     spaces.queue(owner.id, QueueEdit(expected_revision=settings.revision, enabled=True))
     service = Supervisor(store)
+    from unittest.mock import AsyncMock
+
+    service.validate_agent_choice = AsyncMock()
 
     async def exercise():
         await service.start()
@@ -121,7 +125,7 @@ def test_managed_files_and_dependency_inputs_use_one_queue(tmp_path, monkeypatch
 
 def test_inputs_reject_unknown_and_cross_workspace_files(tmp_path):
     store = Workspace(tmp_path / "state")
-    owner = Workspaces(store).create(WorkspaceCreate(name="Files"))
+    owner = Workspaces(store).create(WorkspaceCreate(**TEST_AGENTS, name="Files"))
     Reviewers(store).configure(owner.id, ReviewerEdit(expected_revision=1, enabled=False))
     with pytest.raises(ApplicationError, match="submitted output or sent attachment"):
         store.create_task(
@@ -138,7 +142,7 @@ def test_inputs_reject_unknown_and_cross_workspace_files(tmp_path):
 def test_workspace_file_result_without_git_survives_attempt_cleanup(tmp_path):
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
-    owner = spaces.create(WorkspaceCreate(name="Research"))
+    owner = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Research"))
     scope = owner.id
     task = store.create_task(
         scope,
@@ -195,7 +199,7 @@ def test_workspace_file_result_without_git_survives_attempt_cleanup(tmp_path):
 
 def test_workspace_task_cannot_claim_repository_delivery(tmp_path):
     store = Workspace(tmp_path / "state")
-    owner = Workspaces(store).create(WorkspaceCreate(name="Research"))
+    owner = Workspaces(store).create(WorkspaceCreate(**TEST_AGENTS, name="Research"))
     with pytest.raises(ApplicationError, match="Workspace tasks deliver files"):
         store.create_task(
             owner.id,
@@ -266,9 +270,9 @@ def test_workspace_coordinator_tools_create_and_read_file_tasks(tmp_path):
     from flowfield.supervisor import Supervisor
 
     store = Workspace(tmp_path / "state")
-    owner = Workspaces(store).create(WorkspaceCreate(name="Files"))
+    owner = Workspaces(store).create(WorkspaceCreate(**TEST_AGENTS, name="Files"))
     Reviewers(store).configure(owner.id, ReviewerEdit(expected_revision=1, enabled=False))
-    other = Workspaces(store).create(WorkspaceCreate(name="Other"))
+    other = Workspaces(store).create(WorkspaceCreate(**TEST_AGENTS, name="Other"))
 
     async def exercise():
         grant = await grant_scope(Supervisor(store), owner.id)
@@ -308,7 +312,7 @@ def test_sent_attachment_and_output_inputs_are_workspace_scoped(tmp_path):
     store, owner, scope = setup(tmp_path / "state")
     source = make_task(store, scope)
     file = deliver(store, scope, source.id, {"report.txt": "Private findings"}).files[0]
-    other = Workspaces(store).create(WorkspaceCreate(name="Other"))
+    other = Workspaces(store).create(WorkspaceCreate(**TEST_AGENTS, name="Other"))
     with pytest.raises(ApplicationError, match="submitted output or sent attachment"):
         make_task(store, other.id, input_files=[file.id])
     attachments = Attachments(store)

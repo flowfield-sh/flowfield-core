@@ -7,6 +7,7 @@ import pytest
 from execution_fixtures import BASE, fixture
 from fastapi.testclient import TestClient
 from project_fixtures import existing_directory, task_request
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.agent_tools import workspace_scope
 from flowfield.api import create_app
@@ -79,8 +80,8 @@ def test_optional_shared_labels_preserve_running_assignment_and_history(tmp_path
 def test_label_scope_and_assign_delete_race(tmp_path):
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
-    first = spaces.create(WorkspaceCreate(name="First"))
-    second = spaces.create(WorkspaceCreate(name="Second"))
+    first = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="First"))
+    second = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Second"))
     spaces.adopt(first.id, ProjectSetup(path=existing_directory(tmp_path / "core")))
     labels = Labels(store)
     foreign = labels.create(second.id, LabelCreate(name="Private"))
@@ -107,7 +108,13 @@ def test_label_scope_and_assign_delete_race(tmp_path):
 
 def test_label_http_and_coordinator_tools_are_revision_guarded_and_bounded(tmp_path):
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
-        identity = client.post("/api/workspaces", json={"name": "Product"}).json()["id"]
+        identity = client.post(
+            "/api/workspaces",
+            json={
+                **{role: choice.model_dump() for role, choice in TEST_AGENTS.items()},
+                "name": "Product",
+            },
+        ).json()["id"]
         base = f"/api/workspaces/{identity}/labels"
         defaults = client.get(base).json()
         assert {item["id"] for item in defaults} == {

@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from project_fixtures import task_request
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_models import AgentChoice
@@ -18,7 +19,7 @@ from flowfield.workspaces import WorkspaceCreate, Workspaces
 def setup(directory: Path):
     store = Workspace(directory)
     spaces = Workspaces(store)
-    owner = spaces.create(WorkspaceCreate(name="Research files"))
+    owner = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Research files"))
     scope = owner.id
     from flowfield.reviewer_settings import ReviewerEdit, Reviewers
 

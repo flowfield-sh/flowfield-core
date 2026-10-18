@@ -1,12 +1,12 @@
-"""Organization changes cannot change submitted provenance or retained bytes."""
+"""Submitted folders, task recency and retained bytes share one file browser."""
 
 import pytest
 from file_delivery_fixtures import deliver, setup, task
-from pydantic import ValidationError
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.application import Workspace
 from flowfield.errors import ApplicationError
-from flowfield.file_browser import FileBrowser, FileFolder, FileLocation
+from flowfield.file_browser import FileBrowser
 from flowfield.outputs import Outputs
 from flowfield.results import Results
 from flowfield.workspaces import WorkspaceCreate, Workspaces
@@ -27,34 +27,21 @@ def test_folders_filter_work_and_preserve_submitted_history(tmp_path):
         "brief.txt"
     ]
     assert len(browser.work(owner.id).items) == 2
-    browser.folder(owner.id, FileFolder(path="Release/Final"))
-    assert browser.directory(owner.id, "Release").items[0].name == "Final"
-    assert browser.directory(owner.id, "Release/Final").items == []
+    assert browser.work(owner.id).items[0].task_key == second.key
     output = result.files[0]
-    moved = browser.move(
-        owner.id, output.id, FileLocation(path="Release/Final/launch.txt", expected_revision=1)
-    )
-    assert moved.revision == 2
-    assert [e.name for e in browser.directory(owner.id, "Release/Final").items] == ["launch.txt"]
-    assert Outputs(store).get(owner.id, output.id).name == "reports/brief.txt"
-    assert Results(store).get(scope, result.id).files[0].name == "reports/brief.txt"
     assert Outputs(store).content(output).read_text() == "first"
-    with pytest.raises(ApplicationError):
-        browser.move(owner.id, output.id, FileLocation(path="old.txt", expected_revision=1))
-    other = Workspaces(store).create(WorkspaceCreate(name="Other"))
-    with pytest.raises(ApplicationError, match="File not found"):
-        browser.move(other.id, output.id, FileLocation(path="stolen.txt", expected_revision=2))
+    assert Results(store).get(scope, result.id).files[0].name == "reports/brief.txt"
+    other = Workspaces(store).create(WorkspaceCreate(**TEST_AGENTS, name="Other"))
     assert browser.directory(other.id).items == []
     restarted = FileBrowser(Workspace(store.directory))
-    assert restarted.directory(owner.id, "Release/Final").items[0].revision == 2
+    assert restarted.directory(owner.id, "reports").items[0].name == "brief.txt"
 
 
 @pytest.mark.parametrize("path", ["../escape", "/absolute", "a//b", "a/./b", "bad\\path", "a\nb"])
-def test_organization_rejects_invalid_paths(path):
-    with pytest.raises(ValidationError):
-        FileFolder(path=path)
-    with pytest.raises(ValidationError):
-        FileLocation(path=path, expected_revision=1)
+def test_browser_rejects_invalid_paths(tmp_path, path):
+    store, owner, _ = setup(tmp_path / "state")
+    with pytest.raises(ApplicationError, match="relative folder"):
+        FileBrowser(store).directory(owner.id, path)
 
 
 def test_directory_pagination_and_restart_preserve_files(tmp_path):

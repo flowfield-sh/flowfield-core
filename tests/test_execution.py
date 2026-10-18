@@ -28,9 +28,8 @@ def test_no_implicit_model_or_queue_and_stale_settings(tmp_path: Path) -> None:
     adopt(workspace, ProjectSetup(path=str(tmp_path / "harbor")))
     execution = Execution(workspace)
     settings = execution.settings("harbor")
-    assert settings.selection is None and settings.max_parallel == 1
-    with pytest.raises(ApplicationError, match="Choose a worker harness"):
-        execution.queue("harbor", QueueEdit(expected_revision=1, enabled=True))
+    assert settings.selection.model == "test-model" and settings.max_parallel == 1
+    assert not settings.enabled
     execution.configure(
         "harbor",
         SettingsEdit(expected_revision=1, selection=AgentChoice(model="explicit", effort="low")),

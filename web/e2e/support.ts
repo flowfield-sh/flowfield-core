@@ -1,5 +1,5 @@
-import { mkdirSync } from "node:fs";
-import { basename, resolve } from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { basename, resolve, join } from "node:path";
 import { execFileSync } from "node:child_process";
 import {
   test as base,
@@ -167,7 +167,15 @@ export async function fixtureProject(
   let workspaceId = options.workspaceId;
   if (!workspaceId) {
     const created = await request.post("/api/workspaces", {
-      data: { name: project.name ?? basename(project.path) },
+      data: {
+        name: project.name ?? basename(project.path),
+        ...Object.fromEntries(
+          ["coordinator", "worker", "reviewer"].map((role) => [
+            role,
+            { harness: "codex", model: "test-model" },
+          ]),
+        ),
+      },
     });
     expect(created.ok(), await created.text()).toBeTruthy();
     workspaceId = (await created.json()).id;
@@ -208,11 +216,25 @@ export async function projectWorkspace(
 }
 
 export function fixtureCliProject(arguments_: string[]) {
+  const agents = join(state, "fixture-agents.json");
+  writeFileSync(
+    agents,
+    JSON.stringify(
+      Object.fromEntries(
+        ["coordinator", "worker", "reviewer"].map((role) => [
+          role,
+          { harness: "codex", model: "test-model" },
+        ]),
+      ),
+    ),
+  );
   const nameAt = arguments_.indexOf("--name");
   const workspace = cli([
     "workspace",
     "create",
     nameAt < 0 ? basename(arguments_[0]) : arguments_[nameAt + 1],
+    "--agents",
+    agents,
   ]);
   return cli([
     "project",
@@ -233,7 +255,15 @@ export async function fixtureMcpProject(
     existingWorkspace ??
     (
       await call("create_workspace", {
-        request: { name: project.name ?? basename(project.path) },
+        request: {
+          name: project.name ?? basename(project.path),
+          ...Object.fromEntries(
+            ["coordinator", "worker", "reviewer"].map((role) => [
+              role,
+              { harness: "codex", model: "test-model" },
+            ]),
+          ),
+        },
       })
     ).id;
   await call("adopt_workspace_project", {

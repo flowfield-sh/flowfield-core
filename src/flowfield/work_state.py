@@ -16,7 +16,7 @@ class WorkState(BaseModel):
     label: str
     tone: Literal["active", "attention", "waiting", "complete", "idle"] = "idle"
     href: str | None = None
-    reason: Literal["prerequisites"] | None = None
+    reason: Literal["prerequisites", "scheduling"] | None = None
 
 
 def event_state(kind: str, status: str | None, identity: str, current: WorkState) -> WorkState:
@@ -108,7 +108,9 @@ def task_state(
     if task["reason"]:
         return WorkState(label="Update task", tone="attention", href=href)
     if task["scheduling_problem"] and not task["archived"]:
-        return WorkState(label=task["scheduling_problem"], tone="attention", href=href)
+        return WorkState(
+            label=task["scheduling_problem"], tone="attention", href=href, reason="scheduling"
+        )
     if task["reply_pending"]:
         return WorkState(
             label="Reply queued" if facts.queue_enabled else "Reply paused",

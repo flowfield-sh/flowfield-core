@@ -16,7 +16,15 @@ test("directory adoption preserves guidance, cancellation and required identity 
   );
   const workspace = await (
     await request.post("/api/workspaces", {
-      data: { name: "Directory adoption" },
+      data: {
+        name: "Directory adoption",
+        ...Object.fromEntries(
+          ["coordinator", "worker", "reviewer"].map((role) => [
+            role,
+            { harness: "codex", model: "test-model" },
+          ]),
+        ),
+      },
     })
   ).json();
   let path: string | null = null;
@@ -93,7 +101,7 @@ test("directory adoption preserves guidance, cancellation and required identity 
   const workers = await (
     await request.get(`/api/workspaces/${workspace.id}/workers`)
   ).json();
-  expect(workers.selection).toBeNull();
+  expect(workers.selection.model).toBe("test-model");
   expect(workers.enabled).toBe(false);
 });
 

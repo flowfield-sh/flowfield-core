@@ -8,6 +8,7 @@ from click import unstyle
 from project_fixtures import existing_directory
 from service_fixtures import running_service
 from typer.testing import CliRunner
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.cli import app
 from flowfield.client import Client
@@ -17,6 +18,10 @@ runner = CliRunner()
 
 
 def test_workspace_tasks_work_without_projects_and_page_exact_revisions(tmp_path):
+    choices = tmp_path / "agents.json"
+    choices.write_text(
+        json.dumps({role: choice.model_dump() for role, choice in TEST_AGENTS.items()})
+    )
     with running_service(tmp_path / "state") as base:
         prefix = ["--port", base.rsplit(":", 1)[1]]
 
@@ -25,11 +30,10 @@ def test_workspace_tasks_work_without_projects_and_page_exact_revisions(tmp_path
             assert result.exit_code == (1 if failure else 0), result.output
             return json.loads(result.stderr if failure else result.stdout)
 
-        first = invoke("workspace", "create", "First")
-        second = invoke("workspace", "create", "Second")
+        first = invoke("workspace", "create", "First", "--agents", str(choices))
+        second = invoke("workspace", "create", "Second", "--agents", str(choices))
         assert invoke("workspace", "coordinator-history", "--workspace", first["id"])["items"] == []
-        blocked = invoke("workspace", "workers", "run", "--workspace", first["id"], failure=True)
-        assert blocked["error"]["code"] == "worker_model_required"
+        assert invoke("workspace", "workers", "run", "--workspace", first["id"])["enabled"]
         assert not invoke("workspace", "workers", "show", "--workspace", second["id"])["enabled"]
         assert not invoke("workspace", "workers", "pause", "--workspace", first["id"])["enabled"]
         body = "🦉" * 9000
@@ -115,6 +119,10 @@ def test_workspace_tasks_work_without_projects_and_page_exact_revisions(tmp_path
 
 
 def test_human_reads_cover_real_service_shapes_and_json(tmp_path):
+    choices = tmp_path / "agents.json"
+    choices.write_text(
+        json.dumps({role: choice.model_dump() for role, choice in TEST_AGENTS.items()})
+    )
     with running_service(tmp_path / "state") as base:
         prefix = ["--port", base.rsplit(":", 1)[1]]
 
@@ -123,7 +131,9 @@ def test_human_reads_cover_real_service_shapes_and_json(tmp_path):
             assert result.exit_code == 0, (args, result.output, result.exception)
             return result
 
-        space = json.loads(invoke("workspace", "create", "Product", "--json").stdout)
+        space = json.loads(
+            invoke("workspace", "create", "Product", "--agents", str(choices), "--json").stdout
+        )
         invoke("workspace", "show", space["id"])
         assert "Product" in invoke("workspace", "list").stdout
         invoke(

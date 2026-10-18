@@ -19,7 +19,16 @@ from flowfield.errors import ApplicationError
 def test_board_grouping_order_archive_and_restart(tmp_path: Path) -> None:
     state = tmp_path / "state"
     with TestClient(create_app(data_dir=state), base_url="http://127.0.0.1") as client:
-        space = client.post("/api/workspaces", json={"name": "Fixture"}).json()["id"]
+        space = client.post(
+            "/api/workspaces",
+            json={
+                "name": "Fixture",
+                **{
+                    role: {"harness": "codex", "model": "test-model"}
+                    for role in ("coordinator", "worker", "reviewer")
+                },
+            },
+        ).json()["id"]
         project = client.post(
             f"/api/workspaces/{space}/projects",
             json={"path": existing_directory(str(tmp_path / "harbor"))},
@@ -114,7 +123,16 @@ def test_validation_and_scoped_atomic_edits(tmp_path: Path) -> None:
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
         spaces = {}
         for identity in ["one", "two"]:
-            space = client.post("/api/workspaces", json={"name": identity}).json()["id"]
+            space = client.post(
+                "/api/workspaces",
+                json={
+                    "name": identity,
+                    **{
+                        role: {"harness": "codex", "model": "test-model"}
+                        for role in ("coordinator", "worker", "reviewer")
+                    },
+                },
+            ).json()["id"]
             spaces[identity] = space
             client.post(
                 f"/api/workspaces/{space}/projects",
@@ -234,7 +252,16 @@ def test_cli_board_and_readable_output(tmp_path: Path, monkeypatch: pytest.Monke
             assert (result.stderr if success else result.stdout) == ""
             return json.loads(result.stdout if success else result.stderr)
 
-        space = command(["workspace", "create", "Product"])
+        choices = tmp_path / "agents.json"
+        choices.write_text(
+            json.dumps(
+                {
+                    role: {"harness": "codex", "model": "test-model"}
+                    for role in ("coordinator", "worker", "reviewer")
+                }
+            )
+        )
+        space = command(["workspace", "create", "Product", "--agents", str(choices)])
         project = command(
             [
                 "project",

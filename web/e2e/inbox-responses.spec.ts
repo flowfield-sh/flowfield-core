@@ -280,6 +280,18 @@ test("task and project questions accept suggested or free answers inside Inbox",
   await expect(
     page.getByRole("link", { name: /Which format should we prioritize/ }),
   ).toBeVisible();
+  await page.goto("/workspaces/" + workspace + "/tasks/T-1");
+  await expect(
+    page.getByText("All records, excluding archived entries.", { exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText("All records, excluding archived entries.", { exact: true }),
+  ).toBeVisible();
+  await page.goto("/workspaces/" + workspace + "/requests/question/task");
+  await expect(
+    page.getByText("All records, excluding archived entries.", { exact: true }),
+  ).toBeVisible();
 });
 
 test("code review in Inbox approves the exact result and delivers without navigation", async ({

@@ -25,8 +25,10 @@ Update status reads the shared result or offline cache; a manual check requires 
 
 ## Workspaces and projects
 
+For creation, `agents.json` supplies `coordinator`, `worker` and `reviewer` selections. Each includes the selected `harness`, `model` and supported `effort`/`mode`.
+
 ```sh
-flowfield workspace create "Harbor"
+flowfield workspace create "Harbor" --agents agents.json
 flowfield workspace list
 flowfield workspace show WORKSPACE_ID
 flowfield workspace labels WORKSPACE_ID

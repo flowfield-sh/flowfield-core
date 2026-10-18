@@ -6,6 +6,7 @@ from contextlib import closing
 import pytest
 from project_fixtures import existing_directory
 from pydantic import ValidationError
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield import storage
 from flowfield.agent_models import AgentChoice
@@ -19,8 +20,8 @@ def test_explicit_creation_and_revision_guard(tmp_path):
     workspaces = Workspaces(store)
     assert workspaces.all() == []
     assert store.projects() == []
-    first = workspaces.create(WorkspaceCreate(name="Product", author="human"))
-    second = workspaces.create(WorkspaceCreate(name="Product"))
+    first = workspaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product", author="human"))
+    second = workspaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     assert first.id != second.id
     assert workspaces.projects(first.id) == []
     updated = workspaces.edit(
@@ -38,8 +39,8 @@ def test_explicit_creation_and_revision_guard(tmp_path):
 def test_project_adoption_is_scoped_atomic_and_preserves_files(tmp_path):
     store = Workspace(tmp_path / "state")
     workspaces = Workspaces(store)
-    first = workspaces.create(WorkspaceCreate(name="Product"))
-    second = workspaces.create(WorkspaceCreate(name="Other"))
+    first = workspaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
+    second = workspaces.create(WorkspaceCreate(**TEST_AGENTS, name="Other"))
     root = tmp_path / "core"
     root.mkdir()
     (root / "AGENTS.md").write_text("Keep repository guidance")
@@ -64,7 +65,7 @@ def test_project_adoption_is_scoped_atomic_and_preserves_files(tmp_path):
 def test_one_workspace_can_adopt_multiple_projects_without_creating_directories(tmp_path):
     store = Workspace(tmp_path / "state")
     workspaces = Workspaces(store)
-    space = workspaces.create(WorkspaceCreate(name="Product"))
+    space = workspaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     for name in ("core", "site"):
         workspaces.adopt(space.id, ProjectSetup(path=existing_directory(tmp_path / name)))
     assert [project.id for project in workspaces.projects(space.id)] == ["core", "site"]
@@ -79,7 +80,7 @@ def test_one_workspace_can_adopt_multiple_projects_without_creating_directories(
 def test_failed_project_configuration_rolls_back_membership(tmp_path):
     store = Workspace(tmp_path / "state")
     workspaces = Workspaces(store)
-    space = workspaces.create(WorkspaceCreate(name="Product"))
+    space = workspaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     root = tmp_path / "core"
     root.mkdir()
     with pytest.raises(ValidationError, match="Extra inputs"):

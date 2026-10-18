@@ -3,9 +3,9 @@ title: Tasks, Inbox and review
 description: Prioritize work, resolve questions and decide which exact results to deliver.
 ---
 
-Open a task from Work or Tasks. **Task** shows its purpose, related work and chronological conversation. Expand **Work** to inspect local subtasks. **View result** opens the exact Result Request with checks, inspection and review controls. **Settings** configures its worker and reviewer overrides.
+Open a task from Work or Tasks. **Task** shows its purpose, related work and chronological conversation. Local subtasks appear directly beneath its purpose. **View result** opens the exact Result Request with checks, inspection and review controls. **Settings** configures its worker and reviewer overrides.
 
-The task feed keeps dated definition changes, captured sources, questions, worker attempts and results. Expand a row to read its evidence; timestamp links select an exact event, and active worker output stays expanded. Discuss plans in the Coordinator. Task inputs answer a particular question, request changes or approve a selected result.
+The task feed keeps dated definition changes, captured sources, questions, worker attempts and results. Expand a row to read its evidence; timestamp links select an exact event, and only the latest active event opens automatically. Discuss plans in the Coordinator. Task inputs answer a particular question, request changes or approve a selected result.
 
 Each Inbox ask has a stable **Request** link. Use the header’s **Open request in work tab** button to respond in a separate tab; the source badge opens its task or project. Inbox History opens the same Request after resolution. Drafts and responses are shared across these views, and earlier requests keep their original evidence and approval bindings. The Coordinator can reference requests directly with `list_requests` and `get_request`.
 
@@ -33,7 +33,7 @@ If completed work needs correction, ask the Coordinator to reopen the same task.
 
 Ask the Coordinator to order Backlog and Up next or move work between them. The shared scheduler follows Up next order and skips work whose project, input or prerequisites are not ready. Read the card's status for the specific next action.
 
-New workspaces start paused with one worker slot. **Run queue** enables eligible starts; **Pause queue** prevents new starts while active workers continue. The saved queue choice survives service restarts. Increase **Maximum parallel workers** in **Workspace settings → Workers** when independent tasks can safely run together. Waiting for review frees a worker slot.
+New workspaces start paused with one worker slot. **Run queue** enables eligible starts; **Pause queue** prevents new starts while active workers continue. The saved queue choice survives service restarts. Missing role settings or unavailable harness/model choices block a task before a worker starts. Update the relevant settings, then eligible work resumes through the queue. Workspace changes apply to inheriting tasks on their next attempt; running attempts keep their captured settings. Increase **Maximum parallel workers** in **Workspace settings → Workers** when independent tasks can safely run together. Waiting for review frees a worker slot.
 
 Each board column scrolls independently. On narrow screens, scroll sideways to reach the other columns.
 
@@ -111,3 +111,5 @@ Subtask dependencies belong only to that parent task. Independent contributions 
 When every contribution is ready, Flowfield assembles one task result and checks the combined code. The task reviewer assesses that whole outcome. There is one final code approval for delivery to the project’s configured destination. Reports, screenshots and PDFs follow the same task review flow without requiring Git.
 
 A correction can target a contribution and invalidate its downstream dependents while retaining independent completed work. A changed task agreement or selected source requires fresh preparation. Earlier results, files and sign-offs remain in history.
+
+Tool permission requests remain pending while the native session is waiting. Stopping the session or service cancels an undelivered request; saved decisions are never replayed into a replacement session. Task access settings apply to the next attempt.

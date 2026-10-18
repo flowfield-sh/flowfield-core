@@ -4,6 +4,7 @@ import asyncio
 
 from agent_tools_fixtures import journey
 from project_fixtures import existing_directory
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.agent_tools import workspace_scope
 from flowfield.application import ProjectSetup, Workspace
@@ -15,7 +16,7 @@ from flowfield.workspaces import WorkspaceCreate, Workspaces
 def test_workspace_grant_over_native_mcp_and_shared_queue(tmp_path, monkeypatch):
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
-    space = spaces.create(WorkspaceCreate(name="Product"))
+    space = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     service = Supervisor(store)
 
     async def validate(choice, project_id=None, *, project_path=None):
@@ -81,7 +82,7 @@ def test_workspace_description_reads_are_bounded_and_revision_checked(tmp_path):
 
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
-    space = spaces.create(WorkspaceCreate(name="Product"))
+    space = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     body = "\U0001f33f" * 10000
     spaces.edit(space.id, WorkspaceEdit(expected_revision=1, description=body))
 
@@ -108,8 +109,8 @@ def test_workspace_read_exposes_its_reviewer_defaults_without_configuration_auth
 
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
-    space = spaces.create(WorkspaceCreate(name="Product"))
-    other = spaces.create(WorkspaceCreate(name="Other"))
+    space = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
+    other = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Other"))
     reviewers = Reviewers(store)
     reviewers.configure(
         space.id,
@@ -135,9 +136,9 @@ def test_workspace_read_exposes_its_reviewer_defaults_without_configuration_auth
 def test_workspace_tools_before_adoption_and_explicit_cross_project_planning(tmp_path):
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
-    space = spaces.create(WorkspaceCreate(name="Product"))
+    space = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     service = Supervisor(store)
-    other = spaces.create(WorkspaceCreate(name="Other"))
+    other = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Other"))
     spaces.adopt(other.id, ProjectSetup(path=existing_directory(tmp_path / "elsewhere")))
 
     async def exercise():
@@ -224,8 +225,8 @@ def test_workspace_tools_before_adoption_and_explicit_cross_project_planning(tmp
 def test_workspace_adoption_cannot_steal_project_and_scope_liveness_is_checked(tmp_path):
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
-    first = spaces.create(WorkspaceCreate(name="First"))
-    second = spaces.create(WorkspaceCreate(name="Second"))
+    first = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="First"))
+    second = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Second"))
     path = existing_directory(tmp_path / "core")
     spaces.adopt(first.id, ProjectSetup(path=path))
     checked = []

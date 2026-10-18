@@ -2,7 +2,7 @@ import { openResource } from "./shell-navigation";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
-import { test, state } from "./support";
+import { test, state, choose } from "./support";
 
 test("explicit workspace creation, project adoption and shared draft navigation", async ({
   page,
@@ -22,6 +22,19 @@ test("explicit workspace creation, project adoption and shared draft navigation"
   await page.getByRole("link", { name: "Home", exact: true }).click();
   await expect(page.getByRole("alertdialog")).toBeVisible();
   await page.getByRole("button", { name: "Keep editing" }).click();
+  await expect(
+    page.getByRole("button", { name: "Create workspace", exact: true }),
+  ).toBeDisabled();
+  await page.route("**/api/worker-models*", (route) =>
+    route.fulfill({
+      json: [{ id: "test-model", name: "Test model", efforts: [] }],
+    }),
+  );
+  for (const role of ["Coordinator", "Worker", "Reviewer"]) {
+    const fields = page.getByRole("group", { name: role, exact: true });
+    await choose(fields.getByLabel("Harness", { exact: true }), "codex");
+    await choose(fields.getByLabel("Model", { exact: true }), "test-model");
+  }
   await page
     .getByRole("button", { name: "Create workspace", exact: true })
     .click();
@@ -57,7 +70,7 @@ test("explicit workspace creation, project adoption and shared draft navigation"
     .click();
   await expect(page.getByLabel("Harness", { exact: true })).toHaveAttribute(
     "data-value",
-    "",
+    "codex",
   );
   await page.keyboard.press("Escape");
   await openResource(page, "Projects");

@@ -508,6 +508,9 @@ def test_enabled_scheduler_picks_up_dependent_after_explicit_integration(tmp_pat
 
     async def journey():
         supervisor = Supervisor(execution.workspace)
+        from unittest.mock import AsyncMock
+
+        supervisor.validate_agent_choice = AsyncMock()
         await supervisor.start()
         settings = execution.settings("harbor")
         execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=True))

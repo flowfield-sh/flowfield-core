@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
+from workspace_fixtures import TEST_AGENTS
+
 from flowfield.adapters.git_workspace import baseline, git
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_models import AgentChoice
@@ -31,21 +33,31 @@ from flowfield.task_reviews import ReviewVerdict, TaskReviews
 from flowfield.workspaces import WorkspaceCreate, Workspaces
 
 
-def seed(state: Path, assets: Path):
+def seed(state: Path, assets: Path, agents=None):
     store = Workspace(state)
-    space = Workspaces(store).create(WorkspaceCreate(name="Task outcomes"))
+    space = Workspaces(store).create(
+        WorkspaceCreate(**(agents or TEST_AGENTS), name="Task outcomes")
+    )
     owner = space.id
     execution = Execution(store)
     execution.configure(
         owner,
         SettingsEdit(
-            expected_revision=1, max_parallel=2, selection=AgentChoice(model="scripted-walkthrough")
+            expected_revision=1,
+            max_parallel=2,
+            selection=AgentChoice.model_validate(agents["worker"])
+            if agents
+            else AgentChoice(model="scripted-walkthrough"),
         ),
     )
     Reviewers(store).configure(
         owner,
         ReviewerEdit(
-            expected_revision=1, enabled=True, selection=AgentChoice(model="scripted-review")
+            expected_revision=1,
+            enabled=True,
+            selection=AgentChoice.model_validate(agents["reviewer"])
+            if agents
+            else AgentChoice(model="scripted-review"),
         ),
     )
 

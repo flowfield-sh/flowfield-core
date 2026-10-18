@@ -9,7 +9,17 @@ test("coordinator labels update read-only task headers and preserve deletion his
   request,
 }, testInfo) => {
   const workspace = await (
-    await request.post("/api/workspaces", { data: { name: "Label journey" } })
+    await request.post("/api/workspaces", {
+      data: {
+        name: "Label journey",
+        ...Object.fromEntries(
+          ["coordinator", "worker", "reviewer"].map((role) => [
+            role,
+            { harness: "codex", model: "test-model" },
+          ]),
+        ),
+      },
+    })
   ).json();
   const path = join(state, "labels-core");
   mkdirSync(path, { recursive: true });

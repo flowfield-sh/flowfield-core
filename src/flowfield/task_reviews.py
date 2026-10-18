@@ -226,6 +226,19 @@ class TaskReviews(ReviewRecords[TaskReview]):
     def prepare(self, project: str, result_id: str) -> TaskReview:
         """Explicit service entry; does not scan old results or start a model."""
         with self.store.connection(write=True, workspace_id=project) as db:
+            result = Results(self.store)._get(db, project, result_id)
+            if result.status == "delivered":
+                # Discovery may have read a ready result just before approval delivered it.
+                # Delivery changes its revision, but must not create a second assessment.
+                receipt = db.execute(
+                    "SELECT data FROM task_reviews WHERE result_id=? AND status='decided' "
+                    "AND json_extract(data,'$.verdict.action')='approve' "
+                    "ORDER BY number DESC LIMIT 1",
+                    (result_id,),
+                ).fetchone()
+                if receipt:
+                    return TaskReview.model_validate_json(receipt[0])
+                raise ApplicationError("review_not_ready", "This result is already delivered.", 409)
             owner, task, binding = self._binding(db, project, result_id)
             digest = hashlib.sha256(binding.model_dump_json().encode()).hexdigest()
             existing = db.execute(

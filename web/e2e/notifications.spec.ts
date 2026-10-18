@@ -119,10 +119,22 @@ test("queue failures have contextual recovery and no notification center", async
   request,
 }, testInfo) => {
   await setup(request, "notify-que");
+  const workspace = await projectWorkspace(request, "notify-que");
+  await page.route(`**/api/workspaces/${workspace}/queue`, (route) =>
+    route.fulfill({
+      status: 409,
+      json: {
+        error: {
+          code: "revision_conflict",
+          message: "Queue settings changed. Reload and try again.",
+        },
+      },
+    }),
+  );
   await ready(page, "/projects/notify-que");
   await page.getByRole("button", { name: "Run queue", exact: true }).click();
   await expect(alertFor(page, "Queue could not start")).toContainText(
-    "Choose a worker harness and model",
+    "Queue settings changed. Reload and try again.",
   );
   await expect(
     page.getByRole("button", { name: /^Notifications/ }),
@@ -132,9 +144,10 @@ test("queue failures have contextual recovery and no notification center", async
       await request.post("/api/notifications/operations", { data: {} })
     ).status(),
   ).toBe(404);
-  await page.getByRole("link", { name: "Choose model", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Worker settings", exact: true })
+    .click();
   await expect(page).toHaveURL(/edit\/workers$/);
-  const workspace = await projectWorkspace(request, "notify-que");
   const workers = await (
     await request.get(`/api/workspaces/${workspace}/workers`)
   ).json();

@@ -25,6 +25,11 @@ export function PermissionControl({
   const [busy, setBusy] = useState(false);
   return (
     <DetailSection
+      className={
+        record.status === "pending" && !inRequest
+          ? "rounded-md border border-border bg-muted p-4"
+          : undefined
+      }
       title={record.title}
       data-announcement-source={`${record.workspace_id}:permission:${record.id}`}
     >
@@ -32,6 +37,19 @@ export function PermissionControl({
         {record.role === "worker" ? "Worker" : "Coordinator"} tool permission ·{" "}
         <Timestamp date={record.created_at} />
       </p>
+      {record.status === "pending" && record.task_id && !inRequest && (
+        <p className="detail-metadata">
+          <WorkspaceLink
+            to={
+              taskHref(record.workspace_id, { key: record.task_id }) +
+              "/settings"
+            }
+          >
+            Task access settings
+          </WorkspaceLink>{" "}
+          · Changes apply to the next attempt.
+        </p>
+      )}
       {record.details && (
         <pre className="evidence-output">{record.details}</pre>
       )}

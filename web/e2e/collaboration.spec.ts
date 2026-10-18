@@ -552,9 +552,6 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   await detail
     .getByRole("button", { name: "Send answer", exact: true })
     .click();
-  await detail
-    .locator('[data-kind="answer"] .activity-entry > summary')
-    .click();
   await expect(
     detail
       .locator(".conversation-message-body")
@@ -1800,6 +1797,9 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   await expect(page.getByLabel("Feedback for this result")).toHaveValue(
     "Include the source path in validation errors.",
   );
+  await page
+    .locator('[data-message-id="result:first"] .activity-entry > summary')
+    .click();
   await expect(
     runs.getByRole("button", {
       name: "Added tests/test_loader.py",

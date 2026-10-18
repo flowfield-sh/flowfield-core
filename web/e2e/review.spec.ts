@@ -776,11 +776,6 @@ test("managed answers show durable pause, safe edits and immutable correction in
     "Only favourites",
   ]);
   await page.reload();
-  await detail
-    .locator('[data-kind="answer"]')
-    .filter({ hasText: "Only favourites" })
-    .locator(".activity-entry > summary")
-    .click();
   await expect(
     detail.getByText("Only favourites", { exact: true }),
   ).toBeVisible();
@@ -1164,7 +1159,8 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   let resultDelay = 0;
   let heldReport: Promise<void> | null = null;
   await page.route(`**/api/workspaces/*/results/*`, async (route) => {
-    const response = await route.fetch();
+    const response = await route.fetch().catch(() => null);
+    if (!response) return;
     const body = await response.json();
     if (heldReport) await heldReport;
     body.report.summary += "\n\n" + "A detailed finding.\n\n".repeat(35);

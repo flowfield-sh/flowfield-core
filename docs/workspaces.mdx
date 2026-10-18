@@ -7,12 +7,14 @@ Create a workspace for work you want to plan together: research files, an API, i
 
 ## Create and adopt
 
-Choose **New workspace** from Home. Inside it, open **Projects → Add project → Choose directory**, select an existing repository and review the prefilled name and ID. Tasks use workspace-local keys such as `T-1` across all projects.
+Choose **New workspace** from Home and select its Coordinator, Worker and Reviewer settings. Inside it, open **Projects → Add project → Choose directory**, select an existing repository and review the prefilled name and ID. Tasks use workspace-local keys such as `T-1` across all projects.
 
 The CLI uses the same registration:
 
+`agents.json` contains `coordinator`, `worker` and `reviewer` choices, each with a `harness`, `model` and any required `effort` and `mode` returned by that harness.
+
 ```sh
-flowfield workspace create "Harbor"
+flowfield workspace create "Harbor" --agents agents.json
 flowfield project init /absolute/path/catalog-api --workspace WORKSPACE_ID
 flowfield project init /absolute/path/reader-app --workspace WORKSPACE_ID
 ```
@@ -33,7 +35,7 @@ Opening a workspace takes you to **Inbox**. The sidebar provides **Projects**, *
 | Documents | Maintain shared guidance and references. |
 | Archive | Revisit work you set aside. |
 
-Work lists **Needs attention**, **In progress**, then **Planned**, with stable ordering. Completed tasks remain available in **All work**. Home shows each workspace’s Inbox count.
+Work lists **Needs attention**, **In progress**, then **Planned**, with the most recently active task first in each group. Completed tasks remain available in **All work**. Home shows each workspace’s Inbox count.
 
 Task cards and sidebar links open the task itself, with its purpose and chronological feed. Filter Tasks and Archive by project or label. The URL preserves filters for reload, sharing and browser history. On phones, switch between **Work** and **Coordinator**.
 
@@ -43,7 +45,7 @@ Answers, review notes and document drafts stay bound to their original records w
 
 ## Plan work together
 
-Use one task for an outcome such as implementing a feature, generating screenshots or producing a PDF. Tasks can depend on other tasks across the workspace. Larger tasks may contain a local graph of subtasks, disclosed within the task. The whole task owns review and delivery.
+Use one task for an outcome such as implementing a feature, generating screenshots or producing a PDF. Tasks can depend on other tasks across the workspace. Larger tasks may contain a local graph of subtasks, shown in its Subtasks section. The whole task owns review and delivery.
 
 Keep durable plans in workspace documents. The Coordinator maintains task definitions, priorities and dependencies as those plans become actionable.
 

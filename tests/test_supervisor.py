@@ -32,6 +32,9 @@ def test_scheduler_failure_is_visible_without_automatic_replay(tmp_path, monkeyp
 
 
 def test_managed_claim_result_review_and_restart(tmp_path, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr("flowfield.supervisor.Supervisor.validate_agent_choice", AsyncMock())
     monkeypatch.setattr("flowfield.adapters.agent_selection.CodexAgent", FakeWorker)
     monkeypatch.setattr("flowfield.supervisor.process_stamp", lambda pid: "fixture-process")
     execution = fixture(tmp_path)
@@ -135,6 +138,9 @@ def test_recovery_does_not_confuse_harness_absence_with_tool_exit(tmp_path):
 
 
 def test_parallel_queue_capacity_pause_and_exact_delivery(tmp_path, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr("flowfield.supervisor.Supervisor.validate_agent_choice", AsyncMock())
     """Two real worktrees, controlled harnesses, and the service's actual scheduler."""
     workers = []
 

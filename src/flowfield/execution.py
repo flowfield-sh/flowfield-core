@@ -24,6 +24,7 @@ from flowfield.execution_models import (
     WorkerResult,
     WorkspaceWorkerSettings,
 )
+from flowfield.execution_readiness import TaskAgent, task_agents
 from flowfield.harness_models import HarnessLaunch
 from flowfield.questions import Question, QuestionCreate, Questions
 
@@ -389,6 +390,7 @@ class Execution:
         subtask_id: str | None = None,
         assembly_id: str | None = None,
         contributions: list[Run] | None = None,
+        checked_agents: dict[str, TaskAgent] | None = None,
     ) -> Run | None:
         """Reserve once against fresh state; caller supplies verified immutable Git facts."""
         with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
@@ -407,6 +409,9 @@ class Execution:
             from flowfield.task_assembly import TaskAssembly
 
             for task in candidates:
+                current_agents = task_agents(self.workspace, db, workspace_id, task.id)
+                if checked_agents is not None and checked_agents != current_agents:
+                    continue
                 children = Subtasks.read_all(db, workspace_id, task.id)
                 child = Subtasks.read(db, workspace_id, task.id, subtask_id) if subtask_id else None
                 if bool(children) != bool(child):

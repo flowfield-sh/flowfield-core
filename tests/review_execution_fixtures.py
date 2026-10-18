@@ -39,6 +39,9 @@ class Reviewer(FakeWorker):
 def install(monkeypatch, decision="approve"):
     Reviewer.decision = decision
     Reviewer.observed = []
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr("flowfield.supervisor.Supervisor.validate_agent_choice", AsyncMock())
     monkeypatch.setattr(
         "flowfield.native_review_execution.create",
         lambda choice, directory, cwd, environment, **kw: Reviewer(

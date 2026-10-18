@@ -10,7 +10,6 @@ import { MarkdownField } from "./Markdown";
 import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
 import { AgentSettingsForm } from "./AgentSettings";
 import { ReviewerSettings } from "./ReviewerSettings";
-import { DetailSection } from "./DetailLayout";
 import { QueueSettings, WorkerSettings } from "./Workers";
 import { workspaceHref } from "./navigation";
 import type { WorkspaceRecord } from "./workspace";
@@ -149,6 +148,7 @@ export function WorkspaceEditor({
           refresh={incoming}
           onDirty={setCoordinatorDirty}
           coordinator
+          active={tab === "coordinator"}
         />
       </div>
       <div
@@ -161,6 +161,7 @@ export function WorkspaceEditor({
           workspaceId={incoming.id}
           refresh={incoming}
           onDirty={setWorkerDirty}
+          active={tab === "workers"}
         />
       </div>
       <div
@@ -170,14 +171,12 @@ export function WorkspaceEditor({
         hidden={tab !== "reviewers"}
       >
         <ContentStack space="section">
-          <DetailSection title="Task reviewer">
-            <ReviewerSettings
-              workspaceId={incoming.id}
-              refresh={incoming}
-              onDirty={setTaskReviewerDirty}
-              active={tab === "reviewers"}
-            />
-          </DetailSection>
+          <ReviewerSettings
+            workspaceId={incoming.id}
+            refresh={incoming}
+            onDirty={setTaskReviewerDirty}
+            active={tab === "reviewers"}
+          />
         </ContentStack>
       </div>
     </section>

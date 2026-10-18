@@ -1070,7 +1070,17 @@ test("automatic task context preserves one coordinator and immutable retry recei
   const project = "focused-chat";
   mkdirSync(join(state, project), { recursive: true });
   const workspace = await (
-    await request.post("/api/workspaces", { data: { name: "Focused chat" } })
+    await request.post("/api/workspaces", {
+      data: {
+        name: "Focused chat",
+        ...Object.fromEntries(
+          ["coordinator", "worker", "reviewer"].map((role) => [
+            role,
+            { harness: "codex", model: "test-model" },
+          ]),
+        ),
+      },
+    })
   ).json();
   await request.post(`/api/workspaces/${workspace.id}/projects`, {
     data: { path: join(state, project) },

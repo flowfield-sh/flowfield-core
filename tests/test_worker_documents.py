@@ -9,6 +9,7 @@ from execution_fixtures import BASE, RESULT, fixture, result, validate_report
 from input_continuation_fixtures import answer, question
 from project_fixtures import task_request
 from worker_documents_fixtures import defaults, prepare
+from workspace_fixtures import TEST_AGENTS
 
 from flowfield.agent_tools import workspace_scope
 from flowfield.application import TaskEdit, TaskReconcile, Workspace
@@ -181,7 +182,7 @@ def test_adopting_document_changes_invalidates_the_old_result(tmp_path):
 def test_foreign_missing_and_oversized_sources_do_not_partially_prepare(tmp_path):
     execution = fixture(tmp_path)
     store = execution.workspace
-    other = Workspaces(store).create(WorkspaceCreate(name="Other"))
+    other = Workspaces(store).create(WorkspaceCreate(**TEST_AGENTS, name="Other"))
     foreign = Documents(store).create(other.id, DocumentCreate(title="Private", body="Other"))
     before = store.project("harbor")
     with pytest.raises(ApplicationError, match="not found"):

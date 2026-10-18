@@ -36,6 +36,7 @@ from flowfield.execution_models import (
     WorkerResult,
     WorkspaceWorkerSettings,
 )
+from flowfield.execution_readiness import TaskAgent
 from flowfield.harness_models import HarnessKind
 from flowfield.harness_settings import HarnessSettings
 from flowfield.integration import Integrations
@@ -255,6 +256,7 @@ class Supervisor:
                 continue
             try:
                 task = self.workspace.task(workspace_id, task_id)
+                checked_agents = await self.check_task_agents(workspace_id, task.id)
                 repository = (
                     Path(self.workspace.project(task.project_id).path) if task.project_id else None
                 )
@@ -319,11 +321,18 @@ class Supervisor:
                             subtask_id=child.id,
                             assembly_id=assembly.id,
                             contributions=contributions,
+                            checked_agents=checked_agents,
                         )
                         if run:
                             break
                 else:
-                    run = self.execution.claim(workspace_id, head, available, task_id=task_id)
+                    run = self.execution.claim(
+                        workspace_id,
+                        head,
+                        available,
+                        task_id=task_id,
+                        checked_agents=checked_agents,
+                    )
                 if run:
                     job = asyncio.create_task(self._execute(run, repository))
                     self.jobs[run.id] = job
@@ -336,6 +345,24 @@ class Supervisor:
                 self.execution.task_problem(
                     workspace_id, task_id, "Scheduling failed. Inspect the service log."
                 )
+
+    async def check_task_agents(self, workspace_id: str, task_id: str) -> dict[str, TaskAgent]:
+        from flowfield.execution_readiness import task_agents
+
+        with self.workspace.connection() as db:
+            choices = task_agents(self.workspace, db, workspace_id, task_id)
+        path = str(coordinator_directory(self.workspace, workspace_id))
+        for role, agent in choices.items():
+            try:
+                await self.validate_agent_choice(agent.choice, project_path=path)
+            except ApplicationError as error:
+                raise ApplicationError(
+                    "agent_unavailable",
+                    f"{role} unavailable: {error.message} "
+                    "Update its settings before starting this task.",
+                    409,
+                ) from error
+        return choices
 
     def _job_finished(self, identity: str, task: asyncio.Task[None]) -> None:
         self.jobs.pop(identity, None)

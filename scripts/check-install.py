@@ -305,8 +305,24 @@ def main() -> None:
                             else:
                                 raise AssertionError(f"Expected {status} for {path}")
                         assert json.loads(read("/api/workspaces")) == []
+                        agents = state / "agents.json"
+                        agents.write_text(
+                            json.dumps(
+                                {
+                                    role: {"harness": "codex", "model": "install-fixture"}
+                                    for role in ("coordinator", "worker", "reviewer")
+                                }
+                            )
+                        )
                         space = json.loads(
-                            command("workspace", "create", "Installed workspace", "--json")
+                            command(
+                                "workspace",
+                                "create",
+                                "Installed workspace",
+                                "--agents",
+                                str(agents),
+                                "--json",
+                            )
                         )
                         assert (
                             json.loads(
@@ -490,7 +506,8 @@ def main() -> None:
                             "workspace", "workers", "show", "--workspace", space["id"], "--json"
                         )
                     )
-                    assert workers["selection"] is None and workers["max_parallel"] == 1
+                    assert workers["selection"]["model"] == "install-fixture"
+                    assert workers["max_parallel"] == 1
                     assert workers["enabled"] is False
                     assert json.loads(command("task", "runs", "list", "--json"))["items"] == []
                     assert board["observed_at"]

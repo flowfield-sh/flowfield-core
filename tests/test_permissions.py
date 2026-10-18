@@ -33,6 +33,7 @@ def test_answer_is_offered_exactly_once_and_persisted(tmp_path, option):
         ) as turn:
             task = asyncio.create_task(turn.request("tool", "Run a check", OPTIONS))
             record = await pending(owner)
+            assert record.expires_at is None
             attention = attention_page(execution.workspace, "harbor", "action")
             assert attention.items[0].kind == "permission"
             with execution.workspace.connection() as db:

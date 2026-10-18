@@ -701,40 +701,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/workspaces/{workspace_id}/files/folders": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Folder */
-    post: operations["folder_api_workspaces__workspace_id__files_folders_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/files/{identity}/location": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /** Move */
-    put: operations["move_api_workspaces__workspace_id__files__identity__location_put"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/workspaces/{workspace_id}/files/{identity}": {
     parameters: {
       query?: never;
@@ -3494,24 +3460,7 @@ export interface components {
        * @enum {string}
        */
       kind: "folder" | "file";
-      /**
-       * Revision
-       * @default 1
-       */
-      revision: number;
       file?: components["schemas"]["OutputFile"] | null;
-    };
-    /** FileFolder */
-    FileFolder: {
-      /** Path */
-      path: string;
-    };
-    /** FileLocation */
-    FileLocation: {
-      /** Path */
-      path: string;
-      /** Expected Revision */
-      expected_revision: number;
     };
     /** FilePatch */
     FilePatch: {
@@ -4321,7 +4270,7 @@ export interface components {
       /** Updated At */
       updated_at: string;
       /** Expires At */
-      expires_at: string;
+      expires_at: string | null;
       /** Released At */
       released_at: string | null;
     };
@@ -5489,6 +5438,8 @@ export interface components {
       created_at: string;
       /** Updated At */
       updated_at: string;
+      /** Activity At */
+      activity_at: string;
       /** Updated By */
       updated_by: string;
       /** Position */
@@ -5595,6 +5546,8 @@ export interface components {
       created_at: string;
       /** Updated At */
       updated_at: string;
+      /** Activity At */
+      activity_at: string;
       /** Updated By */
       updated_by: string;
       /** Position */
@@ -5937,11 +5890,6 @@ export interface components {
        * @default []
        */
       choices: string[];
-      /**
-       * Technical
-       * @default false
-       */
-      technical: boolean;
     };
     /** ThreadPage */
     ThreadPage: {
@@ -6066,7 +6014,7 @@ export interface components {
       /** Href */
       href?: string | null;
       /** Reason */
-      reason?: "prerequisites" | null;
+      reason?: ("prerequisites" | "scheduling") | null;
     };
     /** WorkerOccupancy */
     WorkerOccupancy: {
@@ -6104,6 +6052,9 @@ export interface components {
     WorkspaceCreate: {
       /** Name */
       name: string;
+      coordinator: components["schemas"]["AgentChoice-Input"];
+      worker: components["schemas"]["AgentChoice-Input"];
+      reviewer: components["schemas"]["AgentChoice-Input"];
       /**
        * Author
        * @default human
@@ -8075,77 +8026,6 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["FileWorkPage"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  folder_api_workspaces__workspace_id__files_folders_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["FileFolder"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["FileFolder"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  move_api_workspaces__workspace_id__files__identity__location_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["FileLocation"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["FileEntry"];
         };
       };
       /** @description Validation Error */

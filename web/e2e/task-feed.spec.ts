@@ -230,7 +230,7 @@ test("Conversation permalinks preserve message drafts while coordinator revision
     .click();
   await expect(
     page.getByRole("tab", { name: "Task", exact: true }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await page
     .getByLabel("Message coordinator", { exact: true })
     .fill("Unsaved draft");

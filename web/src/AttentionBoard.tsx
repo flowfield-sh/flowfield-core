@@ -271,7 +271,7 @@ function InboxList({
     `inbox:${workspaceId}:${projectId}:current`,
     [],
   );
-  // Keep stable ordering and independent drafts while canonical resolution
+  // Keep independent drafts while canonical resolution
   // removes answered requests. Resolved drafts remain reachable in History.
   if (tab === "needs_me" && page.data && page.data !== seen) {
     setSeen(page.data);
@@ -296,17 +296,23 @@ function InboxList({
   }
   const items = useMemo(() => {
     const current = new Set(page.data?.items.map(identityOf));
-    return tab === "needs_me"
-      ? retained.filter((item) => current.has(identityOf(item)))
-      : [
-          ...retained.filter(
-            (item) =>
-              drafts[identityOf(item)] &&
-              !currentIds.includes(identityOf(item)) &&
-              !current.has(identityOf(item)),
-          ),
-          ...(page.data?.items ?? []),
-        ];
+    return (
+      tab === "needs_me"
+        ? retained.filter((item) => current.has(identityOf(item)))
+        : [
+            ...retained.filter(
+              (item) =>
+                drafts[identityOf(item)] &&
+                !currentIds.includes(identityOf(item)) &&
+                !current.has(identityOf(item)),
+            ),
+            ...(page.data?.items ?? []),
+          ]
+    ).sort(
+      (a, b) =>
+        b.updated_at.localeCompare(a.updated_at) ||
+        identityOf(a).localeCompare(identityOf(b)),
+    );
   }, [page.data, tab, retained, drafts, currentIds]);
   const list = useRef<HTMLDivElement>(null);
   const focused = useRef<{ id: string; index: number } | null>(null);

@@ -226,7 +226,7 @@ def test_stop_native_background_uses_protocol_and_keeps_refusal(tmp_path, flags,
     asyncio.run(exercise())
 
 
-def test_native_offered_decisions_cannot_grant_persistent_or_unoffered_permission(tmp_path):
+def test_native_offered_session_decisions_and_unoffered_permissions(tmp_path):
     async def exercise():
         agent = await start(tmp_path, [])
         agent._completion = asyncio.get_running_loop().create_future()
@@ -248,7 +248,13 @@ def test_native_offered_decisions_cannot_grant_persistent_or_unoffered_permissio
                     "availableDecisions": ["acceptForSession", "decline", "cancel"],
                 },
             )
-            assert offered == [(("deny", "Deny", "reject_once"),)]
+            assert offered == [
+                (
+                    ("session", "Allow for this session", "allow_always"),
+                    ("deny", "Deny", "reject_once"),
+                    ("cancel", "Cancel request", "reject_once"),
+                )
+            ]
             assert result == {"decision": "cancel"}
             result = await agent._request(
                 "item/permissions/requestApproval",
@@ -544,3 +550,24 @@ def test_unconfirmed_member_access_stops_before_codex_prompt(tmp_path):
             assert await client.stop()
 
     asyncio.run(exercise())
+
+
+def test_codex_scope_choices_preserve_exact_native_policy():
+    from flowfield.adapters.codex_permissions import command_decisions
+
+    amendment = {
+        "acceptWithExecpolicyAmendment": {
+            "execpolicy_amendment": ["npm", "install", "--prefix", "/tmp/capture tool"]
+        }
+    }
+    options, decisions = command_decisions(
+        {"availableDecisions": ["accept", "acceptForSession", amendment, "decline"]}
+    )
+    assert options[1] == ("session", "Allow for this session", "allow_always")
+    assert decisions["session"] == "acceptForSession"
+    assert decisions["policy:2"] == amendment
+    assert "'/tmp/capture tool'" in options[2][1]
+    assert command_decisions(
+        {"availableDecisions": [{"acceptWithExecpolicyAmendment": {"execpolicy_amendment": []}}]}
+    ) == ((), {})
+    assert "session" not in command_decisions({})[1]

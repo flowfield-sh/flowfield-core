@@ -58,6 +58,9 @@ def test_scheduler_follows_shared_priority_and_skips_unavailable_repository(
         (space, extra.id),
         (space, "core"),
     ]
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(Supervisor, "validate_agent_choice", AsyncMock())
     service = Supervisor(store)
     started = []
 
