@@ -3779,6 +3779,29 @@ export interface components {
        */
       request: string;
     };
+    /** InputAttempt */
+    InputAttempt: {
+      /** Id */
+      id: string;
+      /** Revision */
+      revision: number;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status:
+        | "preparing"
+        | "running"
+        | "stopping"
+        | "uncertain"
+        | "stopped"
+        | "failed"
+        | "waiting_for_input"
+        | "in_review"
+        | "changes_requested"
+        | "accepted"
+        | "contributed";
+    };
     /** InputDelivery */
     InputDelivery: {
       /** State */
@@ -3820,6 +3843,8 @@ export interface components {
       result_revision: number | null;
       /** Pending Reply Id */
       pending_reply_id: string | null;
+      latest_attempt: components["schemas"]["InputAttempt"] | null;
+      result_next_action: components["schemas"]["ResultAction"] | null;
     };
     /** Inspection */
     Inspection: {
@@ -5028,7 +5053,10 @@ export interface components {
     };
     /** ReviewVerdict */
     ReviewVerdict: {
-      /** Subtask Id */
+      /**
+       * Subtask Id
+       * @description Responsible local subtask for assembled work only. Omit for direct work; never use a task key.
+       */
       subtask_id: string | null;
       /**
        * Action

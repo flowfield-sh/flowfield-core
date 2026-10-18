@@ -87,8 +87,12 @@ def add_conversation_tools(mcp: FastMCP, workspace: Callable[[], Workspace]) -> 
     def get_task_input(
         workspace_id: str, task_id: str, question_id: str | None = None
     ) -> InputEligibility:
-        """Read exact task/question/result bindings before replying.
+        """Read reply ownership, exact bindings, result action and latest attempt.
         Supply question_id for a specific question Request; otherwise read the current input.
+        enabled permits input, not every reply action: an earlier result can retain testing
+        observations but cannot receive changes. Follow result_next_action. If a newer attempt
+        stopped/failed without a result, inspect latest_attempt with get_run and use retry_run
+        after resolving its task preparation; do not request changes to the earlier result.
         """
         return Conversation(workspace()).eligibility(workspace_id, task_id, question_id)
 

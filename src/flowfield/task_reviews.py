@@ -23,7 +23,11 @@ from flowfield.worker_settings import occupancy, read_workspace
 
 
 class ReviewVerdict(Record):
-    subtask_id: str | None = None
+    subtask_id: str | None = Field(
+        default=None,
+        description="Responsible local subtask for assembled work only. "
+        "Omit for direct work; never use a task key.",
+    )
     action: Literal["approve", "request_changes", "ask_worker", "ask_human"]
     summary: str = Field(min_length=1, max_length=2000)
     evidence: str = Field(min_length=1, max_length=8000)

@@ -211,6 +211,59 @@ def test_approval_and_delivery_have_distinct_linked_items(tmp_path):
     assert thread.source("harbor", "work", "approval:" + ready.id).item.source_id == ready.id
 
 
+def test_input_context_distinguishes_stopped_followup_from_historical_result(tmp_path):
+    from replies_fixtures import message
+    from result_fixtures import current
+    from result_fixtures import fixture as result_fixture
+
+    from flowfield.execution_models import QueueEdit
+    from flowfield.mcp import create_mcp
+    from flowfield.replies import Replies
+    from flowfield.result_models import ResultReview
+
+    service, _, first = result_fixture(tmp_path)
+    service.results.process("harbor")
+    ready = current(service)
+    thread = Conversation(service.workspace)
+    assert thread.eligibility("harbor", "work").result_next_action.action == "review_result"
+    service.results.review(
+        "harbor",
+        ready.id,
+        ResultReview(
+            expected_revision=ready.revision,
+            candidate_commit=ready.candidate_commit,
+            action="request_changes",
+            note="Correct the implementation",
+        ),
+    )
+    service.execution.queue(
+        "harbor",
+        QueueEdit(expected_revision=service.execution.settings("harbor").revision, enabled=True),
+    )
+    followup = service.execution.claim("harbor", first.base_commit, {first.base_commit: set()})
+    service.execution.started("harbor", followup.id)
+    service.execution.finish("harbor", followup.id, "stopped", input_checkpoint=ready.source_commit)
+    context = thread.eligibility("harbor", "work")
+    assert context.enabled  # Historical testing observations remain valid.
+    assert context.result_id == ready.id
+    assert context.result_next_action.action == "none"
+    assert context.result_next_action.label == "Earlier result"
+    assert context.latest_attempt.id == followup.id
+    assert context.latest_attempt.status == "stopped"
+    assert context.latest_attempt.revision == service.execution.get("harbor", followup.id).revision
+    mcp = create_mcp(lambda: service.workspace, lambda: service)
+    reply = asyncio.run(
+        mcp.call_tool("get_task_input", {"workspace_id": "harbor", "task_id": "work"})
+    )
+    assert reply[1] == context.model_dump()
+    observation = message(service.workspace, "work", body="Tried the earlier candidate")
+    assert Replies(service.workspace).submit("harbor", "work", observation).status == "recorded"
+    with pytest.raises(ApplicationError, match="newer result or attempt"):
+        Replies(service.workspace).submit(
+            "harbor", "work", message(service.workspace, "work", action="changes")
+        )
+
+
 def test_result_feedback_keeps_consumed_answers_within_the_same_agreement(tmp_path):
     from execution_fixtures import validate_report
 

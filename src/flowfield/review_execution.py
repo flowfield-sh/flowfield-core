@@ -136,6 +136,7 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
                 "Assess this whole task result against its frozen agreement and "
                 "sources. For assembled work, select the responsible subtask_id "
                 "when requesting changes or asking a worker. "
+                "For direct work, omit subtask_id; the task key is never a subtask ID. "
                 "Read relevant context and recent exchange sections with read_context. "
                 "Inspect the candidate diff "
                 "against target_before. Validation records are evidence, "

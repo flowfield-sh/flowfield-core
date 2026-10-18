@@ -6,7 +6,8 @@ from typing import Literal
 
 from flowfield.application import Workspace
 from flowfield.errors import ApplicationError
-from flowfield.execution_models import ACTIVE, Record
+from flowfield.execution_models import ACTIVE, Record, RunStatus
+from flowfield.result_models import ResultAction
 
 
 class ConversationItem(Record):
@@ -42,6 +43,12 @@ class ConversationSource(Record):
     next_offset: int | None = None
 
 
+class InputAttempt(Record):
+    id: str
+    revision: int
+    status: RunStatus
+
+
 class InputEligibility(Record):
     enabled: bool
     reason: str
@@ -53,6 +60,8 @@ class InputEligibility(Record):
     result_id: str | None = None
     result_revision: int | None = None
     pending_reply_id: str | None = None
+    latest_attempt: InputAttempt | None = None
+    result_next_action: ResultAction | None = None
 
 
 # IDs identify evidence, not its position. Current run/result state is intentionally live;
@@ -226,9 +235,31 @@ class Conversation:
     def eligibility(
         self, workspace_id: str, task_id: str, question_id: str | None = None
     ) -> InputEligibility:
+        """Pair reply ownership with canonical result actions and latest recovery identity."""
+        from flowfield.result_actions import result_action
+        from flowfield.result_models import ResultVersion
+
         with self.workspace.connection() as db:
             args = self._args(db, workspace_id, task_id)
-            return self._eligibility(db, args["project"], args["task"], question_id)
+            context = self._eligibility(db, args["project"], args["task"], question_id)
+            latest = db.execute(
+                "SELECT id,status,json_extract(data,'$.revision') FROM runs "
+                "WHERE workspace_id=? AND task_id=? ORDER BY number DESC LIMIT 1",
+                (workspace_id, args["task"]),
+            ).fetchone()
+            if latest:
+                context.latest_attempt = InputAttempt(
+                    id=latest[0], status=latest[1], revision=latest[2]
+                )
+            if context.result_id:
+                value = db.execute(
+                    "SELECT data FROM result_versions WHERE workspace_id=? AND id=?",
+                    (workspace_id, context.result_id),
+                ).fetchone()
+                context.result_next_action = result_action(
+                    self.workspace, db, ResultVersion.model_validate_json(value[0])
+                )
+            return context
 
     def _eligibility(
         self,
