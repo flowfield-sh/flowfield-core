@@ -83,6 +83,9 @@ test("workspace files organize retained task outputs without a project", async (
     name: "File details",
     exact: true,
   });
+  await expect(
+    details.getByRole("link", { name: "Source result", exact: true }),
+  ).toHaveAttribute("href", `${base}/results/${value.result}`);
   expect(await (await request.get(`/api${base}/projects`)).json()).toEqual([]);
   const download = page.waitForEvent("download");
   await details.getByRole("link", { name: "Download", exact: true }).click();
@@ -110,6 +113,11 @@ test("workspace files organize retained task outputs without a project", async (
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ colorScheme: "light" });
+  await details
+    .getByRole("link", { name: "Source result", exact: true })
+    .click();
+  await expect(page).toHaveURL(`${base}/results/${value.result}`);
+  await openResource(page, "Files");
   await details.getByRole("link", { name: "T-1", exact: true }).click();
   await expect(page).toHaveURL(`${base}/tasks/${value.task}`);
   await openResource(page, "Files");
@@ -135,6 +143,14 @@ test("workspace files organize retained task outputs without a project", async (
   await expect(
     files.getByRole("button", { name: /launch-report.txt/ }),
   ).toBeVisible();
+  await files.getByRole("button", { name: /checklist-draft.txt/ }).click();
+  await expect(
+    details.getByRole("link", { name: "Source result", exact: true }),
+  ).toHaveAttribute("href", `${base}/results/${value.partial_result}`);
+  await details
+    .getByRole("link", { name: "Source result", exact: true })
+    .click();
+  await expect(page).toHaveURL(`${base}/results/${value.partial_result}`);
   await page.goto(`${base}/results/${value.review_result}`);
   await expect(
     page.getByRole("button", { name: "Retry review", exact: true }),

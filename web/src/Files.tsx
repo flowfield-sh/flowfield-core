@@ -14,7 +14,7 @@ import { LoadMore } from "./LoadMore";
 import { ResourceRetry } from "./ResourceRetry";
 import { Timestamp } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { taskHref } from "./navigation";
+import { resultHref, taskHref } from "./navigation";
 import { usePage } from "./useResource";
 import { OutputPreview, outputHref as contentHref } from "./OutputPreview";
 
@@ -75,9 +75,16 @@ function FileDetails({ entry }: { entry: FileEntry }) {
       <p className="detail-metadata">
         {sizeLabel(file.size)} · <Timestamp date={file.created_at} />
       </p>
-      <WorkspaceLink to={taskHref(file.workspace_id, { key: file.task_key })}>
-        <Badge variant="outline">{file.task_key}</Badge>
-      </WorkspaceLink>
+      <div className="actions">
+        <WorkspaceLink to={taskHref(file.workspace_id, { key: file.task_key })}>
+          <Badge variant="outline">{file.task_key}</Badge>
+        </WorkspaceLink>
+        {file.result_id && (
+          <WorkspaceLink to={resultHref(file.workspace_id, file.result_id)}>
+            Source result
+          </WorkspaceLink>
+        )}
+      </div>
       <div className="actions">
         <Button size="sm" asChild>
           <a href={contentHref(file)} target="_blank" rel="noreferrer">
