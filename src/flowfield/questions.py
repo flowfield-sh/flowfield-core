@@ -25,7 +25,9 @@ class QuestionCreate(BaseModel):
     id: Identifier = Field(default_factory=lambda: uuid4().hex)
     task_id: TaskKey | None = None
     affected_task_ids: list[TaskKey] = Field(default_factory=list, max_length=50)
-    question: Title
+    question: Title = Field(
+        description="Short question title (at most 200 characters); put details in context."
+    )
     context: Text
     recommendation: Text
     choices: list[Title] = Field(default_factory=list, max_length=5)

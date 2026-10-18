@@ -103,14 +103,23 @@ def test_workspace_description_reads_are_bounded_and_revision_checked(tmp_path):
     asyncio.run(exercise())
 
 
-def test_workspace_read_exposes_its_reviewer_defaults_without_configuration_authority(tmp_path):
-    from flowfield.agent_models import AgentChoice
+def test_workspace_read_exposes_role_defaults_without_configuration_authority(tmp_path):
+    from flowfield.agent_models import AgentChoice, AgentSettingsEdit
+    from flowfield.coordinator_settings import CoordinatorSettings
     from flowfield.reviewer_settings import ReviewerEdit, Reviewers
 
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
     space = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     other = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Other"))
+    coordinators = CoordinatorSettings(store)
+    coordinators.edit(
+        space.id,
+        AgentSettingsEdit(
+            expected_revision=1,
+            selection=AgentChoice(model="coordinator-fixture", effort="medium"),
+        ),
+    )
     reviewers = Reviewers(store)
     reviewers.configure(
         space.id,
@@ -125,6 +134,13 @@ def test_workspace_read_exposes_its_reviewer_defaults_without_configuration_auth
         scoped = (await grant.call("get_workspace", {})).structuredContent
         shared = await canonical.call_tool("get_workspace", {"workspace_id": space.id})
         assert shared.structuredContent["reviewer"] == scoped["reviewer"]
+        assert shared.structuredContent["coordinator"] == scoped["coordinator"]
+        assert scoped["coordinator"] == {
+            "revision": 2,
+            "selection": coordinators.get(space.id).selection.model_dump(),
+        }
+        assert scoped["coordinator"]["selection"]["model"] == "coordinator-fixture"
+        assert coordinators.get(other.id).selection.model == TEST_AGENTS["coordinator"].model
         assert scoped["reviewer"]["selection"]["model"] == "fixture"
         assert scoped["reviewer"]["revision"] == 2
         assert "configure_reviewers" not in grant.tools

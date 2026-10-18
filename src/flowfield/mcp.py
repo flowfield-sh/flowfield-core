@@ -24,6 +24,7 @@ from flowfield.application import (
 )
 from flowfield.attention import AttentionColumn, RequestKind
 from flowfield.conversation_api import add_conversation_tools
+from flowfield.coordinator_settings import CoordinatorSettings
 from flowfield.documents import DocumentCreate, DocumentEdit, DocumentRestore, Documents
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import QueueEdit, SettingsEdit
@@ -106,13 +107,20 @@ def create_mcp(
 
     @mcp.tool(annotations=read)
     async def get_workspace(workspace_id: Identifier) -> CallToolResult:
-        """Read shared purpose, revision and human-configured reviewer defaults."""
+        """Read shared purpose, revision and saved Coordinator/Reviewer settings.
+
+        These are workspace selections, not proof of a standalone caller's runtime model.
+        Worker settings are available through get_workspace_workers.
+        """
 
         def load() -> dict[str, Any]:
             store = workspace()
             reviewers = Reviewers(store)
             return {
                 **excerpt(Workspaces(store).get(workspace_id).model_dump()),
+                "coordinator": CoordinatorSettings(store)
+                .get(workspace_id)
+                .model_dump(include={"revision", "selection"}),
                 "reviewer": reviewers.get(workspace_id).model_dump(
                     include={"revision", "enabled", "selection"}
                 ),

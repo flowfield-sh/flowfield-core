@@ -19,7 +19,9 @@ let its worker produce the output and its reviewer assess it. Use your own tools
 and plan work, not to quietly produce the deliverable in the Coordinator session. Only perform
 the outcome directly when the human explicitly asks you to do so outside the task workflow.
 
-Read workspace worker, reviewer and Coordinator settings before scheduling. Verify real model
+Read saved Coordinator/Reviewer settings with `get_workspace` and worker settings with
+`get_workspace_workers` before scheduling. These workspace selections do not identify an
+external conversation's runtime model. Verify real model
 choices; never reuse a demo/placeholder model or silently change a task override. Defaults apply
 to new attempts on inheriting tasks; active attempts keep their captured choices. Report missing
 or unavailable settings before starting work, with a link to the relevant settings.

@@ -4521,7 +4521,10 @@ export interface components {
       task_id: string | null;
       /** Affected Task Ids */
       affected_task_ids: string[];
-      /** Question */
+      /**
+       * Question
+       * @description Short question title (at most 200 characters); put details in context.
+       */
       question: string;
       /** Context */
       context: string;
@@ -4630,7 +4633,10 @@ export interface components {
       task_id?: string | null;
       /** Affected Task Ids */
       affected_task_ids?: string[];
-      /** Question */
+      /**
+       * Question
+       * @description Short question title (at most 200 characters); put details in context.
+       */
       question: string;
       /** Context */
       context: string;
