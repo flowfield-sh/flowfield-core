@@ -85,6 +85,8 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   for (const name of ["Projects", "Documents", "Files"])
     await resources.getByRole("link", { name, exact: true }).click();
   const tabs = page.getByRole("tablist", { name: "Open resources" });
+  // The Inbox count loads independently of tab ordering.
+  await expect(tabs.getByRole("tab").first()).toHaveAccessibleName("Inbox 1");
   const titles = () =>
     tabs
       .getByRole("tab")

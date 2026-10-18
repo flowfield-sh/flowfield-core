@@ -85,9 +85,20 @@ test("overflowing tabs scroll by wheel with directional fades and even gutters",
   expect(spacing).toEqual({ above: 12, below: 12, right: 12 });
   await strip.getByRole("tab").last().focus();
   await page.keyboard.press("Enter");
+  // Let the selected resource replace its loading title before testing scrolling.
+  // Its final width triggers the active-tab reveal ResizeObserver.
+  await expect(strip.getByRole("tab").last()).toHaveAccessibleName(
+    /^T-\d+ Question$/,
+  );
   await expect(strip.getByRole("tab").last()).toBeInViewport();
   await expect(strip).toHaveAttribute("data-overflow-right", "false");
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     390,
   );
