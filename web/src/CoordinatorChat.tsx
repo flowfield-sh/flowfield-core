@@ -10,6 +10,8 @@ import { useResource } from "./useResource";
 import { request, RequestError } from "./workspace";
 import { Markdown } from "./Markdown";
 import { Timestamp } from "./Timestamp";
+import { Separator } from "@/components/ui/separator";
+import { ContentStack } from "./DetailLayout";
 import { AgentSettingsControl } from "./AgentSettings";
 import { choiceLabel } from "./HarnessModels";
 import { ActionTooltip } from "./ActionTooltip";
@@ -332,22 +334,8 @@ export function CoordinatorChat({
                 <div className="detail-metadata">
                   You · <Timestamp date={turn.created_at} />
                 </div>
-                {turn.task_context && (
-                  <WorkspaceLink
-                    className="coordinator-task-reference"
-                    title={`${turn.task_context.title} · task revision ${turn.task_context.task_revision}`}
-                    to={
-                      taskHref(workspaceId, turn.task_context) +
-                      (turn.task_context.result_id
-                        ? `/conversation/result:${encodeURIComponent(turn.task_context.result_id)}`
-                        : "")
-                    }
-                  >
-                    {turn.task_context.key}
-                    {turn.task_context.result_id ? " · result" : ""}
-                  </WorkspaceLink>
-                )}
                 <Markdown>{turn.text}</Markdown>
+                <MessageContext turn={turn} workspaceId={workspaceId} />
               </div>
               <div className="coordinator-message">
                 <CoordinatorActivity
@@ -536,5 +524,55 @@ export function CoordinatorChat({
         />
       </div>
     </>
+  );
+}
+
+function MessageContext({
+  turn,
+  workspaceId,
+}: {
+  turn: Turn;
+  workspaceId: string;
+}) {
+  const view = turn.view_context;
+  const task = turn.task_context;
+  if (!task && !view) return null;
+  const base = `/workspaces/${encodeURIComponent(workspaceId)}`;
+  let href: string;
+  let title: string;
+  if (task) {
+    href =
+      taskHref(workspaceId, task) +
+      (task.result_id
+        ? `/conversation/result:${encodeURIComponent(task.result_id)}`
+        : "");
+    title = task.key + (task.result_id ? " · result" : "");
+  } else if (view?.document_id) {
+    href = `${base}/documents/${encodeURIComponent(view.document_id)}/revisions/${view.document_revision}`;
+    title = view.document_title ?? "Document";
+  } else if (view?.request_href) {
+    href = view.request_href;
+    title = view.request_title ?? "Request";
+  } else if (view?.surface === "project" && view.project_id) {
+    href = `/projects/${encodeURIComponent(view.project_id)}`;
+    title = view.project_name ?? "Project";
+  } else {
+    const surface =
+      view?.surface === "board" ? "tasks" : (view?.surface ?? "tasks");
+    const params = new URLSearchParams();
+    if (view?.project_id) params.set("project", view.project_id);
+    if (view?.label_id) params.set("label", view.label_id);
+    href = `${base}/${surface}${params.size ? `?${params}` : ""}`;
+    title = surface.charAt(0).toUpperCase() + surface.slice(1);
+    if (view?.project_name) title += ` · ${view.project_name}`;
+    if (view?.label_name) title += ` · ${view.label_name}`;
+  }
+  return (
+    <ContentStack space="tight" className="detail-metadata">
+      <Separator />
+      <div>
+        Context: <WorkspaceLink to={href}>{title}</WorkspaceLink>
+      </div>
+    </ContentStack>
   );
 }

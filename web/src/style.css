@@ -902,11 +902,3 @@
   --diff-gutter-selected-background-color: #36516b;
   --diff-code-selected-background-color: #304456;
 }
-
-@layer components {
-  .coordinator-task-reference {
-    display: inline-block;
-    font-size: 12px;
-    margin-block: 4px;
-  }
-}

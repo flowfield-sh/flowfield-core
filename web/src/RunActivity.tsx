@@ -80,14 +80,15 @@ export function RunActivity({
           <ActivityEntries items={page.items} />{" "}
         </div>
       )}
-      {page?.context && (
+      {(page?.context || page?.usage?.total_tokens != null) && (
         <div className="activity-context">
-          <ContextRing context={page.context} active={page.active} />
-          <span className="detail-metadata">Current tokens</span>
+          {page.context && (
+            <ContextRing context={page.context} active={page.active} inline />
+          )}
+          {page.usage?.total_tokens != null && (
+            <UsageSummary usage={page.usage} active={page.active} />
+          )}
         </div>
-      )}
-      {page?.usage?.total_tokens != null && (
-        <UsageSummary usage={page.usage} active={page.active} />
       )}
     </div>
   );

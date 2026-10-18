@@ -204,6 +204,7 @@
   overflow-wrap: anywhere;
 }
 .coordinator-human {
+  gap: 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px;

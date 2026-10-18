@@ -1218,6 +1218,16 @@ test("automatic task context preserves one coordinator and immutable retry recei
     task_id: tasks[0].id,
     task_revision: tasks[0].revision,
   });
+  const humanMessage = page.locator(".coordinator-human").first();
+  await expect(humanMessage).toContainText("Context: T-1");
+  const contextLink = humanMessage.getByRole("link", {
+    name: "T-1",
+    exact: true,
+  });
+  const messageBody = humanMessage.locator(".markdown");
+  expect((await contextLink.boundingBox())!.y).toBeGreaterThan(
+    (await messageBody.boundingBox())!.y,
+  );
   await expect(
     page.getByRole("region", { name: "Coordinator conversation" }),
   ).toContainText("T-1");

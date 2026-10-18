@@ -795,10 +795,12 @@ test("attempt activity updates without reloading the board and replays on reload
     page.getByText("Token usage not reported", { exact: true }),
   ).toHaveCount(0);
   const currentTokens = page.locator(".run-activity .activity-context");
-  await expect(currentTokens).toContainText("Current tokens");
+  await expect(currentTokens).toContainText("12,345 / 100,000 context tokens");
   await expect(
     currentTokens.getByLabel("12% context used", { exact: true }),
   ).toBeVisible();
+  await currentTokens.getByLabel("12% context used", { exact: true }).hover();
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
   const outputBox = (await output.boundingBox())!;
   expect((await currentTokens.boundingBox())!.y).toBeGreaterThanOrEqual(
     outputBox.y + outputBox.height,
