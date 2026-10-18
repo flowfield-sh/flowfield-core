@@ -16,13 +16,12 @@ export class RequestError extends Error {
   }
 }
 
-// Deduplicate failed background reads until that resource recovers. An outage is
-// shared across views; deliberate user actions always get their own feedback.
+// Deduplicate failed background reads until that resource recovers. Service-wide
+// outages belong to the health owner; actions get their own contextual feedback.
 const failures = new Map<string, { message: string; at: number }>();
 export function requestRecovered(path: string, startedAt: number) {
   // A delayed successful response from before an outage does not prove recovery.
-  for (const key of [path, "connection"])
-    if ((failures.get(key)?.at ?? Infinity) <= startedAt) failures.delete(key);
+  if ((failures.get(path)?.at ?? Infinity) <= startedAt) failures.delete(path);
 }
 export function reportError(error: unknown, title: string, background = false) {
   if (
@@ -32,10 +31,9 @@ export function reportError(error: unknown, title: string, background = false) {
     ) ||
       (error.status ?? 0) >= 500)
   ) {
-    void checkServiceConnection().then((available) => {
+    return checkServiceConnection().then((available) => {
       if (available) showError(error, title, background);
     });
-    return;
   }
   showError(error, title, background);
 }
@@ -43,19 +41,13 @@ function showError(error: unknown, title: string, background: boolean) {
   if (serviceIsUnavailable()) return;
   if (error instanceof DOMException && error.name === "AbortError") return;
   const failure = error instanceof RequestError ? error : null;
-  const connection = failure?.code === "service_unavailable";
-  const key = connection ? "connection" : failure?.path || title;
+  const key = failure?.path || title;
   const message = error instanceof Error ? error.message : "Please try again.";
-  if (
-    background &&
-    failures.has(key) &&
-    (connection || failures.get(key)?.message === message)
-  )
-    return;
+  if (background && failures.get(key)?.message === message) return;
   failures.delete(key);
   failures.set(key, { message, at: performance.now() });
   if (failures.size > 128) failures.delete(failures.keys().next().value!);
-  toast.error(connection && background ? "Flowfield is unavailable" : title, {
+  toast.error(title, {
     id: `request:${key}`,
     description: message,
     duration: 8000,

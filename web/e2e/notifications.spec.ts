@@ -113,6 +113,94 @@ const notices = (page: Page) =>
 const alertFor = (page: Page, text: string) =>
   page.locator("[data-sonner-toast]").filter({ hasText: text });
 
+test("a delayed background alert poll recovers quietly when returning to the tab", async ({
+  page,
+  context,
+  request,
+}) => {
+  await setup(request, "notify-delayed");
+  await systemStub(context, false);
+  await page.addInitScript(() => {
+    const original = AbortSignal.timeout.bind(AbortSignal);
+    AbortSignal.timeout = (ms) => original(ms === 15000 ? 500 : ms);
+  });
+  let polls = 0;
+  await page.route("**/api/announcements/poll", (route) => {
+    if (++polls === 1) return; // Hold the background request past its deadline.
+    return route.fulfill({ json: { items: [], system_allowed: false } });
+  });
+  await page.goto("/settings/notifications");
+  await expect.poll(() => polls).toBeGreaterThanOrEqual(2);
+  await page.evaluate(() => {
+    (window as unknown as { noticeActive: boolean }).noticeActive = true;
+    document.dispatchEvent(new Event("visibilitychange"));
+    window.dispatchEvent(new Event("focus"));
+  });
+  await expect(
+    page.locator('[data-sonner-toast][data-type="error"]'),
+  ).toHaveCount(0);
+  await page.unroute("**/api/announcements/poll");
+  // Restore the real deadline: the server deliberately paces polls at two seconds.
+  await page.evaluate(() => {
+    const original = AbortSignal.timeout.bind(AbortSignal);
+    AbortSignal.timeout = (ms) => original(ms === 15000 ? 16000 : ms);
+  });
+  await page.waitForResponse("**/api/announcements/poll");
+  await ask(request, "notify-delayed", "after-return");
+  await expect(alertFor(page, "Choose after-return")).toBeVisible({
+    timeout: 10000,
+  });
+  await expect(
+    page.locator('[data-sonner-toast][data-type="error"]'),
+  ).toHaveCount(0);
+});
+
+for (const failure of ["timeout", "network"] as const) {
+  test(`repeated notification ${failure} failures show automatic recovery without save warnings`, async ({
+    page,
+    context,
+  }, testInfo) => {
+    await systemStub(context, true);
+    if (failure === "network") {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.emulateMedia({ colorScheme: "dark" });
+    }
+    await page.addInitScript(() => {
+      const original = AbortSignal.timeout.bind(AbortSignal);
+      AbortSignal.timeout = (ms) => original(ms === 15000 ? 500 : ms);
+    });
+    let polls = 0;
+    let failing = true;
+    await page.route("**/api/announcements/poll", (route) => {
+      ++polls;
+      if (!failing)
+        return route.fulfill({ json: { items: [], system_allowed: false } });
+      if (failure === "network") return route.abort();
+      // Withhold the response to exercise the real request timeout path.
+    });
+    await page.goto("/settings/notifications");
+    const notice = alertFor(page, "Notifications temporarily unavailable");
+    await expect(notice).toBeVisible({ timeout: 10000 });
+    await expect(notice).toContainText("Retrying automatically");
+    await expect(notice).not.toContainText(/Reload|action completed/);
+    await expect(
+      page.getByRole("dialog", { name: "Connection lost" }),
+    ).toHaveCount(0);
+    const previousPolls = polls;
+    await expect.poll(() => polls).toBeGreaterThan(previousPolls);
+    await expect(notice).toHaveCount(1);
+    await page.screenshot({
+      path: testInfo.outputPath("notification-recovery.png"),
+    });
+    failing = false;
+    await page.waitForResponse("**/api/announcements/poll");
+    await expect(notice).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "Settings", exact: true }),
+    ).toBeVisible();
+  });
+}
+
 // Local operation feedback remains independent of background announcement preferences.
 test("queue failures have contextual recovery and no notification center", async ({
   page,

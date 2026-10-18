@@ -13,7 +13,7 @@ import {
   type UpdateStatus,
 } from "./HostCapabilities";
 import { request } from "./workspace";
-import { reportError } from "./requestFeedback";
+import { reportError, RequestError } from "./requestFeedback";
 import type { components } from "./api-schema";
 
 export type AnnouncementSettings =
@@ -100,6 +100,7 @@ export function AnnouncementProvider({
     let stopped = false;
     let timer: ReturnType<typeof setTimeout>;
     let inFlight = false;
+    let failures = 0;
     const controller = new AbortController();
     async function poll() {
       if (stopped || inFlight) return;
@@ -122,6 +123,8 @@ export function AnnouncementProvider({
           controller.signal,
           15000,
         );
+        if (failures > 1) toast.dismiss("request:announcements/poll");
+        failures = 0;
         const visible = new Set(visibleSources());
         const activeNow =
           document.visibilityState === "visible" && document.hasFocus();
@@ -162,8 +165,20 @@ export function AnnouncementProvider({
           }
       } catch (error) {
         failed = true;
-        if (!stopped)
-          reportError(error, "Could not check for new alerts", true);
+        // A suspended tab or transient delay can interrupt one poll. Polling
+        // already retries; it is not a user action whose result needs a reload.
+        if (!stopped && ++failures > 1)
+          await reportError(
+            new RequestError(
+              "Retrying automatically. You can still check Inbox for your work.",
+              error instanceof RequestError ? error.code : undefined,
+              "announcements/poll",
+              "POST",
+              error instanceof RequestError ? error.status : undefined,
+            ),
+            "Notifications temporarily unavailable",
+            true,
+          );
       } finally {
         inFlight = false;
         if (!stopped) {

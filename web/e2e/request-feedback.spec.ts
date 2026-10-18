@@ -36,11 +36,6 @@ for (const kind of [
       },
     });
     expect(created.ok()).toBe(true);
-    if (kind === "timeout")
-      await page.addInitScript(() => {
-        const original = AbortSignal.timeout.bind(AbortSignal);
-        AbortSignal.timeout = (ms) => original(ms === 10000 ? 500 : ms);
-      });
     await page.goto(`/projects/${id}/edit/general`);
     const editor = page.getByRole("region", {
       name: "Edit project",
@@ -70,8 +65,13 @@ for (const kind of [
     await editor
       .getByRole("button", { name: "Save changes", exact: true })
       .click();
-    const failure = errors(page);
-    await expect(failure).toContainText("Could not save project settings");
+    const failure = errors(page).filter({
+      hasText: "Could not save project settings",
+    });
+    // Exercise the actual save deadline without shortening unrelated reads.
+    await expect(failure).toBeVisible({
+      timeout: kind === "timeout" ? 15000 : 5000,
+    });
     await expect(failure).toContainText(
       {
         network: "Cannot reach Flowfield",
