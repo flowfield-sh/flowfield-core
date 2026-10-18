@@ -181,7 +181,8 @@ For a human-requested reviewer stop, read get_task_review and call stop_review w
 review ID/revision. This preserves findings and leaves the queue unchanged.
 After an interrupted turn inspect canonical state before repeating any operation: completed
 writes remain committed. Explain useful results and concrete next actions concisely. Link tasks
-with Markdown using /projects/{project_id}/tasks/{task_key}. Never claim unsupported actions.
+using their returned workspace-scoped URLs, including tasks with a project destination.
+Use returned request/result URLs for exact actions and outcomes. Never claim unsupported actions.
 """
 
 
