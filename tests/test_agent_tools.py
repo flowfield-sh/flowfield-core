@@ -572,3 +572,44 @@ def test_coordinator_relays_bound_answer_once_without_enabling_queue(tmp_path):
     assert successor and successor.predecessor_id == run.id
     assert "All filtered rows" in execution.assignment("harbor", successor.id)["input"]
     assert execution.claim("harbor", BASE, {BASE: set()}) is None
+
+
+def test_coordinator_stops_exact_review_without_changing_queue_or_candidate(tmp_path, monkeypatch):
+    from result_fixtures import current
+    from review_execution_fixtures import install, round_trip
+    from task_reviews_fixtures import configured
+
+    from flowfield.questions import Questions
+
+    service, _, run, _, reviews = configured(tmp_path)
+    install(monkeypatch, "ask_human")
+    asyncio.run(round_trip(service))
+    review = reviews.latest("harbor", run.task_id)
+    candidate = current(service).candidate_commit
+    queue = service.execution.settings("harbor")
+    assert review.status == "waiting"
+
+    async def exercise():
+        grant = await workspace_scope(service, "harbor")
+        observed = await grant.call("get_task_review", {"task_id": run.task_id})
+        assert not observed.isError, observed
+        assert observed.structuredContent["result"]["id"] == review.id
+        for identity, revision in [("foreign", review.revision), (review.id, review.revision - 1)]:
+            denied = await grant.call(
+                "stop_review",
+                {"review_id": identity, "request": {"expected_revision": revision}},
+            )
+            assert denied.isError
+            assert reviews.get("harbor", review.id).status == "waiting"
+        stopped = await grant.call(
+            "stop_review",
+            {"review_id": review.id, "request": {"expected_revision": review.revision}},
+        )
+        assert not stopped.isError, stopped
+        assert reviews.get("harbor", review.id).status == "stopped"
+        grant.revoke()
+
+    asyncio.run(exercise())
+    assert service.execution.settings("harbor") == queue
+    assert current(service).candidate_commit == candidate
+    assert Questions(service.workspace).get("harbor", review.question_id).status == "withdrawn"

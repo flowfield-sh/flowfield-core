@@ -7,7 +7,7 @@ import { ResourceNavigation } from "./WorkspaceTabs";
 import { ReviewerSettings } from "./ReviewerSettings";
 import { AgentSettingsForm } from "./AgentSettings";
 import type { DirtyCallback } from "./retainedState";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ContentStack, DetailSection } from "./DetailLayout";
 import { TaskLabels } from "./TaskLabels";
 import { DetailHeader, DetailTabs, DraftBadge } from "./Presentation";
@@ -36,21 +36,12 @@ export function TaskDetail({
   const route = useParams();
   const navigate = useContext(ResourceNavigation);
   const settings = route.tab === "settings";
-  const [dirty, setDirty] = useState(false);
-  const [retained, setRetained] = useState(false);
-  const markDirty = useCallback<DirtyCallback>((value, kept = false) => {
-    setDirty(value);
-    setRetained(kept);
-  }, []);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [reviewerDirty, setReviewerDirty] = useState(false);
   useEffect(() => {
-    setUnsaved(
-      dirty || settingsDirty || reviewerDirty,
-      retained && !settingsDirty && !reviewerDirty,
-    );
+    setUnsaved(settingsDirty || reviewerDirty);
     return () => setUnsaved(false);
-  }, [dirty, settingsDirty, reviewerDirty, setUnsaved, retained]);
+  }, [settingsDirty, reviewerDirty, setUnsaved]);
   return (
     <section className="editor task-detail">
       <DetailHeader
@@ -218,8 +209,6 @@ export function TaskDetail({
           task={task}
           board={board}
           refresh={board}
-          onDirty={markDirty}
-          onSettingsDirty={setSettingsDirty}
         />
       )}
     </section>

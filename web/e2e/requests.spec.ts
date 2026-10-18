@@ -12,6 +12,11 @@ test("individual requests retain answers and drafts across independent tabs", as
   page,
   request,
 }, info) => {
+  const failedReads: string[] = [];
+  page.on("response", (response) => {
+    if (response.url().includes("/api/") && response.status() === 404)
+      failedReads.push(response.url());
+  });
   const project = "request-links";
   await fixtureProject(request, {
     data: {
@@ -93,6 +98,7 @@ test("individual requests retain answers and drafts across independent tabs", as
     detail.getByRole("textbox", { name: "Your answer", exact: true }),
   ).toHaveCount(0);
   await page.reload();
+  expect(failedReads).toEqual([]);
   await expect(
     detail.getByText("Name and rate", { exact: true }).first(),
   ).toBeVisible();
@@ -233,7 +239,7 @@ test("individual requests retain answers and drafts across independent tabs", as
   }
 });
 
-test("Needs attention opens the task itself while requests remain directly accessible", async ({
+test("Needs attention opens exact requests and collection navigation stays distinct", async ({
   page,
   request,
 }) => {
@@ -271,16 +277,16 @@ test("Needs attention opens the task itself while requests remain directly acces
     );
   await page.goto(base + "/inbox");
   const work = page.getByRole("navigation", { name: "Work", exact: true });
-  const entry = work.getByRole("link", {
-    name: `${task.key} Build the export`,
-    exact: true,
-  });
+
   for (const id of ["newer", "earlier"]) {
     const href = `${base}/requests/question/${id}`;
-    await expect(entry).toHaveAttribute("href", `${base}/tasks/${task.key}`);
+    const entry = work.getByRole("link", {
+      name: `${task.key} ${id} choice`,
+      exact: true,
+    });
+    await expect(entry).toHaveAttribute("href", href);
     await entry.click();
-    await expect(page).toHaveURL(`${base}/tasks/${task.key}`);
-    await page.goto(href);
+    await expect(page).toHaveURL(href);
     const detail = page.getByRole("region", { name: "Request", exact: true });
     await expect(detail).toContainText(`${id} choice`);
     await detail
@@ -293,13 +299,16 @@ test("Needs attention opens the task itself while requests remain directly acces
       detail.getByRole("textbox", { name: "Your answer", exact: true }),
     ).toHaveCount(0);
   }
-  await expect(entry).toHaveCount(0);
+
   await expect(work.getByText("Needs attention", { exact: true })).toHaveCount(
     0,
   );
-  await page.getByRole("link", { name: "Show all", exact: true }).click();
-  await expect(page).toHaveURL(`${base}/work`);
   await expect(
-    page.getByRole("tabpanel", { name: "All work", exact: true }),
+    page.getByRole("link", { name: "Show all", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page
+      .getByRole("navigation", { name: "Workspace resources" })
+      .getByRole("link", { name: "Tasks Board", exact: true }),
   ).toBeVisible();
 });

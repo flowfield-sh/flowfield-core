@@ -12,6 +12,7 @@ import { useResource } from "./useResource";
 import type { DirtyCallback } from "./retainedState";
 import type { WorkspaceBoard } from "./workspace";
 import type { components } from "./api-schema";
+import { requestHref } from "./requestLinks";
 
 export function RequestDetail({
   workspaceId,
@@ -73,9 +74,9 @@ export function RequestDetail({
   );
   return (
     <EntityPane
-      label="Request"
+      label={kind === "result" ? "Result" : "Request"}
       identity={`${projectId}:${kind}:${identity}`}
-      returnFocusHref={item?.request_href ?? ""}
+      returnFocusHref={requestHref(workspaceId, kind, identity)}
       close={close}
     >
       <section className="editor request-detail">

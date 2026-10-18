@@ -321,13 +321,40 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   await expect(picker).toBeVisible();
   expect(settings.selection).toBeNull();
   await detail.getByRole("tab", { name: "Task", exact: true }).click();
-  await detail
+  await expect(detail.locator(".entity-pane-footer")).toHaveCount(0);
+  await page.route(
+    "**/api/workspaces/*/requests/permission/request-1*",
+    (route) =>
+      route.fulfill({
+        json: {
+          id: permission.id,
+          workspace_id: workspace,
+          project_id: "agent-settings",
+          task_id: task.id,
+          task_key: task.key,
+          kind: "permission",
+          request_kind: "permission",
+          title: permission.title,
+          status: permission.status,
+          updated_at: permission.updated_at,
+        },
+      }),
+  );
+  await page.route("**/permissions/request-1?*", (route) =>
+    route.fulfill({ json: permission }),
+  );
+  await page.goto(`/workspaces/${workspace}/requests/permission/request-1`);
+  const permissionDetail = page.getByRole("region", {
+    name: "Request",
+    exact: true,
+  });
+  await permissionDetail
     .getByText("Run the project checks", { exact: true })
     .scrollIntoViewIfNeeded();
   await expect(
-    detail.getByText("command: pnpm test", { exact: false }),
+    permissionDetail.getByText("command: pnpm test", { exact: false }),
   ).toBeVisible();
-  const longChoice = detail.getByRole("button", {
+  const longChoice = permissionDetail.getByRole("button", {
     name: longPermissionLabel,
     exact: true,
   });
@@ -349,13 +376,13 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   await page.screenshot({ path: "/tmp/flowfield-permission-mobile.png" });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.screenshot({ path: "/tmp/flowfield-slice3-settings.png" });
-  await detail.getByRole("button", { name: "Reject once" }).click();
-  await expect(detail.getByRole("button", { name: "Allow once" })).toHaveCount(
-    0,
-  );
+  await permissionDetail.getByRole("button", { name: "Reject once" }).click();
+  await expect(
+    permissionDetail.getByRole("button", { name: "Allow once" }),
+  ).toHaveCount(0);
   await page.reload();
   await expect(
-    detail.getByText("Tool permission history", { exact: true }),
+    permissionDetail.getByText("Tool permission history", { exact: true }),
   ).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: "/tmp/flowfield-slice2-mobile.png" });

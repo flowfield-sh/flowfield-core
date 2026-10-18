@@ -358,11 +358,7 @@ test("code review in Inbox approves the exact result and delivers without naviga
       .locator(".editor-heading")
       .getByRole("img", { name: "Delivered", exact: true }),
   ).toBeVisible();
-  await expect(
-    page
-      .locator(".entity-pane-footer")
-      .getByRole("link", { name: "View result" }),
-  ).toBeVisible();
+  await expect(page.locator(".entity-pane-footer")).toHaveCount(0);
   await expect(page.locator(".entity-pane-footer .task-result")).toHaveCount(0);
   await expect(page.locator(".entity-pane-footer textarea")).toHaveCount(0);
   await expect(

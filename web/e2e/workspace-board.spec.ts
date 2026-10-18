@@ -157,14 +157,14 @@ test("shared workspace board, project filters, Inbox and settings", async ({
   ).toBeVisible();
   await page.getByRole("tab", { name: /^Inbox/ }).click();
   await expect(
-    page.getByText("Core release scope?", { exact: true }),
+    page.getByTestId("work").getByText("Core release scope?", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("Site release scope?", { exact: true }),
+    page.getByTestId("work").getByText("Site release scope?", { exact: true }),
   ).toBeVisible();
   await page.getByLabel("Filter by project").selectOption("board-core");
   await expect(
-    page.getByText("Site release scope?", { exact: true }),
+    page.getByTestId("work").getByText("Site release scope?", { exact: true }),
   ).toHaveCount(0);
   await openResource(page, "Projects");
   await expect(page.getByRole("link", { name: /board-site/ })).toBeVisible();
@@ -193,7 +193,7 @@ test("shared workspace board, project filters, Inbox and settings", async ({
   });
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await openResource(page, "Tasks");
+  await openResource(page, "Tasks Board");
   await expect(page.getByRole("tab", { name: /^Tasks/ })).toHaveAttribute(
     "aria-selected",
     "true",

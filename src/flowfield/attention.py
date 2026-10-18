@@ -182,7 +182,7 @@ def workspace_attention_counts(db: sqlite3.Connection, workspace_id: str) -> dic
 
 def workspace_attention_requests(db: sqlite3.Connection, workspace_id: str) -> dict[str, str]:
     """Newest actionable Request per work identity, in canonical Inbox order."""
-    from flowfield.requests import request_href
+    from flowfield.browser_links import request_href
 
     identity = "task_key"
     return {

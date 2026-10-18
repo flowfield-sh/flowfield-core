@@ -45,11 +45,11 @@ type TabState = { workspace: string; active: string; tabs: Tab[] };
 const limit = 24;
 function isInboxView(url: string, root: string) {
   const target = new URL(url, "http://flowfield.local");
-  return target.pathname === root && !target.searchParams.has("permission");
+  return target.pathname === root;
 }
 export function resourceRoot(url: string) {
   const path = url.split(/[?#]/)[0];
-  if (path.includes("/requests/")) {
+  if (path.includes("/requests/") || path.includes("/results/")) {
     const project = new URL(url, "http://flowfield.local").searchParams.get(
       "project_id",
     );
@@ -338,10 +338,8 @@ function title(
 ) {
   const location = new URL(url, "http://flowfield.local");
   const root = canonicalResourceRoot(url, board);
+  if (root.includes("/results/")) return titles[root] ?? "Result";
   if (root.includes("/requests/")) return titles[root] ?? "Request";
-  if (location.searchParams.has("permission")) return "Tool permission";
-  if (/\/(?:inbox|related\/questions)\/[^/]+$/.test(location.pathname))
-    return "Question";
   const settings = location.pathname.endsWith("/settings");
   const suffix = settings ? " · Settings" : "";
   if (titles[root]) return titles[root] + suffix;
@@ -361,12 +359,11 @@ function title(
     (
       {
         inbox: "Inbox",
-        tasks: "Tasks",
+        tasks: "Tasks Board",
         documents: "Documents",
         files: "Files",
         projects: "Projects",
         archive: "Archive",
-        work: "All work",
         settings: "Flowfield settings",
         "new-workspace": "New workspace",
         edit: root.startsWith("/projects/")
@@ -379,7 +376,7 @@ function title(
       ? "Document"
       : root.includes("/tasks/")
         ? key
-        : "Tasks")
+        : "Tasks Board")
   );
 }
 function ResourceTab({

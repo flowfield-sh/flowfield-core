@@ -203,6 +203,25 @@ def add_execution_tools(
         """Stop/reconcile this attempt's owned process and tracked tools; preserve its code."""
         return (await supervisor().stop(workspace_id, run_id, request)).model_dump()
 
+    @mcp.tool(annotations=read)
+    def get_task_review(workspace_id: str, task_id: str) -> dict[str, Any] | None:
+        """Read the task's current independent review identity, revision and lifecycle.
+        Read its exact result for findings; this does not start or stop work.
+        """
+        review = supervisor().review_execution.reviews.latest(workspace_id, task_id)
+        return review.model_dump(exclude={"binding", "verdict"}) if review else None
+
+    @mcp.tool(annotations=write)
+    async def stop_review(workspace_id: str, review_id: str, request: RunAction) -> dict[str, Any]:
+        """Stop the exact independent review when the human asks. Preserve its candidate
+        and findings; do not pause the queue or imply approval. Read get_task_review first.
+        """
+        return (
+            await supervisor().review_execution.stop(
+                workspace_id, review_id, request.expected_revision
+            )
+        ).model_dump()
+
     @mcp.tool(annotations=write)
     def retry_run(workspace_id: str, run_id: str, request: RunAction) -> dict[str, Any]:
         """Explicitly select a fresh attempt after a confirmed failure/stop/input

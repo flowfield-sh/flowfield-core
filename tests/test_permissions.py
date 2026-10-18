@@ -42,7 +42,7 @@ def test_answer_is_offered_exactly_once_and_persisted(tmp_path, option):
                     (f"harbor:permission:{record.id}",),
                 ).fetchone()
             assert json.loads(announcement[0])["href"] == (
-                f"/workspaces/harbor/inbox?permission={record.id}"
+                f"/workspaces/harbor/requests/permission/{record.id}"
             )
             with pytest.raises(ApplicationError, match="offered"):
                 owner.answer(

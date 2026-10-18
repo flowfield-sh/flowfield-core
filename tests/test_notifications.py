@@ -65,6 +65,7 @@ def test_active_toast_exclusive_claim_and_restart(delivery):
         results = list(pool.map(lambda _: owner.poll(client()), range(4)))
     items = [item for result in results for item in result.items]
     assert len(items) == 1 and items[0].source_key == f"project:question:{q.id}"
+    assert items[0].href == f"/workspaces/project/requests/question/{q.id}"
     assert all(result.channel == "toast" for result in results)
     assert not owner.poll(client("background", False, permitted=True)).items
     with workspace.connection() as db:

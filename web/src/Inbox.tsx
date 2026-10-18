@@ -11,32 +11,20 @@ import { reportError } from "./requestFeedback";
 import { authorLabel } from "./workspace";
 import { Disclosure, DetailSection, DetailHeading } from "./DetailLayout";
 import { Timestamp } from "./Timestamp";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import type { components } from "./api-schema";
 import { TooltipLink } from "./TooltipLink";
-import { Navigate, useLocation } from "react-router";
 import type { TaskReference } from "./workspace";
-import { DetailHeader } from "./Presentation";
-import { useEffect, useLayoutEffect, useId, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Markdown } from "./Markdown";
 import { followLink, workspaceHref, taskHref } from "./navigation";
 import { request } from "./workspace";
-import { EntityPane, PaneFooter } from "./EntityPane";
-import { useResource } from "./useResource";
+import { PaneFooter } from "./EntityPane";
 
 export type Question = components["schemas"]["Question"] & {
   truncated_fields?: Record<string, unknown>;
 };
 type Page = { items: Question[]; next_cursor: number | null };
-const states = {
-  open: "Needs your answer",
-  answered: "Resume coordinator",
-  assigned: "Answer sent",
-  applied: "Answered",
-  withdrawn: "Withdrawn",
-};
 export function questionHref(projectId: string, id: string) {
   return `${workspaceHref(projectId)}/requests/question/${encodeURIComponent(id)}`;
 }
@@ -153,8 +141,6 @@ export function QuestionDetail({
   refresh,
   onDirty,
   open,
-  close,
-  inline = false,
 }: {
   projectId: string;
   identity: string;
@@ -162,10 +148,7 @@ export function QuestionDetail({
   refresh: unknown;
   onDirty: DirtyCallback;
   open: (path: string) => void;
-  close?: () => void;
-  inline?: boolean;
 }) {
-  const answerId = useId();
   const path = `workspaces/${encodeURIComponent(projectId)}/questions/${encodeURIComponent(identity)}`;
   const [loaded, setLoaded] = useRetainedState<Question | null>(
     `${path}:loaded`,
@@ -284,16 +267,12 @@ export function QuestionDetail({
     }
   }
   const newer = loaded && incoming && incoming.revision > loaded.revision;
-  const scopeHref = loaded?.task_key
-    ? taskHref(projectId, { key: loaded.task_key })
-    : workspaceHref(projectId);
   return (
     <section
       data-announcement-source={
         loaded ? `${projectId}:question:${loaded.id}` : undefined
       }
       className="question-detail content-stack"
-      data-inline={inline || undefined}
       data-space="section"
       aria-label="Question content"
     >
@@ -310,34 +289,12 @@ export function QuestionDetail({
         !error && <p>Loading question…</p>
       ) : (
         <>
-          {!inline && (
-            <DetailHeader
-              title={loaded.question}
-              close={close ?? (() => open(workspaceHref(projectId) + "/inbox"))}
-              metadata={
-                <>
-                  <ScopedAnchor
-                    href={scopeHref}
-                    onClick={(e) => followLink(e, () => open(scopeHref))}
-                  >
-                    {loaded.task_key ?? "Workspace"}
-                  </ScopedAnchor>
-                  {" · "}
-                  <span role="status">
-                    {loaded.delivery?.state ?? states[loaded.status]}
-                  </span>
-                </>
-              }
-            />
-          )}
-          {inline && (
-            <QuestionPrompt
-              question={loaded.question}
-              context={loaded.context}
-              reviewContext={!!loaded.origin_review_id}
-              recommendation={loaded.recommendation}
-            />
-          )}
+          <QuestionPrompt
+            question={loaded.question}
+            context={loaded.context}
+            reviewContext={!!loaded.origin_review_id}
+            recommendation={loaded.recommendation}
+          />
           {newer && (
             <div className="notice content-stack">
               <p>This question changed while you were answering.</p>
@@ -361,7 +318,6 @@ export function QuestionDetail({
               </Button>
             </div>
           )}
-          {!inline && <Markdown>{loaded.context}</Markdown>}
           {correctionLink && (
             <p>
               Correction saved.{" "}
@@ -412,14 +368,6 @@ export function QuestionDetail({
               </div>
             </DetailSection>
           )}
-          {!inline && (
-            <DetailSection
-              className="question-section"
-              title={<>Recommendation</>}
-            >
-              <Markdown>{loaded.recommendation}</Markdown>
-            </DetailSection>
-          )}
           {loaded.blocking_scope &&
             (loaded.status === "open" || loaded.status === "answered") && (
               <p className="question-scope">Blocks: {loaded.blocking_scope}</p>
@@ -446,24 +394,20 @@ export function QuestionDetail({
               <Markdown>{loaded.decision}</Markdown>
             </DetailSection>
           )}
-          <PaneFooter inline={!inline}>
+          <PaneFooter>
             {(correcting ||
               loaded.status === "open" ||
               (loaded.status === "answered" &&
                 (editing || !loaded.delivery || loaded.delivery.can_edit)) ||
               loaded.continuation_run_id ||
               loaded.delivery?.can_stop) && (
-              <div
-                className={
-                  inline ? "task-input content-stack" : "content-stack"
-                }
-              >
+              <div className="task-input content-stack">
                 {correcting ||
                 loaded.status === "open" ||
                 (loaded.status === "answered" && editing) ? (
                   <form
                     className="answer-form content-stack"
-                    data-space={inline ? "content" : "section"}
+                    data-space="content"
                     onSubmit={(e) => {
                       e.preventDefault();
                       void answer();
@@ -474,65 +418,36 @@ export function QuestionDetail({
                       choose={setDraft}
                       disabled={busy || !!newer}
                     />
-                    {inline ? (
-                      <Composer
-                        projectId={projectId}
-                        draftKey={`${loaded.id}:${loaded.revision}`}
-                        value={draft}
-                        onChange={setDraft}
-                        label="Your answer"
-                        maxLength={8000}
-                        disabled={busy}
-                        onBusy={setUploading}
-                        onSend={() => void answer()}
-                        action={
-                          <Button
-                            type="submit"
-                            size="icon-sm"
-                            aria-label={
-                              correcting ? "Send correction" : "Send answer"
-                            }
-                            disabled={
-                              busy ||
-                              uploading ||
-                              !!newer ||
-                              !draft.trim() ||
-                              (editing && !dirty)
-                            }
-                          >
-                            <ArrowUp size={16} />
-                          </Button>
-                        }
-                      />
-                    ) : (
-                      <div className="answer-field content-stack">
-                        <Label className="field block" htmlFor={answerId}>
-                          Your answer
-                        </Label>
-                        <Textarea
-                          id={answerId}
-                          rows={5}
-                          maxLength={8000}
-                          value={draft}
-                          disabled={busy}
-                          onChange={(e) => setDraft(e.target.value)}
-                        />
-                      </div>
-                    )}
-                    <div className="actions">
-                      {!inline && (
+                    <Composer
+                      projectId={projectId}
+                      draftKey={`${loaded.id}:${loaded.revision}`}
+                      value={draft}
+                      onChange={setDraft}
+                      label="Your answer"
+                      maxLength={8000}
+                      disabled={busy}
+                      onBusy={setUploading}
+                      onSend={() => void answer()}
+                      action={
                         <Button
-                          size="sm"
+                          type="submit"
+                          size="icon-sm"
+                          aria-label={
+                            correcting ? "Send correction" : "Send answer"
+                          }
                           disabled={
                             busy ||
+                            uploading ||
                             !!newer ||
                             !draft.trim() ||
                             (editing && !dirty)
                           }
                         >
-                          {correcting ? "Send correction" : "Send answer"}
+                          <ArrowUp size={16} />
                         </Button>
-                      )}
+                      }
+                    />
+                    <div className="actions">
                       {editing && (
                         <Button
                           size="sm"
@@ -612,45 +527,5 @@ export function QuestionDetail({
         </>
       )}
     </section>
-  );
-}
-
-export function QuestionPage({
-  close,
-  ...props
-}: {
-  projectId: string;
-  identity: string;
-  tasks: TaskReference[];
-  refresh: unknown;
-  onDirty: DirtyCallback;
-  open: (path: string) => void;
-  close: () => void;
-}) {
-  const location = useLocation();
-  const question = useResource<Question>(
-    `workspaces/${props.projectId}/questions/${encodeURIComponent(props.identity)}`,
-    props.refresh,
-  );
-  if (question.data?.task_id) {
-    const target = `${taskHref(props.projectId, { key: question.data.task_key ?? question.data.task_id })}/conversation/${encodeURIComponent(`question:${question.data.id}`)}`;
-    return <Navigate to={target} replace state={location.state} />;
-  }
-  return (
-    <EntityPane
-      label="Question"
-      identity={props.identity}
-      returnFocusHref={location.pathname}
-      close={close}
-    >
-      {!question.data && <DetailHeader title="Question" close={close} />}
-      {question.data ? (
-        <QuestionDetail key={props.identity} {...props} close={close} />
-      ) : question.error ? (
-        <ResourceRetry resources={[question]} />
-      ) : (
-        <p>Loading question…</p>
-      )}
-    </EntityPane>
   );
 }

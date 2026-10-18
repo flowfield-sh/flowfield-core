@@ -1,3 +1,4 @@
+import { resultRequest } from "./support";
 import { projectWorkspace } from "./support";
 import {
   fixtureCliProject,
@@ -90,6 +91,10 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   await page.route("**/api/workspaces/*/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
+    if (path.includes("/requests/result/"))
+      return route.fulfill({
+        json: resultRequest(version(), url.pathname.split("/")[3]),
+      });
     if (path.endsWith("/thread"))
       return route.fulfill({
         json: { items: [resultMessage(version())], next_cursor: null },
@@ -219,7 +224,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   ]) {
     run = { ...run, status };
     await page.goto(
-      `/workspaces/${await projectWorkspace(page.request, "run-ui")}/tasks/T-1/changes/attempt-one`,
+      `/workspaces/${await projectWorkspace(page.request, "run-ui")}/results/attempt-one`,
     );
     const footer = page.getByRole("group", {
       name: "Task actions",
@@ -236,7 +241,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   expect(cancellations).toBe(2);
   run = { ...run, status: "in_review", revision: 7 };
   await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, "run-ui")}/tasks/T-1/changes/attempt-one`,
+    `/workspaces/${await projectWorkspace(page.request, "run-ui")}/results/attempt-one`,
   );
   await page.reload();
   const runs = page.getByRole("region", {
@@ -281,7 +286,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   );
   await expect(files.getByRole("button")).toHaveCount(40);
   await files.evaluate((element) => (element.scrollTop = 0));
-  const pane = page.locator(".entity-pane-footer");
+  const pane = page.locator(".entity-pane-body");
   const geometry = () =>
     browser.evaluate((el) => el.getBoundingClientRect().height);
   const height = await geometry();
@@ -311,7 +316,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   );
   for (const offset of [100, 160]) {
     await browser.evaluate((el, offset) => {
-      const pane = el.closest(".entity-pane-footer")!;
+      const pane = el.closest(".entity-pane-body")!;
       pane.scrollTop +=
         el.getBoundingClientRect().top -
         pane.getBoundingClientRect().top -
@@ -419,7 +424,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
       exact: true,
     }),
   ).toHaveCount(0);
-  await expect(page).toHaveURL(/tasks\/T-1\/changes\/attempt-one$/);
+  await expect(page).toHaveURL(/results\/attempt-one$/);
 });
 
 test("validated result approval delivers real Git code with the worker queue paused", async ({
@@ -463,7 +468,7 @@ test("validated result approval delivers real Git code with the worker queue pau
     `/workspaces/${await projectWorkspace(page.request, seed.project)}/tasks/T-1`,
   );
   await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, seed.project)}/tasks/T-1/conversation/result:${seed.result}`,
+    `/workspaces/${await projectWorkspace(page.request, seed.project)}/results/${seed.result}`,
   );
   const result = page.getByRole("region", { name: "Proposed result" });
   await expect(result).toContainText("project checks passed");
@@ -491,6 +496,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   await page
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();
+  await page.goto(`${base.replace("/api", "")}/tasks/T-1`);
   const approval = page.locator('[data-kind="approval"] .activity-entry');
   await expect(approval).toBeVisible();
   if (
@@ -502,6 +508,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   await expect(
     page.getByText("Keyboard checked; mobile not tested.", { exact: true }),
   ).toBeVisible();
+  await page.goto(`${base.replace("/api", "")}/results/${seed.result}`);
   // The shared scheduler also handles other journeys before attempting delivery.
   await expect(
     page.getByRole("button", { name: "Retry integration", exact: true }),
@@ -557,6 +564,11 @@ test("validated result approval delivers real Git code with the worker queue pau
   await expect(
     page.getByRole("button", { name: "Approve and integrate" }),
   ).toHaveCount(0);
+  await result.getByText(/^Flowfield: .*project checks passed$/).click();
+  await expect(
+    result.getByText("Project commands", { exact: true }),
+  ).toBeVisible();
+  await page.goto(`${base.replace("/api", "")}/tasks/T-1`);
   const timeline = page.locator(".conversation-messages");
   const history = timeline.locator('[data-kind="attempt"]');
   await expect(history).toHaveCount(1);
@@ -569,10 +581,6 @@ test("validated result approval delivers real Git code with the worker queue pau
   await expect(
     history.getByText("Execution details", { exact: true }),
   ).toHaveCount(0);
-  await result.getByText(/^Flowfield: .*project checks passed$/).click();
-  await expect(
-    result.getByText("Project commands", { exact: true }),
-  ).toBeVisible();
   await expect(
     page.getByLabel("Message coordinator", { exact: true }),
   ).toHaveValue("Keep this question draft while inspecting evidence.");
@@ -711,10 +719,12 @@ test("managed answers show durable pause, safe edits and immutable correction in
     );
   fixture("create");
   await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, "input-browser")}/tasks/T-1`,
+    `/workspaces/${await projectWorkspace(page.request, "input-browser")}/requests/question/which-records`,
   );
   const inputArea = page.getByRole("form", { name: "Task input", exact: true });
-  await expect(inputArea).toContainText("Which records?");
+  await expect(
+    page.getByRole("region", { name: "Request", exact: true }),
+  ).toContainText("Which records?");
   await expect(
     page.getByRole("button", { name: "Stop task", exact: true }),
   ).toHaveCount(0);
@@ -723,10 +733,9 @@ test("managed answers show durable pause, safe edits and immutable correction in
   ).toHaveCount(0);
   await page.getByLabel("Your answer", { exact: true }).fill("All records");
   await page.getByRole("button", { name: "Send answer", exact: true }).click();
-  await page.getByRole("tab", { name: "Task", exact: true }).click();
-  await expect(page.getByRole("list", { name: "Task feed" })).toContainText(
-    "All records",
-  );
+  await expect(
+    page.getByRole("region", { name: "Request", exact: true }),
+  ).toContainText("All records");
   await expect(
     page.getByRole("textbox", { name: "Your answer", exact: true }),
   ).toHaveCount(0);
@@ -736,10 +745,10 @@ test("managed answers show durable pause, safe edits and immutable correction in
     await route.continue();
   });
   await page.goto(
-    `/workspaces/${await projectWorkspace(request, "input-browser")}/tasks/T-1/conversation/question:which-records`,
+    `/workspaces/${await projectWorkspace(request, "input-browser")}/requests/question/which-records`,
   );
   const detail = page.getByRole("region", {
-    name: "Task details",
+    name: "Request",
     exact: true,
   });
   await expect(inputArea).toContainText(
@@ -771,10 +780,7 @@ test("managed answers show durable pause, safe edits and immutable correction in
   await detail
     .getByRole("button", { name: "Send answer", exact: true })
     .click();
-  await expect(detail.locator('[data-kind="answer"]')).toContainText([
-    "All records",
-    "Only favourites",
-  ]);
+  await expect(detail).toContainText("Only favourites");
   await page.reload();
   await expect(
     detail.getByText("Only favourites", { exact: true }),
@@ -790,7 +796,7 @@ test("managed answers show durable pause, safe edits and immutable correction in
   await page.reload();
   await expect(
     detail.getByRole("button", { name: "Stop task", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
     detail.getByRole("button", { name: "Edit answer", exact: true }),
   ).toHaveCount(0);
@@ -812,7 +818,10 @@ test("managed answers show durable pause, safe edits and immutable correction in
     },
   );
   expect(corrected.ok()).toBe(true);
-  await expect(detail.locator('[data-kind="answer"]')).toContainText([
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "input-browser")}/tasks/T-1`,
+  );
+  await expect(page.locator('[data-kind="answer"]')).toContainText([
     "All records",
     "Only favourites",
     "I changed my mind: all records.",
@@ -855,29 +864,13 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     await route.continue();
   });
 
-  for (let i = 0; i < 3; i++) {
-    await page.goto(
-      `/workspaces/${await projectWorkspace(page.request, project)}/tasks/T-1`,
-    );
-    await expect(
-      page.getByRole("region", { name: "Proposed result" }),
-    ).toContainText("First greeting");
-    await expect(page.getByLabel("Current task definition")).toBeVisible();
-    await expect(
-      page.getByRole("region", { name: "Proposed result" }),
-    ).toBeInViewport();
-    await expect(page.getByRole("form", { name: "Task input" })).toContainText(
-      "Review Result 1",
-    );
-    await page
-      .getByRole("button", {
-        name: /^(Close editor|Back)$/,
-        exact: true,
-      })
-      .click();
-  }
   await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, project)}/tasks/T-1/changes`,
+    `/workspaces/${await projectWorkspace(page.request, project)}/tasks/T-1`,
+  );
+  await expect(page.getByLabel("Current task definition")).toBeVisible();
+  await expect(page.locator(".entity-pane-footer")).toHaveCount(0);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, project)}/results/${first!.id}`,
   );
   let selectedPreview = first!.id;
   const preview = () =>
@@ -960,7 +953,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   ).toBeNull();
   await approvalComment.press("Escape");
   await expect(
-    page.getByRole("region", { name: "Task details", exact: true }),
+    page.getByRole("region", { name: "Result", exact: true }),
   ).toBeVisible();
   await expect(approvalComment).toHaveCount(0);
   await page
@@ -973,7 +966,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await expect(feedback).toBeVisible();
   await feedback.press("Escape");
   await expect(
-    page.getByRole("region", { name: "Task details", exact: true }),
+    page.getByRole("region", { name: "Result", exact: true }),
   ).toBeVisible();
   await expect(feedback).toHaveCount(0);
   await page
@@ -999,9 +992,9 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   selectedPreview = (
     await (await request.get(`${path}/tasks/try/results`)).json()
   ).items[0].id;
-  await page.locator(".entity-pane-body").evaluate((el) => {
-    el.scrollTop = el.scrollHeight;
-  });
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, project)}/results/${selectedPreview}`,
+  );
   await expect(
     preview()
       .locator("summary")
@@ -1057,7 +1050,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   ).toHaveCount(0);
   selectedPreview = first!.id;
   await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, project)}/tasks/T-1/changes/${first!.id}`,
+    `/workspaces/${await projectWorkspace(page.request, project)}/results/${first!.id}`,
   );
   await preview()
     .locator("summary")
@@ -1157,12 +1150,10 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   ).toPass();
   // Stagger independently loaded records, including content taller than the viewport.
   let resultDelay = 0;
-  let heldReport: Promise<void> | null = null;
   await page.route(`**/api/workspaces/*/results/*`, async (route) => {
     const response = await route.fetch().catch(() => null);
     if (!response) return;
     const body = await response.json();
-    if (heldReport) await heldReport;
     body.report.summary += "\n\n" + "A detailed finding.\n\n".repeat(35);
     await new Promise((resolve) => setTimeout(resolve, resultDelay));
     await route.fulfill({ response, json: body });
@@ -1178,10 +1169,6 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     },
   );
   const reportPane = page.locator(".entity-pane-body");
-  const reportAtBottom = () =>
-    reportPane.evaluate(
-      (el) => el.scrollHeight - el.scrollTop - el.clientHeight < 3,
-    );
   for (const delay of [0, 250]) {
     resultDelay = delay;
     await page.goto(
@@ -1202,62 +1189,21 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     ).toBeDisabled();
     await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   }
-  // Board opens still follow late layout, while an explicit timestamp targets the entry.
   await page.goto(
-    `/workspaces/${await projectWorkspace(request, "outcome-report")}/tasks`,
+    `/workspaces/${await projectWorkspace(request, "outcome-report")}/tasks/T-1`,
   );
+  await expect(page.locator(".entity-pane-footer")).toHaveCount(0);
   await page
-    .getByTestId("work")
-    .getByRole("link", { name: "T-1 Report outcome", exact: true })
+    .locator('[data-kind="result"] details.activity-entry > summary')
     .click();
   await expect(
-    page
-      .locator(".entity-pane-footer")
-      .getByRole("link", { name: "View result" }),
-  ).toBeVisible();
-  await expect.poll(reportAtBottom).toBe(true);
-  const reportStamp = page
-    .locator('[data-kind="result"]')
-    .getByRole("link", { name: "Permalink: Result 1", exact: true });
-  const reportHref = await reportStamp.getAttribute("href");
-  let releaseReport!: () => void;
-  heldReport = new Promise<void>((resolve) => {
-    releaseReport = resolve;
-  });
-  await page.goto(reportHref!);
-  await expect(
-    page.getByRole("region", { name: "Proposed result", exact: true }),
-  ).toBeAttached();
-  await expect(reportStamp).toBeInViewport();
-  const startingViewport = page.viewportSize()!;
-  // A short placeholder clamps the scroll position when the viewport grows.
-  // That browser adjustment must not change an explicit link into follow mode.
-  await page.setViewportSize({
-    ...startingViewport,
-    height: startingViewport.height + 200,
-  });
-  releaseReport();
-  heldReport = null;
-  await expect(
-    page.getByRole("region", { name: "Proposed result", exact: true }),
-  ).toContainText("A detailed finding.");
-  await expect(reportStamp).toBeInViewport();
-  await expect
-    .poll(() =>
-      page.locator(".entity-pane-footer").evaluate((el) => el.scrollTop),
-    )
-    .toBe(0);
-  expect(
-    await page
-      .locator(".entity-pane-body")
-      .evaluate((el) => el.scrollHeight > el.clientHeight),
-  ).toBe(true);
-  const originalViewport = startingViewport;
-  await page.setViewportSize({ width: 600, height: 500 });
-  await expect(reportStamp).toBeInViewport();
-  await page.setViewportSize(originalViewport);
+    page.getByRole("link", { name: "View result", exact: true }),
+  ).toHaveAttribute(
+    "href",
+    `/workspaces/${await projectWorkspace(request, "outcome-report")}/results/${(await result("report")).id}`,
+  );
   await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, "outcome-report")}/tasks/T-1/changes`,
+    `/workspaces/${await projectWorkspace(page.request, "outcome-report")}/results/${(await result("report")).id}`,
   );
   await expect(
     page.getByText("Findings delivered.", { exact: false }),
@@ -1270,7 +1216,7 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     expect((await result("partial"))?.problem_code).toBe("partial_outcome"),
   ).toPass();
   await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, "outcome-partial")}/tasks/T-1/changes`,
+    `/workspaces/${await projectWorkspace(page.request, "outcome-partial")}/results/${(await result("partial")).id}`,
   );
   await expect(
     page.getByRole("heading", { name: "Work remaining" }),
@@ -1297,7 +1243,7 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     expect((await result("checks"))?.problem_code).toBe("checks_failed"),
   ).toPass();
   await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, "outcome-checks")}/tasks/T-1/changes`,
+    `/workspaces/${await projectWorkspace(page.request, "outcome-checks")}/results/${(await result("checks")).id}`,
   );
   const recovery = page.getByRole("region", { name: "Result recovery" });
   const actions = page.getByRole("group", {
@@ -1363,7 +1309,9 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
       await route.continue();
     },
   );
-  await page.goto(`/workspaces/${setupWorkspace}/tasks/T-1/changes`);
+  await page.goto(
+    `/workspaces/${setupWorkspace}/results/${(await result("setup")).id}`,
+  );
   await expect(
     actions.getByRole("button", { name: "Fix project setup" }),
   ).toBeDisabled();

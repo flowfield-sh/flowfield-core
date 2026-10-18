@@ -24,12 +24,10 @@ test("workspace files organize retained task outputs without a project", async (
   });
   await page.goto(`${base}/tasks/${value.waiting_task}`);
   const footer = page.locator(".entity-pane-footer");
-  await expect(footer).toContainText(
-    "Which viewport should the screenshot use?",
-  );
+  await expect(footer).toHaveCount(0);
   await expect(
     footer.getByRole("button", { name: "Stop review", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   const reviewHistory = page.waitForResponse((response) =>
     response.url().endsWith(`/reviews/${value.waiting_review}/attempts`),
   );
@@ -37,12 +35,14 @@ test("workspace files organize retained task outputs without a project", async (
     .locator('[data-kind="review"] details.activity-entry > summary')
     .click();
   expect((await reviewHistory).ok()).toBe(true);
+  await page.goto(`${base}/requests/question/${value.waiting_question}`);
   await footer
     .getByRole("textbox", { name: "Your answer", exact: true })
     .fill("Use a 1024 pixel viewport.");
   await footer
     .getByRole("button", { name: "Send answer", exact: true })
     .click();
+  await page.goto(`${base}/tasks/${value.waiting_task}`);
   await expect(page.getByLabel("Task feed")).toContainText(
     "Use a 1024 pixel viewport.",
   );
@@ -116,16 +116,14 @@ test("workspace files organize retained task outputs without a project", async (
   await expect(
     details.getByRole("heading", { name: "launch-report.txt", exact: true }),
   ).toBeVisible();
-  await page.goto(`${base}/tasks/${value.task}/changes/${value.result}`);
+  await page.goto(`${base}/results/${value.result}`);
   await expect(
     page.getByText("launch-report.txt", { exact: true }),
   ).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("file-task-completed.png"),
   });
-  await page.goto(
-    `${base}/tasks/${value.partial_task}/changes/${value.partial_result}`,
-  );
+  await page.goto(`${base}/results/${value.partial_result}`);
   await expect(
     page.getByText("checklist-draft.txt", { exact: true }),
   ).toBeVisible();
@@ -137,9 +135,7 @@ test("workspace files organize retained task outputs without a project", async (
   await expect(
     files.getByRole("button", { name: /launch-report.txt/ }),
   ).toBeVisible();
-  await page.goto(
-    `${base}/tasks/${value.review_task}/changes/${value.review_result}`,
-  );
+  await page.goto(`${base}/results/${value.review_result}`);
   await expect(
     page.getByRole("button", { name: "Retry review", exact: true }),
   ).toBeVisible();

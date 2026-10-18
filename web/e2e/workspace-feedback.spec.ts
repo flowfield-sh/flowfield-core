@@ -39,7 +39,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   ).toBeVisible();
   await page
     .getByRole("navigation", { name: "Workspace resources" })
-    .getByRole("link", { name: "Tasks", exact: true })
+    .getByRole("link", { name: "Tasks Board", exact: true })
     .click();
   await expect(page).toHaveURL(base + "/tasks");
   // Saved filtered links retain their collection semantics after the landing change.
@@ -62,7 +62,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   );
   await expect(work.getByRole("link").first()).toHaveAttribute(
     "href",
-    `/workspaces/${await projectWorkspace(request, project)}/tasks/T-2`,
+    `/workspaces/${await projectWorkspace(request, project)}/requests/question/attention`,
   );
   await expect(
     work.getByText("Needs attention", { exact: true }),
@@ -72,7 +72,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   });
   await expect(resources.getByRole("link")).toHaveText([
     "Projects",
-    "Tasks",
+    "Tasks Board",
     "Documents",
     "Files",
     "Archive",

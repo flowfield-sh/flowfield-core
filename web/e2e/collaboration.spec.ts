@@ -1,3 +1,4 @@
+import { resultRequest } from "./support";
 import {
   projectWorkspace,
   fixtureProject,
@@ -103,7 +104,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
       exact: true,
     })
     .click();
-  await openResource(page, "Tasks");
+  await openResource(page, "Tasks Board");
   const card = page.locator(".task-card").filter({ hasText: "Download CSV" });
   await expect(card.locator(".work-state")).toHaveText("Waiting on T-3");
   await expect(
@@ -485,14 +486,17 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   await questionStatus.focus();
   await expect(page.getByRole("tooltip")).toHaveText("Needs your answer");
   releaseInput();
-  await expect(page.getByLabel("Your answer", { exact: true })).toBeEnabled();
+  await expect(page.getByLabel("Your answer", { exact: true })).toHaveCount(0);
   await expect(
     questionEntry.getByRole("img", { name: "Needs your answer" }),
   ).toBeFocused();
+  await questionEntry
+    .getByRole("link", { name: "View request", exact: true })
+    .click();
   await page.getByLabel("Your answer", { exact: true }).focus();
   await page.keyboard.press("Escape");
   await expect(
-    page.getByRole("region", { name: "Task details", exact: true }),
+    page.getByRole("region", { name: "Request", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByLabel("Your answer", { exact: true }),
@@ -501,7 +505,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(page.locator(".request-card")).toHaveCount(1);
   await page
-    .getByRole("link", { name: /What should the export include/ })
+    .getByRole("link", { name: "Open request in work tab", exact: true })
     .click();
   await expect(
     page.getByRole("tab", {
@@ -518,21 +522,19 @@ test("Inbox carries a free-text answer from browser to coordinator application",
     }),
   ).toHaveCount(0);
   await page.goto(
-    `/workspaces/${await projectWorkspace(request, project_id)}/tasks/T-2/conversation/question:export-scope:1`,
+    `/workspaces/${await projectWorkspace(request, project_id)}/requests/question/export-scope`,
   );
   await page.reload();
   const detail = page.getByRole("region", {
-    name: "Task details",
+    name: "Request",
     exact: true,
   });
   await expect(
     detail
-      .locator(".entity-pane-footer .question-prompt h3")
+      .locator(".question-prompt h3")
       .filter({ hasText: "What should the export include?" }),
   ).toBeVisible();
-  await expect(detail.getByRole("form", { name: "Task input" })).toContainText(
-    "What should the export include?",
-  );
+  await expect(detail).toContainText("What should the export include?");
   await expect(
     detail.getByRole("button", { name: "All filtered rows", exact: true }),
   ).toBeVisible();
@@ -543,7 +545,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
     );
   await expect(
     detail.getByRole("button", { name: "Back", exact: true }),
-  ).toBeEnabled();
+  ).toBeDisabled();
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await page.goBack();
   await expect(detail.getByLabel("Your answer", { exact: true })).toHaveValue(
@@ -552,13 +554,14 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   await detail
     .getByRole("button", { name: "Send answer", exact: true })
     .click();
+  await expect(detail.getByLabel("Your answer", { exact: true })).toHaveCount(
+    0,
+  );
   await expect(
-    detail
-      .locator(".conversation-message-body")
-      .getByText(
-        "All filtered rows, capped at 10,000. Explain when the limit is exceeded.",
-        { exact: true },
-      ),
+    detail.getByText(
+      "All filtered rows, capped at 10,000. Explain when the limit is exceeded.",
+      { exact: true },
+    ),
   ).toBeVisible();
   await expect(detail.getByText("Answer sent.", { exact: true })).toHaveCount(
     0,
@@ -598,7 +601,14 @@ test("Inbox carries a free-text answer from browser to coordinator application",
         "Export all filtered rows with a 10,000-row cap and an explicit limit message.",
     },
   });
-  await expect(detail.locator('[data-kind="activity"]')).toContainText(
+  await detail
+    .locator(".entity-pane-title")
+    .getByRole("link", { name: /^T-2:/ })
+    .click();
+  await page
+    .locator('[data-kind="activity"] .activity-entry > summary')
+    .click();
+  await expect(page.locator('[data-kind="activity"]')).toContainText(
     "10,000-row cap",
   );
   const applied = await call("get_task", {
@@ -610,21 +620,20 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   expect(applied.status).toBe("up_next");
   await expect(page.getByLabel("Show resolved")).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
-  await detail.scrollIntoViewIfNeeded();
+  await page
+    .getByRole("region", { name: "Task details", exact: true })
+    .scrollIntoViewIfNeeded();
 
   await expect(page.locator('[data-kind="activity"]')).toContainText(
     "10,000-row cap",
   );
-  await page
-    .locator('[data-kind="activity"] .activity-entry > summary')
-    .click();
   await expect(
     page
       .locator('[data-kind="activity"]')
       .getByRole("link", { name: "Related question", exact: true }),
   ).toHaveAttribute(
     "href",
-    `/workspaces/${await projectWorkspace(request, project_id)}/tasks/T-2/conversation/question%3Aexport-scope%3A1`,
+    `/workspaces/${await projectWorkspace(request, project_id)}/requests/question/export-scope`,
   );
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(page.locator(".request-card")).toHaveCount(0);
@@ -1180,12 +1189,12 @@ test("related questions preserve the page, drafts, focus and router history", as
   expect(overlayScroll).toBeGreaterThan(0);
   const scroll = await page.evaluate(() => scrollY);
   await trigger.click();
-  const dialog = page.getByRole("region", { name: "Question", exact: true });
+  const dialog = page.getByRole("region", { name: "Request", exact: true });
   await expect(dialog).toBeVisible();
   releaseFeed();
   expect(await page.evaluate(() => scrollY)).toBe(scroll);
   await expect(page).toHaveURL(
-    `/workspaces/${await projectWorkspace(request, project_id)}/tasks/T-1/related/questions/${question.id}`,
+    `/workspaces/${await projectWorkspace(request, project_id)}/requests/question/${question.id}`,
   );
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(boot);
   const answer = dialog.getByLabel("Your answer", { exact: true });
@@ -1224,7 +1233,9 @@ test("related questions preserve the page, drafts, focus and router history", as
 
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(origin);
-  await page.goto(`${origin}/related/questions/${question.id}`);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(request, project_id)}/requests/question/${question.id}`,
+  );
   await expect(dialog).toBeVisible();
   await dialog.getByLabel("Your answer", { exact: true }).fill("All books.");
   await dialog
@@ -1233,7 +1244,7 @@ test("related questions preserve the page, drafts, focus and router history", as
   await expect(dialog).toContainText(
     "Answer saved. Ask the coordinator to apply it.",
   );
-  await dialog.getByRole("button", { name: "Back", exact: true }).click();
+  await dialog.getByRole("link", { name: "T-1", exact: true }).click();
   await expect(page).toHaveURL(origin);
   await expect(dialog).toHaveCount(0);
   await expect(
@@ -1241,8 +1252,10 @@ test("related questions preserve the page, drafts, focus and router history", as
       exact: true,
     }),
   ).toBeVisible();
-  await closeOverlay(page);
-  await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
+  await page
+    .getByRole("tab", { name: /^Inbox(?: \d+)?$/ })
+    .first()
+    .click();
   for (const name of ["Needs me", "History"]) {
     await page.getByRole("tab", { name, exact: true }).click();
     await expect(
@@ -1457,7 +1470,16 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   await page.route(`**/api/workspaces/*/**`, async (route) => {
     const url = new URL(route.request().url());
     const segments = url.pathname.split("/");
-    const id = segments[5];
+    const id = segments[4] === "requests" ? segments[6] : segments[5];
+    if (url.pathname.includes("/requests/result/"))
+      return route.fulfill({
+        json: resultRequest(
+          version(
+            id === "older" ? older : id === "successor" ? successor! : first,
+          ),
+          workspace_id,
+        ),
+      });
     if (url.pathname.endsWith("/thread"))
       return route.fulfill({
         json: {
@@ -1641,7 +1663,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   await page.route(workerSettingsPath, (route) => route.abort());
   first = { ...first, status: "changes_requested" };
   await page.goto(
-    `/workspaces/${await projectWorkspace(request, project_id)}/tasks/T-1/changes/first`,
+    `/workspaces/${await projectWorkspace(request, project_id)}/results/first`,
   );
   await expect(
     page.getByRole("region", { name: "Proposed result", exact: true }).first(),
@@ -1672,11 +1694,10 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   ).toBeVisible();
 
   await page
-    .getByRole("link", {
-      name: /T-1: Validate CSV records/,
-    })
+    .getByRole("article", { name: "Result: Validate CSV records", exact: true })
+    .getByRole("link", { name: "Open request in work tab" })
     .click();
-  await expect(page).toHaveURL(/changes\/first$/);
+  await expect(page).toHaveURL(/results\/first$/);
   const runs = page
     .getByRole("region", { name: "Proposed result", exact: true })
     .filter({ has: page.getByText("Ready for review", { exact: true }) });
@@ -1716,7 +1737,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   await expect(runs.locator(".diff-split")).toBeVisible();
 
   const dialog = page.getByRole("region", {
-    name: "Task details",
+    name: "Result",
     exact: true,
   });
 
@@ -1776,52 +1797,48 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   await expect(
     page.getByRole("button", { name: "Send feedback", exact: true }),
   ).toBeDisabled();
+  await expect(dialog.getByRole("status")).toContainText("The context changed");
   await expect(
-    page
-      .getByRole("region", { name: "Task details", exact: true })
-      .getByRole("status"),
-  ).toContainText("The context changed");
-  await page
-    .getByRole("button", { name: "Use current context", exact: true })
+    page.getByRole("button", { name: "Use current context", exact: true }),
+  ).toHaveCount(0);
+  await dialog
+    .locator(".entity-pane-title")
+    .getByRole("link", { name: /^T-1:/ })
     .click();
   await page
     .locator('[data-message-id="result:older"] .activity-entry > summary')
     .click();
   await page
     .locator('[data-message-id="result:older"]')
-    .getByRole("link", { name: "Inspect earlier result", exact: true })
+    .getByRole("link", { name: "View result", exact: true })
     .click();
-  await expect(page.locator('[data-message-id="result:older"]')).toContainText(
-    "Validate the input rows.",
-  );
-  await expect(page.getByLabel("Feedback for this result")).toHaveValue(
-    "Include the source path in validation errors.",
-  );
-  await expect(page.locator(".entity-pane-footer .task-result")).toBeVisible();
   await expect(
-    runs.getByRole("button", {
-      name: "Added tests/test_loader.py",
-      exact: true,
-    }),
-  ).toHaveAttribute("aria-pressed", "true");
+    page.getByRole("region", { name: "Proposed result", exact: true }),
+  ).toContainText("Validate the input rows.");
+  await expect(page.getByLabel("Feedback for this result")).toHaveCount(0);
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page.getByLabel("Feedback for this result")).toHaveValue(
     "Include the source path in validation errors.",
   );
   await page
+    .getByRole("button", { name: "Cancel feedback", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Request changes", exact: true })
+    .click();
+  await page
+    .getByLabel("Feedback for this result")
+    .fill("Include the source path in validation errors.");
+  await page
     .getByRole("button", { name: "Send feedback", exact: true })
     .click();
-  await dialog
-    .locator('[data-message-id="result:first"] .activity-entry > summary')
+  await page
+    .getByRole("link", { name: "Open current changes", exact: true })
     .click();
-  await dialog
-    .locator('[data-message-id="result:first"]')
-    .getByRole("link", { name: "Inspect earlier result", exact: true })
-    .click();
-  await expect(
-    dialog.locator('[data-message-id="result:first"]'),
-  ).toContainText("Review request");
+  await expect(page).toHaveURL(/results\/successor$/);
   await page.reload();
-  await expect(page.locator(".entity-pane-footer .task-result")).toBeVisible();
+  await expect(page.locator(".task-result")).toBeVisible();
   await runs
     .getByText("Requested in the previous review", { exact: true })
     .click();
@@ -1846,16 +1863,9 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   await page
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();
-  await expect(
-    dialog.locator('[data-message-id="result:successor"]'),
-  ).not.toContainText("Task complete.");
-  await dialog
-    .getByRole("button", {
-      name: /^(Close editor|Back)$/,
-      exact: true,
-    })
-    .click();
-  await expect(page).toHaveURL(/conversation\/result%3Aolder$/);
+  await expect(page.locator(".task-result")).not.toContainText(
+    "Task complete.",
+  );
   await page.getByRole("tab", { name: /^Inbox/ }).click();
   await expect(page).toHaveURL(
     `/workspaces/${await projectWorkspace(request, project_id)}/inbox`,

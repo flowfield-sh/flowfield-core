@@ -37,11 +37,13 @@ export function EntityPane({
   close,
   identity,
   returnFocusHref,
+  responseFooter = true,
 }: {
   children: ReactNode;
   close: () => void;
   identity: string;
   returnFocusHref: string;
+  responseFooter?: boolean;
   label?: string;
 }) {
   const [title, setTitle] = useState<HTMLDivElement | null>(null);
@@ -127,7 +129,9 @@ export function EntityPane({
               <div className="entity-pane-body" ref={setBody} tabIndex={-1}>
                 {children}
               </div>
-              <div className="entity-pane-footer" ref={setFooter} />
+              {responseFooter && (
+                <div className="entity-pane-footer" ref={setFooter} />
+              )}
             </section>
           </ResponseFooterHost.Provider>
         </PaneBody.Provider>

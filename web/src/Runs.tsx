@@ -16,7 +16,7 @@ import type { DiffViewState } from "./CodeDiff";
 import { WorkspaceLink as Link } from "./WorkspaceLink";
 import { useResource } from "./useResource";
 import { choiceLabel } from "./HarnessModels";
-import { taskHref } from "./navigation";
+import { taskHref, resultHref } from "./navigation";
 import { label } from "./workspace";
 import { Markdown } from "./Markdown";
 import { CheckEvidence, IntegrationEvidence } from "./Integration";
@@ -133,9 +133,7 @@ function ExecutionDetail({
         }
       >
         {item.result_id && (
-          <Link
-            to={`${taskHref(projectId, { key: taskKey }, "changes")}/${item.result_id}`}
-          >
+          <Link to={resultHref(projectId, item.result_id)}>
             Review these changes
           </Link>
         )}

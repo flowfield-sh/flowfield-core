@@ -152,16 +152,9 @@ test("service recovery cancels pending review pagination with an unchanged revie
     });
   });
   await page.goto(
-    `/workspaces/${await projectWorkspace(request, project)}/tasks/${task.key}`,
+    `/workspaces/${await projectWorkspace(request, project)}/tasks/${task.key}/conversation/review:review`,
   );
-  await page
-    .getByText("Review rounds and diagnostics", { exact: true })
-    .click();
-  await expect(
-    page
-      .locator(".entity-pane-footer")
-      .getByRole("button", { name: "Retry review", exact: true }),
-  ).toBeVisible();
+  await expect(page.locator(".entity-pane-footer")).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath("review-recovery-desktop.png"),
     animations: "disabled",

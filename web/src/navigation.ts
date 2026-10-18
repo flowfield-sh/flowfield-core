@@ -12,7 +12,6 @@ const pagePaths = [
   "workspaces/:workspaceId/tasks/:taskKey/:tab?/:runId?",
   "workspaces/:workspaceId/documents",
   "workspaces/:workspaceId/files",
-  "workspaces/:workspaceId/work",
   "workspaces/:workspaceId/documents/:documentId",
   "workspaces/:workspaceId/documents/:documentId/revisions/:documentRevision",
   "workspaces/:workspaceId/projects",
@@ -20,6 +19,7 @@ const pagePaths = [
   "workspaces/:workspaceId/archive",
   "workspaces/:workspaceId/inbox",
   "workspaces/:workspaceId/requests/:requestKind/:requestId",
+  "workspaces/:workspaceId/results/:resultId",
   "workspaces/:workspaceId/edit/:workspaceTab?",
   "projects/:projectId",
   "projects/:projectId/overview",
@@ -28,23 +28,8 @@ const pagePaths = [
 const nestedProjectPaths = pagePaths
   .filter((path) => path.startsWith("projects/"))
   .map((path) => `workspaces/:workspaceId/${path}`);
-export const workspacePaths = [...pagePaths, ...nestedProjectPaths].flatMap(
-  (path) => [path, path + "/related/questions/:relatedQuestionId"],
-);
-export function withoutRelatedQuestion(path: string) {
-  return path.replace(
-    /^(\/(?:(?:workspaces\/[^/]+\/)?projects\/[^/]+|workspaces\/[^/]+)(?:\/.*)?)\/related\/questions\/[^/]+\/?$/,
-    "$1",
-  );
-}
-export function relatedQuestionHref(path: string, id: string) {
-  return (
-    withoutRelatedQuestion(path) +
-    "/related/questions/" +
-    encodeURIComponent(id)
-  );
-}
-export type TaskTab = "task" | "changes" | "history";
+export const workspacePaths = [...pagePaths, ...nestedProjectPaths];
+export type TaskTab = "task" | "history";
 
 export function canonicalHref(path: string, _owners: Record<string, string>) {
   if (!path.startsWith("/") || path.startsWith("//")) return path;
@@ -89,7 +74,7 @@ export function workspaceHref(id: string) {
   return `/workspaces/${encodeURIComponent(id)}`;
 }
 export function resultHref(workspaceId: string, resultId: string) {
-  return `${workspaceHref(workspaceId)}/requests/result/${encodeURIComponent(resultId)}`;
+  return `${workspaceHref(workspaceId)}/results/${encodeURIComponent(resultId)}`;
 }
 export function taskHref(
   projectId: string,
@@ -100,7 +85,7 @@ export function taskHref(
   return `${owner}/tasks/${encodeURIComponent(task.key)}${tab === "task" ? "" : `/${tab}`}`;
 }
 function editorIdentity(path: string) {
-  return withoutRelatedQuestion(path)
+  return path
     .replace(
       /^\/settings\/(harnesses|appearance|notifications|updates)\/?$/,
       "/settings",
@@ -197,14 +182,16 @@ export function useWorkspaceNavigation(
       },
     },
     params,
-    pathname: withoutRelatedQuestion(location.pathname),
+    pathname: location.pathname,
     changeLocation,
     notFound:
       matches.at(-1)?.id === "not-found" ||
+      (!!params.requestKind &&
+        !["question", "attempt", "integration", "permission"].includes(
+          params.requestKind,
+        )) ||
       (!!params.tab &&
-        !["task", "conversation", "changes", "history", "settings"].includes(
-          params.tab,
-        )),
+        !["task", "conversation", "history", "settings"].includes(params.tab)),
   };
 }
 export function followLink(

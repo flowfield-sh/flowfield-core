@@ -488,16 +488,6 @@
     overflow-wrap: anywhere;
     min-width: 0;
   }
-  .question-detail:not([data-inline]) {
-    background: var(--background);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 24px;
-  }
-  .question-detail > .detail-heading-block > h2 {
-    font-size: 20px;
-    margin: 0;
-  }
   .question-scope {
     padding: 10px 14px;
     border-left: 3px solid var(--warning-border);
@@ -535,11 +525,6 @@
   }
   .tab.needs-attention {
     color: var(--warning-foreground);
-  }
-  @media (max-width: 760px) {
-    .question-detail:not([data-inline]) {
-      padding: 16px;
-    }
   }
 
   .collection-layout {

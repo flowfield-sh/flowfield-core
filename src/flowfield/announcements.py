@@ -5,12 +5,11 @@ import sqlite3
 import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Annotated, Literal
-from urllib.parse import quote
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from flowfield.attention import actionable_attention
-from flowfield.browser_links import workspace_href
+from flowfield.browser_links import request_href
 
 if TYPE_CHECKING:
     from flowfield.application import Workspace
@@ -144,31 +143,12 @@ def reconcile_attention(
                 "state='pending'",
                 (key,),
             )
-            base = workspace_href(project["id"])
-            task = f"{base}/tasks/{quote(row['task_key'], safe='')}" if row["task_key"] else base
-            label = "Needs your attention"
-            if kind == "question":
-                revision = db.execute(
-                    "SELECT json_extract(data,'$.revision') FROM questions WHERE "
-                    "workspace_id=? AND id=?",
-                    (project["id"], identity),
-                ).fetchone()[0]
-                href = (
-                    f"{task}/conversation/question:{identity}:{revision}"
-                    if row["task_key"]
-                    else f"{base}/inbox/{quote(identity, safe='')}"
-                )
-                label = "Needs your answer"
-            elif kind == "permission":
-                href = f"{base}/inbox?permission={quote(identity, safe='')}"
-                label = "Review tool permission"
-            elif kind == "result":
-                href = f"{task}/conversation/result:{identity}"
-                label = "Review current result"
-            elif kind == "integration":
-                href = f"{task}/history/{row['run_id']}/integrations/{identity}"
-            else:
-                href = f"{task}/conversation/attempt:{row['run_id']}"
+            href = request_href(project["id"], kind, identity)
+            label = {
+                "question": "Needs your answer",
+                "permission": "Review tool permission",
+                "result": "Review current result",
+            }.get(kind, "Needs your attention")
             publish(
                 db,
                 key,

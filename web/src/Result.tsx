@@ -31,7 +31,6 @@ export function Result({
   onReply,
   onApprove,
   inputEnabled,
-  reviewControls = true,
 }: {
   projectId: string;
   taskId: string;
@@ -41,7 +40,6 @@ export function Result({
   onReply: (version: Version) => void;
   onApprove: (version: Version) => void;
   inputEnabled: boolean;
-  reviewControls?: boolean;
 }) {
   const { pathname } = useLocation();
   // Returning to a retained result rechecks external branch movement too.
@@ -94,7 +92,7 @@ export function Result({
           ? `/projects/${worker.data.project_id}/edit/integration`
           : null
         : `/workspaces/${projectId}/edit/workers`;
-  const href = taskHref(projectId, { key: taskKey }, "changes");
+  const href = `/workspaces/${encodeURIComponent(projectId)}/results`;
   async function recover(
     action: "prepare" | "correct" | "cancel" | "revalidate" | "retry-delivery",
   ) {
@@ -176,7 +174,7 @@ export function Result({
             )}
           </DetailSection>
           <ResultFiles files={version.files} />
-          {current && reviewControls && (
+          {current && (
             <TaskActionContext>
               <TaskReview
                 projectId={projectId}

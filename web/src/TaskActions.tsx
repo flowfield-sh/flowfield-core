@@ -9,7 +9,7 @@ import type { components } from "./api-schema";
 import { ConfirmButton } from "./ConfirmButton";
 
 // Keep result controllers mounted with their exact version/drafts while presenting
-// their actions in the task footer. Historical results never publish actions here.
+// their actions in the request footer. Historical results never publish actions here.
 export const TaskActionHost = createContext<{
   actions: HTMLElement | null;
   context: HTMLElement | null;

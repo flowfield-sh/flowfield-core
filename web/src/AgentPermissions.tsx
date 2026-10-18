@@ -1,5 +1,4 @@
 import { PaneFooter } from "./EntityPane";
-import { RequestFrame } from "./RequestFrame";
 import { reportError } from "./requestFeedback";
 import { useEffect, useState } from "react";
 import type { components } from "./api-schema";
@@ -8,8 +7,6 @@ import { request } from "./workspace";
 import { Button } from "@/components/ui/button";
 import { ContentStack, DetailSection } from "./DetailLayout";
 import { Timestamp } from "./Timestamp";
-import { WorkspaceLink } from "./WorkspaceLink";
-import { taskHref } from "./navigation";
 
 type Permission = components["schemas"]["PermissionRecord"];
 
@@ -17,10 +14,8 @@ export function PermissionControl({
   record,
   answered,
   inRequest = false,
-  flat = false,
 }: {
   inRequest?: boolean;
-  flat?: boolean;
   record: Permission;
   answered: () => void;
 }) {
@@ -28,7 +23,7 @@ export function PermissionControl({
   return (
     <DetailSection
       className={
-        record.status === "pending" && !inRequest && !flat
+        record.status === "pending" && !inRequest
           ? "rounded-md border border-border bg-muted p-4"
           : undefined
       }
@@ -39,19 +34,6 @@ export function PermissionControl({
         {record.role === "worker" ? "Worker" : "Coordinator"} tool permission ·{" "}
         <Timestamp date={record.created_at} />
       </p>
-      {record.status === "pending" && record.task_id && !inRequest && (
-        <p className="detail-metadata">
-          <WorkspaceLink
-            to={
-              taskHref(record.workspace_id, { key: record.task_id }) +
-              "/settings"
-            }
-          >
-            Task access settings
-          </WorkspaceLink>{" "}
-          · Changes apply to the next attempt.
-        </p>
-      )}
       {record.details && (
         <pre className="evidence-output">{record.details}</pre>
       )}
@@ -105,21 +87,17 @@ export function PermissionControl({
 
 export function AgentPermissions({
   workspaceId,
-  taskId,
   role,
   refresh,
   onPendingTurns,
-  inTask = false,
 }: {
   workspaceId: string;
-  taskId?: string;
   role?: "worker" | "coordinator";
   refresh: unknown;
   onPendingTurns?: (ids: string[]) => void;
-  inTask?: boolean;
 }) {
   const [retry, setRetry] = useState(0);
-  const path = `workspaces/${workspaceId}/permissions?retry=${retry}${taskId ? `&task_id=${encodeURIComponent(taskId)}` : ""}${role ? `&role=${role}` : ""}`;
+  const path = `workspaces/${workspaceId}/permissions?retry=${retry}${role ? `&role=${role}` : ""}`;
   const page = useResource<components["schemas"]["PermissionPage"]>(
     path,
     refresh,
@@ -136,16 +114,11 @@ export function AgentPermissions({
         </Button>
       )}
       {!!pending.length && (
-        <ContentStack
-          space="section"
-          aria-label="Tool permissions"
-          className={inTask ? "task-input" : undefined}
-        >
+        <ContentStack space="section" aria-label="Tool permissions">
           {pending.map((record) => (
             <PermissionControl
               key={record.id}
               record={record}
-              flat={inTask}
               answered={() => setRetry((n) => n + 1)}
             />
           ))}
@@ -158,14 +131,10 @@ export function AgentPermissions({
 export function PermissionCard({
   workspaceId,
   id,
-  taskKey,
   refresh,
-  inline = false,
 }: {
-  inline?: boolean;
   workspaceId: string;
   id: string;
-  taskKey: string | null;
   refresh: unknown;
 }) {
   const [retry, setRetry] = useState(0);
@@ -189,28 +158,5 @@ export function PermissionCard({
       )}
     </>
   );
-  if (inline) return content;
-  return (
-    <RequestFrame
-      kind="Tool permission"
-      state={{
-        label:
-          resource.data?.status === "pending"
-            ? "Needs permission"
-            : (resource.data?.status ?? "Loading permission"),
-        tone: resource.data?.status === "pending" ? "waiting" : "idle",
-      }}
-      label="Tool permission"
-      source={
-        taskKey &&
-        workspaceId && (
-          <WorkspaceLink to={taskHref(workspaceId, { key: taskKey })}>
-            {taskKey}
-          </WorkspaceLink>
-        )
-      }
-    >
-      {content}
-    </RequestFrame>
-  );
+  return content;
 }

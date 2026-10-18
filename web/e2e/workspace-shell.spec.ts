@@ -66,15 +66,22 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
     name: "Workspace resources",
   });
   const work = page.getByRole("navigation", { name: "Work", exact: true });
-  await expect(work.locator(".work-navigation-row")).toHaveCount(14);
-  await expect(work.getByRole("link", { name: /T-1 / })).toHaveCount(1);
-  await page.setViewportSize({ width: 1440, height: 700 });
+  await expect(work.locator(".work-navigation-row")).toHaveCount(5);
+  await expect(work.getByRole("link", { name: /T-14 / })).toHaveCount(1);
+  await expect(work.getByRole("link", { name: /T-1 / })).toHaveCount(0);
+  await page.setViewportSize({ width: 1440, height: 500 });
   await work.hover();
   await page.mouse.wheel(0, 300);
   await expect
     .poll(() => work.evaluate((node) => node.scrollTop))
     .toBeGreaterThan(0);
-  await work.getByRole("link", { name: /T-2 / }).click();
+  await resources
+    .getByRole("link", { name: "Tasks Board", exact: true })
+    .click();
+  await page
+    .getByTestId("work")
+    .getByRole("link", { name: /T-2 Standalone/ })
+    .click();
   await expect(
     page.getByRole("region", { name: "Task details", exact: true }),
   ).toBeVisible();
@@ -189,20 +196,9 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
   ).toHaveCount(0);
   const storage = await page.evaluate(() => JSON.stringify(sessionStorage));
   expect(storage).not.toContain("Retain this exact document draft");
-  const task = await (
-    await request.get(
-      `/api/workspaces/${await projectWorkspace(request, "shell-tabs")}/tasks/T-2`,
-    )
-  ).json();
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, "shell-tabs")}/tasks/${task.id}/history`,
-  );
-  await expect(page.getByRole("list", { name: "Task feed" })).toBeVisible();
-  await expect(taskTab).toHaveCount(1);
-  await work.getByRole("link", { name: /T-2 / }).click();
+  await taskTab.click();
   await expect(page).toHaveURL(/T-2$/);
   await expect(taskTab).toHaveCount(1);
-  await page.getByRole("tab", { name: "Task", exact: true }).click();
   const comparison = page.getByRole("link", { name: "Open in work tab" });
   const popup = page.context().waitForEvent("page", { timeout: 5000 });
   await comparison.click({

@@ -384,7 +384,7 @@ test("archive preserves dated records and supports restore and mobile archiving"
     ).status,
   ).toBe("up_next");
   await closeOverlay(page);
-  await openResource(page, "Tasks");
+  await openResource(page, "Tasks Board");
   await page
     .getByTestId("work")
     .getByRole("link", { name: /older task/ })
@@ -913,29 +913,20 @@ test("attempt activity updates without reloading the board and replays on reload
   await expect(
     attempt.getByRole("region", { name: "Execution details", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Stop task", exact: true }).click();
-  const stopConfirmation = page.getByRole("alertdialog", {
-    name: "Stop this task?",
-    exact: true,
-  });
-  await expect(stopConfirmation).toBeVisible();
-  await stopConfirmation
-    .getByRole("button", { name: "Cancel", exact: true })
-    .click();
   await expect(
     page.getByRole("button", { name: "Stop task", exact: true }),
-  ).toBeEnabled();
-  await expect(
-    page.getByRole("button", { name: "Retry worker", exact: true }),
   ).toHaveCount(0);
-  await page.route(`**/api/workspaces/*/tasks/stream/stop`, async (route) => {
-    await fixture("stop-race"); // Progress arrives after confirmation serialized its attempt revision.
-    await route.continue();
-  });
-  await page.getByRole("button", { name: "Stop task", exact: true }).click();
-  await stopConfirmation
-    .getByRole("button", { name: "Stop task", exact: true })
-    .click();
+  const workspace = await projectWorkspace(page.request, "stream-project");
+  const task = await (
+    await page.request.get(`/api/workspaces/${workspace}/tasks/stream`)
+  ).json();
+  await fixture("stop-race");
+  const stopped = await page.request.post(
+    `/api/workspaces/${workspace}/tasks/stream/stop`,
+    { data: { expected_revision: task.revision } },
+  );
+  expect(stopped.ok()).toBe(true);
+  await page.goto(`/workspaces/${workspace}/requests/attempt/${seeded.run_id}`);
   await expect(
     page.getByRole("button", { name: "Retry worker", exact: true }),
   ).toBeVisible();
@@ -952,7 +943,7 @@ test("attempt activity updates without reloading the board and replays on reload
     page.getByRole("button", { name: "Retry worker", exact: true }),
   ).toHaveCount(0);
   await closeOverlay(page);
-  await openResource(page, "Tasks");
+  await openResource(page, "Tasks Board");
   await expect(page.locator(".up_next")).toContainText("Observe live output");
   await expect(page.locator(".up_next")).toContainText("Queue paused");
 });

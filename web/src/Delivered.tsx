@@ -5,6 +5,9 @@ import { LoadMore } from "./LoadMore";
 import { Markdown } from "./Markdown";
 import { ResourceRetry } from "./ResourceRetry";
 import { Timestamp } from "./Timestamp";
+import { OpenInWorkTab } from "./WorkspaceTabs";
+import { Badge } from "@/components/ui/badge";
+import { taskHref } from "./navigation";
 import { WorkIdentity } from "./WorkIdentity";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { followLink, resultHref } from "./navigation";
@@ -41,19 +44,23 @@ export function Delivered({
       {page.data?.items.map((item) => (
         <article key={item.id} className="overflow-hidden rounded-md border">
           <div className="flex flex-wrap items-center gap-2 bg-muted px-3 py-2">
-            <WorkspaceLink
-              className="min-w-0 flex-1"
-              to={resultHref(workspaceId, item.id)}
-            >
-              <WorkIdentity
-                state={state}
-                itemKey={item.task_key}
-                title={item.title}
-              />
-            </WorkspaceLink>
+            <div className="min-w-0 flex-1">
+              <span className="inline-flex items-center gap-2">
+                <WorkspaceLink
+                  to={taskHref(workspaceId, { key: item.task_key })}
+                >
+                  <Badge variant="outline">{item.task_key}</Badge>
+                </WorkspaceLink>
+                <span>{item.title}</span>
+              </span>
+            </div>
             <span className="detail-metadata">
               <Timestamp date={item.delivered_at} />
             </span>
+            <OpenInWorkTab
+              href={resultHref(workspaceId, item.id)}
+              label="Open result in work tab"
+            />
           </div>
           <ContentStack className="p-3">
             <Markdown>{item.summary}</Markdown>
@@ -90,32 +97,26 @@ export function DeliveredNavigation({
   refresh,
   current,
   open,
-  all = false,
 }: {
   workspaceId: string;
   refresh: unknown;
   current?: string;
   open?: (url: string) => void;
-  all?: boolean;
 }) {
   const page = usePage<Page>(
-    `workspaces/${workspaceId}/view/delivered?limit=${all ? 20 : 5}`,
+    `workspaces/${workspaceId}/view/delivered?limit=5`,
     refresh,
   );
-  if (!all && !page.data?.items.length && !page.error) return null;
+  if (!page.data?.items.length && !page.error) return null;
   return (
     <section aria-label="Delivered">
       <h3 className="work-group-label">Delivered</h3>
       <ResourceRetry resources={[page]} />
-      <div
-        className={
-          all && page.data?.items.length ? "work-resource-list" : undefined
-        }
-      >
+      <div>
         {page.data?.items.map((item) => {
           const url = resultHref(workspaceId, item.id);
           return (
-            <Tooltip key={item.id} open={all ? false : undefined}>
+            <Tooltip key={item.id}>
               <TooltipTrigger asChild>
                 <WorkspaceLink
                   to={url}
@@ -136,7 +137,7 @@ export function DeliveredNavigation({
                     state={state}
                     itemKey={item.task_key}
                     title={item.title}
-                    decorative={!all}
+                    decorative
                   />
                 </WorkspaceLink>
               </TooltipTrigger>
@@ -148,17 +149,6 @@ export function DeliveredNavigation({
           );
         })}
       </div>
-      {all && page.data?.next_cursor && (
-        <LoadMore
-          disabled={page.loading || page.loadingMore}
-          onClick={() => void page.older()}
-        >
-          Earlier deliveries
-        </LoadMore>
-      )}
-      {page.data && !page.data.items.length && (
-        <p className="collection-empty">No delivered work yet</p>
-      )}
     </section>
   );
 }

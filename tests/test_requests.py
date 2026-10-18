@@ -76,6 +76,7 @@ def test_result_and_attempt_links_survive_result_creation(tmp_path):
     assert exact.id == result_item.id and exact.source_href.endswith(
         f"/tasks/{result_item.task_key}"
     )
+    assert exact.request_href == f"/workspaces/harbor/results/{exact.id}"
     attempt = get_request(ws, "harbor", "attempt", run.id)
     assert attempt.id == run.id and "/requests/attempt/" in attempt.request_href
 

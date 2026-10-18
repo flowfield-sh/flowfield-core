@@ -61,7 +61,7 @@ test("explicit workspace creation, project adoption and shared draft navigation"
   await page.screenshot({
     path: testInfo.outputPath("workspace-empty-desktop-light.png"),
   });
-  await openResource(page, "Tasks");
+  await openResource(page, "Tasks Board");
   await expect(
     page.getByRole("dialog", { name: "Coordinator model settings" }),
   ).toHaveCount(0);

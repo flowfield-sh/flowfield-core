@@ -283,11 +283,6 @@
 .work-navigation-heading > span {
   color: var(--muted-foreground);
 }
-.work-navigation-heading a {
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 .work-navigation-scroll {
   flex: 1;
   min-height: 0;
@@ -306,13 +301,6 @@
   border-radius: 6px;
   overflow: hidden;
   background: var(--background);
-}
-.work-resource-groups {
-  display: grid;
-  gap: 16px;
-}
-.work-resource-groups .work-group-label {
-  padding: 0 0 8px;
 }
 .work-resource-list .work-navigation-row {
   height: auto;

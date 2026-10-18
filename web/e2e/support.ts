@@ -371,3 +371,30 @@ export async function fixtureProgress(
     ),
   );
 }
+
+// Standalone result navigation for journeys that simulate a worker result in the browser.
+// The response controller still loads the exact mocked result and eligibility separately.
+export function resultRequest(
+  result: {
+    id: string;
+    task_id: string;
+    task_key: string;
+    project_id: string;
+    status: string;
+    created_at: string;
+  },
+  workspaceId: string,
+) {
+  return {
+    workspace_id: workspaceId,
+    id: result.id,
+    kind: "result",
+    request_kind: "result",
+    task_id: result.task_id,
+    task_key: result.task_key,
+    project_id: result.project_id,
+    title: "Review result",
+    status: result.status,
+    updated_at: result.created_at,
+  };
+}

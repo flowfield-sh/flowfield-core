@@ -9,6 +9,8 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   page,
   request,
 }, testInfo) => {
+  // This journey generates artifacts, integrates Git changes and inspects both layouts.
+  test.setTimeout(60_000);
   const assets = join(state, "outcome-assets");
   mkdirSync(assets);
   const html = `<!doctype html><html><meta charset="utf-8"><style>body{font:18px system-ui;color:#24372e;background:#f5f7f1;padding:60px;max-width:720px}h1{font-size:44px}article{background:white;border-radius:12px;padding:28px}li{margin:14px 0}</style><h1>Harbor release overview</h1><p>Launch brief · October 2026</p><article><h2>Ready for the pilot</h2><ul><li>One place to track release work.</li><li>Readable reports and screenshots stay with each task.</li><li>Review the exact changes before delivery.</li></ul><p>Next: share the pilot with the project team.</p></article></html>`;
@@ -32,7 +34,7 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`${base}/tasks/T-3`);
   await expect(page.getByLabel("Current task definition")).toBeVisible();
-  await expect(page.locator(".entity-pane-footer")).toBeEmpty();
+  await expect(page.locator(".entity-pane-footer")).toHaveCount(0);
   await page.goto(`${base}?inbox=delivered`);
   await expect(
     page.getByRole("tab", { name: "Needs me", exact: true }),
@@ -55,16 +57,12 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
     deliveries.getByRole("img", { name: "launch-preview.png", exact: true }),
   ).toBeVisible();
   await deliveries
-    .getByRole("link", { name: /T-1 Create a launch brief/ })
+    .getByRole("link", { name: "Open result in work tab" })
     .click();
-  await expect(page).toHaveURL(new RegExp(`${base}/requests/result/`));
+  await expect(page).toHaveURL(new RegExp(`${base}/results/`));
   await expect(page.locator(".task-result")).toBeVisible();
   await page.goto(`${base}/tasks/T-1`);
-  await expect(
-    page
-      .locator(".entity-pane-footer")
-      .getByRole("link", { name: "View result" }),
-  ).toBeVisible();
+  await expect(page.locator(".entity-pane-footer")).toHaveCount(0);
   await expect(
     page.locator('[aria-label="Task feed"] .task-result'),
   ).not.toBeVisible();
@@ -94,11 +92,7 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await expect(
     detail.locator('[data-kind="review"] details.activity-entry'),
   ).not.toHaveAttribute("open");
-  await expect(
-    detail
-      .getByRole("region", { name: "Proposed result", exact: true })
-      .getByText("The outcome meets the task criteria.", { exact: true }),
-  ).toBeVisible();
+
   await expect(
     detail.locator(".work-identity-title").filter({ hasText: /^Release API$/ }),
   ).toBeVisible();
@@ -107,6 +101,9 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
       .locator(".work-identity-title")
       .filter({ hasText: /^Capture deliverables$/ }),
   ).toBeVisible();
+  await detail
+    .locator('[data-kind="result"] details.activity-entry > summary')
+    .click();
   await expect(
     detail.getByRole("img", { name: "launch-preview.png", exact: true }),
   ).toBeVisible();
@@ -115,6 +112,7 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
     await request.get(`/api${base}/tasks/${value.dependent}`)
   ).json();
   expect(waiting.blocked_by).toHaveLength(1);
+  await detail.getByRole("link", { name: "View result", exact: true }).click();
   await page
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();
@@ -143,11 +141,7 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await expect(
     detail.getByRole("button", { name: "Cancel delivery", exact: true }),
   ).toHaveCount(0);
-  await expect(
-    detail
-      .locator(".entity-pane-footer")
-      .getByRole("link", { name: "View result" }),
-  ).toBeVisible();
+
   await expect(detail.getByText(/This assessment is outdated/)).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath("assembled-delivered.png"),
@@ -179,9 +173,9 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto(`${base}/tasks/${value.report}`);
   await detail
-    .locator(".entity-pane-footer")
-    .getByRole("link", { name: "View result" })
+    .locator('[data-kind="result"] details.activity-entry > summary')
     .click();
+  await detail.getByRole("link", { name: "View result" }).click();
   await expect(
     page
       .getByRole("region", { name: "Proposed result", exact: true })
@@ -233,17 +227,6 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
     data: { expected_revision: report.revision, archived: true },
   });
   expect(archived.ok()).toBe(true);
-  await page.goto(`${base}/work`);
-  const allWork = page.getByTestId("work");
-  await expect(
-    allWork.getByRole("region", { name: "Delivered", exact: true }),
-  ).toContainText("T-2");
-  await expect(
-    allWork.getByRole("region", { name: "Delivered", exact: true }),
-  ).not.toContainText("T-1");
-  await expect(
-    allWork.getByRole("region", { name: "Archived", exact: true }),
-  ).toHaveCount(0);
   await page.goto(`${base}/archive`);
   await expect(page.getByTestId("work")).toContainText("T-1");
   await page.goto(`${base}?inbox=delivered`);

@@ -33,6 +33,7 @@ only the whole task is reviewed and delivered. Task dependencies require deliver
 
 Follow get_result.next_action. Configured task reviewers assess files, reports and code.
 review_result needs explicit human approval of the exact code candidate; inspection is optional.
+For an authorized reviewer stop, read get_task_review and call stop_review with the exact review ID and revision. It preserves findings and leaves the queue unchanged.
 Complete file/report results finish after configured review. Missing reviewer settings do not
 turn review off. Preserve history and reconcile changed intent. Checkout blockers retain
 approval; changed code needs fresh review. No implicit push, release or external issues.

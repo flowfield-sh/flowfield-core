@@ -432,7 +432,13 @@ class ContextReads:
             runs.append(
                 {
                     **{key: run[key] for key in ("id", "task_key", "status", "revision")},
-                    "url": self.url(workspace_id, "tasks", run["task_key"], "runs", run["id"]),
+                    "url": self.url(
+                        workspace_id,
+                        "tasks",
+                        run["task_key"],
+                        "conversation",
+                        "attempt:" + run["id"],
+                    ),
                 }
             )
         occupancy = worker_settings.occupancy(db, workspace=workspace_id)
@@ -454,7 +460,7 @@ class ContextReads:
         """Derived orientation, never a second mutable summary or a launch instruction."""
         results = result_brief(self.workspace, db, workspace_id)
         for item in results["items"]:
-            item["url"] = self.url(workspace_id, "tasks", item["task_key"], "result", item["id"])
+            item["url"] = self.url(workspace_id, "results", item["id"])
         attention = {}
         for status in ("open", "answered"):
             rows = db.execute(
@@ -472,7 +478,7 @@ class ContextReads:
                 "items": [
                     {
                         **excerpt(dict(r), 400),
-                        "url": self.url(workspace_id, "inbox", r["id"]),
+                        "url": self.url(workspace_id, "requests", "question", r["id"]),
                         "delivery": delivery.model_dump()
                         if (delivery := question_delivery(db, workspace_id, r["id"]))
                         else None,
@@ -643,7 +649,10 @@ class ContextReads:
                 ]
                 result[name + "_count"] = len(ids)
             result["blocking_questions"] = [
-                {**excerpt(q.model_dump(), 300), "url": self.url(workspace_id, "inbox", q.id)}
+                {
+                    **excerpt(q.model_dump(), 300),
+                    "url": self.url(workspace_id, "requests", "question", q.id),
+                }
                 for q in blocking_questions(db, workspace_id, identity)[:5]
             ]
             result["dependencies"] = item.dependencies[:5]
@@ -654,7 +663,7 @@ class ContextReads:
             if proposed:
                 result["proposed_result"] = proposed[0]
                 result["proposed_result"]["url"] = self.url(
-                    workspace_id, "tasks", item.key, "result", proposed[0]["id"]
+                    workspace_id, "results", proposed[0]["id"]
                 )
             latest_run = db.execute(
                 "SELECT data FROM runs WHERE workspace_id=? AND task_id=? "
@@ -676,7 +685,7 @@ class ContextReads:
                     )
                 }
                 result["execution"]["url"] = (
-                    self.url(workspace_id, "tasks", item.key) + "/runs/" + run["id"]
+                    self.url(workspace_id, "tasks", item.key) + "/conversation/attempt:" + run["id"]
                 )
             if latest and latest.kind == "handoff":
                 # The selected checkpoint has its own field; do not repeat its narrative.
@@ -843,7 +852,7 @@ class ContextReads:
         )
         result = page(
             [
-                {**item, "url": self.url(workspace_id, "inbox", item["id"])}
+                {**item, "url": self.url(workspace_id, "requests", "question", item["id"])}
                 for item in source["items"]
             ],
             limit,
@@ -861,13 +870,14 @@ class ContextReads:
     ) -> dict[str, Any]:
         return {
             **excerpt(Questions(self.workspace).get(workspace_id, identity, revision).model_dump()),
-            "url": self.url(workspace_id, "inbox", identity),
+            "url": self.url(workspace_id, "requests", "question", identity),
         }
 
     def result(self, workspace_id: str, identity: str) -> dict[str, Any]:
         from flowfield.results import Results
 
         value = Results(self.workspace).get(workspace_id, identity).model_dump()
+        value["url"] = self.url(workspace_id, "results", identity)
         value["files"] = [
             {key: file[key] for key in ("id", "workspace_id", "name", "size")}
             for file in value["files"]

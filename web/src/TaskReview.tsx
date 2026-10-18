@@ -221,7 +221,7 @@ function ReviewControls<R extends { revision: number; status: string }>({
   saved: (value: R) => void;
 }) {
   const [busy, setBusy] = useState(false);
-  async function act(action: "stop" | "retry" | "confirm-stopped") {
+  async function act(action: "retry" | "confirm-stopped") {
     if (!review) return;
     setBusy(true);
     try {
@@ -237,20 +237,6 @@ function ReviewControls<R extends { revision: number; status: string }>({
   }
   return (
     <div className="actions">
-      {["queued", "preparing", "running", "waiting", "uncertain"].includes(
-        review.status,
-      ) && (
-        <ConfirmButton
-          size="sm"
-          variant="outline"
-          disabled={busy}
-          title="Stop this review?"
-          description="Retained findings and the candidate are preserved. The queue remains unchanged."
-          action={() => void act("stop")}
-        >
-          Stop review
-        </ConfirmButton>
-      )}
       {review.status === "uncertain" && (
         <ConfirmButton
           size="sm"

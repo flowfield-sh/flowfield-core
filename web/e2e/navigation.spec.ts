@@ -244,7 +244,7 @@ test("closing entity panes returns through history without duplicate collections
   await page.goto(board);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await page
-    .getByRole("link", { name: "T-1: Which scope?", exact: true })
+    .getByRole("link", { name: "Open request in work tab", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "Back", exact: true }),
@@ -252,7 +252,7 @@ test("closing entity panes returns through history without duplicate collections
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(page).toHaveURL(inbox);
   await page.goBack();
-  await expect(page).toHaveURL(/tasks\/T-1$/);
+  await expect(page).toHaveURL(/requests\/question\//);
   await page.goBack();
   await expect(page).toHaveURL(inbox);
   await page.goBack();
@@ -261,11 +261,11 @@ test("closing entity panes returns through history without duplicate collections
   await expect(page).toHaveURL(inbox);
   await page.goForward();
   await expect(
-    page.getByRole("region", { name: "Task details", exact: true }),
+    page.getByRole("region", { name: "Request", exact: true }),
   ).toBeVisible();
   await page.reload();
   await expect(
-    page.getByRole("region", { name: "Task details", exact: true }),
+    page.getByRole("region", { name: "Request", exact: true }),
   ).toBeVisible();
   const answer = page.getByRole("textbox", {
     name: "Your answer",
@@ -275,7 +275,7 @@ test("closing entity panes returns through history without duplicate collections
   await page.keyboard.press("Escape");
   await expect(answer).not.toBeFocused();
   await expect(
-    page.getByRole("region", { name: "Task details", exact: true }),
+    page.getByRole("region", { name: "Request", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(
@@ -283,7 +283,7 @@ test("closing entity panes returns through history without duplicate collections
   ).toBeDisabled();
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(page).toHaveURL(inbox);
-  await openResource(page, "Tasks");
+  await openResource(page, "Tasks Board");
   await page
     .locator(".workspace-resource-content")
     .getByRole("link", { name: /T-1/ })
@@ -329,14 +329,14 @@ test("entity identity and drafts persist across task and workspace tabs", async 
   const projectLink = sidebar.getByLabel("Workspace", { exact: true });
   await expect(projectLink).toBeVisible();
   await expect(
-    sidebar.getByRole("button", { name: "Tasks", exact: true }),
+    sidebar.getByRole("button", { name: "Tasks Board", exact: true }),
   ).toHaveCount(0);
 
   await expect(logo).toHaveAttribute("href", "/");
 
   await projectLink.selectOption(workspace);
   await expect(page).toHaveURL(`/workspaces/${workspace}/inbox`);
-  await openResource(page, "Tasks");
+  await openResource(page, "Tasks Board");
   await page
     .locator(".workspace-resource-content")
     .getByRole("link", { name: /T-1/ })
@@ -530,7 +530,7 @@ test("workspace selector names remain accessible and idle input opens deliberate
   await page
     .getByRole("button", { name: "Open workspaces", exact: true })
     .click();
-  await page.getByRole("link", { name: "Tasks", exact: true }).click();
+  await page.getByRole("link", { name: "Tasks Board", exact: true }).click();
   await expect(
     page.getByRole("link", { name: /item needs your attention/ }),
   ).toHaveCount(0);
@@ -674,7 +674,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await page.screenshot({
     path: testInfo.outputPath("task-navigation-desktop.png"),
   });
-  await openResource(page, "Tasks");
+  await openResource(page, "Tasks Board");
   await expect(detail).not.toBeVisible();
   await expect(card).toBeVisible();
   await page.goBack();
@@ -686,7 +686,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   for (let visit = 0; visit < 2; visit++) {
     await card.click();
     await expect(detail).toBeVisible();
-    await openResource(page, "Tasks");
+    await openResource(page, "Tasks Board");
     await expect(detail).not.toBeVisible();
     await page.goBack();
     await expect(detail).toBeVisible();
@@ -702,7 +702,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await page.getByRole("tab", { name: "Appearance", exact: true }).click();
   await choose(page.getByLabel("Theme", { exact: true }), "light");
   await page.getByLabel("Workspace", { exact: true }).selectOption(workspace);
-  await openResource(page, "Tasks");
+  await openResource(page, "Tasks Board");
   await expect(page.locator("html")).not.toHaveClass("dark");
   expect(
     await page
@@ -726,7 +726,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await page.getByRole("tab", { name: "Appearance", exact: true }).click();
   await choose(page.getByLabel("Theme", { exact: true }), "system");
   await page.getByLabel("Workspace", { exact: true }).selectOption(workspace);
-  await openResource(page, "Tasks");
+  await openResource(page, "Tasks Board");
   await expect(page.locator("html")).toHaveClass("dark");
   await page.emulateMedia({ colorScheme: "light" });
   await expect(page.locator("html")).not.toHaveClass("dark");
@@ -749,7 +749,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
     .getByRole("button", { name: "Open workspaces", exact: true })
     .click();
   await page.getByLabel("Workspace", { exact: true }).selectOption(workspace);
-  await openResource(page, "Tasks");
+  await openResource(page, "Tasks Board");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const board = page.locator(".board");
   expect(

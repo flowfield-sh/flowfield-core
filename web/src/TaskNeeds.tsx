@@ -124,7 +124,9 @@ export function TaskNeeds({
                       : "Needs your answer"}
               </WorkspaceLink>
             ) : (
-              <QuestionLink id={q.id}>{q.question}</QuestionLink>
+              <QuestionLink workspaceId={projectId} id={q.id}>
+                {q.question}
+              </QuestionLink>
             )}
           </li>
         ))}

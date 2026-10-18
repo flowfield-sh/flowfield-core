@@ -6,16 +6,8 @@ from urllib.parse import quote
 
 from flowfield.application import Workspace
 from flowfield.attention import AttentionItem, RequestKind, attention_page
-from flowfield.browser_links import workspace_href
+from flowfield.browser_links import request_href, workspace_href
 from flowfield.errors import ApplicationError
-
-
-def request_href(workspace_id: str, kind: str, identity: str) -> str:
-    family = "attempt" if kind in {"review", "intervention"} else kind
-    path = (
-        f"/workspaces/{quote(workspace_id, safe='')}/requests/{family}/{quote(identity, safe='')}"
-    )
-    return path
 
 
 def bind_links(db: sqlite3.Connection, item: AttentionItem, workspace_id: str | None) -> None:

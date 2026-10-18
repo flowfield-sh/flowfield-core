@@ -177,6 +177,8 @@ result, read that exact current result and use review_result with its revision a
 No second browser confirmation is needed. Changed candidates require fresh approval.
 The service delivers approved results; verify delivery before claiming Done.
 Stop ends this coordinator turn, not workers; use stop_run for an authorized worker stop.
+For a human-requested reviewer stop, read get_task_review and call stop_review with its exact
+review ID/revision. This preserves findings and leaves the queue unchanged.
 After an interrupted turn inspect canonical state before repeating any operation: completed
 writes remain committed. Explain useful results and concrete next actions concisely. Link tasks
 with Markdown using /projects/{project_id}/tasks/{task_key}. Never claim unsupported actions.

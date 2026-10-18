@@ -203,18 +203,23 @@ def test_browser_links_and_question_pagination(tmp_path: Path) -> None:
     assert reads.project("harbor")["url"] == origin + "/projects/harbor"
     assert reads.task("harbor", "catalog")["url"] == origin + "/workspaces/harbor/tasks/T-1"
     assert reads.overview("harbor")["attention"]["open"]["items"][0]["url"] == (
-        origin + "/workspaces/harbor/inbox/q0"
+        origin + "/workspaces/harbor/requests/question/q0"
     )
-    assert reads.question("harbor", "q0")["url"] == origin + "/workspaces/harbor/inbox/q0"
+    assert (
+        reads.question("harbor", "q0")["url"] == origin + "/workspaces/harbor/requests/question/q0"
+    )
     seen, after = [], None
     while True:
         result = reads.questions("harbor", after=after, limit=50)
         assert size(result) <= PAGE_BYTES
         for item in result["items"]:
-            assert item["url"] == origin + "/workspaces/harbor/inbox/" + item["id"]
+            assert item["url"] == origin + "/workspaces/harbor/requests/question/" + item["id"]
             seen.append(item["id"])
         after = result["next_cursor"]
         if after is None:
             break
     assert len(seen) == len(set(seen)) == 20
-    assert reads.url("harbor", "inbox", "a/b ?") == origin + "/workspaces/harbor/inbox/a%2Fb%20%3F"
+    assert (
+        reads.url("harbor", "requests", "question", "a/b ?")
+        == origin + "/workspaces/harbor/requests/question/a%2Fb%20%3F"
+    )

@@ -15,7 +15,6 @@ export function ActivityEntry({
   state,
   metadata,
   children,
-  inline = false,
   hasBody,
   alwaysOpen = false,
 }: {
@@ -25,7 +24,6 @@ export function ActivityEntry({
   state?: components["schemas"]["WorkState"] | null;
   metadata: ReactNode;
   children: ReactNode;
-  inline?: boolean;
   hasBody: boolean;
   alwaysOpen?: boolean;
 }) {
@@ -39,7 +37,6 @@ export function ActivityEntry({
     if (selected) setManual(null);
   }
   const open = manual ?? selected;
-  if (inline) return children;
   const heading = (
     <span className="activity-entry-heading">
       <span className="activity-entry-state">

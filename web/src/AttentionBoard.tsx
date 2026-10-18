@@ -1,3 +1,5 @@
+import { requestHref } from "./requestLinks";
+import { taskHref } from "./navigation";
 import { Badge } from "@/components/ui/badge";
 import { LoadMore } from "./LoadMore";
 import { useRetainedState } from "./retainedState";
@@ -15,21 +17,20 @@ import {
 import { Button } from "@/components/ui/button";
 import type { components } from "./api-schema";
 import { usePage, useResource } from "./useResource";
-import { taskHref } from "./navigation";
-import { QuestionDetail, questionHref } from "./Inbox";
+import { QuestionDetail } from "./Inbox";
 import { label, type Task, type WorkspaceBoard } from "./workspace";
 import { WorkState } from "./WorkState";
 import { WorkIdentity } from "./WorkIdentity";
 import { PermissionCard } from "./AgentPermissions";
 import { ContentStack, Disclosure } from "./DetailLayout";
-import { DetailHeader, DetailTabs } from "./Presentation";
+import { DetailTabs } from "./Presentation";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { TaskConversation } from "./TaskConversation";
+import { TaskResponse } from "./TaskResponse";
 import { useDirtyItems } from "./useDirtyItems";
 import { ResourceRetry } from "./ResourceRetry";
 import { RequestFrame } from "./RequestFrame";
 import { Timestamp } from "./Timestamp";
-import { EntityPane, PaneFooter } from "./EntityPane";
+import { PaneFooter } from "./EntityPane";
 import { Delivered } from "./Delivered";
 
 type Item = components["schemas"]["AttentionItem"];
@@ -39,31 +40,15 @@ const columns = { needs_me: "action", history: "history" };
 const identityOf = (item: Item) =>
   `${item.workspace_id}:${item.kind}:${item.id}`;
 function itemHref(item: Item, workspaceId: string) {
-  if (item.kind === "permission")
-    return (
-      item.state?.href ??
-      (item.workspace_id
-        ? `/workspaces/${item.workspace_id}/permissions/${item.id}`
-        : `/workspaces/${workspaceId}/permissions/${item.id}`)
-    );
-  return (
-    item.state?.href ??
-    (item.kind === "question"
-      ? questionHref(item.workspace_id!, item.id)
-      : item.kind === "result"
-        ? `${taskHref(item.workspace_id!, { key: item.task_key! }, "changes")}/${item.id}`
-        : `${taskHref(item.workspace_id!, { key: item.task_key! }, "history")}/${item.kind === "integration" ? `validation:${item.id}` : `worker:${item.run_id ?? item.id}`}`)
-  );
+  return item.request_href ?? requestHref(workspaceId, item.kind, item.id);
 }
 
 function TaskRequest({
   item,
-  board,
   refresh,
   onDirty,
 }: {
   item: Item;
-  board: WorkspaceBoard;
   refresh: unknown;
   onDirty: DirtyCallback;
 }) {
@@ -79,23 +64,15 @@ function TaskRequest({
     },
     [mark],
   );
-  const settings = useCallback(
-    (value: boolean) => {
-      mark("settings", value);
-    },
-    [mark],
-  );
   return (
     <ContentStack>
       <ResourceRetry resources={[task]} />
       {task.data && (
-        <TaskConversation
+        <TaskResponse
           projectId={item.workspace_id!}
           task={task.data}
-          board={board}
           refresh={refresh}
           onDirty={response}
-          onSettingsDirty={settings}
           requestTarget={{
             kind: item.kind as
               "question" | "result" | "intervention" | "review" | "integration",
@@ -138,9 +115,7 @@ export function RequestCard({
         <PermissionCard
           workspaceId={workspaceId}
           id={item.id}
-          taskKey={item.task_key}
           refresh={refresh}
-          inline
         />
       ) : item.kind === "question" && !item.task_key ? (
         <QuestionDetail
@@ -152,7 +127,6 @@ export function RequestCard({
           open={(path) =>
             resourceNavigate ? resourceNavigate(path) : void navigate(path)
           }
-          inline
         />
       ) : [
           "question",
@@ -161,12 +135,7 @@ export function RequestCard({
           "intervention",
           "integration",
         ].includes(item.kind) && item.task_key ? (
-        <TaskRequest
-          item={item}
-          board={board}
-          refresh={refresh}
-          onDirty={dirty}
-        />
+        <TaskRequest item={item} refresh={refresh} onDirty={dirty} />
       ) : (
         <>
           <strong>{item.title}</strong>
@@ -191,7 +160,7 @@ export function RequestCard({
       kind={kind}
       state={item.state}
       label={`${kind}: ${item.title}`}
-      href={item.request_href ?? undefined}
+      href={href}
       source={<RequestSource item={item} board={board} />}
     >
       {content}
@@ -217,7 +186,12 @@ export function RequestSource({
   const project = board.projects.find((p) => p.id === task?.project_id);
   return (
     <WorkspaceLink
-      to={item.source_href ?? itemHref(item, board.workspace.id)}
+      to={
+        item.source_href ??
+        (item.task_key
+          ? taskHref(board.workspace.id, { key: item.task_key })
+          : `/workspaces/${board.workspace.id}`)
+      }
       aria-label={`${item.source_key ?? item.task_key ?? project?.name ?? "Workspace"}: ${item.title}`}
     >
       <Badge variant="outline">
@@ -444,46 +418,17 @@ function InboxList({
 export function AttentionBoard(props: {
   workspaceId: string;
   projectId?: string;
-  identity?: string;
   refresh: unknown;
   board: WorkspaceBoard;
   onDirty: DirtyCallback;
 }) {
   const location = useLocation();
-  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const requested = params.get("inbox");
   const tab =
     requested === "history" || requested === "delivered"
       ? requested
       : "needs_me";
-  const permission = params.get("permission");
-  const closePermission = () => {
-    const next = new URLSearchParams(params);
-    next.delete("permission");
-    next.delete("permission_project");
-    void navigate(`${location.pathname}?${next}`, {
-      replace: true,
-      state: location.state,
-    });
-  };
-  if (permission)
-    return (
-      <EntityPane
-        label="Tool permission"
-        identity={permission}
-        returnFocusHref={location.pathname}
-        close={closePermission}
-      >
-        <DetailHeader title="Tool permission" close={closePermission} />
-        <PermissionCard
-          workspaceId={props.workspaceId}
-          id={permission}
-          taskKey={null}
-          refresh={props.refresh}
-        />
-      </EntityPane>
-    );
   return (
     <ContentStack className="inbox-view" space="section">
       <DetailTabs

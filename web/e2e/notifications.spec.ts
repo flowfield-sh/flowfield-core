@@ -283,11 +283,9 @@ test("active Inbox events toast once, preserve badges, navigate and do not repla
   ).json();
   expect(counts[await projectWorkspace(request, "notify-act")]).toBe(1);
   await alert.getByRole("button", { name: "Open", exact: true }).click();
-  await expect(page).toHaveURL(
-    /tasks\/T-1\/conversation\/question:active-choice:1/,
-  );
+  await expect(page).toHaveURL(/requests\/question\/active-choice$/);
   await expect(
-    page.locator("[data-message-id='question:active-choice:1']"),
+    page.getByRole("region", { name: "Request", exact: true }),
   ).toBeVisible();
   await page
     .getByLabel("Your answer", { exact: true })
@@ -339,9 +337,7 @@ test("background browser delivery is opt-in and exclusive across clients", async
       window as unknown as { demoNotices: { onclick(): void }[] }
     ).demoNotices[0].onclick(),
   );
-  await expect(receiver).toHaveURL(
-    /conversation\/question:background-choice:1/,
-  );
+  await expect(receiver).toHaveURL(/requests\/question\/background-choice$/);
   await receiver.reload();
   await receiver.waitForResponse("**/api/announcements/poll");
   expect(await notices(receiver)).toBe(0);
@@ -388,9 +384,7 @@ test("visible exact question suppresses its announcement; work stays pending", a
   await ready(page, "/projects/notify-vis");
   await ask(request, "notify-vis", "visible-choice");
   const workspace = await projectWorkspace(request, "notify-vis");
-  await page.goto(
-    `/workspaces/${workspace}/tasks/T-1/conversation/question:visible-choice:1`,
-  );
+  await page.goto(`/workspaces/${workspace}/requests/question/visible-choice`);
   await expect(
     page.locator(
       `[data-announcement-source='${workspace}:question:visible-choice']`,
@@ -674,9 +668,26 @@ test("resolved permission links open the exact request without permitting anythi
         },
       }),
   );
-  await ready(page, `/workspaces/${workspace}/inbox?permission=expired`);
+  const href = `/workspaces/${workspace}/requests/permission/expired`;
+  await page.route(`**/api${href}`, (route) =>
+    route.fulfill({
+      json: {
+        id: "expired",
+        workspace_id: workspace,
+        kind: "permission",
+        request_kind: "permission",
+        task_key: null,
+        title: "Read project files",
+        status: "expired",
+        updated_at: now,
+        request_href: href,
+        source_href: `/workspaces/${workspace}`,
+      },
+    }),
+  );
+  await ready(page, href);
   const dialog = page.getByRole("region", {
-    name: "Tool permission",
+    name: "Request",
     exact: true,
   });
   await expect(dialog).toContainText("Read project files");

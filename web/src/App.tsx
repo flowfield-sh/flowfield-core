@@ -13,7 +13,7 @@ import {
   WorkspaceTabs,
   useWorkspaceTabs,
 } from "./WorkspaceTabs";
-import { WorkNavigation, WorkList } from "./WorkNavigation";
+import { WorkNavigation } from "./WorkNavigation";
 import { useLocation } from "react-router";
 import { ProjectOwners, ScopedAnchor } from "./WorkspaceLink";
 import { reportError } from "./requestFeedback";
@@ -64,7 +64,6 @@ import {
   Task,
   TaskCard,
 } from "./workspace";
-import { QuestionPage } from "./Inbox";
 import { DiscardChangesDialog } from "./DiscardChangesDialog";
 import {
   boardHref,
@@ -632,9 +631,7 @@ function WorkspaceResource({
     : "";
   const base = workspaceHref(workspaceId);
   const { data: board, setData: setBoard, error, invalidate } = boardResource;
-  const questionId = params.questionId ?? params.relatedQuestionId;
-  const questionSelected = questionId !== undefined;
-  const requestSelected = !!params.requestId;
+  const requestSelected = !!(params.requestId || params.resultId);
   const taskRef = params.taskKey;
   const {
     data: taskDetail,
@@ -654,7 +651,7 @@ function WorkspaceResource({
     ["workers", "coordinator"].includes(params.projectTab ?? "");
   const selection: Selection | null = workspaceSettings
     ? null
-    : questionSelected || requestSelected
+    : requestSelected
       ? null
       : taskRef
         ? { kind: "task", id: selectedTask?.key ?? taskRef }
@@ -675,7 +672,6 @@ function WorkspaceResource({
     background === `${base}/projects` || background === `${base}/projects/new`;
   const projectOverview =
     !!projectId && pathname === `${projectHref(projectId)}/overview`;
-  const allWorkView = pathname === `${base}/work`;
   const documentsView = pathname.startsWith(`${base}/documents`);
   const filesView = pathname === `${base}/files`;
   const addingProject = pathname.endsWith("/projects/new");
@@ -912,8 +908,8 @@ function WorkspaceResource({
         <RequestDetail
           publishView={publishView}
           workspaceId={workspaceId}
-          kind={params.requestKind!}
-          identity={params.requestId!}
+          kind={params.resultId ? "result" : params.requestKind!}
+          identity={(params.resultId ?? params.requestId)!}
           projectId={query.get("project_id") ?? undefined}
           board={board}
           refresh={refresh}
@@ -924,12 +920,11 @@ function WorkspaceResource({
       {!selection &&
         !workspaceSettings &&
         !addingProject &&
-        !questionSelected &&
         !requestSelected && (
           <div
-            className={`${documentsView && params.documentId ? "workspace-detail-content " : ""}workspace-work-content ${!allWorkView && !projectsView && !documentsView && !filesView && !showInbox && !archive ? "workspace-task-board" : ""}`}
+            className={`${documentsView && params.documentId ? "workspace-detail-content " : ""}workspace-work-content ${!projectsView && !documentsView && !filesView && !showInbox && !archive ? "workspace-task-board" : ""}`}
           >
-            {!allWorkView && !projectsView && !documentsView && !filesView && (
+            {!projectsView && !documentsView && !filesView && (
               <div className="board-toolbar">
                 {
                   <div className="actions board-filters">
@@ -985,9 +980,7 @@ function WorkspaceResource({
                 </div>
               </div>
             )}
-            {allWorkView ? (
-              <WorkList board={board} all />
-            ) : projectsView ? (
+            {projectsView ? (
               <ProjectList
                 projects={board.projects}
                 problems={{}}
@@ -1015,7 +1008,6 @@ function WorkspaceResource({
                 onDirty={setUnsaved}
                 workspaceId={workspaceId}
                 projectId={projectFilter || undefined}
-                identity={params.questionId}
                 refresh={refresh}
               />
             ) : (
@@ -1140,6 +1132,7 @@ function WorkspaceResource({
       {selection?.kind === "task" && selection.id ? (
         <EntityPane
           label="Task details"
+          responseFooter={false}
           identity={selection.id}
           close={() => choose(null)}
           returnFocusHref={selectionUrl(selection)}
@@ -1201,19 +1194,6 @@ function WorkspaceResource({
             close={() => closeEntity(base)}
           />
         </EntityPane>
-      )}
-      {questionId && (
-        <QuestionPage
-          projectId={workspaceId}
-          identity={questionId}
-          tasks={board.tasks}
-          refresh={refresh}
-          onDirty={setUnsaved}
-          open={changeLocation}
-          close={() =>
-            closeEntity(params.relatedQuestionId ? pathname : base + "/inbox")
-          }
-        />
       )}
     </LabelCatalog>
   );

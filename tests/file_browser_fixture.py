@@ -105,6 +105,7 @@ def seed(directory):
         "review_result": assessed_result.id,
         "waiting_task": waiting.key,
         "waiting_review": review.id,
+        "waiting_question": reviews.get(scope, review.id).question_id,
     }
 
 
