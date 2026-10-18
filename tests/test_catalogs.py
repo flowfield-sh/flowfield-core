@@ -29,7 +29,11 @@ def test_repository_free_task_model_discovery_uses_workspace_home(tmp_path, monk
 
     async def exercise():
         try:
-            values = await catalogs.run(HarnessSettings(workspace).get("codex"), project_id=scope)
+            directory = workspace.directory / "coordinators" / owner.id
+            directory.mkdir(parents=True, exist_ok=True)
+            values = await catalogs.run(
+                HarnessSettings(workspace).get("codex"), project_path=str(directory)
+            )
             assert values[0].id == "fixture"
             assert workspace.projects() == []
         finally:

@@ -1,7 +1,14 @@
+import { projectWorkspace } from "./support";
 import { join } from "node:path";
 import { expect, type Route } from "@playwright/test";
 import { pageWindow, nextPage, type Page } from "../src/pagination";
-import { test, fixtureProject, existingDirectory, state } from "./support";
+import {
+  test,
+  fixtureProject,
+  fixtureProgress,
+  existingDirectory,
+  state,
+} from "./support";
 
 test("history refresh stops repeated and empty continuing cursors", async () => {
   for (const pages of [
@@ -64,26 +71,31 @@ test("service recovery cancels pending review pagination with an unchanged revie
   await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, project)),
-      task_prefix: "PGR",
     },
   });
   const task = await (
-    await request.post(`/api/projects/${project}/tasks`, {
-      data: { title: "Review recovery" },
-    })
+    await request.post(
+      `/api/workspaces/${await projectWorkspace(request, project)}/tasks`,
+      {
+        data: { title: "Review recovery" },
+      },
+    )
   ).json();
+  await fixtureProgress(request, {
+    project_id: project,
+    task_id: task.id,
+    progress: { status: "done", expected_revision: task.revision },
+  });
   await page.route("**/api/events", (route) => route.abort());
-  await page.route(
-    `**/api/projects/${project}/tasks/${task.id}/review`,
-    (route) =>
-      route.fulfill({
-        json: {
-          id: "review",
-          revision: 1,
-          status: "failed",
-          problem: "Retained review failure",
-        },
-      }),
+  await page.route(`**/api/workspaces/*/tasks/${task.id}/review`, (route) =>
+    route.fulfill({
+      json: {
+        id: "review",
+        revision: 1,
+        status: "failed",
+        problem: "Retained review failure",
+      },
+    }),
   );
   const round = (id: string, role = "reviewer") => ({
     id,
@@ -98,22 +110,21 @@ test("service recovery cancels pending review pagination with an unchanged revie
   page.on("requestfailed", (request) => {
     if (request.url().endsWith("/attempts?before=10")) cancelled = true;
   });
-  await page.route(
-    `**/api/projects/${project}/reviews/review/attempts*`,
-    (route) => {
-      if (route.request().url().includes("?")) {
-        pending = route;
-        return;
-      }
-      return route.fulfill({
-        json: {
-          items: [round(recovering ? "fresh" : "original")],
-          next_before: recovering ? null : 10,
-        },
-      });
-    },
+  await page.route(`**/api/workspaces/*/reviews/review/attempts*`, (route) => {
+    if (route.request().url().includes("?")) {
+      pending = route;
+      return;
+    }
+    return route.fulfill({
+      json: {
+        items: [round(recovering ? "fresh" : "original")],
+        next_before: recovering ? null : 10,
+      },
+    });
+  });
+  await page.goto(
+    `/workspaces/${await projectWorkspace(request, project)}/tasks/${task.key}`,
   );
-  await page.goto(`/projects/${project}/tasks/${task.key}`);
   await page
     .getByText("Review rounds and diagnostics", { exact: true })
     .click();

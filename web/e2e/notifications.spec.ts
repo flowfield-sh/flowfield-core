@@ -26,34 +26,38 @@ async function setup(request: APIRequestContext, project: string) {
       await fixtureProject(request, {
         data: {
           path: existingDirectory(join(state, project)),
-          task_prefix:
-            project === "notify-act" ? "NAC" : project.slice(-3).toUpperCase(),
         },
       })
     ).ok(),
   ).toBe(true);
   expect(
     (
-      await request.post(`/api/projects/${project}/tasks`, {
-        data: {
-          id: "task",
-          title: "Notification work",
+      await request.post(
+        `/api/workspaces/${await projectWorkspace(request, project)}/tasks`,
+        {
+          data: {
+            id: "task",
+            title: "Notification work",
+          },
         },
-      })
+      )
     ).ok(),
   ).toBe(true);
 }
 async function ask(request: APIRequestContext, project: string, id: string) {
-  const response = await request.post(`/api/projects/${project}/questions`, {
-    data: {
-      id,
-      task_id: "task",
-      question: `Choose ${id}`,
-      context: "A meaningful choice.",
-      recommendation: "Keep it small.",
-      blocking_scope: "Behavior",
+  const response = await request.post(
+    `/api/workspaces/${await projectWorkspace(request, project)}/questions`,
+    {
+      data: {
+        id,
+        task_id: "task",
+        question: `Choose ${id}`,
+        context: "A meaningful choice.",
+        recommendation: "Keep it small.",
+        blocking_scope: "Behavior",
+      },
     },
-  });
+  );
   expect(response.ok()).toBe(true);
   return response.json();
 }
@@ -174,12 +178,12 @@ test("active Inbox events toast once, preserve badges, navigate and do not repla
     path: testInfo.outputPath("inbox-toast-desktop.png"),
   });
   const counts = await (
-    await request.get("/api/projects/attention-counts")
+    await request.get("/api/workspaces/attention-counts")
   ).json();
-  expect(counts["notify-act"]).toBe(1);
+  expect(counts[await projectWorkspace(request, "notify-act")]).toBe(1);
   await alert.getByRole("button", { name: "Open", exact: true }).click();
   await expect(page).toHaveURL(
-    /tasks\/NAC-1\/conversation\/question:active-choice:1/,
+    /tasks\/T-1\/conversation\/question:active-choice:1/,
   );
   await expect(
     page.locator("[data-message-id='question:active-choice:1']"),
@@ -191,16 +195,19 @@ test("active Inbox events toast once, preserve badges, navigate and do not repla
   await expect
     .poll(
       async () =>
-        (await (await request.get("/api/projects/attention-counts")).json())[
-          "notify-act"
+        (await (await request.get("/api/workspaces/attention-counts")).json())[
+          await projectWorkspace(request, "notify-act")
         ],
     )
     .toBe(0);
-  await ready(page, "/projects/notify-act/inbox");
+  await ready(
+    page,
+    `/workspaces/${await projectWorkspace(request, "notify-act")}/inbox`,
+  );
   await expect(alertFor(page, "Choose active-choice")).toHaveCount(0);
   expect(
-    (await (await request.get("/api/projects/attention-counts")).json())[
-      "notify-act"
+    (await (await request.get("/api/workspaces/attention-counts")).json())[
+      await projectWorkspace(request, "notify-act")
     ],
   ).toBe(0);
 });
@@ -279,12 +286,13 @@ test("visible exact question suppresses its announcement; work stays pending", a
   await setup(request, "notify-vis");
   await ready(page, "/projects/notify-vis");
   await ask(request, "notify-vis", "visible-choice");
+  const workspace = await projectWorkspace(request, "notify-vis");
   await page.goto(
-    "/projects/notify-vis/tasks/VIS-1/conversation/question:visible-choice:1",
+    `/workspaces/${workspace}/tasks/T-1/conversation/question:visible-choice:1`,
   );
   await expect(
     page.locator(
-      "[data-announcement-source='notify-vis:question:visible-choice']",
+      `[data-announcement-source='${workspace}:question:visible-choice']`,
     ),
   ).toBeVisible();
   // Give the election a complete settled poll; do not infer suppression from a momentary absence.
@@ -292,8 +300,8 @@ test("visible exact question suppresses its announcement; work stays pending", a
   await page.waitForResponse("**/api/announcements/poll");
   await expect(alertFor(page, "Choose visible-choice")).toHaveCount(0);
   expect(
-    (await (await request.get("/api/projects/attention-counts")).json())[
-      "notify-vis"
+    (await (await request.get("/api/workspaces/attention-counts")).json())[
+      await projectWorkspace(request, "notify-vis")
     ],
   ).toBe(1);
 });
@@ -314,10 +322,12 @@ test("a burst groups into one Inbox toast without losing pending items", async (
   const grouped = alertFor(page, "5 items need your attention");
   await expect(grouped).toBeVisible({ timeout: 10000 });
   await grouped.getByRole("button", { name: "Open", exact: true }).click();
-  await expect(page).toHaveURL(/\/inbox\?project=notify-brs$/);
+  await expect(page).toHaveURL(
+    `/workspaces/${await projectWorkspace(request, "notify-brs")}/inbox`,
+  );
   expect(
-    (await (await request.get("/api/projects/attention-counts")).json())[
-      "notify-brs"
+    (await (await request.get("/api/workspaces/attention-counts")).json())[
+      await projectWorkspace(request, "notify-brs")
     ],
   ).toBe(5);
 });

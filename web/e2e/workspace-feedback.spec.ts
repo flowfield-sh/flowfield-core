@@ -21,15 +21,17 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
       id: project,
       name: "Feedback shell",
       path: existingDirectory(join(state, project)),
-      task_prefix: "FDB",
     },
   });
   const workspace = await projectWorkspace(request, project),
     base = `/workspaces/${workspace}`;
   for (const id of ["first", "second"])
-    await request.post(`/api/projects/${project}/tasks`, {
-      data: { id, title: id },
-    });
+    await request.post(
+      `/api/workspaces/${await projectWorkspace(request, project)}/tasks`,
+      {
+        data: { id, title: id },
+      },
+    );
   await page.goto(base);
   await expect(page).toHaveURL(base + "/inbox");
   await expect(
@@ -47,20 +49,23 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   const work = page.getByRole("navigation", { name: "Work", exact: true });
   await expect(work.getByRole("link").first()).toHaveAttribute(
     "href",
-    `/projects/${project}/tasks/FDB-1`,
+    `/workspaces/${await projectWorkspace(request, project)}/tasks/T-1`,
   );
-  await request.post(`/api/projects/${project}/questions`, {
-    data: {
-      id: "attention",
-      task_id: "second",
-      question: "Choose the format",
-      context: "A decision is needed",
-      recommendation: "JSON",
+  await request.post(
+    `/api/workspaces/${await projectWorkspace(request, project)}/questions`,
+    {
+      data: {
+        id: "attention",
+        task_id: "second",
+        question: "Choose the format",
+        context: "A decision is needed",
+        recommendation: "JSON",
+      },
     },
-  });
+  );
   await expect(work.getByRole("link").first()).toHaveAttribute(
     "href",
-    `/projects/${project}/tasks/FDB-2`,
+    `/workspaces/${await projectWorkspace(request, project)}/tasks/T-2`,
   );
   await expect(
     work.getByText("Needs attention", { exact: true }),
@@ -70,7 +75,6 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   });
   await expect(resources.getByRole("link")).toHaveText([
     "Projects",
-    "Milestones",
     "Tasks",
     "Documents",
     "Files",
@@ -81,7 +85,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
     .getByRole("link", { name: "Flowfield settings", exact: true })
     .hover();
   await expect(page.getByRole("tooltip")).toHaveText("Global settings");
-  for (const name of ["Projects", "Documents", "Milestones"])
+  for (const name of ["Projects", "Documents", "Files"])
     await resources.getByRole("link", { name, exact: true }).click();
   const tabs = page.getByRole("tablist", { name: "Open resources" });
   const titles = () =>
@@ -89,14 +93,14 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
       .getByRole("tab")
       .evaluateAll((nodes) => nodes.map((n) => n.getAttribute("aria-label")));
   const before = await titles();
-  const milestones = tabs.getByRole("tab", { name: "Milestones", exact: true });
-  await milestones.focus();
+  const files = tabs.getByRole("tab", { name: "Files", exact: true });
+  await files.focus();
   await page.keyboard.press("Alt+ArrowLeft");
   await expect
     .poll(titles)
     .toEqual([...before.slice(0, -2), before.at(-1), before.at(-2)]);
   const projects = tabs.getByRole("tab", { name: "Projects", exact: true });
-  const target = await milestones.boundingBox(),
+  const target = await files.boundingBox(),
     source = await projects.boundingBox();
   await page.mouse.move(
     source!.x + source!.width / 2,
@@ -111,11 +115,11 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   await page.mouse.up();
   await expect
     .poll(titles)
-    .toEqual([before[0], before[1], "Milestones", "Projects", before.at(-2)]);
+    .toEqual([before[0], before[1], "Files", "Projects", before.at(-2)]);
   await page.reload();
   await expect
     .poll(titles)
-    .toEqual([before[0], before[1], "Milestones", "Projects", before.at(-2)]);
+    .toEqual([before[0], before[1], "Files", "Projects", before.at(-2)]);
   await expect(tabs.getByRole("tab").first()).toHaveAccessibleName("Inbox 1");
   await resources.getByRole("link", { name: "Settings", exact: true }).click();
   await expect(

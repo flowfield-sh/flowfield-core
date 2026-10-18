@@ -7,7 +7,7 @@ from flowfield.document_models import DocumentUpdate
 # Project membership scopes document identity; only current unfinished preparations matter.
 # This reads small headers and snapshot metadata, never document bodies or task history.
 UPDATED_SOURCES = """
-SELECT t.project_id,t.id AS task_id,t.key AS task_key,
+SELECT t.workspace_id,t.id AS task_id,t.key AS task_key,
     json_extract(t.data,'$.title') AS task_title,
     json_extract(t.data,'$.status') AS task_status,
     d.workspace_id,d.id,r.title,
@@ -15,28 +15,15 @@ SELECT t.project_id,t.id AS task_id,t.key AS task_key,
     d.revision AS latest_revision,
     coalesce(json_extract(s.value,'$.purpose'),'required') AS purpose,
     r.created_at AS updated_at
-FROM tasks t JOIN workspace_scopes w ON w.project_id=t.project_id
+FROM tasks t
 JOIN json_each(t.data,'$.publication.documents') s
-JOIN workspace_documents d ON d.workspace_id=w.workspace_id
+JOIN workspace_documents d ON d.workspace_id=t.workspace_id
     AND d.id=json_extract(s.value,'$.id')
 JOIN workspace_document_revisions r ON r.workspace_id=d.workspace_id
     AND r.id=d.id AND r.revision=d.revision
 WHERE json_extract(t.data,'$.status')!='done'
     AND coalesce(json_extract(t.data,'$.archived'),0)=0
     AND d.revision>json_extract(s.value,'$.revision')
-"""
-
-UPDATED_MILESTONES = """
-SELECT t.project_id,t.id AS task_id,t.key AS task_key,
-    json_extract(t.data,'$.title') AS task_title,
-    json_extract(m.data,'$.updated_at') AS updated_at
-FROM tasks t JOIN workspace_scopes w ON w.project_id=t.project_id
-JOIN milestones m ON m.workspace_id=w.workspace_id
-    AND m.id=json_extract(t.data,'$.milestone_id')
-WHERE json_extract(t.data,'$.status')!='done'
-    AND coalesce(json_extract(t.data,'$.archived'),0)=0
-    AND json_extract(t.data,'$.publication.milestone.id')=m.id
-    AND json_extract(m.data,'$.revision')>json_extract(t.data,'$.publication.milestone.revision')
 """
 
 
@@ -51,7 +38,7 @@ def project_updates(
     for row in db.execute(
         "SELECT * FROM ("
         + UPDATED_SOURCES
-        + ") WHERE project_id=? "
+        + ") WHERE workspace_id=? "
         + ("AND task_id=? " if task is not None else "")
         + "ORDER BY id",
         (project, task) if task is not None else (project,),

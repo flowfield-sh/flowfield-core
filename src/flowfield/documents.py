@@ -73,10 +73,10 @@ class Documents:
         with self.store.connection() as db:
             self.read(db, workspace_id, identity)
             rows = db.execute(
-                "SELECT *,project_id || '/' || task_id AS cursor FROM ("
+                "SELECT *,task_id AS cursor FROM ("
                 + UPDATED_SOURCES
-                + ") WHERE workspace_id=? AND id=? AND project_id || '/' || task_id>? "
-                "ORDER BY project_id,task_id LIMIT ?",
+                + ") WHERE workspace_id=? AND id=? AND task_id>? "
+                "ORDER BY task_id LIMIT ?",
                 (workspace_id, identity, after or "", limit + 1),
             ).fetchall()
             return page([dict(row) for row in rows], limit, "cursor")
@@ -277,14 +277,14 @@ class Documents:
             if current.deleted_at:
                 return current
             defaults = db.execute(
-                "SELECT p.id FROM projects p JOIN workspace_scopes w ON w.project_id=p.id, "
+                "SELECT p.id FROM projects p JOIN workspace_projects w ON w.project_id=p.id, "
                 "json_each(p.worker_documents) ref WHERE w.workspace_id=? "
                 "AND json_extract(ref.value,'$.id')=? LIMIT 1",
                 (workspace_id, identity),
             ).fetchone()
             tasks = db.execute(
-                "SELECT t.id FROM tasks t JOIN workspace_scopes w ON w.project_id=t.project_id, "
-                "json_each(t.data,'$.documents') ref WHERE w.workspace_id=? "
+                "SELECT t.id FROM tasks t, "
+                "json_each(t.data,'$.documents') ref WHERE t.workspace_id=? "
                 "AND json_extract(ref.value,'$.id')=? AND json_extract(t.data,'$.archived')=0 "
                 "AND json_extract(t.data,'$.status')!='done' LIMIT 1",
                 (workspace_id, identity),

@@ -36,7 +36,7 @@ Open [localhost:8765](http://127.0.0.1:8765), create a workspace and add your ex
 
 Ask the Coordinator to organize the work, maintain shared context and follow up on results. Use Tasks to follow progress, edit shared documents and respond through Inbox. Conversation and direct actions work on the same plan.
 
-**💬 Shape the idea**<br>Talk through the problem with the Coordinator. It turns agreed decisions into tasks and milestones while the work continues beside the conversation.
+**💬 Shape the idea**<br>Talk through the problem with the Coordinator. It turns agreed decisions into tasks while the work continues beside the conversation.
 
 **🗂️ Connect your projects**<br>Work across your existing repositories in one workspace. The Coordinator can organize shared priorities and link dependent tasks across projects.
 
@@ -52,12 +52,12 @@ Ask the Coordinator to organize the work, maintain shared context and follow up 
 
 <table>
   <tr>
-    <td width="33%" align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/board.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/board.png" alt="Workspace board with tasks across three projects"></a><br><strong>Tasks</strong></td>
+    <td width="33%" align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/board.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/board.png" alt="Workspace board with code, file and report tasks"></a><br><strong>Tasks</strong></td>
     <td width="33%" align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/documents.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/documents.png" alt="Shared workspace document with revision history"></a><br><strong>Documents</strong></td>
-    <td width="33%" align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/milestones.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/milestones.png" alt="Milestones grouping work across projects"></a><br><strong>Milestones</strong></td>
+    <td width="33%" align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/files.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/files.png" alt="Retained task files with folders and a file inspector"></a><br><strong>Files</strong></td>
   </tr>
   <tr>
-    <td align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/inbox.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/inbox.png" alt="Inbox with a question, a blocker and code ready for review"></a><br><strong>Inbox</strong></td>
+    <td align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/inbox.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/inbox.png" alt="Inbox with a question and code ready for review"></a><br><strong>Inbox</strong></td>
     <td align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/task.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/task.png" alt="Task conversation with a question and reply controls"></a><br><strong>Task conversation</strong></td>
     <td align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/review.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/review.png" alt="Code result with its diff, checks and review actions"></a><br><strong>Code review</strong></td>
   </tr>

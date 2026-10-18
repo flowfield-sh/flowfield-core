@@ -17,31 +17,36 @@ test("individual requests retain answers and drafts across independent tabs", as
     data: {
       id: project,
       path: existingDirectory(join(state, project)),
-      task_prefix: "REQ",
     },
   });
   const workspace = await projectWorkspace(request, project);
   const base = `/workspaces/${workspace}`;
   const task = await (
-    await request.post(`/api/projects/${project}/tasks`, {
-      data: {
-        title: "Export rates",
-        body: "Export the agreed rates as CSV.",
-        status: "in_progress",
+    await request.post(
+      `/api/workspaces/${await projectWorkspace(request, project)}/tasks`,
+      {
+        data: {
+          title: "Export rates",
+          body: "Export the agreed rates as CSV.",
+          status: "in_progress",
+        },
       },
-    })
+    )
   ).json();
   const question = await (
-    await request.post(`/api/projects/${project}/questions`, {
-      data: {
-        task_id: task.id,
-        question: "Which columns?",
-        context: "Choose the export columns",
-        recommendation: "Name and rate",
+    await request.post(
+      `/api/workspaces/${await projectWorkspace(request, project)}/questions`,
+      {
+        data: {
+          task_id: task.id,
+          question: "Which columns?",
+          context: "Choose the export columns",
+          recommendation: "Name and rate",
+        },
       },
-    })
+    )
   ).json();
-  const href = `${base}/requests/question/${question.id}?project_id=${project}`;
+  const href = `${base}/requests/question/${question.id}`;
   await page.goto(base + "/inbox");
   const card = page.getByRole("article", { name: "Question: Which columns?" });
   const source = card
@@ -50,7 +55,7 @@ test("individual requests retain answers and drafts across independent tabs", as
   await expect(source).toHaveText(task.key);
   await expect(source).toHaveAttribute(
     "href",
-    `/projects/${project}/tasks/${task.key}`,
+    `/workspaces/${await projectWorkspace(request, project)}/tasks/${task.key}`,
   );
   await card
     .getByRole("textbox", { name: "Your answer", exact: true })
@@ -65,14 +70,12 @@ test("individual requests retain answers and drafts across independent tabs", as
   ).toHaveValue("Name, rate, currency");
   const tabs = page.getByRole("tablist", { name: "Open resources" });
   await expect(tabs.getByRole("tab", { selected: true })).toContainText(
-    "REQ-1 Question",
+    "T-1 Question",
   );
   await detail
     .getByRole("link", { name: "Open in work tab", exact: true })
     .click();
-  await expect(tabs.getByRole("tab", { name: /REQ-1 Question/ })).toHaveCount(
-    2,
-  );
+  await expect(tabs.getByRole("tab", { name: /T-1 Question/ })).toHaveCount(2);
   await detail
     .getByRole("textbox", { name: "Your answer", exact: true })
     .fill("Name and rate");
@@ -179,7 +182,6 @@ test("individual requests retain answers and drafts across independent tabs", as
       surface: string;
       request_id: string;
       request_kind: string;
-      project_id: string;
     };
     task_context: unknown;
   }[] = [];
@@ -192,7 +194,9 @@ test("individual requests retain answers and drafts across independent tabs", as
       },
     });
   });
-  await page.goto("/projects/" + project + "/tasks/" + task.key);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, project)}/tasks/${task.key}`,
+  );
   await page
     .getByRole("region", { name: "Coordinator conversation" })
     .getByRole("link", { name: "Review this request", exact: true })
@@ -210,7 +214,6 @@ test("individual requests retain answers and drafts across independent tabs", as
     surface: "request",
     request_kind: "question",
     request_id: question.id,
-    project_id: project,
   });
   expect(messages[0].task_context).toBeNull();
   for (const [width, height, theme] of [
@@ -230,7 +233,7 @@ test("individual requests retain answers and drafts across independent tabs", as
   }
 });
 
-test("Needs attention opens the milestone itself while requests remain directly accessible", async ({
+test("Needs attention opens the task itself while requests remain directly accessible", async ({
   page,
   request,
 }) => {
@@ -239,48 +242,44 @@ test("Needs attention opens the milestone itself while requests remain directly 
     data: {
       id: project,
       path: existingDirectory(join(state, project)),
-      task_prefix: "ATN",
     },
   });
   const workspace = await projectWorkspace(request, project);
   const base = `/workspaces/${workspace}`;
-  const milestone = await (
-    await request.post(`/api/workspaces/${workspace}/milestones`, {
-      data: { title: "Deliver exports" },
-    })
-  ).json();
   const task = await (
-    await request.post(`/api/projects/${project}/tasks`, {
-      data: {
-        title: "Build the export",
-        milestone_id: milestone.id,
+    await request.post(
+      `/api/workspaces/${await projectWorkspace(request, project)}/tasks`,
+      {
+        data: {
+          title: "Build the export",
+        },
       },
-    })
+    )
   ).json();
   for (const id of ["earlier", "newer"])
-    await request.post(`/api/projects/${project}/questions`, {
-      data: {
-        id,
-        task_id: task.id,
-        question: `${id} choice`,
-        context: "Choose the format",
-        recommendation: "JSON",
+    await request.post(
+      `/api/workspaces/${await projectWorkspace(request, project)}/questions`,
+      {
+        data: {
+          id,
+          task_id: task.id,
+          question: `${id} choice`,
+          context: "Choose the format",
+          recommendation: "JSON",
+        },
       },
-    });
+    );
   await page.goto(base + "/inbox");
   const work = page.getByRole("navigation", { name: "Work", exact: true });
   const entry = work.getByRole("link", {
-    name: `${milestone.key} Deliver exports`,
+    name: `${task.key} Build the export`,
     exact: true,
   });
   for (const id of ["newer", "earlier"]) {
-    const href = `${base}/requests/question/${id}?project_id=${project}`;
-    await expect(entry).toHaveAttribute(
-      "href",
-      `${base}/milestones/${milestone.key}`,
-    );
+    const href = `${base}/requests/question/${id}`;
+    await expect(entry).toHaveAttribute("href", `${base}/tasks/${task.key}`);
     await entry.click();
-    await expect(page).toHaveURL(`${base}/milestones/${milestone.key}`);
+    await expect(page).toHaveURL(`${base}/tasks/${task.key}`);
     await page.goto(href);
     const detail = page.getByRole("region", { name: "Request", exact: true });
     await expect(detail).toContainText(`${id} choice`);
@@ -294,10 +293,7 @@ test("Needs attention opens the milestone itself while requests remain directly 
       detail.getByRole("textbox", { name: "Your answer", exact: true }),
     ).toHaveCount(0);
   }
-  await expect(entry).toHaveAttribute(
-    "href",
-    `${base}/milestones/${milestone.key}`,
-  );
+  await expect(entry).toHaveAttribute("href", `${base}/tasks/${task.key}`);
   await expect(work.getByText("Needs attention", { exact: true })).toHaveCount(
     0,
   );

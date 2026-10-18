@@ -1,49 +1,47 @@
 """Current fresh-state schema. Older databases are not upgraded."""
 
-SCHEMA_VERSION = 83
+SCHEMA_VERSION = 84
 
 SCHEMA = """
 CREATE TABLE activity (
- sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, project_id TEXT
-    NOT NULL REFERENCES work_scopes(id), task_id TEXT, kind TEXT NOT NULL CHECK(kind
+ sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, workspace_id TEXT
+    NOT NULL REFERENCES workspaces(id), task_id TEXT, kind TEXT NOT NULL CHECK(kind
     IN ('note', 'handoff', 'event')), body TEXT NOT NULL, author TEXT NOT NULL, created_at
     TEXT NOT NULL, supersedes TEXT UNIQUE REFERENCES activity(id), task_revision INTEGER,
-    question_id TEXT, FOREIGN KEY (project_id, task_id) REFERENCES tasks(project_id,
+    question_id TEXT, FOREIGN KEY (workspace_id, task_id) REFERENCES tasks(workspace_id,
     id)
 );
 
-CREATE TABLE agent_permissions (number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT
-    NOT NULL UNIQUE, project_id TEXT REFERENCES work_scopes(id), task_id TEXT, binding
-    TEXT NOT NULL, status TEXT NOT NULL, data TEXT NOT NULL, workspace_id TEXT REFERENCES
-    workspaces(id), FOREIGN KEY(project_id, task_id) REFERENCES tasks(project_id,
-    id), CHECK((workspace_id IS NOT NULL AND project_id IS NULL AND task_id IS NULL
-    AND json_extract(data, '$.role')='coordinator') OR (workspace_id IS NULL AND project_id
-    IS NOT NULL AND json_extract(data, '$.role')='worker')));
+CREATE TABLE agent_permissions (
+ number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
+ workspace_id TEXT NOT NULL REFERENCES workspaces(id), task_id TEXT,
+ binding TEXT NOT NULL, status TEXT NOT NULL, data TEXT NOT NULL,
+ FOREIGN KEY(workspace_id,task_id) REFERENCES tasks(workspace_id,id)
+);
 
-CREATE TABLE agent_settings (project_id TEXT NOT NULL REFERENCES work_scopes(id),
+CREATE TABLE agent_settings (workspace_id TEXT NOT NULL REFERENCES workspaces(id),
     role TEXT NOT NULL CHECK(role IN ('worker', 'coordinator')), scope TEXT NOT NULL,
-    revision INTEGER NOT NULL, selection TEXT, PRIMARY KEY(project_id, role, scope));
+    revision INTEGER NOT NULL, selection TEXT, PRIMARY KEY(workspace_id, role, scope));
 
 CREATE TABLE announcement_clients (id TEXT PRIMARY KEY, seen_at REAL NOT NULL, joined_at
     REAL NOT NULL, active_since REAL NOT NULL, data TEXT NOT NULL);
 
 CREATE TABLE announcement_events (id INTEGER PRIMARY KEY AUTOINCREMENT, source_key
-    TEXT NOT NULL, project_id TEXT, kind TEXT NOT NULL, data TEXT NOT NULL, created_at
+    TEXT NOT NULL, workspace_id TEXT, kind TEXT NOT NULL, data TEXT NOT NULL, created_at
     REAL NOT NULL, state TEXT NOT NULL DEFAULT 'pending', client_id TEXT, channel
     TEXT);
 
 CREATE TABLE announcement_preferences (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT
     NOT NULL);
 
-CREATE TABLE attachments (id TEXT PRIMARY KEY, project_id TEXT REFERENCES work_scopes(id),
-    task_id TEXT, name TEXT NOT NULL, mime TEXT NOT NULL, created_at TEXT NOT NULL,
-    content BLOB NOT NULL, size INTEGER NOT NULL, bound INTEGER NOT NULL DEFAULT 0,
-    workspace_id TEXT REFERENCES workspaces(id), FOREIGN KEY(project_id, task_id)
-    REFERENCES tasks(project_id, id), CHECK((workspace_id IS NOT NULL AND project_id
-    IS NULL AND task_id IS NULL) OR (workspace_id IS NULL AND project_id IS NOT NULL
-    AND task_id IS NOT NULL)));
+CREATE TABLE attachments (
+ id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), task_id TEXT,
+ name TEXT NOT NULL, mime TEXT NOT NULL, created_at TEXT NOT NULL, content BLOB NOT NULL,
+ size INTEGER NOT NULL, bound INTEGER NOT NULL DEFAULT 0,
+ FOREIGN KEY(workspace_id,task_id) REFERENCES tasks(workspace_id,id)
+);
 
-CREATE TABLE attention_sources (key TEXT PRIMARY KEY, project_id TEXT NOT NULL, signature
+CREATE TABLE attention_sources (key TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, signature
     TEXT NOT NULL);
 
 CREATE TABLE coordinator_conversations (number INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,70 +78,35 @@ CREATE TABLE harness_settings (harness TEXT PRIMARY KEY CHECK(harness IN ('codex
     TEXT, config_directory TEXT);
 
 CREATE TABLE inspection_settings (
- project_id TEXT PRIMARY KEY REFERENCES work_scopes(id), data TEXT NOT NULL
+ project_id TEXT PRIMARY KEY REFERENCES projects(id), data TEXT NOT NULL
 );
 
 CREATE TABLE inspections (
+ workspace_id TEXT NOT NULL REFERENCES workspaces(id),
  number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, project_id TEXT
-    NOT NULL REFERENCES work_scopes(id), result_id TEXT REFERENCES result_versions(id),
+    NOT NULL REFERENCES projects(id), result_id TEXT REFERENCES result_versions(id),
     data TEXT NOT NULL
-, promotion_id TEXT REFERENCES milestone_promotions(id));
+);
 
 CREATE TABLE integration_settings (
- project_id TEXT PRIMARY KEY REFERENCES work_scopes(id), data TEXT NOT NULL
+ project_id TEXT PRIMARY KEY REFERENCES projects(id), data TEXT NOT NULL
 );
 
 CREATE TABLE integrations (
+ workspace_id TEXT NOT NULL REFERENCES workspaces(id),
  number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, project_id TEXT
-    NOT NULL REFERENCES work_scopes(id), run_id TEXT NOT NULL REFERENCES runs(id),
+    NOT NULL REFERENCES projects(id), run_id TEXT NOT NULL REFERENCES runs(id),
     status TEXT NOT NULL, data TEXT NOT NULL
 );
 
-CREATE TABLE milestone_deliveries (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL,
-    milestone_id TEXT NOT NULL, project_id TEXT NOT NULL REFERENCES work_scopes(id),
-    data TEXT NOT NULL, UNIQUE(workspace_id, milestone_id), FOREIGN KEY(workspace_id,
-    milestone_id) REFERENCES milestones(workspace_id, id));
 
-CREATE TABLE milestone_integration_policy_history (
- delivery_id TEXT NOT NULL REFERENCES milestone_deliveries(id), revision INTEGER NOT
-    NULL, data TEXT NOT NULL, PRIMARY KEY(delivery_id, revision)
- );
 
-CREATE TABLE milestone_promotions (id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES
-    work_scopes(id), verification_id TEXT NOT NULL UNIQUE REFERENCES milestone_verifications(id),
-    status TEXT NOT NULL, data TEXT NOT NULL);
 
-CREATE TABLE milestone_review_attempts (
- number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, review_id TEXT
-    NOT NULL REFERENCES milestone_reviews(id), data TEXT NOT NULL
- );
 
-CREATE TABLE milestone_review_plans (
- number INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id TEXT NOT NULL, milestone_id
-    TEXT NOT NULL, revision INTEGER NOT NULL, data TEXT NOT NULL, UNIQUE(workspace_id,
-    milestone_id, revision), FOREIGN KEY(workspace_id, milestone_id)
-    REFERENCES milestones(workspace_id, id)
- );
 
-CREATE TABLE milestone_reviews (
- number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, project_id TEXT
-    NOT NULL REFERENCES work_scopes(id), verification_id TEXT NOT NULL UNIQUE REFERENCES
-    milestone_verifications(id), status TEXT NOT NULL, data TEXT NOT NULL
- );
 
-CREATE TABLE milestone_revisions (workspace_id TEXT NOT NULL, id TEXT NOT NULL, revision
-    INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY(workspace_id, id, revision),
-    FOREIGN KEY(workspace_id, id) REFERENCES milestones(workspace_id, id));
 
-CREATE TABLE milestone_verifications (number INTEGER PRIMARY KEY AUTOINCREMENT, id
-    TEXT NOT NULL UNIQUE, workspace_id TEXT NOT NULL, milestone_id TEXT NOT NULL,
-    status TEXT NOT NULL, data TEXT NOT NULL, FOREIGN KEY(workspace_id, milestone_id)
-    REFERENCES milestones(workspace_id, id));
 
-CREATE TABLE milestones (workspace_id TEXT NOT NULL REFERENCES workspaces(id), id
-    TEXT NOT NULL, data TEXT NOT NULL, number INTEGER NOT NULL, key TEXT NOT NULL,
-    PRIMARY KEY(workspace_id, id), UNIQUE(workspace_id, number), UNIQUE(workspace_id,
-    key));
 
 CREATE TABLE output_files (number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL
     UNIQUE, workspace_id TEXT NOT NULL REFERENCES workspaces(id), run_id TEXT NOT
@@ -155,34 +118,32 @@ CREATE TABLE output_folders (workspace_id TEXT NOT NULL REFERENCES workspaces(id
 CREATE TABLE output_locations (file_id TEXT PRIMARY KEY REFERENCES output_files(id),
     path TEXT NOT NULL, revision INTEGER NOT NULL);
 
-CREATE TABLE project_worker_problems (project_id TEXT PRIMARY KEY REFERENCES work_scopes(id),
-    problem TEXT NOT NULL);
+
 
 CREATE TABLE projects (
  id TEXT PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL UNIQUE, description TEXT
     NOT NULL, revision INTEGER NOT NULL, created_at TEXT NOT NULL, updated_at TEXT
-    NOT NULL, updated_by TEXT NOT NULL, task_prefix TEXT NOT NULL UNIQUE CHECK(task_prefix
-    GLOB '[A-Z][A-Z][A-Z]')
+    NOT NULL, updated_by TEXT NOT NULL
 , worker_documents TEXT NOT NULL DEFAULT '[]');
 
 CREATE TABLE question_revisions (
- project_id TEXT NOT NULL, question_id TEXT NOT NULL, revision INTEGER NOT NULL, data
-    TEXT NOT NULL, PRIMARY KEY(project_id, question_id, revision), FOREIGN KEY (project_id,
-    question_id) REFERENCES questions(project_id, id)
+ workspace_id TEXT NOT NULL, question_id TEXT NOT NULL, revision INTEGER NOT NULL, data
+    TEXT NOT NULL, PRIMARY KEY(workspace_id, question_id, revision), FOREIGN KEY (workspace_id,
+    question_id) REFERENCES questions(workspace_id, id)
 );
 
 CREATE TABLE questions (
- number INTEGER PRIMARY KEY AUTOINCREMENT, project_id TEXT NOT NULL REFERENCES work_scopes(id),
-    id TEXT NOT NULL, task_id TEXT, status TEXT NOT NULL, data TEXT NOT NULL, UNIQUE(project_id,
-    id), FOREIGN KEY (project_id, task_id) REFERENCES tasks(project_id, id)
+ number INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+    id TEXT NOT NULL, task_id TEXT, status TEXT NOT NULL, data TEXT NOT NULL, UNIQUE(workspace_id,
+    id), FOREIGN KEY (workspace_id, task_id) REFERENCES tasks(workspace_id, id)
 );
 
 CREATE TABLE result_versions (
- number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, project_id TEXT
-    NOT NULL REFERENCES work_scopes(id), task_id TEXT NOT NULL, run_id TEXT NOT NULL
+ number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, workspace_id TEXT
+    NOT NULL REFERENCES workspaces(id), task_id TEXT NOT NULL, run_id TEXT NOT NULL
     REFERENCES runs(id), version INTEGER NOT NULL, status TEXT NOT NULL, data TEXT
-    NOT NULL, UNIQUE(project_id, task_id, version), FOREIGN KEY(project_id, task_id)
-    REFERENCES tasks(project_id, id)
+    NOT NULL, UNIQUE(workspace_id, task_id, version), FOREIGN KEY(workspace_id, task_id)
+    REFERENCES tasks(workspace_id, id)
 );
 
 CREATE TABLE review_attempts (number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT
@@ -190,9 +151,7 @@ CREATE TABLE review_attempts (number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT 
     NULL);
 
 CREATE TABLE reviewer_settings (workspace_id TEXT NOT NULL REFERENCES workspaces(id),
-    purpose TEXT NOT NULL CHECK(purpose IN ('task', 'milestone')), project_id TEXT
-    NOT NULL, entity_id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(workspace_id,
-    purpose, project_id, entity_id));
+ entity_id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(workspace_id,entity_id));
 
 CREATE TABLE run_activity (
  run_id TEXT PRIMARY KEY REFERENCES runs(id), revision INTEGER NOT NULL, data TEXT
@@ -200,10 +159,11 @@ CREATE TABLE run_activity (
 );
 
 CREATE TABLE runs (
- number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, project_id TEXT
-    NOT NULL REFERENCES work_scopes(id), task_id TEXT NOT NULL, status TEXT NOT NULL,
-    data TEXT NOT NULL, assignment TEXT NOT NULL, FOREIGN KEY(project_id, task_id)
-    REFERENCES tasks(project_id, id)
+ number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
+ workspace_id TEXT NOT NULL REFERENCES workspaces(id), task_id TEXT NOT NULL,
+ subtask_id TEXT, status TEXT NOT NULL, data TEXT NOT NULL, assignment TEXT NOT NULL,
+ FOREIGN KEY(workspace_id,task_id) REFERENCES tasks(workspace_id,id),
+ FOREIGN KEY(workspace_id,task_id,subtask_id) REFERENCES subtasks(workspace_id,task_id,id)
 );
 
 CREATE VIRTUAL TABLE search_docs USING fts5(project_id UNINDEXED, entity UNINDEXED,
@@ -214,41 +174,68 @@ CREATE TABLE storage_metadata (id INTEGER PRIMARY KEY CHECK (id = 1), workspace_
     TEXT NOT NULL, revision INTEGER NOT NULL CHECK (revision >= 0));
 
 CREATE TABLE task_replies (
- project_id TEXT NOT NULL, task_id TEXT NOT NULL, id TEXT PRIMARY KEY, created_at
-    TEXT NOT NULL, data TEXT NOT NULL, FOREIGN KEY(project_id, task_id) REFERENCES
-    tasks(project_id, id)
+ workspace_id TEXT NOT NULL, task_id TEXT NOT NULL, id TEXT PRIMARY KEY, created_at
+    TEXT NOT NULL, data TEXT NOT NULL, FOREIGN KEY(workspace_id, task_id) REFERENCES
+    tasks(workspace_id, id)
 );
 
 CREATE TABLE task_reviews (number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL
-    UNIQUE, project_id TEXT NOT NULL REFERENCES work_scopes(id), task_id TEXT NOT
+    UNIQUE, workspace_id TEXT NOT NULL REFERENCES workspaces(id), task_id TEXT NOT
     NULL, result_id TEXT NOT NULL REFERENCES result_versions(id), binding TEXT NOT
     NULL, status TEXT NOT NULL, data TEXT NOT NULL, UNIQUE(result_id, binding), FOREIGN
-    KEY(project_id, task_id) REFERENCES tasks(project_id, id));
+    KEY(workspace_id, task_id) REFERENCES tasks(workspace_id, id));
 
 CREATE TABLE task_revisions (
- project_id TEXT NOT NULL, task_id TEXT NOT NULL, revision INTEGER NOT NULL, data
-    TEXT NOT NULL, PRIMARY KEY (project_id, task_id, revision), FOREIGN KEY (project_id,
-    task_id) REFERENCES tasks(project_id, id)
+ workspace_id TEXT NOT NULL, task_id TEXT NOT NULL, revision INTEGER NOT NULL, data
+    TEXT NOT NULL, PRIMARY KEY (workspace_id, task_id, revision), FOREIGN KEY (workspace_id,
+    task_id) REFERENCES tasks(workspace_id, id)
 );
 
 CREATE TABLE tasks (
- project_id TEXT NOT NULL REFERENCES work_scopes(id), id TEXT NOT NULL, position INTEGER
-    NOT NULL, data TEXT NOT NULL, number INTEGER NOT NULL, key TEXT NOT NULL, PRIMARY
-    KEY (project_id, id), UNIQUE(project_id, number)
+ workspace_id TEXT NOT NULL REFERENCES workspaces(id), id TEXT NOT NULL,
+ position INTEGER NOT NULL, data TEXT NOT NULL, number INTEGER NOT NULL, key TEXT NOT NULL,
+ project_id TEXT REFERENCES projects(id), scheduling_problem TEXT, PRIMARY KEY(workspace_id,id),
+ UNIQUE(workspace_id,number), UNIQUE(workspace_id,key),
+ FOREIGN KEY(workspace_id,project_id) REFERENCES workspace_projects(workspace_id,project_id)
+);
+CREATE TABLE task_dependencies (
+ workspace_id TEXT NOT NULL, task_id TEXT NOT NULL, prerequisite_id TEXT NOT NULL,
+ PRIMARY KEY(workspace_id,task_id,prerequisite_id), CHECK(task_id != prerequisite_id),
+ FOREIGN KEY(workspace_id,task_id) REFERENCES tasks(workspace_id,id),
+ FOREIGN KEY(workspace_id,prerequisite_id) REFERENCES tasks(workspace_id,id)
+);
+CREATE TABLE subtasks (
+ workspace_id TEXT NOT NULL, task_id TEXT NOT NULL, id TEXT NOT NULL,
+ number INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY(workspace_id,task_id,id),
+ UNIQUE(workspace_id,task_id,number),
+ FOREIGN KEY(workspace_id,task_id) REFERENCES tasks(workspace_id,id)
+);
+CREATE TABLE task_assemblies (
+ id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, task_id TEXT NOT NULL,
+ signature TEXT NOT NULL, data TEXT NOT NULL, UNIQUE(workspace_id,task_id,signature),
+ FOREIGN KEY(workspace_id,task_id) REFERENCES tasks(workspace_id,id)
+);
+CREATE TABLE subtask_revisions (
+ workspace_id TEXT NOT NULL, task_id TEXT NOT NULL, subtask_id TEXT NOT NULL,
+ revision INTEGER NOT NULL, data TEXT NOT NULL,
+ PRIMARY KEY(workspace_id,task_id,subtask_id,revision),
+ FOREIGN KEY(workspace_id,task_id,subtask_id) REFERENCES subtasks(workspace_id,task_id,id)
+);
+CREATE TABLE subtask_dependencies (
+ workspace_id TEXT NOT NULL, task_id TEXT NOT NULL, subtask_id TEXT NOT NULL,
+ prerequisite_id TEXT NOT NULL, PRIMARY KEY(workspace_id,task_id,subtask_id,prerequisite_id),
+ CHECK(subtask_id != prerequisite_id),
+ FOREIGN KEY(workspace_id,task_id,subtask_id) REFERENCES subtasks(workspace_id,task_id,id),
+ FOREIGN KEY(workspace_id,task_id,prerequisite_id) REFERENCES subtasks(workspace_id,task_id,id)
 );
 
 CREATE TABLE update_state (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
 
-CREATE TABLE work_scopes (id TEXT PRIMARY KEY, project_id TEXT UNIQUE REFERENCES projects(id),
-    workspace_id TEXT REFERENCES workspaces(id), CHECK(project_id IS NOT NULL OR workspace_id
-    IS NOT NULL));
 
-CREATE TABLE worker_check_grants (project_id TEXT PRIMARY KEY REFERENCES work_scopes(id),
+CREATE TABLE worker_check_grants (project_id TEXT PRIMARY KEY REFERENCES projects(id),
     data TEXT NOT NULL);
 
-CREATE TABLE worker_settings (
- project_id TEXT PRIMARY KEY REFERENCES work_scopes(id), data TEXT NOT NULL
-);
+
 
 CREATE TABLE workspace_coordinator_settings (workspace_id TEXT PRIMARY KEY REFERENCES
     workspaces(id), revision INTEGER NOT NULL, selection TEXT);
@@ -263,10 +250,6 @@ CREATE TABLE workspace_documents (workspace_id TEXT NOT NULL REFERENCES workspac
     id TEXT NOT NULL, revision INTEGER NOT NULL, deleted_at TEXT, deleted_by TEXT,
     PRIMARY KEY(workspace_id, id));
 
-CREATE TABLE workspace_integration_policies (
- workspace_id TEXT NOT NULL REFERENCES workspaces(id), revision INTEGER NOT NULL,
-    data TEXT NOT NULL, PRIMARY KEY(workspace_id, revision)
- );
 
 CREATE TABLE workspace_labels (workspace_id TEXT NOT NULL REFERENCES workspaces(id),
     id TEXT NOT NULL, name TEXT NOT NULL, color TEXT NOT NULL, guidance TEXT NOT NULL,
@@ -274,7 +257,7 @@ CREATE TABLE workspace_labels (workspace_id TEXT NOT NULL REFERENCES workspaces(
     updated_by TEXT NOT NULL, deleted_at TEXT, PRIMARY KEY(workspace_id, id));
 
 CREATE TABLE workspace_projects (project_id TEXT PRIMARY KEY REFERENCES projects(id),
-    workspace_id TEXT NOT NULL REFERENCES workspaces(id));
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id), UNIQUE(workspace_id,project_id));
 
 CREATE TABLE workspace_worker_settings (workspace_id TEXT PRIMARY KEY REFERENCES workspaces(id),
     data TEXT NOT NULL);
@@ -283,15 +266,15 @@ CREATE TABLE workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TE
     NOT NULL, revision INTEGER NOT NULL CHECK(revision >= 1), created_at TEXT NOT
     NULL, updated_at TEXT NOT NULL, updated_by TEXT NOT NULL);
 
-CREATE INDEX activity_scope ON activity(project_id, task_id, sequence);
+CREATE INDEX activity_scope ON activity(workspace_id, task_id, sequence);
 
 CREATE INDEX announcement_pending ON announcement_events(state, created_at);
 
-CREATE INDEX attachment_project ON attachments(project_id, task_id);
+CREATE INDEX attachment_project ON attachments(workspace_id, task_id);
 
 CREATE INDEX attachment_workspace ON attachments(workspace_id);
 
-CREATE INDEX attention_sources_project ON attention_sources(project_id);
+CREATE INDEX attention_sources_project ON attention_sources(workspace_id);
 
 CREATE UNIQUE INDEX coordinator_active ON coordinator_turns(workspace_id) WHERE status
     IN ('starting', 'running', 'stopping', 'uncertain');
@@ -304,22 +287,15 @@ CREATE INDEX coordinator_workspace_messages ON coordinator_turns(workspace_id, n
 
 CREATE INDEX coordinator_workspaces ON coordinator_conversations(workspace_id, number);
 
-CREATE INDEX inspections_promotion ON inspections(promotion_id, number);
 
 CREATE INDEX inspections_source ON inspections(project_id, result_id, number);
 
 CREATE INDEX integrations_project ON integrations(project_id, number);
 
-CREATE INDEX milestone_promotion_work ON milestone_promotions(project_id, status);
 
-CREATE INDEX milestone_review_rounds ON milestone_review_attempts(review_id, number);
 
-CREATE INDEX milestone_review_work ON milestone_reviews(status, number);
 
-CREATE INDEX milestone_verification_active ON milestone_verifications(status);
 
-CREATE INDEX milestone_verification_history ON milestone_verifications (workspace_id,
-    milestone_id, number DESC);
 
 CREATE INDEX output_run ON output_files(run_id, number);
 
@@ -327,74 +303,46 @@ CREATE INDEX output_workspace ON output_files(workspace_id, number);
 
 CREATE INDEX permissions_binding ON agent_permissions(binding, status);
 
-CREATE INDEX permissions_project ON agent_permissions(project_id, task_id, number);
+CREATE INDEX permissions_project ON agent_permissions(workspace_id, task_id, number);
 
 CREATE INDEX permissions_workspace ON agent_permissions(workspace_id, number);
 
-CREATE INDEX question_scope ON questions(project_id, task_id, status);
+CREATE INDEX question_scope ON questions(workspace_id, task_id, status);
 
-CREATE INDEX reply_scope ON task_replies(project_id, task_id, created_at);
+CREATE INDEX reply_scope ON task_replies(workspace_id, task_id, created_at);
 
-CREATE INDEX result_work ON result_versions(project_id, status, number);
+CREATE INDEX result_work ON result_versions(workspace_id, status, number);
 
 CREATE INDEX review_attempt_owner ON review_attempts(review_id, number);
 
-CREATE UNIQUE INDEX run_owner ON runs(project_id, task_id)
+CREATE UNIQUE INDEX run_owner ON runs(workspace_id, task_id, coalesce(subtask_id,''))
 WHERE status IN ('preparing', 'running', 'stopping', 'uncertain');
 
-CREATE INDEX runs_project ON runs(project_id, task_id, number);
+CREATE INDEX runs_project ON runs(workspace_id, task_id, number);
 
-CREATE INDEX task_reviews_task ON task_reviews(project_id, task_id, number);
+CREATE INDEX task_reviews_task ON task_reviews(workspace_id, task_id, number);
 
-CREATE UNIQUE INDEX task_scope_key ON tasks(project_id, key);
+CREATE UNIQUE INDEX task_scope_key ON tasks(workspace_id, key);
 
 CREATE UNIQUE INDEX workspace_label_names ON workspace_labels(workspace_id, name COLLATE
     NOCASE) WHERE deleted_at IS NULL;
 
 CREATE INDEX workspace_members ON workspace_projects(workspace_id, project_id);
 
-CREATE UNIQUE INDEX workspace_work_scope ON work_scopes(workspace_id) WHERE project_id
-    IS NULL;
 
-CREATE VIEW work_runs AS SELECT * FROM runs WHERE json_extract(data, '$.purpose')='work';
 
-CREATE VIEW workspace_scopes AS SELECT id AS project_id, workspace_id FROM work_scopes
-    WHERE workspace_id IS NOT NULL;
 
-CREATE TRIGGER milestone_revisions_insert AFTER INSERT ON milestones BEGIN INSERT
-    INTO milestone_revisions VALUES (new.workspace_id, new.id, json_extract(new.data,
-    '$.revision'), new.data); END;
 
-CREATE TRIGGER milestone_revisions_update AFTER UPDATE ON milestones WHEN json_extract(new.data,
-    '$.revision')!=json_extract(old.data, '$.revision') BEGIN INSERT INTO milestone_revisions
-    VALUES (new.workspace_id, new.id, json_extract(new.data, '$.revision'), new.data);
-    END;
 
-CREATE TRIGGER project_scope_membership AFTER INSERT ON workspace_projects BEGIN UPDATE
-    work_scopes SET workspace_id=NEW.workspace_id WHERE project_id=NEW.project_id;
-    END;
 
-CREATE TRIGGER project_work_scope AFTER INSERT ON projects BEGIN INSERT INTO work_scopes(id,
-    project_id) VALUES (NEW.id, NEW.id); END;
+
+
 
 CREATE TRIGGER search_activity_insert AFTER INSERT ON activity BEGIN INSERT INTO search_docs
-    VALUES (new.project_id, 'activity', new.id, new.sequence, new.kind, new.task_id,
-    new.created_at, new.kind, new.body, (SELECT workspace_id FROM workspace_projects
-    WHERE project_id=new.project_id)); END;
+    VALUES (NULL, 'activity', new.id, new.sequence, new.kind, new.task_id,
+    new.created_at, new.kind, new.body, new.workspace_id); END;
 
-CREATE TRIGGER search_milestones_insert AFTER INSERT ON milestones BEGIN INSERT INTO
-    search_docs VALUES (NULL, 'milestone', new.id, json_extract(new.data, '$.revision'),
-    'milestone', NULL, json_extract(new.data, '$.updated_at'), json_extract(new.data,
-    '$.title'), json_extract(new.data, '$.body')||char(10)||coalesce(json_extract(new.data,
-    '$.acceptance_criteria'), ''), new.workspace_id); END;
 
-CREATE TRIGGER search_milestones_update AFTER UPDATE ON milestones BEGIN DELETE FROM
-    search_docs WHERE workspace_id=new.workspace_id AND entity='milestone'
-    AND identity=new.id; INSERT
-    INTO search_docs VALUES (NULL, 'milestone', new.id, json_extract(new.data, '$.revision'),
-    'milestone', NULL, json_extract(new.data, '$.updated_at'), json_extract(new.data,
-    '$.title'), json_extract(new.data, '$.body')||char(10)||coalesce(json_extract(new.data,
-    '$.acceptance_criteria'), ''), new.workspace_id); END;
 
 CREATE TRIGGER search_project_membership AFTER INSERT ON workspace_projects BEGIN
     UPDATE search_docs SET workspace_id=new.workspace_id WHERE project_id=new.project_id;
@@ -411,47 +359,43 @@ CREATE TRIGGER search_projects_update AFTER UPDATE ON projects BEGIN DELETE FROM
     (SELECT workspace_id FROM workspace_projects WHERE project_id=new.id)); END;
 
 CREATE TRIGGER search_question_revisions_insert AFTER INSERT ON question_revisions
-    BEGIN INSERT INTO search_docs VALUES (new.project_id, 'question', new.question_id,
+    BEGIN INSERT INTO search_docs VALUES (NULL, 'question', new.question_id,
     new.revision, 'question', json_extract(new.data, '$.task_id'), json_extract(new.data,
     '$.updated_at'), json_extract(new.data, '$.question'), coalesce(json_extract(new.data,
     '$.context'), '')||char(10)||coalesce(json_extract(new.data, '$.recommendation'),
-    '')||char(10)||coalesce(json_extract(new.data, '$.answer'), ''), (SELECT workspace_id
-    FROM workspace_projects WHERE project_id=new.project_id)); END;
+    '')||char(10)||coalesce(json_extract(new.data, '$.answer'), ''), new.workspace_id); END;
 
 CREATE TRIGGER search_result_versions_insert AFTER INSERT ON result_versions BEGIN
-    INSERT INTO search_docs VALUES (new.project_id, 'result', new.id, json_extract(new.data,
+    INSERT INTO search_docs VALUES (NULL, 'result', new.id, json_extract(new.data,
     '$.revision'), 'result', new.task_id, json_extract(new.data, '$.created_at'),
     json_extract(new.data, '$.report.summary'), coalesce(json_extract(new.data, '$.report.checks'),
     '')||char(10)||coalesce(json_extract(new.data, '$.report.limitations'), '')||char(10)||
     coalesce(json_extract(new.data,
     '$.feedback'), '')||char(10)||coalesce(json_extract(new.data, '$.problem'), ''),
-    (SELECT workspace_id FROM workspace_projects WHERE project_id=new.project_id));
+    new.workspace_id);
     END;
 
 CREATE TRIGGER search_result_versions_update AFTER UPDATE ON result_versions BEGIN
-    DELETE FROM search_docs WHERE project_id=new.project_id AND entity='result' AND
-    identity=new.id;INSERT INTO search_docs VALUES (new.project_id, 'result', new.id,
+    DELETE FROM search_docs WHERE workspace_id=new.workspace_id AND entity='result' AND
+    identity=new.id;INSERT INTO search_docs VALUES (NULL, 'result', new.id,
     json_extract(new.data, '$.revision'), 'result', new.task_id, json_extract(new.data,
     '$.created_at'), json_extract(new.data, '$.report.summary'), coalesce(json_extract(new.data,
     '$.report.checks'), '')||char(10)||coalesce(json_extract(new.data, '$.report.limitations'),
     '')||char(10)||coalesce(json_extract(new.data, '$.feedback'), '')||char(10)||
     coalesce(json_extract(new.data, '$.problem'), ''),
-    (SELECT workspace_id FROM workspace_projects WHERE project_id=new.project_id));
+    new.workspace_id);
     END;
 
 CREATE TRIGGER search_task_revisions_insert AFTER INSERT ON task_revisions BEGIN INSERT
-    INTO search_docs VALUES (new.project_id, 'task', new.task_id, new.revision, 'task',
+    INTO search_docs VALUES (NULL, 'task', new.task_id, new.revision, 'task',
     new.task_id, json_extract(new.data, '$.updated_at'), json_extract(new.data, '$.title'),
-    json_extract(new.data, '$.body'), (SELECT workspace_id FROM workspace_projects
-    WHERE project_id=new.project_id)); END;
+    json_extract(new.data, '$.body'), new.workspace_id); END;
 
-CREATE TRIGGER workspace_work_scope AFTER INSERT ON workspaces BEGIN INSERT INTO work_scopes
-    VALUES ('workspace_' || NEW.id, NULL, NEW.id); END;
 
 INSERT INTO storage_metadata VALUES (1, lower(hex(randomblob(16))), 0);
 
 INSERT INTO harness_settings VALUES ('codex', 1, NULL, NULL), ('claude-code', 1, NULL,
     NULL), ('pi', 1, NULL, NULL);
 
-PRAGMA user_version = 83;
+PRAGMA user_version = 84;
 """

@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from flowfield.execution_models import CheckResult, Record
 
@@ -28,7 +28,6 @@ class CheckoutBinding(Record):
 
 
 class IntegrationSettings(Record):
-    model_config = ConfigDict(extra="ignore")
     project_id: str
     revision: int = 1
     runtime: Literal["local"] = "local"
@@ -62,6 +61,8 @@ class IntegrationApply(Record):
 
 
 class IntegrationSummary(Record):
+    workspace_id: str
+    task_id: str
     id: str
     project_id: str
     run_id: str

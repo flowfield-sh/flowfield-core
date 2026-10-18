@@ -1,22 +1,14 @@
 """Explicit workspace entry and shared settings; repository adoption creates no defaults."""
 
 from collections.abc import Callable
-from pathlib import Path
-from typing import Any, Literal
 
 from fastapi import APIRouter, Query
 
-from flowfield.adapters.git_review import changed_files, file_patch
 from flowfield.agent_models import AgentSettingsEdit, AgentSettingsView
 from flowfield.application import (
     Edit,
-    Milestone,
-    MilestoneCreate,
-    MilestoneEdit,
     Project,
     ProjectSetup,
-    Task,
-    TaskCreate,
 )
 from flowfield.attention import (
     AttentionColumn,
@@ -27,14 +19,6 @@ from flowfield.attention import (
     workspace_attention_counts,
 )
 from flowfield.browser import BrowserReads, BrowserWorkspaceBoard
-from flowfield.delivery_models import (
-    DeliveryConfigure,
-    MilestoneDelivery,
-    TaskIntegrationPolicyEdit,
-    TaskIntegrationPolicyView,
-    WorkspaceIntegrationPolicy,
-    WorkspaceIntegrationPolicyEdit,
-)
 from flowfield.documents import (
     Document,
     DocumentCreate,
@@ -43,7 +27,6 @@ from flowfield.documents import (
     DocumentRestore,
     Documents,
 )
-from flowfield.errors import ApplicationError
 from flowfield.execution_models import (
     ModelOption,
     QueueEdit,
@@ -52,24 +35,9 @@ from flowfield.execution_models import (
     WorkspaceWorkerSettings,
 )
 from flowfield.harness_models import HarnessKind
-from flowfield.inspection import Inspections
-from flowfield.inspection_models import Inspection, MilestoneInspectionPrepare
 from flowfield.labels import LabelCreate, LabelEdit, Labels, WorkspaceLabel
-from flowfield.milestone_delivery import MilestoneDeliveries
-from flowfield.milestone_review_status import MilestoneReviewStatus
-from flowfield.milestone_review_status import status as review_status
-from flowfield.milestone_verification import MilestoneVerifications
-from flowfield.milestones import Milestones
-from flowfield.permission_models import PermissionAnswer, PermissionPage, PermissionRecord
-from flowfield.review_models import ChangedFiles, FilePatch
+from flowfield.subtasks import Subtask, SubtaskCreate, SubtaskEdit, Subtasks
 from flowfield.supervisor import Supervisor
-from flowfield.verification_models import (
-    MilestoneTestingPage,
-    MilestoneVerification,
-    VerificationPrepare,
-    VerificationReview,
-)
-from flowfield.verification_plans import VerificationPlan, VerificationPlanEdit, VerificationPlans
 from flowfield.workspaces import (
     ProjectAdoption,
     WorkspaceCreate,
@@ -108,29 +76,27 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     @router.get("/{workspace_id}/view/attention")
     def attention(
         workspace_id: str,
-        column: AttentionColumn = "action",
         project_id: str | None = None,
+        column: AttentionColumn = "action",
         include_answered: bool = False,
         offset: int = Query(0, ge=0),
         limit: int = Query(20, ge=1, le=100),
     ) -> AttentionPage:
         return attention_page(
             supervisor().workspace,
-            project_id,
+            workspace_id,
             column,
             offset,
             limit,
-            workspace_id=workspace_id,
             include_answered=include_answered,
+            project_id=project_id,
         )
 
     @router.get("/{workspace_id}/requests/{kind}/{identity}")
-    def request_detail(
-        workspace_id: str, kind: RequestKind, identity: str, project_id: str | None = None
-    ) -> AttentionItem:
+    def request_detail(workspace_id: str, kind: RequestKind, identity: str) -> AttentionItem:
         from flowfield.requests import get_request
 
-        return get_request(supervisor().workspace, workspace_id, kind, identity, project_id)
+        return get_request(supervisor().workspace, workspace_id, kind, identity)
 
     @router.get("/{workspace_id}")
     def get(workspace_id: str) -> WorkspaceRecord:
@@ -144,12 +110,23 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     def projects(workspace_id: str) -> list[Project]:
         return spaces().projects(workspace_id)
 
-    @router.post("/{workspace_id}/tasks", status_code=201)
-    def create_workspace_task(workspace_id: str, request: TaskCreate) -> Task:
-        from flowfield.work_scopes import workspace_scope
+    @router.get("/{workspace_id}/tasks/{task_id}/subtasks")
+    def subtasks(workspace_id: str, task_id: str) -> list[Subtask]:
+        return Subtasks(supervisor().workspace).all(workspace_id, task_id)
 
-        spaces().get(workspace_id)
-        return supervisor().workspace.create_task(workspace_scope(workspace_id), request)
+    @router.post("/{workspace_id}/tasks/{task_id}/subtasks", status_code=201)
+    def create_subtask(workspace_id: str, task_id: str, request: SubtaskCreate) -> Subtask:
+        return Subtasks(supervisor().workspace).create(workspace_id, task_id, request)
+
+    @router.get("/{workspace_id}/tasks/{task_id}/subtasks/{identity}")
+    def subtask(workspace_id: str, task_id: str, identity: str) -> Subtask:
+        return Subtasks(supervisor().workspace).get(workspace_id, task_id, identity)
+
+    @router.put("/{workspace_id}/tasks/{task_id}/subtasks/{identity}")
+    def edit_subtask(
+        workspace_id: str, task_id: str, identity: str, request: SubtaskEdit
+    ) -> Subtask:
+        return Subtasks(supervisor().workspace).edit(workspace_id, task_id, identity, request)
 
     @router.post("/{workspace_id}/projects", status_code=201)
     def adopt(workspace_id: str, request: ProjectAdoption) -> Project:
@@ -188,208 +165,6 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     @router.post("/{workspace_id}/queue")
     def queue(workspace_id: str, request: QueueEdit) -> WorkspaceWorkerSettings:
         return spaces().queue(workspace_id, request)
-
-    @router.get("/{workspace_id}/permissions")
-    def permissions(
-        workspace_id: str,
-        before: int | None = Query(None, ge=1),
-        limit: int = Query(50, ge=1, le=100),
-    ) -> PermissionPage:
-        return supervisor().permissions.page(
-            workspace_id, before=before, limit=limit, workspace_scope=True
-        )
-
-    @router.get("/{workspace_id}/permissions/{permission_id}")
-    def permission(workspace_id: str, permission_id: str) -> PermissionRecord:
-        service = supervisor()
-        with service.workspace.connection() as db:
-            return service.permissions._get(db, workspace_id, permission_id, workspace_scope=True)
-
-    @router.post("/{workspace_id}/permissions/{permission_id}/answer")
-    async def answer(
-        workspace_id: str, permission_id: str, request: PermissionAnswer
-    ) -> PermissionRecord:
-        return supervisor().permissions.answer(
-            workspace_id, permission_id, request, workspace_scope=True
-        )
-
-    @router.get("/{workspace_id}/milestones")
-    def milestones(workspace_id: str) -> list[Milestone]:
-        return Milestones(supervisor().workspace).all(workspace_id)
-
-    @router.post("/{workspace_id}/milestones", status_code=201)
-    def create_milestone(workspace_id: str, request: MilestoneCreate) -> Milestone:
-        return Milestones(supervisor().workspace).create(workspace_id, request)
-
-    @router.get("/{workspace_id}/milestones/{identity}")
-    def milestone(
-        workspace_id: str, identity: str, revision: int | None = Query(None, ge=1)
-    ) -> Milestone:
-        return Milestones(supervisor().workspace).get(workspace_id, identity, revision)
-
-    @router.get("/{workspace_id}/milestones/{identity}/history")
-    def milestone_history(
-        workspace_id: str, identity: str, before: int | None = None, limit: int = 20
-    ) -> dict[str, Any]:
-        return Milestones(supervisor().workspace).history(
-            workspace_id, identity, before=before, limit=limit
-        )
-
-    @router.get("/{workspace_id}/milestones/{identity}/activity")
-    def milestone_activity(
-        workspace_id: str,
-        identity: str,
-        before: str | None = Query(None, max_length=256),
-        limit: int = 20,
-    ) -> dict[str, Any]:
-        return Milestones(supervisor().workspace).activity(
-            workspace_id, identity, before=before, limit=limit
-        )
-
-    @router.get("/{workspace_id}/milestones/{identity}/delivery")
-    def milestone_delivery(workspace_id: str, identity: str) -> MilestoneDelivery | None:
-        return MilestoneDeliveries(supervisor().workspace).get(workspace_id, identity)
-
-    @router.get("/{workspace_id}/milestones/{identity}/verification-plan")
-    def verification_plan(workspace_id: str, identity: str) -> VerificationPlan | None:
-        return VerificationPlans(supervisor().workspace).get(workspace_id, identity)
-
-    @router.get("/{workspace_id}/milestones/{identity}/automation")
-    def milestone_automation(workspace_id: str, identity: str) -> MilestoneReviewStatus:
-        return review_status(supervisor().workspace, workspace_id, identity)
-
-    @router.put("/{workspace_id}/milestones/{identity}/verification-plan")
-    def save_verification_plan(
-        workspace_id: str, identity: str, request: VerificationPlanEdit
-    ) -> VerificationPlan:
-        return VerificationPlans(supervisor().workspace).save(workspace_id, identity, request)
-
-    @router.put("/{workspace_id}/milestones/{identity}/delivery/integration-policy")
-    def milestone_integration_policy(
-        workspace_id: str, identity: str, request: TaskIntegrationPolicyEdit
-    ) -> TaskIntegrationPolicyView:
-        owner = MilestoneDeliveries(supervisor().workspace)
-        owner.integration_policy(workspace_id, identity, request)
-        return owner.policy_view(workspace_id, identity)
-
-    @router.get("/{workspace_id}/milestones/{identity}/delivery/integration-policy")
-    def read_milestone_integration_policy(
-        workspace_id: str, identity: str
-    ) -> TaskIntegrationPolicyView:
-        return MilestoneDeliveries(supervisor().workspace).policy_view(workspace_id, identity)
-
-    @router.get("/{workspace_id}/integration-policy")
-    def workspace_integration_policy(workspace_id: str) -> WorkspaceIntegrationPolicy:
-        return MilestoneDeliveries(supervisor().workspace).workspace_policy(workspace_id)
-
-    @router.put("/{workspace_id}/integration-policy")
-    def configure_workspace_integration_policy(
-        workspace_id: str, request: WorkspaceIntegrationPolicyEdit
-    ) -> WorkspaceIntegrationPolicy:
-        return MilestoneDeliveries(supervisor().workspace).configure_workspace_policy(
-            workspace_id, request
-        )
-
-    @router.put("/{workspace_id}/milestones/{identity}/delivery")
-    def configure_milestone_delivery(
-        workspace_id: str, identity: str, request: DeliveryConfigure
-    ) -> MilestoneDelivery:
-        return MilestoneDeliveries(supervisor().workspace).configure(
-            workspace_id, identity, request
-        )
-
-    @router.get("/{workspace_id}/milestones/{identity}/verifications")
-    def verification_history(
-        workspace_id: str, identity: str, before: int | None = None, limit: int = 20
-    ) -> dict[str, Any]:
-        return MilestoneVerifications(supervisor().workspace).history(
-            workspace_id, identity, before=before, limit=limit
-        )
-
-    @router.post("/{workspace_id}/milestones/{identity}/verifications")
-    def prepare_verification(
-        workspace_id: str, identity: str, request: VerificationPrepare
-    ) -> MilestoneVerification:
-        return MilestoneVerifications(supervisor().workspace).prepare(
-            workspace_id, identity, request
-        )
-
-    @router.get("/{workspace_id}/verifications/{identity}")
-    def verification(workspace_id: str, identity: str) -> MilestoneVerification:
-        return MilestoneVerifications(supervisor().workspace).get(workspace_id, identity)
-
-    @router.get("/{workspace_id}/verifications/{identity}/testing")
-    def milestone_testing(
-        workspace_id: str, identity: str, offset: int = Query(0, ge=0, le=10000)
-    ) -> MilestoneTestingPage:
-        return MilestoneVerifications(supervisor().workspace).testing(
-            workspace_id, identity, offset
-        )
-
-    @router.post("/{workspace_id}/verifications/{identity}/review")
-    def review_verification(
-        workspace_id: str, identity: str, request: VerificationReview
-    ) -> MilestoneVerification:
-        return MilestoneVerifications(supervisor().workspace).review(
-            workspace_id, identity, request
-        )
-
-    @router.post("/{workspace_id}/verifications/{identity}/inspection")
-    def inspect_milestone(
-        workspace_id: str, identity: str, request: MilestoneInspectionPrepare
-    ) -> Inspection:
-        return Inspections(supervisor().workspace).prepare_milestone(
-            workspace_id, identity, request.expected_revision, request.new_copy
-        )
-
-    def comparison(workspace_id: str, identity: str) -> tuple[Path, str, str]:
-        value = MilestoneVerifications(supervisor().workspace).get(workspace_id, identity)
-        promotion = value.promotion
-        if not promotion or not promotion.candidate_commit:
-            raise ApplicationError("candidate_missing", "No combined milestone candidate.", 409)
-        return (
-            Path(supervisor().workspace.project(value.project_id).path),
-            promotion.target_before,
-            promotion.candidate_commit,
-        )
-
-    @router.get("/{workspace_id}/verifications/{identity}/diff")
-    def milestone_diff(
-        workspace_id: str,
-        identity: str,
-        offset: int = Query(default=0, ge=0),
-        limit: int = Query(default=50, ge=1, le=100),
-    ) -> ChangedFiles:
-        return changed_files(*comparison(workspace_id, identity), offset, limit)
-
-    @router.get("/{workspace_id}/verifications/{identity}/diff/{file_id}")
-    def milestone_patch(workspace_id: str, identity: str, file_id: int) -> FilePatch:
-        return file_patch(*comparison(workspace_id, identity), file_id)
-
-    @router.get("/{workspace_id}/milestones/{identity}/impact")
-    def milestone_impact(
-        workspace_id: str, identity: str, after: str | None = None, limit: int = 20
-    ) -> dict[str, Any]:
-        return Milestones(supervisor().workspace).impact(
-            workspace_id, identity, after=after, limit=limit
-        )
-
-    @router.put("/{workspace_id}/milestones/{identity}")
-    def edit_milestone(workspace_id: str, identity: str, request: MilestoneEdit) -> Milestone:
-        return Milestones(supervisor().workspace).edit(workspace_id, identity, request)
-
-    @router.get("/{workspace_id}/milestones/{identity}/text")
-    def milestone_text(
-        workspace_id: str,
-        identity: str,
-        revision: int | None = None,
-        field: Literal["body", "acceptance_criteria"] = "body",
-        offset: int = 0,
-        limit: int = 4000,
-    ) -> dict[str, Any]:
-        return Milestones(supervisor().workspace).text(
-            workspace_id, identity, revision=revision, field=field, offset=offset, limit=limit
-        )
 
     @router.get("/{workspace_id}/labels")
     def labels(workspace_id: str) -> list[WorkspaceLabel]:

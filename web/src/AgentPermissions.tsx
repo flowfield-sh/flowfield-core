@@ -26,7 +26,7 @@ export function PermissionControl({
   return (
     <DetailSection
       title={record.title}
-      data-announcement-source={`${record.project_id}:permission:${record.id}`}
+      data-announcement-source={`${record.workspace_id}:permission:${record.id}`}
     >
       <p className="detail-metadata">
         {record.role === "worker" ? "Worker" : "Coordinator"} tool permission ·{" "}
@@ -49,7 +49,7 @@ export function PermissionControl({
                   setBusy(true);
                   try {
                     await request(
-                      `${record.workspace_id ? `workspaces/${record.workspace_id}` : `projects/${record.project_id}`}/permissions/${record.id}/answer`,
+                      `workspaces/${record.workspace_id}/permissions/${record.id}/answer`,
                       "POST",
                       {
                         expected_revision: record.revision,
@@ -85,21 +85,19 @@ export function PermissionControl({
 
 export function AgentPermissions({
   workspaceId,
-  projectId,
   taskId,
   role,
   refresh,
   onPendingTurns,
 }: {
-  workspaceId?: string;
-  projectId?: string;
+  workspaceId: string;
   taskId?: string;
   role?: "worker" | "coordinator";
   refresh: unknown;
   onPendingTurns?: (ids: string[]) => void;
 }) {
   const [retry, setRetry] = useState(0);
-  const path = `${workspaceId ? `workspaces/${workspaceId}` : `projects/${projectId}`}/permissions?retry=${retry}${taskId ? `&task_id=${encodeURIComponent(taskId)}` : ""}${role ? `&role=${role}` : ""}`;
+  const path = `workspaces/${workspaceId}/permissions?retry=${retry}${taskId ? `&task_id=${encodeURIComponent(taskId)}` : ""}${role ? `&role=${role}` : ""}`;
   const page = useResource<components["schemas"]["PermissionPage"]>(
     path,
     refresh,
@@ -131,7 +129,6 @@ export function AgentPermissions({
 }
 
 export function PermissionCard({
-  projectId,
   workspaceId,
   id,
   taskKey,
@@ -139,15 +136,14 @@ export function PermissionCard({
   inline = false,
 }: {
   inline?: boolean;
-  projectId?: string;
-  workspaceId?: string;
+  workspaceId: string;
   id: string;
   taskKey: string | null;
   refresh: unknown;
 }) {
   const [retry, setRetry] = useState(0);
   const resource = useResource<Permission>(
-    `${workspaceId ? `workspaces/${workspaceId}` : `projects/${projectId}`}/permissions/${id}?retry=${retry}`,
+    `workspaces/${workspaceId}/permissions/${id}?retry=${retry}`,
     refresh,
   );
   const content = (
@@ -180,8 +176,8 @@ export function PermissionCard({
       label="Tool permission"
       source={
         taskKey &&
-        projectId && (
-          <WorkspaceLink to={taskHref(projectId, { key: taskKey })}>
+        workspaceId && (
+          <WorkspaceLink to={taskHref(workspaceId, { key: taskKey })}>
             {taskKey}
           </WorkspaceLink>
         )

@@ -6,10 +6,7 @@ import { ContentStack } from "./DetailLayout";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { Timestamp } from "./Timestamp";
 import { useResource } from "./useResource";
-import { authorLabel, type Milestone } from "./workspace";
-type HistoryItem =
-  | components["schemas"]["DocumentHeader"]
-  | Pick<Milestone, "revision" | "updated_by" | "updated_at">;
+type HistoryItem = components["schemas"]["DocumentHeader"];
 type HistoryPage = {
   items: HistoryItem[];
   next_cursor: string | number | null;
@@ -26,7 +23,7 @@ export function RevisionHistory({
   href: string;
   revision: number;
   selected: number;
-  kind?: "Document" | "Milestone";
+  kind?: "Document";
 }) {
   const [before, setBefore] = useState<number | null>(null);
   const resource = useResource<HistoryPage>(
@@ -57,15 +54,7 @@ export function RevisionHistory({
                   {item.revision === revision ? " · Current" : ""}
                 </span>
                 <span className="detail-metadata">
-                  {"actor" in item
-                    ? item.actor.label
-                    : authorLabel(item.updated_by)}{" "}
-                  ·{" "}
-                  <Timestamp
-                    date={
-                      "created_at" in item ? item.created_at : item.updated_at
-                    }
-                  />
+                  {item.actor.label} · <Timestamp date={item.created_at} />
                 </span>
               </ContentStack>
             </WorkspaceLink>

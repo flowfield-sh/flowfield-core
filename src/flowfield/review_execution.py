@@ -29,12 +29,13 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
         # Bounded rotating discovery includes only results captured by the new lifecycle.
         with service.workspace.connection() as db:
             rows = db.execute(
-                "SELECT number,project_id,id FROM result_versions v WHERE "
+                "SELECT number,workspace_id,id FROM result_versions v WHERE "
                 "(status='ready' OR (status='blocked' AND "
                 "json_extract(data,'$.problem_code')='partial_outcome') OR (status='stale' "
                 "AND json_extract(data,'$.problem_code')='target_changed')) "
                 "AND json_extract(data,'$.review_requested')=1 "
-                "AND NOT EXISTS (SELECT 1 FROM result_versions n WHERE n.project_id=v.project_id "
+                "AND NOT EXISTS (SELECT 1 FROM result_versions n WHERE "
+                "n.workspace_id=v.workspace_id "
                 "AND n.task_id=v.task_id AND n.version>v.version) "
                 "ORDER BY CASE WHEN number>? THEN 0 ELSE 1 END,number LIMIT 20",
                 (self.cursor,),
@@ -56,16 +57,13 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
                     Results(service.workspace).finish_unreviewed_report, project, identity
                 ):
                     continue
-                if await asyncio.to_thread(self.reviews.refresh_destination, project, identity):
-                    continue
-                prepared = await asyncio.to_thread(self.reviews.prepare, project, identity)
-                await asyncio.to_thread(self.reviews.delegate, project, prepared.id)
+                await asyncio.to_thread(self.reviews.prepare, project, identity)
             except ApplicationError:
                 # Missing configuration is projected from the result; never guess a model.
                 continue
         with service.workspace.connection() as db:
             queued = db.execute(
-                "SELECT number,project_id,id FROM task_reviews WHERE status='queued' "
+                "SELECT number,workspace_id,id FROM task_reviews WHERE status='queued' "
                 "ORDER BY CASE WHEN number>? THEN 0 ELSE 1 END,number LIMIT 20",
                 (self.queue_cursor,),
             ).fetchall()
@@ -80,15 +78,23 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
         service = self.supervisor
         frozen = review.binding.reviewer.agent
         if review.recipient == "implementer":
-            frozen = (
-                Execution(service.workspace)
-                .get(review.project_id, review.binding.run_id)
-                .agent_settings
-            )
+            run_id = review.binding.run_id
+            if review.responding_subtask_id:
+                from flowfield.subtasks import Subtasks
+
+                child = Subtasks(service.workspace).get(
+                    review.workspace_id, review.task_id, review.responding_subtask_id
+                )
+                if not child.contribution_run_id:
+                    raise ApplicationError(
+                        "contribution_changed", "The requested contribution changed.", 409
+                    )
+                run_id = child.contribution_run_id
+            frozen = Execution(service.workspace).get(review.workspace_id, run_id).agent_settings
         if not frozen:
             raise ApplicationError("reviewer_required", "Choose a reviewer before continuing.", 409)
-        sections = service.execution.assignment(review.project_id, review.binding.run_id)
-        exchanges = self.reviews.attempts(review.project_id, review.id)
+        sections = service.execution.assignment(review.workspace_id, review.binding.run_id)
+        exchanges = self.reviews.attempts(review.workspace_id, review.id)
         brief = {
             "purpose": review.recipient,
             "task": sections.get("title"),
@@ -108,7 +114,9 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
             ],
             "older_exchanges_before": exchanges["next_before"],
             "instructions": (
-                "Assess this exact contribution against its frozen agreement and sources. "
+                "Assess this whole task result against its frozen agreement and "
+                "sources. For assembled work, select the responsible subtask_id "
+                "when requesting changes or asking a worker. "
                 "Read relevant context and recent exchange sections with read_context. "
                 "Inspect the candidate diff "
                 "against target_before. Validation records are evidence, "
@@ -157,6 +165,7 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
             frozen,
             ReviewBridge(self.reviews, review, attempt, review.recipient).scope(),
             brief,
+            project_id=service.workspace.task(review.workspace_id, review.task_id).project_id,
             files=[
                 FileInput(id=f.id, kind="output", name=f.name, size=f.size, sha256=f.sha256)
                 for f in files

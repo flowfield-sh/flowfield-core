@@ -16,15 +16,14 @@ from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.execution_models import Record
 from flowfield.integration import Integrations
-from flowfield.milestone_delivery import integration_enabled, workspace_policy
-from flowfield.milestones import Milestones
 from flowfield.results import Results
 from flowfield.review_records import ReviewRecord, ReviewRecords
 from flowfield.reviewer_settings import EffectiveReviewer, Reviewers
-from flowfield.worker_settings import occupancy, read_project, workspace_id
+from flowfield.worker_settings import occupancy, read_workspace
 
 
 class ReviewVerdict(Record):
+    subtask_id: str | None = None
     action: Literal["approve", "request_changes", "ask_worker", "ask_human"]
     summary: str = Field(min_length=1, max_length=2000)
     evidence: str = Field(min_length=1, max_length=8000)
@@ -52,13 +51,8 @@ class ReviewBinding(Record):
     integration_id: str
     integration_revision: int
     settings_revision: int
-    milestone_id: str | None = None
-    milestone_revision: int | None = None
     reviewer: EffectiveReviewer
     assignment_digest: str = ""
-    delivery_id: str | None = None
-    integration_policy_revision: int | None = None
-    workspace_integration_policy_revision: int | None = None
     completion: Literal["code", "report"] = "code"
     output_ids: list[str] = Field(default_factory=list)
     outcome: Literal["complete", "partial"] = "complete"
@@ -70,7 +64,7 @@ class TaskReview(ReviewRecord):
     binding: ReviewBinding
     verdict: ReviewVerdict | None = None
     applied_at: str | None = None
-    integration_applied_at: str | None = None
+    responding_subtask_id: str | None = None
 
 
 class ReviewAttemptInfo(Record):
@@ -105,7 +99,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
         result = results._get(db, project, result_id)
         run = results._current(db, result)
         task = self.store._task(db, project, result.task_id)
-        Execution(self.store)._current_assignment(run, task)
+        Execution(self.store)._current_assignment(db, run, task)
         partial = result.status == "blocked" and result.problem_code == "partial_outcome"
         if not partial and (
             result.status
@@ -119,10 +113,10 @@ class TaskReviews(ReviewRecords[TaskReview]):
             raise ApplicationError(
                 "review_not_ready", "Review requires a complete result with retained evidence.", 409
             )
-        owner = workspace_id(db, project)
+        owner = project
         if not owner:
             raise ApplicationError("review_workspace_required", "Review requires a workspace.", 409)
-        reviewer = Reviewers(self.store).resolve(db, owner, "task", project, task.id).effective
+        reviewer = Reviewers(self.store).resolve(db, owner, task.id).effective
         if not reviewer.enabled:
             raise ApplicationError(
                 "review_disabled", "Automatic review is disabled for this task.", 409
@@ -137,10 +131,9 @@ class TaskReviews(ReviewRecords[TaskReview]):
             from flowfield.outputs import Outputs
 
             outputs = Outputs(self.store)
-            files = Outputs.for_run(db, run.id)
+            files = Outputs.selected(db, project, result.output_ids)
             for file in files:
                 outputs.content(file)
-            milestone = Milestones.read(db, owner, task.milestone_id) if task.milestone_id else None
             return (
                 owner,
                 task.id,
@@ -155,12 +148,11 @@ class TaskReviews(ReviewRecords[TaskReview]):
                     integration_id="",
                     integration_revision=0,
                     settings_revision=0,
-                    milestone_id=milestone.id if milestone else None,
-                    milestone_revision=milestone.revision if milestone else None,
                     reviewer=reviewer,
                     assignment_digest=hashlib.sha256(
                         json.dumps(
-                            Execution(self.store).assignment(project, run.id), sort_keys=True
+                            Execution(self.store)._saved_assignment(db, project, run.id),
+                            sort_keys=True,
                         ).encode()
                     ).hexdigest(),
                     completion="report",
@@ -170,30 +162,21 @@ class TaskReviews(ReviewRecords[TaskReview]):
             )
         assert result.integration_id
         integrations = Integrations(self.store)
-        integration = integrations.get(project, result.integration_id)
-        settings = integrations.for_task(project, task.id)
+        integration = integrations._get(db, project, result.integration_id)
+        assert task.project_id
+        settings = integrations._settings(db, task.project_id)
+        repository = Path(self.store._project(db, task.project_id).path)
         if (
             integration.status not in (("ready", "applying", "stale") if delivering else ("ready",))
             or integration.candidate_commit != result.candidate_commit
             or settings.revision != result.settings_revision
             or settings.target_branch != result.target_branch
-            or integrations.head(project, task.id) != result.target_before
+            or gitops.target(repository, settings.target_branch or "") != result.target_before
         ):
             raise ApplicationError(
                 "review_candidate_changed",
                 "Prepare and validate the current destination before review.",
                 409,
-            )
-        milestone = Milestones.read(db, owner, task.milestone_id) if task.milestone_id else None
-        from flowfield.milestone_delivery import for_milestone
-
-        delivery = for_milestone(db, project, task.milestone_id)
-        prepared = task.publication.milestone if task.publication else None
-        if milestone and (
-            not prepared or prepared.id != milestone.id or prepared.revision != milestone.revision
-        ):
-            raise ApplicationError(
-                "review_milestone_changed", "Reconcile the changed milestone before review.", 409
             )
         assert result.candidate_commit and result.target_before and result.target_branch
         assert result.source_commit
@@ -212,160 +195,37 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 integration_id=integration.id,
                 integration_revision=integration.revision,
                 settings_revision=result.settings_revision,
-                milestone_id=milestone.id if milestone else None,
-                milestone_revision=milestone.revision if milestone else None,
                 reviewer=reviewer,
                 assignment_digest=hashlib.sha256(
                     json.dumps(
-                        Execution(self.store).assignment(project, run.id), sort_keys=True
+                        Execution(self.store)._saved_assignment(db, project, run.id), sort_keys=True
                     ).encode()
                 ).hexdigest(),
-                delivery_id=delivery.id if delivery else None,
-                workspace_integration_policy_revision=workspace_policy(db, owner).revision
-                if delivery and delivery.integration_policy.enabled is None
-                else None,
                 outcome=result.report.outcome,
-                integration_policy_revision=delivery.integration_policy.revision
-                if delivery
-                else None,
+                output_ids=result.output_ids,
             ),
         )
 
-    def delegate(self, project: str, identity: str) -> TaskReview:
-        """Apply one current verdict under separately human-granted branch authority."""
-        from flowfield.milestone_delivery import for_milestone
-        from flowfield.result_models import ResultReview
-
-        with self.store.connection(write=True, project_id=project) as db:
-            review = self._get(db, project, identity)
-            if (
-                review.binding.completion == "report"
-                or review.integration_applied_at
-                or review.status != "decided"
-                or not review.verdict
-                or review.verdict.action != "approve"
-            ):
-                return review
-            if not self._fresh(db, review):
-                return review
-            delivery = for_milestone(db, project, review.binding.milestone_id)
-            if (
-                not delivery
-                or not integration_enabled(db, delivery)
-                or not read_project(db, project).enabled
-            ):
-                return review
-            Results(self.store)._review(
-                db,
-                project,
-                review.result_id,
-                ResultReview(
-                    expected_revision=review.binding.result_revision,
-                    candidate_commit=review.binding.candidate_commit,
-                    action="approve",
-                    author="flowfield",
-                    note=(
-                        f"Reviewed integration delegated to {delivery.branch} "
-                        f"under policy revision {delivery.integration_policy.revision}."
-                    ),
-                ),
-                delegated_review_id=review.id,
-            )
-            review.integration_applied_at = now()
-            self._save(db, review)
-            return review
-
-    def refresh_destination(self, project: str, result_id: str) -> bool:
-        """A sibling delivery requires a newly assembled, validated and reviewed candidate."""
-        from flowfield.execution_models import RunAction
-        from flowfield.milestone_delivery import for_milestone
-
-        results = Results(self.store)
-        with self.store.connection() as db:
-            result = results._get(db, project, result_id)
-            if result.completion == "report":
-                return False
-            task = self.store._task(db, project, result.task_id)
-            delivery = for_milestone(db, project, task.milestone_id)
-            if (
-                not delivery
-                or not integration_enabled(db, delivery)
-                or not read_project(db, project).enabled
-                or result.status not in ("ready", "stale")
-                or (result.status == "stale" and result.problem_code != "target_changed")
-                or result.target_branch != delivery.branch
-                or Integrations(self.store)._settings(db, project).revision
-                != result.settings_revision
-                or gitops.target(Path(self.store._project(db, project).path), delivery.branch)
-                == result.target_before
-                or db.execute(
-                    "SELECT 1 FROM task_reviews WHERE project_id=? AND task_id=? "
-                    "AND status IN ('preparing','running','waiting','uncertain')",
-                    (project, task.id),
-                ).fetchone()
-            ):
-                return False
-        results.reprepare(project, result_id, RunAction(expected_revision=result.revision))
-        return True
-
-    def validate_delivery(self, db: sqlite3.Connection, project: str, result_id: str) -> None:
-        """Recheck authority inside the Git owner's final transaction, before ref update."""
-        from pathlib import Path
-
-        from flowfield.adapters.git_workspace import git
-        from flowfield.milestone_delivery import for_milestone
-
-        result = Results(self.store)._get(db, project, result_id)
-        if not result.delegated_review_id:
+    def validate_decision(self, review: TaskReview, decision: ReviewVerdict) -> None:
+        if decision.action not in ("request_changes", "ask_worker"):
             return
-        review = self._get(db, project, result.delegated_review_id)
-        _, _, binding = self._binding(db, project, result_id, delivering=True)
-        # Approval and checkout-only recovery advance these operation revisions, not evidence.
-        comparable = binding.model_copy(
-            update={
-                "result_revision": review.binding.result_revision,
-                "integration_revision": review.binding.integration_revision,
-            }
-        )
-        delivery = for_milestone(db, project, review.binding.milestone_id)
-        if (
-            comparable != review.binding
-            or not review.integration_applied_at
-            or review.status != "decided"
-            or not review.verdict
-            or review.verdict.action != "approve"
-            or not delivery
-            or not integration_enabled(db, delivery)
-            or delivery.branch != result.target_branch
-        ):
-            raise ApplicationError(
-                "delegation_changed",
-                "Delegated integration authority or review inputs changed. "
-                "Prepare a fresh candidate and decision.",
-                409,
-            )
-        marker = (
-            git(
-                Path(self.store.project(project).path),
-                "rev-parse",
-                "--verify",
-                "--quiet",
-                f"refs/flowfield/milestones/{delivery.id}",
-                allowed_returncodes=(0, 1),
-            )
-            .decode()
-            .strip()
-        )
-        if marker != delivery.base_commit:
-            raise ApplicationError(
-                "delegation_changed",
-                "Milestone branch ownership changed; inspect the repository.",
-                409,
-            )
+        with self.store.connection() as db:
+            run = Execution(self.store)._run(db, review.workspace_id, review.binding.run_id)
+            if run.purpose == "assembly":
+                from flowfield.subtasks import Subtasks
+
+                if not decision.subtask_id:
+                    raise ApplicationError(
+                        "subtask_required",
+                        "Choose the responsible subtask from the contributions section.",
+                    )
+                Subtasks.read(db, review.workspace_id, review.task_id, decision.subtask_id)
+            elif decision.subtask_id:
+                raise ApplicationError("subtask_not_found", "This task ran directly.")
 
     def prepare(self, project: str, result_id: str) -> TaskReview:
         """Explicit service entry; does not scan old results or start a model."""
-        with self.store.connection(write=True, project_id=project) as db:
+        with self.store.connection(write=True, workspace_id=project) as db:
             owner, task, binding = self._binding(db, project, result_id)
             digest = hashlib.sha256(binding.model_dump_json().encode()).hexdigest()
             existing = db.execute(
@@ -374,7 +234,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
             if existing:
                 return TaskReview.model_validate_json(existing[0])
             if db.execute(
-                "SELECT 1 FROM task_reviews WHERE project_id=? AND task_id=? "
+                "SELECT 1 FROM task_reviews WHERE workspace_id=? AND task_id=? "
                 "AND status IN ('preparing','running','uncertain') LIMIT 1",
                 (project, task),
             ).fetchone():
@@ -383,7 +243,6 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 )
             review = TaskReview(
                 id=uuid4().hex,
-                project_id=project,
                 workspace_id=owner,
                 task_id=task,
                 result_id=result_id,
@@ -391,7 +250,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 created_at=now(),
             )
             db.execute(
-                "INSERT INTO task_reviews(id,project_id,task_id,result_id,binding,status,data) "
+                "INSERT INTO task_reviews(id,workspace_id,task_id,result_id,binding,status,data) "
                 "VALUES (?,?,?,?,?,?,?)",
                 (
                     review.id,
@@ -407,7 +266,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
 
     def _fresh(self, db: sqlite3.Connection, review: TaskReview) -> bool:
         try:
-            owner, task, current = self._binding(db, review.project_id, review.result_id)
+            owner, task, current = self._binding(db, review.workspace_id, review.result_id)
             if (
                 current.completion == "report"
                 and review.applied_at
@@ -430,7 +289,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
         return False
 
     def claim(self, project: str, identity: str, expected_revision: int) -> TaskReview:
-        with self.store.connection(write=True, project_id=project) as db:
+        with self.store.connection(write=True, workspace_id=project) as db:
             review = self._get(db, project, identity)
             self.store._current(review.revision, expected_revision)
             if review.status != "queued":
@@ -439,8 +298,8 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 )
             if not self._fresh(db, review):
                 return review
-            settings = read_project(db, project)
-            slots = occupancy(db, project=project)
+            settings = read_workspace(db, project)
+            slots = occupancy(db, workspace=project)
             if not settings.enabled or slots.active + slots.uncertain >= settings.max_parallel:
                 raise ApplicationError(
                     "review_waiting",
@@ -448,7 +307,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
                     409,
                 )
             if db.execute(
-                "SELECT 1 FROM task_reviews WHERE project_id=? AND task_id=? "
+                "SELECT 1 FROM task_reviews WHERE workspace_id=? AND task_id=? "
                 "AND status IN ('preparing','running','uncertain')",
                 (project, review.task_id),
             ).fetchone():
@@ -469,7 +328,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
         cleanup_confirmed: bool,
     ) -> TaskReview:
         """Persist a structured assessment only; downstream application must revalidate it."""
-        with self.store.connection(write=True, project_id=project) as db:
+        with self.store.connection(write=True, workspace_id=project) as db:
             review = self._get(db, project, identity)
             if review.status == "decided" and review.verdict == verdict:
                 return review  # An exact replay cannot create another decision or delivery.
@@ -515,7 +374,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
         with self.store.connection() as db:
             task = self.store._task(db, project, task).id
             row = db.execute(
-                "SELECT data FROM task_reviews WHERE project_id=? AND task_id=? "
+                "SELECT data FROM task_reviews WHERE workspace_id=? AND task_id=? "
                 "ORDER BY number DESC LIMIT 1",
                 (project, task),
             ).fetchone()
@@ -533,7 +392,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
         from flowfield.questions import QuestionCreate, Questions
         from flowfield.result_models import ResultReview
 
-        with self.store.connection(write=True, project_id=project) as db:
+        with self.store.connection(write=True, workspace_id=project) as db:
             review = self._get(db, project, identity)
             if review.attempt_id != attempt or review.status not in ("preparing", "running"):
                 if review.attempt_id == attempt:
@@ -566,6 +425,19 @@ class TaskReviews(ReviewRecords[TaskReview]):
             else:
                 action = decision["action"]
                 # Application and receipt share a transaction. Native agents never deliver Git.
+                self.store._insert_activity(
+                    db,
+                    project,
+                    review.task_id,
+                    attempt,
+                    "note",
+                    decision["summary"]
+                    + "\n\n"
+                    + decision["evidence"]
+                    + ("\n\n" + decision["request"] if decision.get("request") else ""),
+                    "reviewer" if data["role"] == "reviewer" else "worker",
+                    now(),
+                )
                 if action == "ask_human":
                     question = Questions(self.store)._ask(
                         db,
@@ -582,6 +454,9 @@ class TaskReviews(ReviewRecords[TaskReview]):
                     review.question_id, review.status = question.id, "waiting"
                 elif action in ("ask_worker", "answer"):
                     review.recipient = "implementer" if action == "ask_worker" else "reviewer"
+                    review.responding_subtask_id = (
+                        decision.get("subtask_id") if action == "ask_worker" else None
+                    )
                     review.status = "queued"
                 else:
                     review.verdict = ReviewVerdict.model_validate(decision)
@@ -596,6 +471,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
                                 expected_revision=review.binding.result_revision,
                                 candidate_commit=review.binding.candidate_commit,
                                 action="request_changes",
+                                subtask_id=decision.get("subtask_id"),
                                 note=decision["request"],
                                 author="reviewer",
                             ),
@@ -603,20 +479,15 @@ class TaskReviews(ReviewRecords[TaskReview]):
                     elif action == "approve" and review.binding.completion == "report":
                         results = Results(self.store)
                         results._finish_report(db, results._get(db, project, review.result_id))
+                    elif action == "approve":
+                        task = self.store._task(db, project, review.task_id)
+                        Execution(self.store)._task_state(
+                            db,
+                            task,
+                            "in_review",
+                            "Review passed. Ready for your delivery approval.",
+                        )
                     review.applied_at = now()
-                self.store._insert_activity(
-                    db,
-                    project,
-                    review.task_id,
-                    attempt,
-                    "note",
-                    decision["summary"]
-                    + "\n\n"
-                    + decision["evidence"]
-                    + ("\n\n" + decision["request"] if decision.get("request") else ""),
-                    "reviewer" if data["role"] == "reviewer" else "worker",
-                    now(),
-                )
             data["status"] = review.status
             db.execute("UPDATE review_attempts SET data=? WHERE id=?", (json.dumps(data), attempt))
             self._save(db, review)
@@ -630,7 +501,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 raise ApplicationError(
                     "invalid_cursor", "Use exchanges:0 or the returned cursor."
                 ) from None
-            page = self.attempts(review.project_id, review.id, before)
+            page = self.attempts(review.workspace_id, review.id, before)
             return json.dumps(
                 {
                     "items": [
@@ -646,7 +517,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
             )
         if section == "result" or section == "validation":
             return self.context(
-                review.project_id, review.id, "result" if section == "result" else "validation"
+                review.workspace_id, review.id, "result" if section == "result" else "validation"
             )
         if section.startswith("exchange:"):
             # Individual pages prevent a growing exchange transcript in every prompt.
@@ -663,9 +534,9 @@ class TaskReviews(ReviewRecords[TaskReview]):
             from flowfield.questions import Questions
 
             if review.question_id:
-                question = Questions(self.store).get(review.project_id, review.question_id)
+                question = Questions(self.store).get(review.workspace_id, review.question_id)
                 return question.model_dump_json()
             return "No human answer."
         return Execution(self.store).context_section(
-            review.project_id, review.binding.run_id, section
+            review.workspace_id, review.binding.run_id, section
         )

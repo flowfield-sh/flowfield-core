@@ -39,14 +39,12 @@ def output_router(workspace: Callable[[], Workspace]) -> APIRouter:
         before: int | None = Query(None, ge=1),
         limit: int = Query(30, ge=1, le=50),
         task_key: str | None = None,
-        milestone_id: str | None = None,
     ) -> OutputPage:
         return Outputs(workspace()).page(
             workspace_id,
             before=before,
             limit=limit,
             task_key=task_key,
-            milestone_id=milestone_id,
         )
 
     @router.get("/browse")
@@ -54,7 +52,6 @@ def output_router(workspace: Callable[[], Workspace]) -> APIRouter:
         workspace_id: str,
         path: str = Query("", max_length=500),
         task_key: str | None = None,
-        milestone_id: str | None = None,
         sort: Literal["name", "newest", "type"] = "name",
         offset: int = Query(0, ge=0),
     ) -> FileDirectory:
@@ -62,7 +59,6 @@ def output_router(workspace: Callable[[], Workspace]) -> APIRouter:
             workspace_id,
             path,
             task_key=task_key,
-            milestone_id=milestone_id,
             sort=sort,
             offset=offset,
         )

@@ -26,11 +26,11 @@ def test_mcp_board_parity_and_restart(tmp_path: Path) -> None:
             ):
                 initialized = await session.initialize()
                 assert initialized.serverInfo.name == "Flowfield"
-                assert "explicit project_id" in initialized.instructions
+                assert "workspace" in initialized.instructions
                 from flowfield.guidance import template
 
                 assert initialized.instructions == template("mcp-instructions.md").strip()
-                assert len(initialized.instructions) < 3000
+                assert len(initialized.instructions) < 5000
                 tools = {t.name: t for t in (await session.list_tools()).tools}
                 assert all(
                     initialized.instructions not in (tool.description or "")
@@ -85,11 +85,15 @@ def test_mcp_board_parity_and_restart(tmp_path: Path) -> None:
                     assert json.loads(result.content[0].text) == result.structuredContent
                     return result.structuredContent
 
-                identity = {"project_id": "harbor", "task_id": "export"}
+                spaces = await call("list_workspaces")
+                space_id = spaces["items"][0]["id"] if spaces["items"] else None
+                identity = {"workspace_id": space_id, "task_id": "export"}
                 if first:
                     assert await call("list_projects") == {"items": [], "next_cursor": None}
                     assert await call("list_workspaces") == {"items": [], "next_cursor": None}
                     space = await call("create_workspace", {"request": {"name": "Product"}})
+                    space_id = space["id"]
+                    identity["workspace_id"] = space_id
                     created = await call(
                         "adopt_workspace_project",
                         {
@@ -141,39 +145,35 @@ def test_mcp_board_parity_and_restart(tmp_path: Path) -> None:
                         },
                     )
                     await call(
-                        "create_milestone",
-                        {
-                            "workspace_id": space["id"],
-                            "milestone": {"id": "csv", "title": "CSV export"},
-                        },
-                    )
-                    await call(
                         "create_task",
                         {
-                            "project_id": "harbor",
+                            "workspace_id": space_id,
                             "task": {
+                                "project_id": "harbor",
                                 "id": "export",
                                 "title": "Export",
                                 "body": "Keep filters",
-                                "milestone_id": "csv",
                             },
                         },
                     )
                     task = await call("get_task", identity)
                     assert task["updated_by"] == "agent" and task["status"] == "backlog"
                     assert (
-                        task == (await api.get("/api/context/projects/harbor/tasks/export")).json()
+                        task
+                        == (
+                            await api.get(f"/api/context/workspaces/{space_id}/tasks/export")
+                        ).json()
                     )
                     assert (await session.call_tool("get_task", {"task_id": "export"})).isError
                     assert (
-                        await session.call_tool("get_task", {**identity, "project_id": "missing"})
+                        await session.call_tool("get_task", {**identity, "workspace_id": "missing"})
                     ).isError
                     await call(
                         "prioritize_task",
                         {**identity, "priority": {"expected_revision": 1, "status": "up_next"}},
                     )
                     await api.put(
-                        "/api/projects/harbor/tasks/export",
+                        f"/api/workspaces/{space_id}/tasks/export",
                         json={"expected_revision": 2, "body": "Preserve row order."},
                     )
                     for name, parameter, change in [
@@ -193,7 +193,6 @@ def test_mcp_board_parity_and_restart(tmp_path: Path) -> None:
                             "changes": {
                                 "expected_revision": 3,
                                 "body": "Quotes commas.",
-                                "milestone_id": None,
                             },
                         },
                     )
@@ -202,33 +201,35 @@ def test_mcp_board_parity_and_restart(tmp_path: Path) -> None:
                 conversation = await call("get_task_conversation", identity)
                 assert (
                     conversation
-                    == (await api.get("/api/projects/harbor/tasks/export/conversation")).json()
+                    == (
+                        await api.get(f"/api/workspaces/{space_id}/tasks/export/conversation")
+                    ).json()
                 )
                 source = await call(
                     "get_conversation_source", {**identity, "item_id": "definition:4"}
                 )
                 assert json.loads(source["text"])["body"] == "Quotes commas."
                 assert (
-                    await api.get("/api/projects/harbor/tasks/export/input-eligibility")
+                    await api.get(f"/api/workspaces/{space_id}/tasks/export/input-eligibility")
                 ).json() == await call("get_task_input", identity)
-                assert "revisions" not in task and task["milestone_id"] is None
+                assert "revisions" not in task and "milestone_id" not in task
                 revisions = await call("list_task_revisions", identity)
                 assert len(revisions["items"]) == 4
-                board = await call("get_board", {"project_id": "harbor"})
-                other = (await api.get("/api/context/projects/harbor/board")).json()
+                board = await call("get_board", {"workspace_id": space_id})
+                other = (await api.get(f"/api/context/workspaces/{space_id}/board")).json()
                 assert board.pop("observed_at") <= other.pop("observed_at")
                 assert board["recent_changes"].pop("window_start") <= other["recent_changes"].pop(
                     "window_start"
                 )
                 assert board == other
-                assert board["project"]["url"] == base + "/projects/harbor"
-                assert board["links"]["inbox"] == base + "/projects/harbor/inbox"
+                assert board["project"]["url"] == base + f"/workspaces/{space_id}"
+                assert board["links"]["inbox"] == base + f"/workspaces/{space_id}/inbox"
                 assert board["columns"][1]["tasks"][0]["url"] == (
-                    base + "/projects/harbor/tasks/HAR-1"
+                    base + f"/workspaces/{space_id}/tasks/T-1"
                 )
                 assert board["columns"][1]["tasks"][0]["id"] == task["id"]
-                assert board["project"]["description"] == "CSV"
-                listed = await call("list_tasks", {"project_id": "harbor"})
+                assert board["project"]["name"] == "Product"
+                listed = await call("list_tasks", {"workspace_id": space_id})
                 assert listed["items"][0]["id"] == task["id"] and listed["next_cursor"] is None
                 assert "body" not in listed["items"][0]
 
@@ -272,8 +273,9 @@ def test_sse_mutations_and_reconnection(tmp_path: Path) -> None:
                         result = await mcp.call_tool(
                             "create_task",
                             {
-                                "project_id": "harbor",
+                                "workspace_id": space,
                                 "task": {
+                                    "project_id": "harbor",
                                     "id": "export",
                                     "title": "Export",
                                     "body": "Plan",
@@ -283,7 +285,7 @@ def test_sse_mutations_and_reconnection(tmp_path: Path) -> None:
                         assert not result.isError
                     await change()  # MCP commits use the same notifications as HTTP.
                 await client.post(
-                    "/api/projects/harbor/tasks/export/progress",
+                    f"/api/workspaces/{space}/tasks/export/prioritize",
                     json={"expected_revision": 1, "status": "up_next"},
                 )
                 async with client.stream(
@@ -294,7 +296,7 @@ def test_sse_mutations_and_reconnection(tmp_path: Path) -> None:
                             break
                     else:
                         raise AssertionError("Reconnect must resync")
-                assert (await client.get("/api/projects/harbor/tasks/export")).json()[
+                assert (await client.get(f"/api/workspaces/{space}/tasks/export")).json()[
                     "status"
                 ] == "up_next"
 

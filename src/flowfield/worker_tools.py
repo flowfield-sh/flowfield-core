@@ -25,7 +25,7 @@ class WorkerQuestion(Record):
     recommendation: str = Field(min_length=1, max_length=8000)
 
 
-def worker_tools(*, verification: bool = False) -> list[dict[str, Any]]:
+def worker_tools() -> list[dict[str, Any]]:
     tools: list[dict[str, Any]] = [
         {
             "type": "function",
@@ -85,11 +85,6 @@ def worker_tools(*, verification: bool = False) -> list[dict[str, Any]]:
             ),
         )
     ]
-    if not verification:
-        schema = next(tool["inputSchema"] for tool in tools if tool["name"] == "submit_result")
-        schema["properties"].pop("verification")
-        for name in ("VerificationReport", "CriterionFinding"):
-            schema["$defs"].pop(name)
     return tools
 
 
@@ -109,7 +104,7 @@ class WorkerBridge:
         self.question_id: str | None = None
 
     async def call(self, name: str, arguments: dict[str, Any]) -> str:
-        self.execution.worker_access(self.run.project_id, self.run.id)
+        self.execution.worker_access(self.run.workspace_id, self.run.id)
         if self.question_id or self.result:
             raise ApplicationError(
                 "report_closed",
@@ -138,7 +133,9 @@ class WorkerBridge:
             return await self.checks()
         if name == "read_context":
             request = ReadContext.model_validate(arguments)
-            text = self.execution.context_section(self.run.project_id, self.run.id, request.section)
+            text = self.execution.context_section(
+                self.run.workspace_id, self.run.id, request.section
+            )
             return request.page(text)
         if name == "search_context":
             from flowfield.search import assignment_search
@@ -146,7 +143,7 @@ class WorkerBridge:
             query = SearchContext.model_validate(arguments)
             return json.dumps(
                 assignment_search(
-                    self.execution.assignment(self.run.project_id, self.run.id),
+                    self.execution.assignment(self.run.workspace_id, self.run.id),
                     query.query,
                     query.limit,
                 )
@@ -154,7 +151,7 @@ class WorkerBridge:
         if name == "ask_question":
             request_question = WorkerQuestion.model_validate(arguments)
             question = self.execution.ask_question(
-                self.run.project_id,
+                self.run.workspace_id,
                 self.run.id,
                 QuestionCreate(
                     **request_question.model_dump(),
@@ -170,7 +167,7 @@ class WorkerBridge:
             )
         if name == "submit_result":
             result = WorkerSubmission.model_validate(arguments)
-            self.execution.report_result(self.run.project_id, self.run.id, result)
+            self.execution.report_result(self.run.workspace_id, self.run.id, result)
             self.result = result
             return (
                 "Result received for this attempt. End your turn so the service "

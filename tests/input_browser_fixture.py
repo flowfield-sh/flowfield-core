@@ -18,7 +18,7 @@ execution = Execution(workspace)
 base, checkpoint = "a" * 40, "b" * 40
 project = "input-browser"
 if sys.argv[2] == "create":
-    adopt(workspace, ProjectSetup(path=str(workspace.directory / project), task_prefix="INP"))
+    adopt(workspace, ProjectSetup(path=str(workspace.directory / project)))
     workspace.create_task(
         project,
         task_request(

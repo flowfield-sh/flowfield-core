@@ -20,7 +20,6 @@ test("board columns scroll independently with fixed headings and reachable cards
       await fixtureProject(request, {
         data: {
           path: existingDirectory(join(state, project)),
-          task_prefix: "BSC",
         },
       })
     ).ok(),
@@ -29,12 +28,15 @@ test("board columns scroll independently with fixed headings and reachable cards
     for (let i = 0; i < 14; i++) {
       expect(
         (
-          await request.post(`/api/projects/${project}/tasks`, {
-            data: {
-              title: `${status} task ${i}`,
-              status,
+          await request.post(
+            `/api/workspaces/${await projectWorkspace(request, project)}/tasks`,
+            {
+              data: {
+                title: `${status} task ${i}`,
+                status,
+              },
             },
-          })
+          )
         ).ok(),
       ).toBe(true);
     }
@@ -52,7 +54,9 @@ test("board columns scroll independently with fixed headings and reachable cards
     });
   });
   await page.setViewportSize({ width: 1800, height: 800 });
-  await page.goto(`/projects/${project}`);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, project)}/tasks`,
+  );
   const board = page.locator(".board");
   const backlog = page.getByRole("region", {
     name: "Backlog tasks",
@@ -155,7 +159,6 @@ test("Inbox response lists paginate and wrap long cards without horizontal scrol
       await fixtureProject(request, {
         data: {
           path: existingDirectory(join(state, project)),
-          task_prefix: "ASC",
         },
       })
     ).ok(),
@@ -223,7 +226,7 @@ test("Inbox response lists paginate and wrap long cards without horizontal scrol
         },
       }),
   );
-  await page.route(`**/api/projects/${project}/questions/*`, (route) =>
+  await page.route(`**/api/workspaces/*/questions/*`, (route) =>
     route.fulfill({
       json: {
         id: new URL(route.request().url()).pathname.split("/").at(-1),
@@ -241,7 +244,9 @@ test("Inbox response lists paginate and wrap long cards without horizontal scrol
     }),
   );
   await page.setViewportSize({ width: 1800, height: 800 });
-  await page.goto(`/projects/${project}/inbox`);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, project)}/inbox`,
+  );
   const action = page.getByRole("tabpanel", { name: "Needs me", exact: true });
   await expect(action.locator(".request-card")).toHaveCount(14);
   await action.getByRole("button", { name: "Load more", exact: true }).click();
@@ -277,76 +282,4 @@ test("Inbox response lists paginate and wrap long cards without horizontal scrol
   expect(
     await action.evaluate((node) => node.scrollWidth <= node.clientWidth),
   ).toBe(true);
-});
-
-test("milestones share board scrolling, compact controls and URL views", async ({
-  page,
-  request,
-}, testInfo) => {
-  const workspace = await (
-    await request.post("/api/workspaces", {
-      data: { name: "Milestone scrolling" },
-    })
-  ).json();
-  const base = `/workspaces/${workspace.id}`;
-  for (let index = 0; index < 16; index++) {
-    expect(
-      (
-        await request.post(`/api${base}/milestones`, {
-          data: { title: `Milestone ${index}`, body: "Shared release scope" },
-        })
-      ).ok(),
-    ).toBeTruthy();
-  }
-  await page.setViewportSize({ width: 1440, height: 760 });
-  await page.goto(`${base}/milestones`);
-  const planned = page.getByRole("region", {
-    name: "Planned milestones",
-    exact: true,
-  });
-  await expect(planned.locator(".task-card")).toHaveCount(16);
-  const header = page.getByRole("heading", { name: "Planned 16", exact: true });
-  const before = await header.boundingBox();
-  await planned.focus();
-  await page.keyboard.press("End");
-  await expect
-    .poll(() => planned.evaluate((node) => node.scrollTop))
-    .toBeGreaterThan(0);
-  expect(await header.boundingBox()).toEqual(before);
-  await page.screenshot({
-    path: testInfo.outputPath("milestones-scroll-desktop.png"),
-  });
-  await planned
-    .getByRole("link", { name: "Milestone 15", exact: true })
-    .click();
-  await expect(
-    page.getByRole("region", { name: "Milestone details", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("link", { name: "View tasks", exact: true }).click();
-  const selection = new URL(page.url()).searchParams.get("milestone");
-  expect(selection).toBeTruthy();
-  await expect(page.getByLabel("Filter by milestone")).toHaveValue(selection!);
-  await page.reload();
-  await expect(page.getByLabel("Filter by milestone")).toHaveValue(selection!);
-  await page.goBack();
-  await expect(
-    page.getByRole("region", { name: "Milestone details", exact: true }),
-  ).toBeVisible();
-  await page.goForward();
-  await expect(page.getByLabel("Filter by milestone")).toHaveValue(selection!);
-  await page.goto(`${base}/milestones`);
-  await page.setViewportSize({ width: 390, height: 844 });
-  const board = page.locator(".board");
-  expect(
-    await board.evaluate((node) => node.scrollWidth > node.clientWidth),
-  ).toBeTruthy();
-  await board.evaluate((node) => {
-    node.scrollLeft = node.scrollWidth;
-  });
-  await expect(
-    page.getByRole("heading", { name: "Complete 0", exact: true }),
-  ).toBeInViewport();
-  await page.screenshot({
-    path: testInfo.outputPath("milestones-scroll-narrow.png"),
-  });
 });

@@ -10,7 +10,7 @@ from urllib.parse import quote
 from pydantic import BaseModel, ConfigDict, Field
 
 from flowfield.attention import actionable_attention
-from flowfield.browser_links import project_href
+from flowfield.browser_links import workspace_href
 
 if TYPE_CHECKING:
     from flowfield.application import Workspace
@@ -47,7 +47,7 @@ class Announcement(BaseModel):
     title: str
     message: str
     href: str
-    project_id: str | None = None
+    workspace_id: str | None = None
     kind: Literal["work", "update"]
 
 
@@ -69,7 +69,7 @@ def publish(
     exclude_clients: list[str] | None = None,
 ) -> None:
     db.execute(
-        "INSERT INTO announcement_events(source_key,project_id,kind,data,created_at) VALUES "
+        "INSERT INTO announcement_events(source_key,workspace_id,kind,data,created_at) VALUES "
         "(?,?,?,?,?)",
         (
             key,
@@ -114,26 +114,21 @@ def announce_update(
 
 
 def reconcile_attention(
-    db: sqlite3.Connection, project_id: str | None = None, timestamp: float | None = None
+    db: sqlite3.Connection, workspace_id: str | None = None, timestamp: float | None = None
 ) -> None:
     """Observe transitions in the domain transaction, including rapid resolve/reopen cycles."""
     timestamp = time.time() if timestamp is None else timestamp
 
-    owners = "SELECT id,name FROM projects"
-    owners = (
-        "SELECT s.id,coalesce(p.name,w.name) AS name FROM work_scopes s "
-        "LEFT JOIN projects p ON p.id=s.project_id "
-        "LEFT JOIN workspaces w ON w.id=s.workspace_id"
-    )
+    owners = "SELECT id,name FROM workspaces"
     projects = db.execute(
-        "SELECT * FROM (" + owners + ")" + (" WHERE id=?" if project_id else ""),
-        (project_id,) if project_id else (),
+        "SELECT * FROM (" + owners + ")" + (" WHERE id=?" if workspace_id else ""),
+        (workspace_id,) if workspace_id else (),
     ).fetchall()
     for project in projects:
         current: set[str] = set()
         previous = dict(
             db.execute(
-                "SELECT key,signature FROM attention_sources WHERE project_id=?", (project["id"],)
+                "SELECT key,signature FROM attention_sources WHERE workspace_id=?", (project["id"],)
             )
         )
         # Iterate the complete projection in one transaction; no presentation-page truncation.
@@ -149,13 +144,13 @@ def reconcile_attention(
                 "state='pending'",
                 (key,),
             )
-            base = project_href(project["id"])
+            base = workspace_href(project["id"])
             task = f"{base}/tasks/{quote(row['task_key'], safe='')}" if row["task_key"] else base
             label = "Needs your attention"
             if kind == "question":
                 revision = db.execute(
                     "SELECT json_extract(data,'$.revision') FROM questions WHERE "
-                    "project_id=? AND id=?",
+                    "workspace_id=? AND id=?",
                     (project["id"], identity),
                 ).fetchone()[0]
                 href = (
@@ -362,7 +357,7 @@ class Announcements:
                         Announcement(
                             id=row["id"],
                             source_key=row["source_key"],
-                            project_id=row["project_id"],
+                            workspace_id=row["workspace_id"],
                             kind=row["kind"],
                             **json.loads(row["data"]),
                         )

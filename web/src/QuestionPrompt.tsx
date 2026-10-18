@@ -1,19 +1,16 @@
 import { ContentStack, Disclosure } from "./DetailLayout";
 import { Markdown } from "./Markdown";
-import { WorkspaceLink } from "./WorkspaceLink";
 
 /** The same question hierarchy wherever a human is asked to answer. */
 export function QuestionPrompt({
   question,
   context,
   recommendation,
-  verificationUrl,
   reviewContext = false,
 }: {
   question: string;
   context: string;
   recommendation?: string;
-  verificationUrl?: string | null;
   reviewContext?: boolean;
 }) {
   return (
@@ -36,13 +33,6 @@ export function QuestionPrompt({
             </Disclosure>
           )}
         </ContentStack>
-      )}
-      {verificationUrl && (
-        <p>
-          <WorkspaceLink to={verificationUrl}>
-            View milestone verification
-          </WorkspaceLink>
-        </p>
       )}
     </ContentStack>
   );

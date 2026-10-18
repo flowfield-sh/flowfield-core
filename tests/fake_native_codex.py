@@ -161,8 +161,8 @@ async def main():
                     {
                         "name": "create_task",
                         "arguments": {
-                            **({"project_id": "harbor"} if "workspace_id" in control else {}),
                             "task": {
+                                "project_id": "harbor",
                                 "id": "chat-task",
                                 "title": "Captured from Coordinator Chat",
                                 "body": "An agreed outcome",

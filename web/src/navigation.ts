@@ -20,20 +20,10 @@ const pagePaths = [
   "workspaces/:workspaceId/archive",
   "workspaces/:workspaceId/inbox",
   "workspaces/:workspaceId/requests/:requestKind/:requestId",
-  "workspaces/:workspaceId/milestones",
-  "workspaces/:workspaceId/milestones/:milestoneId/revisions/:milestoneRevision",
-  "workspaces/:workspaceId/milestones/:milestoneId/:milestoneTab?",
   "workspaces/:workspaceId/edit/:workspaceTab?",
   "projects/:projectId",
   "projects/:projectId/overview",
-  "projects/:projectId/archive",
-  "projects/:projectId/inbox",
-  "projects/:projectId/inbox/:questionId",
   "projects/:projectId/edit/:projectTab?",
-  "projects/:projectId/tasks/:taskKey/:tab?/:runId?",
-  "projects/:projectId/tasks/:taskKey/:tab/:runId/integrations/:integrationId",
-  "projects/:projectId/milestones",
-  "projects/:projectId/milestones/:milestoneId/:milestoneTab?",
 ];
 const nestedProjectPaths = pagePaths
   .filter((path) => path.startsWith("projects/"))
@@ -48,50 +38,26 @@ export function withoutRelatedQuestion(path: string) {
   );
 }
 export function relatedQuestionHref(path: string, id: string) {
-  const project = /(?:^|\/)projects\/([^/]+)/.exec(path)?.[1];
-  return project
-    ? `/projects/${project}/inbox/${encodeURIComponent(id)}`
-    : withoutRelatedQuestion(path) +
-        "/related/questions/" +
-        encodeURIComponent(id);
+  return (
+    withoutRelatedQuestion(path) +
+    "/related/questions/" +
+    encodeURIComponent(id)
+  );
 }
 export type TaskTab = "task" | "changes" | "history";
-export function taskTab(tab?: string): TaskTab {
-  if (tab === "result" || tab === "changes") return "changes";
-  if (tab === "runs" || tab === "activity" || tab === "history")
-    return "history";
-  return "task";
-}
-export function canonicalHref(path: string, owners: Record<string, string>) {
+
+export function canonicalHref(path: string, _owners: Record<string, string>) {
   if (!path.startsWith("/") || path.startsWith("//")) return path;
   const url = new URL(path, window.location.origin);
   const nested = url.pathname.match(
     /^\/workspaces\/([^/]+)(\/projects\/([^/]+)(?:\/.*)?)$/,
   );
   if (nested && nested[3] !== "new") url.pathname = nested[2];
-  const workspaceTask = url.pathname.match(
-    /^\/projects\/(workspace_([^/]+))(\/tasks\/W-[1-9][0-9]*(?:\/.*)?)$/,
-  );
-  if (
-    workspaceTask &&
-    owners[decodeURIComponent(workspaceTask[1])] ===
-      decodeURIComponent(workspaceTask[2])
-  ) {
-    url.pathname = `${workspaceHref(decodeURIComponent(workspaceTask[2]))}${workspaceTask[3]}`;
-  }
-  const project = url.pathname.match(
-    /^\/projects\/([^/]+)(\/(?:archive|inbox|milestones))?\/?$/,
-  );
-  const owner =
-    nested?.[1] ??
-    (project ? owners[decodeURIComponent(project[1])] : undefined);
-  if (project && owner) {
-    url.pathname =
-      workspaceHref(decodeURIComponent(owner)) + (project[2] ?? "/tasks");
-    url.searchParams.set("project", decodeURIComponent(project[1]));
-  }
+  const project = /^\/projects\/([^/]+)\/?$/.exec(url.pathname);
+  if (project && _owners[decodeURIComponent(project[1])])
+    url.pathname += "/overview";
   if (/^\/workspaces\/[^/]+\/?$/.test(url.pathname)) {
-    const filtered = ["project", "milestone", "label"].some((key) =>
+    const filtered = ["project", "label"].some((key) =>
       url.searchParams.has(key),
     );
     url.pathname =
@@ -101,7 +67,7 @@ export function canonicalHref(path: string, owners: Record<string, string>) {
 }
 export function boardHref(
   workspaceId: string,
-  filters: { project?: string; milestone?: string; label?: string } = {},
+  filters: { project?: string; label?: string } = {},
   archive = false,
 ) {
   const query = new URLSearchParams(
@@ -125,14 +91,10 @@ export function workspaceHref(id: string) {
 export function taskHref(
   projectId: string,
   task: { key: string },
-  tab:
-    TaskTab | "info" | "dependencies" | "result" | "activity" | "runs" = "task",
+  tab: TaskTab = "task",
 ) {
-  const owner =
-    projectId.startsWith("workspace_") && task.key.startsWith("W-")
-      ? workspaceHref(projectId.slice("workspace_".length))
-      : projectHref(projectId);
-  return `${owner}/tasks/${encodeURIComponent(task.key)}${taskTab(tab) === "task" ? "" : `/${taskTab(tab)}`}`;
+  const owner = workspaceHref(projectId);
+  return `${owner}/tasks/${encodeURIComponent(task.key)}${tab === "task" ? "" : `/${tab}`}`;
 }
 function editorIdentity(path: string) {
   return withoutRelatedQuestion(path)
@@ -145,7 +107,7 @@ function editorIdentity(path: string) {
       "$1",
     )
     .replace(
-      /\/(conversation(?:\/[^/]+)?|info|dependencies|task|changes(?:\/[^/]+)?|history(?:\/[^/]+)?(?:\/integrations\/[^/]+)?|result(?:\/[^/]+)?|activity|tasks|runs(?:\/[^/]+)?(?:\/integrations\/[^/]+)?)\/?$/,
+      /\/(conversation(?:\/[^/]+)?|task|changes(?:\/[^/]+)?|history(?:\/[^/]+)?(?:\/integrations\/[^/]+)?|tasks)\/?$/,
       "",
     );
 }
@@ -173,14 +135,7 @@ export function useWorkspaceNavigation(
     const params = new URLSearchParams(location.search);
     const pane = /\/inbox$/.test(path)
       ? [params.get("inbox") ?? "needs_me", params.get("project") ?? ""]
-      : /\/milestones\/[^/]+$/.test(path)
-        ? [
-            params.has("verification")
-              ? "review"
-              : (params.get("tab") ?? "details"),
-            params.get("verification") ?? "",
-          ]
-        : [];
+      : [];
     return JSON.stringify([editorIdentity(path), ...pane]);
   }
   const blocker = useBlocker(
@@ -243,21 +198,10 @@ export function useWorkspaceNavigation(
     changeLocation,
     notFound:
       matches.at(-1)?.id === "not-found" ||
-      (!!params.milestoneTab &&
-        !["tasks", "settings"].includes(params.milestoneTab)) ||
       (!!params.tab &&
-        ![
-          "task",
-          "conversation",
-          "changes",
-          "history",
-          "info",
-          "dependencies",
-          "result",
-          "activity",
-          "runs",
-          "settings",
-        ].includes(params.tab)),
+        !["task", "conversation", "changes", "history", "settings"].includes(
+          params.tab,
+        )),
   };
 }
 export function followLink(

@@ -22,7 +22,6 @@ test("home, welcome and editable settings form a complete project journey", asyn
   const response = await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, project)),
-      task_prefix: "UXA",
       name: "Garden planner",
     },
   });
@@ -226,7 +225,6 @@ test("settings toasts preserve drafts, support keyboard dismissal and expire acr
   await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, project)),
-      task_prefix: "TST",
       name: "Toast settings",
     },
   });

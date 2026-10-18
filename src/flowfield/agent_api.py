@@ -8,52 +8,48 @@ from flowfield.agent_models import AgentRole, AgentSettingsEdit, AgentSettingsVi
 from flowfield.agent_settings import AgentSettings
 from flowfield.permission_models import PermissionAnswer, PermissionPage, PermissionRecord
 from flowfield.supervisor import Supervisor
-from flowfield.workspaces import WorkspaceRecord, Workspaces
 
 
 def agent_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
-    router = APIRouter(prefix="/api/projects/{project_id}")
-
-    @router.get("/workspace")
-    def workspace(project_id: str) -> WorkspaceRecord:
-        return Workspaces(supervisor().workspace).for_project(project_id)
+    router = APIRouter(prefix="/api/workspaces/{workspace_id}")
 
     @router.get("/tasks/{task_id}/agent-settings")
-    def task_settings(project_id: str, task_id: str) -> AgentSettingsView:
-        return AgentSettings(supervisor().workspace).get(project_id, "worker", task_id)
+    def task_settings(workspace_id: str, task_id: str) -> AgentSettingsView:
+        return AgentSettings(supervisor().workspace).get(workspace_id, "worker", task_id)
 
     @router.put("/tasks/{task_id}/agent-settings")
     async def task_edit(
-        project_id: str, task_id: str, request: AgentSettingsEdit
+        workspace_id: str, task_id: str, request: AgentSettingsEdit
     ) -> AgentSettingsView:
         service = supervisor()
         if request.selection:
-            await service.validate_agent_choice(request.selection, project_id)
-        return AgentSettings(service.workspace).edit(project_id, "worker", request, task_id)
+            task = service.workspace.task(workspace_id, task_id)
+            await service.validate_agent_choice(request.selection, task.project_id)
+        return AgentSettings(service.workspace).edit(workspace_id, "worker", request, task_id)
 
     @router.get("/permissions")
     def permissions(
-        project_id: str,
+        workspace_id: str,
         task_id: str | None = None,
         role: AgentRole | None = None,
         before: int | None = Query(None, ge=1),
         limit: int = Query(50, ge=1, le=100),
     ) -> PermissionPage:
         return supervisor().permissions.page(
-            project_id, task_id=task_id, role=role, before=before, limit=limit
+            workspace_id, task_id=task_id, role=role, before=before, limit=limit
         )
 
     @router.post("/permissions/{permission_id}/answer")
     async def answer(
-        project_id: str, permission_id: str, request: PermissionAnswer
+        workspace_id: str, permission_id: str, request: PermissionAnswer
     ) -> PermissionRecord:
         # Delivery and live bindings are event-loop owned; do not run this in a thread pool.
-        return supervisor().permissions.answer(project_id, permission_id, request)
+        return supervisor().permissions.answer(workspace_id, permission_id, request)
 
     @router.get("/permissions/{permission_id}")
-    def permission(project_id: str, permission_id: str) -> PermissionRecord:
+    def permission(workspace_id: str, permission_id: str) -> PermissionRecord:
         service = supervisor()
         with service.workspace.connection() as db:
-            return service.permissions._get(db, project_id, permission_id)
+            return service.permissions._get(db, workspace_id, permission_id)
 
     return router

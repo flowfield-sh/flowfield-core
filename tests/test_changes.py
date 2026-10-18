@@ -15,21 +15,21 @@ def test_change_scopes_coalesce_and_reconnect() -> None:
     async def check() -> None:
         changes = Changes()
         events = changes.events()
-        assert json.loads(str((await anext(events))["data"])) == {"projects": None}
+        assert json.loads(str((await anext(events))["data"])) == {"workspaces": None}
         changes.publish("alpha")
         changes.publish("beta")
         changes.publish("alpha")
         await asyncio.sleep(0)
-        assert json.loads(str((await anext(events))["data"])) == {"projects": ["alpha", "beta"]}
+        assert json.loads(str((await anext(events))["data"])) == {"workspaces": ["alpha", "beta"]}
         changes.publish("alpha")
         changes.publish()
         changes.publish("beta")
         await asyncio.sleep(0)
-        assert json.loads(str((await anext(events))["data"])) == {"projects": None}
+        assert json.loads(str((await anext(events))["data"])) == {"workspaces": None}
         await events.aclose()
         assert not changes.subscribers
         reconnected = changes.events()
-        assert json.loads(str((await anext(reconnected))["data"])) == {"projects": None}
+        assert json.loads(str((await anext(reconnected))["data"])) == {"workspaces": None}
         await reconnected.aclose()
 
     asyncio.run(check())
@@ -41,14 +41,14 @@ def test_only_committed_writes_publish_project(tmp_path: Path) -> None:
     spaces = Workspaces(workspace)
     space = spaces.create(WorkspaceCreate(name="Product"))
     published.clear()
-    project = spaces.adopt(space.id, ProjectSetup(path=existing_directory(tmp_path / "repo")))
+    spaces.adopt(space.id, ProjectSetup(path=existing_directory(tmp_path / "repo")))
     assert published == [None]
     published.clear()
-    task = workspace.create_task(project.id, task_request(title="Task"))
-    assert published == [project.id]
+    task = workspace.create_task(space.id, task_request(title="Task"))
+    assert published == [space.id]
     published.clear()
     with pytest.raises(ApplicationError):
-        workspace.edit_task(project.id, task.id, TaskEdit(expected_revision=999, title="Stale"))
+        workspace.edit_task(space.id, task.id, TaskEdit(expected_revision=999, title="Stale"))
     assert not published
 
 
@@ -66,7 +66,7 @@ def test_activity_updates_are_scoped_coalesced_and_bounded():
         for i in range(101):
             changes.publish_activity("alpha", str(i))
         await asyncio.sleep(0)
-        assert json.loads((await anext(events))["data"]) == {"projects": None}
+        assert json.loads((await anext(events))["data"]) == {"workspaces": None}
         await events.aclose()
         assert not changes.subscribers
 
@@ -89,7 +89,7 @@ def test_coordinator_updates_do_not_impersonate_project_activity():
         for index in range(101):
             changes.publish_coordinator_activity("workspace", str(index))
         await asyncio.sleep(0)
-        assert json.loads((await anext(events))["data"]) == {"projects": None}
+        assert json.loads((await anext(events))["data"]) == {"workspaces": None}
         await events.aclose()
 
     asyncio.run(check())

@@ -43,7 +43,9 @@ def test_older_exchanges_and_exact_text_survive_paging_and_restart(tmp_path):
     )
     source = collected[-1]["text_sources"]["human"]
     assert source["identity"] == first.id
-    assert source["url"].startswith("http://localhost:8765/api/context/workspaces/harbor/text?")
+    assert source["url"].startswith(
+        "http://localhost:8765/api/context/workspaces/harbor/coordinator-text?"
+    )
     assert collected[-1]["truncated_fields"]["human"]
     recovered, offset = "", 0
     while True:

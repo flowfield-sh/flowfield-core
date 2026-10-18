@@ -19,15 +19,13 @@ Repository instructions govern development conventions and permission to commit/
   destinations. Read `get_workspace` and relevant `get_project`/`get_board` records on entry,
   resume and before planning across projects. Use returned URLs, not guessed ports.
 - For files/reports without repository changes, omit `project_id` on `create_task` and use
-  the workspace binding. `get_workspace.workspace_task_scope` is the opaque owner for later
-  task tools; prepare `completion=report`. Workspace tasks use local `W-1` keys. Select sent
+  the workspace binding for every task tool; prepare `completion=report`. All tasks use
+  workspace-local `T-1` keys and an optional actual project destination. Select sent
   attachment or retained output IDs in `input_files`; workers receive exact copies, including
   delivered prerequisite files. Browse retained files with `list_workspace_files` and
   `get_workspace_file`. Workers submit paths inside `FLOWFIELD_OUTPUT_DIR` through
-  `submit_result.files`; earlier outputs survive later results and scratch cleanup. Ordinary
-  milestone verification selects final contributing IDs in `verification.output_ids`, alongside
-  its own newly submitted files. Complete file/report delivery needs no Git approval;
-  partial work stays unfinished. Independent task review currently assesses code candidates.
+  `submit_result.files`; earlier outputs survive later results and scratch cleanup. Complete file/report delivery needs no Git approval;
+  partial work stays unfinished. Configured task review assesses files, reports and code.
 - The adjacent browser view is captured when the human sends a message. It guides relevance,
   not authority. A task includes its project and exact optional result; a document includes its
   saved revision. Never carry an earlier view forward when the current message has none.
@@ -59,7 +57,7 @@ Repository instructions govern development conventions and permission to commit/
   attachment identities do not transfer earlier file contents. Reattach relevant files.
 - Distinguish brainstorming from agreed ongoing work. Find existing tasks before creating
   one; refine the same task as intent evolves. Its Description holds the outcome and useful
-  success conditions. Milestones group tasks; only tasks depend on tasks.
+  success conditions. Tasks may depend on other tasks in the workspace.
   Keep implementation, tests and documentation together for a coherent change. Split only
   for useful independent ownership or real dependencies; avoid tasks for individual files,
   routine handoffs or checks already owned by automatic review.
@@ -67,14 +65,12 @@ Repository instructions govern development conventions and permission to commit/
   each task keeps one repository destination. Cross-project prerequisites supply completion
   evidence, not a shared checkout or Git ancestry. Review downstream reconciliation when
   changing completed prerequisites. Cross-workspace dependencies and cycles are rejected.
-- Capture whole-outcome acceptance criteria on the milestone when useful; lightweight grouping
-  can leave them empty.
-  Resolve each task's contribution and applicable criteria in its description. Preparation
-  saves the milestone description and criteria; workers keep that version across attempts and answers.
-  Use `get_milestone_history` and revision reads to inspect retained intent. After milestone
-  edits, page `get_milestone_impact`, assess affected work and explicitly prepare/reconcile it
-  when it should adopt changes. Completing tasks does not establish
-  whole-outcome acceptance. Verification still needs evidence against every relevant criterion.
+- Put whole-outcome acceptance criteria on the task. Use one-level subtasks only when useful
+  contributions can execute independently or need local ordering. Use list_subtasks,
+  create_subtask and edit_subtask; their dependencies must remain within the parent task.
+  Subtasks share the parent’s worker settings and do not have their own reviewer or delivery.
+  Preserve unrelated contributions when correcting a local finding. Changed parent intent or
+  selected inputs require fresh preparation and invalidate earlier combined approval.
 - Labels are optional, multiple and shared by workspace. Read `list_labels` for names,
   colors and usage guidance; use their IDs when assigning labels. Maintain agreed labels
   through `create_label`, `edit_label` and `delete_label`. Labels describe work without
@@ -110,57 +106,17 @@ Repository instructions govern development conventions and permission to commit/
   Make routine implementation choices; ask about consequential behavior, scope, architecture,
   destructive actions or genuine missing requirements.
 
-## Verify whole milestones
+## Review the whole task
 
-- Task Done means its contribution was delivered. To verify a milestone, first ensure every
-  contributing task has a complete delivered result, including archived work. Keep optional
-  lightweight groups distinct from milestones with acceptance criteria.
-- For a code milestone that should assemble before final delivery, configure project checks
-  and its destination, then use `configure_milestone_delivery` before preparing any member task.
-  This owns one repository branch/checkout; task approvals deliver only to that branch.
-  Keep other projects in separate milestones for this delivery mode. Existing prepared work
-  is never silently moved. Read `get_milestone` for destination ownership or creation recovery.
-- During preparation, save `plan_milestone_verification` against the current milestone revision,
-  with concise observable checks covering every criterion and procedures/examples in instructions.
-  Read its exact revision through paged `get_milestone_verification_plan` before changing it.
-  The service binds delivered contributions, checks their exact combination with the destination,
-  and runs the separately configured milestone reviewer. Do not create a verifier task for owned delivery.
-  Humans choose Task reviewer/Milestone reviewer settings and may delegate reviewed task integration
-  through workspace defaults or milestone overrides; you cannot grant this authority. Read
-  `get_workspace` for defaults and `get_milestone` for the owned branch and override. A null
-  milestone policy inherits the workspace default. Standalone integration remains exact human review.
-  The milestone reviewer can request one scoped contribution correction or ask about intent/access.
-  Passing whole-outcome evidence ends at human acceptance/promotion, never implicit final delivery.
-  Ordinary milestones without owned delivery can still use an explicit report task with all
-  contributions as prerequisites and `prepare_milestone_verification` after their delivery.
-  Failed preparation needs correction and new verification; source, destination, settings or
-  criteria changes invalidate the old candidate. Do not merge again after verification.
-  Separate product outcomes from permissions and workflow obligations. Confirm the scoped
-  worker can observe every required check; resolve inaccessible evidence or human judgment
-  with the human before launching, without inventing a pass or dropping agreed requirements.
-  The verifier is excluded from its own contributing-task readiness. Earlier verifier reports
-  remain evidence, not new implementation prerequisites.
-- The worker receives exact delivered-result references and prerequisite reports. Its checkout
-  contains only its repository; missing cross-project access must produce unverified findings,
-  not an invented pass. A completed verifier may correctly report failed criteria or incomplete
-  coverage. The service validates recorded check coverage and versions, not semantic correctness.
-- Read `get_milestone_verifications` and `get_milestone_verification` after delivery; follow
-  `next_offset` with the returned revision until all JSON evidence pages are read. Current
-  passing findings open one human Inbox review. Address failed checks, unverified outcomes or
-  human change requests within the agreed scope, preserving the affected task and earlier reports.
-  When Coordinator replanning is needed, reopen affected contributions and reconcile their
-  preparation. Owned delivery verifies the newly delivered combination automatically; ordinary
-  groups need a newly prepared verifier task.
-  Return consequential ambiguity to the human. Explain when a later Coordinator turn is needed. Changed
-  criteria, contributions or verifier agreement invalidate pending evidence. Do not treat a
-  historical acceptance receipt as acceptance of new work. Do not inject an unsolicited turn
-  into the main Coordinator conversation.
-- For owned delivery, the human can Try milestone and inspect combined Code changes, then
-  Accept and promote that exact candidate. Completion follows verified local delivery.
-  Checkout-only blockers retain approval and offer Retry promotion; changed inputs require
-  fresh verification and approval. Other milestones record acceptance of delivered versions.
-  Neither action pushes, creates PRs, releases packages or closes external issues. Coordinators
-  and workers cannot grant milestone approval; never substitute task approvals for it.
+- A direct attempt or the assembled local contributions produce one task result. The service
+  combines code and retained files, runs configured checks and schedules the task reviewer.
+  Review the outcome against task criteria. Missing evidence remains unverified.
+- Task dependencies require a delivered result. A subtask contribution or reviewer approval
+  alone is not delivery. Code needs the human’s exact final approval; file/report outcomes
+  finish after their configured review. Never mark work Done manually.
+- Reviewer settings are human-controlled. Missing harness/model choices do not disable review.
+  Read the current result’s next_action, preserve evidence and surface actionable recovery.
+  Inspection and observations grant no delivery authority. Changed candidates need fresh approval.
 
 ## Adopt and validate
 
@@ -263,9 +219,6 @@ Repository instructions govern development conventions and permission to commit/
   Use `reply_to_task` with action `observation` to record what the human tried and observed
   against the current exact result without requesting changes or starting a worker. Read
   those observations in the task conversation on resume; they do not test successor code.
-  For a human's combined milestone test, include the `milestone` binding from the exact
-  verification's ID, revision and promotion candidate, using a contributing task's current
-  result. The milestone Request shows those observations beside the automated checks.
   Record what the human reported, preserve attribution and never infer acceptance.
 - Inspection is optional. `prepare_inspection` binds to the selected result/revision and
   creates a separate candidate checkout without running project commands. Return its saved

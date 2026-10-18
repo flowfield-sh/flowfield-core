@@ -1,3 +1,4 @@
+import { projectWorkspace } from "./support";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
@@ -14,7 +15,7 @@ test("project defaults prepare exact task documents and preserve revision links"
   mkdirSync(path, { recursive: true });
   const project = await (
     await request.post(`/api/workspaces/${workspace.id}/projects`, {
-      data: { path, task_prefix: "DOC" },
+      data: { path },
     })
   ).json();
   const doc = await (
@@ -78,14 +79,18 @@ test("project defaults prepare exact task documents and preserve revision links"
     page.getByRole("checkbox", { name: "Workspace guidance", exact: true }),
   ).toBeChecked();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  const taskResponse = await request.post(`/api/projects/${project.id}/tasks`, {
-    data: {
-      title: "Use documented conventions",
-      body: "Review the public API",
+  const taskResponse = await request.post(
+    `/api/workspaces/${await projectWorkspace(request, project.id)}/tasks`,
+    {
+      data: {
+        project_id: project.id,
+        title: "Use documented conventions",
+        body: "Review the public API",
 
-      preparation: { completion: "report" },
+        preparation: { completion: "report" },
+      },
     },
-  });
+  );
   expect(taskResponse.ok(), await taskResponse.text()).toBeTruthy();
   const task = await taskResponse.json();
   expect(task.publication.documents).toHaveLength(2);
@@ -97,7 +102,9 @@ test("project defaults prepare exact task documents and preserve revision links"
   await request.put(`/api/workspaces/${workspace.id}/documents/${doc.id}`, {
     data: { expected_revision: 1, body: "Updated after preparation" },
   });
-  await page.goto(`/projects/${project.id}/tasks/${task.key}`);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(request, project.id)}/tasks/${task.key}`,
+  );
   await expect(
     page.getByText("Newer source revision available", { exact: true }),
   ).toHaveCount(0);
@@ -127,6 +134,9 @@ test("project defaults prepare exact task documents and preserve revision links"
   await expect(
     page.getByText("Newer source revision available", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("link", { name: /Use documented conventions/ }).click();
+  await page
+    .getByTestId("work")
+    .getByRole("link", { name: /Use documented conventions/ })
+    .click();
   await expect(page).toHaveURL(new RegExp(`/tasks/${task.key}$`));
 });

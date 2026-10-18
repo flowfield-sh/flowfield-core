@@ -17,7 +17,7 @@ from flowfield.execution_models import QueueEdit, SettingsEdit, WorkerResult
 from flowfield.output_models import OutputSelection
 from flowfield.outputs import Outputs
 from flowfield.results import Results
-from flowfield.work_scopes import workspace_scope
+from flowfield.reviewer_settings import ReviewerEdit, Reviewers
 from flowfield.workspaces import WorkspaceCreate, Workspaces
 
 
@@ -62,7 +62,8 @@ def test_managed_files_and_dependency_inputs_use_one_queue(tmp_path, monkeypatch
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
     owner = spaces.create(WorkspaceCreate(name="Files"))
-    scope = workspace_scope(owner.id)
+    Reviewers(store).configure(owner.id, ReviewerEdit(expected_revision=1, enabled=False))
+    scope = owner.id
     first = store.create_task(
         scope,
         task_request(
@@ -121,9 +122,10 @@ def test_managed_files_and_dependency_inputs_use_one_queue(tmp_path, monkeypatch
 def test_inputs_reject_unknown_and_cross_workspace_files(tmp_path):
     store = Workspace(tmp_path / "state")
     owner = Workspaces(store).create(WorkspaceCreate(name="Files"))
+    Reviewers(store).configure(owner.id, ReviewerEdit(expected_revision=1, enabled=False))
     with pytest.raises(ApplicationError, match="submitted output or sent attachment"):
         store.create_task(
-            workspace_scope(owner.id),
+            owner.id,
             task_request(
                 title="Invalid input",
                 body="Read a missing file",
@@ -137,7 +139,7 @@ def test_workspace_file_result_without_git_survives_attempt_cleanup(tmp_path):
     store = Workspace(tmp_path / "state")
     spaces = Workspaces(store)
     owner = spaces.create(WorkspaceCreate(name="Research"))
-    scope = workspace_scope(owner.id)
+    scope = owner.id
     task = store.create_task(
         scope,
         task_request(
@@ -174,6 +176,7 @@ def test_workspace_file_result_without_git_survives_attempt_cleanup(tmp_path):
     )
     execution.report_result(scope, run.id, report)
     execution.finish(scope, run.id, "in_review", result=report)
+    Reviewers(store).configure(scope, ReviewerEdit(expected_revision=1, enabled=False))
     Results(store).process(scope)
     result = Results(store).page(scope, task.id).items[0]
     assert result.status == "delivered"
@@ -195,7 +198,7 @@ def test_workspace_task_cannot_claim_repository_delivery(tmp_path):
     owner = Workspaces(store).create(WorkspaceCreate(name="Research"))
     with pytest.raises(ApplicationError, match="Workspace tasks deliver files"):
         store.create_task(
-            workspace_scope(owner.id),
+            owner.id,
             task_request(
                 title="Code",
                 body="Change a repository",
@@ -258,89 +261,13 @@ def test_revisions_keep_exact_inputs_and_old_files(tmp_path):
     assert store.task(scope, dependent.id).reconciliation_reason
 
 
-def test_milestone_selects_exact_final_files_and_retains_stale_evidence(tmp_path):
-    from file_delivery_fixtures import deliver, setup
-    from file_delivery_fixtures import task as make_task
-
-    from flowfield.application import MilestoneCreate, MilestoneEdit
-    from flowfield.milestone_verification import MilestoneVerifications
-    from flowfield.milestones import Milestones
-    from flowfield.verification_models import (
-        VerificationPrepare,
-        VerificationReport,
-        VerificationReview,
-    )
-
-    store, owner, scope = setup(tmp_path / "state")
-    milestone = Milestones(store).create(
-        owner.id,
-        MilestoneCreate(
-            title="Launch research",
-            acceptance_criteria="A reviewed report supported by source data.",
-        ),
-    )
-    task = make_task(store, scope, milestone_id=milestone.id)
-    result = deliver(
-        store, scope, task.id, {"report.txt": "Findings", "scratch.txt": "Supporting notes"}
-    )
-    verifier = make_task(
-        store, scope, title="Verify research", milestone_id=milestone.id, dependencies=[task.key]
-    )
-    records = MilestoneVerifications(store)
-    verification = records.prepare(
-        owner.id,
-        milestone.id,
-        VerificationPrepare(
-            expected_revision=milestone.revision,
-            project_id=scope,
-            task_id=verifier.id,
-            expected_task_revision=verifier.revision,
-            checks=["Read the report against the source data"],
-        ),
-    )
-    assert verification.tasks[0].commit is None
-    assert verification.tasks[0].output_ids == [file.id for file in result.files]
-    report = VerificationReport(
-        verification_id=verification.id,
-        findings=[{"check": 1, "verdict": "passed", "evidence": "Read both retained files"}],
-        coverage="complete",
-        coverage_notes="All requested findings covered.",
-        output_ids=[result.files[0].id],
-    )
-    deliver(
-        store,
-        scope,
-        verifier.id,
-        report=WorkerResult(
-            summary="Research verified", checks="Both files inspected", verification=report
-        ),
-    )
-    ready = records.get(owner.id, verification.id)
-    assert ready.status == "ready"
-    assert [file.id for file in ready.files] == [result.files[0].id]
-    accepted = records.review(
-        owner.id, ready.id, VerificationReview(expected_revision=ready.revision, action="accept")
-    )
-    assert accepted.status == "accepted"
-    assert accepted.files == ready.files
-    Milestones(store).edit(
-        owner.id,
-        milestone.id,
-        MilestoneEdit(
-            expected_revision=milestone.revision, acceptance_criteria="Add another source"
-        ),
-    )
-    stale = records.get(owner.id, ready.id)
-    assert not stale.current and stale.files == ready.files
-    assert len(Outputs(store).page(owner.id).items) == 2
-
-
 def test_workspace_coordinator_tools_create_and_read_file_tasks(tmp_path):
     from flowfield.agent_tools import workspace_scope as grant_scope
     from flowfield.supervisor import Supervisor
 
     store = Workspace(tmp_path / "state")
     owner = Workspaces(store).create(WorkspaceCreate(name="Files"))
+    Reviewers(store).configure(owner.id, ReviewerEdit(expected_revision=1, enabled=False))
     other = Workspaces(store).create(WorkspaceCreate(name="Other"))
 
     async def exercise():
@@ -350,24 +277,23 @@ def test_workspace_coordinator_tools_create_and_read_file_tasks(tmp_path):
             {"task": task_request(title="Research", body="Write a report").model_dump(mode="json")},
         )
         assert not created.isError, created
-        assert created.structuredContent["key"] == "W-1"
-        scope = created.structuredContent["project_id"]
-        read = await grant.call("get_task", {"project_id": scope, "task_id": "W-1"})
+        assert created.structuredContent["key"] == "T-1"
+        read = await grant.call("get_task", {"task_id": "T-1"})
         assert not read.isError, read
-        board = await grant.call("get_board", {"project_id": scope})
+        board = await grant.call("get_board", {})
         assert not board.isError, board
-        denied = await grant.call("get_board", {"project_id": workspace_scope(other.id)})
+        denied = await grant.call("get_board", {"workspace_id": other.id})
         assert denied.isError
         grant.revoke()
 
     asyncio.run(exercise())
     assert store.projects() == []
     separate = store.create_task(
-        workspace_scope(other.id), task_request(title="Separate report", body="Other workspace")
+        other.id, task_request(title="Separate report", body="Other workspace")
     )
-    assert separate.key == "W-1"
-    assert store.task(workspace_scope(owner.id), "W-1").title == "Research"
-    assert store.task(workspace_scope(other.id), "W-1").id == separate.id
+    assert separate.key == "T-1"
+    assert store.task(owner.id, "T-1").title == "Research"
+    assert store.task(other.id, "T-1").id == separate.id
 
 
 def test_sent_attachment_and_output_inputs_are_workspace_scoped(tmp_path):
@@ -384,19 +310,18 @@ def test_sent_attachment_and_output_inputs_are_workspace_scoped(tmp_path):
     file = deliver(store, scope, source.id, {"report.txt": "Private findings"}).files[0]
     other = Workspaces(store).create(WorkspaceCreate(name="Other"))
     with pytest.raises(ApplicationError, match="submitted output or sent attachment"):
-        make_task(store, workspace_scope(other.id), input_files=[file.id])
+        make_task(store, other.id, input_files=[file.id])
     attachments = Attachments(store)
     upload = attachments.upload(
         owner.id,
         AttachmentUpload(
             name="input.txt", mime="text/plain", data=base64.b64encode(b"Original input").decode()
         ),
-        workspace_scope=True,
     )
     with store.connection(write=True) as db:
         with pytest.raises(ApplicationError):
             freeze(db, owner.id, [upload.id])
-        attachments.references(db, owner.id, None, upload.href, bind=True, workspace_scope=True)
+        attachments.references(db, owner.id, None, upload.href, bind=True)
         frozen = freeze(db, owner.id, [upload.id])
         with pytest.raises(ApplicationError):
             freeze(db, other.id, [upload.id])
@@ -427,7 +352,8 @@ def test_workspace_result_attention_uses_the_existing_notification_owner(tmp_pat
     with store.connection() as db:
         assert [row["id"] for row in actionable_attention(db, scope)] == [result.id]
         event = db.execute(
-            "SELECT data FROM announcement_events WHERE project_id=? AND state='pending'", (scope,)
+            "SELECT data FROM announcement_events WHERE workspace_id=? AND state='pending'",
+            (scope,),
         ).fetchone()
         assert event and result.id in event[0]
 

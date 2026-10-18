@@ -5,16 +5,11 @@ from pathlib import Path
 
 import pytest
 from execution_fixtures import BASE, RESULT, fixture, result, validate_report
+from lifecycle_fixtures import run_report
 from project_fixtures import adopt
 
 from flowfield.agent_models import AgentChoice
-from flowfield.application import (
-    ProjectSetup,
-    TaskEdit,
-    TaskProgress,
-    TaskPublish,
-    Workspace,
-)
+from flowfield.application import ProjectSetup, TaskEdit, TaskPublish, Workspace
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.execution_models import (
@@ -112,9 +107,9 @@ def test_review_is_bound_to_code_and_current_intent(tmp_path: Path) -> None:
             ),
         )
     task = execution.workspace.task("harbor", run.task_id)
-    with pytest.raises(ApplicationError, match="manual progress"):
-        execution.workspace.record_progress(
-            "harbor", task.id, TaskProgress(expected_revision=task.revision, status="done")
+    with pytest.raises(ApplicationError, match="Only Backlog and Up next"):
+        run_report(
+            execution.workspace, "harbor", task.id, expected_revision=task.revision, status="done"
         )
     execution.workspace.edit_task(
         "harbor", task.id, TaskEdit(expected_revision=task.revision, body="Changed requirement")

@@ -12,6 +12,6 @@ OPTIONS = [
 
 async def pending(owner, *, workspace_scope=False):
     async with asyncio.timeout(4):
-        while not (items := owner.page("harbor", workspace_scope=workspace_scope).pending):
+        while not (items := owner.page("harbor").pending):
             await asyncio.sleep(0.01)
         return items[0]

@@ -1,10 +1,11 @@
+import { projectWorkspace } from "./support";
 import { openResource } from "./shell-navigation";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
 import { test, state } from "./support";
 
-test("shared workspace board, project filters, milestones, Inbox and settings", async ({
+test("shared workspace board, project filters, Inbox and settings", async ({
   page,
   request,
 }, testInfo) => {
@@ -12,47 +13,49 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
     await request.post("/api/workspaces", { data: { name: "Shared delivery" } })
   ).json();
   const base = `/workspaces/${workspace.id}`;
-  const milestone = await (
-    await request.post(`/api${base}/milestones`, {
-      data: { title: "Launch together" },
-    })
-  ).json();
-  for (const [id, prefix, title] of [
-    ["board-core", "BCR", "Core release"],
-    ["board-site", "BST", "Site release"],
+  for (const [id, title] of [
+    ["board-core", "Core release"],
+    ["board-site", "Site release"],
   ]) {
     const path = join(state, id);
     mkdirSync(path, { recursive: true });
     expect(
       (
         await request.post(`/api${base}/projects`, {
-          data: { id, path, task_prefix: prefix },
+          data: { id, path },
         })
       ).ok(),
     ).toBeTruthy();
     expect(
       (
-        await request.post(`/api/projects/${id}/tasks`, {
-          data: {
-            id: "same",
-            title,
-            milestone_id: milestone.id,
+        await request.post(
+          `/api/workspaces/${await projectWorkspace(request, id)}/tasks`,
+          {
+            data: {
+              id,
+              project_id: id,
+              title,
 
-            labels: ["feature"],
+              labels: ["feature"],
+            },
           },
-        })
+        )
       ).ok(),
     ).toBeTruthy();
     expect(
       (
-        await request.post(`/api/projects/${id}/questions`, {
-          data: {
-            id: "same",
-            question: `${title} scope?`,
-            context: "Scope",
-            recommendation: "Small",
+        await request.post(
+          `/api/workspaces/${await projectWorkspace(request, id)}/questions`,
+          {
+            data: {
+              id,
+              task_id: id,
+              question: `${title} scope?`,
+              context: "Scope",
+              recommendation: "Small",
+            },
           },
-        })
+        )
       ).ok(),
     ).toBeTruthy();
   }
@@ -93,22 +96,29 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(base + "/tasks");
   await expect(
-    page.getByRole("link", { name: "BCR-1 Core release", exact: true }),
+    page
+      .locator(".workspace-resource-content")
+      .getByRole("link", { name: "T-1 Core release", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "BST-1 Site release", exact: true }),
+    page
+      .getByTestId("work")
+      .getByRole("link", { name: "T-2 Site release", exact: true }),
   ).toBeVisible();
   await page.getByLabel("Filter by project").selectOption("board-site");
   await expect(
-    page.getByRole("link", { name: "BCR-1 Core release", exact: true }),
+    page
+      .locator(".workspace-resource-content")
+      .getByRole("link", { name: "T-1 Core release", exact: true }),
   ).toHaveCount(0);
   await page
     .getByRole("textbox", { name: "Message coordinator", exact: true })
     .fill("Coordinate the release");
   await page
-    .getByRole("link", { name: "BST-1 Site release", exact: true })
+    .getByTestId("work")
+    .getByRole("link", { name: "T-2 Site release", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/projects\/board-site\/tasks\/BST-1$/);
+  await expect(page).toHaveURL(/\/tasks\/T-2$/);
   await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page).toHaveURL(`${base}/tasks?project=board-site`);
   await expect(page.getByLabel("Filter by project")).toHaveValue("board-site");
@@ -122,35 +132,19 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
   await expect(page.locator('.card-shell[draggable="true"]')).toHaveCount(0);
   expect(
     (
-      await request.post("/api/projects/board-site/tasks", {
-        data: { title: "New site work" },
-      })
+      await request.post(
+        `/api/workspaces/${await projectWorkspace(request, "board-site")}/tasks`,
+        {
+          data: { title: "New site work" },
+        },
+      )
     ).ok(),
   ).toBeTruthy();
   await expect(
     page
       .locator(".workspace-resource-content")
-      .getByRole("link", { name: "BST-2 New site work", exact: true }),
+      .getByRole("link", { name: "T-3 New site work", exact: true }),
   ).toBeVisible();
-  await openResource(page, "Milestones");
-  await expect(
-    page.getByText("0 of 2 tasks done", { exact: true }),
-  ).toBeVisible();
-  await page
-    .locator(".task-card")
-    .filter({ hasText: "Launch together" })
-    .getByRole("link", { name: "Launch together", exact: true })
-    .click();
-  await expect(page).toHaveURL(`${base}/milestones/M-1`);
-  await expect(
-    page.getByRole("region", { name: "Milestone details", exact: true }),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Fast mode", exact: true }),
-  ).toBeVisible();
-  await expect(page).toHaveURL(`${base}/milestones`);
   await page.getByRole("tab", { name: /^Inbox/ }).click();
   await expect(
     page.getByText("Core release scope?", { exact: true }),
@@ -206,7 +200,9 @@ test("shared workspace board, project filters, milestones, Inbox and settings", 
   await page.evaluate(() => localStorage.setItem("flowfield.theme", "dark"));
   await page.reload();
   await expect(
-    page.getByRole("link", { name: "BST-1 Site release", exact: true }),
+    page
+      .getByTestId("work")
+      .getByRole("link", { name: "T-2 Site release", exact: true }),
   ).toBeVisible();
   await page.screenshot({
     animations: "disabled",

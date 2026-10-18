@@ -22,7 +22,7 @@ export function TaskReview({
   refresh: unknown;
 }) {
   const resource = useResource<Review | null>(
-    `projects/${projectId}/tasks/${taskId}/review`,
+    `workspaces/${projectId}/tasks/${taskId}/review`,
     refresh,
   );
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -57,7 +57,7 @@ export function TaskReview({
             {review.problem && <p>{review.problem}</p>}
             <ReviewControls
               review={review}
-              path={`projects/${projectId}/reviews/${review.id}`}
+              path={`workspaces/${projectId}/reviews/${review.id}`}
               saved={resource.setData}
             />
             {["uncertain", "failed", "stopped"].includes(review.status) && (
@@ -88,10 +88,10 @@ export function ReviewRounds({
 }: {
   projectId: string;
   review: { id: string; revision: number };
-  kind?: "reviews" | "milestone-reviews";
+  kind?: "reviews";
 }) {
   const page = usePage<components["schemas"]["ReviewAttemptPage"]>(
-    `projects/${projectId}/${kind}/${review.id}/attempts`,
+    `workspaces/${projectId}/${kind}/${review.id}/attempts`,
     review.revision,
     true,
   );
@@ -129,7 +129,7 @@ function ReviewRound({
 }: {
   projectId: string;
   reviewId: string;
-  kind: "reviews" | "milestone-reviews";
+  kind: "reviews";
   attempt: components["schemas"]["ReviewAttemptInfo"];
 }) {
   const [open, setOpen] = useState(false);

@@ -287,7 +287,7 @@ def test_stop_cancels_owned_check_and_resumes_exact_preserved_work(
     assert stopped.checkpoint_commit and stopped.checkpoint_commit != base
     assert not execution.local(run.id).get("check_process")
     execution.retry("harbor", run.id, RunAction(expected_revision=stopped.revision))
-    resumed = execution.claim("harbor", base, service._available("harbor", repo, base))
+    resumed = execution.claim("harbor", base, service._available("harbor", "harbor", repo, base))
     assert resumed.input_base_commit == stopped.checkpoint_commit
     assert resumed.base_commit == base
     assert git(repo, "show", resumed.input_base_commit + ":work.txt").decode() == "preserve this"

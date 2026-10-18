@@ -29,7 +29,7 @@ def test_settings_validation_and_permission_http_journey(tmp_path, monkeypatch):
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1"
             ) as client:
-                path = "/api/projects/harbor/tasks/task-0/agent-settings"
+                path = "/api/workspaces/harbor/tasks/task-0/agent-settings"
                 initial = (await client.get(path)).json()
                 assert initial["effective"]["choice"]["model"] == "test-model"
                 bad = await client.put(
@@ -81,19 +81,19 @@ def test_settings_validation_and_permission_http_journey(tmp_path, monkeypatch):
                         turn.request("check", "Run project check", OPTIONS)
                     )
                     record = await pending(service.permissions)
-                    page = (await client.get("/api/projects/harbor/permissions")).json()
+                    page = (await client.get("/api/workspaces/harbor/permissions")).json()
                     assert page["pending"][0]["id"] == record.id
                     response = await client.post(
-                        f"/api/projects/harbor/permissions/{record.id}/answer",
+                        f"/api/workspaces/harbor/permissions/{record.id}/answer",
                         json={"expected_revision": 1, "option_id": "no"},
                     )
                     assert response.status_code == 200
                     assert await callback == "no"
                     assert (
-                        await client.get(f"/api/projects/harbor/permissions/{record.id}")
+                        await client.get(f"/api/workspaces/harbor/permissions/{record.id}")
                     ).json()["answer"] == "no"
                 assert (
-                    await client.post("/api/projects/harbor/permissions", json={})
+                    await client.post("/api/workspaces/harbor/permissions", json={})
                 ).status_code == 404
                 assert service.execution.get("harbor", run.id).status == "running"
                 service.execution.finish("harbor", run.id, "stopped")

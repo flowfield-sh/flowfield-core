@@ -112,7 +112,7 @@ def test_worker_defaults_preserve_harness_optional_effort_and_override_provenanc
         ),
     )
     assert execution.get("harbor", run.id).agent_settings == run.agent_settings
-    with pytest.raises(ApplicationError, match="individual task"):
+    with pytest.raises(ApplicationError, match="task override"):
         execution.configure(
             "harbor", SettingsEdit(expected_revision=saved.revision + 1, selection=override)
         )

@@ -19,6 +19,7 @@ from flowfield.inspection_models import (
 )
 from flowfield.integration import Integrations
 from flowfield.results import Results
+from flowfield.workspaces import Workspaces
 
 
 class Inspections:
@@ -39,7 +40,9 @@ class Inspections:
             )
 
     def configure(self, project_id: str, request: InspectionConfig) -> InspectionSettings:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
+        with self.workspace.connection(
+            write=True, workspace_id=Workspaces(self.workspace).for_project(project_id).id
+        ) as db:
             current = self.settings(project_id)
             self.workspace._current(current.revision, request.expected_revision)
             value = InspectionSettings(
@@ -54,22 +57,22 @@ class Inspections:
             )
             return value
 
-    def latest(self, project_id: str, result_id: str) -> Inspection | None:
+    def latest(self, workspace_id: str, result_id: str) -> Inspection | None:
         with self.workspace.connection() as db:
-            self.workspace._project(db, project_id)
-            Results(self.workspace)._get(db, project_id, result_id)
+            self.workspace._workspace(db, workspace_id)
+            Results(self.workspace)._get(db, workspace_id, result_id)
             row = db.execute(
-                "SELECT data FROM inspections WHERE project_id=? AND result_id IS ? "
+                "SELECT data FROM inspections WHERE workspace_id=? AND result_id IS ? "
                 "ORDER BY number DESC LIMIT 1",
-                (project_id, result_id),
+                (workspace_id, result_id),
             ).fetchone()
         return self._observe(Inspection.model_validate_json(row[0])) if row else None
 
-    def get(self, project_id: str, identity: str) -> Inspection:
+    def get(self, workspace_id: str, identity: str) -> Inspection:
         with self.workspace.connection() as db:
             row = db.execute(
-                "SELECT data FROM inspections WHERE project_id=? AND id=?",
-                (project_id, identity),
+                "SELECT data FROM inspections WHERE workspace_id=? AND id=?",
+                (workspace_id, identity),
             ).fetchone()
             if not row:
                 raise ApplicationError("not_found", "Inspection not found in this project.", 404)
@@ -82,29 +85,12 @@ class Inspections:
             or settings.setup_commands != value.setup_commands
             or self.settings(value.project_id).run_command != value.run_command
         )
-        if value.promotion_id:
-            from flowfield.milestone_promotion import read
-
-            with self.workspace.connection() as db:
-                promotion = read(db, value.promotion_id)
-                verification = db.execute(
-                    "SELECT status,json_extract(data,'$.current') FROM milestone_verifications "
-                    "WHERE id=?",
-                    (promotion.verification_id,),
-                ).fetchone()
-            value.source_changed = (
-                promotion.status in ("stale", "failed")
-                or not verification
-                or not verification[1]
-                or verification[0] in ("stale", "failed", "changes_requested")
-            )
-        else:
-            assert value.result_id
-            result = Results(self.workspace).get(value.project_id, value.result_id)
-            page = Results(self.workspace).page(value.project_id, result.task_id, limit=1)
-            value.source_changed = (
-                page.current_id != value.result_id or page.current_run_id != result.run_id
-            )
+        assert value.result_id
+        result = Results(self.workspace).get(value.workspace_id, value.result_id)
+        page = Results(self.workspace).page(value.workspace_id, result.task_id, limit=1)
+        value.source_changed = (
+            page.current_id != value.result_id or page.current_run_id != result.run_id
+        )
         if value.status == "ready":
             try:
                 assert value.workspace
@@ -128,23 +114,27 @@ class Inspections:
         data = value.model_dump_json(
             exclude={"locally_changed", "source_changed", "instructions_changed"}
         )
-        with self.workspace.connection(write=True, project_id=value.project_id) as db:
+        with self.workspace.connection(write=True, workspace_id=value.workspace_id) as db:
             if insert:
                 db.execute(
-                    "INSERT INTO inspections(id,project_id,result_id,data,promotion_id) "
+                    "INSERT INTO inspections(id,workspace_id,project_id,result_id,data) "
                     "VALUES (?,?,?,?,?)",
-                    (value.id, value.project_id, value.result_id, data, value.promotion_id),
+                    (value.id, value.workspace_id, value.project_id, value.result_id, data),
                 )
             else:
                 db.execute("UPDATE inspections SET data=? WHERE id=?", (data, value.id))
 
-    def prepare(self, project_id: str, request: InspectionPrepare) -> Inspection:
+    def prepare(self, workspace_id: str, request: InspectionPrepare) -> Inspection:
+        result = Results(self.workspace).get(workspace_id, request.result_id)
+        project_id = self.workspace.task(workspace_id, result.task_id).project_id
+        if not project_id:
+            raise ApplicationError("repository_required", "This task has no repository to inspect.")
         repository = Path(self.workspace.project(project_id).path)
         # Same repository boundary as delivery; concurrent requests cannot create duplicate copies.
         with gitops.lock(repository):
             settings = self.integrations.settings(project_id)
             instructions = self.settings(project_id)
-            result = Results(self.workspace).get(project_id, request.result_id)
+            result = Results(self.workspace).get(workspace_id, request.result_id)
             self.workspace._current(result.revision, request.expected_revision)
             if (
                 result.completion != "code"
@@ -155,7 +145,7 @@ class Inspections:
                     "candidate_missing", "This result has no prepared code candidate to try.", 409
                 )
             commit, branch = result.candidate_commit, result.target_branch
-            previous = self.latest(project_id, request.result_id)
+            previous = self.latest(workspace_id, request.result_id)
             if (
                 previous
                 and previous.status == "ready"
@@ -175,6 +165,7 @@ class Inspections:
                 self._save(previous)
             value = Inspection(
                 id=uuid4().hex,
+                workspace_id=workspace_id,
                 project_id=project_id,
                 result_id=request.result_id,
                 task_key=result.task_key,
@@ -210,51 +201,3 @@ class Inspections:
             )
         self._save(value)
         return self._observe(value)
-
-    def prepare_milestone(
-        self, workspace_id: str, identity: str, expected_revision: int, new_copy: bool = False
-    ) -> Inspection:
-        from flowfield.milestone_verification import MilestoneVerifications
-
-        verification = MilestoneVerifications(self.workspace).get(workspace_id, identity)
-        self.workspace._current(verification.revision, expected_revision)
-        promotion = verification.promotion
-        if not promotion or not promotion.candidate_commit:
-            raise ApplicationError(
-                "candidate_missing", "This milestone has no prepared candidate.", 409
-            )
-        repository = Path(self.workspace.project(promotion.project_id).path)
-        with gitops.lock(repository):
-            settings = self.integrations.settings(promotion.project_id)
-            instructions = self.settings(promotion.project_id)
-            with self.workspace.connection() as db:
-                row = db.execute(
-                    "SELECT data FROM inspections WHERE promotion_id=? "
-                    "ORDER BY number DESC LIMIT 1",
-                    (promotion.id,),
-                ).fetchone()
-            previous = self._observe(Inspection.model_validate_json(row[0])) if row else None
-            if (
-                previous
-                and previous.status == "ready"
-                and not previous.problem
-                and not previous.instructions_changed
-                and not new_copy
-            ):
-                return previous
-            return self._copy(
-                Inspection(
-                    id=uuid4().hex,
-                    project_id=promotion.project_id,
-                    promotion_id=promotion.id,
-                    task_key=verification.milestone_key,
-                    version=verification.milestone_revision,
-                    target_branch=promotion.target_branch,
-                    commit=promotion.candidate_commit,
-                    created_at=now(),
-                    runtime=settings.runtime,
-                    setup_commands=settings.setup_commands,
-                    run_command=instructions.run_command,
-                ),
-                repository,
-            )

@@ -25,13 +25,11 @@ class OutputFile(BaseModel):
     model_config = ConfigDict(json_schema_serialization_defaults_required=True)
     id: str
     workspace_id: str
-    scope_id: str
     project_id: str | None
     task_id: str
     task_key: str
     task_title: str
-    milestone_id: str | None
-    milestone_title: str | None
+
     run_id: str
     name: str
     description: str

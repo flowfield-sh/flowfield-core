@@ -21,10 +21,10 @@ import { Composer } from "./Composer";
 import { AgentSettingsControl } from "./AgentSettings";
 import { choiceLabel } from "./HarnessModels";
 import { ArrowUp } from "lucide-react";
-import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
+import { ContentStack, Disclosure } from "./DetailLayout";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
-import { request, type Task, type Board } from "./workspace";
+import { request, type Task, type WorkspaceBoard } from "./workspace";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { taskHref } from "./navigation";
 import { Markdown } from "./Markdown";
@@ -76,7 +76,7 @@ export function TaskConversation({
 }: {
   projectId: string;
   task: Task;
-  board: Pick<Board, "milestones" | "tasks">;
+  board: Pick<WorkspaceBoard, "tasks">;
   requestTarget?: {
     kind: "question" | "result" | "intervention" | "review" | "integration";
     id: string;
@@ -86,8 +86,7 @@ export function TaskConversation({
   onSettingsDirty: (dirty: boolean) => void;
 }) {
   const route = useParams();
-  const overview = !requestTarget && (!route.tab || route.tab === "task");
-  const path = `projects/${projectId}/tasks/${task.id}`;
+  const path = `workspaces/${projectId}/tasks/${task.id}`;
   const [revision, setRevision] = useState(0);
   const tick = useMemo(() => ({ refresh, revision }), [refresh, revision]);
   const page = useResource<Page>(`${path}/thread`, tick);
@@ -113,19 +112,15 @@ export function TaskConversation({
       ? requestTarget.id
       : gate.data?.question_id;
   const currentQuestion = useResource<components["schemas"]["Question"]>(
-    questionId ? "projects/" + projectId + "/questions/" + questionId : null,
+    questionId ? "workspaces/" + projectId + "/questions/" + questionId : null,
     tick,
   );
   const initial = useResource<Message>(`${path}/thread/definition:1`, task.id);
   const executionId =
     requestTarget?.kind === "integration"
       ? `validation:${requestTarget.id}`
-      : ["history", "runs"].includes(route.tab ?? "") && route.runId
-        ? route.integrationId
-          ? "validation:" + route.integrationId
-          : route.runId.includes(":")
-            ? route.runId
-            : "worker:" + route.runId
+      : route.tab === "history" && route.runId
+        ? route.runId
         : null;
   const execution = useResource<components["schemas"]["ExecutionItem"]>(
     executionId ? `${path}/executions/${executionId}` : null,
@@ -140,7 +135,7 @@ export function TaskConversation({
         ? `${requestTarget.kind === "intervention" || requestTarget.kind === "review" ? "attempt" : requestTarget.kind}:${requestTarget.id}`
         : route.tab === "conversation"
           ? route.runId
-          : ["result", "changes"].includes(route.tab ?? "") && route.runId
+          : route.tab === "changes" && route.runId
             ? `result:${route.runId}`
             : execution.data
               ? `attempt:${execution.data.run_id}`
@@ -230,7 +225,7 @@ export function TaskConversation({
   );
   const settingsControl = (
     <AgentSettingsControl
-      projectId={projectId}
+      workspaceId={task.workspace_id}
       path={`${path}/agent-settings`}
       refresh={refresh}
       open={modelOpen}
@@ -338,7 +333,6 @@ export function TaskConversation({
   const scrolling = useFeedScroll(
     root,
     !requestTarget &&
-      !overview &&
       !!page.data &&
       !!initial.data &&
       !!gate.data &&
@@ -433,7 +427,7 @@ export function TaskConversation({
     try {
       if (draft.action === "approve") {
         await request(
-          `projects/${projectId}/results/${draft.binding.result_id}/review`,
+          `workspaces/${projectId}/results/${draft.binding.result_id}/review`,
           "POST",
           {
             expected_revision: draft.binding.result_revision,
@@ -511,46 +505,7 @@ export function TaskConversation({
             resources={[page, selected, gate, execution, currentAttempt]}
           />
           {page.loading && !page.data && <p>Loading activity…</p>}
-          {overview && (
-            <>
-              {currentAttempt.data?.body &&
-                ["failed", "stopped", "uncertain"].includes(
-                  currentAttempt.data.status ?? "",
-                ) && (
-                  <DetailSection title={currentAttempt.data.title}>
-                    <Markdown>{currentAttempt.data.body}</Markdown>
-                    <WorkspaceLink
-                      to={messageHref(projectId, task, currentAttempt.data.id)}
-                    >
-                      Inspect attempt
-                    </WorkspaceLink>
-                  </DetailSection>
-                )}
-              {currentQuestion.data?.status === "open" && (
-                <QuestionPrompt
-                  question={currentQuestion.data.question}
-                  context={currentQuestion.data.context}
-                  reviewContext={!!currentQuestion.data.origin_review_id}
-                  recommendation={currentQuestion.data.recommendation}
-                  verificationUrl={currentQuestion.data.verification_url}
-                />
-              )}
-              {gate.data?.result_id && (
-                <Result
-                  overview
-                  projectId={projectId}
-                  taskId={task.id}
-                  taskKey={task.key}
-                  versionId={gate.data.result_id}
-                  refresh={tick}
-                  onReply={requestChanges}
-                  onApprove={approve}
-                  inputEnabled={inputEnabled && !gate.data.question_id}
-                />
-              )}
-            </>
-          )}
-          {!overview && (
+          {
             <ol className="conversation-messages" aria-label="Task feed">
               {messages
                 .filter(
@@ -592,8 +547,16 @@ export function TaskConversation({
                         selected={
                           target === message.id ||
                           message === activeAttempt ||
+                          (!target &&
+                            !requestTarget &&
+                            message.kind === "result" &&
+                            message.source_id === gate.data?.result_id) ||
+                          (!target &&
+                            !requestTarget &&
+                            message.kind === "question" &&
+                            message.source_id === gate.data?.question_id) ||
                           (!route.runId &&
-                            ["changes", "result"].includes(route.tab ?? "") &&
+                            route.tab === "changes" &&
                             message.source_id === gate.data?.result_id)
                         }
                         title={message.title}
@@ -651,9 +614,6 @@ export function TaskConversation({
                                         reviewContext={
                                           !!currentQuestion.data
                                             .origin_review_id
-                                        }
-                                        verificationUrl={
-                                          currentQuestion.data.verification_url
                                         }
                                         recommendation={
                                           currentQuestion.data.recommendation
@@ -751,8 +711,7 @@ export function TaskConversation({
                             {message.kind === "definition" && (
                               <TaskChanges
                                 revision={message.revision!}
-                                path={`projects/${projectId}/view/tasks/${task.id}`}
-                                milestones={board.milestones}
+                                path={`workspaces/${projectId}/view/tasks/${task.id}`}
                                 tasks={board.tasks}
                               />
                             )}
@@ -763,30 +722,28 @@ export function TaskConversation({
                   </Fragment>
                 ))}
             </ol>
-          )}
-          {!overview &&
-            !requestTarget &&
-            messages.some((message) => message.technical) && (
-              <Disclosure summary="Technical history">
-                <ContentStack>
-                  {messages
-                    .filter((message) => message.technical)
-                    .map((message) => (
-                      <div
-                        key={message.id}
-                        className="flex flex-wrap items-center justify-between gap-2"
+          }
+          {!requestTarget && messages.some((message) => message.technical) && (
+            <Disclosure summary="Technical history">
+              <ContentStack>
+                {messages
+                  .filter((message) => message.technical)
+                  .map((message) => (
+                    <div
+                      key={message.id}
+                      className="flex flex-wrap items-center justify-between gap-2"
+                    >
+                      <WorkspaceLink
+                        to={messageHref(projectId, task, message.id)}
                       >
-                        <WorkspaceLink
-                          to={messageHref(projectId, task, message.id)}
-                        >
-                          {message.title}
-                        </WorkspaceLink>
-                        <Timestamp date={message.created_at} />
-                      </div>
-                    ))}
-                </ContentStack>
-              </Disclosure>
-            )}
+                        {message.title}
+                      </WorkspaceLink>
+                      <Timestamp date={message.created_at} />
+                    </div>
+                  ))}
+              </ContentStack>
+            </Disclosure>
+          )}
         </ContentStack>
         <PaneFooter>
           {showInputFooter && (
@@ -837,17 +794,19 @@ export function TaskConversation({
                     {replyBinding?.question_id && questionText && (
                       <p>{questionText}</p>
                     )}
-                    {!replyBinding?.question_id && replyResult && (
-                      <p className="detail-metadata">
-                        {draft?.action === "approve"
-                          ? "Approval"
-                          : draft?.action === "changes"
-                            ? "Feedback"
-                            : "Review"}{" "}
-                        for {replyResult.title}
-                        {stale ? " (earlier context)" : ""}.
-                      </p>
-                    )}
+                    {!replyBinding?.question_id &&
+                      replyResult &&
+                      showComposer && (
+                        <p className="detail-metadata">
+                          {draft?.action === "approve"
+                            ? "Approval"
+                            : draft?.action === "changes"
+                              ? "Feedback"
+                              : "Review"}{" "}
+                          for {replyResult.title}
+                          {stale ? " (earlier context)" : ""}.
+                        </p>
+                      )}
                   </div>
                 )}
               {requestTarget && !matchesRequest && (
@@ -887,7 +846,10 @@ export function TaskConversation({
                 onSend={() => void send()}
 
                 controls={
-                  coordinatorQuestion || requestTarget
+                  coordinatorQuestion ||
+                  requestTarget ||
+                  !showComposer ||
+                  composerAction === "approve"
                     ? undefined
                     : settingsControl
                 }

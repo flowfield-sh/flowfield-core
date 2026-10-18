@@ -307,7 +307,6 @@ export function resultMessage(v: {
     author: "service",
     actor: { role: "flowfield", label: "Flowfield", identity: "service" },
 
-    stage_changes: [],
     state: { label: "Recorded", tone: "complete", href: null },
     title: "Result " + v.version,
     body: v.report?.summary ?? "",
@@ -327,10 +326,18 @@ export async function fixtureProgress(
     progress: Record<string, unknown>;
   },
 ) {
-  const response = await request.post(
-    `/api/projects/${input.project_id}/tasks/${input.task_id}/progress`,
-    { data: input.progress },
+  const workspace = await projectWorkspace(request, input.project_id);
+  return JSON.parse(
+    execFileSync(
+      resolve("../.venv/bin/python"),
+      [
+        resolve("../tests/report_browser_fixture.py"),
+        state,
+        workspace,
+        input.task_id,
+        JSON.stringify(input.progress),
+      ],
+      { encoding: "utf8" },
+    ),
   );
-  expect(response.ok()).toBe(true);
-  return response.json();
 }

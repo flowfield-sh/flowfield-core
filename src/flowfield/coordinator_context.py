@@ -11,7 +11,6 @@ from flowfield.coordinator_models import (
 from flowfield.documents import Documents
 from flowfield.errors import ApplicationError
 from flowfield.labels import Labels
-from flowfield.milestones import Milestones
 from flowfield.workspaces import Workspaces
 
 
@@ -23,33 +22,20 @@ def freeze_view(
     task: CoordinatorTaskSelection | None,
 ) -> CoordinatorViewContext | None:
     if selection is None:
-        return None  # Older saved messages and standalone sends have no browser surface.
+        return None  # Standalone sends have no adjacent browser surface.
     filtered = selection.surface in {"board", "archive"}
     if (
         (bool(task) != (selection.surface == "task"))
         or (selection.surface == "project" and not selection.project_id)
-        or (task and task.project_id != selection.project_id)
-        or (selection.milestone_id and selection.without_milestone)
         or (
-            not filtered
-            and (
-                (selection.milestone_id and selection.surface != "milestone")
-                or selection.label_id
-                or selection.without_milestone
-            )
+            task
+            and selection.project_id is not None
+            and store._task(db, workspace_id, task.task_id).project_id != selection.project_id
         )
+        or (not filtered and selection.label_id)
         or (
-            selection.surface
-            in {"projects", "milestones", "milestone", "documents", "document", "files"}
+            selection.surface in {"projects", "documents", "document", "files"}
             and selection.project_id
-        )
-        or (
-            selection.surface == "milestone"
-            and (not selection.milestone_id or not selection.milestone_revision)
-        )
-        or (
-            selection.surface != "milestone"
-            and (selection.milestone_revision is not None or selection.verification_id is not None)
         )
         or (
             selection.surface == "document"
@@ -77,9 +63,7 @@ def freeze_view(
     if selection.request_kind and selection.request_id:
         from flowfield.requests import get_request
 
-        request = get_request(
-            store, workspace_id, selection.request_kind, selection.request_id, selection.project_id
-        )
+        request = get_request(store, workspace_id, selection.request_kind, selection.request_id)
         value.request_title = request.title
         value.request_status = request.status
         value.request_href = request.request_href
@@ -89,29 +73,9 @@ def freeze_view(
         )
         value.document_title = document.title
     if selection.project_id:
-        project = store._work_scope(db, selection.project_id)
-        if project.workspace_id != workspace_id:
-            raise ApplicationError("scope_mismatch", "Choose work in this workspace.", 403)
+        Workspaces.check_project(db, workspace_id, selection.project_id)
+        project = store._project(db, selection.project_id)
         value.project_name, value.project_revision = project.name, project.revision
-    if selection.milestone_id:
-        milestone = (
-            Milestones.revision(
-                db, workspace_id, selection.milestone_id, selection.milestone_revision
-            )
-            if selection.milestone_revision
-            else Milestones.read(db, workspace_id, selection.milestone_id)
-        )
-        value.milestone_title, value.milestone_revision = milestone.title, milestone.revision
-    if selection.verification_id:
-        from flowfield.milestone_verification import read as read_verification
-
-        verification = read_verification(db, workspace_id, selection.verification_id)
-        if verification.milestone_id != milestone.id:
-            raise ApplicationError(
-                "invalid_view_context", "Verification belongs to another milestone."
-            )
-        value.verification_revision = verification.revision
-        value.verification_status = verification.status
     if selection.label_id:
         label = Labels.read(db, workspace_id, selection.label_id)
         if label.deleted_at:
@@ -130,6 +94,4 @@ def same_view(
     if saved is None or requested is None:
         return saved is None and requested is None
     fields = set(CoordinatorViewSelection.model_fields)
-    if requested.surface != "milestone":
-        fields.discard("milestone_revision")
     return saved.model_dump(include=fields) == requested.model_dump(include=fields)

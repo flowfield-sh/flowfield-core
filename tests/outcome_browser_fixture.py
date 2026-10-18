@@ -24,9 +24,11 @@ for kind in ("report", "partial", "checks", "setup"):
         workspace,
         ProjectSetup(
             path=str(repo),
-            task_prefix={"report": "ORP", "partial": "OPT", "checks": "OCK", "setup": "OST"}[kind],
         ),
     )
+    from flowfield.reviewer_settings import ReviewerEdit, Reviewers
+
+    Reviewers(workspace).configure(project, ReviewerEdit(expected_revision=1, enabled=False))
     git(repo, "init", "-b", "main")
     (repo / "README.md").write_text("Outcome fixture")
     git(repo, "add", ".")
@@ -59,6 +61,7 @@ for kind in ("report", "partial", "checks", "setup"):
     workspace.create_task(
         project,
         task_request(
+            project_id=project,
             id="work",
             title=f"{kind.title()} outcome",
             body="Deliver both requested behaviors",
@@ -67,9 +70,11 @@ for kind in ("report", "partial", "checks", "setup"):
         ),
     )
     settings = service.execution.settings(project).model_copy(update={"enabled": True})
-    head = service.integrations.head(project)
+    head = service.integrations.head(project, "work")
     with patch.object(service.execution, "_settings", return_value=settings):
-        run = service.execution.claim(project, head, service._available(project, repo, head))
+        run = service.execution.claim(
+            project, head, service._available(project, project, repo, head)
+        )
     assert run
     service.execution.started(project, run.id)
     env = LocalHost(os.environ).prepare(workspace.directory, repo, run.id, run.base_commit)

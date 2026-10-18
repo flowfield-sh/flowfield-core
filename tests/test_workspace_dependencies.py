@@ -18,76 +18,90 @@ from flowfield.workspaces import Workspaces
 @pytest.mark.parametrize("destination", ["core", "site"])
 def test_waiting_state_matches_workspace_prerequisites(tmp_path, destination):
     store = shared(tmp_path)
-    first = store.create_task("core", task_request(title="First"))
-    second = store.create_task(destination, task_request(title="Then", dependencies=[first.key]))
+    space = Workspaces(store).for_project("core").id
+    first = store.create_task(space, task_request(project_id="core", title="First"))
+    second = store.create_task(
+        space, task_request(project_id=destination, title="Then", dependencies=[first.key])
+    )
     for task in (
-        BrowserReads(store).task(destination, second.id),
-        next(t for t in BrowserReads(store).board(destination).tasks if t.id == second.id),
+        BrowserReads(store).task(space, second.id),
+        next(t for t in BrowserReads(store).workspace_board(space).tasks if t.id == second.id),
     ):
         assert task.state.label == "Waiting on prerequisites"
         assert task.state.reason == "prerequisites"
         assert task.blocked_by[0].key == first.key
-    complete(store, "core", first.id)
-    assert BrowserReads(store).task(destination, second.id).state.reason is None
+    complete(store, space, first.id)
+    assert BrowserReads(store).task(space, second.id).state.reason is None
 
 
 def test_same_local_ids_scope_cycles_pagination_and_downstream_reconciliation(tmp_path):
     store = shared(tmp_path)
-    core = store.create_task("core", task_request(id="same", title="API", body="API contract"))
+    space = Workspaces(store).for_project("core").id
+    core = store.create_task(
+        space, task_request(project_id="core", id="core", title="API", body="API contract")
+    )
     site = store.create_task(
-        "site",
+        space,
         task_request(
-            id="same", title="Site", body="Site behavior", dependencies=[core.key.lower()]
+            project_id="site",
+            id="site",
+            title="Site",
+            body="Site behavior",
+            dependencies=[core.key.lower()],
         ),
     )
-    foreign = store.create_task("elsewhere", task_request(id="same", title="Elsewhere"))
+    foreign_space = Workspaces(store).for_project("elsewhere").id
+    foreign = store.create_task(
+        foreign_space, task_request(project_id="elsewhere", id="same", title="Elsewhere")
+    )
     assert site.dependencies == [core.key] and site.blocked_by[0].project_id == "core"
     with pytest.raises(ApplicationError) as rejected:
-        store.edit_task("site", site.id, TaskEdit(expected_revision=1, dependencies=[foreign.key]))
+        store.edit_task(space, site.id, TaskEdit(expected_revision=1, dependencies=[foreign.id]))
     assert rejected.value.code == "invalid_dependency"
     with pytest.raises(ApplicationError) as cycle:
-        store.edit_task("core", core.id, TaskEdit(expected_revision=1, dependencies=[site.key]))
+        store.edit_task(space, core.id, TaskEdit(expected_revision=1, dependencies=[site.key]))
     assert cycle.value.code == "dependency_cycle"
-    assert store.task("core", core.id).revision == 1
+    assert store.task(space, core.id).revision == 1
     joined = store.create_task(
-        "core", task_request(title="Launch", dependencies=[core.key, site.key])
+        space, task_request(project_id="core", title="Launch", dependencies=[core.key, site.key])
     )
     reads = ContextReads(store)
-    before = reads.relationships("core", joined.id, limit=1)
-    after = reads.relationships("core", joined.id, limit=1, after=before["next_cursor"])
+    before = reads.relationships(space, joined.id, limit=1)
+    after = reads.relationships(space, joined.id, limit=1, after=before["next_cursor"])
     assert {before["items"][0]["project_id"], after["items"][0]["project_id"]} == {"core", "site"}
     assert after["next_cursor"] is None
-    assert len(reads.tasks("site")["items"]) == 1
-    assert sum(column["count"] for column in reads.overview("core")["columns"]) == 2
-    assert len(BrowserReads(store).board("site").tasks) == 1
-    assert BrowserReads(store).task("site", site.id).prerequisites[0].project_id == "core"
+    assert len(reads.tasks(space)["items"]) == 3
+    assert sum(column["count"] for column in reads.overview(space)["columns"]) == 3
+    assert len(BrowserReads(store).workspace_board(space).tasks) == 3
+    assert BrowserReads(store).task(space, site.id).prerequisites[0].project_id == "core"
     notifications = []
     store.on_change = notifications.append
-    complete(store, "core", core.id)
-    assert {"core", "site"} == set(notifications)
-    assert not store.task("site", site.id).blocked_by
-    complete(store, "site", site.id)
+    complete(store, space, core.id)
+    assert {space} == set(notifications)
+    assert not store.task(space, site.id).blocked_by
+    complete(store, space, site.id)
     notifications.clear()
-    current = store.task("core", core.id)
+    current = store.task(space, core.id)
     store.edit_task(
-        "core", core.id, TaskEdit(expected_revision=current.revision, body="Changed API contract")
+        space, core.id, TaskEdit(expected_revision=current.revision, body="Changed API contract")
     )
-    revised = store.task("site", site.id)
+    revised = store.task(space, site.id)
     assert revised.reconciliation_reason and revised.body == "Site behavior"
-    assert {"core", "site"} == set(notifications)
-    assert store.task("elsewhere", foreign.id).reconciliation_reason is None
-    assert store.task("core", joined.id).blocked_by
+    assert {space} == set(notifications)
+    assert store.task(foreign_space, foreign.id).reconciliation_reason is None
+    assert store.task(space, joined.id).blocked_by
 
 
 def test_competing_cross_project_edges_cannot_commit_a_cycle(tmp_path):
     store = shared(tmp_path)
-    core = store.create_task("core", task_request(title="API"))
-    site = store.create_task("site", task_request(title="Site"))
+    space = Workspaces(store).for_project("core").id
+    core = store.create_task(space, task_request(project_id="core", title="API"))
+    site = store.create_task(space, task_request(project_id="site", title="Site"))
 
     def connect(task, target):
         try:
             store.edit_task(
-                task.project_id, task.id, TaskEdit(expected_revision=1, dependencies=[target.key])
+                space, task.id, TaskEdit(expected_revision=1, dependencies=[target.key])
             )
             return "saved"
         except ApplicationError as error:
@@ -141,57 +155,58 @@ def test_foreign_code_is_frozen_evidence_without_local_ancestry_or_worker_scope(
         ),
     )
     task = store.create_task(
-        "site",
+        "harbor",
         task_request(
+            project_id="site",
             title="Use API",
             body="Review the delivered API",
             status="up_next",
-            dependencies=["HAR-1"],
+            dependencies=["T-1"],
         ),
     )
     store.publish_task(
-        "site", task.id, TaskPublish(expected_revision=task.revision, completion="code")
+        "harbor", task.id, TaskPublish(expected_revision=task.revision, completion="code")
     )
-    settings = service.execution.settings("site")
+    settings = service.execution.settings("harbor")
     if managed:
         settings = service.execution.configure(
-            "site",
+            "harbor",
             SettingsEdit(
                 expected_revision=settings.revision,
                 selection=AgentChoice(model="test-model", effort="low"),
             ),
         )
-    service.execution.queue("site", QueueEdit(expected_revision=settings.revision, enabled=True))
+    service.execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=True))
     own_base = baseline(repo)
     assert own_base != accepted.candidate_commit
-    run = service.execution.claim("site", own_base, {own_base: set()})
+    run = service.execution.claim("harbor", own_base, {own_base: set()})
     assert run and run.project_id == "site" and run.base_commit == own_base
-    assignment = service.execution.assignment("site", run.id)
+    assignment = service.execution.assignment("harbor", run.id)
     prerequisites = json.loads(assignment["prerequisites"])
     assert prerequisites[0]["project_id"] == "harbor"
     assert prerequisites[0]["repository_scope"] == "other_repository"
     assert prerequisites[0]["commit"] == accepted.candidate_commit
     assert prerequisites[0]["result"]["summary"] == "Outcome"
-    assert BrowserReads(store).board("site").pending_code.get(task.id, []) == []
+    assert BrowserReads(store).workspace_board("harbor").pending_code.get(task.key, []) == []
     if managed:
         from fake_worker import FakeWorker
 
         monkeypatch.setattr("flowfield.adapters.agent_selection.CodexAgent", FakeWorker)
         monkeypatch.setattr("flowfield.supervisor.process_stamp", lambda pid: "fixture-process")
         asyncio.run(service._execute(run, repo))
-        current_run = service.execution.get("site", run.id)
+        current_run = service.execution.get("harbor", run.id)
         assert current_run.status == "in_review", current_run.problem
         assert (service.environment(run.id).checkout / "result.txt").read_text() == "implemented"
         assert baseline(repo) == own_base  # Delivery still requires this result's approval.
         return
-    service.execution.started("site", run.id)
+    service.execution.started("harbor", run.id)
 
     async def read_frozen_evidence():
         grant = worker_scope(WorkerBridge(service.execution, run, None))
         evidence = await grant.call("read_context", {"section": "prerequisites"})
         assert not evidence.isError
         assert "harbor" in str(evidence.content)
-        forbidden = await grant.call("get_task", {"project_id": "harbor", "task_id": "work"})
+        forbidden = await grant.call("get_task", {"task_id": "work"})
         assert forbidden.isError
         assert forbidden.structuredContent["error"]["code"] == "operation_denied"
         grant.revoke()

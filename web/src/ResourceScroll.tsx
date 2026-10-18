@@ -8,7 +8,7 @@ const feedOwns = (node: HTMLElement) =>
   node.matches(".entity-pane-body") &&
   !!node.querySelector(".conversation-messages");
 const selector =
-  ".entity-pane-body, .workspace-work-content, .column-cards, .board, .milestone-board";
+  ".entity-pane-body, .workspace-work-content, .column-cards, .board";
 export function ResourceScroll({
   tab,
   children,

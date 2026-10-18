@@ -20,7 +20,6 @@ test("Pi shares automatic discovery and preserves provider-qualified model choic
       await fixtureProject(request, {
         data: {
           path: existingDirectory(join(state, project)),
-          task_prefix: "PII",
         },
       })
     ).ok(),
@@ -77,7 +76,9 @@ test("Pi shares automatic discovery and preserves provider-qualified model choic
       });
     },
   );
-  await page.goto(`/projects/${project}`);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, project)}/tasks`,
+  );
   const picker = page.getByRole("dialog", {
     name: "Coordinator model settings",
     exact: true,

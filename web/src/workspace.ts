@@ -25,13 +25,11 @@ export const authorLabel = (author: string | null) => {
 };
 export type WorkspaceRecord = components["schemas"]["WorkspaceRecord"];
 export type Project = components["schemas"]["Project"];
-export type Milestone = components["schemas"]["Milestone"];
 export type TaskRevision = components["schemas"]["TaskRevision"];
 export type TaskReference = components["schemas"]["TaskReference"];
 export type Task = components["schemas"]["TaskDetail"];
 export type TaskCard = components["schemas"]["TaskCard"];
 export type WorkspaceBoard = components["schemas"]["BrowserWorkspaceBoard"];
-export type Board = components["schemas"]["BrowserBoard"];
 export type RecordMeta = Pick<
   Project,
   "id" | "revision" | "updated_at" | "updated_by"

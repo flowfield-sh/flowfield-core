@@ -5,6 +5,7 @@ from contextlib import closing
 
 import pytest
 from project_fixtures import existing_directory
+from pydantic import ValidationError
 
 from flowfield import storage
 from flowfield.agent_models import AgentChoice
@@ -55,7 +56,7 @@ def test_project_adoption_is_scoped_atomic_and_preserves_files(tmp_path):
         workspaces.adopt(second.id, request)
     assert workspaces.for_project(project.id) == first
     assert (root / "AGENTS.md").read_text() == "Keep repository guidance"
-    with pytest.raises(ApplicationError, match="different task prefix"):
+    with pytest.raises(ValidationError, match="Extra inputs"):
         workspaces.adopt(first.id, ProjectSetup(path=str(root), task_prefix="BAD"))
     assert workspaces.projects(first.id) == [project]
 
@@ -81,7 +82,7 @@ def test_failed_project_configuration_rolls_back_membership(tmp_path):
     space = workspaces.create(WorkspaceCreate(name="Product"))
     root = tmp_path / "core"
     root.mkdir()
-    with pytest.raises(ApplicationError, match="individual task"):
+    with pytest.raises(ValidationError, match="Extra inputs"):
         workspaces.adopt(
             space.id,
             ProjectSetup(path=str(root), worker=AgentChoice(model="fixture", fast=True)),

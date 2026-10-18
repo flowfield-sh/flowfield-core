@@ -33,7 +33,6 @@ for (const kind of [
     const created = await fixtureProject(request, {
       data: {
         path: existingDirectory(join(state, id)),
-        task_prefix: `F${kind.slice(0, 2).toUpperCase()}`,
       },
     });
     expect(created.ok()).toBe(true);
@@ -110,7 +109,7 @@ test("worker and coordinator settings report failed saves with their own action 
 }) => {
   const id = "feedback-models";
   await fixtureProject(request, {
-    data: { path: existingDirectory(join(state, id)), task_prefix: "FMD" },
+    data: { path: existingDirectory(join(state, id)) },
   });
   const workspace = await projectWorkspace(request, id);
   await page.route(`**/api/workspaces/${workspace}/models*`, (route) =>
@@ -132,7 +131,9 @@ test("worker and coordinator settings report failed saves with their own action 
   await expect(workers.getByLabel("Maximum parallel workers")).toHaveValue("3");
   await expect(workers).not.toContainText(/Load failed|Cannot reach Flowfield/);
   await errors(page).getByRole("button", { name: "Close toast" }).click();
-  await page.goto(`/projects/${id}`);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, id)}/tasks`,
+  );
   const settings = page.getByRole("dialog", {
     name: "Coordinator model settings",
   });
@@ -186,11 +187,11 @@ test("a saved correction is not offered for resubmission when the following read
 }) => {
   const id = "feedback-correction";
   await fixtureProject(request, {
-    data: { path: existingDirectory(join(state, id)), task_prefix: "FCR" },
+    data: { path: existingDirectory(join(state, id)) },
   });
   const question = {
     id: "scope",
-    project_id: id,
+    workspace_id: await projectWorkspace(request, id),
     task_id: null,
     task_key: null,
     affected_task_ids: [],
@@ -212,18 +213,35 @@ test("a saved correction is not offered for resubmission when the following read
     delivery: null,
     decision: "Agreed",
     applied_task_revision: null,
-    applied_project_revision: null,
+    applied_workspace_revision: null,
     applied_task_revisions: {},
     created_at: "2026-10-10T00:00:00Z",
     updated_at: "2026-10-10T00:00:00Z",
     updated_by: "human",
   };
+  await page.route("**/api/workspaces/*/requests/question/scope*", (route) =>
+    route.fulfill({
+      json: {
+        id: question.id,
+        workspace_id: question.workspace_id,
+        kind: "question",
+        request_kind: "question",
+        title: question.question,
+        status: question.status,
+        updated_at: question.updated_at,
+        task_id: null,
+        task_key: null,
+        request_href: `/workspaces/${question.workspace_id}/requests/question/scope`,
+        source_href: `/workspaces/${question.workspace_id}/inbox`,
+      },
+    }),
+  );
   let saved = 0;
-  await page.route(`**/api/projects/${id}/questions/scope`, (route) =>
+  await page.route(`**/api/workspaces/*/questions/scope`, (route) =>
     saved ? route.abort() : route.fulfill({ json: question }),
   );
   await page.route(
-    `**/api/projects/${id}/questions/scope/correction`,
+    `**/api/workspaces/*/questions/scope/correction`,
     (route) => {
       saved++;
       return route.fulfill({
@@ -236,8 +254,10 @@ test("a saved correction is not offered for resubmission when the following read
       });
     },
   );
-  await page.goto(`/projects/${id}/inbox/scope`);
-  const detail = page.getByRole("region", { name: "Question", exact: true });
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, id)}/requests/question/scope`,
+  );
+  const detail = page.getByRole("region", { name: "Request", exact: true });
   await detail
     .getByRole("button", { name: "Send correction", exact: true })
     .click();
@@ -252,7 +272,10 @@ test("a saved correction is not offered for resubmission when the following read
   );
   await expect(
     detail.getByRole("link", { name: "Open the new input" }),
-  ).toHaveAttribute("href", `/projects/${id}/inbox/corrected`);
+  ).toHaveAttribute(
+    "href",
+    `/workspaces/${await projectWorkspace(page.request, id)}/requests/question/corrected`,
+  );
   await expect(detail.getByLabel("Your answer", { exact: true })).toHaveCount(
     0,
   );

@@ -75,34 +75,38 @@ def test_updates_reach_board_inbox_and_coordinator_without_blocking_and_are_scop
             project, ProjectEdit(expected_revision=1, worker_documents=[{"id": doc.id}])
         )
         store.create_task(
-            project,
+            space,
             task_request(
-                id="same",
+                id=project,
+                project_id=project,
                 title="Apply contract",
                 body="Review this outcome",
                 preparation={"completion": "report"},
             ),
         )
-    before = store.task("core", "same")
+    before = store.task(space, "core")
     docs.edit(space, doc.id, DocumentEdit(expected_revision=1, body="Changed"))
-    current = store.task("core", "same")
+    current = store.task(space, "core")
     assert current.readiness == before.readiness == "ready"
     assert current.publication == before.publication
     assert current.agreement_revision == before.agreement_revision
     assert len(current.document_updates) == 1
-    assert BrowserReads(store).board("core").tasks[0].document_updates == current.document_updates
     assert (
-        ContextReads(store).tasks("core")["items"][0]["document_updates"][0]["latest_revision"] == 2
+        BrowserReads(store).workspace_board(space).tasks[0].document_updates
+        == current.document_updates
     )
-    waiting = attention_page(store, None, "waiting", workspace_id=space)
-    assert {(i.project_id, i.kind) for i in waiting.items} == {
-        ("core", "document"),
-        ("site", "document"),
+    assert (
+        ContextReads(store).tasks(space)["items"][0]["document_updates"][0]["latest_revision"] == 2
+    )
+    waiting = attention_page(store, space, "waiting")
+    assert {(i.task_key, i.kind) for i in waiting.items} == {
+        ("T-1", "document"),
+        ("T-2", "document"),
     }
-    assert attention_page(store, None, "action", workspace_id=space).total == 0
+    assert attention_page(store, space, "action").total == 0
     first = docs.impact(space, doc.id, limit=1)
     second = docs.impact(space, doc.id, after=first["next_cursor"], limit=1)
-    assert {first["items"][0]["project_id"], second["items"][0]["project_id"]} == {"core", "site"}
+    assert {first["items"][0]["task_key"], second["items"][0]["task_key"]} == {"T-1", "T-2"}
     assert second["next_cursor"] is None
     foreign = Workspaces(store).for_project("elsewhere").id
     with pytest.raises(ApplicationError, match="not found"):
@@ -121,7 +125,7 @@ def test_updates_reach_board_inbox_and_coordinator_without_blocking_and_are_scop
 
     asyncio.run(read())
     updated = store.publish_task(
-        "core",
+        space,
         current.id,
         TaskPublish(
             expected_revision=current.revision,
@@ -129,6 +133,6 @@ def test_updates_reach_board_inbox_and_coordinator_without_blocking_and_are_scop
         ),
     )
     assert not updated.document_updates
-    complete(store, "site", "same")
+    complete(store, space, "site")
     assert not docs.impact(space, doc.id)["items"]
-    assert attention_page(store, None, "waiting", workspace_id=space).total == 0
+    assert attention_page(store, space, "waiting").total == 0

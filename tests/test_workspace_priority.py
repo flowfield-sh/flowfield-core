@@ -19,45 +19,50 @@ def test_scheduler_follows_shared_priority_and_skips_unavailable_repository(
 ):
     store, _, space, execution = shared(tmp_path, cap=2)
     extra = store.create_task(
-        "core",
-        task_request(title="Another report", body="Investigate another outcome.", status="up_next"),
+        space,
+        task_request(
+            project_id="core",
+            title="Another report",
+            body="Investigate another outcome.",
+            status="up_next",
+        ),
     )
     store.publish_task(
-        "core",
+        space,
         extra.id,
         TaskPublish(
             expected_revision=extra.revision,
             completion="report",
         ),
     )
-    site = store.task("site", "work")
+    site = store.task(space, "site")
     store.prioritize_task(
-        "site",
+        space,
         site.id,
-        TaskPriority(expected_revision=site.revision, status="up_next", before_id="COR-1"),
+        TaskPriority(expected_revision=site.revision, status="up_next", before_id="T-1"),
     )
-    current = store.task("core", extra.id)
+    current = store.task(space, extra.id)
     store.prioritize_task(
-        "core",
+        space,
         extra.id,
-        TaskPriority(expected_revision=current.revision, status="up_next", before_id="COR-1"),
+        TaskPriority(expected_revision=current.revision, status="up_next", before_id="T-1"),
     )
     board = BrowserReads(store).workspace_board(space)
     assert [task.key for task in sorted(board.tasks, key=lambda task: task.position)] == [
-        "SIT-1",
-        "COR-2",
-        "COR-1",
+        "T-2",
+        "T-3",
+        "T-1",
     ]
     assert execution.scheduling_candidates() == [
-        ("site", "work"),
-        ("core", extra.id),
-        ("core", "work"),
+        (space, "site"),
+        (space, extra.id),
+        (space, "core"),
     ]
     service = Supervisor(store)
     started = []
 
     def head(project, task_id=None):
-        if blocked_site and project == "site":
+        if blocked_site and task_id == "site":
             raise ApplicationError("setup_required", "Site needs repository setup.", 409)
         return BASE
 
@@ -75,10 +80,8 @@ def test_scheduler_follows_shared_priority_and_skips_unavailable_repository(
         await asyncio.gather(*service.jobs.values(), *service.delivery_jobs.values())
 
     asyncio.run(exercise())
-    assert started == (["COR-2", "COR-1"] if blocked_site else ["SIT-1", "COR-2"])
+    assert started == (["T-3", "T-1"] if blocked_site else ["T-2", "T-3"])
     assert len(execution.active()) == 2
     if blocked_site:
-        assert execution.settings("site").problem == "Site needs repository setup."
-        assert BrowserReads(store).workspace_board(space).project_problems == {
-            "site": "Site needs repository setup."
-        }
+        assert BrowserReads(store).task(space, "site").state.label == "Site needs repository setup."
+        assert BrowserReads(store).task(space, "site").state.label == "Site needs repository setup."

@@ -1,3 +1,4 @@
+import { projectWorkspace } from "./support";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
@@ -14,7 +15,7 @@ test("coordinator labels update read-only task headers and preserve deletion his
   mkdirSync(path, { recursive: true });
   const project = await (
     await request.post(`/api/workspaces/${workspace.id}/projects`, {
-      data: { path, task_prefix: "LBL" },
+      data: { path },
     })
   ).json();
   const labelPath = `/api/workspaces/${workspace.id}/labels`;
@@ -28,15 +29,20 @@ test("coordinator labels update read-only task headers and preserve deletion his
     })
   ).json();
   const task = await (
-    await request.post(`/api/projects/${project.id}/tasks`, {
-      data: {
-        title: "Prepare the release notes",
-        labels: ["bug", custom.id],
+    await request.post(
+      `/api/workspaces/${await projectWorkspace(request, project.id)}/tasks`,
+      {
+        data: {
+          title: "Prepare the release notes",
+          labels: ["bug", custom.id],
+        },
       },
-    })
+    )
   ).json();
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto(`/projects/${project.id}/tasks/${task.key}`);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(request, project.id)}/tasks/${task.key}`,
+  );
   const labels = page.locator(".task-header-badges");
   await expect(labels).toContainText("Release candidate");
   await expect(
@@ -69,14 +75,18 @@ test("coordinator labels update read-only task headers and preserve deletion his
   ).toBeTruthy();
   await expect(labels).not.toContainText("Release work");
   const history = await (
-    await request.get(`/api/projects/${project.id}/tasks/${task.id}`)
+    await request.get(
+      `/api/workspaces/${await projectWorkspace(request, project.id)}/tasks/${task.id}`,
+    )
   ).json();
   expect(history.revisions[0].labels).toContain(custom.id);
   await page.goto(`/workspaces/${workspace.id}/edit`);
   await expect(
     page.getByRole("tab", { name: "Labels", exact: true }),
   ).toHaveCount(0);
-  await page.goto(`/projects/${project.id}/tasks/new`);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(request, project.id)}/tasks/new`,
+  );
   await expect(
     page.getByRole("heading", { name: "Task not found", exact: true }),
   ).toBeVisible();

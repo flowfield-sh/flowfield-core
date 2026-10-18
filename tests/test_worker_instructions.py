@@ -9,8 +9,7 @@ from flowfield.worker_instructions import instructions
 def test_fresh_worker_has_completion_contract_without_continuation_instructions():
     text = instructions({"description": "Do the work"}, server="scope", completion="code")
     assert "submit_result" in text and "ask_question" in text
-    assert "Final milestone promotion requires human approval" in text
-    assert "separately granted milestone-branch integration policy" in text
+    assert "Only the service delivers code under explicit human approval" in text
     assert "Do not approve or integrate code yourself" in text
     assert "Do not use other Flowfield" in text
     for absent in ("Prior unfinished", "Correction contains", "Human testing", "preceding result"):

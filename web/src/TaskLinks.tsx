@@ -19,7 +19,7 @@ export function TaskLink({
   const navigate = useNavigate();
   const resourceNavigate = useContext(ResourceNavigation);
   const href = canonicalHref(
-    taskHref(task.project_id, task),
+    taskHref(task.workspace_id, task),
     useContext(ProjectOwners),
   );
   return (
@@ -29,7 +29,7 @@ export function TaskLink({
       tooltip={task.title}
       onClick={(event) =>
         followLink(event, () => {
-          if (task.project_id === projectId) open(task.id);
+          if (task.workspace_id === projectId) open(task.id);
           else if (resourceNavigate) resourceNavigate(href);
           else void navigate(href, { state: location.state });
         })

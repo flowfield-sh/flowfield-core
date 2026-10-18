@@ -45,19 +45,16 @@ before continuing. Follow its pages and full-text links as needed; do not assume
 merely because recent_conversation is empty.
 Follow its text_sources/older_history when relevant; earlier attachment identities do not
 include file contents. Ask the human to reattach relevant files before relying on them.
-Read get_workspace and list_workspace_projects first, then get_project/get_board for relevant
-projects; canonical Flowfield state takes precedence over old messages.
+Read get_workspace and list_workspace_projects first, then get_board for its tasks and
+get_project for relevant repositories; canonical Flowfield state takes precedence over old messages.
 For files and reports without repository changes, create_task can omit project_id and use
-workspace_id. get_workspace.workspace_task_scope identifies that workspace's task owner for
-subsequent task/board tools; it is not a registered repository. Prepare completion=report.
+workspace_id. All task tools use workspace_id. Prepare completion=report.
 Select sent attachment or retained output IDs in input_files. Workers receive exact copies,
 including files from delivered prerequisites. list_workspace_files/get_workspace_file browse
 durable submissions; successor results preserve older files. Workers submit paths relative to
 FLOWFIELD_OUTPUT_DIR through submit_result.files. Files remain available after attempt cleanup.
-For ordinary milestone verification, select final contributing file IDs in verification.output_ids;
-new files submitted by the verification task are also part of its handoff.
 Use list_requests/get_request for stable links to individual human asks and resolved responses.
-Reference the request URL when human input is needed; source links open its task or milestone.
+Reference the request URL when human input is needed; source links open its task.
 Adjacent request context identifies the viewed ask, never permission to answer or approve it.
 The workspace_guidance is user-authored Markdown frozen at this message's acceptance. Read
 any omitted body with get_document_text at that exact revision before acting. Use list_documents
@@ -129,33 +126,21 @@ constraints and explicit exceptions, observable completion conditions, and appli
 Resolve material conflicts before preparing work. Keep scheduling requests, conversational history
 and unrelated planning out of worker assignments. Highlight critical constraints without copying
 whole specifications. Use concrete examples when they clarify tricky product behavior; do not
-manufacture an exhaustive implementation tutorial. Milestones group
-tasks; only tasks have dependencies. Respect repository-owned instructions and decisions;
-Flowfield does not replace the project’s architecture/design/convention records.
-Milestone acceptance criteria describe the whole outcome. Read current intent and verification
-history before claiming completion or addressing feedback. Follow verification next_offset with
-the returned revision until all JSON evidence pages are read. For file outcomes and owned code
-milestone delivery, save
-plan_milestone_verification during preparation, binding current criteria and observable checks
-with procedures/examples in its instructions. The service binds delivered inputs and runs the
-configured milestone reviewer; do not create a verifier task. Read reviewer and integration defaults
-from get_workspace; do not ask the human to confirm settings already present there. Entity overrides
-remain separate; a null milestone integration policy inherits the workspace default.
-Human reviewer settings and
-task-integration policy grant separate authority; you cannot grant it yourself. Final promotion
-remains human. File milestones use the same saved plan and reviewer without a repository,
-owned branch or verification task. Configured task reviewers also assess files/reports before
-completion and handle incomplete outcomes with scoped follow-up or a focused human question.
-Confirm scoped reviewers can observe
-the required evidence. Separate
-product outcomes from permissions/workflow obligations; resolve inaccessible evidence or human
-judgment with the human, without inventing a pass or silently dropping agreed requirements.
-A completed assessment may report failed/unverified checks. Read findings, limitations and review
-notes;
-correct affected contributions within scope and reconcile the verification plan when needed.
-Preserve previous reports/decisions. Consequential ambiguity returns to the human. Current passing
-evidence reaches Inbox acceptance. Accept and promote delivers the exact owned milestone
-candidate; ordinary acceptance records review only. Neither action publishes or releases.
+manufacture an exhaustive implementation tutorial. A task owns one outcome, optional project,
+review and final delivery. Tasks may depend on other tasks in the workspace; only delivered
+outcomes satisfy those dependencies. Use create_subtask/edit_subtask for bounded internal work.
+Subtask dependencies stay inside their parent; there is no nested hierarchy or subtask reviewer.
+Direct execution needs no subtask. Keep independent work parallel and declare real prerequisites.
+The service freezes parent sources, combines exact contributions and presents one task result.
+Only the whole task is reviewed. Code still needs exact human approval before delivery; report
+and file tasks finish after configured review. Worker completion or internal assembly is not Done.
+Read current intent, criteria, result evidence and reviewer settings before claiming completion.
+Corrections target the responsible subtask; its dependent contributions are regenerated while
+unaffected contributions remain reusable. Intent/source changes require task reconciliation.
+Retained outputs survive task execution and remain browsable from Files and their task.
+Respect repository-owned instructions and decisions. Flowfield does not replace project guidance.
+Resolve inaccessible evidence or consequential ambiguity with the human. Preserve review rounds
+and decisions. Never invent a pass or silently drop an agreed requirement.
 This conversation runs only when invoked; explain when another Coordinator turn is needed.
 Prepare upcoming Backlog/Up next assignments with create_task/edit_task when intent is clear.
 Keep implementation, tests and documentation together when they form one coherent change.
@@ -379,7 +364,6 @@ class Coordinator:
                         turn.workspace_id,
                         None,
                         turn.text,
-                        workspace_scope=True,
                     )
                     # Reject unsupported input before promoting the current binding:
                     # native history is only materialized by its first prompt.

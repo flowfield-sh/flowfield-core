@@ -25,7 +25,6 @@ import { ContentStack, Disclosure } from "./DetailLayout";
 import { DetailHeader, DetailTabs } from "./Presentation";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { TaskConversation } from "./TaskConversation";
-import { MilestoneReviewRequest } from "./MilestoneVerification";
 import { useDirtyItems } from "./useDirtyItems";
 import { ResourceRetry } from "./ResourceRetry";
 import { RequestFrame } from "./RequestFrame";
@@ -36,22 +35,23 @@ type Item = components["schemas"]["AttentionItem"];
 type Page = components["schemas"]["AttentionPage"];
 type Tab = "needs_me" | "history";
 const columns = { needs_me: "action", history: "history" };
-const identityOf = (item: Item) => `${item.project_id}:${item.kind}:${item.id}`;
+const identityOf = (item: Item) =>
+  `${item.workspace_id}:${item.kind}:${item.id}`;
 function itemHref(item: Item, workspaceId: string) {
   if (item.kind === "permission")
     return (
       item.state?.href ??
-      (item.project_id
-        ? `/projects/${item.project_id}/permissions/${item.id}`
+      (item.workspace_id
+        ? `/workspaces/${item.workspace_id}/permissions/${item.id}`
         : `/workspaces/${workspaceId}/permissions/${item.id}`)
     );
   return (
     item.state?.href ??
     (item.kind === "question"
-      ? questionHref(item.project_id!, item.id)
+      ? questionHref(item.workspace_id!, item.id)
       : item.kind === "result"
-        ? `${taskHref(item.project_id!, { key: item.task_key! }, "result")}/${item.id}`
-        : `${taskHref(item.project_id!, { key: item.task_key! }, "runs")}/${item.run_id ?? item.id}${item.kind === "integration" ? `/integrations/${item.id}` : ""}`)
+        ? `${taskHref(item.workspace_id!, { key: item.task_key! }, "changes")}/${item.id}`
+        : `${taskHref(item.workspace_id!, { key: item.task_key! }, "history")}/${item.kind === "integration" ? `validation:${item.id}` : `worker:${item.run_id ?? item.id}`}`)
   );
 }
 
@@ -67,7 +67,7 @@ function TaskRequest({
   onDirty: DirtyCallback;
 }) {
   const task = useResource<Task>(
-    `projects/${item.project_id}/view/tasks/${item.task_key}`,
+    `workspaces/${item.workspace_id}/view/tasks/${item.task_key}`,
     refresh,
   );
   const mark = useDirtyItems(onDirty);
@@ -89,7 +89,7 @@ function TaskRequest({
       <ResourceRetry resources={[task]} />
       {task.data && (
         <TaskConversation
-          projectId={item.project_id!}
+          projectId={item.workspace_id!}
           task={task.data}
           board={board}
           refresh={refresh}
@@ -135,23 +135,15 @@ export function RequestCard({
       {item.kind === "result" && <h3 className="detail-title">{item.title}</h3>}
       {item.kind === "permission" ? (
         <PermissionCard
-          projectId={item.project_id ?? undefined}
-          workspaceId={item.project_id ? undefined : workspaceId}
+          workspaceId={workspaceId}
           id={item.id}
           taskKey={item.task_key}
           refresh={refresh}
           inline
         />
-      ) : item.kind === "milestone" ? (
-        <MilestoneReviewRequest
-          path={`workspaces/${workspaceId}`}
-          id={item.id}
-          refresh={refresh}
-          onDirty={dirty}
-        />
       ) : item.kind === "question" && !item.task_key ? (
         <QuestionDetail
-          projectId={item.project_id!}
+          projectId={item.workspace_id!}
           identity={item.id}
           tasks={board.tasks}
           refresh={refresh}
@@ -207,15 +199,11 @@ export function RequestCard({
 }
 
 export function requestTitle(item: Item) {
-  return item.kind === "milestone"
-    ? item.status === "delivery_blocked"
-      ? "Milestone promotion"
-      : "Milestone acceptance"
-    : item.kind === "result"
-      ? "Result"
-      : item.kind === "permission"
-        ? "Tool permission"
-        : label(item.kind);
+  return item.kind === "result"
+    ? "Result"
+    : item.kind === "permission"
+      ? "Tool permission"
+      : label(item.kind);
 }
 export function RequestSource({
   item,
@@ -224,7 +212,8 @@ export function RequestSource({
   item: Item;
   board: WorkspaceBoard;
 }) {
-  const project = board.projects.find((p) => p.id === item.project_id);
+  const task = board.tasks.find((task) => task.key === item.task_key);
+  const project = board.projects.find((p) => p.id === task?.project_id);
   return (
     <WorkspaceLink
       to={item.source_href ?? itemHref(item, board.workspace.id)}
@@ -477,12 +466,7 @@ export function AttentionBoard(props: {
       >
         <DetailHeader title="Tool permission" close={closePermission} />
         <PermissionCard
-          projectId={params.get("permission_project") ?? props.projectId}
-          workspaceId={
-            (params.get("permission_project") ?? props.projectId)
-              ? undefined
-              : props.workspaceId
-          }
+          workspaceId={props.workspaceId}
           id={permission}
           taskKey={null}
           refresh={props.refresh}

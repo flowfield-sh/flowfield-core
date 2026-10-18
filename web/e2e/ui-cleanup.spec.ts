@@ -14,7 +14,7 @@ test("failed resource reads and a broken event stream stay local while health is
 }) => {
   const id = "local-recovery";
   await fixtureProject(request, {
-    data: { path: existingDirectory(join(state, id)), task_prefix: "LRC" },
+    data: { path: existingDirectory(join(state, id)) },
   });
   let failed = true;
   const paths = ["inspection/settings", "setup-validation"];
@@ -69,7 +69,7 @@ test("a service outage blocks once, preserves drafts, and recovers without repla
 }, testInfo) => {
   const id = "connection-recovery";
   await fixtureProject(request, {
-    data: { path: existingDirectory(join(state, id)), task_prefix: "CNR" },
+    data: { path: existingDirectory(join(state, id)) },
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`/projects/${id}/edit/general`);
@@ -129,12 +129,15 @@ test("boards pan from empty space while cards keep navigation", async ({
 }) => {
   const id = "board-panning";
   await fixtureProject(request, {
-    data: { path: existingDirectory(join(state, id)), task_prefix: "PAN" },
+    data: { path: existingDirectory(join(state, id)) },
   });
   const workspace = await projectWorkspace(request, id);
-  await request.post(`/api/projects/${id}/tasks`, {
-    data: { title: "Open this task" },
-  });
+  await request.post(
+    `/api/workspaces/${await projectWorkspace(request, id)}/tasks`,
+    {
+      data: { title: "Open this task" },
+    },
+  );
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto(`/workspaces/${workspace}/tasks`);
   const board = page.locator(".board");
@@ -158,25 +161,8 @@ test("boards pan from empty space while cards keep navigation", async ({
   await page.mouse.up();
   await expect.poll(() => board.evaluate((el) => el.scrollLeft)).toBe(0);
   await page.locator(".task-card").first().click();
-  await expect(page).toHaveURL(/\/tasks\/PAN-1$/);
+  await expect(page).toHaveURL(/\/tasks\/T-1$/);
   await expect(
     page.getByRole("heading", { name: "Open this task" }),
   ).toBeVisible();
-  await page.goto(`/workspaces/${workspace}/milestones`);
-  await expect(board).toBeVisible();
-  const milestoneBlank = await board.boundingBox();
-  await page.mouse.move(
-    milestoneBlank!.x + 120,
-    milestoneBlank!.y + milestoneBlank!.height - 20,
-  );
-  await page.mouse.down();
-  await page.mouse.move(
-    milestoneBlank!.x + 20,
-    milestoneBlank!.y + milestoneBlank!.height - 20,
-    { steps: 12 },
-  );
-  await page.mouse.up();
-  await expect
-    .poll(() => board.evaluate((el) => el.scrollLeft))
-    .toBeGreaterThan(80);
 });

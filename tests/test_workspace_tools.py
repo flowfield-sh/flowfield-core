@@ -59,7 +59,7 @@ def test_workspace_grant_over_native_mcp_and_shared_queue(tmp_path, monkeypatch)
         assert stale.isError and spaces.workers(space.id).enabled
         for name in ("core", "site"):
             spaces.adopt(space.id, ProjectSetup(path=existing_directory(tmp_path / name)))
-            assert service.execution.settings(name).enabled
+            assert service.execution.settings(space.id).enabled
         events = await journey(
             tmp_path,
             grant,
@@ -104,8 +104,6 @@ def test_workspace_description_reads_are_bounded_and_revision_checked(tmp_path):
 
 def test_workspace_read_exposes_its_reviewer_defaults_without_configuration_authority(tmp_path):
     from flowfield.agent_models import AgentChoice
-    from flowfield.delivery_models import WorkspaceIntegrationPolicyEdit
-    from flowfield.milestone_delivery import MilestoneDeliveries
     from flowfield.reviewer_settings import ReviewerEdit, Reviewers
 
     store = Workspace(tmp_path / "state")
@@ -115,14 +113,9 @@ def test_workspace_read_exposes_its_reviewer_defaults_without_configuration_auth
     reviewers = Reviewers(store)
     reviewers.configure(
         space.id,
-        "task",
         ReviewerEdit(expected_revision=1, enabled=True, selection=AgentChoice(model="fixture")),
     )
-    reviewers.configure(other.id, "milestone", ReviewerEdit(expected_revision=1, enabled=False))
-    policies = MilestoneDeliveries(store)
-    policies.configure_workspace_policy(
-        space.id, WorkspaceIntegrationPolicyEdit(expected_revision=1, enabled=True)
-    )
+    reviewers.configure(other.id, ReviewerEdit(expected_revision=1, enabled=False))
 
     async def exercise():
         service = Supervisor(store)
@@ -130,18 +123,11 @@ def test_workspace_read_exposes_its_reviewer_defaults_without_configuration_auth
         canonical = create_mcp(lambda: store, lambda: service)
         scoped = (await grant.call("get_workspace", {})).structuredContent
         shared = await canonical.call_tool("get_workspace", {"workspace_id": space.id})
-        assert shared.structuredContent["reviewers"] == scoped["reviewers"]
-        assert scoped["reviewers"]["task"]["selection"]["model"] == "fixture"
-        assert scoped["reviewers"]["task"]["revision"] == 2
-        assert scoped["reviewers"]["milestone"]["enabled"]
-        assert scoped["reviewers"]["milestone"]["selection"] is None
+        assert shared.structuredContent["reviewer"] == scoped["reviewer"]
+        assert scoped["reviewer"]["selection"]["model"] == "fixture"
+        assert scoped["reviewer"]["revision"] == 2
         assert "configure_reviewers" not in grant.tools
-        assert reviewers.get(other.id, "milestone").enabled is False
-        assert shared.structuredContent["integration_policy"] == scoped["integration_policy"]
-        assert scoped["integration_policy"]["enabled"]
-        assert scoped["integration_policy"]["revision"] == 2
-        assert not policies.workspace_policy(other.id).enabled
-        assert "configure_workspace_integration_policy" not in grant.tools
+        assert reviewers.get(other.id).enabled is False
 
     asyncio.run(exercise())
 
@@ -181,17 +167,17 @@ def test_workspace_tools_before_adoption_and_explicit_cross_project_planning(tmp
             created = await grant.call(
                 "create_task",
                 {
-                    "project_id": name,
                     "task": {
-                        "id": "same-id",
+                        "project_id": name,
+                        "id": name,
                         "title": f"Work in {name}",
                         "body": "Agreed work",
                         "author": "human",
-                    },
+                    }
                 },
             )
             assert not created.isError, created
-            assert store.task(name, "same-id").updated_by == "coordinator:fixture-turn"
+            assert store.task(space.id, name).updated_by == "coordinator:fixture-turn"
         first = (await grant.call("list_workspace_projects", {"limit": 1})).structuredContent
         assert [item["id"] for item in first["items"]] == ["core"]
         second = (

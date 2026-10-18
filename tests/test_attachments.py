@@ -57,10 +57,7 @@ def test_coordinator_delivers_real_text_images_context_and_durable_download(tmp_
 
     asyncio.run(exercise())
     restored = Workspace(service.workspace.directory)
-    assert (
-        Attachments(restored).inputs("harbor", None, request.text, workspace_scope=True)[0]["name"]
-        == "notes.txt"
-    )
+    assert Attachments(restored).inputs("harbor", None, request.text)[0]["name"] == "notes.txt"
     with TestClient(create_app(data_dir=restored.directory), base_url="http://localhost") as client:
         href = request.text.split("](")[-1].removesuffix(")")
         result = client.get(href)
@@ -103,7 +100,7 @@ def test_attachment_scope_atomic_binding_and_draft_expiry(tmp_path, monkeypatch)
     draft = upload(files)
     task = upload(files, task="task-0")
     with pytest.raises(ApplicationError, match="not been sent"):
-        files.inputs("harbor", None, draft.href, workspace_scope=True)
+        files.inputs("harbor", None, draft.href)
     with pytest.raises(ApplicationError, match="unavailable"):
         service.coordinator.store.reserve("harbor", conversation.id, message(task.href))
     with pytest.raises(ApplicationError, match="unavailable"):
@@ -146,7 +143,7 @@ def test_http_upload_size_limit_and_restart(tmp_path, monkeypatch):
     assert restored.schema_version == SCHEMA_VERSION
     assert restored.task("harbor", "task-0") == before
     with TestClient(create_app(data_dir=restored.directory), base_url="http://localhost") as client:
-        path = "/api/projects/harbor/attachments"
+        path = "/api/workspaces/harbor/attachments"
         assert client.post(path, content=b"x" * (MAX_FILE * 4 // 3 + 4097)).status_code == 413
         assert client.post(path, json={"data": "bad"}).status_code == 400
         result = client.post(

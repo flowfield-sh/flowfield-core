@@ -242,7 +242,7 @@ def test_registered_mcp_reply_and_browser_thread_share_durable_receipts(tmp_path
             httpx.AsyncClient(base_url=base, trust_env=False) as api,
         ):
             await session.initialize()
-            scope = {"project_id": "harbor", "task_id": "task-0"}
+            scope = {"workspace_id": "harbor", "task_id": "task-0"}
             gate = await session.call_tool("get_task_input", scope)
             assert gate.structuredContent["enabled"]
             args = {**scope, "request": request.model_dump()}
@@ -251,7 +251,7 @@ def test_registered_mcp_reply_and_browser_thread_share_durable_receipts(tmp_path
             assert (
                 await session.call_tool("reply_to_task", args)
             ).structuredContent == first.structuredContent
-            thread = (await api.get("/api/projects/harbor/tasks/task-0/thread")).json()
+            thread = (await api.get("/api/workspaces/harbor/tasks/task-0/thread")).json()
             assert thread["items"][0]["body"] == request.body
             assert first.structuredContent["status"] == "recorded"
             assert not execution.settings("harbor").enabled

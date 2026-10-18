@@ -20,15 +20,13 @@ export function Inspection({
   projectId,
   result,
   refresh,
-  milestone,
 }: {
   projectId: string;
-  result?: Version;
-  milestone?: { id: string; revision: number; workspace_id: string };
+  result: Version;
   refresh: unknown;
 }) {
-  const path = `projects/${projectId}`;
-  const title = milestone ? "Try milestone" : "Try result";
+  const path = `workspaces/${projectId}`;
+  const title = "Try result";
   const [identity, setIdentity] = useState<string | null>(null);
   const [saved, setSaved] = useState<Copy | null>(null);
   const [open, setOpen] = useState(false);
@@ -46,17 +44,11 @@ export function Inspection({
     setBusy(true);
     setError("");
     try {
-      const next = await request<Copy>(
-        milestone
-          ? `workspaces/${milestone.workspace_id}/verifications/${milestone.id}/inspection`
-          : `${path}/inspection`,
-        "POST",
-        {
-          ...(result ? { result_id: result.id } : {}),
-          expected_revision: milestone?.revision ?? result!.revision,
-          new_copy: newCopy,
-        },
-      );
+      const next = await request<Copy>(`${path}/inspection`, "POST", {
+        ...(result ? { result_id: result.id } : {}),
+        expected_revision: result.revision,
+        new_copy: newCopy,
+      });
       setSaved(next);
       setIdentity(next.id);
       resource.invalidate();
@@ -94,12 +86,12 @@ export function Inspection({
       )}
       {open && value && (
         <ContentStack>
-          {!milestone && (
+          {
             <p className="detail-metadata">
               {value.task_key} · Result {value.version} ·{" "}
               <Timestamp date={value.created_at} />
             </p>
-          )}
+          }
           {value.source_changed && (
             <p>
               The source has changed. This copy contains the selected review.
@@ -164,7 +156,9 @@ export function Inspection({
             ) : (
               <p>
                 Set the project run command in{" "}
-                <WorkspaceLink to={`/projects/${projectId}/edit/integration`}>
+                <WorkspaceLink
+                  to={`/projects/${value.project_id}/edit/integration`}
+                >
                   Integration settings
                 </WorkspaceLink>
                 , then prepare another copy.

@@ -23,7 +23,7 @@ def test_built_ui_and_api_coexist(tmp_path: Path) -> None:
     ) as client:
         assert client.get("/").text == "<h1>Flowfield</h1>"
         assert client.get("/asset.js").status_code == 200
-        assert client.get("/projects/harbor/tasks/HAR-1/activity").text == "<h1>Flowfield</h1>"
+        assert client.get("/projects/harbor/tasks/T-1/activity").text == "<h1>Flowfield</h1>"
         assert client.get("/projects/harbor/settings").text == "<h1>Flowfield</h1>"
         assert client.get("/new-workspace").text == "<h1>Flowfield</h1>"
         assert client.get("/workspaces/product/projects/new").text == "<h1>Flowfield</h1>"

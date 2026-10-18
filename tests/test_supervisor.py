@@ -166,7 +166,8 @@ def test_parallel_queue_capacity_pause_and_exact_delivery(tmp_path, monkeypatch)
 
     def board_statuses():
         return {
-            task.id: task.status for task in BrowserReads(execution.workspace).board("harbor").tasks
+            task.id: task.status
+            for task in BrowserReads(execution.workspace).workspace_board("harbor").tasks
         }
 
     repo = tmp_path / "harbor"

@@ -90,10 +90,8 @@ def test_stale_question_is_retained_and_cannot_resume_old_review(tmp_path, monke
         question.id,
         QuestionAnswer(expected_revision=question.revision, answer="Retain this evidence."),
     )
-    policy = settings.get("harbor", "task")
-    settings.configure(
-        "harbor", "task", ReviewerEdit(expected_revision=policy.revision, enabled=False)
-    )
+    policy = settings.get("harbor")
+    settings.configure("harbor", ReviewerEdit(expected_revision=policy.revision, enabled=False))
     asyncio.run(round_trip(service))
     assert reviews.get("harbor", review.id).status == "stale"
     saved = questions.get("harbor", question.id)
@@ -155,10 +153,9 @@ def test_changed_policy_cannot_overlap_live_review_or_uncertain_cleanup(tmp_path
     result = current(service)
     review = reviews.prepare("harbor", result.id)
     review = reviews.claim("harbor", review.id, review.revision)
-    policy = settings.get("harbor", "task")
+    policy = settings.get("harbor")
     settings.configure(
         "harbor",
-        "task",
         ReviewerEdit(
             expected_revision=policy.revision,
             enabled=True,
@@ -206,7 +203,7 @@ def test_clarification_serializes_roles_and_preserves_code(tmp_path, monkeypatch
     review = reviews.latest("harbor", run.task_id)
     assert review.status == "queued" and review.recipient == "implementer"
     with service.workspace.connection() as db:
-        assert occupancy(db, project="harbor").active == 0
+        assert occupancy(db, workspace="harbor").active == 0
     asyncio.run(round_trip(service))
     review = reviews.latest("harbor", run.task_id)
     assert review.status == "queued" and review.recipient == "reviewer"
@@ -278,6 +275,12 @@ def test_human_result_response_cannot_race_review_owner(tmp_path):
             ),
         )
     reviews.stop("harbor", review.id, review.revision, cleanup_confirmed=True)
+    from flowfield.reviewer_settings import ReviewerEdit, Reviewers
+
+    policy = Reviewers(service.workspace).get("harbor")
+    Reviewers(service.workspace).configure(
+        "harbor", ReviewerEdit(expected_revision=policy.revision, enabled=False)
+    )
     service.results.review(
         "harbor",
         result.id,
@@ -316,10 +319,9 @@ def test_policy_change_stales_old_verdict_and_schedules_fresh_assessment(tmp_pat
     install(monkeypatch)
     asyncio.run(round_trip(service))
     original = reviews.latest("harbor", run.task_id)
-    policy = settings.get("harbor", "task")
+    policy = settings.get("harbor")
     settings.configure(
         "harbor",
-        "task",
         ReviewerEdit(
             expected_revision=policy.revision,
             enabled=True,
@@ -361,7 +363,7 @@ def test_stop_during_preparation_waits_for_owned_git_work(tmp_path, monkeypatch)
         await asyncio.sleep(0.02)
         assert not stop.done()
         with service.workspace.connection() as db:
-            assert occupancy(db, project="harbor").uncertain == 1
+            assert occupancy(db, workspace="harbor").uncertain == 1
         release.set()
         saved = await stop
         assert saved.status == "stopped"

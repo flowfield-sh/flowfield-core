@@ -1,4 +1,4 @@
-"""Shared isolated candidate checks for task integration and milestone promotion."""
+"""Isolated candidate checks for task delivery."""
 
 import os
 from pathlib import Path

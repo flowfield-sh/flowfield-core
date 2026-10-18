@@ -2,12 +2,23 @@
 
 ## Unreleased
 
+### Features
+
+- Plan and deliver work as tasks, with optional internal subtasks and local dependencies. One task owns the combined result, reviewer sign-off and final delivery; code still requires exact approval.
+- Create file and report tasks without a project. Browse retained outputs by task and folder in Files, with compact navigation and a file inspector.
+
 ### Improvements
 
 - Prepare and execute tasks directly from their agreed requirements, without maintaining a separate progress checklist. Worker activity, checks and reviewer sign-offs retain the execution history.
+- Follow purpose, progress, questions and results on one task page. Internal work stays disclosed, and worker and reviewer overrides live in task Settings.
+
+### Bug fixes
+
+- Keep model selection explicit when navigating to Tasks; opening a page no longer opens the Coordinator model selector automatically.
 
 ### Breaking changes
 
+- Milestones and their separate board, review and delivery controls are replaced by workspace tasks. Task APIs, MCP tools and CLI commands use workspace identity; older task and milestone routes are removed.
 - Older Flowfield databases are no longer migrated. Start with a fresh data directory when the schema differs; existing databases are rejected without automatic deletion. The pre-upgrade database backup and restore commands have been removed. See [local storage](https://docs.flowfield.sh/storage).
 
 ## 0.5.0

@@ -1,3 +1,4 @@
+import { projectWorkspace } from "./support";
 import {
   fixtureCliProject,
   test,
@@ -16,16 +17,12 @@ import { expect, type Route } from "@playwright/test";
 test("managed review keeps its URL, binds the result, and preserves feedback on conflict", async ({
   page,
 }, testInfo) => {
-  fixtureCliProject([
-    existingDirectory(join(state, "run-ui")),
-    "--prefix",
-    "RUN",
-  ]);
+  fixtureCliProject([existingDirectory(join(state, "run-ui"))]);
   cli([
     "task",
     "create",
-    "--project",
-    "run-ui",
+    "--workspace",
+    await projectWorkspace(page.request, "run-ui"),
     "--id",
     "one",
     "--title",
@@ -37,7 +34,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
     id: "attempt-one",
     project_id: "run-ui",
     task_id: "one",
-    task_key: "RUN-1",
+    task_key: "T-1",
     revision: 7,
     status: "in_review",
     model: "fixture-model",
@@ -90,7 +87,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   page.on("requestfailed", (request) => {
     if (request.url().endsWith("/diff?offset=40")) cancelledFiles = true;
   });
-  await page.route("**/api/projects/run-ui/**", async (route) => {
+  await page.route("**/api/workspaces/*/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
     if (path.endsWith("/thread"))
@@ -221,7 +218,9 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
     ["delivering", "Cancel delivery"],
   ]) {
     run = { ...run, status };
-    await page.goto("/projects/run-ui/tasks/RUN-1/result/attempt-one");
+    await page.goto(
+      `/workspaces/${await projectWorkspace(page.request, "run-ui")}/tasks/T-1/changes/attempt-one`,
+    );
     const footer = page.getByRole("group", {
       name: "Task actions",
       exact: true,
@@ -236,7 +235,9 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   }
   expect(cancellations).toBe(2);
   run = { ...run, status: "in_review", revision: 7 };
-  await page.goto("/projects/run-ui/tasks/RUN-1/result/attempt-one");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "run-ui")}/tasks/T-1/changes/attempt-one`,
+  );
   await page.reload();
   const runs = page.getByRole("region", {
     name: "Proposed result",
@@ -418,7 +419,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
       exact: true,
     }),
   ).toHaveCount(0);
-  await expect(page).toHaveURL(/tasks\/RUN-1\/result\/attempt-one$/);
+  await expect(page).toHaveURL(/tasks\/T-1\/changes\/attempt-one$/);
 });
 
 test("validated result approval delivers real Git code with the worker queue paused", async ({
@@ -437,22 +438,32 @@ test("validated result approval delivers real Git code with the worker queue pau
       { encoding: "utf8" },
     ),
   );
-  const base = `/api/projects/${seed.project}`;
+  const base = `/api/workspaces/${await projectWorkspace(page.request, seed.project)}`;
   const mcp = await connectMcp(request);
   const read = await mcp("get_result", {
-    project_id: seed.project,
+    workspace_id: await projectWorkspace(request, seed.project),
     result_id: seed.result,
   });
   expect(read.status).toBe("ready");
   expect(
-    cli(["task", "results", "show", seed.result, "--project", seed.project])
-      .candidate_commit,
+    cli([
+      "task",
+      "results",
+      "show",
+      seed.result,
+      "--workspace",
+      await projectWorkspace(request, seed.project),
+    ]).candidate_commit,
   ).toBe(seed.candidate);
-  await page.goto(`/projects/${seed.project}/inbox`);
-  await page.getByRole("link", { name: /INT-1:/ }).click();
-  await expect(page).toHaveURL(`/projects/${seed.project}/tasks/INT-1`);
   await page.goto(
-    `/projects/${seed.project}/tasks/INT-1/conversation/result:${seed.result}`,
+    `/workspaces/${await projectWorkspace(page.request, seed.project)}/inbox`,
+  );
+  await page.getByRole("link", { name: /T-1:/ }).click();
+  await expect(page).toHaveURL(
+    `/workspaces/${await projectWorkspace(page.request, seed.project)}/tasks/T-1`,
+  );
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, seed.project)}/tasks/T-1/conversation/result:${seed.result}`,
   );
   const result = page.getByRole("region", { name: "Proposed result" });
   await expect(result).toContainText("project checks passed");
@@ -495,7 +506,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   await expect(
     page.getByRole("button", { name: "Retry integration", exact: true }),
   ).toBeVisible({ timeout: 15000 });
-  expect((await (await request.get(`${base}/tasks/INT-1`)).json()).status).toBe(
+  expect((await (await request.get(`${base}/tasks/T-1`)).json()).status).toBe(
     "in_review",
   );
   const preserved = readFileSync(join(seed.repository, "README.md"), "utf8");
@@ -515,15 +526,15 @@ test("validated result approval delivers real Git code with the worker queue pau
   await expect
     .poll(
       async () =>
-        (await (await request.get(`${base}/tasks/INT-1`)).json()).status,
+        (await (await request.get(`${base}/tasks/T-1`)).json()).status,
       { timeout: 15000 },
     )
     .toBe("done");
   await expect(result).not.toContainText("Delivered to integration.");
-  const task = await (await request.get(`${base}/tasks/INT-1`)).json();
+  const task = await (await request.get(`${base}/tasks/T-1`)).json();
   expect(task.status).toBe("done");
   const replay = await mcp("review_result", {
-    project_id: seed.project,
+    workspace_id: await projectWorkspace(request, seed.project),
     result_id: seed.result,
     review: {
       expected_revision: seed.result_revision,
@@ -572,7 +583,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   await page.setViewportSize({ width: 390, height: 844 });
   // Saved exact-execution URLs still reveal only the requested historical evidence.
   await page.goto(
-    `/projects/${seed.project}/tasks/INT-1/history/delivery:${seed.result}`,
+    `/workspaces/${await projectWorkspace(page.request, seed.project)}/tasks/T-1/history/delivery:${seed.result}`,
   );
   await expect(
     history.getByRole("heading", { name: "Review 1 delivery", exact: true }),
@@ -699,18 +710,20 @@ test("managed answers show durable pause, safe edits and immutable correction in
       ),
     );
   fixture("create");
-  await page.goto("/projects/input-browser/tasks/INP-1");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "input-browser")}/tasks/T-1`,
+  );
   const inputArea = page.getByRole("form", { name: "Task input", exact: true });
   await expect(inputArea).toContainText("Answer the question");
   await expect(
-    page.getByRole("button", { name: "Stop worker", exact: true }),
+    page.getByRole("button", { name: "Stop task", exact: true }),
   ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Reply", exact: true }),
   ).toHaveCount(0);
   await page.getByLabel("Your answer", { exact: true }).fill("All records");
   await page.getByRole("button", { name: "Send answer", exact: true }).click();
-  await page.getByRole("tab", { name: "Activity", exact: true }).click();
+  await page.getByRole("tab", { name: "Task", exact: true }).click();
   await expect(page.getByRole("list", { name: "Task feed" })).toContainText(
     "All records",
   );
@@ -722,7 +735,9 @@ test("managed answers show durable pause, safe edits and immutable correction in
     await new Promise((resolve) => setTimeout(resolve, 300));
     await route.continue();
   });
-  await page.goto("/projects/input-browser/inbox/which-records");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(request, "input-browser")}/tasks/T-1/conversation/question:which-records`,
+  );
   const detail = page.getByRole("region", {
     name: "Task details",
     exact: true,
@@ -773,13 +788,13 @@ test("managed answers show durable pause, safe edits and immutable correction in
     "Enable the queue when ready to continue.",
   );
   const counts = await request.get(
-    "/api/projects/input-browser/view/attention?column=action",
+    `/api/workspaces/${await projectWorkspace(page.request, "input-browser")}/view/attention?column=action`,
   );
   expect((await counts.json()).total).toBe(0);
   fixture("consume");
   await page.reload();
   await expect(
-    detail.getByRole("button", { name: "Stop worker", exact: true }),
+    detail.getByRole("button", { name: "Stop task", exact: true }),
   ).toBeVisible();
   await expect(
     detail.getByRole("button", { name: "Edit answer", exact: true }),
@@ -788,10 +803,12 @@ test("managed answers show durable pause, safe edits and immutable correction in
   // and must appear in the same task feed rather than a second question editor.
   await expect(detail.getByRole("textbox")).toHaveCount(0);
   const original = await (
-    await request.get("/api/projects/input-browser/questions/which-records")
+    await request.get(
+      `/api/workspaces/${await projectWorkspace(page.request, "input-browser")}/questions/which-records`,
+    )
   ).json();
   const corrected = await request.post(
-    "/api/projects/input-browser/questions/which-records/correction",
+    `/api/workspaces/${await projectWorkspace(page.request, "input-browser")}/questions/which-records/correction`,
     {
       data: {
         expected_revision: original.revision,
@@ -829,7 +846,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
       { encoding: "utf8" },
     );
   fixture("create");
-  const path = `/api/projects/${project}`;
+  const path = `/api/workspaces/${await projectWorkspace(page.request, project)}`;
   let first: { id: string; revision: number; candidate_commit: string };
   await expect(async () => {
     const versions = await (
@@ -838,22 +855,22 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     expect(versions.items[0]?.status).toBe("ready");
     first = versions.items[0];
   }).toPass();
-  await page.route(
-    "**/api/projects/inspection-browser/results/*",
-    async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 150));
-      await route.continue();
-    },
-  );
-  const atTop = () =>
-    page.locator(".entity-pane-body").evaluate((el) => el.scrollTop < 3);
+  await page.route(`**/api/workspaces/*/results/*`, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    await route.continue();
+  });
+
   for (let i = 0; i < 3; i++) {
-    await page.goto(`/projects/${project}/tasks/IPV-1`);
+    await page.goto(
+      `/workspaces/${await projectWorkspace(page.request, project)}/tasks/T-1`,
+    );
     await expect(
       page.getByRole("region", { name: "Proposed result" }),
     ).toContainText("First greeting");
     await expect(page.getByLabel("Current task definition")).toBeVisible();
-    await expect.poll(atTop).toBe(true);
+    await expect(
+      page.getByRole("region", { name: "Proposed result" }),
+    ).toBeInViewport();
     await expect(page.getByRole("form", { name: "Task input" })).toContainText(
       "Review Result 1",
     );
@@ -864,7 +881,9 @@ test("inspection preserves exact versions, preview edits and direct approval", a
       })
       .click();
   }
-  await page.goto(`/projects/${project}/tasks/IPV-1/changes`);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, project)}/tasks/T-1/changes`,
+  );
   let selectedPreview = first!.id;
   const preview = () =>
     page
@@ -997,7 +1016,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     .locator("summary")
     .filter({ hasText: /^Try result$/ })
     .click();
-  await expect(preview().getByText(/IPV-1 · Result 2/)).toBeVisible();
+  await expect(preview().getByText(/T-1 · Result 2/)).toBeVisible();
   const second = (await (await request.get(`${path}/tasks/try/results`)).json())
     .items[0];
   const next = await (
@@ -1042,7 +1061,9 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     page.getByRole("button", { name: "Try project", exact: true }),
   ).toHaveCount(0);
   selectedPreview = first!.id;
-  await page.goto(`/projects/${project}/tasks/IPV-1/changes/${first!.id}`);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, project)}/tasks/T-1/changes/${first!.id}`,
+  );
   await preview()
     .locator("summary")
     .filter({ hasText: /^Try result$/ })
@@ -1065,9 +1086,9 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await expect(runCommand).toHaveValue("python app.py");
   await runCommand.fill("python app.py --draft");
   const runSettings = await (
-    await request.get(`${path}/inspection/settings`)
+    await request.get(`/api/projects/${project}/inspection/settings`)
   ).json();
-  await request.put(`${path}/inspection/settings`, {
+  await request.put(`/api/projects/${project}/inspection/settings`, {
     data: {
       expected_revision: runSettings.revision,
       run_command: "python app.py --elsewhere",
@@ -1086,7 +1107,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await runCommand.fill("python app.py");
   const runSaved = page.waitForResponse(
     (response) =>
-      response.url().endsWith(`${path}/inspection/settings`) &&
+      response.url().endsWith(`/api/projects/${project}/inspection/settings`) &&
       response.request().method() === "PUT",
   );
   await page
@@ -1100,14 +1121,17 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     }),
   ).toBeDisabled();
   const cleanSettings = await (
-    await request.get(`${path}/inspection/settings`)
+    await request.get(`/api/projects/${project}/inspection/settings`)
   ).json();
-  const externalUpdate = await request.put(`${path}/inspection/settings`, {
-    data: {
-      expected_revision: cleanSettings.revision,
-      run_command: "python app.py --updated",
+  const externalUpdate = await request.put(
+    `/api/projects/${project}/inspection/settings`,
+    {
+      data: {
+        expected_revision: cleanSettings.revision,
+        run_command: "python app.py --updated",
+      },
     },
-  });
+  );
   expect(externalUpdate.ok()).toBe(true);
   await expect(runCommand).toHaveValue("python app.py --updated");
 });
@@ -1128,7 +1152,9 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   const result = async (kind: string) =>
     (
       await (
-        await request.get(`/api/projects/outcome-${kind}/tasks/work/results`)
+        await request.get(
+          `/api/workspaces/${await projectWorkspace(page.request, "outcome-" + kind)}/tasks/work/results`,
+        )
       ).json()
     ).items[0];
   await expect(async () =>
@@ -1137,22 +1163,17 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   // Stagger independently loaded records, including content taller than the viewport.
   let resultDelay = 0;
   let heldReport: Promise<void> | null = null;
-  await page.route(
-    "**/api/projects/outcome-report/results/*",
-    async (route) => {
-      const response = await route.fetch();
-      const body = await response.json();
-      if (heldReport) await heldReport;
-      body.report.summary += "\n\n" + "A detailed finding.\n\n".repeat(35);
-      await new Promise((resolve) => setTimeout(resolve, resultDelay));
-      await route.fulfill({ response, json: body });
-    },
-  );
+  await page.route(`**/api/workspaces/*/results/*`, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    if (heldReport) await heldReport;
+    body.report.summary += "\n\n" + "A detailed finding.\n\n".repeat(35);
+    await new Promise((resolve) => setTimeout(resolve, resultDelay));
+    await route.fulfill({ response, json: body });
+  });
   await page.route(
     (url) =>
-      decodeURIComponent(url.pathname).includes(
-        "/projects/outcome-report/tasks/work/thread/result:",
-      ),
+      decodeURIComponent(url.pathname).includes(`/tasks/work/thread/result:`),
     async (route) => {
       await new Promise((resolve) =>
         setTimeout(resolve, resultDelay ? 0 : 500),
@@ -1167,7 +1188,9 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     );
   for (const delay of [0, 250]) {
     resultDelay = delay;
-    await page.goto("/projects/outcome-report/inbox?inbox=history");
+    await page.goto(
+      `/workspaces/${await projectWorkspace(request, "outcome-report")}/inbox?inbox=history`,
+    );
     // Use the real history card and its versioned result URL.
     await page
       .getByRole("tabpanel", { name: "History", exact: true })
@@ -1184,14 +1207,16 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   }
   // Board opens still follow late layout, while an explicit timestamp targets the entry.
-  await page.goto("/projects/outcome-report");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(request, "outcome-report")}/tasks`,
+  );
   await page
-    .getByRole("link", { name: "ORP-1 Report outcome", exact: true })
+    .getByTestId("work")
+    .getByRole("link", { name: "T-1 Report outcome", exact: true })
     .click();
   await expect(
     page.getByRole("region", { name: "Proposed result", exact: true }),
   ).toContainText("A detailed finding.");
-  await page.getByRole("tab", { name: "Activity", exact: true }).click();
   await expect.poll(reportAtBottom).toBe(true);
   const reportStamp = page
     .locator('[data-kind="result"]')
@@ -1224,7 +1249,9 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   await page.setViewportSize({ width: 600, height: 500 });
   await expect(reportStamp).toBeInViewport();
   await page.setViewportSize(originalViewport);
-  await page.goto("/projects/outcome-report/tasks/ORP-1/changes");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "outcome-report")}/tasks/T-1/changes`,
+  );
   await expect(
     page.getByText("Findings delivered.", { exact: false }),
   ).toHaveCount(0);
@@ -1235,7 +1262,9 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   await expect(async () =>
     expect((await result("partial"))?.problem_code).toBe("partial_outcome"),
   ).toPass();
-  await page.goto("/projects/outcome-partial/tasks/OPT-1/changes");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "outcome-partial")}/tasks/T-1/changes`,
+  );
   await expect(
     page.getByRole("heading", { name: "Work remaining" }),
   ).toBeVisible();
@@ -1260,7 +1289,9 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   await expect(async () =>
     expect((await result("checks"))?.problem_code).toBe("checks_failed"),
   ).toPass();
-  await page.goto("/projects/outcome-checks/tasks/OCK-1/changes");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "outcome-checks")}/tasks/T-1/changes`,
+  );
   const recovery = page.getByRole("region", { name: "Result recovery" });
   const actions = page.getByRole("group", {
     name: "Task actions",
@@ -1274,7 +1305,7 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     actions.getByRole("button", { name: "Archive", exact: true }),
   ).toHaveCount(0);
   await expect(recovery.getByRole("link")).toHaveCount(0);
-  const taskPath = "/api/projects/outcome-checks/tasks/work";
+  const taskPath = `/api/workspaces/${await projectWorkspace(page.request, "outcome-checks")}/tasks/work`;
   const originalTask = await (await request.get(taskPath)).json();
   expect(
     (
@@ -1313,7 +1344,9 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   await expect(async () =>
     expect((await result("setup"))?.problem_code).toBe("runtime_setup_failed"),
   ).toPass();
-  await page.goto("/projects/outcome-setup/tasks/OST-1/changes");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "outcome-setup")}/tasks/T-1/changes`,
+  );
   await actions.getByRole("link", { name: "Fix project setup" }).click();
   await expect(page).toHaveURL(/edit\/integration/);
 });

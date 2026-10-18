@@ -40,6 +40,9 @@ def fixture(
         "-m",
         "base",
     )
+    from flowfield.reviewer_settings import ReviewerEdit, Reviewers
+
+    Reviewers(workspace).configure("harbor", ReviewerEdit(expected_revision=1, enabled=False))
     service = Supervisor(workspace)
     service.integrations.configure(
         "harbor",
@@ -53,7 +56,14 @@ def fixture(
     )
     git(repo, "switch", "integration")
     task = workspace.create_task(
-        "harbor", task_request(id="work", title="Work", body="Deliver the result", status="up_next")
+        "harbor",
+        task_request(
+            project_id="harbor",
+            id="work",
+            title="Work",
+            body="Deliver the result",
+            status="up_next",
+        ),
     )
     workspace.publish_task(
         "harbor",

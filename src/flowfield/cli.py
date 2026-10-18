@@ -24,7 +24,6 @@ app = typer.Typer(no_args_is_help=True, help="A local workspace behind your codi
 project_app = typer.Typer(no_args_is_help=True)
 workspace_app = typer.Typer(no_args_is_help=True)
 task_app = typer.Typer(no_args_is_help=True)
-milestone_app = typer.Typer(no_args_is_help=True)
 inbox_app = typer.Typer(no_args_is_help=True)
 integration_app = typer.Typer(no_args_is_help=True)
 harness_app = typer.Typer(no_args_is_help=True)
@@ -32,11 +31,6 @@ app.add_typer(project_app, name="project", help="Adopt existing projects and upd
 app.add_typer(workspace_app, name="workspace", help="Create workspaces and organize projects.")
 app.add_typer(task_app, name="task", help="Capture, prioritize and track tasks.")
 app.add_typer(inbox_app, name="inbox", help="Read questions, answer them, and apply decisions.")
-app.add_typer(
-    milestone_app,
-    name="milestone",
-    help="Capture shared outcomes and milestone acceptance criteria.",
-)
 app.add_typer(integration_app, name="integration", help="Connect and check coding harnesses.")
 app.add_typer(harness_app, name="harness", help="Configure and check native coding harnesses.")
 Json = Annotated[bool, typer.Option("--json", help="Emit clean JSON; operation errors use stderr.")]
@@ -280,7 +274,6 @@ def init(
     path: Annotated[Path, typer.Argument(help="Existing project directory.")] = Path("."),
     id: Annotated[str | None, typer.Option()] = None,
     name: Annotated[str | None, typer.Option()] = None,
-    prefix: Annotated[str | None, typer.Option(help="Unique three-letter task prefix.")] = None,
     json_output: Json = False,
 ) -> None:
     """Adopt an existing repository into an explicitly chosen workspace."""
@@ -292,7 +285,6 @@ def init(
                 "path": str(path.expanduser().resolve()),
                 "id": id,
                 "name": name,
-                "task_prefix": prefix,
             },
         ),
         json_output,
@@ -549,19 +541,22 @@ def display(result: Any) -> None:
         if not result:
             typer.echo("No items yet.")
             return
-        is_tasks = "status" in result[0]
+        is_tasks = "agreement_revision" in result[0]
+        is_subtasks = "contribution_run_id" in result[0]
         table = Table(
             "Key" if "key" in result[0] else "ID",
             "Title" if "title" in result[0] else "Project",
-            *(["Labels", "Column", "Milestone", "Readiness"] if is_tasks else []),
+            *(["Labels", "Column", "Readiness"] if is_tasks else []),
+            *(["State", "Prerequisites"] if is_subtasks else []),
         )
         for item in result:
             fields = [item.get("key", item["id"]), item.get("title", item.get("name", ""))]
+            if is_subtasks:
+                fields += [label(item["status"]), ", ".join(item["dependencies"]) or "—"]
             if is_tasks:
                 fields += [
                     ", ".join(item.get("labels", [])) or "—",
                     "Archived" if item["archived"] else label(item["status"]),
-                    item["milestone_id"] or "—",
                     readiness_text(item),
                 ]
             table.add_row(*(Text(field) for field in fields))
@@ -609,7 +604,6 @@ def display(result: Any) -> None:
         typer.echo(f"{result['title']}  [{result.get('key', result['id'])}]")
         if "status" in result:
             typer.echo(f"{label(result['status'])}" + (" · Archived" if result["archived"] else ""))
-            typer.echo(f"Milestone: {result['milestone_id'] or 'None'}")
             if result.get("publication_status"):
                 publication_labels = {
                     "published": "Published",
@@ -648,7 +642,6 @@ def display(result: Any) -> None:
         )
     else:
         typer.echo(f"{result['name']}  [{result['id']}]\n{result['path']}")
-        typer.echo(f"Task prefix: {result['task_prefix']}")
         typer.echo(f"Description: {result['description'] or 'Not set'}")
 
     if isinstance(result, dict) and result.get("truncated_fields"):
@@ -707,9 +700,6 @@ def project_edit(
     ctx: typer.Context,
     project: ProjectOption = None,
     name: str | None = None,
-    prefix: Annotated[
-        str | None, typer.Option(help="Three letters; editable before the first task.")
-    ] = None,
     description: str | None = None,
     expected_revision: Expected = None,
     author: Author = "human",
@@ -725,7 +715,6 @@ def project_edit(
                 for k, v in {
                     "name": name,
                     "description": description,
-                    "task_prefix": prefix,
                 }.items()
                 if v is not None
             },
@@ -737,18 +726,23 @@ def project_edit(
 
 
 @app.command("status")
-def status(ctx: typer.Context, project: ProjectOption = None, json_output: Json = False) -> None:
-    """Show project details, ordered work and recorded prerequisite readiness."""
+def status(
+    ctx: typer.Context,
+    workspace: str = typer.Option(..., "--workspace"),
+    json_output: Json = False,
+) -> None:
+    """Show workspace details, ordered work and recorded prerequisite readiness."""
     output(
-        lambda: ctx.obj.request("GET", "context/" + project_path(project) + "/board"), json_output
+        lambda: ctx.obj.request("GET", "context/" + workspace_item_path(workspace) + "/board"),
+        json_output,
     )
 
 
-@project_app.command("search")
+@workspace_app.command("search")
 def search_context(
     ctx: typer.Context,
     query: str,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     entity: str | None = None,
     kind: str | None = None,
     task: str | None = None,
@@ -779,7 +773,7 @@ def search_context(
     }
     output(
         lambda: ctx.obj.request(
-            "GET", "context/" + project_path(project) + "/search?" + urlencode(parameters)
+            "GET", "context/" + workspace_item_path(workspace) + "/search?" + urlencode(parameters)
         ),
         json_output,
         cli_views.search,
@@ -789,11 +783,10 @@ def search_context(
 @task_app.command("list")
 def task_list(
     ctx: typer.Context,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     include_archived: bool = False,
     status: str | None = None,
     label_id: Annotated[str | None, typer.Option("--label")] = None,
-    milestone: str | None = None,
     readiness: str | None = None,
     query: str | None = None,
     after: int | None = None,
@@ -807,7 +800,6 @@ def task_list(
             "include_archived": str(include_archived).lower(),
             "status": status.replace("-", "_") if status else None,
             "label_id": label_id,
-            "milestone_id": milestone,
             "readiness": readiness,
             "query": query,
             "after": after,
@@ -817,7 +809,7 @@ def task_list(
     }
     output(
         lambda: ctx.obj.request(
-            "GET", "context/" + item_path(project, "tasks") + "?" + urlencode(params)
+            "GET", "context/" + workspace_item_path(workspace, "tasks") + "?" + urlencode(params)
         ),
         json_output,
     )
@@ -825,11 +817,15 @@ def task_list(
 
 @task_app.command("show")
 def task_show(
-    ctx: typer.Context, task: str, project: ProjectOption = None, json_output: Json = False
+    ctx: typer.Context,
+    task: str,
+    workspace: str = typer.Option(..., "--workspace"),
+    json_output: Json = False,
 ) -> None:
     """Read current agreement and bounded relationships; history is a separate command."""
     output(
-        lambda: ctx.obj.request("GET", "context/" + item_path(project, "tasks", task)), json_output
+        lambda: ctx.obj.request("GET", "context/" + workspace_item_path(workspace, "tasks", task)),
+        json_output,
     )
 
 
@@ -840,17 +836,20 @@ def task_create(
     id: str | None = None,
     body: str | None = None,
     body_file: Path | None = None,
+    acceptance_criteria: str | None = None,
     labels: Annotated[
         list[str] | None,
         typer.Option("--label", help="Workspace label ID; repeat for multiple labels."),
     ] = None,
     status: str = "backlog",
-    milestone: str | None = None,
     depends_on: Annotated[
         list[str] | None,
         typer.Option("--depends-on", help="Prerequisite task ID; repeat for multiple tasks."),
     ] = None,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
+    project: Annotated[
+        str | None, typer.Option("--project", help="Optional adopted project destination.")
+    ] = None,
     author: Author = "human",
     json_output: Json = False,
 ) -> None:
@@ -858,14 +857,15 @@ def task_create(
     output(
         lambda: ctx.obj.request(
             "POST",
-            item_path(project, "tasks"),
+            workspace_item_path(workspace, "tasks"),
             {
                 "title": title,
+                "project_id": project,
                 "id": id,
                 "body": text_value(body, body_file) or "",
+                "acceptance_criteria": acceptance_criteria or "",
                 "labels": labels or [],
                 "status": status.replace("-", "_"),
-                "milestone_id": milestone,
                 "dependencies": depends_on or [],
                 "author": author,
             },
@@ -881,37 +881,32 @@ def task_edit(
     title: str | None = None,
     body: str | None = None,
     body_file: Path | None = None,
+    acceptance_criteria: str | None = None,
     labels: Annotated[list[str] | None, typer.Option("--label")] = None,
     no_labels: bool = False,
-    milestone: str | None = None,
-    no_milestone: bool = False,
     depends_on: Annotated[
         list[str] | None,
         typer.Option("--depends-on", help="Replace prerequisites; repeat for multiple tasks."),
     ] = None,
     no_dependencies: Annotated[bool, typer.Option(help="Remove all prerequisites.")] = False,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     expected_revision: Expected = None,
     author: Author = "human",
     json_output: Json = False,
 ) -> None:
-    """Edit supplied fields; --no-milestone removes grouping.
+    """Edit supplied task fields.
 
-    Use prioritize for upcoming order and progress to record coordinated work.
+    Use prioritize for upcoming order; execution and delivery own progress.
     """
 
     def run() -> Any:
-        if milestone is not None and no_milestone:
-            raise ApplicationError(
-                "invalid_request", "Use --milestone or --no-milestone, not both."
-            )
         changes: dict[str, Any] = {
             k: v
             for k, v in {
                 "title": title,
                 "body": text_value(body, body_file),
+                "acceptance_criteria": acceptance_criteria,
                 "labels": labels,
-                "milestone_id": milestone,
             }.items()
             if v is not None
         }
@@ -919,8 +914,6 @@ def task_edit(
             if labels:
                 raise ApplicationError("invalid_request", "Use --label or --no-labels, not both.")
             changes["labels"] = []
-        if no_milestone:
-            changes["milestone_id"] = None
         if depends_on is not None and no_dependencies:
             raise ApplicationError(
                 "invalid_request", "Use --depends-on or --no-dependencies, not both."
@@ -928,7 +921,11 @@ def task_edit(
         if depends_on is not None or no_dependencies:
             changes["dependencies"] = depends_on or []
         return update(
-            ctx.obj, item_path(project, "tasks", task), changes, expected_revision, author
+            ctx.obj,
+            workspace_item_path(workspace, "tasks", task),
+            changes,
+            expected_revision,
+            author,
         )
 
     output(run, json_output)
@@ -943,7 +940,7 @@ def task_prioritize(
         str | None,
         typer.Option(help="Place before this task in the destination column; default appends."),
     ] = None,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     expected_revision: Expected = None,
     author: Author = "human",
     json_output: Json = False,
@@ -952,7 +949,7 @@ def task_prioritize(
     output(
         lambda: update(
             ctx.obj,
-            item_path(project, "tasks", task),
+            workspace_item_path(workspace, "tasks", task),
             {"status": status.replace("-", "_"), "before_id": before},
             expected_revision,
             author,
@@ -967,7 +964,7 @@ def task_prepare(
     ctx: typer.Context,
     task: str,
     completion: Annotated[str, typer.Option(help="Completion requirement: code or report.")],
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     expected_revision: Expected = None,
     author: Author = "coordinator",
     json_output: Json = False,
@@ -978,7 +975,7 @@ def task_prepare(
     """
 
     def run() -> Any:
-        path = item_path(project, "tasks", task)
+        path = workspace_item_path(workspace, "tasks", task)
         current = ctx.obj.request("GET", "context/" + path)
         return update(
             ctx.obj,
@@ -1002,7 +999,7 @@ def task_reconcile(
         str | None,
         typer.Option(help="Explicitly rebind code/report completion; code uses configured target."),
     ] = None,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     expected_revision: Expected = None,
     author: Author = "human",
     json_output: Json = False,
@@ -1011,7 +1008,7 @@ def task_reconcile(
     output(
         lambda: update(
             ctx.obj,
-            item_path(project, "tasks", task),
+            workspace_item_path(workspace, "tasks", task),
             {
                 "note": note,
                 **({"completion": completion} if completion else {}),
@@ -1029,7 +1026,7 @@ def task_reopen(
     ctx: typer.Context,
     task: str,
     note: Annotated[str, typer.Option(help="Explain the authorized follow-up work.")],
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     expected_revision: Expected = None,
     author: Author = "human",
     json_output: Json = False,
@@ -1038,7 +1035,7 @@ def task_reopen(
     output(
         lambda: update(
             ctx.obj,
-            item_path(project, "tasks", task),
+            workspace_item_path(workspace, "tasks", task),
             {"note": note},
             expected_revision,
             author,
@@ -1048,40 +1045,10 @@ def task_reopen(
     )
 
 
-@task_app.command("progress")
-def task_progress(
-    ctx: typer.Context,
-    task: str,
-    status: str,
-    completion: Annotated[
-        str | None, typer.Option(help="Use report for manual report acceptance.")
-    ] = None,
-    project: ProjectOption = None,
-    expected_revision: Expected = None,
-    author: Author = "human",
-    json_output: Json = False,
-) -> None:
-    """Record coordinated work state (including reopening); does not launch or stop a worker."""
-    output(
-        lambda: update(
-            ctx.obj,
-            item_path(project, "tasks", task),
-            {
-                "status": status.replace("-", "_"),
-                **({"completion": completion} if completion else {}),
-            },
-            expected_revision,
-            author,
-            operation="progress",
-        ),
-        json_output,
-    )
-
-
 def archive_task(
     ctx: typer.Context,
     task: str,
-    project: str | None,
+    workspace: str,
     expected: int | None,
     author: str,
     json_output: bool,
@@ -1089,7 +1056,11 @@ def archive_task(
 ) -> None:
     output(
         lambda: update(
-            ctx.obj, item_path(project, "tasks", task), {"archived": archived}, expected, author
+            ctx.obj,
+            workspace_item_path(workspace, "tasks", task),
+            {"archived": archived},
+            expected,
+            author,
         ),
         json_output,
     )
@@ -1099,221 +1070,31 @@ def archive_task(
 def task_archive(
     ctx: typer.Context,
     task: str,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     expected_revision: Expected = None,
     author: Author = "human",
     json_output: Json = False,
 ) -> None:
     """Archive abandoned work, preserving its column and history."""
-    archive_task(ctx, task, project, expected_revision, author, json_output, True)
+    archive_task(ctx, task, workspace, expected_revision, author, json_output, True)
 
 
 @task_app.command("restore")
 def task_restore(
     ctx: typer.Context,
     task: str,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     expected_revision: Expected = None,
     author: Author = "human",
     json_output: Json = False,
 ) -> None:
     """Return an archived task to the end of its preserved column."""
-    archive_task(ctx, task, project, expected_revision, author, json_output, False)
-
-
-@milestone_app.command("list")
-def milestone_list(
-    ctx: typer.Context,
-    workspace: WorkspaceOption,
-    after: str | None = None,
-    limit: int = 20,
-    json_output: Json = False,
-) -> None:
-    output(
-        lambda: ctx.obj.request(
-            "GET",
-            "context/"
-            + workspace_item_path(workspace, "milestones")
-            + "?"
-            + urlencode({"after": after or "", "limit": limit}),
-        ),
-        json_output,
-    )
-
-
-@milestone_app.command("show")
-def milestone_show(
-    ctx: typer.Context,
-    milestone: str,
-    workspace: WorkspaceOption,
-    revision: int | None = None,
-    json_output: Json = False,
-) -> None:
-    output(
-        lambda: ctx.obj.request(
-            "GET",
-            "context/"
-            + workspace_item_path(workspace, "milestones", milestone)
-            + (f"?revision={revision}" if revision is not None else ""),
-        ),
-        json_output,
-    )
-
-
-@milestone_app.command("create")
-def milestone_create(
-    ctx: typer.Context,
-    workspace: WorkspaceOption,
-    title: Annotated[str, typer.Option()],
-    id: str | None = None,
-    body: str | None = None,
-    body_file: Path | None = None,
-    acceptance_criteria: str | None = None,
-    acceptance_file: Path | None = None,
-    author: Author = "human",
-    json_output: Json = False,
-) -> None:
-    """Capture an outcome with optional acceptance criteria. Tasks can stand alone."""
-    output(
-        lambda: ctx.obj.request(
-            "POST",
-            workspace_item_path(workspace, "milestones"),
-            {
-                "id": id,
-                "title": title,
-                "body": text_value(body, body_file) or "",
-                "author": author,
-                "acceptance_criteria": text_value(acceptance_criteria, acceptance_file) or "",
-            },
-        ),
-        json_output,
-    )
-
-
-@milestone_app.command("edit")
-def milestone_edit(
-    ctx: typer.Context,
-    milestone: str,
-    workspace: WorkspaceOption,
-    title: str | None = None,
-    body: str | None = None,
-    body_file: Path | None = None,
-    acceptance_criteria: str | None = None,
-    acceptance_file: Path | None = None,
-    expected_revision: Expected = None,
-    author: Author = "human",
-    json_output: Json = False,
-) -> None:
-    """Revise milestone details without changing its prepared tasks."""
-    output(
-        lambda: update(
-            ctx.obj,
-            workspace_item_path(workspace, "milestones", milestone),
-            {
-                k: v
-                for k, v in {
-                    "title": title,
-                    "body": text_value(body, body_file),
-                    "acceptance_criteria": text_value(acceptance_criteria, acceptance_file),
-                }.items()
-                if v is not None
-            },
-            expected_revision,
-            author,
-        ),
-        json_output,
-    )
-
-
-@milestone_app.command("text")
-def milestone_text(
-    ctx: typer.Context,
-    milestone: str,
-    workspace: WorkspaceOption,
-    revision: int | None = None,
-    field: str = "body",
-    offset: int = 0,
-    limit: int = 4000,
-    json_output: Json = False,
-) -> None:
-    """Read a bounded page of milestone text, preserving its revision across pages."""
-    output(
-        lambda: ctx.obj.request(
-            "GET",
-            "context/"
-            + workspace_item_path(workspace, "milestones", milestone, "text")
-            + "?"
-            + urlencode(
-                {
-                    "offset": offset,
-                    "limit": limit,
-                    "field": field,
-                    **({"revision": revision} if revision is not None else {}),
-                }
-            ),
-        ),
-        json_output,
-    )
-
-
-@milestone_app.command("history")
-def milestone_history(
-    ctx: typer.Context,
-    milestone: str,
-    workspace: WorkspaceOption,
-    before: int | None = None,
-    limit: int = 20,
-    json_output: Json = False,
-) -> None:
-    """List milestone revision history."""
-
-    def human(value: dict[str, Any]) -> None:
-        for item in value["items"]:
-            typer.echo(
-                f"Revision {item['revision']} · {item['updated_by']} · "
-                f"{item['updated_at']} · {item['title']}"
-            )
-        if value.get("next_cursor") is not None:
-            typer.echo(f"More available: --before {value['next_cursor']}")
-
-    output(
-        lambda: ctx.obj.request(
-            "GET",
-            "context/"
-            + workspace_item_path(workspace, "milestones", milestone, "history")
-            + "?"
-            + urlencode({"limit": limit, **({"before": before} if before is not None else {})}),
-        ),
-        json_output,
-        human,
-    )
-
-
-@milestone_app.command("impact")
-def milestone_impact(
-    ctx: typer.Context,
-    milestone: str,
-    workspace: WorkspaceOption,
-    after: str | None = None,
-    limit: int = 20,
-    json_output: Json = False,
-) -> None:
-    """Find unfinished tasks prepared against an older milestone revision."""
-    output(
-        lambda: ctx.obj.request(
-            "GET",
-            "context/"
-            + workspace_item_path(workspace, "milestones", milestone, "impact")
-            + "?"
-            + urlencode({"limit": limit, **({"after": after} if after is not None else {})}),
-        ),
-        json_output,
-    )
+    archive_task(ctx, task, workspace, expected_revision, author, json_output, False)
 
 
 def read_activity(
     ctx: typer.Context,
-    project: str | None,
+    workspace: str,
     task: str | None,
     current: bool,
     before: int | None,
@@ -1329,7 +1110,7 @@ def read_activity(
         query["before"] = before
     output(
         lambda: ctx.obj.request(
-            "GET", "context/" + project_path(project) + "/activity?" + urlencode(query)
+            "GET", "context/" + workspace_item_path(workspace) + "/activity?" + urlencode(query)
         ),
         json_output,
     )
@@ -1339,20 +1120,20 @@ def read_activity(
 def task_activity(
     ctx: typer.Context,
     task: str,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     current: bool = False,
     before: int | None = None,
     limit: int = 20,
     json_output: Json = False,
 ) -> None:
     """Read task activity; --current excludes superseded handoffs."""
-    read_activity(ctx, project, task, current, before, limit, json_output)
+    read_activity(ctx, workspace, task, current, before, limit, json_output)
 
 
 def append_activity(
     ctx: typer.Context,
     task: str | None,
-    project: str | None,
+    workspace: str,
     kind: str,
     body: str | None,
     body_file: Path | None,
@@ -1364,7 +1145,7 @@ def append_activity(
     output(
         lambda: ctx.obj.request(
             "POST",
-            project_path(project) + "/activity",
+            workspace_item_path(workspace) + "/activity",
             {
                 "task_id": task,
                 "kind": kind,
@@ -1384,13 +1165,13 @@ def task_note(
     task: str,
     body: str | None = None,
     body_file: Path | None = None,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     id: str | None = None,
     author: Author = "human",
     json_output: Json = False,
 ) -> None:
     """Append a Markdown finding, progress update or result; never steers work."""
-    append_activity(ctx, task, project, "note", body, body_file, None, id, author, json_output)
+    append_activity(ctx, task, workspace, "note", body, body_file, None, id, author, json_output)
 
 
 @task_app.command("handoff")
@@ -1401,7 +1182,7 @@ def task_handoff(
     supersedes: Annotated[str, typer.Option(help="Selected handoff ID, or 'none' for the first.")],
     body: str | None = None,
     body_file: Path | None = None,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     id: str | None = None,
     author: Author = "human",
     json_output: Json = False,
@@ -1410,7 +1191,7 @@ def task_handoff(
     output(
         lambda: ctx.obj.request(
             "POST",
-            project_path(project) + "/activity",
+            workspace_item_path(workspace) + "/activity",
             {
                 "task_id": task,
                 "kind": "handoff",
@@ -1429,7 +1210,7 @@ def task_handoff(
 def task_revisions(
     ctx: typer.Context,
     task: str,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     before: int | None = None,
     limit: int = 20,
     json_output: Json = False,
@@ -1438,7 +1219,11 @@ def task_revisions(
     query = {k: v for k, v in {"before": before, "limit": limit}.items() if v is not None}
     output(
         lambda: ctx.obj.request(
-            "GET", "context/" + item_path(project, "tasks", task) + "/revisions?" + urlencode(query)
+            "GET",
+            "context/"
+            + workspace_item_path(workspace, "tasks", task)
+            + "/revisions?"
+            + urlencode(query),
         ),
         json_output,
     )
@@ -1448,7 +1233,7 @@ def task_revisions(
 def task_relationships(
     ctx: typer.Context,
     task: str,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     relation: str = "prerequisites",
     after: str | None = None,
     limit: int = 20,
@@ -1463,7 +1248,10 @@ def task_relationships(
     output(
         lambda: ctx.obj.request(
             "GET",
-            "context/" + item_path(project, "tasks", task) + "/relationships?" + urlencode(query),
+            "context/"
+            + workspace_item_path(workspace, "tasks", task)
+            + "/relationships?"
+            + urlencode(query),
         ),
         json_output,
     )
@@ -1473,7 +1261,7 @@ def task_relationships(
 def task_text(
     ctx: typer.Context,
     task: str,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     field: str = "body",
     revision: int | None = None,
     offset: int = 0,
@@ -1481,34 +1269,20 @@ def task_text(
     json_output: Json = False,
 ) -> None:
     """Read full task fields deliberately in chunks; pass returned revision on continuation."""
-    read_text(ctx, "task", task, project, field, revision, offset, limit, json_output)
+    read_text(ctx, "task", task, workspace, field, revision, offset, limit, json_output)
 
 
-@project_app.command("text")
-def project_text(
-    ctx: typer.Context,
-    project: ProjectOption = None,
-    field: str = "description",
-    revision: int | None = None,
-    offset: int = 0,
-    limit: int = 4000,
-    json_output: Json = False,
-) -> None:
-    """Read full description/path in chunks."""
-    read_text(ctx, "project", None, project, field, revision, offset, limit, json_output)
-
-
-@project_app.command("entry")
+@workspace_app.command("entry")
 def activity_entry(
     ctx: typer.Context,
     entry: str,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     offset: int = 0,
     limit: int = 4000,
     json_output: Json = False,
 ) -> None:
-    """Read a project or task activity entry's full text in chunks by entry ID."""
-    read_text(ctx, "activity", entry, project, "body", None, offset, limit, json_output)
+    """Read a workspace or task activity entry's full text in chunks by entry ID."""
+    read_text(ctx, "activity", entry, workspace, "body", None, offset, limit, json_output)
 
 
 @workspace_app.command("coordinator-history")
@@ -1525,7 +1299,8 @@ def coordinator_history(
     )
     output(
         lambda: ctx.obj.request(
-            "GET", "context/" + workspace_item_path(workspace, "coordinator-history") + "?" + query
+            "GET",
+            "context/" + workspace_item_path(workspace, "coordinator-history") + "?" + query,
         ),
         json_output,
         display_coordinator_history,
@@ -1569,7 +1344,7 @@ def coordinator_text(
     )
     output(
         lambda: ctx.obj.request(
-            "GET", "context/" + workspace_item_path(workspace, "text") + "?" + query
+            "GET", "context/" + workspace_item_path(workspace, "coordinator-text") + "?" + query
         ),
         json_output,
     )
@@ -1579,7 +1354,7 @@ def read_text(
     ctx: typer.Context,
     resource: str,
     identity: str | None,
-    project: str | None,
+    workspace: str,
     field: str,
     revision: int | None,
     offset: int,
@@ -1600,7 +1375,7 @@ def read_text(
     }
     output(
         lambda: ctx.obj.request(
-            "GET", "context/" + project_path(project) + "/text?" + urlencode(query)
+            "GET", "context/" + workspace_item_path(workspace) + "/text?" + urlencode(query)
         ),
         json_output,
     )
@@ -1638,7 +1413,7 @@ def display_inbox(result: dict[str, Any]) -> None:
 @inbox_app.command("list")
 def inbox_list(
     ctx: typer.Context,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     status: str = "active",
     task: str | None = None,
     after: int | None = None,
@@ -1653,7 +1428,9 @@ def inbox_list(
         }
     )
     output(
-        lambda: ctx.obj.request("GET", "context/" + item_path(project, "questions") + "?" + query),
+        lambda: ctx.obj.request(
+            "GET", "context/" + workspace_item_path(workspace, "questions") + "?" + query
+        ),
         json_output,
         display_inbox,
     )
@@ -1663,7 +1440,7 @@ def inbox_list(
 def inbox_show(
     ctx: typer.Context,
     question: str,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     revision: int | None = None,
     json_output: Json = False,
 ) -> None:
@@ -1671,7 +1448,7 @@ def inbox_show(
         lambda: ctx.obj.request(
             "GET",
             "context/"
-            + item_path(project, "questions", question)
+            + workspace_item_path(workspace, "questions", question)
             + (f"?revision={revision}" if revision else ""),
         ),
         json_output,
@@ -1684,7 +1461,7 @@ def inbox_text(
     ctx: typer.Context,
     question: str,
     field: str = "context",
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     revision: int | None = None,
     offset: int = 0,
     json_output: Json = False,
@@ -1703,7 +1480,9 @@ def inbox_text(
         }
     )
     output(
-        lambda: ctx.obj.request("GET", "context/" + project_path(project) + "/text?" + query),
+        lambda: ctx.obj.request(
+            "GET", "context/" + workspace_item_path(workspace) + "/text?" + query
+        ),
         json_output,
     )
 
@@ -1714,12 +1493,12 @@ def inbox_ask(
     question: Annotated[str, typer.Option()],
     context: Annotated[str, typer.Option()],
     recommendation: Annotated[str, typer.Option()],
-    task: Annotated[str | None, typer.Argument(help="Omit for a project question.")] = None,
+    task: Annotated[str | None, typer.Argument(help="Omit for a workspace question.")] = None,
     affects: Annotated[list[str] | None, typer.Option("--affects")] = None,
     blocking_scope: str | None = None,
     choice: Annotated[list[str] | None, typer.Option("--choice")] = None,
     id: str | None = None,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     author: Author = "human",
     json_output: Json = False,
 ) -> None:
@@ -1735,7 +1514,10 @@ def inbox_ask(
     }
     if id is not None:
         data["id"] = id
-    output(lambda: ctx.obj.request("POST", item_path(project, "questions"), data), json_output)
+    output(
+        lambda: ctx.obj.request("POST", workspace_item_path(workspace, "questions"), data),
+        json_output,
+    )
 
 
 @inbox_app.command("answer")
@@ -1743,7 +1525,7 @@ def inbox_answer(
     ctx: typer.Context,
     question: str,
     answer: Annotated[str, typer.Option()],
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     expected_revision: Expected = None,
     author: Author = "human",
     json_output: Json = False,
@@ -1751,7 +1533,7 @@ def inbox_answer(
     output(
         lambda: update(
             ctx.obj,
-            item_path(project, "questions", question),
+            workspace_item_path(workspace, "questions", question),
             {"answer": answer},
             expected_revision,
             author,
@@ -1769,7 +1551,7 @@ def inbox_follow_up(
     context: Annotated[str, typer.Option()],
     recommendation: Annotated[str, typer.Option()],
     choice: Annotated[list[str] | None, typer.Option("--choice")] = None,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     expected_revision: Expected = None,
     author: Author = "human",
     json_output: Json = False,
@@ -1777,7 +1559,7 @@ def inbox_follow_up(
     output(
         lambda: update(
             ctx.obj,
-            item_path(project, "questions", identity),
+            workspace_item_path(workspace, "questions", identity),
             {
                 "question": question,
                 "context": context,
@@ -1799,10 +1581,10 @@ def inbox_apply(
     decision: Annotated[str, typer.Option()],
     body: str | None = None,
     body_file: Path | None = None,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     expected_revision: Expected = None,
     expected_task_revision: int | None = None,
-    expected_project_revision: int | None = None,
+    expected_workspace_revision: int | None = None,
     description: str | None = None,
     description_file: Path | None = None,
     task_updates_file: Path | None = None,
@@ -1812,7 +1594,7 @@ def inbox_apply(
     """Apply saved input atomically. Replacement text must be complete. No worker starts."""
 
     def run() -> Any:
-        path = item_path(project, "questions", question)
+        path = workspace_item_path(workspace, "questions", question)
         current = ctx.obj.request("GET", "context/" + path)
         data: dict[str, Any] = {"decision": decision}
         task_body = text_value(body, body_file)
@@ -1823,8 +1605,8 @@ def inbox_apply(
             data["description"] = project_description
         if expected_task_revision is not None:
             data["expected_task_revision"] = expected_task_revision
-        if expected_project_revision is not None:
-            data["expected_project_revision"] = expected_project_revision
+        if expected_workspace_revision is not None:
+            data["expected_workspace_revision"] = expected_workspace_revision
         if task_updates_file is not None:
             try:
                 data["task_updates"] = json.loads(task_updates_file.read_text())
@@ -1835,19 +1617,19 @@ def inbox_apply(
         if current["task_id"]:
             if expected_task_revision is None:
                 task = ctx.obj.request(
-                    "GET", "context/" + item_path(project, "tasks", current["task_id"])
+                    "GET", "context/" + workspace_item_path(workspace, "tasks", current["task_id"])
                 )
                 data["expected_task_revision"] = task["revision"]
         else:
-            if expected_project_revision is None:
-                record = ctx.obj.request("GET", project_path(project))
-                data["expected_project_revision"] = record["revision"]
+            if expected_workspace_revision is None:
+                record = ctx.obj.request("GET", workspace_item_path(workspace))
+                data["expected_workspace_revision"] = record["revision"]
             if task_updates_file is None:
                 data["task_updates"] = [
                     {
                         "task_id": identity,
                         "expected_revision": ctx.obj.request(
-                            "GET", "context/" + item_path(project, "tasks", identity)
+                            "GET", "context/" + workspace_item_path(workspace, "tasks", identity)
                         )["revision"],
                     }
                     for identity in current["affected_task_ids"]
@@ -1869,7 +1651,7 @@ def inbox_withdraw(
     ctx: typer.Context,
     question: str,
     reason: Annotated[str, typer.Option()],
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     expected_revision: Expected = None,
     author: Author = "human",
     json_output: Json = False,
@@ -1877,7 +1659,7 @@ def inbox_withdraw(
     output(
         lambda: update(
             ctx.obj,
-            item_path(project, "questions", question),
+            workspace_item_path(workspace, "questions", question),
             {"reason": reason},
             expected_revision,
             author,
@@ -1891,7 +1673,7 @@ def inbox_withdraw(
 def inbox_retract_answer(
     ctx: typer.Context,
     question: str,
-    project: ProjectOption = None,
+    workspace: str = typer.Option(..., "--workspace"),
     expected_revision: Expected = None,
     author: Author = "human",
     json_output: Json = False,
@@ -1900,7 +1682,7 @@ def inbox_retract_answer(
     output(
         lambda: update(
             ctx.obj,
-            item_path(project, "questions", question),
+            workspace_item_path(workspace, "questions", question),
             {},
             expected_revision,
             author,
@@ -1913,138 +1695,11 @@ def inbox_retract_answer(
 from flowfield.execution_cli import register as register_execution  # noqa: E402
 from flowfield.integration_cli import register as register_integration  # noqa: E402
 from flowfield.storage_cli import register as register_storage  # noqa: E402
+from flowfield.subtask_cli import register as register_subtasks  # noqa: E402
 from flowfield.update_cli import register as register_updates  # noqa: E402
 
 register_execution(workspace_app, task_app)
 register_integration(project_app)
 register_storage(app)
+register_subtasks(task_app)
 register_updates(app)
-
-
-@milestone_app.command("verifications")
-def milestone_verifications(
-    ctx: typer.Context,
-    milestone: str,
-    workspace: WorkspaceOption,
-    before: int | None = None,
-    limit: int = 20,
-    json_output: Json = False,
-) -> None:
-    """Read milestone verification and acceptance history."""
-    output(
-        lambda: ctx.obj.request(
-            "GET",
-            workspace_item_path(workspace, "milestones", milestone, "verifications")
-            + "?"
-            + urlencode({"limit": limit, **({"before": before} if before else {})}),
-        ),
-        json_output,
-    )
-
-
-@milestone_app.command("verification")
-def milestone_verification_show(
-    ctx: typer.Context,
-    verification: str,
-    workspace: WorkspaceOption,
-    json_output: Json = False,
-) -> None:
-    """Read exact criteria, inputs, findings and review feedback."""
-    output(
-        lambda: ctx.obj.request(
-            "GET", workspace_item_path(workspace, "verifications", verification)
-        ),
-        json_output,
-    )
-
-
-@milestone_app.command("verify")
-def milestone_verify(
-    ctx: typer.Context,
-    milestone: str,
-    workspace: WorkspaceOption,
-    check: Annotated[list[str], typer.Option()],
-    project: str = typer.Option(...),
-    task: str = typer.Option(...),
-    expected_revision: int = typer.Option(...),
-    expected_task_revision: int = typer.Option(...),
-    json_output: Json = False,
-) -> None:
-    """Prepare a report task to verify delivered milestone contributions."""
-    output(
-        lambda: ctx.obj.request(
-            "POST",
-            workspace_item_path(workspace, "milestones", milestone, "verifications"),
-            {
-                "expected_revision": expected_revision,
-                "project_id": project,
-                "task_id": task,
-                "expected_task_revision": expected_task_revision,
-                "checks": check,
-            },
-        ),
-        json_output,
-    )
-
-
-@milestone_app.command("delivery")
-def milestone_delivery(
-    ctx: typer.Context,
-    milestone: str,
-    workspace: WorkspaceOption,
-    project: str | None = None,
-    branch: str | None = None,
-    expected_revision: int | None = None,
-    json_output: Json = False,
-) -> None:
-    """Read delivery, or configure an owned branch before preparing milestone tasks."""
-
-    def operation() -> Any:
-        path = workspace_item_path(workspace, "milestones", milestone, "delivery")
-        if project is None:
-            if branch or expected_revision is not None:
-                raise ApplicationError(
-                    "project_required", "Provide --project to configure delivery."
-                )
-            return ctx.obj.request("GET", path)
-        if expected_revision is None:
-            raise ApplicationError(
-                "revision_required",
-                "Provide --expected-revision for milestone delivery configuration.",
-            )
-        return ctx.obj.request(
-            "PUT",
-            path,
-            {
-                "expected_revision": expected_revision,
-                "project_id": project,
-                "branch": branch,
-            },
-        )
-
-    output(operation, json_output)
-
-
-@milestone_app.command("review")
-def milestone_review(
-    ctx: typer.Context,
-    verification: str,
-    workspace: WorkspaceOption,
-    action: Annotated[str, typer.Option(help="accept, request_changes or retry_promotion")],
-    expected_revision: int = typer.Option(...),
-    note: str = "",
-    json_output: Json = False,
-) -> None:
-    """Accept the exact verified outcome and authorize its configured local promotion."""
-    output(
-        lambda: ctx.obj.request(
-            "POST",
-            workspace_item_path(workspace, "verifications", verification, "review"),
-            {
-                "expected_revision": expected_revision,
-                "action": action,
-                "note": note,
-            },
-        ),
-        json_output,
-    )

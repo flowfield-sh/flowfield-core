@@ -42,7 +42,6 @@ ReviewStatus = Literal[
 
 class ReviewJob(Protocol):
     id: str
-    project_id: str
     workspace_id: str
     revision: int
     status: ReviewStatus
@@ -87,6 +86,7 @@ class ReviewLaunch:
     scope: ScopedTools
     brief: dict[str, Any]
     files: list[FileInput] = field(default_factory=list)
+    project_id: str | None = None
 
 
 class NativeReviewExecution[J: ReviewJob](ABC):
@@ -127,7 +127,7 @@ class NativeReviewExecution[J: ReviewJob](ABC):
     def _finished(self, project: str, identity: str, task: asyncio.Task[None]) -> None:
         self.supervisor.jobs.pop(identity, None)
         if task.cancelled() or task.exception():
-            with self.supervisor.workspace.connection(write=True, project_id=project) as db:
+            with self.supervisor.workspace.connection(write=True, workspace_id=project) as db:
                 review = self.reviews._get(db, project, identity)
                 if review.status in ("preparing", "running"):
                     review.status, review.problem = (
@@ -147,7 +147,7 @@ class NativeReviewExecution[J: ReviewJob](ABC):
         confirmed = True
         activity: ActivityRecorder | None = None
         scope_stack = AsyncExitStack()
-        review = self.reviews.begin_attempt(review.project_id, review.id)
+        review = self.reviews.begin_attempt(review.workspace_id, review.id)
         assert review.attempt_id
         attempt = review.attempt_id
 
@@ -169,15 +169,19 @@ class NativeReviewExecution[J: ReviewJob](ABC):
         try:
             launch = self.launch(review, attempt)
             host = LocalHost(os.environ)
+            if launch.candidate_commit and not launch.project_id:
+                raise ApplicationError(
+                    "repository_required", "Code review requires a project.", 409
+                )
             prepare = (
                 partial(
                     host.prepare,
                     service.workspace.directory,
-                    Path(service.workspace.project(review.project_id).path),
+                    Path(service.workspace.project(launch.project_id).path),
                     attempt,
                     launch.candidate_commit,
                 )
-                if launch.candidate_commit
+                if launch.candidate_commit and launch.project_id
                 else partial(
                     host.prepare_files, service.workspace.directory, review.workspace_id, attempt
                 )
@@ -239,14 +243,14 @@ class NativeReviewExecution[J: ReviewJob](ABC):
                 session_id=client.session_id,
                 status="running",
             )
-            current = self.reviews.get(review.project_id, review.id)
+            current = self.reviews.get(review.workspace_id, review.id)
             if current.status != "preparing" or service.closing:
                 raise ApplicationError(
                     "review_stopped", "Review stopped before its model turn.", 409
                 )
-            self.reviews.started(review.project_id, review.id, current.revision)
+            self.reviews.started(review.workspace_id, review.id, current.revision)
             activity = ActivityRecorder(
-                service.workspace, review.project_id, attempt, store=self.reviews
+                service.workspace, review.workspace_id, attempt, store=self.reviews
             )
             client.on_activity = activity.emit
             brief = {**launch.brief, "flowfield_connection": server.name, "input_files": files}
@@ -302,7 +306,11 @@ class NativeReviewExecution[J: ReviewJob](ABC):
                 await activity.close()
             service.clients.pop(review.id, None)
             self.reviews.finish_attempt(
-                review.project_id, review.id, attempt, cleanup_confirmed=confirmed, problem=problem
+                review.workspace_id,
+                review.id,
+                attempt,
+                cleanup_confirmed=confirmed,
+                problem=problem,
             )
 
     async def stop(self, project: str, identity: str, expected_revision: int) -> J:
@@ -343,7 +351,7 @@ class NativeReviewExecution[J: ReviewJob](ABC):
     def confirm_stopped(self, project: str, identity: str, expected_revision: int) -> J:
         if identity in self.supervisor.jobs or identity in self.supervisor.clients:
             raise ApplicationError("review_active", "Stop the live review first.", 409)
-        with self.supervisor.workspace.connection(write=True, project_id=project) as db:
+        with self.supervisor.workspace.connection(write=True, workspace_id=project) as db:
             review = self.reviews._get(db, project, identity)
             self.supervisor.workspace._current(review.revision, expected_revision)
             if review.status != "uncertain":

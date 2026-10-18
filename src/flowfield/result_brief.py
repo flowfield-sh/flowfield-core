@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 def result_brief(
     workspace: "Workspace",
     db: sqlite3.Connection,
-    project_id: str,
+    workspace_id: str,
     task_id: str | None = None,
     limit: int = 3,
 ) -> dict[str, Any]:
@@ -30,20 +30,20 @@ def result_brief(
         "json_extract(r.data,'$.model') AS model,t.key AS task_key,"
         "latest.id AS current_run_id,latest.status AS current_run_status,count(*) OVER() AS total "
         "FROM result_versions v JOIN runs r ON r.id=v.run_id "
-        "JOIN tasks t ON t.project_id=v.project_id AND t.id=v.task_id "
-        "JOIN runs latest ON latest.project_id=v.project_id AND latest.task_id=v.task_id "
-        "AND NOT EXISTS (SELECT 1 FROM runs n WHERE n.project_id=latest.project_id "
+        "JOIN tasks t ON t.workspace_id=v.workspace_id AND t.id=v.task_id "
+        "JOIN runs latest ON latest.workspace_id=v.workspace_id AND latest.task_id=v.task_id "
+        "AND NOT EXISTS (SELECT 1 FROM runs n WHERE n.workspace_id=latest.workspace_id "
         "AND n.task_id=latest.task_id AND n.number>latest.number) "
-        "WHERE v.project_id=? AND (? IS NULL OR v.task_id=?) "
+        "WHERE v.workspace_id=? AND (? IS NULL OR v.task_id=?) "
         "AND NOT json_extract(t.data,'$.archived') "
-        "AND NOT EXISTS (SELECT 1 FROM result_versions n WHERE n.project_id=v.project_id "
+        "AND NOT EXISTS (SELECT 1 FROM result_versions n WHERE n.workspace_id=v.workspace_id "
         "AND n.task_id=v.task_id AND n.version>v.version) "
         "ORDER BY CASE WHEN v.status IN ('blocked','stale') THEN 0 "
         "WHEN v.status='delivered' AND json_extract(v.data,'$.completion')='code' "
         "AND NOT json_extract(r.data,'$.code_available') THEN 0 "
         "WHEN v.status='ready' THEN 1 WHEN v.status='delivered' THEN 3 ELSE 2 END,"
         "v.number DESC LIMIT ?",
-        (project_id, task_id, task_id, limit),
+        (workspace_id, task_id, task_id, limit),
     ).fetchall()
     items = []
     for row in rows:

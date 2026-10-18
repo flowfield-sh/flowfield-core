@@ -22,10 +22,6 @@ def test_model_must_explicitly_account_for_the_agreed_outcome():
     assert "outcome" in schema["required"]
     assert "verification" not in schema["properties"]
     assert "VerificationReport" not in schema["$defs"]
-    verifier = next(
-        t["inputSchema"] for t in worker_tools(verification=True) if t["name"] == "submit_result"
-    )
-    assert "verification" in verifier["properties"]
     for fields in (
         {},
         {"outcome": "partial"},
@@ -48,8 +44,8 @@ def test_partial_work_cannot_complete_or_approve_but_continues_on_same_task(tmp_
     partial = current(service)
     assert partial.status == "blocked" and partial.problem_code == "partial_outcome"
     assert partial.next_action.action == "request_changes"
-    assert service.workspace.task("harbor", "work").status == "in_review"
-    assert service.integrations.head("harbor") == old_run.base_commit
+    assert service.workspace.task("harbor", "work").status == "in_progress"
+    assert service.integrations.head("harbor", "work") == old_run.base_commit
     with pytest.raises(ApplicationError, match="Finish the agreed outcome"):
         approve(service, partial)
     service.results.review(
@@ -64,8 +60,10 @@ def test_partial_work_cannot_complete_or_approve_but_continues_on_same_task(tmp_
     )
     settings = service.execution.settings("harbor")
     service.execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=True))
-    head = service.integrations.head("harbor")
-    run = service.execution.claim("harbor", head, service._available("harbor", repo, head))
+    head = service.integrations.head("harbor", "work")
+    run = service.execution.claim(
+        "harbor", head, service._available("harbor", "harbor", repo, head)
+    )
     assert run and run.task_id == old_run.task_id and run.predecessor_id == old_run.id
     assert run.feedback == partial.report.remaining_work
     service.execution.started("harbor", run.id)
@@ -253,4 +251,4 @@ def test_idle_correction_edits_scope_before_reconciliation(tmp_path, completion)
             expected_revision=edited.revision, completion=completion, note="Scope reviewed"
         ),
     )
-    assert service.integrations.head("harbor") == old_run.base_commit
+    assert service.integrations.head("harbor", "work") == old_run.base_commit

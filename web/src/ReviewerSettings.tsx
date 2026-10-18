@@ -21,26 +21,21 @@ const fields = (record?: Settings) => ({
 
 export function ReviewerSettings({
   workspaceId,
-  purpose,
-  projectId,
   entity,
   refresh,
   onDirty,
   active = true,
 }: {
   workspaceId: string;
-  purpose: "task" | "milestone";
-  projectId?: string;
   entity?: string;
   refresh: unknown;
   onDirty: (value: boolean) => void;
   active?: boolean;
 }) {
   const query = new URLSearchParams({
-    ...(projectId ? { project: projectId } : {}),
     ...(entity ? { entity } : {}),
   });
-  const path = `workspaces/${workspaceId}/reviewers/${purpose}?${query}`;
+  const path = `workspaces/${workspaceId}/reviewer?${query}`;
   const resource = useResource<Settings>(path, refresh);
   const state = useRecordEditor({
     incoming: resource.data ?? undefined,
@@ -72,10 +67,7 @@ export function ReviewerSettings({
       fast: false,
     });
   return (
-    <section
-      ref={element}
-      aria-label={`${purpose === "task" ? "Task" : "Milestone"} reviewer settings`}
-    >
+    <section ref={element} aria-label="Reviewer settings">
       <ContentStack space="section">
         <p>
           {entity
@@ -103,8 +95,7 @@ export function ReviewerSettings({
               checked={enabled}
               onChange={(event) => change("enabled", event.target.checked)}
             >
-              Automatically assess{" "}
-              {purpose === "task" ? "task changes" : "the combined outcome"}
+              Automatically assess task outcomes
             </SettingsCheckbox>
             {enabled && (
               <>

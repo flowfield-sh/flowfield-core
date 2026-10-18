@@ -12,7 +12,6 @@ from flowfield.execution import Execution
 from flowfield.execution_models import SettingsEdit, WorkerResult
 from flowfield.output_models import OutputSelection
 from flowfield.results import Results
-from flowfield.work_scopes import workspace_scope
 from flowfield.workspaces import WorkspaceCreate, Workspaces
 
 
@@ -20,7 +19,10 @@ def setup(directory: Path):
     store = Workspace(directory)
     spaces = Workspaces(store)
     owner = spaces.create(WorkspaceCreate(name="Research files"))
-    scope = workspace_scope(owner.id)
+    scope = owner.id
+    from flowfield.reviewer_settings import ReviewerEdit, Reviewers
+
+    Reviewers(store).configure(owner.id, ReviewerEdit(expected_revision=1, enabled=False))
     spaces.configure_workers(
         owner.id,
         SettingsEdit(
@@ -50,9 +52,7 @@ def deliver(store, scope, task_id, files=None, report=None):
     with patch.object(execution, "_settings", return_value=settings):
         run = execution.claim(scope, "", {}, task_id=task_id)
     assert run
-    environment = LocalHost({}).prepare_files(
-        store.directory, Workspaces(store).for_project(scope).id, run.id
-    )
+    environment = LocalHost({}).prepare_files(store.directory, scope, run.id)
     execution.save_local(
         run.id,
         {

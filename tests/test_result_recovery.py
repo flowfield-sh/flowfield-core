@@ -28,8 +28,10 @@ def action(version):
 def claim_correction(service, repo):
     settings = service.execution.settings("harbor")
     service.execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=True))
-    head = service.integrations.head("harbor")
-    run = service.execution.claim("harbor", head, service._available("harbor", repo, head))
+    head = service.integrations.head("harbor", "work")
+    run = service.execution.claim(
+        "harbor", head, service._available("harbor", "harbor", repo, head)
+    )
     assert run
     assert run.correction and run.model == "fixture" and run.effort == "low"
     return run
@@ -76,7 +78,7 @@ def test_conflict_correction_retains_both_inputs_and_requires_new_approval(tmp_p
     assert ready.version == 2 and ready.status == "ready", ready.problem
     assert service.workspace.board("harbor").needs_you_count == 1
     assert not ready.approved_at
-    assert service.integrations.head("harbor") == target
+    assert service.integrations.head("harbor", "work") == target
     approve(service, ready)
     service.results.process("harbor")
     assert current(service).problem_code == "checkout_dirty"
@@ -113,7 +115,9 @@ def test_failed_checks_allow_repeated_explicit_corrections(tmp_path):
         assert len(service.execution.page("harbor").items) == before
     service.results.correct("harbor", blocked.id, action(blocked))
     head = git(repo, "rev-parse", "HEAD").decode().strip()
-    third = service.execution.claim("harbor", head, service._available("harbor", repo, head))
+    third = service.execution.claim(
+        "harbor", head, service._available("harbor", "harbor", repo, head)
+    )
     assert third and third.correction.number == 3
 
 
@@ -139,7 +143,7 @@ def test_cancel_during_validation_retains_evidence_and_ignores_late_ready(tmp_pa
         work.result(10)
     assert current(service).status == "cancelled"
     assert service.integrations.get("harbor", pending.integration_id).checks
-    assert service.integrations.head("harbor") == run.base_commit
+    assert service.integrations.head("harbor", "work") == run.base_commit
     with pytest.raises(ApplicationError, match="successful candidate"):
         approve(service, current(service))
     fresh = service.results.reprepare("harbor", cancelled.id, action(current(service)))
@@ -157,7 +161,7 @@ def test_changed_checkout_then_explicit_reprepare(tmp_path):
     blocked = current(service)
     assert blocked.status == "stale"
     assert blocked.problem_code == "checkout_branch_changed"
-    assert service.integrations.head("harbor") == run.base_commit
+    assert service.integrations.head("harbor", "work") == run.base_commit
     git(repo, "switch", "integration")
     new = service.results.reprepare("harbor", blocked.id, action(blocked))
     service.results.process("harbor")
@@ -172,7 +176,7 @@ def test_historical_done_revalidates_external_advance_without_moving_git(tmp_pat
     service.results.process("harbor")
     approve(service, current(service))
     service.results.process("harbor")
-    head = target_change(service, repo, service.integrations.head("harbor"))
+    head = target_change(service, repo, service.integrations.head("harbor", "work"))
     service.integrations.refresh_availability("harbor")
     assert not service.execution.get("harbor", run.id).code_available
     assert service.workspace.task("harbor", "work").status == "done"
@@ -184,7 +188,7 @@ def test_historical_done_revalidates_external_advance_without_moving_git(tmp_pat
     assert checked.approved_at == version.approved_at
     assert checked.integration_id == version.integration_id
     assert service.integrations.get("harbor", checked.availability_id).status == "integrated"
-    assert service.integrations.head("harbor") == head
+    assert service.integrations.head("harbor", "work") == head
     assert service.execution.get("harbor", run.id).code_available
     assert not attention_page(service.workspace, "harbor", "action").items
     git(repo, "update-ref", "refs/heads/integration", run.base_commit)
@@ -312,7 +316,9 @@ def test_failed_correction_retry_keeps_numbering_without_a_budget(tmp_path):
     failed = service.execution.finish("harbor", second.id, "failed", problem="Fixture failure")
     service.execution.retry("harbor", failed.id, action(failed))
     head = git(repo, "rev-parse", "HEAD").decode().strip()
-    third = service.execution.claim("harbor", head, service._available("harbor", repo, head))
+    third = service.execution.claim(
+        "harbor", head, service._available("harbor", "harbor", repo, head)
+    )
     assert third and third.correction.number == 3
 
 
@@ -356,5 +362,7 @@ def test_answer_continuation_preserves_correction_number_and_retry_increments_it
     failed = service.execution.finish("harbor", retry.id, "failed", problem="Worker failed again")
     service.execution.retry("harbor", failed.id, action(failed))
     head = git(repo, "rev-parse", "HEAD").decode().strip()
-    third = service.execution.claim("harbor", head, service._available("harbor", repo, head))
+    third = service.execution.claim(
+        "harbor", head, service._available("harbor", "harbor", repo, head)
+    )
     assert third and third.correction.number == 3

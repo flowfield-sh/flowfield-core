@@ -120,14 +120,14 @@ def test_attention_http_limits_and_project_scope(tmp_path: Path, monkeypatch) ->
             ),
         )
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
-        path = "/api/projects/harbor/view/attention"
+        path = "/api/workspaces/harbor/view/attention"
         first = client.get(path, params={"column": "action", "limit": 2}).json()
         assert first["total"] == 3 and first["next_offset"] == 2
         second = client.get(path, params={"column": "action", "offset": 2}).json()
         assert len(second["items"]) == 1 and second["next_offset"] is None
         assert first["items"][0]["id"] != second["items"][0]["id"]
         assert client.get(path, params={"column": "bogus"}).status_code == 422
-        assert client.get(path, params={"column": "action", "limit": 51}).status_code == 422
+        assert client.get(path, params={"column": "action", "limit": 101}).status_code == 422
         assert client.get(path, params={"column": "action", "offset": -1}).status_code == 422
         assert (
             client.get(path.replace("harbor", "other"), params={"column": "action"}).status_code

@@ -23,7 +23,7 @@ import { LoadMore } from "./LoadMore";
 import { ResourceRetry } from "./ResourceRetry";
 import { Timestamp } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { taskHref, workspaceHref } from "./navigation";
+import { taskHref } from "./navigation";
 import { usePage } from "./useResource";
 import { request } from "./workspace";
 import { reportError } from "./requestFeedback";
@@ -113,20 +113,11 @@ function FileDetails({
           {file.result_version ? ` · Version ${file.result_version}` : ""}
         </p>
         <p>
-          <WorkspaceLink to={taskHref(file.scope_id, { key: file.task_key })}>
+          <WorkspaceLink
+            to={taskHref(file.workspace_id, { key: file.task_key })}
+          >
             {file.task_key} {file.task_title}
           </WorkspaceLink>
-          {file.milestone_id && (
-            <>
-              {" "}
-              ·{" "}
-              <WorkspaceLink
-                to={`${workspaceHref(file.workspace_id)}/milestones/${file.milestone_id}`}
-              >
-                {file.milestone_title}
-              </WorkspaceLink>
-            </>
-          )}
         </p>
         <div className="actions">
           <Button size="sm" asChild>
@@ -195,7 +186,7 @@ function FileDetails({
             <p>{file.name}</p>
             {file.result_id && (
               <WorkspaceLink
-                to={`${taskHref(file.scope_id, { key: file.task_key }, "result")}/${file.result_id}`}
+                to={`${taskHref(file.workspace_id, { key: file.task_key }, "changes")}/${file.result_id}`}
               >
                 View result {file.result_version}
               </WorkspaceLink>
@@ -236,7 +227,6 @@ export function Files({
   );
   const params = new URLSearchParams({ path, sort });
   if (work?.task_key) params.set("task_key", work.task_key);
-  if (work?.milestone_id) params.set("milestone_id", work.milestone_id);
   const resource = usePage<components["schemas"]["FileDirectory"]>(
     `${base}/browse?${params}`,
     `${refresh}:${revision}`,
@@ -265,11 +255,8 @@ export function Files({
   const parts = path.split("/").filter(Boolean);
   return (
     <section className="setup-page @container" aria-label="Files">
-      <div className="grid min-h-0 gap-4 @xl:grid-cols-[minmax(9rem,12rem)_minmax(0,1fr)]">
-        <nav
-          aria-label="Files by work"
-          className="min-w-0 @xl:border-r @xl:pr-4"
-        >
+      <div className="grid min-h-0 grid-cols-[7rem_minmax(0,1fr)] gap-4 @lg:grid-cols-[7rem_minmax(0,1fr)_12rem]">
+        <nav aria-label="Files by work" className="min-w-0 border-r pr-2">
           <ContentStack>
             <Button
               variant={work ? "ghost" : "secondary"}
@@ -283,32 +270,28 @@ export function Files({
               All files
             </Button>
             <ResourceRetry resources={[groups]}>Retry work</ResourceRetry>
-            {(["Milestones", "Tasks"] as const).map((kind) => (
-              <ContentStack key={kind} space="tight">
-                {!!groups.data?.items.some((item) =>
-                  kind === "Tasks" ? item.task_key : item.milestone_id,
-                ) && <h3 className="detail-metadata px-2">{kind}</h3>}
-                {groups.data?.items
-                  .filter((item) =>
-                    kind === "Tasks" ? item.task_key : item.milestone_id,
-                  )
-                  .map((item) => (
-                    <Button
-                      key={item.id}
-                      size="sm"
-                      variant={work?.id === item.id ? "secondary" : "ghost"}
-                      className="h-auto min-h-8 justify-start whitespace-normal text-left"
-                      aria-pressed={work?.id === item.id}
-                      onClick={() => {
-                        setWork(item);
-                        navigate("");
-                      }}
-                    >
-                      {item.task_key ? `${item.task_key} ` : ""}
-                      {item.title}
-                    </Button>
-                  ))}
-              </ContentStack>
+            {groups.data?.items.map((item) => (
+              <Tooltip key={item.id}>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant={work?.id === item.id ? "secondary" : "ghost"}
+                    className="h-8 w-full min-w-0 justify-start overflow-hidden text-left"
+                    aria-pressed={work?.id === item.id}
+                    onClick={() => {
+                      setWork(item);
+                      navigate("");
+                    }}
+                  >
+                    <span className="truncate">
+                      {item.task_key} {item.title}
+                    </span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  {item.task_key} {item.title}
+                </TooltipContent>
+              </Tooltip>
             ))}
             {groups.data?.next_offset != null && (
               <LoadMore
@@ -439,11 +422,14 @@ export function Files({
                       ) : (
                         <File className="size-4 shrink-0" />
                       )}
-                      <span className="min-w-0 flex-1 break-all">
+                      <span
+                        className="min-w-0 flex-1 truncate"
+                        title={item.name}
+                      >
                         {item.name}
                       </span>
                       {item.file && (
-                        <span className="detail-metadata shrink-0">
+                        <span className="detail-metadata hidden shrink-0 @md:inline">
                           {sizeLabel(item.file.size)}
                           {item.file.result_version
                             ? ` · v${item.file.result_version}`
@@ -470,6 +456,11 @@ export function Files({
               Load more files
             </LoadMore>
           )}
+        </ContentStack>
+        <aside
+          aria-label="Selected file"
+          className="col-span-2 min-w-0 border-t pt-4 @lg:col-span-1 @lg:border-t-0 @lg:border-l @lg:pt-0 @lg:pl-4"
+        >
           {entry?.file && (
             <FileDetails
               key={`${entry.id}:${entry.revision}`}
@@ -480,7 +471,12 @@ export function Files({
               }}
             />
           )}
-        </ContentStack>
+          {!entry?.file && (
+            <p className="text-sm text-muted-foreground">
+              Select a file to see its details.
+            </p>
+          )}
+        </aside>
       </div>
     </section>
   );

@@ -18,18 +18,18 @@ def result_action(
 ) -> ResultAction:
     execution = Execution(workspace)
     latest = db.execute(
-        "SELECT id,status FROM work_runs WHERE project_id=? AND task_id=? ORDER "
+        "SELECT id,status FROM runs WHERE workspace_id=? AND task_id=? ORDER "
         "BY number DESC LIMIT 1",
-        (value.project_id, value.task_id),
+        (value.workspace_id, value.task_id),
     ).fetchone()
     selected = db.execute(
-        "SELECT id FROM result_versions WHERE project_id=? AND task_id=? "
+        "SELECT id FROM result_versions WHERE workspace_id=? AND task_id=? "
         "ORDER BY version DESC LIMIT 1",
-        (value.project_id, value.task_id),
+        (value.workspace_id, value.task_id),
     ).fetchone()
     if not latest or latest[0] != value.run_id or selected[0] != value.id:
         return ResultAction(owner="none", action="none", label="Earlier result")
-    run = execution._run(db, value.project_id, value.run_id)
+    run = execution._run(db, value.workspace_id, value.run_id)
     if value.status in ("preparing", "delivering"):
         return ResultAction(
             owner="service",
@@ -39,15 +39,15 @@ def result_action(
             else "Integrating changes",
         )
     replying = db.execute(
-        "SELECT 1 FROM task_replies WHERE project_id=? AND task_id=? "
+        "SELECT 1 FROM task_replies WHERE workspace_id=? AND task_id=? "
         "AND json_extract(data,'$.status')='pending'",
-        (value.project_id, value.task_id),
+        (value.workspace_id, value.task_id),
     ).fetchone()
     if replying:
         return ResultAction(owner="worker_queue", action="wait", label="Waiting for worker reply")
-    settings = execution._settings(db, value.project_id)
+    settings = execution._settings(db, value.workspace_id)
     if value.status == "changes_requested":
-        task = workspace._task(db, value.project_id, value.task_id)
+        task = workspace._task(db, value.workspace_id, value.task_id)
         if task.readiness in ("draft", "needs_reconciliation") and task.preparation_issue:
             return ResultAction(
                 owner="coordinator",
@@ -67,8 +67,12 @@ def result_action(
             ),
         )
     if value.status == "delivered":
-        task = workspace._task(db, value.project_id, value.task_id)
-        if task.agreement_revision != run.agreement_revision:
+        agreement = db.execute(
+            "SELECT json_extract(data,'$.agreement_revision') FROM tasks "
+            "WHERE workspace_id=? AND id=?",
+            (value.workspace_id, value.task_id),
+        ).fetchone()[0]
+        if agreement != run.agreement_revision:
             return ResultAction(owner="none", action="none", label="Earlier result")
         if value.completion == "code" and not run.code_available:
             return ResultAction(
@@ -81,16 +85,20 @@ def result_action(
                 ),
             )
         return ResultAction(owner="none", action="none", label="Completed")
-    task = workspace._task(db, value.project_id, value.task_id)
+    task = workspace._task(db, value.workspace_id, value.task_id)
     revised_assignment = False
     try:
-        execution._current_assignment(run, task)
+        execution._current_assignment(db, run, task)
     except ApplicationError:
         # Reconciliation authorizes a revised assignment, never the old candidate.
         # A blocked code result can then use the existing correction operation.
-        from flowfield.milestone_delivery import effective_branch
+        from flowfield.integration import Integrations
 
-        destination = effective_branch(db, value.project_id, task.milestone_id)
+        destination = (
+            Integrations(workspace)._settings(db, task.project_id).target_branch
+            if task.project_id
+            else None
+        )
         revised_assignment = (
             task.publication_status == "published"
             and task.publication is not None
@@ -113,14 +121,14 @@ def result_action(
             )
     if value.status == "ready" or value.problem_code == "partial_outcome":
         review = db.execute(
-            "SELECT status FROM task_reviews WHERE project_id=? AND task_id=? "
+            "SELECT status FROM task_reviews WHERE workspace_id=? AND task_id=? "
             "AND (result_id=? OR status IN ('preparing','running','uncertain')) "
             "AND status IN ('queued','preparing','running','waiting','uncertain',"
             "'failed','stopped') "
             "ORDER BY number DESC LIMIT 1",
-            (value.project_id, value.task_id, value.id),
+            (value.workspace_id, value.task_id, value.id),
         ).fetchone()
-        if review and (value.completion == "report" or review[0] not in ("failed", "stopped")):
+        if review:
             return ResultAction(
                 owner="reviewer",
                 action="wait",
@@ -135,8 +143,37 @@ def result_action(
                 }[review[0]],
                 reason="Open the task for review evidence and recovery.",
             )
-        if value.status == "ready" and value.completion == "report":
-            return ResultAction(owner="reviewer", action="wait", label="Awaiting review")
+        if value.status == "ready":
+            from flowfield.reviewer_settings import Reviewers
+            from flowfield.task_reviews import TaskReview, TaskReviews
+
+            policy = Reviewers.resolved(db, value.workspace_id, value.task_id).effective
+            if policy.enabled:
+                if not policy.agent:
+                    return ResultAction(
+                        owner="human",
+                        action="settings",
+                        settings="reviewer",
+                        label="Choose reviewer",
+                        reason="Choose a reviewer in task Settings to assess this result.",
+                    )
+                row = db.execute(
+                    "SELECT data FROM task_reviews WHERE result_id=? ORDER BY number DESC LIMIT 1",
+                    (value.id,),
+                ).fetchone()
+                assessment = TaskReview.model_validate_json(row[0]) if row else None
+                if (
+                    not assessment
+                    or assessment.status != "decided"
+                    or not assessment.verdict
+                    or assessment.verdict.action != "approve"
+                    or not TaskReviews(workspace)._fresh(db, assessment)
+                ):
+                    return ResultAction(
+                        owner="reviewer",
+                        action="wait",
+                        label="Awaiting review" if settings.enabled else "Review paused",
+                    )
         if value.status == "ready":
             return ResultAction(owner="human", action="review_result", label="Review changes")
     if value.approved_at and value.problem_code in DELIVERY_BLOCKERS:
@@ -178,7 +215,7 @@ def result_action(
         )
     if value.problem_code in ("runtime_setup_failed", "runtime_changed_source"):
         current = db.execute(
-            "SELECT data FROM integration_settings WHERE project_id=?", (value.project_id,)
+            "SELECT data FROM integration_settings WHERE project_id=?", (run.project_id,)
         ).fetchone()
         revision = json.loads(current[0])["revision"] if current else None
         if value.settings_revision is not None and revision != value.settings_revision:

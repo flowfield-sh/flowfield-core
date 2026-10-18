@@ -201,15 +201,17 @@ def test_accept_validate_apply_releases_dependent_without_touching_human_files(t
         ),
     )
     original = baseline(repo)
-    board = BrowserReads(execution.workspace).board("harbor")
-    assert not board.pending_code[task.id]  # The prerequisite is unfinished, not Done without code.
+    board = BrowserReads(execution.workspace).workspace_board("harbor")
+    assert not board.pending_code[
+        task.key
+    ]  # The prerequisite is unfinished, not Done without code.
     (repo / "README.md").write_text("Human dirty work\n")
     (repo / "notes.txt").write_text("Do not touch")
-    assert execution.claim("harbor", service.head("harbor"), {original: set()}) is None
+    assert execution.claim("harbor", service.head("harbor", "task-0"), {original: set()}) is None
     candidate = prepare(service, run)
     assert candidate.status == "ready" and candidate.checks[0].exit_code == 0
     assert candidate.candidate_commit == run.result_commit
-    assert service.head("harbor") == original and baseline(repo) == original
+    assert service.head("harbor", "task-0") == original and baseline(repo) == original
     with pytest.raises(ApplicationError, match="local edits"):
         apply(service, candidate)
     assert (repo / "README.md").read_text() == "Human dirty work\n"
@@ -220,8 +222,8 @@ def test_accept_validate_apply_releases_dependent_without_touching_human_files(t
     assert integrated.status == "integrated" and integrated.target_after == run.result_commit
     assert (repo / "loader.py").read_text() == "def load():\n    return 42\n"
     assert baseline(repo) == run.result_commit
-    assert not BrowserReads(execution.workspace).board("harbor").pending_code[task.id]
-    head = service.head("harbor")
+    assert not BrowserReads(execution.workspace).workspace_board("harbor").pending_code[task.key]
+    head = service.head("harbor", "task-0")
     dependent = execution.claim("harbor", head, {head: service.available("harbor", head)})
     assert (
         dependent and dependent.task_id == "task-1" and dependent.base_commit == run.result_commit
@@ -242,7 +244,7 @@ def test_advanced_target_combination_is_checked_and_stale_candidate_cannot_apply
     assert (Path(candidate.workspace) / "other.txt").read_text() == "unrelated"
     git(repo, "update-ref", "refs/heads/integration", run.base_commit, before)
     stale = apply(service, candidate)
-    assert stale.status == "stale" and service.head("harbor") == run.base_commit
+    assert stale.status == "stale" and service.head("harbor", "task-0") == run.base_commit
     candidate = prepare(service, run)
     git(repo, "update-ref", "refs/heads/integration", before, run.base_commit)
     service.refresh_availability("harbor")
@@ -292,7 +294,7 @@ def test_conflicts_and_failed_or_mutating_checks_preserve_target(tmp_path):
     target = advance(repo, run.base_commit, {"loader.py": "def load():\n    return 99\n"}, tmp_path)
     conflict = prepare(service, run)
     assert conflict.status == "failed" and "combine" in conflict.problem
-    assert service.head("harbor") == target
+    assert service.head("harbor", "task-0") == target
     git(repo, "update-ref", "refs/heads/integration", run.base_commit, target)
     settings = service.settings("harbor")
     service.configure(
@@ -319,7 +321,7 @@ def test_conflicts_and_failed_or_mutating_checks_preserve_target(tmp_path):
     changed = prepare(service, run)
     assert changed.status == "failed" and "new reviewed" in changed.problem
     assert Path(changed.workspace, "loader.py").read_text() == "changed"
-    assert service.head("harbor") == run.base_commit
+    assert service.head("harbor", "task-0") == run.base_commit
 
 
 def test_checked_out_target_is_refused_and_unobserved_revert_invalidates_availability(tmp_path):
@@ -379,7 +381,7 @@ def test_restart_reconciles_applied_ref_but_never_applies_ready_work(tmp_path):
     ready = prepare(other, pending_run)
     other.restart()
     assert other.get("harbor", ready.id).status == "ready"
-    assert other.head("harbor") == pending_run.base_commit
+    assert other.head("harbor", "task-0") == pending_run.base_commit
     ready.status = "preparing"
     other._save(ready)
     other.restart()
@@ -402,26 +404,28 @@ def test_browser_api_exposes_bounded_evidence_and_attention(tmp_path, monkeypatc
     ) as client:
         Results(execution.workspace).process("harbor")
         version = Results(execution.workspace).page("harbor", run.task_id).items[0]
-        prepared = client.get(f"/api/projects/harbor/integrations/{version.integration_id}")
+        prepared = client.get(f"/api/workspaces/harbor/integrations/{version.integration_id}")
         removed = client.post(
-            f"/api/projects/harbor/runs/{run.id}/integrations",
+            f"/api/workspaces/harbor/runs/{run.id}/integrations",
             json={"expected_revision": run.revision},
         )
         assert removed.status_code == 404
         assert prepared.status_code == 200, prepared.text
         record = prepared.json()
         assert record["status"] == "ready"
-        page = client.get("/api/projects/harbor/integrations").json()
+        page = client.get("/api/workspaces/harbor/integrations").json()
         assert "checks" not in page["items"][0]
-        waiting = client.get("/api/projects/harbor/view/attention?column=action").json()
+        waiting = client.get("/api/workspaces/harbor/view/attention?column=action").json()
         assert any(
             item["kind"] == "result" and item["run_id"] == run.id for item in waiting["items"]
         )
-        files = client.get(f"/api/projects/harbor/integrations/{record['id']}/diff").json()
+        files = client.get(f"/api/workspaces/harbor/integrations/{record['id']}/diff").json()
         assert any(f["new_path"] == "loader.py" for f in files["files"])
-        version = client.get(f"/api/projects/harbor/tasks/{run.task_id}/results").json()["items"][0]
+        version = client.get(f"/api/workspaces/harbor/tasks/{run.task_id}/results").json()["items"][
+            0
+        ]
         approved = client.post(
-            f"/api/projects/harbor/results/{version['id']}/review",
+            f"/api/workspaces/harbor/results/{version['id']}/review",
             json={
                 "expected_revision": version["revision"],
                 "candidate_commit": version["candidate_commit"],
@@ -430,7 +434,7 @@ def test_browser_api_exposes_bounded_evidence_and_attention(tmp_path, monkeypatc
         )
         assert approved.json()["status"] == "delivering"
         done = client.post(
-            f"/api/projects/harbor/integrations/{record['id']}/apply",
+            f"/api/workspaces/harbor/integrations/{record['id']}/apply",
             json={
                 "expected_revision": record["revision"],
                 "candidate_commit": record["candidate_commit"],
@@ -439,11 +443,11 @@ def test_browser_api_exposes_bounded_evidence_and_attention(tmp_path, monkeypatc
         assert done.status_code == 404
         Results(execution.workspace).process("harbor")
         assert (
-            client.get(f"/api/projects/harbor/integrations/{record['id']}").json()["status"]
+            client.get(f"/api/workspaces/harbor/integrations/{record['id']}").json()["status"]
             == "integrated"
         )
         assert client.get("/api/projects/other/integrations/" + record["id"]).status_code == 404
-        assert client.get("/api/projects/harbor/integrations?limit=51").status_code == 422
+        assert client.get("/api/workspaces/harbor/integrations?limit=51").status_code == 422
 
 
 def test_target_compare_and_swap_and_changed_intent_cannot_be_bypassed(tmp_path, monkeypatch):
@@ -460,7 +464,7 @@ def test_target_compare_and_swap_and_changed_intent_cannot_be_bypassed(tmp_path,
 
     monkeypatch.setattr(gitops, "apply", race)
     result = apply(service, candidate)
-    assert result.status == "stale" and service.head("harbor") == moved
+    assert result.status == "stale" and service.head("harbor", "task-0") == moved
     monkeypatch.setattr(gitops, "apply", real_apply)
     next_candidate = prepare(service, run)
     task = execution.workspace.task("harbor", run.task_id)
@@ -469,7 +473,7 @@ def test_target_compare_and_swap_and_changed_intent_cannot_be_bypassed(tmp_path,
     )
     with pytest.raises(ApplicationError, match="older or blocked assignment"):
         apply(service, next_candidate)
-    assert service.head("harbor") == moved
+    assert service.head("harbor", "task-0") == moved
 
 
 def test_enabled_scheduler_picks_up_dependent_after_explicit_integration(tmp_path, monkeypatch):

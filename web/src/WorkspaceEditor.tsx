@@ -9,7 +9,6 @@ import { DetailHeader, DetailTabs } from "./Presentation";
 import { MarkdownField } from "./Markdown";
 import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
 import { AgentSettingsForm } from "./AgentSettings";
-import { IntegrationPolicySettings } from "./IntegrationPolicySettings";
 import { ReviewerSettings } from "./ReviewerSettings";
 import { DetailSection } from "./DetailLayout";
 import { QueueSettings, WorkerSettings } from "./Workers";
@@ -37,17 +36,14 @@ export function WorkspaceEditor({
   const tab =
     selectedTab === "workers" ||
     selectedTab === "coordinator" ||
-    selectedTab === "reviewers" ||
-    selectedTab === "integration"
+    selectedTab === "reviewers"
       ? selectedTab
       : "general";
   const navigate = useNavigate();
   const location = useLocation();
-  const [integrationDirty, setIntegrationDirty] = useState(false);
   const [workerDirty, setWorkerDirty] = useState(false);
   const [coordinatorDirty, setCoordinatorDirty] = useState(false);
   const [taskReviewerDirty, setTaskReviewerDirty] = useState(false);
-  const [milestoneReviewerDirty, setMilestoneReviewerDirty] = useState(false);
   const path = `workspaces/${incoming.id}`;
   const state = useRecordEditor({
     recordName: "workspace settings",
@@ -56,12 +52,7 @@ export function WorkspaceEditor({
     path: () => path,
     onDirty,
     saved,
-    otherDirty:
-      integrationDirty ||
-      workerDirty ||
-      coordinatorDirty ||
-      taskReviewerDirty ||
-      milestoneReviewerDirty,
+    otherDirty: workerDirty || coordinatorDirty || taskReviewerDirty,
   });
   const {
     element: editor,
@@ -79,7 +70,7 @@ export function WorkspaceEditor({
       <DetailTabs
         id={id}
         title="Workspace settings"
-        tabs={["general", "coordinator", "workers", "reviewers", "integration"]}
+        tabs={["general", "coordinator", "workers", "reviewers"]}
         active={tab}
         change={(value) =>
           void navigate(
@@ -89,18 +80,6 @@ export function WorkspaceEditor({
         }
       />
       <EditorFeedback state={state} />
-      <div
-        role="tabpanel"
-        id={`${id}-integration`}
-        aria-labelledby={`${id}-integration-tab`}
-        hidden={tab !== "integration"}
-      >
-        <IntegrationPolicySettings
-          path={path}
-          refresh={incoming}
-          onDirty={setIntegrationDirty}
-        />
-      </div>
       <div
         role="tabpanel"
         id={`${id}-general`}
@@ -194,19 +173,8 @@ export function WorkspaceEditor({
           <DetailSection title="Task reviewer">
             <ReviewerSettings
               workspaceId={incoming.id}
-              purpose="task"
               refresh={incoming}
               onDirty={setTaskReviewerDirty}
-              active={tab === "reviewers"}
-            />
-          </DetailSection>
-          <Separator />
-          <DetailSection title="Milestone reviewer">
-            <ReviewerSettings
-              workspaceId={incoming.id}
-              purpose="milestone"
-              refresh={incoming}
-              onDirty={setMilestoneReviewerDirty}
               active={tab === "reviewers"}
             />
           </DetailSection>

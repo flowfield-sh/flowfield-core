@@ -309,7 +309,7 @@ def test_mcp_conversation_cursor_round_trips_without_sdk_coercion(tmp_path):
             )
             limit = tool.inputSchema["properties"]["limit"]
             assert limit["minimum"] == 1 and limit["maximum"] == 30
-            args = {"project_id": "harbor", "task_id": "task-0", "limit": 1, "cursor": None}
+            args = {"workspace_id": "harbor", "task_id": "task-0", "limit": 1, "cursor": None}
             seen = []
             while True:
                 result = await session.call_tool("get_task_conversation", args)

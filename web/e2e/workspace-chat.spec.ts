@@ -1,3 +1,4 @@
+import { projectWorkspace } from "./support";
 import { openResource } from "./shell-navigation";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -28,16 +29,18 @@ test("member projects share coordinator history and a draft", async ({
           id,
           name: id,
           path,
-          task_prefix: id === "shared-core" ? "COR" : "SIT",
         },
       },
     );
     expect(adopted.ok(), await adopted.text()).toBeTruthy();
     expect(
       (
-        await request.post(`/api/projects/${id}/tasks`, {
-          data: { id: "same", title: `${id} task` },
-        })
+        await request.post(
+          `/api/workspaces/${await projectWorkspace(request, id)}/tasks`,
+          {
+            data: { id, project_id: id, title: `${id} task` },
+          },
+        )
       ).ok(),
     ).toBeTruthy();
   }
@@ -118,7 +121,6 @@ test("member projects share coordinator history and a draft", async ({
       surface: string;
       project_id: string | null;
       label_id: string | null;
-      milestone_id: string | null;
     };
   }[] = [];
   await page.route(`**${base}/messages`, (route) => {
@@ -128,7 +130,7 @@ test("member projects share coordinator history and a draft", async ({
       json: { error: { code: "fixture_unavailable", message: "Retry later" } },
     });
   });
-  // Keep an uncertain send receipt, then select the same local task ID in another repo.
+  // Keep an uncertain send receipt, then select the another task in the shared workspace.
   // The second send must capture the new project instead of reusing the first receipt.
   await openProject("shared-core");
   await page.getByText("shared-core task", { exact: true }).first().click();
@@ -139,12 +141,10 @@ test("member projects share coordinator history and a draft", async ({
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(() => messages.length).toBe(2);
   expect(messages[0].task_context).toMatchObject({
-    project_id: "shared-core",
-    task_id: "same",
+    task_id: "shared-core",
   });
   expect(messages[1].task_context).toMatchObject({
-    project_id: "shared-site",
-    task_id: "same",
+    task_id: "shared-site",
   });
   expect(messages[0].id).not.toBe(messages[1].id);
   expect(messages[1].view_context).toMatchObject({
@@ -155,11 +155,16 @@ test("member projects share coordinator history and a draft", async ({
     page.getByRole("group", { name: "Message task context" }),
   ).toHaveCount(0);
   const current = await (
-    await request.get("/api/projects/shared-site/view/tasks/same")
+    await request.get(
+      `/api/workspaces/${await projectWorkspace(request, "shared-site")}/view/tasks/shared-site`,
+    )
   ).json();
-  await request.put("/api/projects/shared-site/tasks/same", {
-    data: { expected_revision: current.revision, title: "Revised site task" },
-  });
+  await request.put(
+    `/api/workspaces/${await projectWorkspace(request, "shared-site")}/tasks/shared-site`,
+    {
+      data: { expected_revision: current.revision, title: "Revised site task" },
+    },
+  );
   await expect(
     page.getByRole("heading", {
       name: /Revised site task$/,

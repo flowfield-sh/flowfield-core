@@ -15,7 +15,7 @@ def test_coordinator_history_cli_cursor_and_full_text(monkeypatch):
 
     def request(self, method, path, payload=None, **kwargs):
         calls.append((method, path))
-        if "/text?" in path:
+        if "/coordinator-text?" in path:
             return {
                 "text": "Retained reply",
                 "revision": 3,
@@ -128,7 +128,7 @@ def test_result_action_renders_a_bounded_mutation_receipt(monkeypatch) -> None:
         return {
             "saved": True,
             "id": "result-one",
-            "task_key": "HAR-1",
+            "task_key": "T-1",
             "version": 2,
             "revision": 3,
             "status": "preparing",
@@ -143,7 +143,7 @@ def test_result_action_renders_a_bounded_mutation_receipt(monkeypatch) -> None:
             "results",
             "prepare",
             "result-one",
-            "--project",
+            "--workspace",
             "harbor",
             "--expected-revision",
             "2",
@@ -162,14 +162,14 @@ def test_managed_question_cli_displays_reservation_without_application_step(monk
         "request",
         lambda *args, **kwargs: {
             "id": "scope",
-            "task_key": "HAR-1",
+            "task_key": "T-1",
             "status": "assigned",
             "question": "Which records?",
             "answer": "Favourites",
             "delivery": {"state": "Resuming", "message": "Preparing work with your saved answer."},
         },
     )
-    result = runner.invoke(app, ["inbox", "show", "scope", "--project", "harbor"])
+    result = runner.invoke(app, ["inbox", "show", "scope", "--workspace", "harbor"])
     assert result.exit_code == 0, result.stdout
     assert "Resuming" in result.stdout and "Favourites" in result.stdout
     assert "Awaiting application" not in result.stdout

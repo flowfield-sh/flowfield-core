@@ -141,9 +141,9 @@ def test_transactional_resolution_reopen_and_content_edits(delivery):
     clock[0] += 3
     assert not owner.poll(client()).items
     # A status transition back to actionable state is a fresh occurrence, even between polls.
-    with workspace.connection(write=True, project_id="project") as db:
+    with workspace.connection(write=True, workspace_id="project") as db:
         db.execute("UPDATE questions SET status='open' WHERE id=?", (q.id,))
-    with workspace.connection(write=True, project_id="project") as db:
+    with workspace.connection(write=True, workspace_id="project") as db:
         db.execute(
             "UPDATE questions SET data=json_set(data,'$.question','Edited') WHERE id=?", (q.id,)
         )
@@ -195,7 +195,7 @@ def test_complete_projection_more_than_100_and_later_projects(delivery, tmp_path
     ask(workspace, "last", "z-last")
     clock[0] += 3
     items = owner.poll(client()).items
-    assert len(items) == 121 and any(item.project_id == "z-last" for item in items)
+    assert len(items) == 121 and any(item.workspace_id == "z-last" for item in items)
     with workspace.connection(write=True, notify=False) as db:
         reconcile_attention(db)
         assert db.execute("SELECT count(*) FROM attention_sources").fetchone()[0] == 121

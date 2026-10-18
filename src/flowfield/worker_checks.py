@@ -42,8 +42,6 @@ class CheckPermissions:
             return self.read(db, project)
 
     def read(self, db: sqlite3.Connection, project: str) -> CheckPermission:
-        if self.store._work_scope(db, project).project_id is None:
-            return CheckPermission()
         current = self.store._project(db, project)
         row = db.execute(
             "SELECT data FROM worker_check_grants WHERE project_id=?", (project,)
@@ -66,7 +64,7 @@ class CheckPermissions:
         return value
 
     def configure(self, project: str, request: CheckPermissionEdit) -> CheckPermission:
-        with self.store.connection(write=True, project_id=project) as db:
+        with self.store.connection(write=True, workspace_id=project) as db:
             current = self.store._project(db, project)
             row = db.execute(
                 "SELECT data FROM worker_check_grants WHERE project_id=?", (project,)
@@ -98,6 +96,10 @@ class CheckPermissions:
             return value
 
     def require(self, run: Run) -> None:
+        if not run.project_id:
+            raise ApplicationError(
+                "repository_required", "This attempt has no project checks.", 409
+            )
         grant = self.get(run.project_id)
         if not grant.enabled or grant.settings_revision != run.check_settings_revision:
             raise ApplicationError(
@@ -125,7 +127,7 @@ class WorkerChecks:
                 and observed.arguments == {}
             ):
                 try:
-                    self.execution.worker_access(self.run.project_id, self.run.id)
+                    self.execution.worker_access(self.run.workspace_id, self.run.id)
                     CheckPermissions(self.execution.workspace).require(self.run)
                 except ApplicationError:
                     pass
@@ -141,7 +143,7 @@ class WorkerChecks:
         return request
 
     async def call(self) -> str:
-        self.execution.worker_access(self.run.project_id, self.run.id)
+        self.execution.worker_access(self.run.workspace_id, self.run.id)
         CheckPermissions(self.execution.workspace).require(self.run)
         if self.job:
             raise ApplicationError("checks_busy", "Wait for the current project checks.", 409)
@@ -162,9 +164,9 @@ class WorkerChecks:
         try:
             checks = await self.job
             with self.execution.workspace.connection(
-                write=True, project_id=self.run.project_id
+                write=True, workspace_id=self.run.workspace_id
             ) as db:
-                current = self.execution._run(db, self.run.project_id, self.run.id)
+                current = self.execution._run(db, self.run.workspace_id, self.run.id)
                 current.project_check_results = checks
                 self.execution._save(db, current)
             import json

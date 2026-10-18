@@ -23,7 +23,6 @@ export function SetupInstructions({
   const [path, setPath] = useState("");
   const [id, setId] = useState("");
   const [name, setName] = useState("");
-  const [prefix, setPrefix] = useState("");
   const [busy, setBusy] = useState<"choosing" | "adding" | null>(null);
   useEffect(() => {
     onDirty(!!path);
@@ -40,8 +39,7 @@ export function SetupInstructions({
         <form
           onSubmit={async (event) => {
             event.preventDefault();
-            if (!path || !id.trim() || !name.trim() || !prefix.trim() || busy)
-              return;
+            if (!path || !id.trim() || !name.trim() || busy) return;
             setBusy("adding");
             try {
               const project = await request<Project>(
@@ -51,7 +49,6 @@ export function SetupInstructions({
                   path,
                   id: id.trim(),
                   name: name.trim(),
-                  task_prefix: prefix.trim(),
                 },
                 undefined,
                 180000,
@@ -102,7 +99,6 @@ export function SetupInstructions({
                         setPath(selection.path);
                         setId(defaults.id);
                         setName(defaults.name);
-                        setPrefix(defaults.task_prefix);
                       }
                     } catch (failure) {
                       reportError(
@@ -150,25 +146,6 @@ export function SetupInstructions({
                     </Label>
                     <p id="project-id-help" className="detail-metadata">
                       A unique ID used in project links.
-                    </p>
-                  </ContentStack>
-                  <ContentStack space="flush">
-                    <Label className="field block">
-                      Task prefix
-                      <Input
-                        required
-                        aria-describedby="project-prefix-help"
-                        value={prefix}
-                        minLength={3}
-                        maxLength={3}
-                        pattern="[A-Za-z]{3}"
-                        onChange={(event) =>
-                          setPrefix(event.target.value.toUpperCase())
-                        }
-                      />
-                    </Label>
-                    <p id="project-prefix-help" className="detail-metadata">
-                      Three unique letters for task IDs, such as FOL-1.
                     </p>
                   </ContentStack>
                 </ContentStack>

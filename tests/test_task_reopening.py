@@ -34,7 +34,7 @@ def test_reopen_preserves_evidence_and_requires_new_preparation_scheduling_and_a
     store = service.workspace
     old = current(service)
     saved_run = service.execution.get("harbor", old_run.id)
-    head = service.integrations.head("harbor")
+    head = service.integrations.head("harbor", "work")
     task = store.task("harbor", "work")
     reopened = store.reopen_task(
         "harbor", "work", TaskReopen(expected_revision=task.revision, note="Cover another case")
@@ -48,7 +48,10 @@ def test_reopen_preserves_evidence_and_requires_new_preparation_scheduling_and_a
     assert BrowserReads(store).task("harbor", "work").state.label != "Completed"
     settings = service.execution.settings("harbor")
     service.execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=True))
-    assert service.execution.claim("harbor", head, service._available("harbor", repo, head)) is None
+    assert (
+        service.execution.claim("harbor", head, service._available("harbor", "harbor", repo, head))
+        is None
+    )
     prepared = store.edit_task(
         "harbor",
         "work",
@@ -59,12 +62,17 @@ def test_reopen_preserves_evidence_and_requires_new_preparation_scheduling_and_a
         ),
     )
     assert prepared.publication_status == "published" and prepared.status == "backlog"
-    assert service.execution.claim("harbor", head, service._available("harbor", repo, head)) is None
+    assert (
+        service.execution.claim("harbor", head, service._available("harbor", "harbor", repo, head))
+        is None
+    )
     assert BrowserReads(store).task("harbor", "work").state.label == "Not scheduled"
     store.prioritize_task(
         "harbor", "work", TaskPriority(expected_revision=prepared.revision, status="up_next")
     )
-    run = service.execution.claim("harbor", head, service._available("harbor", repo, head))
+    run = service.execution.claim(
+        "harbor", head, service._available("harbor", "harbor", repo, head)
+    )
     assert run and run.predecessor_id == old_run.id and run.base_commit == head
     assert run.accepted_at is None and run.agreement_revision != old_run.agreement_revision
     assert "another case" in service.execution.assignment("harbor", run.id)["description"]
@@ -84,7 +92,7 @@ def test_reopen_preserves_evidence_and_requires_new_preparation_scheduling_and_a
     next_result = current(service)
     assert next_result.id != old.id and next_result.approved_at is None
     if completion == "code":
-        assert next_result.status == "ready" and service.integrations.head("harbor") == head
+        assert next_result.status == "ready" and service.integrations.head("harbor", "work") == head
         approve(service, next_result)
         service.results.process("harbor")
     assert current(service).status == "delivered"
@@ -124,11 +132,10 @@ def test_coordinator_reopen_is_scoped_attributed_and_excluded_from_workers(tmp_p
     async def exercise():
         grant = await workspace_scope(service, "harbor", author="coordinator:follow-up")
         request = {
-            "project_id": "harbor",
             "task_id": "work",
             "reopening": {
                 "expected_revision": task.revision,
-                "note": "Correct milestone finding",
+                "note": "Correct review finding",
                 "author": "human",
             },
         }
@@ -151,7 +158,7 @@ def test_reopen_api_retains_the_delivered_record(tmp_path):
         create_app(data_dir=service.workspace.directory), base_url="http://localhost"
     ) as client:
         response = client.post(
-            "/api/projects/harbor/tasks/work/reopen",
+            "/api/workspaces/harbor/tasks/work/reopen",
             json={
                 "expected_revision": task.revision,
                 "note": "Prepare the correction",
@@ -159,4 +166,6 @@ def test_reopen_api_retains_the_delivered_record(tmp_path):
         )
         assert response.status_code == 200, response.text
         assert response.json()["status"] == "backlog"
-        assert client.get(f"/api/projects/harbor/results/{old.id}").json()["status"] == "delivered"
+        assert (
+            client.get(f"/api/workspaces/harbor/results/{old.id}").json()["status"] == "delivered"
+        )

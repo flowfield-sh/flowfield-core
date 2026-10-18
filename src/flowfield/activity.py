@@ -9,7 +9,7 @@ from flowfield.project_config import Identifier, Title
 
 EntryKind = Literal["note", "handoff", "event"]
 TaskKey = Annotated[
-    str, StringConstraints(pattern=r"^(?:[a-z0-9][a-z0-9_-]{0,63}|[A-Z]{3}-[1-9][0-9]*)$")
+    str, StringConstraints(pattern=r"^(?:[a-z0-9][a-z0-9_-]{0,63}|[Tt]-[1-9][0-9]*)$")
 ]
 
 
@@ -41,7 +41,7 @@ class ActivityEntry(BaseModel):
     model_config = ConfigDict(json_schema_serialization_defaults_required=True)
     sequence: int
     id: str
-    project_id: str
+    workspace_id: str
     task_id: str | None
     kind: EntryKind
     body: str

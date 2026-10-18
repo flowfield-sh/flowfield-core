@@ -21,26 +21,24 @@ class AgentSettings:
         self.workspace = workspace
 
     def _read(
-        self, db: sqlite3.Connection, project: str, role: AgentRole, scope: str = ""
+        self, db: sqlite3.Connection, workspace_id: str, role: AgentRole, scope: str = ""
     ) -> AgentSettingsView:
-        self.workspace._work_scope(db, project)
+        self.workspace._workspace(db, workspace_id)
         if role == "coordinator":
-            owner = worker_settings.workspace_id(db, project)
-            if owner:
-                return CoordinatorSettings.read(db, owner)
+            return CoordinatorSettings.read(db, workspace_id)
         if scope and role == "worker":
-            scope = self.workspace._task(db, project, scope).id
+            scope = self.workspace._task(db, workspace_id, scope).id
         if role == "worker" and not scope:
-            current = worker_settings.read_project(db, project)
+            current = worker_settings.read_workspace(db, workspace_id)
             return AgentSettingsView(
                 revision=current.revision,
                 selection=current.selection,
             )
 
         row = db.execute(
-            "SELECT revision,selection FROM agent_settings WHERE project_id=? AND role=? "
+            "SELECT revision,selection FROM agent_settings WHERE workspace_id=? AND role=? "
             "AND scope=?",
-            (project, role, scope),
+            (workspace_id, role, scope),
         ).fetchone()
         return (
             AgentSettingsView(
@@ -52,32 +50,26 @@ class AgentSettings:
         )
 
     def resolve(
-        self, db: sqlite3.Connection, project: str, role: AgentRole, scope: str = ""
+        self, db: sqlite3.Connection, workspace_id: str, role: AgentRole, scope: str = ""
     ) -> AgentSettingsView:
         if role == "coordinator":
             scope = ""
-        defaults = self._read(db, project, role)
-        override = self._read(db, project, role, scope) if scope else None
+        defaults = self._read(db, workspace_id, role)
+        override = self._read(db, workspace_id, role, scope) if scope else None
         selected = override.selection if override and override.selection else defaults.selection
         result = (override or defaults).model_copy()
         if selected:
             result.effective = EffectiveAgent(
                 choice=selected,
-                source=(
-                    "override"
-                    if override and override.selection
-                    else "workspace"
-                    if (worker_settings.workspace_id(db, project))
-                    else "project"
-                ),
+                source="override" if override and override.selection else "workspace",
                 default_revision=defaults.revision,
                 override_revision=override.revision if override else None,
             )
         return result
 
-    def get(self, project: str, role: AgentRole, scope: str = "") -> AgentSettingsView:
+    def get(self, workspace_id: str, role: AgentRole, scope: str = "") -> AgentSettingsView:
         with self.workspace.connection() as db:
-            return self.resolve(db, project, role, scope)
+            return self.resolve(db, workspace_id, role, scope)
 
     def freeze(self, db: sqlite3.Connection, effective: EffectiveAgent) -> EffectiveAgent:
 
@@ -86,55 +78,47 @@ class AgentSettings:
         )
 
     def edit(
-        self, project: str, role: AgentRole, request: AgentSettingsEdit, scope: str = ""
+        self, workspace_id: str, role: AgentRole, request: AgentSettingsEdit, scope: str = ""
     ) -> AgentSettingsView:
         with self.workspace.connection(
-            write=True, project_id=project if role == "worker" else None
+            write=True, workspace_id=workspace_id if role == "worker" else None
         ) as db:
-            return self._edit(db, project, role, request, scope)
+            return self._edit(db, workspace_id, role, request, scope)
 
     def _edit(
         self,
         db: sqlite3.Connection,
-        project: str,
+        workspace_id: str,
         role: AgentRole,
         request: AgentSettingsEdit,
         scope: str = "",
     ) -> AgentSettingsView:
         request = request.model_copy(update={"selection": self.normalize(request.selection, role)})
         if role == "coordinator":
-            owner = worker_settings.workspace_id(db, project)
-            if owner:
-                return CoordinatorSettings(self.workspace).write(db, owner, request)
-            raise ApplicationError(
-                "workspace_required", "Add this project to an explicit workspace first.", 409
-            )
+            return CoordinatorSettings(self.workspace).write(db, workspace_id, request)
         if role == "worker" and not scope:
             raise ApplicationError("worker_defaults", "Use worker settings to edit defaults.")
         if scope:
-            scope = self.workspace._task(db, project, scope).id
-        current = self._read(db, project, role, scope)
+            scope = self.workspace._task(db, workspace_id, scope).id
+        current = self._read(db, workspace_id, role, scope)
         self.workspace._current(current.revision, request.expected_revision)
         db.execute(
             "INSERT INTO agent_settings VALUES (?,?,?,?,?) "
-            "ON CONFLICT(project_id,role,scope) DO UPDATE SET "
+            "ON CONFLICT(workspace_id,role,scope) DO UPDATE SET "
             "revision=excluded.revision,selection=excluded.selection",
             (
-                project,
+                workspace_id,
                 role,
                 scope,
                 current.revision + 1,
                 request.selection.model_dump_json() if request.selection else None,
             ),
         )
-        return self.resolve(db, project, role, scope)
+        return self.resolve(db, workspace_id, role, scope)
 
     @staticmethod
     def normalize(choice: AgentChoice | None, role: AgentRole) -> AgentChoice | None:
         if choice is None:
             return None
         choice = choice.model_copy(update={"fast": bool(choice.fast)})
-        if role == "coordinator" and choice.harness == "codex" and choice.mode is None:
-            # Old clients selected only model/effort. Preserve their existing access.
-            choice.mode = "read-only"
         return choice

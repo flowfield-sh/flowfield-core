@@ -215,7 +215,7 @@ export function CoordinatorChat({
       const contextKey = JSON.stringify([
         viewPath,
         { ...adjacent?.view, document_revision: undefined },
-        taskContext?.project_id,
+        workspaceId,
         taskContext?.task_id,
         taskContext?.result_id,
       ]);
@@ -337,10 +337,7 @@ export function CoordinatorChat({
                     className="coordinator-task-reference"
                     title={`${turn.task_context.title} · task revision ${turn.task_context.task_revision}`}
                     to={
-                      taskHref(
-                        turn.task_context.project_id,
-                        turn.task_context,
-                      ) +
+                      taskHref(workspaceId, turn.task_context) +
                       (turn.task_context.result_id
                         ? `/conversation/result:${encodeURIComponent(turn.task_context.result_id)}`
                         : "")

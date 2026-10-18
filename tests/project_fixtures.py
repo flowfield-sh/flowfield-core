@@ -1,6 +1,8 @@
 """Prepare independent test directories before adopting them through production operations."""
 
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from flowfield.application import Project, ProjectSetup, Workspace
 
@@ -10,7 +12,9 @@ def existing_directory(path: str | Path) -> str:
     return str(path)
 
 
-def adopt(workspace: Workspace, request: ProjectSetup) -> Project:
+def adopt(
+    workspace: Workspace, request: ProjectSetup, *, coordinator=None, worker=None, max_parallel=1
+) -> Project:
     existing_directory(request.path)
     from flowfield.agent_models import AgentSettingsEdit
     from flowfield.execution_models import SettingsEdit
@@ -27,43 +31,30 @@ def adopt(workspace: Workspace, request: ProjectSetup) -> Project:
         ).fetchone()
     if membership:
         identity = membership[0]
-    else:
-        space = spaces.create(WorkspaceCreate(name=defaults.name + " Workspace"))
+    elif any(space.id == project_id for space in spaces.all()):
         identity = project_id
-        with workspace.connection(write=True) as db:
-            db.execute("PRAGMA defer_foreign_keys=ON")
-            db.execute("UPDATE workspaces SET id=? WHERE id=?", (identity, space.id))
-            db.execute(
-                "UPDATE work_scopes SET id=?,workspace_id=? WHERE workspace_id=?",
-                ("workspace_" + identity, identity, space.id),
-            )
-            db.execute(
-                "UPDATE workspace_labels SET workspace_id=? WHERE workspace_id=?",
-                (identity, space.id),
-            )
-            for table in ("workspace_documents", "workspace_document_revisions"):
-                db.execute(
-                    f"UPDATE {table} SET workspace_id=? WHERE workspace_id=?",
-                    (identity, space.id),
-                )
-    project = spaces.adopt(
-        identity, request.model_copy(update={"coordinator": None, "worker": None})
-    )
-    if request.coordinator:
+    else:
+        identity = project_id
+        # Publish the final identity atomically: a running service can observe it
+        # immediately, so never create then rename the workspace behind its back.
+        with patch("flowfield.workspaces.uuid4", return_value=SimpleNamespace(hex=identity)):
+            spaces.create(WorkspaceCreate(name=defaults.name + " Workspace"))
+    project = spaces.adopt(identity, request)
+    if coordinator:
         spaces.configure_coordinator(
             identity,
             AgentSettingsEdit(
                 expected_revision=spaces.coordinator(identity).revision,
-                selection=request.coordinator,
+                selection=coordinator,
             ),
         )
-    if request.worker:
+    if worker:
         spaces.configure_workers(
             identity,
             SettingsEdit(
                 expected_revision=spaces.workers(identity).revision,
-                selection=request.worker,
-                max_parallel=request.max_parallel,
+                selection=worker,
+                max_parallel=max_parallel,
             ),
         )
     return project

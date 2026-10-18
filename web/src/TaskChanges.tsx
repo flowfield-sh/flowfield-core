@@ -8,29 +8,22 @@ import { ActivityBodyVisible } from "./ActivityEntry";
 import { Markdown } from "./Markdown";
 import { TextChanges } from "./TextChanges";
 import { ArrowRight } from "lucide-react";
-import {
-  type Milestone,
-  type TaskReference,
-  type TaskRevision,
-} from "./workspace";
+import { type TaskReference, type TaskRevision } from "./workspace";
 
-type Field = "body" | "title" | "labels" | "milestone_id" | "dependencies";
+type Field = "body" | "title" | "labels" | "dependencies";
 const fields: [Field, string][] = [
   ["body", "Description"],
   ["title", "Title"],
   ["labels", "Labels"],
-  ["milestone_id", "Milestone"],
   ["dependencies", "Prerequisites"],
 ];
 export function TaskChanges({
   revision,
   path,
-  milestones,
   tasks,
 }: {
   revision: number;
   path: string;
-  milestones: Milestone[];
   tasks: TaskReference[];
 }) {
   const labels = useLabels();
@@ -58,12 +51,6 @@ export function TaskChanges({
         record.labels
           .map((id) => labels.find((item) => item.id === id)?.name ?? id)
           .join(", ") || "None"
-      );
-    if (field === "milestone_id")
-      return (
-        milestones.find((e) => e.id === record.milestone_id)?.title ??
-        record.milestone_id ??
-        "No milestone"
       );
     if (field === "dependencies")
       return (

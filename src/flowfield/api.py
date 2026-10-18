@@ -30,7 +30,6 @@ from flowfield.application import (
     TaskCreate,
     TaskEdit,
     TaskPriority,
-    TaskProgress,
     TaskPublish,
     TaskReconcile,
     TaskReopen,
@@ -38,7 +37,6 @@ from flowfield.application import (
     health,
 )
 from flowfield.attachments import attachment_router
-from flowfield.attention import attention_counts
 from flowfield.browser import browser_router
 from flowfield.changes import Changes
 from flowfield.context_api import context_router, workspace_context_router
@@ -132,14 +130,6 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
     def projects(service: Service) -> list[Project]:
         return service.projects()
 
-    @router.get("/attention-counts")
-    def project_attention_counts(service: Service) -> dict[str, int]:
-        with service.connection() as db:
-            return {
-                row[0]: attention_counts(db, row[0]).get("action", 0)
-                for row in db.execute("SELECT id FROM projects ORDER BY id").fetchall()
-            }
-
     @app.get("/api/guidance-template")
     def guidance_template() -> GuidanceTemplates:
         return GuidanceTemplates(
@@ -162,6 +152,12 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
     def change_guidance(project_id: str, request: GuidanceChange, service: Service) -> GuidanceView:
         return Guidance(service).change(project_id, request)
 
+    @router.get("/{project_id}/workspace")
+    def project_workspace(project_id: str, service: Service) -> dict[str, str]:
+        from flowfield.workspaces import Workspaces
+
+        return {"id": Workspaces(service).for_project(project_id).id}
+
     @router.get("/{project_id}")
     def project(project_id: str, service: Service) -> Project:
         return service.project(project_id)
@@ -170,9 +166,11 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
     def edit_project(project_id: str, request: ProjectEdit, service: Service) -> Project:
         return service.edit_project(project_id, request)
 
-    @router.get("/{project_id}/activity")
+    task_router = APIRouter(prefix="/api/workspaces")
+
+    @task_router.get("/{workspace_id}/activity")
     def activity(
-        project_id: str,
+        workspace_id: str,
         service: Service,
         task_id: str | None = None,
         kind: EntryKind | None = None,
@@ -181,7 +179,7 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
         limit: int = 50,
     ) -> ActivityPage:
         return service.activity(
-            project_id,
+            workspace_id,
             task_id=task_id,
             kind=kind,
             current_only=current_only,
@@ -189,62 +187,59 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
             limit=limit,
         )
 
-    @router.post("/{project_id}/activity", status_code=201)
-    def add_activity(project_id: str, request: ActivityCreate, service: Service) -> ActivityEntry:
-        return service.add_activity(project_id, request)
+    @task_router.post("/{workspace_id}/activity", status_code=201)
+    def add_activity(workspace_id: str, request: ActivityCreate, service: Service) -> ActivityEntry:
+        return service.add_activity(workspace_id, request)
 
-    @router.get("/{project_id}/activity/{entry_id}")
-    def activity_entry(project_id: str, entry_id: str, service: Service) -> ActivityEntry:
-        return service.activity_entry(project_id, entry_id)
+    @task_router.get("/{workspace_id}/activity/{entry_id}")
+    def activity_entry(workspace_id: str, entry_id: str, service: Service) -> ActivityEntry:
+        return service.activity_entry(workspace_id, entry_id)
 
-    @router.get("/{project_id}/board")
-    def board(project_id: str, service: Service) -> Board:
-        return service.board(project_id)
+    @task_router.get("/{workspace_id}/board")
+    def board(workspace_id: str, service: Service) -> Board:
+        return service.board(workspace_id)
 
-    @router.get("/{project_id}/tasks")
-    def tasks(project_id: str, service: Service, include_archived: bool = False) -> list[Task]:
-        return service.tasks(project_id, include_archived=include_archived)
+    @task_router.get("/{workspace_id}/tasks")
+    def tasks(workspace_id: str, service: Service, include_archived: bool = False) -> list[Task]:
+        return service.tasks(workspace_id, include_archived=include_archived)
 
-    @router.post("/{project_id}/tasks", status_code=201)
-    def create_task(project_id: str, request: TaskCreate, service: Service) -> Task:
-        return service.create_task(project_id, request)
+    @task_router.post("/{workspace_id}/tasks", status_code=201)
+    def create_task(workspace_id: str, request: TaskCreate, service: Service) -> Task:
+        return service.create_task(workspace_id, request)
 
-    @router.get("/{project_id}/tasks/{task_id}")
-    def task(project_id: str, task_id: str, service: Service) -> Task:
-        return service.task(project_id, task_id)
+    @task_router.get("/{workspace_id}/tasks/{task_id}")
+    def task(workspace_id: str, task_id: str, service: Service) -> Task:
+        return service.task(workspace_id, task_id)
 
-    @router.put("/{project_id}/tasks/{task_id}")
-    def edit_task(project_id: str, task_id: str, request: TaskEdit, service: Service) -> Task:
-        return service.edit_task(project_id, task_id, request)
+    @task_router.put("/{workspace_id}/tasks/{task_id}")
+    def edit_task(workspace_id: str, task_id: str, request: TaskEdit, service: Service) -> Task:
+        return service.edit_task(workspace_id, task_id, request)
 
-    @router.post("/{project_id}/tasks/{task_id}/prioritize")
+    @task_router.post("/{workspace_id}/tasks/{task_id}/prioritize")
     def prioritize_task(
-        project_id: str, task_id: str, request: TaskPriority, service: Service
+        workspace_id: str, task_id: str, request: TaskPriority, service: Service
     ) -> Task:
-        return service.prioritize_task(project_id, task_id, request)
+        return service.prioritize_task(workspace_id, task_id, request)
 
-    @router.post("/{project_id}/tasks/{task_id}/publish")
-    def publish_task(project_id: str, task_id: str, request: TaskPublish, service: Service) -> Task:
-        return service.publish_task(project_id, task_id, request)
-
-    @router.post("/{project_id}/tasks/{task_id}/progress")
-    def record_progress(
-        project_id: str, task_id: str, request: TaskProgress, service: Service
+    @task_router.post("/{workspace_id}/tasks/{task_id}/publish")
+    def publish_task(
+        workspace_id: str, task_id: str, request: TaskPublish, service: Service
     ) -> Task:
-        return service.record_progress(project_id, task_id, request)
+        return service.publish_task(workspace_id, task_id, request)
 
-    @router.post("/{project_id}/tasks/{task_id}/reconcile")
+    @task_router.post("/{workspace_id}/tasks/{task_id}/reconcile")
     def reconcile_task(
-        project_id: str, task_id: str, request: TaskReconcile, service: Service
+        workspace_id: str, task_id: str, request: TaskReconcile, service: Service
     ) -> Task:
-        return service.reconcile_task(project_id, task_id, request)
+        return service.reconcile_task(workspace_id, task_id, request)
 
-    @router.post("/{project_id}/tasks/{task_id}/reopen")
-    def reopen_task(project_id: str, task_id: str, request: TaskReopen, service: Service) -> Task:
-        return service.reopen_task(project_id, task_id, request)
+    @task_router.post("/{workspace_id}/tasks/{task_id}/reopen")
+    def reopen_task(workspace_id: str, task_id: str, request: TaskReopen, service: Service) -> Task:
+        return service.reopen_task(workspace_id, task_id, request)
 
     app.get("/api/health", response_model=Health)(health)
     app.include_router(router)
+    app.include_router(task_router)
     app.include_router(workspace_router(supervisor))
     app.include_router(output_router(workspace))
     app.include_router(browser_router(workspace))
@@ -259,7 +254,6 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
     app.include_router(coordinator_router(supervisor))
     app.include_router(harness_router(workspace, supervisor))
     app.include_router(attachment_router(workspace))
-    app.include_router(attachment_router(workspace, workspace_scope=True))
     app.include_router(integration_router(supervisor))
     app.include_router(result_router(supervisor))
     app.include_router(reviewer_router(supervisor))

@@ -228,12 +228,12 @@ def test_scoped_coordinator_can_select_and_prepare_without_document_body_echo(tm
         created = await grant.call(
             "create_task",
             {
-                "project_id": "harbor",
                 "task": task_request(
+                    project_id="harbor",
                     title="Documented work",
                     body="Review selected design",
                     preparation={"completion": "report"},
-                ).model_dump(),
+                ).model_dump()
             },
         )
         assert not created.isError

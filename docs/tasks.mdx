@@ -3,17 +3,17 @@ title: Tasks, Inbox and review
 description: Prioritize work, resolve questions and decide which exact results to deliver.
 ---
 
-Open a task from Work or Tasks. **Overview** shows its definition, blockers, related work and Outcome. **View result** opens the exact Result Request with checks, inspection and review controls. **Settings** configures its reviewer.
+Open a task from Work or Tasks. **Task** shows its purpose, related work and chronological conversation. Expand **Work** to inspect local subtasks. **View result** opens the exact Result Request with checks, inspection and review controls. **Settings** configures its worker and reviewer overrides.
 
-**Activity** keeps dated definition changes, captured sources, questions, worker attempts and results. Expand a row to read its evidence; timestamp links select an exact event, and active worker output stays expanded. Discuss plans in the Coordinator. Task inputs answer a particular question, request changes or approve a selected result.
+The task feed keeps dated definition changes, captured sources, questions, worker attempts and results. Expand a row to read its evidence; timestamp links select an exact event, and active worker output stays expanded. Discuss plans in the Coordinator. Task inputs answer a particular question, request changes or approve a selected result.
 
-Each Inbox ask has a stable **Request** link. Use the header’s **Open request in work tab** button to respond in a separate tab; the source badge opens its task, milestone or project. Inbox History opens the same Request after resolution. Drafts and responses are shared across these views, and earlier requests keep their original evidence and approval bindings. The Coordinator can reference requests directly with `list_requests` and `get_request`.
+Each Inbox ask has a stable **Request** link. Use the header’s **Open request in work tab** button to respond in a separate tab; the source badge opens its task or project. Inbox History opens the same Request after resolution. Drafts and responses are shared across these views, and earlier requests keep their original evidence and approval bindings. The Coordinator can reference requests directly with `list_requests` and `get_request`.
 
 ## Define useful work
 
-Describe the outcome and how you will judge it. The Coordinator can clarify the scope, select [worker documents](/documents#supply-worker-context) and prepare the assignment. Tasks, milestones, labels and priorities are maintained through that conversation.
+Describe the outcome and how you will judge it. The Coordinator can clarify the scope, select [worker documents](/documents#supply-worker-context) and prepare the assignment. Tasks, labels and priorities are maintained through that conversation.
 
-For reports, datasets, images and other files, ask for a workspace task. Its key is `W-1`, `W-2` and so on within that workspace. It uses the same queue, questions and result history as project work. No project or Git setup is needed. [Files](/files) explains durable delivery, selected inputs and milestone handoffs.
+For reports, datasets, images and other files, ask for a workspace task. All tasks use workspace-local keys such as `T-1` and `T-2`, whether or not they have a project. It uses the same queue, questions and result history as project work. No project or Git setup is needed. [Files](/files) explains durable delivery, selected inputs and retained results.
 
 The prepared description is the worker's resolved handoff: what to achieve and why, consequential constraints and exceptions, how completion can be observed, and which sources apply. The Coordinator resolves conflicting requirements before preparation and keeps scheduling discussion outside the assignment. Workers receive guidance for their current attempt, including saved answers or revision feedback when relevant.
 
@@ -39,7 +39,7 @@ Each board column scrolls independently. On narrow screens, scroll sideways to r
 
 ## Dependencies
 
-A task can depend on tasks in other projects within the same workspace. Prerequisites must finish before dependent work starts; cycles and cross-workspace dependencies are rejected. Each dependent task retains its own checkout and delivery branch. Foreign prerequisite code is not merged into that repository's Git history.
+A task can depend on tasks in other projects within the same workspace. Prerequisites must finish before dependent work starts; cycles and cross-workspace dependencies are rejected. A dependency is satisfied by the task’s delivered result. A review recommendation or completed subtask alone does not release dependent tasks. Foreign prerequisite code is not merged into that repository's Git history.
 
 Reopening or changing completed prerequisite work can require downstream reconciliation. Archiving unfinished work does not satisfy its dependents. Ask the Coordinator to review affected tasks when the plan changes.
 
@@ -51,11 +51,11 @@ If a worker ends normally without either, Flowfield immediately gives it one rem
 
 Normal submissions need no extra model turn. When the reminder is needed, it uses additional model tokens; its cost depends on the session context, model and caching, not just the reminder's length. It keeps the worker slot occupied until the attempt ends and cleanup is confirmed. If the worker still finishes without a submission or question, work is preserved and the attempt needs inspection and explicit retry.
 
-**Stop worker** ends an active attempt, including one responding to a reminder, and preserves its unfinished work. **Retry worker** queues a fresh attempt; it respects pause, dependencies and capacity. Follow the displayed recovery action if native cleanup is uncertain. The reporting reminder does not restart stopped or interrupted attempts.
+**Stop task** stops its active workers, preserves their work and returns the task to Backlog. **Retry worker** queues a fresh attempt; it respects pause, dependencies and capacity. Follow the displayed recovery action if native cleanup is uncertain. The reporting reminder does not restart stopped or interrupted attempts.
 
 ## Work through Inbox
 
-Inbox gathers human decisions across the workspace in **Needs me** and keeps past responses in **History**, including answers awaiting Coordinator follow-up. Its badge counts actionable requests; the project filter narrows the view. Each request identifies its source, explains the decision and offers the relevant response controls directly in Inbox. Expand evidence or follow the source link when you need more context. Resource links from Inbox open a separate work tab; Inbox keeps its selected view.
+Inbox gathers human decisions across the workspace in **Needs me** and keeps past responses in **History**, including answers awaiting Coordinator follow-up. Its badge counts actionable requests. Each request identifies its source, explains the decision and offers the relevant response controls directly in Inbox. Expand evidence or follow the source link when you need more context. Resource links from Inbox open a separate work tab; Inbox keeps its selected view.
 
 Resolved requests disappear from **Needs me** as you respond. Drafts on other requests stay in place, including on pages you have already loaded. Failed saves keep your input; if another session resolves a request while you are writing, discard your retained draft when you are ready.
 
@@ -63,7 +63,6 @@ Resolved requests disappear from **Needs me** as you respond. Drafts on other re
 | --- | --- |
 | Question | Read the context, choose a suggested answer or write your own, then send it. Worker answers continue managed work when eligible; planning answers need the Coordinator to resume and reconcile them. |
 | Result | Read the selected result and destination, optionally try or inspect it, then request changes or approve and integrate it. |
-| Milestone acceptance | Review the checks and their evidence, then accept the milestone or request changes with feedback. |
 | Intervention | Inspect the failure or blocker and follow its recovery action. |
 | Tool permission | Allow or deny the native request while its turn is waiting. This grants no code-delivery approval. |
 
@@ -73,15 +72,15 @@ Saved worker answers need no separate human apply step. Once assigned to a conti
 
 ## Independent task review
 
-In **Workspace settings → Reviewers**, choose the native harness and model for **Task reviewer**. Assessment defaults on, but no model is selected automatically. A task's **Settings** can override the workspace choice or reset to inheritance. There is no project or milestone-to-task inheritance.
+In **Workspace settings → Reviewers**, choose the native harness and model for **Task reviewer**. Assessment defaults on, but no model is selected automatically. A task's **Settings** can override the workspace choice or reset to inheritance. Subtasks use their parent task’s worker settings and have no separate reviewer.
 
-New complete code candidates receive an independent assessment against their exact assignment, sources, destination and saved validation. Reviews share worker capacity and respect the queue: pausing prevents new rounds, while an active round continues. Existing completed results are not automatically scheduled when you upgrade. The reviewer inspects the saved candidate and validation evidence; this review does not execute project checks itself.
+Complete code and file outcomes receive an independent assessment against their exact assignment, sources, destination and saved validation. Reviews share worker capacity and respect the queue: pausing prevents new rounds, while an active round continues. The reviewer inspects the saved candidate and validation evidence; this review does not execute project checks itself.
 
-Findings appear in Overview, Activity and the exact result. The reviewer can ask the implementer a scoped clarification, request an in-scope correction, or send an intent, scope or access question to Inbox. Saved human answers continue the review without another apply step. A correction produces a new candidate and fresh independent assessment. Changes to the agreement or authority require Coordinator reconciliation; an answer does not silently amend them. Waiting for an answer releases capacity.
+Reviewer sign-offs appear on the task and in the exact result. The reviewer can ask the implementer a scoped clarification, request an in-scope correction, or send an intent, scope or access question to Inbox. Saved human answers continue the review without another apply step. A correction produces a new candidate and fresh independent assessment. Changes to the agreement or authority require Coordinator reconciliation; an answer does not silently amend them. Waiting for an answer releases capacity.
 
 **Stop review** preserves the candidate and findings. Failed or stopped reviews require explicit **Retry review**. If cleanup is uncertain, inspect **Review rounds and diagnostics**, confirm the retained processes have stopped, then retry. Uncertain execution keeps its capacity reserved. Changed inputs make an assessment outdated and retain its evidence; questions belonging to that assessment are withdrawn with their saved answers preserved.
 
-An independent approval recommends the candidate. Standalone results and milestones without delegated integration still need your exact approval. Stop an active review before making a manual result decision. Assessment alone grants no delivery authority.
+An independent approval recommends the candidate. Code delivery still needs your exact approval. Complete file and report results finish after the configured review. Stop an active review before making a manual result decision. Assessment alone grants no delivery authority.
 
 ## Review an exact result
 
@@ -103,20 +102,12 @@ Optional Inbox notifications link back to the item. Configure in-app and system 
 
 Ask the Coordinator to archive work you set aside after reconciling active work, reviews and questions. Restoring a task retains its previous work state; Archive is not completion.
 
-## Assemble and review a milestone
+## Work within a task
 
-Ask the Coordinator to configure milestone delivery before preparing its tasks. Flowfield owns a separate branch and checkout for the milestone, while the project's destination remains the final delivery target. This delivery mode supports one repository per milestone. Existing milestones remain ordinary task groups until delivery is configured; prepared tasks are not moved automatically.
+A task can run directly or contain one level of subtasks. Ask the Coordinator to split work when independent contributions or a concrete dependency make execution clearer. Subtasks appear under the task’s **Work** disclosure; the board and sidebar continue to show the task.
 
-Approve each contribution as usual, or enable **Automatically integrate reviewed tasks** in **Workspace settings → Integration**. Milestones inherit this initially off default. **Milestone settings → Integration** can override it or reset to the workspace default; existing explicit milestone choices are preserved. This permission applies only to current independently approved candidates with passing configured checks. Turning assessment off does not authorize unreviewed integration. Policy changes require a fresh review; disabling integration stops pending delegated delivery and leaves already delivered code intact. Pausing the queue stops new delegated decisions; already authorized delivery can finish.
+Subtask dependencies belong only to that parent task. Independent contributions may run in parallel within workspace capacity. A dependent contribution receives its prerequisites’ code and retained files. External dependencies belong on the parent task.
 
-Each result names the milestone branch as its destination and retains its exact approval. Dependent tasks see delivered contributions on that branch; the original project checkout stays unchanged. A dependency from another branch cannot start until its required code is available in the receiving task's baseline. Checkout-only retry retains the original approval; changed review inputs or authority require fresh preparation.
+When every contribution is ready, Flowfield assembles one task result and checks the combined code. The task reviewer assesses that whole outcome. There is one final code approval for delivery to the project’s configured destination. Reports, screenshots and PDFs follow the same task review flow without requiring Git.
 
-During preparation, ask the Coordinator to save the whole-outcome verification plan. Choose the independent **Milestone reviewer** in workspace Reviewers settings, with an optional override in **Milestone settings → Reviewer**. Once contributions are delivered, Flowfield combines their work with the current project destination, runs configured checks, and starts the milestone reviewer on that exact candidate. It assesses all agreed criteria using the plan, code and retained validation evidence. Missing evidence stays unverified; intent or access questions go to Inbox. A finding within an existing contribution's agreement can start a scoped correction, followed by fresh task review, integration and combined verification. Scope changes require Coordinator reconciliation. Pausing the queue prevents new reviewer turns.
-
-The milestone report lists each check and its evidence. Stop, retry and retained review rounds are available beside it; uncertain process cleanup reserves capacity until confirmed. **Try milestone** prepares an independent copy of the same candidate; **Code changes** shows the combined changes. Opening inspection starts no application process. Follow its terminal command to run the project and stop it with Ctrl+C when finished. Human-required walkthroughs still require your observation.
-
-Choose **Accept and promote** to authorize that verified candidate for the named local destination. The request leaves Inbox immediately; the milestone remains in Review until delivery succeeds. Flowfield does not push or deploy. If local edits block delivery, resolve your files and choose **Retry promotion**; the exact approval is retained. Changes to the milestone, contributions, source, destination or settings require a new verification and review. Inspection copies and earlier evidence are preserved.
-
-Tell the Coordinator what you tried and observed during inspection. It can record that report against the exact combined candidate; **Human testing** shows those attributed notes beside the automated checks. Earlier task observations appear only when their exact result code also matches that candidate. Notes do not change the automated report or approve promotion, and changed code does not inherit them. The visible **Tasks** list opens each contributing result.
-
-Milestones without owned delivery retain **Accept milestone**, which records review of their delivered outcomes without another code integration.
+A correction can target a contribution and invalidate its downstream dependents while retaining independent completed work. A changed task agreement or selected source requires fresh preparation. Earlier results, files and sign-offs remain in history.

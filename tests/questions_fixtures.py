@@ -23,7 +23,7 @@ def setup(tmp_path: Path):
             id="download",
             title="Download",
             body="Export CSV",
-            dependencies=["HAR-1"],
+            dependencies=["T-1"],
             status="up_next",
         ),
     )
@@ -35,7 +35,7 @@ def ask(questions: Questions, identity: str = "scope", blocking: bool = True):
         "harbor",
         QuestionCreate(
             id=identity,
-            task_id="HAR-2",
+            task_id="T-2",
             question="Which rows?",
             context="The table is paginated.",
             recommendation="All filtered rows, capped at 10,000.",

@@ -6,6 +6,8 @@ from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
+from project_fixtures import adopt
+from pydantic import ValidationError
 
 from flowfield.adapters import directory_picker
 from flowfield.agent_models import AgentChoice
@@ -25,11 +27,18 @@ def test_creation_configures_workspace_roles_separately_from_adoption(tmp_path, 
     async def discover(directory, *, cwd, registration, on_cleanup, **kwargs):
         calls.append((cwd, registration.harness))
         on_cleanup(True)
-        return [ModelOption(id="fixture", name="Fixture", efforts=["low"])]
+        return [
+            ModelOption(
+                id="fixture",
+                name="Fixture",
+                efforts=["low"],
+                modes=[{"id": "read-only", "name": "Read only"}],
+            )
+        ]
 
     monkeypatch.setattr("flowfield.catalogs.model_options", discover)
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
-        choice = {"harness": "codex", "model": "fixture", "effort": "low"}
+        choice = {"harness": "codex", "model": "fixture", "effort": "low", "mode": "read-only"}
         workspace = client.post("/api/workspaces", json={"name": "Agents ready"}).json()["id"]
         base = f"/api/workspaces/{workspace}"
         assert client.get(base + "/models").status_code == 200
@@ -54,7 +63,7 @@ def test_creation_configures_workspace_roles_separately_from_adoption(tmp_path, 
         worker = client.get(base + "/workers").json()
         assert worker["selection"]["model"] == "fixture" and worker["max_parallel"] == 3
         assert worker["enabled"] is False
-        coordinator = AgentSettings(client.app.state.workspace).get(project, "coordinator")
+        coordinator = AgentSettings(client.app.state.workspace).get(workspace, "coordinator")
         assert coordinator.selection.model == "fixture"
         assert coordinator.selection.mode == "read-only"
         assert client.post(base + "/projects", json={"path": str(root)}).status_code == 201
@@ -72,7 +81,7 @@ def test_unscoped_coordinator_setup_leaves_no_project_or_settings(tmp_path):
     root.mkdir()
     workspace = Workspace(tmp_path / "state")
     choice = AgentChoice(model="fixture", effort="low")
-    with pytest.raises(ApplicationError, match="explicit workspace"):
+    with pytest.raises(ValidationError, match="Extra inputs"):
         workspace.setup_project(
             ProjectSetup(
                 path=str(root), coordinator=choice, worker=choice.model_copy(update={"fast": True})
@@ -82,7 +91,7 @@ def test_unscoped_coordinator_setup_leaves_no_project_or_settings(tmp_path):
     assert not (root / ".flowfield").exists()
     with workspace.connection() as db:
         assert db.execute("SELECT count(*) FROM agent_settings").fetchone()[0] == 0
-        assert db.execute("SELECT count(*) FROM worker_settings").fetchone()[0] == 0
+        assert db.execute("SELECT count(*) FROM workspace_worker_settings").fetchone()[0] == 0
 
 
 def test_picker_selection_cancel_and_origin(
@@ -166,7 +175,7 @@ def test_local_is_automatic_before_git_or_delivery(tmp_path: Path) -> None:
     root = tmp_path / "project"
     root.mkdir()
     workspace = Workspace(tmp_path / "state")
-    workspace.setup_project(ProjectSetup(path=str(root)))
+    adopt(workspace, ProjectSetup(path=str(root)))
     settings = Integrations(workspace).settings("project")
     assert settings.runtime == "local" and settings.revision == 1
     assert settings.checks == [] and settings.target_branch is None
@@ -179,10 +188,10 @@ def test_local_is_automatic_before_git_or_delivery(tmp_path: Path) -> None:
         assert client.post("/api/projects/project/integration/local", json={}).status_code == 404
 
 
-def test_related_project_prefix_suggestions_are_available(tmp_path: Path) -> None:
+def test_related_project_identity_suggestions_are_available(tmp_path: Path) -> None:
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
         space = client.post("/api/workspaces", json={"name": "Orders"}).json()["id"]
-        for name, prefix in [
+        for name, _prefix in [
             ("orders-api", "ORD"),
             ("orders-dashboard", "DAS"),
             ("orders-import", "IMP"),
@@ -190,7 +199,7 @@ def test_related_project_prefix_suggestions_are_available(tmp_path: Path) -> Non
             root = tmp_path / name
             root.mkdir()
             defaults = client.post("/api/projects/setup-defaults", json={"path": str(root)}).json()
-            assert defaults["task_prefix"] == prefix
+            assert defaults["id"] == name
             assert not (root / ".flowfield").exists()
             response = client.post(
                 f"/api/workspaces/{space}/projects", json={"path": str(root), **defaults}
@@ -212,11 +221,10 @@ def test_setup_defaults_are_read_only_and_preserve_existing_identity(tmp_path: P
         assert preview.json() == {
             "id": "project-with-spaces",
             "name": root.name,
-            "task_prefix": "PRO",
         }
         assert not (root / ".flowfield").exists()
         assert client.get("/api/projects").json() == []
-        chosen = {"id": "custom", "name": "My project", "task_prefix": "CUS"}
+        chosen = {"id": "custom", "name": "My project"}
         assert (
             client.post(
                 f"/api/workspaces/{space}/projects", json={"path": str(root), **chosen}

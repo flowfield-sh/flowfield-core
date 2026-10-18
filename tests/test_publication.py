@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+from lifecycle_fixtures import run_report
 from project_fixtures import adopt, task_request
 
 from flowfield.activity import ActivityCreate
@@ -11,7 +12,6 @@ from flowfield.application import (
     ProjectSetup,
     TaskEdit,
     TaskPriority,
-    TaskProgress,
     TaskPublish,
     TaskReconcile,
     Workspace,
@@ -53,7 +53,7 @@ def publish(workspace: Workspace, identity: str = "export"):
 
 def test_publication_is_separate_from_dependencies_priority_and_notes(tmp_path: Path) -> None:
     workspace = setup(tmp_path)
-    workspace.edit_task("harbor", "export", TaskEdit(expected_revision=1, dependencies=["HAR-1"]))
+    workspace.edit_task("harbor", "export", TaskEdit(expected_revision=1, dependencies=["T-1"]))
     checked = publish(workspace)
     assert checked.publication_status == "published" and checked.readiness == "blocked"
     assert checked.status == "up_next" and checked.publication.author == "coordinator"
@@ -82,8 +82,8 @@ def test_publication_is_separate_from_dependencies_priority_and_notes(tmp_path: 
     assert publish(workspace) == refreshed  # identical check does not manufacture another revision
     restored = Workspace(tmp_path / "state").task("harbor", "export")
     assert restored.publication == refreshed.publication
-    assert ContextReads(workspace).task("harbor", "HAR-2")["publication_status"] == "published"
-    assert BrowserReads(workspace).task("harbor", "HAR-2").publication_status == "published"
+    assert ContextReads(workspace).task("harbor", "T-2")["publication_status"] == "published"
+    assert BrowserReads(workspace).task("harbor", "T-2").publication_status == "published"
 
 
 def test_questions_must_be_applied_and_edits_race_with_publication(tmp_path: Path) -> None:
@@ -146,8 +146,8 @@ def test_questions_must_be_applied_and_edits_race_with_publication(tmp_path: Pat
 def test_active_work_requires_reconciliation_without_moving_its_card(tmp_path: Path) -> None:
     workspace = setup(tmp_path)
     checked = publish(workspace)
-    active = workspace.record_progress(
-        "harbor", "export", TaskProgress(expected_revision=checked.revision, status="in_progress")
+    active = run_report(
+        workspace, "harbor", "export", expected_revision=checked.revision, status="in_progress"
     )
     changed = workspace.edit_task(
         "harbor",
@@ -157,10 +157,13 @@ def test_active_work_requires_reconciliation_without_moving_its_card(tmp_path: P
     assert changed.status == "in_progress" and changed.readiness == "needs_reconciliation"
     assert changed.status_changed_at == active.status_changed_at
     with pytest.raises(ApplicationError):
-        workspace.record_progress(
+        run_report(
+            workspace,
             "harbor",
             "export",
-            TaskProgress(expected_revision=changed.revision, status="done", completion="report"),
+            expected_revision=changed.revision,
+            status="done",
+            completion="report",
         )
     reconciled = workspace.reconcile_task(
         "harbor",
@@ -190,10 +193,13 @@ def test_project_answer_updates_a_completed_dependency_chain_atomically(tmp_path
     )
     for identity in ("catalog", "export"):
         task = publish(workspace, identity)
-        workspace.record_progress(
+        run_report(
+            workspace,
             "harbor",
             identity,
-            TaskProgress(expected_revision=task.revision, status="done", completion="report"),
+            expected_revision=task.revision,
+            status="done",
+            completion="report",
         )
     questions.answer(
         "harbor", question.id, QuestionAnswer(expected_revision=1, answer="Preserve extra fields.")
@@ -204,7 +210,7 @@ def test_project_answer_updates_a_completed_dependency_chain_atomically(tmp_path
         question.id,
         QuestionApply(
             expected_revision=2,
-            expected_project_revision=1,
+            expected_workspace_revision=1,
             task_updates=[
                 QuestionTaskUpdate(
                     task_id=identity,
@@ -234,13 +240,11 @@ def test_changed_selected_assignment_requires_republication_before_progress(tmp_
     assert changed.publication_status == "draft"
     assert changed.status == "up_next" and changed.position == original.position
     with pytest.raises(ApplicationError, match="publish"):
-        workspace.record_progress(
-            "harbor",
-            "export",
-            TaskProgress(expected_revision=changed.revision, status="in_progress"),
+        run_report(
+            workspace, "harbor", "export", expected_revision=changed.revision, status="in_progress"
         )
     published = publish(workspace)
-    running = workspace.record_progress(
-        "harbor", "export", TaskProgress(expected_revision=published.revision, status="in_progress")
+    running = run_report(
+        workspace, "harbor", "export", expected_revision=published.revision, status="in_progress"
     )
     assert running.status == "in_progress" and running.publication_status == "published"

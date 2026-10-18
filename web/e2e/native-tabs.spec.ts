@@ -1,3 +1,4 @@
+import { projectWorkspace } from "./support";
 import {
   fixtureMcpProject,
   test,
@@ -15,29 +16,25 @@ test("task links open native tabs without losing the original selection or draft
 }, testInfo) => {
   // Independent records make --repeat-each useful for the native-tab regression.
   const projectId = `native-tabs-${testInfo.repeatEachIndex}`;
-  const prefix = `Z${String.fromCharCode(65 + Math.floor(testInfo.repeatEachIndex / 26), 65 + (testInfo.repeatEachIndex % 26))}`;
   const call = await connectMcp(request);
   await fixtureMcpProject(call, {
     project_id: projectId,
     path: existingDirectory(join(state, projectId)),
-    task_prefix: prefix,
   });
   const first = await call("create_task", {
-    project_id: projectId,
-    task: {
-      title: "Prepare export",
-      status: "up_next",
-    },
+    workspace_id: await projectWorkspace(request, projectId),
+    task: { project_id: projectId, title: "Prepare export", status: "up_next" },
   });
   const second = await call("create_task", {
-    project_id: projectId,
+    workspace_id: await projectWorkspace(request, projectId),
     task: {
+      project_id: projectId,
       title: "Download export",
       status: "up_next",
       dependencies: [first.key],
     },
   });
-  const originalPath = `/projects/${projectId}/tasks/${second.key}`;
+  const originalPath = `/workspaces/${await projectWorkspace(request, projectId)}/tasks/${second.key}`;
   await page.goto(originalPath);
   const details = page.getByRole("region", {
     name: "Task details",
@@ -52,7 +49,7 @@ test("task links open native tabs without losing the original selection or draft
   });
   await expect(link).toHaveAttribute(
     "href",
-    `/projects/${projectId}/tasks/${first.key}`,
+    `/workspaces/${await projectWorkspace(request, projectId)}/tasks/${first.key}`,
   );
   const catalogs: Response[] = [];
   context.on("response", (response) => {

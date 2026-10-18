@@ -66,14 +66,14 @@ def test_local_workers_validate_and_inspect_with_host_tools(tmp_path, monkeypatc
             InspectionPrepare(result_id=result.id, expected_revision=result.revision),
         )
         assert copy.status == "ready" and copy.runtime == "local"
-        # Saved records tolerate unrelated metadata without accepting it as configuration.
-        for record in [checked, runs[0], settings, copy]:
-            assert (
+        # Fresh persisted contracts reject fields from discarded schemas.
+        from pydantic import ValidationError
+
+        for record in [runs[0], settings, copy]:
+            with pytest.raises(ValidationError):
                 type(record).model_validate(
                     {**record.model_dump(), "extra_metadata": {"unused": True}}
                 )
-                == record
-            )
         launcher = Path(copy.launcher).read_text()
         assert "do-not-persist-host-secrets" not in launcher and "export HOME=" not in launcher
         assert service.workspace.task("harbor", runs[0].task_id).status != "done"
@@ -489,7 +489,7 @@ def test_stopping_one_parallel_native_worker_keeps_the_other_permission_live(tmp
             from flowfield.agent_tools import workspace_scope
 
             grant = await workspace_scope(service, "harbor")
-            observed = await grant.call("get_run", {"project_id": "harbor", "run_id": runs[0].id})
+            observed = await grant.call("get_run", {"run_id": runs[0].id})
             assert not observed.isError
             pending_read = observed.structuredContent["pending_permissions"]
             assert len(pending_read) == 1
@@ -510,7 +510,7 @@ def test_stopping_one_parallel_native_worker_keeps_the_other_permission_live(tmp
             await asyncio.gather(*jobs)
             assert service.execution.get("harbor", runs[0].id).status == "stopped"
             assert service.execution.get("harbor", runs[1].id).status == "in_review"
-            observed = await grant.call("get_run", {"project_id": "harbor", "run_id": runs[0].id})
+            observed = await grant.call("get_run", {"run_id": runs[0].id})
             assert observed.structuredContent["pending_permissions"] == []
         finally:
             await service.close()

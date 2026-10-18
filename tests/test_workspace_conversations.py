@@ -33,18 +33,19 @@ def test_empty_workspace_chat_and_explicit_project_context(tmp_path):
     from project_fixtures import task_request
 
     for project in ("core", "site", "outside"):
-        store.create_task(project, task_request(id="same", title=project))
-    task = store.task("site", "same")
+        store.create_task(
+            spaces.for_project(project).id,
+            task_request(project_id=project, id=project, title=project),
+        )
+    task = store.task(space.id, "site")
     request = message("Discuss this task")
-    request.task_context = CoordinatorTaskSelection(
-        project_id="site", task_id=task.id, task_revision=task.revision
-    )
+    request.task_context = CoordinatorTaskSelection(task_id=task.id, task_revision=task.revision)
     selected, _ = owner.reserve(space.id, conversation.id, request)
     assert selected.task_context.project_id == "site"
-    request.task_context.project_id = "core"
+    request.task_context.task_id = "core"
     with pytest.raises(ApplicationError, match="different content"):
         owner.reserve(space.id, conversation.id, request)
-    request.task_context.project_id = "outside"
+    request.task_context.task_id = "outside"
     with pytest.raises(ApplicationError, match="in this workspace"):
         owner.reserve(space.id, conversation.id, request)
     with pytest.raises(ApplicationError, match="not found"):

@@ -34,7 +34,6 @@ from flowfield.execution_models import (
     RunStatus,
     SettingsEdit,
     WorkerResult,
-    WorkerSettings,
     WorkspaceWorkerSettings,
 )
 from flowfield.harness_models import HarnessKind
@@ -65,9 +64,6 @@ class Supervisor:
         from flowfield.review_execution import ReviewExecution
 
         self.review_execution = ReviewExecution(self)
-        from flowfield.milestone_review_execution import MilestoneReviewExecution
-
-        self.milestone_review_execution = MilestoneReviewExecution(self)
         self.setup_validation = SetupValidation(workspace)
         from flowfield.worker_checks import WorkerChecks
 
@@ -95,7 +91,6 @@ class Supervisor:
                 pass
             self.execution.restart()
             self.review_execution.reviews.restart()
-            self.milestone_review_execution.reviews.restart()
             self.permissions.restart()
             self.coordinator.store.restart()
             self.catalogs.restart()
@@ -134,7 +129,7 @@ class Supervisor:
             refresh=refresh,
         )
 
-    async def configure(self, project_id: str, request: SettingsEdit) -> WorkerSettings:
+    async def configure(self, project_id: str, request: SettingsEdit) -> WorkspaceWorkerSettings:
         await self.validate_agent_choice(request.selection, project_id)
         return self.execution.configure(project_id, request)
 
@@ -185,16 +180,23 @@ class Supervisor:
             )
 
     def _available(
-        self, project_id: str, repository: Path, head: str, branch: str | None = None
+        self,
+        workspace_id: str,
+        project_id: str,
+        repository: Path,
+        head: str,
+        branch: str | None = None,
     ) -> dict[str, set[str]]:
         with self.workspace.connection() as db:
             followups = []
             for row in db.execute(
-                "SELECT data FROM work_runs r WHERE project_id=? "
+                "SELECT data FROM runs r WHERE workspace_id=? AND "
+                "json_extract(data,'$.project_id')=? "
                 "AND status IN ('changes_requested','failed','stopped','waiting_for_input') "
-                "AND NOT EXISTS (SELECT 1 FROM work_runs newer WHERE newer.project_id=r.project_id "
-                "AND newer.task_id=r.task_id AND newer.number>r.number)",
-                (project_id,),
+                "AND NOT EXISTS (SELECT 1 FROM runs newer WHERE newer.workspace_id=r.workspace_id "
+                "AND newer.task_id=r.task_id AND newer.subtask_id IS r.subtask_id "
+                "AND newer.number>r.number)",
+                (workspace_id, project_id),
             ):
                 previous = Run.model_validate_json(row[0])
                 correction = previous.next_correction
@@ -224,7 +226,7 @@ class Supervisor:
             logging.getLogger(__name__).exception("Scheduling stopped unexpectedly")
             try:
                 with self.workspace.connection() as db:
-                    scopes = [row[0] for row in db.execute("SELECT id FROM work_scopes")]
+                    scopes = [row[0] for row in db.execute("SELECT id FROM workspaces")]
                 for scope in scopes:
                     self.execution.queue_problem(
                         scope,
@@ -237,82 +239,112 @@ class Supervisor:
 
     async def _schedule_once(self) -> None:
         await self.review_execution.schedule()
-        await self.milestone_review_execution.schedule()
-        # Repository preparation remains project-local. A failed repository cannot
-        # consume the shared queue; fresh claims follow workspace board order.
-        ready: dict[str, Path | None] = {}
-        problems: dict[str, str | None] = {}
-        for project in self.workspace.projects():
-            try:
-                if project.id not in self.delivery_jobs:
-                    delivery = asyncio.create_task(
-                        asyncio.to_thread(self._process_delivery, project.id)
-                    )
-                    self.delivery_jobs[project.id] = delivery
-                    delivery.add_done_callback(partial(self._delivery_finished, project.id))
-                await asyncio.to_thread(self.integrations.refresh_availability, project.id)
-                if not self.execution.settings(project.id).enabled:
-                    continue
-                ready[project.id] = Path(project.path)
-                problems[project.id] = None
-            except ApplicationError as error:
-                problems[project.id] = error.message
-            except Exception:
-                problems[project.id] = (
-                    "Scheduling failed. Pause the queue and inspect the local service "
-                    "before retrying."
-                )
-        started: set[str] = set()
-        from flowfield.work_scopes import workspace_scope
-
+        enabled: set[str] = set()
         for owner in Workspaces(self.workspace).all():
-            scope_id = workspace_scope(owner.id)
-            if scope_id not in self.delivery_jobs:
-                delivery = asyncio.create_task(asyncio.to_thread(self.results.process, scope_id))
-                self.delivery_jobs[scope_id] = delivery
-                delivery.add_done_callback(partial(self._delivery_finished, scope_id))
-            if self.execution.settings(scope_id).enabled:
-                ready[scope_id] = None
-                problems[scope_id] = None
-        for project_id, task_id in self.execution.scheduling_candidates():
+            if owner.id not in self.delivery_jobs:
+                delivery = asyncio.create_task(asyncio.to_thread(self._process_delivery, owner.id))
+                self.delivery_jobs[owner.id] = delivery
+                delivery.add_done_callback(partial(self._delivery_finished, owner.id))
+            if self.execution.settings(owner.id).enabled:
+                enabled.add(owner.id)
+        refreshed: set[str] = set()
+        for workspace_id, task_id in self.execution.scheduling_candidates():
             if self.closing:
                 break
-            if project_id not in ready:
+            if workspace_id not in enabled:
                 continue
-            repository = ready[project_id]
             try:
+                task = self.workspace.task(workspace_id, task_id)
+                repository = (
+                    Path(self.workspace.project(task.project_id).path) if task.project_id else None
+                )
                 if repository is None:
                     head, available = "", {}
                 else:
-                    settings = self.integrations.for_task(project_id, task_id)
-                    head = await asyncio.to_thread(self.integrations.head, project_id, task_id)
+                    assert task.project_id
+                    if task.project_id not in refreshed:
+                        await asyncio.to_thread(
+                            self.integrations.refresh_availability, task.project_id
+                        )
+                        refreshed.add(task.project_id)
+                    settings = self.integrations.for_task(workspace_id, task_id)
+                    head = await asyncio.to_thread(self.integrations.head, workspace_id, task_id)
                     available = await asyncio.to_thread(
-                        self._available, project_id, repository, head, settings.target_branch
+                        self._available,
+                        workspace_id,
+                        task.project_id,
+                        repository,
+                        head,
+                        settings.target_branch,
                     )
-                run = self.execution.claim(project_id, head, available, task_id=task_id)
+                from flowfield.subtasks import Subtasks
+                from flowfield.task_assembly import TaskAssembly
+
+                children = Subtasks(self.workspace).all(workspace_id, task_id)
+                run = None
+                if children:
+                    assemblies = TaskAssembly(self.workspace)
+                    with self.workspace.connection() as db:
+                        prerequisites = self.execution._prerequisites(
+                            db, task, available.get(head, set())
+                        )
+                    if (
+                        prerequisites is None
+                        or task.publication_status != "published"
+                        or task.reconciliation_reason
+                    ):
+                        continue
+                    assembly = await asyncio.to_thread(assemblies.ensure, task, head, prerequisites)
+                    if await asyncio.to_thread(assemblies.assemble, workspace_id, task_id):
+                        self.execution.task_problem(workspace_id, task_id, None)
+                        continue
+                    for child in Subtasks(self.workspace).all(workspace_id, task_id):
+                        if child.contribution_run_id or child.status == "running":
+                            continue
+                        try:
+                            baseline, contributions = await asyncio.to_thread(
+                                assemblies.baseline, assembly, child
+                            )
+                        except ApplicationError as error:
+                            if error.code == "subtask_blocked":
+                                continue
+                            raise
+                        code = dict(available)
+                        code[baseline] = available.get(head, set())
+                        run = self.execution.claim(
+                            workspace_id,
+                            baseline,
+                            code,
+                            task_id=task_id,
+                            subtask_id=child.id,
+                            assembly_id=assembly.id,
+                            contributions=contributions,
+                        )
+                        if run:
+                            break
+                else:
+                    run = self.execution.claim(workspace_id, head, available, task_id=task_id)
                 if run:
-                    task = asyncio.create_task(self._execute(run, repository))
-                    self.jobs[run.id] = task
-                    task.add_done_callback(partial(self._job_finished, run.id))
-                    started.add(project_id)
+                    job = asyncio.create_task(self._execute(run, repository))
+                    self.jobs[run.id] = job
+                    job.add_done_callback(partial(self._job_finished, run.id))
+                    self.execution.task_problem(workspace_id, task_id, None)
             except ApplicationError as error:
-                problems[project_id] = error.message
+                self.execution.task_problem(workspace_id, task_id, error.message)
             except Exception:
-                problems[project_id] = (
-                    "Scheduling failed. Pause the queue and inspect the local service "
-                    "before retrying."
+                logging.getLogger(__name__).exception("Task scheduling failed")
+                self.execution.task_problem(
+                    workspace_id, task_id, "Scheduling failed. Inspect the service log."
                 )
-        for project_id, problem in problems.items():
-            self.execution.queue_problem(project_id, None if project_id in started else problem)
 
     def _job_finished(self, identity: str, task: asyncio.Task[None]) -> None:
         self.jobs.pop(identity, None)
 
-    def _process_delivery(self, project_id: str) -> None:
-        from flowfield.milestone_promotion import MilestonePromotions
-
-        self.results.process(project_id)
-        MilestonePromotions(self.workspace).process(project_id)
+    def _process_delivery(self, workspace_id: str) -> None:
+        # Candidate/destination changes remain observable while the worker queue is paused.
+        for project in Workspaces(self.workspace).projects(workspace_id):
+            self.integrations.refresh_availability(project.id)
+        self.results.process(workspace_id)
 
     def _delivery_finished(self, identity: str, task: asyncio.Task[None]) -> None:
         self.delivery_jobs.pop(identity, None)
@@ -338,10 +370,10 @@ class Supervisor:
         input_checkpoint: str | None = None
         starting_commit = run.input_base_commit or run.base_commit
         try:
-            sections = self.execution.assignment(run.project_id, run.id)
+            sections = self.execution.assignment(run.workspace_id, run.id)
             for prerequisite in json.loads(sections["prerequisites"]):
                 if (
-                    prerequisite.get("project_id", run.project_id) == run.project_id
+                    prerequisite.get("project_id") == run.project_id
                     and repository is not None
                     and prerequisite["commit"]
                     and not await asyncio.to_thread(
@@ -357,17 +389,15 @@ class Supervisor:
             from flowfield.agent_tools import worker_scope
 
             if repository is None:
-                scope = self.workspace.work_scope(run.project_id)
-                assert scope.workspace_id
                 predecessor = self.environment(run.predecessor_id) if run.predecessor_id else None
                 if predecessor and not predecessor.checkout.is_dir():
-                    prior = self.execution.get(run.project_id, predecessor.run_id)
+                    prior = self.execution.get(run.workspace_id, predecessor.run_id)
                     if prior.result:
                         predecessor = None  # Submitted files are already frozen as inputs.
                 environment = await asyncio.to_thread(
                     LocalHost(os.environ).prepare_files,
                     self.workspace.directory,
-                    scope.workspace_id,
+                    run.workspace_id,
                     run.id,
                     predecessor,
                 )
@@ -390,14 +420,13 @@ class Supervisor:
             from flowfield.output_models import FileInput
             from flowfield.task_files import materialize
 
-            scope = self.workspace.work_scope(run.project_id)
             input_files = [
                 FileInput.model_validate(value) for value in json.loads(sections.get("files", "[]"))
             ]
             inputs = await asyncio.to_thread(
                 materialize,
                 self.workspace,
-                scope.workspace_id or "",
+                run.workspace_id,
                 input_files,
                 environment.runtime / "inputs",
             )
@@ -432,12 +461,12 @@ class Supervisor:
             self.execution.save_local(run.id, metadata)
             applied_agent = await client.configure(choice)
             if getattr(client, "supports_activity", False):
-                activity = ActivityRecorder(self.workspace, run.project_id, run.id)
+                activity = ActivityRecorder(self.workspace, run.workspace_id, run.id)
                 client.on_activity = activity.emit
                 activity.emit(
                     ActivityUpdate(key="started", kind="status", text="Worker environment ready.")
                 )
-            if self.execution.get(run.project_id, run.id).status == "stopping":
+            if self.execution.get(run.workspace_id, run.id).status == "stopping":
                 raise ApplicationError("worker_stopping", "Stop requested; work preserved.", 409)
             setup_job = asyncio.create_task(
                 local_checks.run_checks(
@@ -454,7 +483,7 @@ class Supervisor:
                 setup = await setup_job
             finally:
                 self.setup_jobs.pop(run.id, None)
-            self.execution.record_setup(run.project_id, run.id, setup)
+            self.execution.record_setup(run.workspace_id, run.id, setup)
             if any(check.exit_code for check in setup):
                 raise ApplicationError(
                     "runtime_setup_failed",
@@ -468,9 +497,9 @@ class Supervisor:
                     "Setup changed source files. Fix setup commands; inspect preserved changes.",
                 )
             self.execution.started(
-                run.project_id, run.id, applied_agent=applied_agent, harness_launch=client.launch
+                run.workspace_id, run.id, applied_agent=applied_agent, harness_launch=client.launch
             )
-            sections = self.execution.assignment(run.project_id, run.id)
+            sections = self.execution.assignment(run.workspace_id, run.id)
             brief: dict[str, Any] = {
                 "output_directory": str(environment.runtime / "output"),
                 "input_files": inputs,
@@ -492,7 +521,7 @@ class Supervisor:
             assert client.session_id
             async with (
                 self.permissions.turn(
-                    run.project_id,
+                    run.workspace_id,
                     "worker",
                     session_id=client.session_id,
                     turn_id=run.id,
@@ -503,7 +532,7 @@ class Supervisor:
                     json.dumps(brief, ensure_ascii=False),
                     checks.permission(server.name, permission_handler(turn)),
                     attachments=Attachments(self.workspace).inputs(
-                        run.project_id,
+                        run.workspace_id,
                         run.task_id,
                         sections.get("feedback", "") + sections.get("input", ""),
                     ),
@@ -514,7 +543,7 @@ class Supervisor:
                     and not bridge.question_id
                     and not self.closing
                     and not client.stopping
-                    and self.execution.get(run.project_id, run.id).status == "running"
+                    and self.execution.get(run.workspace_id, run.id).status == "running"
                 ):
                     if activity:
                         activity.emit(
@@ -559,9 +588,9 @@ class Supervisor:
                 else:
                     assert commit
                 # Generated-file evidence belongs to execution diagnostics, not user limitations.
-                self.execution.excluded_files(run.project_id, run.id, ignored)
+                self.execution.excluded_files(run.workspace_id, run.id, ignored)
                 terminal = "in_review"
-            elif self.execution.get(run.project_id, run.id).status == "stopping":
+            elif self.execution.get(run.workspace_id, run.id).status == "stopping":
                 terminal, problem = (
                     "stopped",
                     "Worker and tracked commands stopped; work preserved.",
@@ -588,7 +617,7 @@ class Supervisor:
             )
             if isinstance(error, ApplicationError) and error.code == "command_cleanup_uncertain":
                 terminal = "uncertain"
-            elif self.execution.get(run.project_id, run.id).status == "stopping":
+            elif self.execution.get(run.workspace_id, run.id).status == "stopping":
                 terminal = "stopped"
             if checks:
                 await checks.close()
@@ -624,7 +653,7 @@ class Supervisor:
                 and terminal in ("stopped", "failed")
                 and client
                 and client.cleanup_confirmed
-                and self.execution.get(run.project_id, run.id).started_at
+                and self.execution.get(run.workspace_id, run.id).started_at
             ):
                 try:
                     await self._checkpoint(run, environment)
@@ -650,7 +679,7 @@ class Supervisor:
             self.clients.pop(run.id, None)
             with contextlib.suppress(ApplicationError):
                 self.execution.finish(
-                    run.project_id,
+                    run.workspace_id,
                     run.id,
                     terminal,
                     result=result,
@@ -663,12 +692,42 @@ class Supervisor:
         checkpoint, _ = await asyncio.to_thread(
             environment.snapshot, run.input_base_commit or run.base_commit
         )
-        with self.workspace.connection(write=True, project_id=run.project_id) as db:
-            saved = self.execution._run(db, run.project_id, run.id)
+        with self.workspace.connection(write=True, workspace_id=run.workspace_id) as db:
+            saved = self.execution._run(db, run.workspace_id, run.id)
             saved.checkpoint_commit = checkpoint
             if saved.question_id:
                 saved.input_checkpoint = checkpoint
             self.execution._save(db, saved)
+
+    async def stop_task(self, workspace_id: str, task_id: str, request: RunAction) -> list[Run]:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            task = self.workspace._task(db, workspace_id, task_id)
+            self.workspace._current(task.revision, request.expected_revision)
+            runs = [
+                Run.model_validate_json(row[0])
+                for row in db.execute(
+                    "SELECT data FROM runs WHERE workspace_id=? AND task_id=? AND "
+                    "status IN ('preparing','running','stopping','uncertain')",
+                    (workspace_id, task.id),
+                )
+            ]
+            if not runs:
+                raise ApplicationError("not_running", "No task workers are active.", 409)
+            self.execution._task_state(
+                db,
+                task,
+                "backlog",
+                "Stopped task work; contributions and unfinished files are retained.",
+                request.author,
+            )
+        return [
+            await self.stop(
+                workspace_id,
+                run.id,
+                RunAction(expected_revision=run.revision, author=request.author),
+            )
+            for run in runs
+        ]
 
     async def stop(self, project_id: str, run_id: str, request: RunAction) -> Run:
         run = self.execution.stop_requested(project_id, run_id, request)
@@ -799,14 +858,14 @@ class Supervisor:
             if run.id in self.jobs or run.id in self.clients:
                 with contextlib.suppress(Exception):
                     await self.stop(
-                        run.project_id, run.id, RunAction(expected_revision=run.revision)
+                        run.workspace_id, run.id, RunAction(expected_revision=run.revision)
                     )
         if self.jobs:
             for identity in list(self.jobs):
-                for owner in (self.review_execution, self.milestone_review_execution):
+                for owner in (self.review_execution,):
                     with self.workspace.connection() as db:
                         row = db.execute(
-                            f"SELECT project_id FROM {owner.reviews.job_table} WHERE id=?",
+                            f"SELECT workspace_id FROM {owner.reviews.job_table} WHERE id=?",
                             (identity,),
                         ).fetchone()
                     if row:

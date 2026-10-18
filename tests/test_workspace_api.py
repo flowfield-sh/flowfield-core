@@ -42,23 +42,28 @@ def test_explicit_creation_adoption_scope_and_no_implicit_resources(tmp_path, mo
             "workers/occupancy",
             "queue",
             "coordinator-settings",
-            "milestones",
-            "milestones/{milestone_id}",
+            "tasks",
+            "tasks/{task_id}",
         ):
             assert f"/api/projects/{{project_id}}/{suffix}" not in paths
         assert "/api/context/projects/{project_id}/coordinator-history" not in paths
-        milestone = client.post(
-            base + "/milestones", json={"title": "Launch", "body": "Shared intent"}
+        task = client.post(base + "/tasks", json={"title": "Launch", "body": "Shared intent"})
+        assert task.status_code == 201
+        assert task.json()["workspace_id"] == space
+        assert (
+            client.get(
+                f"/api/context/workspaces/{space}/text?resource=task&identity=T-1&field=body"
+            ).json()["text"]
+            == "Shared intent"
         )
-        assert milestone.status_code == 201
-        assert milestone.json()["workspace_id"] == space
-        assert client.get(base + "/milestones/M-1/text").json()["text"] == "Shared intent"
         changed = client.put(
-            base + "/milestones/M-1", json={"expected_revision": 1, "title": "Launch together"}
+            base + "/tasks/T-1", json={"expected_revision": 1, "title": "Launch together"}
         )
         assert changed.status_code == 200
-        assert client.get(base + "/milestones").json() == [changed.json()]
-        retained = client.get(base + "/milestones/M-1/text?revision=1")
+        assert client.get(base + "/tasks").json() == [changed.json()]
+        retained = client.get(
+            f"/api/context/workspaces/{space}/text?resource=task&identity=T-1&field=body&revision=1"
+        )
         assert retained.status_code == 200 and retained.json()["text"] == "Shared intent"
         assert client.get(base + "/coordinator-settings").json()["selection"] is None
         assert client.get(base + "/workers").json()["enabled"] is False
@@ -80,9 +85,9 @@ def test_explicit_creation_adoption_scope_and_no_implicit_resources(tmp_path, mo
             assert (root / "AGENTS.md").read_text() == "Existing project conventions"
         assert {p["id"] for p in client.get(base + "/projects").json()} == {"core", "site"}
         second = client.post("/api/workspaces", json={"name": "Other"}).json()["id"]
-        for name in ("core", "site"):
+        for _name in ("core", "site"):
             asked = client.post(
-                f"/api/projects/{name}/questions",
+                base + "/questions",
                 json={"question": "Which scope?", "context": "Scope", "recommendation": "Local"},
             )
             assert asked.status_code == 201, asked.text

@@ -6,17 +6,12 @@ import json
 import pytest
 from execution_fixtures import BASE
 from execution_fixtures import fixture as execution_fixture
+from lifecycle_fixtures import run_report
 from project_fixtures import adopt, task_request
 from result_fixtures import approve, current, fixture
 
 from flowfield.activity import ActivityCreate
-from flowfield.application import (
-    ProjectSetup,
-    TaskEdit,
-    TaskProgress,
-    TaskPublish,
-    Workspace,
-)
+from flowfield.application import ProjectSetup, TaskEdit, TaskPublish, Workspace
 from flowfield.errors import ApplicationError
 from flowfield.reads import PAGE_BYTES, ContextReads, size
 from flowfield.search import Search, assignment_search
@@ -62,7 +57,7 @@ def test_current_handoff_wins_over_similar_old_text_and_filters_scope(tmp_path):
     current_hits = search.page("harbor", "CSV export", kind="handoff")
     assert [hit["identity"] for hit in current_hits["items"]] == [latest.id]
     assert current_hits["items"][0]["current"]
-    assert current_hits["items"][0]["url"].endswith("/tasks/HAR-1")
+    assert current_hits["items"][0]["url"].endswith("/tasks/T-1")
     assert current_hits["items"][0]["source"]["identity"] == latest.id
     old_hits = search.page("harbor", "CSV export", history="history")
     assert [hit["identity"] for hit in old_hits["items"]] == [old.id]
@@ -155,16 +150,18 @@ def test_worker_search_cannot_escape_snapshot_and_manual_report_is_usable(tmp_pa
             body="Measured finding: catalog contains two books.",
         ),
     )
-    accepted = workspace.record_progress(
+    accepted = run_report(
+        workspace,
         "harbor",
         report.id,
-        TaskProgress(
-            expected_revision=report.revision,
-            status="done",
-            completion="report",
-        ),
+        expected_revision=report.revision,
+        status="done",
+        completion="report",
     )
-    assert accepted.report_completion_revision == accepted.revision
+    assert accepted.status == "done"
+    from flowfield.results import Results
+
+    assert Results(workspace).page("harbor", report.id).items[0].status == "delivered"
     child = workspace.create_task(
         "harbor",
         task_request(
@@ -182,6 +179,11 @@ def test_worker_search_cannot_escape_snapshot_and_manual_report_is_usable(tmp_pa
             completion="report",
         ),
     )
+    from flowfield.execution_models import QueueEdit
+
+    execution.queue(
+        "harbor", QueueEdit(expected_revision=execution.settings("harbor").revision, enabled=True)
+    )
     run = execution.claim("harbor", BASE, {BASE: set()})
     assert run and run.task_id == child.id
     execution.started("harbor", run.id)
@@ -194,5 +196,5 @@ def test_worker_search_cannot_escape_snapshot_and_manual_report_is_usable(tmp_pa
     response = json.loads(asyncio.run(bridge.call("search_context", {"query": "measured finding"})))
     assert response["scope"] == "frozen_assignment" and response["items"]
     assert not assignment_search(sections, "secret later")["items"]
-    assert "two books" in sections["prerequisites"]
+    assert "Report complete" in sections["prerequisites"]
     assert json.loads(sections["agreement"])["task_revision"] == child.revision + 1

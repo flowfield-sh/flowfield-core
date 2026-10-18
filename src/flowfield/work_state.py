@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel
 
-from flowfield.browser_links import project_href
+from flowfield.browser_links import workspace_href
 from flowfield.task_read_facts import TaskReadFacts, read_task_facts
 
 if TYPE_CHECKING:
@@ -53,8 +53,8 @@ def question_state(db: sqlite3.Connection, project: str, identity: str) -> WorkS
 
     row = db.execute(
         "SELECT q.status,json_extract(q.data,'$.revision') AS revision,t.key "
-        "FROM questions q LEFT JOIN tasks t ON t.project_id=q.project_id AND t.id=q.task_id "
-        "WHERE q.project_id=? AND q.id=?",
+        "FROM questions q LEFT JOIN tasks t ON t.workspace_id=q.workspace_id AND t.id=q.task_id "
+        "WHERE q.workspace_id=? AND q.id=?",
         (project, identity),
     ).fetchone()
     delivery = question_delivery(db, project, identity)
@@ -66,11 +66,11 @@ def question_state(db: sqlite3.Connection, project: str, identity: str) -> WorkS
         else "Resume coordinator",
         tone="waiting",
         href=(
-            f"{project_href(project)}/tasks/{row['key']}/conversation/question:{identity}"
+            f"{workspace_href(project)}/tasks/{row['key']}/conversation/question:{identity}"
             + (f":{row['revision']}" if row["status"] in ("open", "answered", "withdrawn") else "")
         )
         if row["key"]
-        else f"{project_href(project)}/inbox/{identity}",
+        else f"{workspace_href(project)}/inbox/{identity}",
     )
 
 
@@ -88,7 +88,7 @@ def task_state(
     facts = facts or next(iter(read_task_facts(workspace, db, project, task_id).values()))
     task = facts.row
     task_id = task["id"]
-    href = f"{project_href(project)}/tasks/{task['key']}"
+    href = f"{workspace_href(project)}/tasks/{task['key']}"
     if task["owner_id"]:
         status = task["owner_status"]
         if status == "running" and task["permission_pending"]:
@@ -107,6 +107,8 @@ def task_state(
         return question_state(db, project, task["question_id"])
     if task["reason"]:
         return WorkState(label="Update task", tone="attention", href=href)
+    if task["scheduling_problem"] and not task["archived"]:
+        return WorkState(label=task["scheduling_problem"], tone="attention", href=href)
     if task["reply_pending"]:
         return WorkState(
             label="Reply queued" if facts.queue_enabled else "Reply paused",

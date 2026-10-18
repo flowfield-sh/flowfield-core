@@ -13,7 +13,7 @@ from flowfield.execution import Execution
 from flowfield.execution_models import SettingsEdit
 from flowfield.integration import Integrations
 from flowfield.integration_models import IntegrationConfig
-from flowfield.worker_settings import workspace_id
+from flowfield.workspaces import Workspaces
 
 store = Workspace(Path(sys.argv[1]))
 project = sys.argv[2]
@@ -33,6 +33,7 @@ Integrations(store).configure(
 task = store.create_task(
     project,
     task_request(
+        project_id=project,
         title="Finish the inventory export",
         body="Complete the saved export contract and verify the HTTP behavior.",
         status="up_next",
@@ -44,5 +45,5 @@ settings = execution.configure(
     project, SettingsEdit(expected_revision=1, selection=AgentChoice(model="fixture", effort="low"))
 )
 with store.connection() as db:
-    workspace = workspace_id(db, project)
+    workspace = Workspaces.read(db, project).id
 print(json.dumps({"workspace": workspace, "project": project, "task": task.key}))

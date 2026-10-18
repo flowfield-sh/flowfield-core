@@ -6,7 +6,14 @@ import typer
 
 
 def register(project_app: typer.Typer) -> None:
-    from flowfield.cli import Json, ProjectOption, output, project_path
+    from flowfield.cli import (
+        Json,
+        ProjectOption,
+        WorkspaceOption,
+        output,
+        project_path,
+        workspace_item_path,
+    )
 
     app = typer.Typer(no_args_is_help=True, help="Configure delivery and inspect its checks.")
     project_app.add_typer(app, name="integration")
@@ -105,15 +112,25 @@ def register(project_app: typer.Typer) -> None:
     @app.command("show")
     def detail(
         ctx: typer.Context,
-        integration_id: str | None = None,
         project: ProjectOption = None,
         json_output: Json = False,
     ) -> None:
         output(
+            lambda: ctx.obj.request("GET", project_path(project) + "/integration"),
+            json_output,
+            show,
+        )
+
+    @app.command("record")
+    def record(
+        ctx: typer.Context,
+        integration_id: str,
+        workspace: WorkspaceOption,
+        json_output: Json = False,
+    ) -> None:
+        output(
             lambda: ctx.obj.request(
-                "GET",
-                project_path(project)
-                + ("/integrations/" + integration_id if integration_id else "/integration"),
+                "GET", workspace_item_path(workspace, "integrations", integration_id)
             ),
             json_output,
             show,
@@ -124,7 +141,7 @@ def register(project_app: typer.Typer) -> None:
         ctx: typer.Context,
         run_id: str | None = None,
         before: int | None = None,
-        project: ProjectOption = None,
+        workspace: WorkspaceOption = "",
         json_output: Json = False,
     ) -> None:
         from urllib.parse import urlencode
@@ -134,7 +151,7 @@ def register(project_app: typer.Typer) -> None:
         }
         output(
             lambda: ctx.obj.request(
-                "GET", project_path(project) + "/integrations?" + urlencode(query)
+                "GET", workspace_item_path(workspace, "integrations") + "?" + urlencode(query)
             ),
             json_output,
             show,

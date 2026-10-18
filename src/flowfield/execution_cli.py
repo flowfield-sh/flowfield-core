@@ -1,4 +1,4 @@
-"""Workspace worker controls and project-bound task execution commands."""
+"""Workspace worker controls and workspace-bound task execution commands."""
 
 from typing import Any
 
@@ -9,10 +9,8 @@ def register(workspace_app: typer.Typer, task_app: typer.Typer) -> None:
     # Import after cli defines its shared option/output conventions.
     from flowfield.cli import (
         Json,
-        ProjectOption,
         WorkspaceOption,
         output,
-        project_path,
         workspace_item_path,
     )
 
@@ -49,24 +47,31 @@ def register(workspace_app: typer.Typer, task_app: typer.Typer) -> None:
         ctx: typer.Context,
         task: str,
         before: int | None = None,
-        project: ProjectOption = None,
+        workspace: str = typer.Option(..., "--workspace"),
         json_output: Json = False,
     ) -> None:
         from urllib.parse import urlencode
 
         query = "?" + urlencode({"before": before}) if before is not None else ""
         output(
-            lambda: ctx.obj.request("GET", project_path(project) + f"/tasks/{task}/results{query}"),
+            lambda: ctx.obj.request(
+                "GET", workspace_item_path(workspace) + f"/tasks/{task}/results{query}"
+            ),
             json_output,
             show_result,
         )
 
     @results.command("show")
     def result_show(
-        ctx: typer.Context, result_id: str, project: ProjectOption = None, json_output: Json = False
+        ctx: typer.Context,
+        result_id: str,
+        workspace: str = typer.Option(..., "--workspace"),
+        json_output: Json = False,
     ) -> None:
         output(
-            lambda: ctx.obj.request("GET", project_path(project) + f"/results/{result_id}"),
+            lambda: ctx.obj.request(
+                "GET", workspace_item_path(workspace) + f"/results/{result_id}"
+            ),
             json_output,
             show_result,
         )
@@ -80,14 +85,14 @@ def register(workspace_app: typer.Typer, task_app: typer.Typer) -> None:
         expected_revision: int = typer.Option(..., min=1),
         note: str = "",
         author: str = "human",
-        project: ProjectOption = None,
+        workspace: str = typer.Option(..., "--workspace"),
         json_output: Json = False,
     ) -> None:
         """Approve the exact validated result and request delivery, or request_changes."""
         output(
             lambda: ctx.obj.request(
                 "POST",
-                project_path(project) + f"/results/{result_id}/review",
+                workspace_item_path(workspace) + f"/results/{result_id}/review",
                 {
                     "expected_revision": expected_revision,
                     "candidate_commit": candidate,
@@ -106,13 +111,13 @@ def register(workspace_app: typer.Typer, task_app: typer.Typer) -> None:
             result_id: str,
             expected_revision: int = typer.Option(..., min=1),
             note: str = "",
-            project: ProjectOption = None,
+            workspace: str = typer.Option(..., "--workspace"),
             json_output: Json = False,
         ) -> None:
             output(
                 lambda: ctx.obj.request(
                     "POST",
-                    project_path(project) + f"/results/{result_id}/{action}",
+                    workspace_item_path(workspace) + f"/results/{result_id}/{action}",
                     {"expected_revision": expected_revision, "note": note, "author": "human"},
                     timeout=18060,
                 ),
@@ -276,7 +281,7 @@ def register(workspace_app: typer.Typer, task_app: typer.Typer) -> None:
         task: str | None = None,
         before: int | None = None,
         limit: int = typer.Option(10, min=1, max=50),
-        project: ProjectOption = None,
+        workspace: str = typer.Option(..., "--workspace"),
         json_output: Json = False,
     ) -> None:
         from urllib.parse import urlencode
@@ -287,17 +292,22 @@ def register(workspace_app: typer.Typer, task_app: typer.Typer) -> None:
         if before:
             query["before"] = str(before)
         output(
-            lambda: ctx.obj.request("GET", project_path(project) + "/runs?" + urlencode(query)),
+            lambda: ctx.obj.request(
+                "GET", workspace_item_path(workspace) + "/runs?" + urlencode(query)
+            ),
             json_output,
             show,
         )
 
     @runs.command("show")
     def detail(
-        ctx: typer.Context, run_id: str, project: ProjectOption = None, json_output: Json = False
+        ctx: typer.Context,
+        run_id: str,
+        workspace: str = typer.Option(..., "--workspace"),
+        json_output: Json = False,
     ) -> None:
         def perform() -> Any:
-            path = project_path(project) + "/runs/" + run_id
+            path = workspace_item_path(workspace) + "/runs/" + run_id
             return {
                 **ctx.obj.request("GET", path),
                 "location": ctx.obj.request("GET", path + "/location"),
@@ -306,10 +316,10 @@ def register(workspace_app: typer.Typer, task_app: typer.Typer) -> None:
         output(perform, json_output, show)
 
     def mutate(
-        ctx: typer.Context, run_id: str, project: str | None, action: str, json_output: bool
+        ctx: typer.Context, run_id: str, workspace: str, action: str, json_output: bool
     ) -> None:
         def perform() -> Any:
-            path = project_path(project) + "/runs/" + run_id
+            path = workspace_item_path(workspace) + "/runs/" + run_id
             current = ctx.obj.request("GET", path)
             ctx.obj.request(
                 "POST",
@@ -322,12 +332,18 @@ def register(workspace_app: typer.Typer, task_app: typer.Typer) -> None:
 
     @runs.command("stop")
     def stop(
-        ctx: typer.Context, run_id: str, project: ProjectOption = None, json_output: Json = False
+        ctx: typer.Context,
+        run_id: str,
+        workspace: str = typer.Option(..., "--workspace"),
+        json_output: Json = False,
     ) -> None:
-        mutate(ctx, run_id, project, "stop", json_output)
+        mutate(ctx, run_id, workspace, "stop", json_output)
 
     @runs.command("retry")
     def retry(
-        ctx: typer.Context, run_id: str, project: ProjectOption = None, json_output: Json = False
+        ctx: typer.Context,
+        run_id: str,
+        workspace: str = typer.Option(..., "--workspace"),
+        json_output: Json = False,
     ) -> None:
-        mutate(ctx, run_id, project, "retry", json_output)
+        mutate(ctx, run_id, workspace, "retry", json_output)

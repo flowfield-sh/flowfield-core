@@ -12,9 +12,6 @@ from pydantic import BaseModel, Field, ValidationError
 from flowfield.activity import ActivityCreate, EntryKind
 from flowfield.application import (
     Edit,
-    MilestoneCreate,
-    MilestoneEdit,
-    MilestoneIdentifier,
     ProjectEdit,
     ProjectSetup,
     TaskCreate,
@@ -27,7 +24,6 @@ from flowfield.application import (
 )
 from flowfield.attention import AttentionColumn, RequestKind
 from flowfield.conversation_api import add_conversation_tools
-from flowfield.delivery_models import DeliveryConfigure
 from flowfield.documents import DocumentCreate, DocumentEdit, DocumentRestore, Documents
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import QueueEdit, SettingsEdit
@@ -36,9 +32,6 @@ from flowfield.harness_models import HarnessKind
 from flowfield.inspection import Inspections
 from flowfield.inspection_models import Inspection, InspectionConfig, InspectionPrepare
 from flowfield.labels import LabelCreate, LabelEdit, Labels
-from flowfield.milestone_delivery import MilestoneDeliveries
-from flowfield.milestone_verification import MilestoneVerifications
-from flowfield.milestones import Milestones
 from flowfield.project_config import Identifier
 from flowfield.questions import (
     AnswerRetract,
@@ -50,11 +43,10 @@ from flowfield.questions import (
     QuestionWithdraw,
 )
 from flowfield.reads import MAX_LIMIT, ContextReads, excerpt, receipt
-from flowfield.reviewer_settings import Reviewers, ReviewPurpose
+from flowfield.reviewer_settings import Reviewers
 from flowfield.search import Entity, History, Search
+from flowfield.subtasks import SubtaskCreate, SubtaskEdit, Subtasks
 from flowfield.supervisor import Supervisor
-from flowfield.verification_models import VerificationPrepare
-from flowfield.verification_plans import VerificationPlanEdit, VerificationPlans
 from flowfield.workspaces import ProjectAdoption, WorkspaceCreate, WorkspaceEdit, Workspaces
 
 PageLimit = Annotated[int, Field(ge=1, le=MAX_LIMIT)]
@@ -114,24 +106,16 @@ def create_mcp(
 
     @mcp.tool(annotations=read)
     async def get_workspace(workspace_id: Identifier) -> CallToolResult:
-        """Read shared purpose, revision and human-configured reviewer/integration defaults."""
+        """Read shared purpose, revision and human-configured reviewer defaults."""
 
         def load() -> dict[str, Any]:
             store = workspace()
             reviewers = Reviewers(store)
-            purposes: tuple[ReviewPurpose, ...] = ("task", "milestone")
             return {
                 **excerpt(Workspaces(store).get(workspace_id).model_dump()),
-                "workspace_task_scope": "workspace_" + workspace_id,
-                "integration_policy": MilestoneDeliveries(store)
-                .workspace_policy(workspace_id)
-                .model_dump(),
-                "reviewers": {
-                    purpose: reviewers.get(workspace_id, purpose).model_dump(
-                        include={"revision", "enabled", "selection"}
-                    )
-                    for purpose in purposes
-                },
+                "reviewer": reviewers.get(workspace_id).model_dump(
+                    include={"revision", "enabled", "selection"}
+                ),
             }
 
         return await invoke(load)
@@ -142,9 +126,8 @@ def create_mcp(
         before: int | None = None,
         limit: PageLimit = 20,
         task_key: str | None = None,
-        milestone_id: str | None = None,
     ) -> CallToolResult:
-        """Browse retained files with exact source task/result and captured milestone metadata."""
+        """Browse retained files with exact source task/result."""
         from flowfield.outputs import Outputs
 
         return await invoke(
@@ -155,7 +138,6 @@ def create_mcp(
                     before=before,
                     limit=limit,
                     task_key=task_key,
-                    milestone_id=milestone_id,
                 )
                 .model_dump()
             )
@@ -302,7 +284,7 @@ def create_mcp(
 
     @mcp.tool(annotations=read)
     async def get_inspection(
-        project_id: Identifier,
+        workspace_id: Identifier,
         inspection_id: Identifier | None = None,
         result_id: Identifier | None = None,
         command_offset: Annotated[int, Field(ge=0)] = 0,
@@ -316,9 +298,9 @@ def create_mcp(
             inspections = Inspections(workspace())
             value: Inspection | None
             if inspection_id:
-                value = inspections.get(project_id, inspection_id)
+                value = inspections.get(workspace_id, inspection_id)
             elif result_id:
-                value = inspections.latest(project_id, result_id)
+                value = inspections.latest(workspace_id, result_id)
             else:
                 raise ApplicationError(
                     "inspection_source_missing", "Choose an inspection or result."
@@ -329,7 +311,7 @@ def create_mcp(
 
     @mcp.tool(annotations=write)
     async def prepare_inspection(
-        project_id: Identifier, request: InspectionPrepare
+        workspace_id: Identifier, request: InspectionPrepare
     ) -> CallToolResult:
         """Try the selected result candidate; result_id is required.
         expected_revision binds that result.
@@ -338,7 +320,7 @@ def create_mcp(
         creates another. Read remaining command pages before use. No approval or branch update.
         """
         return await invoke(
-            lambda: inspection_view(Inspections(workspace()).prepare(project_id, request))
+            lambda: inspection_view(Inspections(workspace()).prepare(workspace_id, request))
         )
 
     if include_service_tools:
@@ -406,9 +388,9 @@ def create_mcp(
         return await mutate(lambda: Guidance(workspace()).change(project_id, change).model_dump())
 
     @mcp.tool(annotations=read)
-    async def get_board(project_id: Identifier) -> CallToolResult:
+    async def get_board(workspace_id: Identifier) -> CallToolResult:
         """Return-to-work briefing: bounded counts, attention, changes and suggested next action."""
-        return await invoke(lambda: reads().overview(project_id))
+        return await invoke(lambda: reads().overview(workspace_id))
 
     @mcp.tool(annotations=read)
     async def search_context(
@@ -440,215 +422,6 @@ def create_mcp(
                 until=until,
                 before=before,
                 limit=limit,
-            )
-        )
-
-    @mcp.tool(annotations=read)
-    async def list_milestones(
-        workspace_id: Identifier, after: str | None = None, limit: PageLimit = 20
-    ) -> CallToolResult:
-        """Read milestone groupings; use verification history for reviewed outcomes."""
-        return await invoke(
-            lambda: Milestones(workspace()).page(workspace_id, after=after, limit=limit)
-        )
-
-    @mcp.tool(annotations=read)
-    async def get_milestone(
-        workspace_id: Identifier,
-        milestone_id: MilestoneIdentifier,
-        revision: Annotated[int, Field(ge=1)] | None = None,
-    ) -> CallToolResult:
-        """Read a milestone by workspace-local key (M-1) or internal ID."""
-        return await invoke(
-            lambda: excerpt(
-                {
-                    **Milestones(workspace())
-                    .get(workspace_id, milestone_id, revision)
-                    .model_dump(),
-                    "delivery": (
-                        delivery.model_dump()
-                        if (
-                            delivery := MilestoneDeliveries(workspace()).get(
-                                workspace_id, milestone_id
-                            )
-                        )
-                        else None
-                    ),
-                }
-            )
-        )
-
-    @mcp.tool(annotations=write)
-    async def configure_milestone_delivery(
-        workspace_id: Identifier,
-        milestone_id: MilestoneIdentifier,
-        delivery: DeliveryConfigure,
-    ) -> CallToolResult:
-        """Give a milestone an owned branch before preparing its tasks.
-        Task approvals integrate into this branch; final human promotion delivers to the
-        project destination. Supports one repository. Omit branch for a unique name.
-        Retry the same configuration after interrupted creation; never adopts existing branches.
-        """
-        return await mutate(
-            lambda: (
-                MilestoneDeliveries(workspace())
-                .configure(workspace_id, milestone_id, delivery)
-                .model_dump()
-            )
-        )
-
-    @mcp.tool(annotations=read)
-    async def get_milestone_history(
-        workspace_id: Identifier,
-        milestone_id: MilestoneIdentifier,
-        before: Annotated[int, Field(ge=1)] | None = None,
-        limit: PageLimit = 20,
-    ) -> CallToolResult:
-        """Page retained milestone revisions; read an exact revision with get_milestone."""
-        return await invoke(
-            lambda: Milestones(workspace()).history(
-                workspace_id, milestone_id, before=before, limit=limit
-            )
-        )
-
-    @mcp.tool(annotations=write)
-    async def plan_milestone_verification(
-        workspace_id: Identifier,
-        milestone_id: MilestoneIdentifier,
-        plan: VerificationPlanEdit,
-    ) -> CallToolResult:
-        """Save whole-outcome checks and procedures during milestone preparation.
-        Bind the current milestone revision; use expected_revision 1 for the first plan.
-        With an owned milestone branch, the service binds delivered contributions and
-        runs the configured milestone reviewer automatically. Cover every criterion and
-        name required human/runtime evidence; never infer permission to run extra commands.
-        Task integration policy and final milestone promotion remain human-controlled.
-        """
-        return await mutate(
-            lambda: (
-                VerificationPlans(workspace())
-                .save(workspace_id, milestone_id, attributed(plan))
-                .model_dump()
-            )
-        )
-
-    @mcp.tool(annotations=read)
-    async def get_milestone_verification_plan(
-        workspace_id: Identifier,
-        milestone_id: MilestoneIdentifier,
-        revision: Annotated[int, Field(ge=1)] | None = None,
-        offset: Annotated[int, Field(ge=0)] = 0,
-        limit: Annotated[int, Field(ge=1, le=4000)] = 4000,
-    ) -> CallToolResult:
-        """Read the saved verification plan revision before changing its checks or procedures."""
-        return await invoke(
-            lambda: VerificationPlans(workspace()).context(
-                workspace_id, milestone_id, revision=revision, offset=offset, limit=limit
-            )
-        )
-
-    @mcp.tool(annotations=write)
-    async def prepare_milestone_verification(
-        workspace_id: Identifier,
-        milestone_id: MilestoneIdentifier,
-        preparation: VerificationPrepare,
-    ) -> CallToolResult:
-        """Freeze delivered contributions and checks; prepare an upcoming report task.
-        All contributions need complete delivered results. Use a Backlog verifier in the
-        milestone, depending on those contributions; earlier verifiers are historical evidence.
-        This operation prepares report completion and freezes full criteria and exact inputs.
-        Use concise observable check headings, with procedures in the task description.
-        Schedule only after binding succeeds. Passing evidence requests human Inbox acceptance.
-        """
-        return await mutate(
-            lambda: (
-                MilestoneVerifications(workspace())
-                .prepare(workspace_id, milestone_id, attributed(preparation))
-                .model_dump()
-            )
-        )
-
-    @mcp.tool(annotations=read)
-    async def get_milestone_verification(
-        workspace_id: Identifier,
-        verification_id: Identifier,
-        revision: Annotated[int, Field(ge=1)] | None = None,
-        offset: Annotated[int, Field(ge=0)] = 0,
-        limit: Annotated[int, Field(ge=1, le=4000)] = 4000,
-    ) -> CallToolResult:
-        """Read verification inputs, findings and feedback as paged JSON text.
-        Follow next_offset with the returned revision until null. Status is not the evidence;
-        read all pages before judging coverage or responding to findings/review notes.
-        """
-        return await invoke(
-            lambda: MilestoneVerifications(workspace()).context(
-                workspace_id, verification_id, revision=revision, offset=offset, limit=limit
-            )
-        )
-
-    @mcp.tool(annotations=read)
-    async def get_milestone_verifications(
-        workspace_id: Identifier,
-        milestone_id: MilestoneIdentifier,
-        before: int | None = None,
-        limit: PageLimit = 20,
-    ) -> CallToolResult:
-        """Page verification and acceptance history; acceptance does not promote code."""
-        return await invoke(
-            lambda: MilestoneVerifications(workspace()).history(
-                workspace_id, milestone_id, before=before, limit=limit
-            )
-        )
-
-    @mcp.tool(annotations=read)
-    async def get_milestone_impact(
-        workspace_id: Identifier,
-        milestone_id: MilestoneIdentifier,
-        after: str | None = None,
-        limit: PageLimit = 20,
-    ) -> CallToolResult:
-        """Find unfinished tasks using an older milestone revision for explicit reconciliation."""
-        return await invoke(
-            lambda: Milestones(workspace()).impact(
-                workspace_id, milestone_id, after=after, limit=limit
-            )
-        )
-
-    @mcp.tool(annotations=write)
-    async def create_milestone(
-        workspace_id: Identifier, milestone: MilestoneCreate
-    ) -> CallToolResult:
-        """Capture outcome and optional acceptance criteria; omit id to generate one."""
-        return await mutate(
-            lambda: Milestones(workspace()).create(workspace_id, attributed(milestone)).model_dump()
-        )
-
-    @mcp.tool(annotations=write)
-    async def edit_milestone(
-        workspace_id: Identifier, milestone_id: MilestoneIdentifier, changes: MilestoneEdit
-    ) -> CallToolResult:
-        """Edit supplied milestone fields with a revision check."""
-        return await mutate(
-            lambda: (
-                Milestones(workspace())
-                .edit(workspace_id, milestone_id, attributed(changes))
-                .model_dump()
-            )
-        )
-
-    @mcp.tool(annotations=read)
-    async def get_milestone_text(
-        workspace_id: Identifier,
-        identity: MilestoneIdentifier,
-        revision: int | None = None,
-        field: Literal["body", "acceptance_criteria"] = "body",
-        offset: Annotated[int, Field(ge=0)] = 0,
-        limit: Annotated[int, Field(ge=1, le=4000)] = 4000,
-    ) -> CallToolResult:
-        """Read description or acceptance criteria in bounded chunks at a retained revision."""
-        return await invoke(
-            lambda: Milestones(workspace()).text(
-                workspace_id, identity, revision=revision, field=field, offset=offset, limit=limit
             )
         )
 
@@ -805,29 +578,27 @@ def create_mcp(
 
     @mcp.tool(annotations=read)
     async def list_tasks(
-        project_id: Identifier,
+        workspace_id: Identifier,
         include_archived: bool = False,
         status: str | None = None,
         label_id: str | None = None,
-        milestone_id: str | None = None,
         readiness: str | None = None,
         query: str | None = None,
         after: int | None = None,
         limit: PageLimit = 20,
     ) -> CallToolResult:
-        """Page summaries by task number; filter status/type/milestone/readiness or key/title.
+        """Page summaries by task number; filter status/readiness or key/title.
 
-        Empty milestone_id selects ungrouped work. Archive excluded by default.
+        Archived work is excluded by default.
         No descriptions/history.
         Position expresses upcoming priority; list order stays stable while work moves.
         """
         return await invoke(
             lambda: reads().tasks(
-                project_id,
+                workspace_id,
                 include_archived=include_archived,
                 status=status,
                 label_id=label_id,
-                milestone_id=milestone_id,
                 readiness=readiness,
                 query=query,
                 after=after,
@@ -836,17 +607,17 @@ def create_mcp(
         )
 
     @mcp.tool(annotations=read)
-    async def get_task(project_id: Identifier, task_id: TaskIdentifier) -> CallToolResult:
+    async def get_task(workspace_id: Identifier, task_id: TaskIdentifier) -> CallToolResult:
         """Read current agreement, readiness, latest authored update and five refs per relationship.
 
         No revisions. Relationship counts and truncated_fields identify omitted context.
         Read complete prerequisites before replacing a dependency set.
         """
-        return await invoke(lambda: reads().task(project_id, task_id))
+        return await invoke(lambda: reads().task(workspace_id, task_id))
 
     @mcp.tool(annotations=read)
     async def list_task_relationships(
-        project_id: Identifier,
+        workspace_id: Identifier,
         task_id: TaskIdentifier,
         relation: Literal["prerequisites", "blocked_by", "dependents"] = "prerequisites",
         after: str | None = None,
@@ -855,20 +626,20 @@ def create_mcp(
         """Page related task summaries by task number; use counts on get_task to see omissions."""
         return await invoke(
             lambda: reads().relationships(
-                project_id, task_id, relation=relation, after=after, limit=limit
+                workspace_id, task_id, relation=relation, after=after, limit=limit
             )
         )
 
     @mcp.tool(annotations=read)
     async def list_task_revisions(
-        project_id: Identifier,
+        workspace_id: Identifier,
         task_id: TaskIdentifier,
         before: int | None = None,
         limit: PageLimit = 20,
     ) -> CallToolResult:
         """Page revision metadata newest first. Use get_text with revision for saved fields."""
         return await invoke(
-            lambda: reads().revisions(project_id, task_id, before=before, limit=limit)
+            lambda: reads().revisions(workspace_id, task_id, before=before, limit=limit)
         )
 
     @mcp.tool(annotations=read)
@@ -904,7 +675,7 @@ def create_mcp(
 
     @mcp.tool(annotations=read)
     async def get_text(
-        project_id: Identifier,
+        workspace_id: Identifier,
         resource: Literal["task", "project", "activity", "question", "result"],
         identity: str | None = None,
         field: str = "body",
@@ -918,11 +689,11 @@ def create_mcp(
         Result: summary/checks/limitations/feedback/problem/correction.
         Project: description/path. Activity: body. Dependencies are a JSON array.
         Pass returned revision on subsequent task/project chunks. Activity is immutable.
-        Use get_milestone_text or get_coordinator_text for workspace-owned sources.
+        Use get_document_text or get_coordinator_text for workspace-owned sources.
         """
         return await invoke(
             lambda: reads().text(
-                project_id,
+                workspace_id,
                 resource,
                 identity,
                 field,
@@ -933,15 +704,14 @@ def create_mcp(
         )
 
     @mcp.tool(annotations=read)
-    async def get_activity(project_id: Identifier, entry_id: Identifier) -> CallToolResult:
+    async def get_activity(workspace_id: Identifier, entry_id: Identifier) -> CallToolResult:
         """Read one entry with replacement links and a bounded body; get_text retrieves the rest."""
-        return await invoke(lambda: reads().activity_entry(project_id, entry_id))
+        return await invoke(lambda: reads().activity_entry(workspace_id, entry_id))
 
     @mcp.tool(annotations=write)
     async def create_task(
+        workspace_id: Identifier,
         task: TaskCreate,
-        project_id: Identifier | None = None,
-        workspace_id: Identifier | None = None,
     ) -> CallToolResult:
         """Capture agreed work, default feature in Backlog; first search for an existing task.
 
@@ -958,24 +728,50 @@ def create_mcp(
         """
 
         def create() -> dict[str, Any]:
-            from flowfield.work_scopes import workspace_scope
-
-            if project_id is not None:
-                if workspace_id:
-                    Workspaces(workspace()).require_scope(workspace_id, project_id)
-                scope = project_id
-            elif workspace_id:
-                Workspaces(workspace()).get(workspace_id)
-                scope = workspace_scope(workspace_id)
-            else:
-                raise ApplicationError("workspace_required", "Choose a workspace or project.")
-            return workspace().create_task(scope, attributed(task)).model_dump()
+            return workspace().create_task(workspace_id, attributed(task)).model_dump()
 
         return await mutate(create)
 
+    @mcp.tool(annotations=read)
+    async def list_subtasks(workspace_id: Identifier, task_id: TaskIdentifier) -> CallToolResult:
+        """Read the local contribution graph; subtasks have no independent review or delivery."""
+        return await invoke(
+            lambda: {
+                "items": [
+                    item.model_dump() for item in Subtasks(workspace()).all(workspace_id, task_id)
+                ]
+            }
+        )
+
+    @mcp.tool(annotations=write)
+    async def create_subtask(
+        workspace_id: Identifier, task_id: TaskIdentifier, subtask: SubtaskCreate
+    ) -> CallToolResult:
+        """Add a bounded contribution to a task. Dependencies must be siblings in this task."""
+        return await mutate(
+            lambda: (
+                Subtasks(workspace())
+                .create(workspace_id, task_id, attributed(subtask))
+                .model_dump()
+            )
+        )
+
+    @mcp.tool(annotations=write)
+    async def edit_subtask(
+        workspace_id: Identifier, task_id: TaskIdentifier, subtask_id: str, changes: SubtaskEdit
+    ) -> CallToolResult:
+        """Revise a contribution, retaining history and invalidating affected downstream work."""
+        return await mutate(
+            lambda: (
+                Subtasks(workspace())
+                .edit(workspace_id, task_id, subtask_id, attributed(changes))
+                .model_dump()
+            )
+        )
+
     @mcp.tool(annotations=write)
     async def edit_task(
-        project_id: Identifier, task_id: TaskIdentifier, changes: TaskEdit
+        workspace_id: Identifier, task_id: TaskIdentifier, changes: TaskEdit
     ) -> CallToolResult:
         """Refine the existing task; read complete description/dependencies before replacement.
 
@@ -987,15 +783,15 @@ def create_mcp(
         For delivered work, first use reopen_task, then edit with fresh preparation.
         Preserves priority/queue.
         Cross-project dependencies use task keys (for example API-1), not bare task IDs.
-        milestone_id=null clears grouping; archived=false restores.
+        archived=false restores.
         """
         return await mutate(
-            lambda: workspace().edit_task(project_id, task_id, attributed(changes)).model_dump()
+            lambda: workspace().edit_task(workspace_id, task_id, attributed(changes)).model_dump()
         )
 
     @mcp.tool(annotations=write)
     async def prioritize_task(
-        project_id: Identifier, task_id: TaskIdentifier, priority: TaskPriority
+        workspace_id: Identifier, task_id: TaskIdentifier, priority: TaskPriority
     ) -> CallToolResult:
         """Prioritize within/between Backlog and Up next; before_id inserts, omitted appends.
 
@@ -1004,13 +800,15 @@ def create_mcp(
         """
         return await mutate(
             lambda: (
-                workspace().prioritize_task(project_id, task_id, attributed(priority)).model_dump()
+                workspace()
+                .prioritize_task(workspace_id, task_id, attributed(priority))
+                .model_dump()
             )
         )
 
     @mcp.tool(annotations=write)
     async def reconcile_task(
-        project_id: Identifier, task_id: TaskIdentifier, reconciliation: TaskReconcile
+        workspace_id: Identifier, task_id: TaskIdentifier, reconciliation: TaskReconcile
     ) -> CallToolResult:
         """After reviewing affected work, retain its column and record why it remains valid.
 
@@ -1020,14 +818,14 @@ def create_mcp(
         return await mutate(
             lambda: (
                 workspace()
-                .reconcile_task(project_id, task_id, attributed(reconciliation))
+                .reconcile_task(workspace_id, task_id, attributed(reconciliation))
                 .model_dump()
             )
         )
 
     @mcp.tool(annotations=write)
     async def reopen_task(
-        project_id: Identifier, task_id: TaskIdentifier, reopening: TaskReopen
+        workspace_id: Identifier, task_id: TaskIdentifier, reopening: TaskReopen
     ) -> CallToolResult:
         """Return completed work to Draft/Backlog for an authorized follow-up on the same task.
 
@@ -1037,12 +835,14 @@ def create_mcp(
         transfer approval. Use result feedback for work that has not yet been delivered.
         """
         return await mutate(
-            lambda: workspace().reopen_task(project_id, task_id, attributed(reopening)).model_dump()
+            lambda: (
+                workspace().reopen_task(workspace_id, task_id, attributed(reopening)).model_dump()
+            )
         )
 
     @mcp.tool(annotations=read)
     async def list_activity(
-        project_id: Identifier,
+        workspace_id: Identifier,
         task_id: TaskIdentifier | None = None,
         kind: EntryKind | None = None,
         current_only: bool = False,
@@ -1056,7 +856,7 @@ def create_mcp(
         """
         return await invoke(
             lambda: reads().activity(
-                project_id,
+                workspace_id,
                 task_id=task_id,
                 kind=kind,
                 current_only=current_only,
@@ -1066,7 +866,7 @@ def create_mcp(
         )
 
     @mcp.tool(annotations=write)
-    async def add_activity(project_id: Identifier, entry: ActivityCreate) -> CallToolResult:
+    async def add_activity(workspace_id: Identifier, entry: ActivityCreate) -> CallToolResult:
         """Append a Markdown note or handoff to a task.
 
         Notes preserve findings/results, never launch or steer workers.
@@ -1076,7 +876,7 @@ def create_mcp(
         include work location.
         """
         return await mutate(
-            lambda: workspace().add_activity(project_id, attributed(entry)).model_dump()
+            lambda: workspace().add_activity(workspace_id, attributed(entry)).model_dump()
         )
 
     @mcp.tool(annotations=read)
@@ -1098,17 +898,16 @@ def create_mcp(
         workspace_id: Identifier,
         kind: RequestKind,
         request_id: Identifier,
-        project_id: Identifier | None = None,
     ) -> CallToolResult:
         """Read an exact human request and its stable URL, including resolved requests.
 
         Existing question/result/review/permission tools retain all response authority.
         """
-        return await invoke(lambda: reads().request(workspace_id, kind, request_id, project_id))
+        return await invoke(lambda: reads().request(workspace_id, kind, request_id))
 
     @mcp.tool(annotations=read)
     async def list_questions(
-        project_id: Identifier,
+        workspace_id: Identifier,
         status: str = "active",
         task_id: TaskIdentifier | None = None,
         after: int | None = None,
@@ -1117,33 +916,33 @@ def create_mcp(
         """Read bounded Inbox summaries; active includes open and answered, not applied."""
         return await invoke(
             lambda: reads().questions(
-                project_id, status=status, task_id=task_id, after=after, limit=limit
+                workspace_id, status=status, task_id=task_id, after=after, limit=limit
             )
         )
 
     @mcp.tool(annotations=read)
     async def get_question(
-        project_id: Identifier, question_id: Identifier, revision: int | None = None
+        workspace_id: Identifier, question_id: Identifier, revision: int | None = None
     ) -> CallToolResult:
         """Read one question, current by default. Prior revisions retain earlier answers.
 
         Long fields are excerpts; get_text with resource=question retrieves complete text.
         """
-        return await invoke(lambda: reads().question(project_id, question_id, revision))
+        return await invoke(lambda: reads().question(workspace_id, question_id, revision))
 
     @mcp.tool(annotations=write)
-    async def ask_question(project_id: Identifier, question: QuestionCreate) -> CallToolResult:
+    async def ask_question(workspace_id: Identifier, question: QuestionCreate) -> CallToolResult:
         """Ask a human question with context/recommendation. Set task_id for one task, or omit
         it for project input with optional affected_task_ids. blocking_scope requires named
         targets and gates only those tasks until application; omit for advisory input. No launch.
         """
         return await mutate(
-            lambda: Questions(workspace()).ask(project_id, attributed(question)).model_dump()
+            lambda: Questions(workspace()).ask(workspace_id, attributed(question)).model_dump()
         )
 
     @mcp.tool(annotations=write)
     async def answer_question(
-        project_id: Identifier, question_id: Identifier, response: QuestionAnswer
+        workspace_id: Identifier, question_id: Identifier, response: QuestionAnswer
     ) -> CallToolResult:
         """Send the user's answer. Managed task input automatically continues eligible work;
         queue pause/ownership/scope still gate it. Project/coordinator input needs application.
@@ -1152,14 +951,14 @@ def create_mcp(
         return await mutate(
             lambda: (
                 Questions(workspace())
-                .answer(project_id, question_id, attributed(response))
+                .answer(workspace_id, question_id, attributed(response))
                 .model_dump()
             )
         )
 
     @mcp.tool(annotations=write)
     async def correct_answer(
-        project_id: Identifier, question_id: Identifier, response: QuestionAnswer
+        workspace_id: Identifier, question_id: Identifier, response: QuestionAnswer
     ) -> CallToolResult:
         """Record a correction to consumed input without rewriting its evidence.
 
@@ -1169,62 +968,62 @@ def create_mcp(
         return await mutate(
             lambda: (
                 Questions(workspace())
-                .correct(project_id, question_id, attributed(response))
+                .correct(workspace_id, question_id, attributed(response))
                 .model_dump()
             )
         )
 
     @mcp.tool(annotations=write)
     async def apply_answer(
-        project_id: Identifier, question_id: Identifier, application: QuestionApply
+        workspace_id: Identifier, question_id: Identifier, application: QuestionApply
     ) -> CallToolResult:
         """Atomically update optional task body, record the decision, and resolve this question.
 
         Only coordinator-owned input; managed task answers are service-delivered. Require a
-        saved answer and fresh question/task revisions. Project questions instead need
-        expected_project_revision and task_updates with every affected task/revision, even when
-        unchanged; description optionally replaces project intent. Effects are atomic and the
-        resolution is saved with the project question. If task body is omitted, explain
+        saved answer and fresh question/task revisions. Workspace questions instead need
+        expected_workspace_revision and task_updates with every affected task/revision, even when
+        unchanged; description optionally replaces workspace intent. Effects are atomic and the
+        resolution is saved with the workspace question. If task body is omitted, explain
         why the existing Description already satisfies the answer in decision. Never truncate it.
         Other questions/dependencies still block. No worker is launched or notified.
         """
         return await mutate(
             lambda: (
                 Questions(workspace())
-                .apply(project_id, question_id, attributed(application))
+                .apply(workspace_id, question_id, attributed(application))
                 .model_dump()
             )
         )
 
     @mcp.tool(annotations=write)
     async def follow_up_question(
-        project_id: Identifier, question_id: Identifier, follow_up: QuestionFollowUp
+        workspace_id: Identifier, question_id: Identifier, follow_up: QuestionFollowUp
     ) -> CallToolResult:
         """Ask a focused clarification of a saved answer, keeping prior answers on this request."""
         return await mutate(
             lambda: (
                 Questions(workspace())
-                .follow_up(project_id, question_id, attributed(follow_up))
+                .follow_up(workspace_id, question_id, attributed(follow_up))
                 .model_dump()
             )
         )
 
     @mcp.tool(annotations=write)
     async def withdraw_question(
-        project_id: Identifier, question_id: Identifier, withdrawal: QuestionWithdraw
+        workspace_id: Identifier, question_id: Identifier, withdrawal: QuestionWithdraw
     ) -> CallToolResult:
         """Withdraw obsolete input with a reason, without pretending its answer was applied."""
         return await mutate(
             lambda: (
                 Questions(workspace())
-                .withdraw(project_id, question_id, attributed(withdrawal))
+                .withdraw(workspace_id, question_id, attributed(withdrawal))
                 .model_dump()
             )
         )
 
     @mcp.tool(annotations=write)
     async def retract_answer(
-        project_id: Identifier, question_id: Identifier, retraction: AnswerRetract
+        workspace_id: Identifier, question_id: Identifier, retraction: AnswerRetract
     ) -> CallToolResult:
         """Retract an unapplied answer and reopen the same question.
 
@@ -1233,7 +1032,7 @@ def create_mcp(
         return await mutate(
             lambda: (
                 Questions(workspace())
-                .retract_answer(project_id, question_id, attributed(retraction))
+                .retract_answer(workspace_id, question_id, attributed(retraction))
                 .model_dump()
             )
         )

@@ -33,11 +33,11 @@ export function RunActivity({
   projectId: string;
   runId: string;
   review?: boolean;
-  reviewKind?: "reviews" | "milestone-reviews";
+  reviewKind?: "reviews";
   reviewAttemptId?: string;
 }) {
   const resource = useResource<Page>(
-    `projects/${projectId}/${review ? reviewKind : "runs"}/${runId}${reviewAttemptId ? `/attempts/${reviewAttemptId}` : ""}/activity`,
+    `workspaces/${projectId}/${review ? reviewKind : "runs"}/${runId}${reviewAttemptId ? `/attempts/${reviewAttemptId}` : ""}/activity`,
     runId,
     10000,
     { projectId, attemptId: reviewAttemptId ?? runId, isActive },
@@ -271,7 +271,6 @@ function ActionDetails({ text }: { text: string }) {
         pattern: "Pattern",
         project_id: "Project",
         task_id: "Task",
-        milestone_id: "Milestone",
       };
       return (
         <dl className="activity-parameters">

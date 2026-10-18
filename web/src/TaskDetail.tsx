@@ -2,12 +2,14 @@ import { useParams } from "react-router";
 import { useContext } from "react";
 import { ResourceNavigation } from "./WorkspaceTabs";
 import { ReviewerSettings } from "./ReviewerSettings";
+import { AgentSettingsControl } from "./AgentSettings";
+import { choiceLabel } from "./HarnessModels";
+import type { components } from "./api-schema";
 import type { DirtyCallback } from "./retainedState";
 import { useCallback, useEffect, useState } from "react";
-import { ContentStack, DetailSection } from "./DetailLayout";
+import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { TaskLabels } from "./TaskLabels";
 import { DetailHeader, DetailTabs, DraftBadge } from "./Presentation";
-import { MilestoneBadge } from "./MilestoneBadge";
 import { WorkIdentity } from "./WorkIdentity";
 import { taskHref } from "./navigation";
 import { ExpandableMarkdown } from "./ExpandableMarkdown";
@@ -15,8 +17,7 @@ import { BlockedBy } from "./TaskLinks";
 import { TaskNeeds, hasTaskNeeds } from "./TaskNeeds";
 import { TaskConversation } from "./TaskConversation";
 import { AgentPermissions } from "./AgentPermissions";
-import { TaskReview } from "./TaskReview";
-import { type Board, type Task } from "./workspace";
+import { type WorkspaceBoard, type Task } from "./workspace";
 export function TaskDetail({
   task,
   workspaceId,
@@ -27,14 +28,13 @@ export function TaskDetail({
 }: {
   task: Task;
   workspaceId: string;
-  board: Board;
+  board: WorkspaceBoard;
   setUnsaved: DirtyCallback;
   close: () => void;
   openTask: (id: string) => void;
 }) {
   const route = useParams();
   const navigate = useContext(ResourceNavigation);
-  const overview = !route.tab || route.tab === "task";
   const settings = route.tab === "settings";
   const [dirty, setDirty] = useState(false);
   const [retained, setRetained] = useState(false);
@@ -44,6 +44,10 @@ export function TaskDetail({
   }, []);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [reviewerDirty, setReviewerDirty] = useState(false);
+  const [modelOpen, setModelOpen] = useState(false);
+  const [choice, setChoice] = useState<
+    components["schemas"]["AgentChoice-Output"] | null
+  >(null);
   useEffect(() => {
     setUnsaved(
       dirty || settingsDirty || reviewerDirty,
@@ -66,39 +70,27 @@ export function TaskDetail({
       />
       <ContentStack space="section" className="task-view-navigation">
         <div className="task-header-badges" aria-label="Task labels">
-          <MilestoneBadge
-            milestone={
-              task.publication?.milestone ??
-              board.milestones.find((m) => m.id === task.milestone_id)
-            }
-            preparedRevision={task.publication?.milestone?.revision}
-            changed={!!task.milestone_update}
-          />
           <DraftBadge publicationStatus={task.publication_status} />
           <TaskLabels ids={task.labels} />
         </div>
         <DetailTabs
           id="task"
           title="Task views"
-          tabs={["overview", "activity", "settings"] as const}
-          active={overview ? "overview" : settings ? "settings" : "activity"}
+          tabs={["task", "settings"] as const}
+          active={settings ? "settings" : "task"}
           change={(tab) =>
             navigate?.(
               tab === "settings"
-                ? `${taskHref(board.project.id, task)}/settings`
-                : taskHref(
-                    board.project.id,
-                    task,
-                    tab === "overview" ? "task" : "history",
-                  ),
+                ? `${taskHref(workspaceId, task)}/settings`
+                : taskHref(workspaceId, task, "task"),
             )
           }
         />
       </ContentStack>
-      {overview && (
+      {!settings && (
         <ContentStack space="section" className="task-context">
           <AgentPermissions
-            projectId={board.project.id}
+            workspaceId={workspaceId}
             taskId={task.id}
             refresh={board}
           />
@@ -110,12 +102,12 @@ export function TaskDetail({
               {task.body}
             </ExpandableMarkdown>
           </div>
-          {hasTaskNeeds(task, board.pending_code[task.id], false, true) && (
+          {hasTaskNeeds(task, board.pending_code[task.key], false, true) && (
             <DetailSection title="Waiting on">
               <TaskNeeds
                 task={task}
-                projectId={board.project.id}
-                pendingCode={board.pending_code[task.id]}
+                projectId={workspaceId}
+                pendingCode={board.pending_code[task.key]}
                 open={openTask}
                 detailed
                 includeDependencies
@@ -134,7 +126,7 @@ export function TaskDetail({
                 <p>
                   <BlockedBy
                     prefix="Prerequisites:"
-                    projectId={board.project.id}
+                    projectId={workspaceId}
                     tasks={task.prerequisites.filter(
                       (p) => !task.blocked_by.some((b) => b.key === p.key),
                     )}
@@ -146,7 +138,7 @@ export function TaskDetail({
                 <p>
                   <BlockedBy
                     prefix="Needed by:"
-                    projectId={board.project.id}
+                    projectId={workspaceId}
                     tasks={task.dependents}
                     open={openTask}
                   />
@@ -154,26 +146,71 @@ export function TaskDetail({
               )}
             </ContentStack>
           )}
-          <TaskReview
-            projectId={board.project.id}
-            taskId={task.id}
-            refresh={board}
-          />
+          {!!task.subtasks.length && (
+            <Disclosure summary="Work">
+              <div className="work-resource-list">
+                {task.subtasks.map((child) => (
+                  <div key={child.id} className="content-stack p-2">
+                    <WorkIdentity
+                      itemKey={child.key}
+                      title={child.title}
+                      state={{
+                        label: child.status,
+                        tone:
+                          child.status === "complete"
+                            ? "complete"
+                            : child.status === "blocked"
+                              ? "attention"
+                              : child.status === "running"
+                                ? "active"
+                                : "idle",
+                      }}
+                    />
+                    {!!(child.dependencies ?? []).length && (
+                      <p className="text-xs text-muted-foreground">
+                        After{" "}
+                        {(child.dependencies ?? [])
+                          .map(
+                            (id) =>
+                              task.subtasks.find((item) => item.id === id)?.key,
+                          )
+                          .join(", ")}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Disclosure>
+          )}
         </ContentStack>
       )}
       {settings && (
-        <ReviewerSettings
-          workspaceId={workspaceId}
-          purpose="task"
-          projectId={board.project.id}
-          entity={task.id}
-          refresh={board}
-          onDirty={setReviewerDirty}
-        />
+        <ContentStack space="section">
+          <DetailSection title="Worker">
+            <AgentSettingsControl
+              workspaceId={workspaceId}
+              path={`workspaces/${workspaceId}/tasks/${task.id}/agent-settings`}
+              refresh={board}
+              open={modelOpen}
+              onOpenChange={setModelOpen}
+              onDirty={setSettingsDirty}
+              onReady={setChoice}
+              label={choice ? choiceLabel(choice) : "Worker settings"}
+            />
+          </DetailSection>
+          <DetailSection title="Reviewer">
+            <ReviewerSettings
+              workspaceId={workspaceId}
+              entity={task.id}
+              refresh={board}
+              onDirty={setReviewerDirty}
+            />
+          </DetailSection>
+        </ContentStack>
       )}
       {!settings && (
         <TaskConversation
-          projectId={board.project.id}
+          projectId={workspaceId}
           task={task}
           board={board}
           refresh={board}

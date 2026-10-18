@@ -25,11 +25,15 @@ BASE, RESULT = "a" * 40, "b" * 40
 def fixture(tmp_path: Path, *, count: int = 1, cap: int = 1) -> Execution:
     workspace = Workspace(tmp_path / "state")
     adopt(workspace, ProjectSetup(path=str(tmp_path / "harbor")))
+    from flowfield.reviewer_settings import ReviewerEdit, Reviewers
+
+    Reviewers(workspace).configure("harbor", ReviewerEdit(expected_revision=1, enabled=False))
     for index in range(count):
         task = workspace.create_task(
             "harbor",
             task_request(
                 id=f"task-{index}",
+                project_id="harbor",
                 title=f"Task {index}",
                 body="Implement and test the assigned behavior.",
                 status="up_next",

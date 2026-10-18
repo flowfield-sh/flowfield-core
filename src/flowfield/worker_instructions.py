@@ -62,9 +62,8 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
     if completion == "code":
         rules.append(
             "The service captures the tracked/nonignored tree after execution stops and checks it "
-            "for exact review. Only the service delivers code under explicit human approval or "
-            "separately granted milestone-branch integration policy. Final milestone promotion "
-            "requires human approval. Do not approve or integrate code yourself."
+            "for exact review. Only the service delivers code under explicit human approval. "
+            "Do not approve or integrate code yourself."
         )
     elif repository:
         rules.append(
@@ -84,27 +83,6 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
             "current service availability or native tool access. Diagnose routine failures within "
             "scope; ask about new dependencies, shared data or missing access instead of silently "
             "changing the environment contract. Do not stop borrowed or unrelated services."
-        )
-    if present("milestone_verification"):
-        rules.append(
-            "Read milestone_verification and the saved milestone details in full. "
-            "Assess every numbered check (1-based) and "
-            "the complete frozen acceptance criteria against the exact delivered task results. "
-            "Submit verification with verification_id, one finding per check (check, verdict: "
-            "passed/failed/unverified, evidence), coverage: complete/incomplete, "
-            "and coverage_notes. Select final contributing files in output_ids using IDs from "
-            "the frozen tasks' output_ids; submit newly produced final files in files. "
-            "A completed verification task may report failed criteria; task completion is not "
-            "milestone acceptance. Mark inaccessible or untested outcomes unverified. Report "
-            "omitted requirements as incomplete coverage. Do not access sibling repositories "
-            "without explicitly prepared access or claim evidence for unavailable code."
-        )
-    elif present("milestone_criteria"):
-        rules.append(
-            "Milestone criteria describe the whole outcome. Read them and the saved milestone "
-            "details, implement this task's contribution and report gaps you discover. "
-            "Do not claim that completing your task accepts the whole milestone or authorizes "
-            "work in another repository."
         )
     if present("input"):
         rules.append(

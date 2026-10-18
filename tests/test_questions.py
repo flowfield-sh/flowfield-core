@@ -5,11 +5,12 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from lifecycle_fixtures import run_report
 from project_fixtures import adopt, task_request
 from questions_fixtures import ask, setup
 
 from flowfield.api import create_app
-from flowfield.application import ProjectSetup, TaskEdit, TaskProgress, Workspace
+from flowfield.application import ProjectSetup, TaskEdit, Workspace
 from flowfield.errors import ApplicationError
 from flowfield.questions import (
     QuestionAnswer,
@@ -24,10 +25,10 @@ from flowfield.reads import PAGE_BYTES, ContextReads, size
 
 def test_answer_is_not_application_and_other_gates_survive(tmp_path: Path) -> None:
     workspace, questions = setup(tmp_path)
-    original = workspace.task("harbor", "HAR-2")
+    original = workspace.task("harbor", "T-2")
     question = ask(questions)
     assert ask(questions) == question  # same caller-supplied ID is safe to retry
-    assert workspace.task("harbor", "HAR-2").revision == original.revision
+    assert workspace.task("harbor", "T-2").revision == original.revision
     answered = questions.answer(
         "harbor",
         question.id,
@@ -39,12 +40,10 @@ def test_answer_is_not_application_and_other_gates_survive(tmp_path: Path) -> No
         )
         == answered
     )
-    task = workspace.task("harbor", "HAR-2")
+    task = workspace.task("harbor", "T-2")
     assert task.body == "Export CSV" and task.blocking_questions[0].status == "answered"
-    with pytest.raises(ApplicationError, match="Awaiting input"):
-        workspace.record_progress(
-            "harbor", "HAR-2", TaskProgress(expected_revision=1, status="in_progress")
-        )
+    with pytest.raises(ApplicationError, match="Blocked by"):
+        run_report(workspace, "harbor", "T-2", expected_revision=1, status="in_progress")
     ask(questions, "format")
     resolved = questions.apply(
         "harbor",
@@ -57,11 +56,11 @@ def test_answer_is_not_application_and_other_gates_survive(tmp_path: Path) -> No
             author="agent",
         ),
     )
-    task = workspace.task("harbor", "HAR-2")
+    task = workspace.task("harbor", "T-2")
     assert resolved.status == "applied" and resolved.applied_task_revision == 2
     assert task.body.endswith("10,000.") and task.status == "up_next"
     assert [q.id for q in task.blocking_questions] == ["format"]
-    assert [t.key for t in task.blocked_by] == ["HAR-1"]
+    assert [t.key for t in task.blocked_by] == ["T-1"]
     assert any(
         entry.question_id == "scope"
         for entry in workspace.activity("harbor", task_id=task.id).items
@@ -72,14 +71,12 @@ def test_answer_is_not_application_and_other_gates_survive(tmp_path: Path) -> No
         "format",
         QuestionWithdraw(expected_revision=1, reason="Covered by the existing CSV standard."),
     )
-    assert workspace.task("harbor", "HAR-2").readiness == "blocked"  # dependency still applies
-    workspace.record_progress(
-        "harbor", "HAR-1", TaskProgress(expected_revision=1, status="done", completion="report")
-    )
-    assert workspace.task("harbor", "HAR-2").readiness == "draft"
+    assert workspace.task("harbor", "T-2").readiness == "blocked"  # dependency still applies
+    run_report(workspace, "harbor", "T-1", expected_revision=1, status="done", completion="report")
+    assert workspace.task("harbor", "T-2").readiness == "draft"
     restarted = Workspace(tmp_path / "state")
     assert Questions(restarted).get("harbor", "scope") == resolved
-    assert restarted.task("harbor", "HAR-2").body == task.body
+    assert restarted.task("harbor", "T-2").body == task.body
     assert answered.answer == questions.get("harbor", "scope", revision=2).answer
 
 
@@ -100,9 +97,9 @@ def test_stale_application_and_competing_answers_do_not_lose_work(tmp_path: Path
         results = list(pool.map(answer, ["All rows", "Visible page"]))
     assert len([r for r in results if r]) == 1
     workspace.edit_task(
-        "harbor", "HAR-2", TaskEdit(expected_revision=1, body="Concurrent requirement")
+        "harbor", "T-2", TaskEdit(expected_revision=1, body="Concurrent requirement")
     )
-    prior = workspace.activity("harbor", task_id="HAR-2")
+    prior = workspace.activity("harbor", task_id="T-2")
     with pytest.raises(ApplicationError, match="stale"):
         questions.apply(
             "harbor",
@@ -111,7 +108,7 @@ def test_stale_application_and_competing_answers_do_not_lose_work(tmp_path: Path
                 expected_revision=2, expected_task_revision=1, body="Lost update", decision="Choice"
             ),
         )
-    assert workspace.activity("harbor", task_id="HAR-2") == prior
+    assert workspace.activity("harbor", task_id="T-2") == prior
     assert questions.get("harbor", question.id).status == "answered"
     questions.answer(
         "harbor", question.id, QuestionAnswer(expected_revision=2, answer="New conclusion")
@@ -124,7 +121,7 @@ def test_stale_application_and_competing_answers_do_not_lose_work(tmp_path: Path
                 expected_revision=2, expected_task_revision=2, body="Lost update", decision="Choice"
             ),
         )
-    assert workspace.task("harbor", "HAR-2").body == "Concurrent requirement"
+    assert workspace.task("harbor", "T-2").body == "Concurrent requirement"
 
 
 def test_followup_retains_answers_and_scope_without_duplicate_requests(tmp_path: Path) -> None:
@@ -153,7 +150,7 @@ def test_followup_retains_answers_and_scope_without_duplicate_requests(tmp_path:
             QuestionApply(expected_revision=3, expected_task_revision=1, decision="Not answered"),
         )
     with pytest.raises(ApplicationError, match="pending questions"):
-        workspace.edit_task("harbor", "HAR-2", TaskEdit(expected_revision=1, archived=True))
+        workspace.edit_task("harbor", "T-2", TaskEdit(expected_revision=1, archived=True))
     questions.withdraw(
         "harbor",
         original.id,
@@ -167,18 +164,14 @@ def test_followup_retains_answers_and_scope_without_duplicate_requests(tmp_path:
 
 def test_nonblocking_input_and_question_only_readiness_are_consistent(tmp_path: Path) -> None:
     workspace, questions = setup(tmp_path)
-    workspace.record_progress(
-        "harbor", "HAR-1", TaskProgress(expected_revision=1, status="done", completion="report")
-    )
+    run_report(workspace, "harbor", "T-1", expected_revision=1, status="done", completion="report")
     question = ask(questions, blocking=False)
-    assert workspace.task("harbor", "HAR-2").readiness == "draft"
-    workspace.record_progress(
-        "harbor", "HAR-2", TaskProgress(expected_revision=1, status="in_progress")
-    )
+    assert workspace.task("harbor", "T-2").readiness == "draft"
+    run_report(workspace, "harbor", "T-2", expected_revision=1, status="in_progress")
     gate = ask(questions, "blocking")
     reads = ContextReads(workspace)
-    assert reads.task("harbor", "HAR-2")["blocking_question_count"] == 1
-    assert reads.tasks("harbor", readiness="blocked")["items"][0]["key"] == "HAR-2"
+    assert reads.task("harbor", "T-2")["blocking_question_count"] == 1
+    assert reads.tasks("harbor", readiness="blocked")["items"][0]["key"] == "T-2"
     assert reads.overview("harbor")["needs_you_count"] == 2
     questions.answer(
         "harbor", gate.id, QuestionAnswer(expected_revision=1, answer="Use the existing contract.")
@@ -188,11 +181,11 @@ def test_nonblocking_input_and_question_only_readiness_are_consistent(tmp_path: 
         gate.id,
         QuestionApply(
             expected_revision=2,
-            expected_task_revision=2,
+            expected_task_revision=workspace.task("harbor", "T-2").revision,
             decision="Existing Description already covers this choice.",
         ),
     )
-    assert workspace.task("harbor", "HAR-2").readiness == "ready"
+    assert workspace.task("harbor", "T-2").readiness == "ready"
     assert questions.get("harbor", question.id).status == "open"
 
 
@@ -203,7 +196,7 @@ def test_scope_pagination_limits_and_http_validation(tmp_path: Path) -> None:
             "harbor",
             QuestionCreate(
                 id=f"q{number}",
-                task_id="HAR-2",
+                task_id="T-2",
                 question=f"Question {number}",
                 context="x" * 8000,
                 recommendation="y" * 8000,
@@ -214,7 +207,7 @@ def test_scope_pagination_limits_and_http_validation(tmp_path: Path) -> None:
     assert size(first) < PAGE_BYTES and len(first["items"]) == 10
     second = questions.list("harbor", after=first["next_cursor"], limit=20)
     assert len(second["items"]) == 14
-    detail = ContextReads(workspace).task("harbor", "HAR-2")
+    detail = ContextReads(workspace).task("harbor", "T-2")
     assert detail["blocking_question_count"] == 24 and len(detail["blocking_questions"]) == 5
     assert size(detail) < PAGE_BYTES
     text = ContextReads(workspace).text("harbor", "question", "q0", field="context", revision=1)
@@ -223,21 +216,21 @@ def test_scope_pagination_limits_and_http_validation(tmp_path: Path) -> None:
     with pytest.raises(ApplicationError, match="not found"):
         questions.get("other", "q0")
     with pytest.raises(ApplicationError, match="not found"):
-        questions.list("other", task_id="HAR-2")
+        questions.list("other", task_id="T-2")
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
         assert (
             client.post(
-                "/api/projects/harbor/questions/q0/answer",
+                "/api/workspaces/harbor/questions/q0/answer",
                 json={"expected_revision": 1, "answer": "  "},
             ).status_code
             == 422
         )
-        assert client.get("/api/projects/harbor/questions?limit=51").status_code == 400
+        assert client.get("/api/workspaces/harbor/questions?limit=51").status_code == 400
         assert (
             client.post(
-                "/api/projects/harbor/questions",
+                "/api/workspaces/harbor/questions",
                 json={
-                    "task_id": "HAR-1",
+                    "task_id": "T-1",
                     "question": "Done?",
                     "context": "Context",
                     "recommendation": "Recommendation",
@@ -261,7 +254,7 @@ def test_retract_answer_preserves_history_and_gates_application(tmp_path: Path) 
     assert reopened.status == "open" and reopened.answer is None
     assert reopened.answer_count == 1
     assert questions.get("harbor", "scope", saved.revision).answer == "Visible page"
-    assert workspace.task("harbor", "HAR-2").blocking_questions[0].status == "open"
+    assert workspace.task("harbor", "T-2").blocking_questions[0].status == "open"
     with pytest.raises(ApplicationError):
         questions.apply(
             "harbor",
@@ -308,22 +301,24 @@ def test_project_input_applies_once_without_placeholder_task(tmp_path: Path) -> 
     workspace, questions = setup(tmp_path)
     question = project_question(questions)
     assert question.task_id is None and question.task_key is None
-    assert questions.list("harbor", task_id="HAR-1")["items"] == []
+    assert questions.list("harbor", task_id="T-1")["items"] == []
     questions.answer("harbor", question.id, QuestionAnswer(expected_revision=1, answer="UTF-8"))
     result = questions.apply(
         "harbor",
         question.id,
         QuestionApply(
             expected_revision=2,
-            expected_project_revision=1,
+            expected_workspace_revision=1,
             description="Offline UTF-8 exports.",
             decision="Use UTF-8 across exports.",
         ),
     )
-    assert result.applied_project_revision == 2
+    assert result.applied_workspace_revision == 2
     assert result.applied_task_revisions == {}
-    assert workspace.project("harbor").description == "Offline UTF-8 exports."
-    assert workspace.task("harbor", "HAR-1").revision == 1
+    from flowfield.workspaces import Workspaces
+
+    assert Workspaces(workspace).get("harbor").description == "Offline UTF-8 exports."
+    assert workspace.task("harbor", "T-1").revision == 1
     history = [
         e
         for e in workspace.activity("harbor", kind="event").items
@@ -340,26 +335,26 @@ def test_project_input_targets_and_atomic_stale_protection(tmp_path: Path) -> No
     workspace.create_task(
         "harbor", task_request(id="independent", title="Independent", status="up_next")
     )
-    question = project_question(questions, ["HAR-1", "serializer", "HAR-2"])
+    question = project_question(questions, ["T-1", "serializer", "T-2"])
     assert len(question.affected_task_ids) == 2
-    assert project_question(questions, ["HAR-2", "HAR-1"]) == question
-    assert workspace.task("harbor", "HAR-3").readiness == "draft"
-    assert questions.list("harbor", task_id="HAR-1")["items"][0]["id"] == question.id
-    assert workspace.task("harbor", "HAR-1").blocking_questions[0].id == question.id
+    assert project_question(questions, ["T-2", "T-1"]) == question
+    assert workspace.task("harbor", "T-3").readiness == "draft"
+    assert questions.list("harbor", task_id="T-1")["items"][0]["id"] == question.id
+    assert workspace.task("harbor", "T-1").blocking_questions[0].id == question.id
     with pytest.raises(ApplicationError):
-        workspace.edit_task("harbor", "HAR-1", TaskEdit(expected_revision=1, archived=True))
+        workspace.edit_task("harbor", "T-1", TaskEdit(expected_revision=1, archived=True))
     questions.answer("harbor", question.id, QuestionAnswer(expected_revision=1, answer="UTF-8"))
-    assert workspace.task("harbor", "HAR-1").blocking_questions[0].status == "answered"
+    assert workspace.task("harbor", "T-1").blocking_questions[0].status == "answered"
     workspace.edit_task(
-        "harbor", "HAR-2", TaskEdit(expected_revision=1, body="Preserve concurrent edit")
+        "harbor", "T-2", TaskEdit(expected_revision=1, body="Preserve concurrent edit")
     )
     request = QuestionApply(
         expected_revision=2,
-        expected_project_revision=1,
+        expected_workspace_revision=1,
         description="UTF-8 exports",
         task_updates=[
-            QuestionTaskUpdate(task_id="HAR-1", expected_revision=1, body="UTF-8 serializer"),
-            QuestionTaskUpdate(task_id="HAR-2", expected_revision=1, body="UTF-8 download"),
+            QuestionTaskUpdate(task_id="T-1", expected_revision=1, body="UTF-8 serializer"),
+            QuestionTaskUpdate(task_id="T-2", expected_revision=1, body="UTF-8 download"),
         ],
         decision="All outputs use UTF-8.",
     )
@@ -368,20 +363,20 @@ def test_project_input_targets_and_atomic_stale_protection(tmp_path: Path) -> No
         questions.apply("harbor", question.id, request)
     assert workspace.activity("harbor") == prior
     assert workspace.project("harbor").revision == 1
-    assert workspace.task("harbor", "HAR-1").revision == 1
-    assert workspace.task("harbor", "HAR-2").body == "Preserve concurrent edit"
+    assert workspace.task("harbor", "T-1").revision == 1
+    assert workspace.task("harbor", "T-2").body == "Preserve concurrent edit"
     assert questions.get("harbor", question.id).status == "answered"
     request.task_updates[1].expected_revision = 2
-    request.expected_project_revision = 99
+    request.expected_workspace_revision = 99
     with pytest.raises(ApplicationError, match="stale"):
         questions.apply("harbor", question.id, request)
-    assert workspace.task("harbor", "HAR-1").revision == 1
-    request.expected_project_revision = 1
+    assert workspace.task("harbor", "T-1").revision == 1
+    request.expected_workspace_revision = 1
     applied = questions.apply("harbor", question.id, request)
     assert applied.applied_task_revisions == {"serializer": 2, "download": 3}
-    assert workspace.task("harbor", "HAR-1").readiness == "draft"
-    assert workspace.task("harbor", "HAR-2").readiness == "blocked"
-    assert not workspace.task("harbor", "HAR-2").blocking_questions
+    assert workspace.task("harbor", "T-1").readiness == "draft"
+    assert workspace.task("harbor", "T-2").readiness == "blocked"
+    assert not workspace.task("harbor", "T-2").blocking_questions
     assert (
         sum(
             e.body == "All outputs use UTF-8."
@@ -403,16 +398,16 @@ def test_project_question_rejects_ambiguous_scope_and_incomplete_application(
     with pytest.raises(ValidationError):
         QuestionCreate(**fields, blocking_scope="Everything")
     with pytest.raises(ValidationError):
-        QuestionCreate(**fields, task_id="HAR-1", affected_task_ids=["HAR-2"])
+        QuestionCreate(**fields, task_id="T-1", affected_task_ids=["T-2"])
     with pytest.raises(ApplicationError):
         project_question(questions, ["missing"])
-    question = project_question(questions, ["HAR-1"])
+    question = project_question(questions, ["T-1"])
     questions.answer("harbor", question.id, QuestionAnswer(expected_revision=1, answer="UTF-8"))
     for updates in (
         [],
-        [QuestionTaskUpdate(task_id="HAR-2", expected_revision=1)],
+        [QuestionTaskUpdate(task_id="T-2", expected_revision=1)],
         [
-            QuestionTaskUpdate(task_id="HAR-1", expected_revision=1),
+            QuestionTaskUpdate(task_id="T-1", expected_revision=1),
             QuestionTaskUpdate(task_id="serializer", expected_revision=1),
         ],
     ):
@@ -422,7 +417,7 @@ def test_project_question_rejects_ambiguous_scope_and_incomplete_application(
                 question.id,
                 QuestionApply(
                     expected_revision=2,
-                    expected_project_revision=1,
+                    expected_workspace_revision=1,
                     task_updates=updates,
                     decision="UTF-8",
                 ),
@@ -431,7 +426,8 @@ def test_project_question_rejects_ambiguous_scope_and_incomplete_application(
     questions.withdraw(
         "harbor", question.id, QuestionWithdraw(expected_revision=2, reason="Unneeded")
     )
-    assert workspace.task("harbor", "HAR-1").readiness == "draft"
-    workspace.edit_task("harbor", "HAR-1", TaskEdit(expected_revision=1, archived=True))
+    assert workspace.task("harbor", "T-1").readiness == "draft"
+    workspace.edit_task("harbor", "T-2", TaskEdit(expected_revision=1, dependencies=[]))
+    workspace.edit_task("harbor", "T-1", TaskEdit(expected_revision=1, archived=True))
     with pytest.raises(ApplicationError, match="active tasks"):
-        questions.ask("harbor", QuestionCreate(**fields, affected_task_ids=["HAR-1"]))
+        questions.ask("harbor", QuestionCreate(**fields, affected_task_ids=["T-1"]))

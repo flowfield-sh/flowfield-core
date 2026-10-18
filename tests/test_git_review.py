@@ -155,7 +155,7 @@ def test_review_api_files_and_successor_use_captured_commits(tmp_path: Path, mon
 
     first = finish_attempt()
     with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
-        path = f"/api/projects/harbor/runs/{first.id}"
+        path = f"/api/workspaces/harbor/runs/{first.id}"
         listing = client.get(path + "/diff").json()
         assert listing["total_files"] == 1
         assert client.get(path + "/diff?offset=-1").status_code == 422
@@ -171,9 +171,9 @@ def test_review_api_files_and_successor_use_captured_commits(tmp_path: Path, mon
             },
         )
         assert stale.status_code == 404
-        version = client.get("/api/projects/harbor/tasks/task-0/results").json()["items"][0]
+        version = client.get("/api/workspaces/harbor/tasks/task-0/results").json()["items"][0]
         requested = client.post(
-            f"/api/projects/harbor/results/{version['id']}/review",
+            f"/api/workspaces/harbor/results/{version['id']}/review",
             json={
                 "expected_revision": version["revision"],
                 "action": "request_changes",
@@ -184,13 +184,13 @@ def test_review_api_files_and_successor_use_captured_commits(tmp_path: Path, mon
         assert requested.status_code == 200
         successor = finish_attempt()
         assert successor.predecessor_id == first.id and successor.base_commit == first.result_commit
-        next_path = f"/api/projects/harbor/runs/{successor.id}"
+        next_path = f"/api/workspaces/harbor/runs/{successor.id}"
         patch = client.get(next_path + "/diff/0").json()
         assert "-value = 2\n+value = 3\n" in patch["text"]
         Results(execution.workspace).process("harbor")
-        version = client.get("/api/projects/harbor/tasks/task-0/results").json()["items"][0]
+        version = client.get("/api/workspaces/harbor/tasks/task-0/results").json()["items"][0]
         accepted = client.post(
-            f"/api/projects/harbor/results/{version['id']}/review",
+            f"/api/workspaces/harbor/results/{version['id']}/review",
             json={
                 "expected_revision": version["revision"],
                 "candidate_commit": version["candidate_commit"],
@@ -199,4 +199,4 @@ def test_review_api_files_and_successor_use_captured_commits(tmp_path: Path, mon
         )
         assert accepted.json()["status"] == "delivering"
         assert execution.workspace.task("harbor", "task-0").status == "in_review"
-        assert client.get("/api/projects/harbor/runs?attention=true").json()["items"] == []
+        assert client.get("/api/workspaces/harbor/runs?attention=true").json()["items"] == []

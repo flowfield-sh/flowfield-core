@@ -102,17 +102,17 @@ def test_old_generation_cannot_write_or_read_through_a_live_grant(tmp_path):
 
     async def exercise():
         grant = await workspace_scope(Supervisor(workspace), "harbor", check=check)
-        assert not (await grant.call("get_board", {"project_id": "harbor"})).isError
+        assert not (await grant.call("get_board", {})).isError
         finish_coordinator(store, first)
         newer, second, generation = start_coordinator(workspace, choice=CLAUDE, session="second")
         writer.write(
             "harbor", second.id, [ActivityUpdate(key="late", kind="agent", text="OLD OUTPUT")]
         )
         assert not newer.get("harbor", second.id).activity.items
-        assert (await grant.call("get_board", {"project_id": "harbor"})).isError
+        assert (await grant.call("get_board", {})).isError
         assert (
             await grant.call(
-                "create_task", {"project_id": "harbor", "task": {"title": "Late task"}}
+                "create_task", {"task": {"project_id": "harbor", "title": "Late task"}}
             )
         ).isError
         grant.revoke()
@@ -148,19 +148,18 @@ def test_saved_permission_answer_is_not_released_after_turn_ends(tmp_path):
         ) as live:
             reply = asyncio.create_task(live.request("check", "Run a check", options))
             async with asyncio.timeout(2):
-                while not owner.page("harbor", workspace_scope=True).pending:
+                while not owner.page("harbor").pending:
                     await asyncio.sleep(0.01)
-            record = owner.page("harbor", workspace_scope=True).pending[0]
+            record = owner.page("harbor").pending[0]
             owner.answer(
                 "harbor",
                 record.id,
                 PermissionAnswer(expected_revision=record.revision, option_id="yes"),
-                workspace_scope=True,
             )
             finish_coordinator(store, turn)
             with pytest.raises(ApplicationError, match="generation changed"):
                 await reply
-        saved = owner.page("harbor", workspace_scope=True).items[0]
+        saved = owner.page("harbor").items[0]
         assert saved.answer == "yes" and not saved.released_at and saved.status == "cancelled"
 
     asyncio.run(exercise())
@@ -203,7 +202,7 @@ def test_late_runtime_finalizer_cannot_clear_restart_uncertainty(tmp_path, monke
         turn = service.coordinator.send("harbor", conversation.id, message())
         try:
             async with asyncio.timeout(10):
-                while not service.permissions.page("harbor", workspace_scope=True).pending:
+                while not service.permissions.page("harbor").pending:
                     await asyncio.sleep(0.01)
             service.coordinator.store.restart()
             uncertain = service.coordinator.store.get("harbor", turn.id)
@@ -222,9 +221,7 @@ def test_uncertain_turns_reserve_the_global_coordinator_capacity(tmp_path):
     for index in range(17):
         project = adopt(
             workspace,
-            ProjectSetup(
-                path=str(tmp_path / f"project-{index}"), task_prefix="GA" + chr(65 + index)
-            ),
+            ProjectSetup(path=str(tmp_path / f"project-{index}") + chr(65 + index)),
         )
         AgentSettings(workspace).edit(
             project.id,

@@ -476,7 +476,7 @@ export function IntegrationEvidence({
           {diff && (
             <Suspense fallback={<p>Loading changes…</p>}>
               <CodeDiff
-                path={`projects/${projectId}/integrations/${record.id}`}
+                path={`workspaces/${projectId}/integrations/${record.id}`}
                 result={record.candidate_commit}
                 view={view}
                 changeView={changeView}

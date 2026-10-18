@@ -94,7 +94,7 @@ class RunActivity:
         # Output does not invalidate the entire board. Mounted panes read their own revision.
         with self.workspace.connection(write=True, notify=False) as db:
             owner = db.execute(
-                "SELECT status FROM runs WHERE project_id=? AND id=?", (project, run)
+                "SELECT status FROM runs WHERE workspace_id=? AND id=?", (project, run)
             ).fetchone()
             if not owner:
                 raise ApplicationError("not_found", "Attempt not found.", 404)
@@ -115,7 +115,8 @@ class RunActivity:
     def read(self, project: str, run: str, after: int = -1) -> RunActivityPage:
         with self.workspace.connection() as db:
             owner = db.execute(
-                "SELECT status,json_extract(data,'$.usage') FROM runs WHERE project_id=? AND id=?",
+                "SELECT status,json_extract(data,'$.usage') FROM runs WHERE "
+                "workspace_id=? AND id=?",
                 (project, run),
             ).fetchone()
             if not owner:

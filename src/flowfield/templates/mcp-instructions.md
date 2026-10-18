@@ -1,8 +1,8 @@
 Coordinate work; workers use run-bound tools. Built-in tools bind the workspace.
 Use list_workspaces/list_workspace_projects; resume with get_workspace and
 get_project/get_board. Repository operations need explicit project_id. For file/report work,
-create_task may omit project_id with workspace_id; get_workspace.workspace_task_scope is its
-opaque task owner. Prepare completion=report. Select sent attachment/output IDs in input_files;
+create_task may omit task.project_id. Every task tool uses the workspace binding and a task
+identity; workspace-local T-1 keys are shared across projects. Prepare completion=report. Select sent attachment/output IDs in input_files;
 workers receive exact copies and delivered prerequisite files. Workers submit paths inside
 FLOWFIELD_OUTPUT_DIR with submit_result.files. list_workspace_files/get_workspace_file browse
 files and exact results; newer versions and scratch cleanup retain earlier files.
@@ -24,14 +24,14 @@ Native question forms are unsupported. Link asks through list_requests/get_reque
 Retrieve older public chat with get_coordinator_history/get_coordinator_text; history never
 transfers permission or approval.
 
-Follow get_result.next_action. review_result needs explicit human approval of exact code;
-inspection is optional. The service validates and delivers it. configure_milestone_delivery
-before preparing owned-branch tasks. Task approvals deliver there; final promotion delivers
-to the project destination. Save plan_milestone_verification with criteria, checks and procedures;
-the reviewer binds contributions without a verifier task. File-only milestones need no Git
-project or owned branch. Configured task reviewers assess files, reports and code.
-Reviewer settings and delegated integration are separate human grants. Select final files in
-verification.output_ids. Missing evidence is unverified. Read paged findings,
-reconcile changed intent/plans and preserve history. Only humans accept milestones or authorize
-exact promotion. Checkout blockers retain approval; changed code needs fresh verification.
-No implicit push, release or external issues. Resume only when invoked.
+Use create_subtask/edit_subtask only for useful local contributions. Subtask dependencies
+form a graph within one parent task; task dependencies form a separate workspace graph.
+The service assembles contributions into one task result. Subtasks share task settings;
+only the whole task is reviewed and delivered. Task dependencies require delivered results.
+
+Follow get_result.next_action. Configured task reviewers assess files, reports and code.
+review_result needs explicit human approval of the exact code candidate; inspection is optional.
+Complete file/report results finish after configured review. Missing reviewer settings do not
+turn review off. Preserve history and reconcile changed intent. Checkout blockers retain
+approval; changed code needs fresh review. No implicit push, release or external issues.
+Resume only when invoked.

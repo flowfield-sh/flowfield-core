@@ -14,9 +14,8 @@ def configured(tmp_path):
     reviewers = Reviewers(service.workspace)
     reviewers.configure(
         "harbor",
-        "task",
         ReviewerEdit(
-            expected_revision=1,
+            expected_revision=2,
             enabled=True,
             selection=AgentChoice(model="review-fixture"),
         ),

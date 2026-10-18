@@ -671,9 +671,6 @@
 .request-footer:empty {
   display: none;
 }
-.board.milestone-board {
-  grid-template-columns: repeat(4, minmax(240px, 1fr));
-}
 
 .task-header-badges {
   display: flex;
@@ -683,14 +680,6 @@
 }
 .task-header-badges:empty {
   display: none;
-}
-
-.verification-checks {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: var(--detail-content-gap);
 }
 
 .delivery-branches {

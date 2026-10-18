@@ -12,15 +12,18 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   expect(
     (
       await fixtureProject(request, {
-        data: { path, task_prefix: "AGS" },
+        data: { path },
       })
     ).ok(),
   ).toBe(true);
   const workspace = await projectWorkspace(request, "agent-settings");
   const task = await (
-    await request.post("/api/projects/agent-settings/tasks", {
-      data: { title: "Check project behavior" },
-    })
+    await request.post(
+      `/api/workspaces/${await projectWorkspace(request, "agent-settings")}/tasks`,
+      {
+        data: { title: "Check project behavior" },
+      },
+    )
   ).json();
   const first = {
     harness: "codex",
@@ -64,22 +67,25 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   const discovery = new Promise<void>((resolve) => {
     releaseModels = resolve;
   });
-  await page.route("**/api/worker-models*", async (route) => {
-    await discovery;
-    await route.fulfill({
-      json: [
-        { id: "first", name: "First", efforts: ["low", "high"], modes },
-        {
-          id: "second",
-          name: "Second",
-          efforts: ["medium"],
-          modes,
-          fast: true,
-          fast_description: "Faster responses, increased usage",
-        },
-      ],
-    });
-  });
+  await page.route(
+    "**/api/{worker-models,workspaces/*/models}*",
+    async (route) => {
+      await discovery;
+      await route.fulfill({
+        json: [
+          { id: "first", name: "First", efforts: ["low", "high"], modes },
+          {
+            id: "second",
+            name: "Second",
+            efforts: ["medium"],
+            modes,
+            fast: true,
+            fast_description: "Faster responses, increased usage",
+          },
+        ],
+      });
+    },
+  );
   await page.route("**/agent-settings", async (route) => {
     if (route.request().method() === "PUT") {
       const payload = route.request().postDataJSON();
@@ -104,6 +110,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   let permission = {
     id: "request-1",
     project_id: "agent-settings",
+    workspace_id: workspace,
     role: "worker",
     task_id: task.id,
     run_id: "run",
@@ -127,7 +134,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     expires_at: new Date(Date.now() + 300000).toISOString(),
     released_at: null as string | null,
   };
-  await page.route("**/api/projects/agent-settings/permissions?*", (route) =>
+  await page.route(`**/api/workspaces/*/permissions?*`, (route) =>
     route.fulfill({
       json: {
         pending: permission.status === "pending" ? [permission] : [],
@@ -148,7 +155,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     };
     await route.fulfill({ json: permission });
   });
-  await page.goto(`/projects/agent-settings/tasks/${task.key}`);
+  await page.goto(`/workspaces/${workspace}/tasks/${task.key}/settings`);
   const detail = page.getByRole("region", { name: "Task details" });
   await page
     .getByRole("button", { name: "Codex · first · low", exact: true })
@@ -255,9 +262,12 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   await choose(picker.getByLabel("Model", { exact: true }), "first");
   await choose(picker.getByLabel("Reasoning effort"), "high");
   settings = { ...settings, revision: settings.revision + 1 };
-  await request.post("/api/projects/agent-settings/tasks", {
-    data: { title: "Cause settings refresh" },
-  });
+  await request.post(
+    `/api/workspaces/${await projectWorkspace(request, "agent-settings")}/tasks`,
+    {
+      data: { title: "Cause settings refresh" },
+    },
+  );
   await expect(
     picker.getByText(
       "Settings changed elsewhere. Load the latest settings before saving.",
@@ -323,6 +333,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   await picker.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(picker).not.toBeVisible();
   expect(settings.selection).toBeNull();
+  await detail.getByRole("tab", { name: "Task", exact: true }).click();
   await detail
     .getByText("Run the project checks", { exact: true })
     .scrollIntoViewIfNeeded();
@@ -401,6 +412,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
                 {
                   id: permission.id,
                   project_id: "agent-settings",
+                  workspace_id: workspace,
                   task_id: task.id,
                   kind: "permission",
                   request_href: `/workspaces/${workspace}/requests/permission/${permission.id}?project_id=agent-settings`,
@@ -424,6 +436,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
         json: {
           id: permission.id,
           project_id: "agent-settings",
+          workspace_id: workspace,
           kind: "permission",
           task_key: task.key,
           title: permission.title,
@@ -431,7 +444,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
           updated_at: permission.updated_at,
           request_kind: "permission",
           request_href: `/workspaces/${workspace}/requests/permission/request-2?project_id=agent-settings`,
-          source_href: `/projects/agent-settings/tasks/${task.key}`,
+          source_href: `/workspaces/${workspace}/tasks/${task.key}`,
         },
       }),
   );
@@ -454,16 +467,19 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     // must also exercise that stream instead of relying on unrelated activity.
     expect(
       (
-        await request.post("/api/projects/agent-settings/tasks", {
-          data: {
-            title: "Record scripted permission receipt",
+        await request.post(
+          `/api/workspaces/${await projectWorkspace(request, "agent-settings")}/tasks`,
+          {
+            data: {
+              title: "Record scripted permission receipt",
+            },
           },
-        })
+        )
       ).ok(),
     ).toBe(true);
     return route.fulfill({ json: permission });
   });
-  await page.goto("/projects/agent-settings/inbox");
+  await page.goto(`/workspaces/${workspace}/inbox`);
   const action = page.getByRole("tabpanel", {
     name: "Needs me",
     exact: true,
@@ -507,7 +523,7 @@ test("Integration uses Local automatically and preserves drafts across project t
   expect(
     (
       await fixtureProject(request, {
-        data: { path, task_prefix: "LOC" },
+        data: { path },
       })
     ).ok(),
   ).toBe(true);

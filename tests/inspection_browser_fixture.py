@@ -24,8 +24,11 @@ repo = workspace.directory / project
 if sys.argv[2] == "create":
     adopt(
         workspace,
-        ProjectSetup(path=str(repo), task_prefix=sys.argv[4] if len(sys.argv) > 4 else "IPV"),
+        ProjectSetup(path=str(repo)),
     )
+    from flowfield.reviewer_settings import ReviewerEdit, Reviewers
+
+    Reviewers(workspace).configure(project, ReviewerEdit(expected_revision=1, enabled=False))
     git(repo, "init", "-b", "main")
     (repo / "README.md").write_text("Inspection toy")
     git(repo, "add", ".")
@@ -60,6 +63,7 @@ if sys.argv[2] == "create":
     workspace.create_task(
         project,
         task_request(
+            project_id=project,
             id="try",
             title="Try the candidate",
             body="Make a useful greeting",
@@ -68,9 +72,9 @@ if sys.argv[2] == "create":
         ),
     )
 settings = service.execution.settings(project).model_copy(update={"enabled": True})
-head = service.integrations.head(project)
+head = service.integrations.head(project, "try")
 with patch.object(service.execution, "_settings", return_value=settings):
-    run = service.execution.claim(project, head, service._available(project, repo, head))
+    run = service.execution.claim(project, head, service._available(project, project, repo, head))
 assert run
 service.execution.started(project, run.id)
 env = LocalHost(os.environ).prepare(workspace.directory, repo, run.id, run.base_commit)

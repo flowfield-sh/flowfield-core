@@ -16,13 +16,17 @@ def shared(tmp_path, *, cap=1):
     for name in ("core", "site"):
         spaces.adopt(space.id, ProjectSetup(path=existing_directory(tmp_path / name)))
         task = store.create_task(
-            name,
+            space.id,
             task_request(
-                id="work", title="Work", body="Investigate and report findings.", status="up_next"
+                id=name,
+                project_id=name,
+                title="Work",
+                body="Investigate and report findings.",
+                status="up_next",
             ),
         )
         store.publish_task(
-            name,
+            space.id,
             task.id,
             TaskPublish(
                 expected_revision=task.revision,

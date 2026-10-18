@@ -21,7 +21,7 @@ import type { TaskReference } from "./workspace";
 import { DetailHeader } from "./Presentation";
 import { useEffect, useLayoutEffect, useId, useRef, useState } from "react";
 import { Markdown } from "./Markdown";
-import { followLink, projectHref, taskHref } from "./navigation";
+import { followLink, workspaceHref, taskHref } from "./navigation";
 import { request } from "./workspace";
 import { EntityPane, PaneFooter } from "./EntityPane";
 import { useResource } from "./useResource";
@@ -38,7 +38,7 @@ const states = {
   withdrawn: "Withdrawn",
 };
 export function questionHref(projectId: string, id: string) {
-  return `${projectHref(projectId)}/inbox/${encodeURIComponent(id)}`;
+  return `${workspaceHref(projectId)}/requests/question/${encodeURIComponent(id)}`;
 }
 
 function PreviousAnswers({
@@ -166,7 +166,7 @@ export function QuestionDetail({
   inline?: boolean;
 }) {
   const answerId = useId();
-  const path = `projects/${encodeURIComponent(projectId)}/questions/${encodeURIComponent(identity)}`;
+  const path = `workspaces/${encodeURIComponent(projectId)}/questions/${encodeURIComponent(identity)}`;
   const [loaded, setLoaded] = useRetainedState<Question | null>(
     `${path}:loaded`,
     null,
@@ -271,7 +271,7 @@ export function QuestionDetail({
     setBusy(true);
     setError("");
     try {
-      const runPath = `projects/${projectId}/runs/${loaded.delivery.run_id}`;
+      const runPath = `workspaces/${projectId}/runs/${loaded.delivery.run_id}`;
       const run = await request<components["schemas"]["Run"]>(runPath);
       await request(runPath + "/stop", "POST", {
         expected_revision: run.revision,
@@ -286,7 +286,7 @@ export function QuestionDetail({
   const newer = loaded && incoming && incoming.revision > loaded.revision;
   const scopeHref = loaded?.task_key
     ? taskHref(projectId, { key: loaded.task_key })
-    : projectHref(projectId);
+    : workspaceHref(projectId);
   return (
     <section
       data-announcement-source={
@@ -313,20 +313,14 @@ export function QuestionDetail({
           {!inline && (
             <DetailHeader
               title={loaded.question}
-              close={close ?? (() => open(projectHref(projectId) + "/inbox"))}
+              close={close ?? (() => open(workspaceHref(projectId) + "/inbox"))}
               metadata={
                 <>
                   <ScopedAnchor
-                    href={loaded.verification_url ?? scopeHref}
-                    onClick={(e) =>
-                      followLink(e, () =>
-                        open(loaded.verification_url ?? scopeHref),
-                      )
-                    }
+                    href={scopeHref}
+                    onClick={(e) => followLink(e, () => open(scopeHref))}
                   >
-                    {loaded.verification_url
-                      ? "Milestone review"
-                      : (loaded.task_key ?? "Project")}
+                    {loaded.task_key ?? "Workspace"}
                   </ScopedAnchor>
                   {" · "}
                   <span role="status">
@@ -342,7 +336,6 @@ export function QuestionDetail({
               context={loaded.context}
               reviewContext={!!loaded.origin_review_id}
               recommendation={loaded.recommendation}
-              verificationUrl={loaded.verification_url}
             />
           )}
           {newer && (
@@ -636,7 +629,7 @@ export function QuestionPage({
 }) {
   const location = useLocation();
   const question = useResource<Question>(
-    `projects/${props.projectId}/questions/${encodeURIComponent(props.identity)}`,
+    `workspaces/${props.projectId}/questions/${encodeURIComponent(props.identity)}`,
     props.refresh,
   );
   if (question.data?.task_id) {
@@ -647,7 +640,7 @@ export function QuestionPage({
     <EntityPane
       label="Question"
       identity={props.identity}
-      returnFocusHref={questionHref(props.projectId, props.identity)}
+      returnFocusHref={location.pathname}
       close={close}
     >
       {!question.data && <DetailHeader title="Question" close={close} />}

@@ -9,21 +9,6 @@ import {
   projectWorkspace,
 } from "./support";
 
-function milestone(project: string) {
-  return JSON.parse(
-    execFileSync(
-      resolve("../.venv/bin/python"),
-      [
-        resolve("../tests/verification_browser_fixture.py"),
-        state,
-        project,
-        "passed",
-      ],
-      { encoding: "utf8" },
-    ),
-  );
-}
-
 test("mixed Inbox history opens exact permission records without response controls", async ({
   page,
   request,
@@ -33,11 +18,10 @@ test("mixed Inbox history opens exact permission records without response contro
     data: {
       id: project,
       path: existingDirectory(join(state, project)),
-      task_prefix: "HIS",
     },
   });
   expect(adopted.ok(), await adopted.text()).toBeTruthy();
-  const workspace = await projectWorkspace(request, project);
+  const workspace = await projectWorkspace(page.request, project);
   const now = new Date().toISOString();
   const items = [
     {
@@ -67,12 +51,12 @@ test("mixed Inbox history opens exact permission records without response contro
   ].map((item) => ({
     ...item,
     project_id: project,
-    task_key: "HIS-1",
+    task_key: "T-1",
     updated_at: now,
     state: null,
     next_action: null,
     request_href: `/workspaces/${workspace}/requests/${item.kind}/${item.id}?project_id=${project}`,
-    source_href: `/projects/${project}/tasks/HIS-1`,
+    source_href: `/workspaces/${workspace}/tasks/T-1`,
   }));
   await page.route(`**/api/workspaces/${workspace}/view/attention?*`, (route) =>
     route.fulfill({ json: { items, total: items.length, next_offset: null } }),
@@ -82,7 +66,7 @@ test("mixed Inbox history opens exact permission records without response contro
       json: items.find((item) => route.request().url().includes(item.id)),
     }),
   );
-  await page.route(`**/api/projects/${project}/permissions/*?*`, (route) => {
+  await page.route(`**/api/workspaces/*/permissions/*?*`, (route) => {
     const expired = route.request().url().includes("expired-permission");
     return route.fulfill({
       json: {
@@ -124,13 +108,13 @@ test("mixed Inbox history opens exact permission records without response contro
   await history.getByRole("link", { name: /Run isolated checks/ }).click();
   const tabs = page.getByRole("tablist", { name: "Open resources" });
   await expect(
-    tabs.getByRole("tab", { name: "HIS-1 Tool permission", exact: true }),
+    tabs.getByRole("tab", { name: "T-1 Tool permission", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await tabs.getByRole("tab", { name: /^Inbox/ }).click();
   await expect(history).toBeVisible();
   await expect(page).not.toHaveURL(/permission=/);
   await tabs
-    .getByRole("tab", { name: "HIS-1 Tool permission", exact: true })
+    .getByRole("tab", { name: "T-1 Tool permission", exact: true })
     .click();
   const dialog = page.getByRole("region", {
     name: "Request",
@@ -158,180 +142,6 @@ test("mixed Inbox history opens exact permission records without response contro
   await page.screenshot({ path: info.outputPath("history-narrow-dark.png") });
 });
 
-test("milestone acceptance clears Inbox and Review column reflects the decision", async ({
-  page,
-  request,
-}, testInfo) => {
-  const value = milestone("inline-milestone");
-  const base = `/workspaces/${value.workspace_id}`;
-  // The HTTP receipt alone must clear the request, without relying on SSE.
-  await page.route("**/api/events", (route) => route.abort());
-  await page.goto(`${base}/milestones`);
-  await expect(
-    page
-      .getByRole("region", { name: "Review milestones" })
-      .getByRole("link", { name: "Verify installed harness discovery" }),
-  ).toBeVisible();
-  await page.goto(`${base}/inbox`);
-  await expect(
-    page.getByRole("button", { name: "Accept milestone", exact: true }),
-  ).toBeEnabled();
-  await expect(
-    page.getByRole("heading", {
-      name: "Accept Verify installed harness discovery?",
-    }),
-  ).toHaveCount(0);
-  const card = page.getByRole("article", {
-    name: "Milestone acceptance: Verify installed harness discovery",
-  });
-  await expect(
-    card.getByLabel("Response").getByRole("textbox", { name: "Review note" }),
-  ).toBeVisible();
-  await expect(card.locator(":scope > header").getByRole("img")).toHaveCount(1);
-  await expect(
-    card.getByText("Verification report", { exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    card.locator(".conversation-message, .detail-group"),
-  ).toHaveCount(0);
-  const headings = await card.getByRole("heading").allTextContents();
-  expect(headings).toContain("Checks");
-  await card.getByText("Review evidence", { exact: true }).click();
-  await card.getByText("Requirements checked", { exact: true }).click();
-  const revision = card.getByRole("link", { name: "revision 1", exact: true });
-  await expect(revision).toHaveAttribute(
-    "href",
-    `${base}/milestones/${value.milestone_key}/revisions/1`,
-  );
-  await expect(
-    card.getByRole("link", { name: /Criteria checked/ }),
-  ).toHaveCount(0);
-  await card.getByText("Requirements checked", { exact: true }).click();
-  for (const [width, height, theme] of [
-    [1440, 1000, "light"],
-    [1440, 1000, "dark"],
-    [390, 844, "light"],
-    [390, 844, "dark"],
-  ] as const) {
-    await page.setViewportSize({ width, height });
-    await page.emulateMedia({ colorScheme: theme });
-    await page.screenshot({
-      path: testInfo.outputPath(`inbox-${width}-${theme}.png`),
-      animations: "disabled",
-    });
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth,
-      ),
-    ).toBe(true);
-  }
-  await page
-    .getByRole("button", { name: "Accept milestone", exact: true })
-    .click();
-  await expect(card).toHaveCount(0);
-  await expect(page.getByText("Nothing needs your attention.")).toBeVisible();
-  await expect(
-    page.getByRole("tab", { name: "Inbox", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("tabpanel", { name: "Needs me", exact: true }),
-  ).toBeFocused();
-  await page.screenshot({ path: testInfo.outputPath("inbox-cleared.png") });
-  await expect(page).toHaveURL(new RegExp(`${base}/inbox$`));
-  const saved = await (
-    await request.get(`/api${base}/verifications/${value.verification_id}`)
-  ).json();
-  expect(saved.status).toBe("accepted");
-  await page.getByRole("tab", { name: "History", exact: true }).click();
-  await page
-    .getByRole("link", { name: /Verify installed harness discovery/ })
-    .click();
-  const completed = page.getByRole("region", { name: "Request", exact: true });
-  await expect(
-    completed.getByRole("img", { name: "Milestone accepted", exact: true }),
-  ).toBeVisible();
-  await expect(
-    completed.getByRole("button", { name: "Accept milestone", exact: true }),
-  ).toHaveCount(0);
-  await completed
-    .locator(".editor-heading")
-    .getByRole("link", { name: new RegExp(value.milestone_key + ":") })
-    .click();
-  await expect(
-    page.getByRole("heading", { name: "Acceptance criteria", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("list", { name: "Milestone activity" }),
-  ).toHaveCount(0);
-  await page.goto(`${base}/milestones`);
-  await expect(
-    page
-      .getByRole("region", { name: "Complete milestones" })
-      .getByRole("link", { name: "Verify installed harness discovery" }),
-  ).toBeVisible();
-});
-
-test("Inbox drafts survive external review across view switches", async ({
-  page,
-  request,
-}) => {
-  const value = milestone("inline-stale");
-  const base = `/workspaces/${value.workspace_id}`;
-  await page.goto(`${base}/inbox`);
-  await page
-    .getByRole("textbox", { name: "Review note" })
-    .fill("Keep my observation");
-  await page.getByRole("tab", { name: "History", exact: true }).click();
-  await expect(page.getByRole("alertdialog")).toHaveCount(0);
-  const current = await (
-    await request.get(`/api${base}/verifications/${value.verification_id}`)
-  ).json();
-  expect(
-    (
-      await request.post(
-        `/api${base}/verifications/${value.verification_id}/review`,
-        { data: { expected_revision: current.revision, action: "accept" } },
-      )
-    ).ok(),
-  ).toBe(true);
-  await page.getByRole("tab", { name: "Needs me", exact: true }).click();
-  await expect(
-    page
-      .getByRole("tabpanel", { name: "Needs me", exact: true })
-      .getByRole("article"),
-  ).toHaveCount(0);
-  await expect(
-    page.getByText("Unsent responses to resolved requests are saved in"),
-  ).toBeVisible();
-  await page.getByRole("tab", { name: "History", exact: true }).click();
-  await expect(page.getByRole("textbox", { name: "Review note" })).toHaveValue(
-    "Keep my observation",
-  );
-  await expect(
-    page.getByRole("button", { name: "Accept milestone", exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByText(
-      "This request no longer needs a response. Your unsent note is preserved.",
-    ),
-  ).toBeVisible();
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.screenshot({
-    path: test.info().outputPath("external-resolution-draft.png"),
-  });
-  await page.getByRole("button", { name: "Discard note" }).click();
-  await page.getByRole("tab", { name: "Needs me", exact: true }).click();
-  await expect(
-    page
-      .getByRole("tabpanel", { name: "Needs me", exact: true })
-      .getByRole("article"),
-  ).toHaveCount(0);
-  await page.getByRole("tab", { name: "History", exact: true }).click();
-  await expect(
-    page.getByRole("tabpanel", { name: "History", exact: true }),
-  ).toBeVisible();
-});
-
 test("task and project questions accept suggested or free answers inside Inbox", async ({
   page,
   request,
@@ -342,40 +152,45 @@ test("task and project questions accept suggested or free answers inside Inbox",
       await fixtureProject(request, {
         data: {
           path: existingDirectory(join(state, project)),
-          task_prefix: "INQ",
         },
       })
     ).ok(),
   ).toBe(true);
-  const workspace = await projectWorkspace(request, project);
+  const workspace = await projectWorkspace(page.request, project);
   expect(
     (
-      await request.post(`/api/projects/${project}/tasks`, {
-        data: {
-          id: "export",
-          title: "Export records",
+      await request.post(
+        `/api/workspaces/${await projectWorkspace(page.request, project)}/tasks`,
+        {
+          data: {
+            id: "export",
+            title: "Export records",
 
-          status: "up_next",
+            status: "up_next",
+          },
         },
-      })
+      )
     ).ok(),
   ).toBe(true);
   for (const [id, task] of [
-    ["task", "INQ-1"],
+    ["task", "T-1"],
     ["project", null],
   ]) {
-    const response = await request.post(`/api/projects/${project}/questions`, {
-      data: {
-        id,
-        task_id: task,
-        question: task
-          ? "Which records should be exported?"
-          : "Which format should we prioritize?",
-        context: "Choose the scope for the export.",
-        recommendation: "Start with all records.",
-        choices: ["All records", "Visible records"],
+    const response = await request.post(
+      `/api/workspaces/${await projectWorkspace(page.request, project)}/questions`,
+      {
+        data: {
+          id,
+          task_id: task,
+          question: task
+            ? "Which records should be exported?"
+            : "Which format should we prioritize?",
+          context: "Choose the scope for the export.",
+          recommendation: "Start with all records.",
+          choices: ["All records", "Visible records"],
+        },
       },
-    });
+    );
     expect(response.ok(), await response.text()).toBe(true);
   }
   await page.goto(`/workspaces/${workspace}/inbox`);
@@ -417,7 +232,9 @@ test("task and project questions accept suggested or free answers inside Inbox",
       async () =>
         (
           await (
-            await request.get(`/api/projects/${project}/questions/task`)
+            await request.get(
+              `/api/workspaces/${await projectWorkspace(page.request, project)}/questions/task`,
+            )
           ).json()
         ).answer,
     )
@@ -446,7 +263,9 @@ test("task and project questions accept suggested or free answers inside Inbox",
       async () =>
         (
           await (
-            await request.get(`/api/projects/${project}/questions/project`)
+            await request.get(
+              `/api/workspaces/${await projectWorkspace(page.request, project)}/questions/project`,
+            )
           ).json()
         ).answer,
     )
@@ -475,7 +294,7 @@ test("code review in Inbox approves the exact result and delivers without naviga
     project,
     "INC",
   ]);
-  const workspace = await projectWorkspace(request, project);
+  const workspace = await projectWorkspace(page.request, project);
   await page.goto(`/workspaces/${workspace}/inbox`);
   await expect(
     page.getByRole("button", { name: "Approve and integrate", exact: true }),
@@ -509,7 +328,9 @@ test("code review in Inbox approves the exact result and delivers without naviga
       async () =>
         (
           await (
-            await request.get(`/api/projects/${project}/view/tasks/INC-1`)
+            await request.get(
+              `/api/workspaces/${await projectWorkspace(page.request, project)}/view/tasks/T-1`,
+            )
           ).json()
         ).status,
       { timeout: 15000 },
@@ -517,7 +338,9 @@ test("code review in Inbox approves the exact result and delivers without naviga
     .toBe("done");
   await expect(page).toHaveURL(new RegExp(`/workspaces/${workspace}/inbox$`));
   await expect(page.getByRole("article", { name: /^Result:/ })).toHaveCount(0);
-  await page.goto(`/projects/${project}/tasks/INC-1`);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, project)}/tasks/T-1`,
+  );
   await expect(
     page
       .locator(".editor-heading")
@@ -529,102 +352,27 @@ test("code review in Inbox approves the exact result and delivers without naviga
   await expect(page.locator(".entity-pane-footer")).toBeEmpty();
 });
 
-test("Needs me scrolls with wheel input and retains reading position during updates", async ({
-  page,
-  request,
-}) => {
-  const value = milestone("inbox-wheel");
-  const base = `/workspaces/${value.workspace_id}`;
-  for (let index = 0; index < 8; index++) {
-    const response = await request.post(
-      `/api/projects/${value.project_id}/questions`,
-      {
-        data: {
-          question: `Decision ${index + 1}: choose the walkthrough scope`,
-          context: "Confirm which setup path to cover.",
-          recommendation: "Begin with a clean installation.",
-          author: "coordinator",
-        },
-      },
-    );
-    expect(response.ok(), await response.text()).toBe(true);
-  }
-  for (const width of [1440, 390]) {
-    await page.setViewportSize({ width, height: 844 });
-    await page.goto(`${base}/inbox`);
-    await expect(page.getByRole("article").first()).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Accept milestone", exact: true }),
-    ).toBeEnabled();
-    await expect(page.getByLabel("Your answer", { exact: true })).toHaveCount(
-      width === 1440 ? 8 : 9,
-    );
-    await expect(
-      page.getByRole("tab", { name: "Waiting", exact: true }),
-    ).toHaveCount(0);
-    const pane = page
-      .locator(".workspace-work-content")
-      .filter({ visible: true });
-    const bounds = (await pane.boundingBox())!;
-    await page.mouse.move(
-      bounds.x + bounds.width / 2,
-      bounds.y + bounds.height / 2,
-    );
-    // Start after all cards load; late layout/scroll restoration is not a wheel
-    // gesture. Both directions below still use actual browser input.
-    await pane.evaluate((n) => {
-      n.scrollTop = 0;
-    });
-    await page.mouse.wheel(0, 600);
-    await expect.poll(() => pane.evaluate((n) => n.scrollTop)).toBe(600);
-    const before = await pane.evaluate((n) => n.scrollTop);
-    const question = await request.post(
-      `/api/projects/${value.project_id}/questions`,
-      {
-        data: {
-          question: `Additional decision at ${width}`,
-          context: "A newly discovered setup choice.",
-          recommendation: "Keep the existing setup.",
-          author: "coordinator",
-        },
-      },
-    );
-    expect(question.ok(), await question.text()).toBe(true);
-    await expect(
-      page.getByRole("heading", {
-        name: `Additional decision at ${width}`,
-        exact: true,
-      }),
-    ).toBeAttached();
-    await expect
-      .poll(() => pane.evaluate((n) => n.scrollTop))
-      .toBeLessThan(before + 5);
-    await expect
-      .poll(() => pane.evaluate((n) => n.scrollTop))
-      .toBeGreaterThan(before - 5);
-    await page.mouse.wheel(0, -600);
-    await expect.poll(() => pane.evaluate((n) => n.scrollTop)).toBeLessThan(5);
-  }
-});
-
 test("resolved requests disappear without losing later-page drafts or failed answers", async ({
   page,
   request,
 }) => {
   const project = "inbox-paged";
   await fixtureProject(request, {
-    data: { path: existingDirectory(join(state, project)), task_prefix: "IPG" },
+    data: { path: existingDirectory(join(state, project)) },
   });
-  const workspace = await projectWorkspace(request, project);
+  const workspace = await projectWorkspace(page.request, project);
   for (let index = 0; index < 23; index++) {
-    const response = await request.post(`/api/projects/${project}/questions`, {
-      data: {
-        id: `q-${index}`,
-        question: `Paged decision ${index}`,
-        context: "Choose a format.",
-        recommendation: "CSV",
+    const response = await request.post(
+      `/api/workspaces/${await projectWorkspace(page.request, project)}/questions`,
+      {
+        data: {
+          id: `q-${index}`,
+          question: `Paged decision ${index}`,
+          context: "Choose a format.",
+          recommendation: "CSV",
+        },
       },
-    });
+    );
     expect(response.ok(), await response.text()).toBe(true);
   }
   await page.goto(`/workspaces/${workspace}/inbox`);
@@ -649,7 +397,7 @@ test("resolved requests disappear without losing later-page drafts or failed ans
     .getByRole("textbox", { name: "Your answer", exact: true })
     .fill("CSV first.");
   await page.route(
-    `**/api/projects/${project}/questions/q-22/answer`,
+    `**/api/workspaces/*/questions/q-22/answer`,
     async (route) => {
       await route.fulfill({
         status: 409,
@@ -670,7 +418,7 @@ test("resolved requests disappear without losing later-page drafts or failed ans
   await expect(
     first.getByRole("textbox", { name: "Your answer", exact: true }),
   ).toHaveValue("CSV first.");
-  await page.unroute(`**/api/projects/${project}/questions/q-22/answer`);
+  await page.unroute(`**/api/workspaces/*/questions/q-22/answer`);
   await first.getByRole("button", { name: "Send answer", exact: true }).click();
   await expect(first).toHaveCount(0);
   await expect(

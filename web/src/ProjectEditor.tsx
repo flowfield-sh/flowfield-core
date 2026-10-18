@@ -1,4 +1,3 @@
-import { ContentStack } from "./DetailLayout";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,14 +14,12 @@ import { WorkerDocumentPicker } from "./WorkerDocuments";
 const fields = (record?: Project) => ({
   name: record?.name ?? "",
   description: record?.description ?? "",
-  task_prefix: record?.task_prefix ?? "",
   worker_documents: record?.worker_documents ?? [],
 });
 export function ProjectEditor({
   incoming,
   workspaceId,
   path,
-  hasTasks,
   onDirty,
   saved,
   close,
@@ -30,7 +27,6 @@ export function ProjectEditor({
   incoming: Project;
   workspaceId: string;
   path: string;
-  hasTasks: boolean;
   onDirty: (value: boolean) => void;
   saved: (record: Project) => void;
   close: () => void;
@@ -109,28 +105,6 @@ export function ProjectEditor({
                 onChange={(event) => change("name", event.target.value)}
               />
             </Label>
-            <ContentStack space="tight">
-              <Label className="field block">
-                Prefix
-                <Input
-                  aria-describedby={`${id}-prefix-help`}
-                  value={values.task_prefix}
-                  required
-                  pattern="[A-Za-z]{3}"
-                  minLength={3}
-                  maxLength={3}
-                  disabled={hasTasks}
-                  onChange={(event) =>
-                    change("task_prefix", event.target.value.toUpperCase())
-                  }
-                />
-              </Label>
-              <p id={`${id}-prefix-help`} className="detail-metadata">
-                {hasTasks
-                  ? "Fixed after the first task to preserve keys and links."
-                  : "Choose a unique three-letter prefix before creating tasks."}
-              </p>
-            </ContentStack>
             <MarkdownField
               label="Description"
               value={values.description}

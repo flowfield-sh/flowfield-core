@@ -189,7 +189,7 @@ test("central harness settings preserve host drafts and configure kinds independ
     claude = host("claude-code");
   codex.registration.executable = "/service/custom/codex";
   let discoveries = 0;
-  await page.route("**/api/worker-models*", (route) => {
+  await page.route("**/api/{worker-models,workspaces/*/models}*", (route) => {
     discoveries++;
     return route.fulfill({ json: [] });
   });

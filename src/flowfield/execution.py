@@ -22,7 +22,7 @@ from flowfield.execution_models import (
     Usage,
     WorkerOccupancy,
     WorkerResult,
-    WorkerSettings,
+    WorkspaceWorkerSettings,
 )
 from flowfield.harness_models import HarnessLaunch
 from flowfield.questions import Question, QuestionCreate, Questions
@@ -32,67 +32,73 @@ class Execution:
     def __init__(self, workspace: Workspace):
         self.workspace = workspace
 
-    def _settings(self, db: sqlite3.Connection, project_id: str) -> WorkerSettings:
-        self.workspace._work_scope(db, project_id)
-        return worker_settings.read_project(db, project_id)
+    def _settings(self, db: sqlite3.Connection, workspace_id: str) -> WorkspaceWorkerSettings:
+        self.workspace._workspace(db, workspace_id)
+        return worker_settings.read_workspace(db, workspace_id)
 
-    def settings(self, project_id: str) -> WorkerSettings:
+    def settings(self, workspace_id: str) -> WorkspaceWorkerSettings:
         with self.workspace.connection() as db:
-            return self._settings(db, project_id)
+            return self._settings(db, workspace_id)
 
-    def occupancy(self, project_id: str) -> WorkerOccupancy:
+    def occupancy(self, workspace_id: str) -> WorkerOccupancy:
         with self.workspace.connection() as db:
-            self.workspace._work_scope(db, project_id)
-            return worker_settings.occupancy(db, project=project_id)
+            self.workspace._workspace(db, workspace_id)
+            return worker_settings.occupancy(db, workspace=workspace_id)
 
-    def _save_settings(self, db: sqlite3.Connection, settings: WorkerSettings) -> None:
-        worker_settings.save_project(db, settings)
+    def _save_settings(self, db: sqlite3.Connection, settings: WorkspaceWorkerSettings) -> None:
+        worker_settings.save_workspace(db, settings)
 
-    def configure(self, project_id: str, request: SettingsEdit) -> WorkerSettings:
-        with self.workspace.connection(write=True) as db:
-            return self._configure(db, project_id, request)
+    def configure(self, workspace_id: str, request: SettingsEdit) -> WorkspaceWorkerSettings:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            return self._configure(db, workspace_id, request)
 
     def _configure(
-        self, db: sqlite3.Connection, project_id: str, request: SettingsEdit
-    ) -> WorkerSettings:
-        settings = self._settings(db, project_id)
+        self, db: sqlite3.Connection, workspace_id: str, request: SettingsEdit
+    ) -> WorkspaceWorkerSettings:
+        settings = self._settings(db, workspace_id)
         self.workspace._current(settings.revision, request.expected_revision)
         worker_settings.configure(settings, request)
         settings.problem = None
         self._save_settings(db, settings)
         return settings
 
-    def queue(self, project_id: str, request: QueueEdit) -> WorkerSettings:
-        with self.workspace.connection(write=True) as db:
-            settings = self._settings(db, project_id)
+    def queue(self, workspace_id: str, request: QueueEdit) -> WorkspaceWorkerSettings:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            settings = self._settings(db, workspace_id)
             self.workspace._current(settings.revision, request.expected_revision)
             worker_settings.queue(settings, request)
             settings.problem = None
             self._save_settings(db, settings)
             return settings
 
-    def queue_problem(self, project_id: str, problem: str | None) -> None:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            settings = self._settings(db, project_id)
+    def queue_problem(self, workspace_id: str, problem: str | None) -> None:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            settings = self._settings(db, workspace_id)
             if settings.problem == problem:
-                return
-            if worker_settings.workspace_id(db, project_id) is not None:
-                worker_settings.save_problem(db, project_id, problem)
                 return
             settings.problem = problem
             self._save_settings(db, settings)
 
-    def _run(self, db: sqlite3.Connection, project_id: str, run_id: str) -> Run:
+    def task_problem(self, workspace_id: str, task_id: str, problem: str | None) -> None:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            self.workspace._task(db, workspace_id, task_id)
+            db.execute(
+                "UPDATE tasks SET scheduling_problem=? WHERE workspace_id=? AND id=? "
+                "AND scheduling_problem IS NOT ?",
+                (problem, workspace_id, task_id, problem),
+            )
+
+    def _run(self, db: sqlite3.Connection, workspace_id: str, run_id: str) -> Run:
         row = db.execute(
-            "SELECT data FROM runs WHERE project_id=? AND id=?", (project_id, run_id)
+            "SELECT data FROM runs WHERE workspace_id=? AND id=?", (workspace_id, run_id)
         ).fetchone()
         if not row:
             raise ApplicationError("not_found", "Attempt not found in this project.", 404)
         return Run.model_validate_json(row[0])
 
-    def get(self, project_id: str, run_id: str) -> Run:
+    def get(self, workspace_id: str, run_id: str) -> Run:
         with self.workspace.connection() as db:
-            return self._run(db, project_id, run_id)
+            return self._run(db, workspace_id, run_id)
 
     def _save(self, db: sqlite3.Connection, run: Run) -> None:
         run.revision += 1
@@ -101,19 +107,19 @@ class Execution:
             (run.status, run.model_dump_json(), run.id),
         )
 
-    def _correction_count(self, db: sqlite3.Connection, project_id: str, task_id: str) -> int:
+    def _correction_count(self, db: sqlite3.Connection, workspace_id: str, task_id: str) -> int:
         # Input continuations retain their correction number; explicit retries consume another.
         return int(
             db.execute(
                 "SELECT coalesce(max(json_extract(data,'$.correction.number')),0) "
-                "FROM runs WHERE project_id=? AND task_id=?",
-                (project_id, task_id),
+                "FROM runs WHERE workspace_id=? AND task_id=?",
+                (workspace_id, task_id),
             ).fetchone()[0]
         )
 
     def page(
         self,
-        project_id: str,
+        workspace_id: str,
         *,
         task_id: str | None = None,
         before: int | None = None,
@@ -122,19 +128,20 @@ class Execution:
     ) -> RunPage:
         limit = max(1, min(limit, 50))
         with self.workspace.connection() as db:
-            self.workspace._work_scope(db, project_id)
+            self.workspace._workspace(db, workspace_id)
             if task_id:
-                task_id = self.workspace._task(db, project_id, task_id).id
+                task_id = self.workspace._task(db, workspace_id, task_id).id
             rows = db.execute(
                 (
-                    "SELECT number, data FROM runs r WHERE project_id=? AND (? IS NULL"
+                    "SELECT number, data FROM runs r WHERE workspace_id=? AND (? IS NULL"
                     " OR task_id=?) AND (? IS NULL OR number<?) "
                     "AND (?=0 OR (status IN ('in_review','failed','uncertain') AND NOT"
-                    " EXISTS (SELECT 1 FROM runs n WHERE n.project_id=r.project_id AND"
-                    " n.task_id=r.task_id AND n.number>r.number))) ORDER BY number "
+                    " EXISTS (SELECT 1 FROM runs n WHERE n.workspace_id=r.workspace_id AND"
+                    " n.task_id=r.task_id AND n.subtask_id IS r.subtask_id "
+                    "AND n.number>r.number))) ORDER BY number "
                     "DESC LIMIT ?"
                 ),
-                (project_id, task_id, task_id, before, before, int(attention), limit + 1),
+                (workspace_id, task_id, task_id, before, before, int(attention), limit + 1),
             ).fetchall()
             return RunPage(
                 items=[Run.model_validate_json(r["data"]) for r in rows[:limit]],
@@ -166,21 +173,34 @@ class Execution:
             values["reconciliation_reason"] = None
         self.workspace._apply_task(db, TaskRevision(**values))
 
-    def _current_assignment(self, run: Run, task: Task) -> None:
+    def _current_assignment(self, db: sqlite3.Connection, run: Run, task: Task) -> None:
+        from flowfield.input_delivery import other_input_blocks
+        from flowfield.subtasks import Subtasks
+
+        child = (
+            Subtasks.read(db, run.workspace_id, task.id, run.subtask_id) if run.subtask_id else None
+        )
+        blocked = (
+            (
+                bool(task.blocked_by or task.reconciliation_reason)
+                or other_input_blocks(db, run.workspace_id, task.id, "", run.subtask_id)
+            )
+            if child
+            else task.readiness != "ready"
+        )
         if (
             task.archived
-            or task.readiness != "ready"
+            or blocked
             or task.agreement_revision != run.agreement_revision
             or not task.publication
-            or task.publication.completion != run.completion
+            or task.publication_status != "published"
+            or (child.completion if child else task.publication.completion) != run.completion
             or task.publication.target_branch != run.target_branch
         ):
             raise ApplicationError(
                 "assignment_changed",
-                (
-                    "This result belongs to an older or blocked assignment. Reconcile "
-                    "the task and request a revised attempt before accepting."
-                ),
+                "This result belongs to an older or blocked assignment. Reconcile "
+                "the task and request a revised attempt before accepting.",
                 409,
             )
 
@@ -190,7 +210,7 @@ class Execution:
             return [
                 (row[0], row[1])
                 for row in db.execute(
-                    "SELECT project_id,id FROM tasks WHERE json_extract(data,'$.archived')=0 "
+                    "SELECT workspace_id,id FROM tasks WHERE json_extract(data,'$.archived')=0 "
                     "AND json_extract(data,'$.status') IN ('up_next','in_progress') "
                     "ORDER BY position,key"
                 )
@@ -200,23 +220,24 @@ class Execution:
         self, db: sqlite3.Connection, task: Task, available_results: set[str]
     ) -> list[dict[str, Any]] | None:
         """Resolve accepted prerequisite evidence inside the claim transaction."""
-        project_id = task.project_id
         prerequisites: list[dict[str, Any]] = []
         usable = True
         for reference in task.prerequisites:
             dependency = reference.id
-            dependency_project = reference.project_id
+            dependency_project = reference.workspace_id
             row = db.execute(
                 (
-                    "SELECT data FROM work_runs WHERE project_id=? AND task_id=? AND "
-                    "status='accepted' ORDER BY number DESC LIMIT 1"
+                    "SELECT r.data FROM runs r JOIN result_versions v ON v.run_id=r.id "
+                    "WHERE r.workspace_id=? AND r.task_id=? AND v.status='delivered' "
+                    "ORDER BY v.version DESC LIMIT 1"
                 ),
                 (dependency_project, dependency),
             ).fetchone()
             if row:
                 prerequisite = Run.model_validate_json(row[0])
                 if (
-                    dependency_project == project_id
+                    reference.project_id == task.project_id
+                    and task.project_id is not None
                     and prerequisite.completion == "code"
                     and prerequisite.result_commit not in available_results
                 ):
@@ -224,9 +245,10 @@ class Execution:
                 prerequisites.append(
                     {
                         "task": prerequisite.task_key,
-                        "project_id": dependency_project,
+                        "workspace_id": dependency_project,
+                        "project_id": reference.project_id,
                         "repository_scope": "same_repository"
-                        if dependency_project == project_id
+                        if reference.project_id == task.project_id and task.project_id is not None
                         else "other_repository",
                         "run_id": prerequisite.id,
                         "completion": prerequisite.completion,
@@ -238,44 +260,7 @@ class Execution:
                     }
                 )
             else:
-                prerequisite_task = self.workspace._task(db, dependency_project, dependency)
-                if prerequisite_task.report_completion_revision:
-                    accepted = db.execute(
-                        "SELECT data FROM task_revisions WHERE project_id=? "
-                        "AND task_id=? AND revision=?",
-                        (
-                            dependency_project,
-                            dependency,
-                            prerequisite_task.report_completion_revision,
-                        ),
-                    ).fetchone()
-                    assert accepted
-                    recorded = json.loads(accepted[0])
-                    handoff = db.execute(
-                        "SELECT id,body FROM activity WHERE project_id=? AND task_id=? "
-                        "AND kind='handoff' AND created_at<=? "
-                        "ORDER BY sequence DESC LIMIT 1",
-                        (dependency_project, dependency, recorded["updated_at"]),
-                    ).fetchone()
-                    prerequisites.append(
-                        {
-                            "task": prerequisite_task.key,
-                            "project_id": dependency_project,
-                            "commit": None,
-                            "completion": "report",
-                            "accepted_by": recorded["updated_by"],
-                            "task_revision": prerequisite_task.report_completion_revision,
-                            "description": recorded["body"],
-                            "result": {
-                                "summary": handoff["body"]
-                                if handoff
-                                else "Human accepted a report; no findings were recorded."
-                            },
-                            "source": handoff["id"] if handoff else None,
-                        }
-                    )
-                else:
-                    usable = False
+                usable = False
         return prerequisites if usable else None
 
     def _assignment(
@@ -290,12 +275,14 @@ class Execution:
         resume: bool,
     ) -> dict[str, str]:
         """Freeze context once; input continuations reuse their original assignment."""
-        project_id = task.project_id
+        workspace_id = task.workspace_id
         assert task.publication
         from flowfield.worker_checks import CheckPermissions
 
         runtime_settings["worker_checks_enabled"] = (
-            CheckPermissions(self.workspace).read(db, project_id).enabled
+            CheckPermissions(self.workspace).read(db, task.project_id).enabled
+            if task.project_id
+            else False
         )
         if resume:
             assert predecessor
@@ -311,17 +298,7 @@ class Execution:
                 correction=run.correction.model_dump_json() if run.correction else "",
             )
             return assignment
-        project = self.workspace._work_scope(db, project_id)
-        milestone = (
-            self.workspace._milestone(db, project_id, task.milestone_id)
-            if task.milestone_id
-            else None
-        )
-        if task.publication.milestone:
-            from flowfield.milestones import Milestones
-
-            binding = task.publication.milestone
-            milestone = Milestones.revision(db, binding.workspace_id, binding.id, binding.revision)
+        project = self.workspace._project(db, task.project_id) if task.project_id else None
         assignment = {
             "agreement": json.dumps(
                 {
@@ -329,19 +306,15 @@ class Execution:
                     "task_revision": task.revision,
                     "agreement_revision": task.agreement_revision,
                     "completion": task.publication.completion,
-                    "repository": project.project_id is not None,
+                    "repository": project is not None,
                     "target_branch": task.publication.target_branch,
                     "base_commit": run.base_commit,
                     "scope": "Frozen at claim; discoveries do not change intent.",
                 }
             ),
             "description": task.body,
-            "project": project.description,
-            "milestone": milestone.body if milestone else "",
-            "milestone_criteria": milestone.acceptance_criteria if milestone else "",
-            "milestone_agreement": task.publication.milestone.model_dump_json()
-            if task.publication.milestone
-            else "",
+            "project": project.description if project else "",
+            "criteria": task.acceptance_criteria,
             "prerequisites": json.dumps(prerequisites),
             "feedback": run.feedback,
             "predecessor": predecessor.result.model_dump_json()
@@ -367,7 +340,7 @@ class Execution:
                     file.model_dump()
                     for file in freeze(
                         db,
-                        self.workspace._project_workspace(db, project_id),
+                        workspace_id,
                         file_ids,
                     )
                 ]
@@ -375,28 +348,23 @@ class Execution:
             if file_ids
             else "[]"
         )
-        from flowfield.milestone_verification import assignment as verification_assignment
-
-        assignment["milestone_verification"] = verification_assignment(
-            db, project_id, task.id, task.agreement_revision
-        )
         from flowfield.worker_documents import sections as document_sections
 
         run.documents = task.publication.documents
         assignment.update(document_sections(db, run.documents))
         handoff = db.execute(
-            "SELECT body FROM activity WHERE project_id=? AND task_id=? "
+            "SELECT body FROM activity WHERE workspace_id=? AND task_id=? "
             "AND kind='handoff' ORDER BY sequence DESC LIMIT 1",
-            (project_id, task.id),
+            (workspace_id, task.id),
         ).fetchone()
         assignment["handoff"] = handoff[0] if handoff else ""
         assignment["questions"] = json.dumps(
             [
                 json.loads(row[0])
                 for row in db.execute(
-                    "SELECT data FROM questions WHERE project_id=? AND task_id=? "
+                    "SELECT data FROM questions WHERE workspace_id=? AND task_id=? "
                     "AND status IN ('open','answered') ORDER BY number",
-                    (project_id, task.id),
+                    (workspace_id, task.id),
                 )
             ]
         )
@@ -413,43 +381,70 @@ class Execution:
 
     def claim(
         self,
-        project_id: str,
+        workspace_id: str,
         baseline: str,
         available_results: dict[str, set[str]],
         *,
         task_id: str | None = None,
+        subtask_id: str | None = None,
+        assembly_id: str | None = None,
+        contributions: list[Run] | None = None,
     ) -> Run | None:
         """Reserve once against fresh state; caller supplies verified immutable Git facts."""
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            settings = self._settings(db, project_id)
-            occupied = worker_settings.occupancy(db, project=project_id)
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            settings = self._settings(db, workspace_id)
+            occupied = worker_settings.occupancy(db, workspace=workspace_id)
             count = occupied.active + occupied.uncertain
             if not settings.enabled or not settings.selection or count >= settings.max_parallel:
                 return None
             waiting_for_code = []
             candidates = (
-                [self.workspace._task(db, project_id, task_id)]
+                [self.workspace._task(db, workspace_id, task_id)]
                 if task_id
-                else self.workspace._tasks(db, project_id, False)
+                else self.workspace._tasks(db, workspace_id, False)
             )
+            from flowfield.subtasks import Subtasks
+            from flowfield.task_assembly import TaskAssembly
+
             for task in candidates:
+                children = Subtasks.read_all(db, workspace_id, task.id)
+                child = Subtasks.read(db, workspace_id, task.id, subtask_id) if subtask_id else None
+                if bool(children) != bool(child):
+                    continue
+                if child:
+                    if child.status not in ("pending", "blocked") or child.contribution_run_id:
+                        continue
+                    if any(
+                        not sibling.contribution_run_id
+                        for sibling in children
+                        if sibling.id in child.dependencies
+                    ):
+                        continue
+                    assert assembly_id
+                    assembly = TaskAssembly.read(db, assembly_id)
+                    if assembly.workspace_id != workspace_id or assembly.task_id != task.id:
+                        raise ApplicationError(
+                            "assembly_owner", "Task inputs belong to another task."
+                        )
                 if task.archived:
                     continue
                 previous = db.execute(
-                    "SELECT data FROM work_runs WHERE project_id=? AND task_id=? "
+                    "SELECT data FROM runs WHERE workspace_id=? AND task_id=? AND subtask_id IS ? "
                     "ORDER BY number DESC LIMIT 1",
-                    (project_id, task.id),
+                    (workspace_id, task.id, subtask_id),
                 ).fetchone()
                 predecessor = Run.model_validate_json(previous[0]) if previous else None
                 questions = Questions(self.workspace)
                 pending_input = (
-                    questions._get(db, project_id, predecessor.question_id)
+                    questions._get(db, workspace_id, predecessor.question_id)
                     if predecessor
                     and predecessor.status == "waiting_for_input"
                     and predecessor.question_id
                     and predecessor.input_checkpoint
                     else None
                 )
+                from flowfield.input_delivery import other_input_blocks
+
                 continuation = bool(
                     predecessor
                     and pending_input
@@ -460,41 +455,37 @@ class Execution:
                     and task.agreement_revision == predecessor.agreement_revision
                     and not task.reconciliation_reason
                     and not task.blocked_by
-                    and all(q.id == pending_input.id for q in task.blocking_questions)
+                    and not other_input_blocks(
+                        db, workspace_id, task.id, pending_input.id, subtask_id
+                    )
                 )
                 if (
-                    not continuation and (task.status != "up_next" or task.readiness != "ready")
+                    not continuation
+                    and (
+                        task.status
+                        not in (
+                            ("up_next", "in_progress")
+                            if child and child.status == "pending"
+                            else ("up_next",)
+                        )
+                        or task.readiness != "ready"
+                    )
                 ) or task.publication_status != "published":
                     continue
-                if task.publication and task.publication.verification_id:
-                    row = db.execute(
-                        "SELECT v.status,p.data FROM milestone_verifications v "
-                        "LEFT JOIN milestone_promotions p ON p.verification_id=v.id "
-                        "WHERE v.id=?",
-                        (task.publication.verification_id,),
-                    ).fetchone()
-                    if not row or row[0] != "verifying":
-                        continue
-                    if row[1]:
-                        promotion = json.loads(row[1])
-                        if (
-                            promotion["status"] != "ready"
-                            or promotion["candidate_commit"] != baseline
-                        ):
-                            continue
                 if db.execute(
                     (
-                        "SELECT 1 FROM runs WHERE project_id=? AND task_id=? AND status IN"
+                        "SELECT 1 FROM runs WHERE workspace_id=? AND task_id=? AND "
+                        "subtask_id IS ? AND status IN"
                         " ('preparing','running','stopping','uncertain')"
                     ),
-                    (project_id, task.id),
+                    (workspace_id, task.id, subtask_id),
                 ).fetchone():
                     continue
                 correction = predecessor.next_correction if predecessor else None
                 if predecessor and predecessor.status in ("failed", "stopped", "waiting_for_input"):
                     correction = predecessor.correction
                 if correction and not continuation:
-                    correction_count = self._correction_count(db, project_id, task.id)
+                    correction_count = self._correction_count(db, workspace_id, task.id)
                     correction = correction.model_copy(update={"number": correction_count + 1})
                 chosen_base = (
                     correction.base_commit
@@ -503,6 +494,7 @@ class Execution:
                     if predecessor
                     and predecessor.status == "changes_requested"
                     and predecessor.result_commit
+                    and not child
                     else baseline
                 )
                 retrying_input = bool(
@@ -511,7 +503,8 @@ class Execution:
                     and predecessor.status in ("failed", "stopped")
                     and task.agreement_revision == predecessor.agreement_revision
                     and task.publication
-                    and task.publication.completion == predecessor.completion
+                    and (child.completion if child else task.publication.completion)
+                    == predecessor.completion
                     and task.publication.target_branch == predecessor.target_branch
                 )
                 if continuation or retrying_input:
@@ -531,7 +524,8 @@ class Execution:
                     and predecessor.status in ("failed", "stopped")
                     and task.publication
                     and task.publication.target_branch == predecessor.target_branch
-                    and task.publication.completion == predecessor.completion
+                    and (child.completion if child else task.publication.completion)
+                    == predecessor.completion
                 ):
                     chosen_base = predecessor.base_commit
                     input_base = predecessor.checkpoint_commit
@@ -541,16 +535,59 @@ class Execution:
                 if prerequisites is None:
                     waiting_for_code.append(task.key)
                     continue
+                if child:
+                    if (
+                        prerequisites != assembly.prerequisites
+                        or TaskAssembly.signature(task, prerequisites) != assembly.signature
+                    ):
+                        raise ApplicationError(
+                            "task_inputs_changed", "Task prerequisites changed before claim.", 409
+                        )
+                    required = set(child.dependencies)
+                    pending = list(required)
+                    while pending:
+                        sibling = Subtasks.read(db, workspace_id, task.id, pending.pop())
+                        for dependency in sibling.dependencies:
+                            if dependency not in required:
+                                required.add(dependency)
+                                pending.append(dependency)
+                    if {item.subtask_id for item in contributions or []} != required:
+                        raise ApplicationError(
+                            "subtask_inputs_changed",
+                            "Freeze every prerequisite contribution before claiming work.",
+                            409,
+                        )
+                    for contribution in contributions or []:
+                        sibling = Subtasks.read(
+                            db, workspace_id, task.id, contribution.subtask_id or ""
+                        )
+                        if (
+                            sibling.contribution_run_id != contribution.id
+                            or contribution.assembly_id != assembly_id
+                        ):
+                            raise ApplicationError(
+                                "subtask_inputs_changed",
+                                "A prerequisite contribution changed.",
+                                409,
+                            )
+                        prerequisites.append(
+                            {
+                                "workspace_id": workspace_id,
+                                "project_id": task.project_id,
+                                "task_id": task.id,
+                                "subtask_id": sibling.id,
+                                "run_id": contribution.id,
+                                "commit": contribution.result_commit,
+                                "summary": contribution.result.summary
+                                if contribution.result
+                                else "",
+                            }
+                        )
                 assert task.publication
                 runtime_row = db.execute(
-                    "SELECT data FROM integration_settings WHERE project_id=?", (project_id,)
+                    "SELECT data FROM integration_settings WHERE project_id=?", (task.project_id,)
                 ).fetchone()
                 runtime_settings = json.loads(runtime_row[0]) if runtime_row else {}
-                from flowfield.milestone_delivery import effective_branch
-
-                runtime_settings["target_branch"] = effective_branch(
-                    db, project_id, task.milestone_id
-                )
                 if (
                     task.publication.target_branch
                     and task.publication.target_branch != runtime_settings["target_branch"]
@@ -560,7 +597,8 @@ class Execution:
                     (continuation or retrying_input)
                     and predecessor
                     and (
-                        task.publication.completion != predecessor.completion
+                        (child.completion if child else task.publication.completion)
+                        != predecessor.completion
                         or task.publication.target_branch != predecessor.target_branch
                         or (
                             predecessor.completion == "code"
@@ -571,15 +609,19 @@ class Execution:
                     continue
                 effective = (
                     AgentSettings(self.workspace)
-                    .resolve(db, project_id, "worker", task.id)
+                    .resolve(db, workspace_id, "worker", task.id)
                     .effective
                 )
                 assert effective
                 effective = AgentSettings(self.workspace).freeze(db, effective)
                 run = Run(
                     id=uuid4().hex,
-                    project_id=project_id,
+                    workspace_id=workspace_id,
+                    project_id=task.project_id,
                     task_id=task.id,
+                    subtask_id=child.id if child else None,
+                    subtask_revision=child.revision if child else None,
+                    assembly_id=assembly_id,
                     task_key=task.key,
                     environment_id=uuid4().hex,
                     predecessor_id=predecessor.id if predecessor else None,
@@ -601,7 +643,7 @@ class Execution:
                     agent_settings=effective,
                     agreement_revision=task.agreement_revision,
                     base_commit=chosen_base,
-                    completion=task.publication.completion,
+                    completion=child.completion if child else task.publication.completion,
                     target_branch=task.publication.target_branch,
                     feedback=predecessor.feedback if predecessor else "",
                     created_at=now(),
@@ -615,6 +657,30 @@ class Execution:
                     runtime_settings,
                     resume=continuation or retrying_input,
                 )
+                if child:
+                    assignment["task_intent"] = task.body
+                    assignment["description"] = child.body
+                    assignment["title"] = f"{task.key} / {child.key}: {child.title}"
+                    assignment["contribution"] = child.model_dump_json()
+                    assignment["agreement"] = json.dumps(
+                        {
+                            "agreement_revision": task.agreement_revision,
+                            "subtask_revision": child.revision,
+                            "completion": child.completion,
+                            "scope": (
+                                "Submit this contribution. Whole-task review and delivery "
+                                "follow assembly."
+                            ),
+                        }
+                    )
+                    child = child.model_copy(
+                        update={
+                            "status": "running",
+                            "revision": child.revision + 1,
+                            "updated_at": now(),
+                        }
+                    )
+                    Subtasks.save(db, child)
                 if continuation:
                     assert pending_input and predecessor
                     from flowfield.worker_context import continue_input
@@ -654,13 +720,15 @@ class Execution:
                 enrich(db, run, assignment)
                 db.execute(
                     (
-                        "INSERT INTO runs(id,project_id,task_id,status,data,assignment) "
-                        "VALUES (?,?,?,?,?,?)"
+                        "INSERT INTO "
+                        "runs(id,workspace_id,task_id,subtask_id,status,data,assignment) "
+                        "VALUES (?,?,?,?,?,?,?)"
                     ),
                     (
                         run.id,
-                        project_id,
+                        workspace_id,
                         task.id,
+                        run.subtask_id,
                         run.status,
                         run.model_dump_json(),
                         json.dumps(assignment),
@@ -683,27 +751,32 @@ class Execution:
                 )
             return None
 
-    def assignment(self, project_id: str, run_id: str) -> dict[str, str]:
+    def assignment(self, workspace_id: str, run_id: str) -> dict[str, str]:
         with self.workspace.connection() as db:
-            self._run(db, project_id, run_id)
-            value: dict[str, str] = json.loads(
-                db.execute("SELECT assignment FROM runs WHERE id=?", (run_id,)).fetchone()[0]
-            )
-            return value
+            return self._saved_assignment(db, workspace_id, run_id)
 
-    def worker_access(self, project_id: str, run_id: str) -> Run:
-        run = self.get(project_id, run_id)
+    def _saved_assignment(
+        self, db: sqlite3.Connection, workspace_id: str, run_id: str
+    ) -> dict[str, str]:
+        self._run(db, workspace_id, run_id)
+        value: dict[str, str] = json.loads(
+            db.execute("SELECT assignment FROM runs WHERE id=?", (run_id,)).fetchone()[0]
+        )
+        return value
+
+    def worker_access(self, workspace_id: str, run_id: str) -> Run:
+        run = self.get(workspace_id, run_id)
         if run.status != "running":
             raise ApplicationError(
                 "worker_scope_closed", "This attempt no longer owns a running assignment.", 409
             )
         return run
 
-    def context_section(self, project_id: str, run_id: str, section: str) -> str:
+    def context_section(self, workspace_id: str, run_id: str, section: str) -> str:
         from flowfield.worker_context import attempt_source
 
         with self.workspace.connection() as db:
-            run = self._run(db, project_id, run_id)
+            run = self._run(db, workspace_id, run_id)
             sections = json.loads(
                 db.execute("SELECT assignment FROM runs WHERE id=?", (run_id,)).fetchone()[0]
             )
@@ -717,71 +790,51 @@ class Execution:
                 )
             return str(sections[section])
 
-    def report_result(self, project_id: str, run_id: str, result: WorkerResult) -> None:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            run = self._run(db, project_id, run_id)
+    def report_result(self, workspace_id: str, run_id: str, result: WorkerResult) -> None:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            run = self._run(db, workspace_id, run_id)
             if run.status != "running" or run.result:
                 raise ApplicationError("worker_scope_closed", "This report is closed.", 409)
-            from flowfield.milestone_verification import validate_report
-            from flowfield.verification_models import MilestoneVerification
-
-            sections = json.loads(
-                db.execute("SELECT assignment FROM runs WHERE id=?", (run_id,)).fetchone()[0]
-            )
-            frozen = sections.get("milestone_verification")
-            if frozen and result.outcome == "complete" and not result.verification:
-                raise ApplicationError(
-                    "verification_evidence_incomplete",
-                    "Submit structured milestone verification findings before "
-                    "completing this report.",
-                    409,
-                )
-            if result.verification:
-                if not frozen:
-                    raise ApplicationError(
-                        "scope_mismatch", "This task is not a milestone verifier.", 403
-                    )
-                validate_report(
-                    MilestoneVerification.model_validate_json(frozen), result.verification
-                )
             from flowfield.outputs import Outputs
 
             Outputs(self.workspace).capture(db, run, result.files)
             run.result = result
             self._save(db, run)
 
-    def excluded_files(self, project_id: str, run_id: str, paths: list[str]) -> None:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            run = self._run(db, project_id, run_id)
+    def excluded_files(self, workspace_id: str, run_id: str, paths: list[str]) -> None:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            run = self._run(db, workspace_id, run_id)
             run.excluded_files = paths[:100]
             self._save(db, run)
 
-    def ask_question(self, project_id: str, run_id: str, request: QuestionCreate) -> Question:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            run = self._run(db, project_id, run_id)
+    def ask_question(self, workspace_id: str, run_id: str, request: QuestionCreate) -> Question:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            run = self._run(db, workspace_id, run_id)
             if run.status != "running" or run.result or request.task_id != run.task_id:
                 raise ApplicationError("worker_scope_closed", "This assignment is closed.", 409)
             if run.question_id:
-                return Questions(self.workspace)._get(db, project_id, run.question_id)
-            question = Questions(self.workspace)._ask(db, project_id, request, origin_run_id=run.id)
+                return Questions(self.workspace)._get(db, workspace_id, run.question_id)
+            question = Questions(self.workspace)._ask(
+                db, workspace_id, request, origin_run_id=run.id
+            )
             run.question_id = question.id
             self._save(db, run)
             return question
 
     def started(
         self,
-        project_id: str,
+        workspace_id: str,
         run_id: str,
         *,
         applied_agent: AgentChoice | None = None,
         harness_launch: HarnessLaunch | None = None,
     ) -> Run:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            run = self._run(db, project_id, run_id)
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            run = self._run(db, workspace_id, run_id)
             if run.status != "preparing":
                 raise ApplicationError("run_changed", "Attempt no longer awaits launch.", 409)
-            task = self.workspace._task(db, project_id, run.task_id)
-            self._current_assignment(run, task)
+            task = self.workspace._task(db, workspace_id, run.task_id)
+            self._current_assignment(db, run, task)
             run.applied_agent = applied_agent
             run.harness_launch = harness_launch
             run.status, run.started_at = "running", now()
@@ -790,7 +843,7 @@ class Execution:
 
     def finish(
         self,
-        project_id: str,
+        workspace_id: str,
         run_id: str,
         status: RunStatus,
         *,
@@ -799,8 +852,8 @@ class Execution:
         input_checkpoint: str | None = None,
         problem: str | None = None,
     ) -> Run:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            run = self._run(db, project_id, run_id)
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            run = self._run(db, workspace_id, run_id)
             if run.status not in ACTIVE:
                 raise ApplicationError(
                     "run_changed", "A late result cannot replace a finished attempt.", 409
@@ -810,7 +863,7 @@ class Execution:
                     "stopped",
                     "Stopped before result submission completed. Work preserved.",
                 )
-            repository = self.workspace._work_scope(db, project_id).project_id
+            repository = run.project_id
             if status == "in_review" and (not result or (repository and not commit)):
                 raise ApplicationError(
                     "result_missing", "Review requires a result and immutable code reference."
@@ -821,23 +874,46 @@ class Execution:
             run.result = result or run.result
             run.ended_at = now() if status != "uncertain" else None
             self._save(db, run)
-            task = self.workspace._task(db, project_id, run.task_id)
-            if status == "in_review":
+            task = self.workspace._task(db, workspace_id, run.task_id)
+            if run.subtask_id:
+                from flowfield.subtasks import Subtasks
+
+                child = Subtasks.read(db, workspace_id, task.id, run.subtask_id)
+                complete = status == "in_review" and run.result and run.result.outcome == "complete"
+                if status == "in_review" and not complete:
+                    run.status, run.problem = (
+                        "failed",
+                        "This contribution is partial. Continue the remaining work.",
+                    )
+                    self._save(db, run)
+                if complete:
+                    run.status = "contributed"
+                    self._save(db, run)
+                child = child.model_copy(
+                    update={
+                        "status": "complete" if complete else "blocked",
+                        "contribution_run_id": run.id if complete else None,
+                        "revision": child.revision + 1,
+                        "updated_at": now(),
+                    }
+                )
+                Subtasks.save(db, child)
+            elif status == "in_review":
                 from flowfield.results import Results
 
                 Results(self.workspace).capture(db, run)
                 self._task_state(
                     db,
                     task,
-                    "in_review",
+                    "in_progress",
                     f"Attempt {run.id[:8]} submitted its result. "
                     "Preparing the proposed result for review.",
                 )
             return run
 
-    def stop_requested(self, project_id: str, run_id: str, request: RunAction) -> Run:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            run = self._run(db, project_id, run_id)
+    def stop_requested(self, workspace_id: str, run_id: str, request: RunAction) -> Run:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            run = self._run(db, workspace_id, run_id)
             # Stop targets this immutable attempt, not its changing usage/progress snapshot.
             # Never retarget a successor; future revisions still indicate an invalid request.
             if request.expected_revision > run.revision:
@@ -857,9 +933,9 @@ class Execution:
             self._save(db, run)
             return run
 
-    def retry(self, project_id: str, run_id: str, request: RunAction) -> Run:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            run = self._run(db, project_id, run_id)
+    def retry(self, workspace_id: str, run_id: str, request: RunAction) -> Run:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            run = self._run(db, workspace_id, run_id)
             self.workspace._current(run.revision, request.expected_revision)
             if run.status not in ("failed", "stopped", "waiting_for_input"):
                 raise ApplicationError(
@@ -867,11 +943,11 @@ class Execution:
                     "Stop/reconcile the attempt or use its review action first.",
                     409,
                 )
-            task = self.workspace._task(db, project_id, run.task_id)
+            task = self.workspace._task(db, workspace_id, run.task_id)
             latest = db.execute(
-                "SELECT id FROM work_runs WHERE project_id=? AND task_id=? "
+                "SELECT id FROM runs WHERE workspace_id=? AND task_id=? AND subtask_id IS ? "
                 "ORDER BY number DESC LIMIT 1",
-                (project_id, run.task_id),
+                (workspace_id, run.task_id, run.subtask_id),
             ).fetchone()[0]
             if latest != run.id or task.archived:
                 raise ApplicationError(
@@ -894,9 +970,9 @@ class Execution:
             )
             return run
 
-    def usage(self, project_id: str, run_id: str, usage: Usage) -> None:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            run = self._run(db, project_id, run_id)
+    def usage(self, workspace_id: str, run_id: str, usage: Usage) -> None:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            run = self._run(db, workspace_id, run_id)
             # Adapter emits cumulative observations for this one-session attempt. Replays replace.
             if run.usage == usage or (
                 run.usage.total_tokens is not None
@@ -906,9 +982,9 @@ class Execution:
             run.usage = usage
             self._save(db, run)
 
-    def record_setup(self, project_id: str, run_id: str, checks: list[CheckResult]) -> None:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            run = self._run(db, project_id, run_id)
+    def record_setup(self, workspace_id: str, run_id: str, checks: list[CheckResult]) -> None:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            run = self._run(db, workspace_id, run_id)
             run.setup_checks = checks
             self._save(db, run)
 
@@ -945,9 +1021,9 @@ class Execution:
                 )
                 self._save(db, run)
 
-    def integrated(self, project_id: str, run_id: str, available: bool) -> Run:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            run = self._run(db, project_id, run_id)
+    def integrated(self, workspace_id: str, run_id: str, available: bool) -> Run:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            run = self._run(db, workspace_id, run_id)
             if run.status != "accepted":
                 raise ApplicationError(
                     "not_accepted", "Accept the result before checking code availability.", 409

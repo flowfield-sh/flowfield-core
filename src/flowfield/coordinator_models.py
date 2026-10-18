@@ -19,13 +19,13 @@ class CoordinatorConversation(AgentRecord):
 
 
 class CoordinatorTaskSelection(AgentRecord):
-    project_id: str = Field(min_length=1, max_length=64)
     task_id: str = Field(min_length=1, max_length=200)
     task_revision: int = Field(ge=1)
     result_id: str | None = Field(default=None, min_length=1, max_length=200)
 
 
 class CoordinatorTaskContext(CoordinatorTaskSelection):
+    project_id: str | None = None
     key: str
     title: str
 
@@ -37,8 +37,6 @@ class CoordinatorViewSelection(AgentRecord):
         "archive",
         "projects",
         "project",
-        "milestones",
-        "milestone",
         "task",
         "documents",
         "files",
@@ -46,11 +44,7 @@ class CoordinatorViewSelection(AgentRecord):
         "request",
     ]
     project_id: Identifier | None = None
-    milestone_id: Identifier | None = None
-    milestone_revision: int | None = Field(default=None, ge=1)
-    verification_id: Identifier | None = None
     label_id: Identifier | None = None
-    without_milestone: bool = False
     document_id: Identifier | None = None
     document_revision: int | None = Field(default=None, ge=1)
     request_kind: RequestKind | None = None
@@ -62,9 +56,6 @@ class CoordinatorViewContext(CoordinatorViewSelection):
     workspace_revision: int
     project_name: str | None = None
     project_revision: int | None = None
-    milestone_title: str | None = None
-    verification_revision: int | None = None
-    verification_status: str | None = None
     label_name: str | None = None
     label_revision: int | None = None
     document_title: str | None = None

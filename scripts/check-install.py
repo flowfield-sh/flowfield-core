@@ -86,17 +86,19 @@ async def check_mcp(base: str, task: dict, workspace_id: str) -> None:
             and document.structuredContent["body"] == "Installed shared guidance"
         )
         assert "create_project" not in tools
-        result = await session.call_tool("get_task", {"project_id": "harbor", "task_id": "HAR-1"})
+        result = await session.call_tool(
+            "get_task", {"workspace_id": workspace_id, "task_id": "T-2"}
+        )
         assert not result.isError and result.structuredContent == task
         thread = await session.call_tool(
-            "get_task_conversation", {"project_id": "harbor", "task_id": "HAR-1"}
+            "get_task_conversation", {"workspace_id": workspace_id, "task_id": "T-2"}
         )
         assert not thread.isError and thread.structuredContent["items"]
         activity = await session.call_tool(
             "list_activity",
             {
-                "project_id": "harbor",
-                "task_id": "HAR-1",
+                "workspace_id": workspace_id,
+                "task_id": "T-2",
                 "current_only": True,
             },
         )
@@ -199,6 +201,8 @@ def main() -> None:
         opener = build_opener(ProxyHandler({}))
 
         def command(*args: str) -> str:
+            if args and args[0] in {"task", "status"} and "--workspace" not in args:
+                args = (*args, "--workspace", space["id"])
             return subprocess.check_output([executable, *args], cwd=cwd, env=env, text=True).strip()
 
         command("--help")
@@ -329,14 +333,14 @@ def main() -> None:
                             )["enabled"]
                             is False
                         )
-                        milestone = json.loads(
+                        task = json.loads(
                             command(
-                                "milestone",
+                                "task",
                                 "create",
                                 "--workspace",
                                 space["id"],
                                 "--title",
-                                "Installed milestone",
+                                "Installed task",
                                 "--body",
                                 "Shared outcome",
                                 "--json",
@@ -344,16 +348,16 @@ def main() -> None:
                         )
                         assert (
                             json.loads(
-                                command("milestone", "list", "--workspace", space["id"], "--json")
+                                command("task", "list", "--workspace", space["id"], "--json")
                             )["items"][0]["id"]
-                            == milestone["id"]
+                            == task["id"]
                         )
                         assert (
                             json.loads(
                                 command(
-                                    "milestone",
+                                    "task",
                                     "text",
-                                    milestone["key"],
+                                    task["key"],
                                     "--workspace",
                                     space["id"],
                                     "--revision",
@@ -448,11 +452,11 @@ def main() -> None:
                             "2",
                             "--json",
                         )
-                        command("task", "note", "HAR-1", "--body", "Serializer verified.", "--json")
+                        command("task", "note", "T-2", "--body", "Serializer verified.", "--json")
                         command(
                             "task",
                             "handoff",
-                            "HAR-1",
+                            "T-2",
                             "--expected-revision",
                             "3",
                             "--supersedes",
@@ -463,21 +467,20 @@ def main() -> None:
                             "Package-check fixture; no code executed. Next: inspect task.",
                             "--json",
                         )
-                    task = json.loads(command("task", "show", "HAR-1", "--json"))
-                    assert task["key"] == "HAR-1"
+                    task = json.loads(command("task", "show", "T-2", "--json"))
+                    assert task["key"] == "T-2"
                     assert task["handoff"]["id"] == "installed-handoff"
                     assert task["handoff"]["needs_recheck"] is False
-                    activity = json.loads(
-                        command("task", "activity", "HAR-1", "--current", "--json")
-                    )
+                    activity = json.loads(command("task", "activity", "T-2", "--current", "--json"))
                     assert activity["items"][0]["id"] == "installed-handoff"
-                    assert json.loads(read("/api/context/projects/harbor/tasks/HAR-1")) == task
+                    assert (
+                        json.loads(read(f"/api/context/workspaces/{space['id']}/tasks/T-2")) == task
+                    )
                     assert task["revision"] == 3
                     assert task["status"] == "up_next"
                     assert "revisions" not in task
                     assert (
-                        len(json.loads(command("task", "revisions", "HAR-1", "--json"))["items"])
-                        == 3
+                        len(json.loads(command("task", "revisions", "T-2", "--json"))["items"]) == 3
                     )
                     board = json.loads(command("status", "--json"))
                     assert board["columns"][1]["tasks"][0]["key"] == task["key"]
@@ -491,7 +494,7 @@ def main() -> None:
                     assert workers["enabled"] is False
                     assert json.loads(command("task", "runs", "list", "--json"))["items"] == []
                     assert board["observed_at"]
-                    assert b"<html" in read("/projects/harbor/tasks/HAR-1/activity").lower()
+                    assert b"<html" in read(f"/workspaces/{space['id']}/tasks/T-2").lower()
                     asyncio.run(check_mcp(base, task, json.loads(read("/api/workspaces"))[0]["id"]))
                     assert original.read_text() == "Preserve existing instructions.\n"
                     assert (state / "workspace.sqlite3").is_file()

@@ -55,23 +55,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/attention-counts": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Project Attention Counts */
-    get: operations["project_attention_counts_api_projects_attention_counts_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/projects/setup-defaults": {
     parameters: {
       query?: never;
@@ -124,6 +107,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/projects/{project_id}/workspace": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Project Workspace */
+    get: operations["project_workspace_api_projects__project_id__workspace_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/projects/{project_id}": {
     parameters: {
       query?: never;
@@ -142,7 +142,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/activity": {
+  "/api/workspaces/{workspace_id}/activity": {
     parameters: {
       query?: never;
       header?: never;
@@ -150,17 +150,17 @@ export interface paths {
       cookie?: never;
     };
     /** Activity */
-    get: operations["activity_api_projects__project_id__activity_get"];
+    get: operations["activity_api_workspaces__workspace_id__activity_get"];
     put?: never;
     /** Add Activity */
-    post: operations["add_activity_api_projects__project_id__activity_post"];
+    post: operations["add_activity_api_workspaces__workspace_id__activity_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/activity/{entry_id}": {
+  "/api/workspaces/{workspace_id}/activity/{entry_id}": {
     parameters: {
       query?: never;
       header?: never;
@@ -168,7 +168,7 @@ export interface paths {
       cookie?: never;
     };
     /** Activity Entry */
-    get: operations["activity_entry_api_projects__project_id__activity__entry_id__get"];
+    get: operations["activity_entry_api_workspaces__workspace_id__activity__entry_id__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -177,7 +177,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/board": {
+  "/api/workspaces/{workspace_id}/board": {
     parameters: {
       query?: never;
       header?: never;
@@ -185,7 +185,7 @@ export interface paths {
       cookie?: never;
     };
     /** Board */
-    get: operations["board_api_projects__project_id__board_get"];
+    get: operations["board_api_workspaces__workspace_id__board_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -194,7 +194,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks": {
+  "/api/workspaces/{workspace_id}/tasks": {
     parameters: {
       query?: never;
       header?: never;
@@ -202,17 +202,17 @@ export interface paths {
       cookie?: never;
     };
     /** Tasks */
-    get: operations["tasks_api_projects__project_id__tasks_get"];
+    get: operations["tasks_api_workspaces__workspace_id__tasks_get"];
     put?: never;
     /** Create Task */
-    post: operations["create_task_api_projects__project_id__tasks_post"];
+    post: operations["create_task_api_workspaces__workspace_id__tasks_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks/{task_id}": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}": {
     parameters: {
       query?: never;
       header?: never;
@@ -220,9 +220,9 @@ export interface paths {
       cookie?: never;
     };
     /** Task */
-    get: operations["task_api_projects__project_id__tasks__task_id__get"];
+    get: operations["task_api_workspaces__workspace_id__tasks__task_id__get"];
     /** Edit Task */
-    put: operations["edit_task_api_projects__project_id__tasks__task_id__put"];
+    put: operations["edit_task_api_workspaces__workspace_id__tasks__task_id__put"];
     post?: never;
     delete?: never;
     options?: never;
@@ -230,7 +230,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks/{task_id}/prioritize": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/prioritize": {
     parameters: {
       query?: never;
       header?: never;
@@ -240,14 +240,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Prioritize Task */
-    post: operations["prioritize_task_api_projects__project_id__tasks__task_id__prioritize_post"];
+    post: operations["prioritize_task_api_workspaces__workspace_id__tasks__task_id__prioritize_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks/{task_id}/publish": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/publish": {
     parameters: {
       query?: never;
       header?: never;
@@ -257,31 +257,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Publish Task */
-    post: operations["publish_task_api_projects__project_id__tasks__task_id__publish_post"];
+    post: operations["publish_task_api_workspaces__workspace_id__tasks__task_id__publish_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks/{task_id}/progress": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Record Progress */
-    post: operations["record_progress_api_projects__project_id__tasks__task_id__progress_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/projects/{project_id}/tasks/{task_id}/reconcile": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/reconcile": {
     parameters: {
       query?: never;
       header?: never;
@@ -291,14 +274,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Reconcile Task */
-    post: operations["reconcile_task_api_projects__project_id__tasks__task_id__reconcile_post"];
+    post: operations["reconcile_task_api_workspaces__workspace_id__tasks__task_id__reconcile_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks/{task_id}/reopen": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/reopen": {
     parameters: {
       query?: never;
       header?: never;
@@ -308,7 +291,7 @@ export interface paths {
     get?: never;
     put?: never;
     /** Reopen Task */
-    post: operations["reopen_task_api_projects__project_id__tasks__task_id__reopen_post"];
+    post: operations["reopen_task_api_workspaces__workspace_id__tasks__task_id__reopen_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -437,17 +420,36 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/workspaces/{workspace_id}/tasks": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/subtasks": {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /** Subtasks */
+    get: operations["subtasks_api_workspaces__workspace_id__tasks__task_id__subtasks_get"];
     put?: never;
-    /** Create Workspace Task */
-    post: operations["create_workspace_task_api_workspaces__workspace_id__tasks_post"];
+    /** Create Subtask */
+    post: operations["create_subtask_api_workspaces__workspace_id__tasks__task_id__subtasks_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/subtasks/{identity}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Subtask */
+    get: operations["subtask_api_workspaces__workspace_id__tasks__task_id__subtasks__identity__get"];
+    /** Edit Subtask */
+    put: operations["edit_subtask_api_workspaces__workspace_id__tasks__task_id__subtasks__identity__put"];
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -535,370 +537,6 @@ export interface paths {
     put?: never;
     /** Queue */
     post: operations["queue_api_workspaces__workspace_id__queue_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/permissions": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Permissions */
-    get: operations["permissions_api_workspaces__workspace_id__permissions_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/permissions/{permission_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Permission */
-    get: operations["permission_api_workspaces__workspace_id__permissions__permission_id__get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/permissions/{permission_id}/answer": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Answer */
-    post: operations["answer_api_workspaces__workspace_id__permissions__permission_id__answer_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/milestones": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestones */
-    get: operations["milestones_api_workspaces__workspace_id__milestones_get"];
-    put?: never;
-    /** Create Milestone */
-    post: operations["create_milestone_api_workspaces__workspace_id__milestones_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/milestones/{identity}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone */
-    get: operations["milestone_api_workspaces__workspace_id__milestones__identity__get"];
-    /** Edit Milestone */
-    put: operations["edit_milestone_api_workspaces__workspace_id__milestones__identity__put"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/milestones/{identity}/history": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone History */
-    get: operations["milestone_history_api_workspaces__workspace_id__milestones__identity__history_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/milestones/{identity}/activity": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone Activity */
-    get: operations["milestone_activity_api_workspaces__workspace_id__milestones__identity__activity_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/milestones/{identity}/delivery": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone Delivery */
-    get: operations["milestone_delivery_api_workspaces__workspace_id__milestones__identity__delivery_get"];
-    /** Configure Milestone Delivery */
-    put: operations["configure_milestone_delivery_api_workspaces__workspace_id__milestones__identity__delivery_put"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/milestones/{identity}/verification-plan": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Verification Plan */
-    get: operations["verification_plan_api_workspaces__workspace_id__milestones__identity__verification_plan_get"];
-    /** Save Verification Plan */
-    put: operations["save_verification_plan_api_workspaces__workspace_id__milestones__identity__verification_plan_put"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/milestones/{identity}/automation": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone Automation */
-    get: operations["milestone_automation_api_workspaces__workspace_id__milestones__identity__automation_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/milestones/{identity}/delivery/integration-policy": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Read Milestone Integration Policy */
-    get: operations["read_milestone_integration_policy_api_workspaces__workspace_id__milestones__identity__delivery_integration_policy_get"];
-    /** Milestone Integration Policy */
-    put: operations["milestone_integration_policy_api_workspaces__workspace_id__milestones__identity__delivery_integration_policy_put"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/integration-policy": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Workspace Integration Policy */
-    get: operations["workspace_integration_policy_api_workspaces__workspace_id__integration_policy_get"];
-    /** Configure Workspace Integration Policy */
-    put: operations["configure_workspace_integration_policy_api_workspaces__workspace_id__integration_policy_put"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/milestones/{identity}/verifications": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Verification History */
-    get: operations["verification_history_api_workspaces__workspace_id__milestones__identity__verifications_get"];
-    put?: never;
-    /** Prepare Verification */
-    post: operations["prepare_verification_api_workspaces__workspace_id__milestones__identity__verifications_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/verifications/{identity}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Verification */
-    get: operations["verification_api_workspaces__workspace_id__verifications__identity__get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/verifications/{identity}/testing": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone Testing */
-    get: operations["milestone_testing_api_workspaces__workspace_id__verifications__identity__testing_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/verifications/{identity}/review": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Review Verification */
-    post: operations["review_verification_api_workspaces__workspace_id__verifications__identity__review_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/verifications/{identity}/inspection": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Inspect Milestone */
-    post: operations["inspect_milestone_api_workspaces__workspace_id__verifications__identity__inspection_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/verifications/{identity}/diff": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone Diff */
-    get: operations["milestone_diff_api_workspaces__workspace_id__verifications__identity__diff_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/verifications/{identity}/diff/{file_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone Patch */
-    get: operations["milestone_patch_api_workspaces__workspace_id__verifications__identity__diff__file_id__get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/milestones/{identity}/impact": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone Impact */
-    get: operations["milestone_impact_api_workspaces__workspace_id__milestones__identity__impact_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{workspace_id}/milestones/{identity}/text": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone Text */
-    get: operations["milestone_text_api_workspaces__workspace_id__milestones__identity__text_get"];
-    put?: never;
-    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1131,24 +769,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/view/board": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Board */
-    get: operations["board_api_projects__project_id__view_board_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/projects/{project_id}/view/tasks/{task_id}": {
+  "/api/workspaces/{workspace_id}/view/tasks/{task_id}": {
     parameters: {
       query?: never;
       header?: never;
@@ -1156,9 +777,9 @@ export interface paths {
       cookie?: never;
     };
     /** Task */
-    get: operations["task_api_projects__project_id__view_tasks__task_id__get"];
+    get: operations["task_api_workspaces__workspace_id__view_tasks__task_id__get"];
     /** Edit Task */
-    put: operations["edit_task_api_projects__project_id__view_tasks__task_id__put"];
+    put: operations["edit_task_api_workspaces__workspace_id__view_tasks__task_id__put"];
     post?: never;
     delete?: never;
     options?: never;
@@ -1166,7 +787,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/view/tasks": {
+  "/api/workspaces/{workspace_id}/view/tasks": {
     parameters: {
       query?: never;
       header?: never;
@@ -1176,14 +797,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Create Task */
-    post: operations["create_task_api_projects__project_id__view_tasks_post"];
+    post: operations["create_task_api_workspaces__workspace_id__view_tasks_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/view/tasks/{task_id}/prioritize": {
+  "/api/workspaces/{workspace_id}/view/tasks/{task_id}/prioritize": {
     parameters: {
       query?: never;
       header?: never;
@@ -1193,14 +814,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Prioritize Task */
-    post: operations["prioritize_task_api_projects__project_id__view_tasks__task_id__prioritize_post"];
+    post: operations["prioritize_task_api_workspaces__workspace_id__view_tasks__task_id__prioritize_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/view/tasks/{task_id}/revisions/{revision}": {
+  "/api/workspaces/{workspace_id}/view/tasks/{task_id}/revisions/{revision}": {
     parameters: {
       query?: never;
       header?: never;
@@ -1208,24 +829,7 @@ export interface paths {
       cookie?: never;
     };
     /** Revision */
-    get: operations["revision_api_projects__project_id__view_tasks__task_id__revisions__revision__get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/projects/{project_id}/view/attention": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Attention */
-    get: operations["attention_api_projects__project_id__view_attention_get"];
+    get: operations["revision_api_workspaces__workspace_id__view_tasks__task_id__revisions__revision__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1268,7 +872,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/context/projects/{project_id}/board": {
+  "/api/context/workspaces/{workspace_id}/board": {
     parameters: {
       query?: never;
       header?: never;
@@ -1276,7 +880,7 @@ export interface paths {
       cookie?: never;
     };
     /** Overview */
-    get: operations["overview_api_context_projects__project_id__board_get"];
+    get: operations["overview_api_context_workspaces__workspace_id__board_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1285,7 +889,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/context/projects/{project_id}/search": {
+  "/api/context/workspaces/{workspace_id}/search": {
     parameters: {
       query?: never;
       header?: never;
@@ -1293,7 +897,7 @@ export interface paths {
       cookie?: never;
     };
     /** Search */
-    get: operations["search_api_context_projects__project_id__search_get"];
+    get: operations["search_api_context_workspaces__workspace_id__search_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1302,7 +906,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/context/projects/{project_id}/tasks": {
+  "/api/context/workspaces/{workspace_id}/tasks": {
     parameters: {
       query?: never;
       header?: never;
@@ -1310,7 +914,7 @@ export interface paths {
       cookie?: never;
     };
     /** Tasks */
-    get: operations["tasks_api_context_projects__project_id__tasks_get"];
+    get: operations["tasks_api_context_workspaces__workspace_id__tasks_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1319,7 +923,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/context/projects/{project_id}/tasks/{task_id}": {
+  "/api/context/workspaces/{workspace_id}/tasks/{task_id}": {
     parameters: {
       query?: never;
       header?: never;
@@ -1327,7 +931,7 @@ export interface paths {
       cookie?: never;
     };
     /** Task */
-    get: operations["task_api_context_projects__project_id__tasks__task_id__get"];
+    get: operations["task_api_context_workspaces__workspace_id__tasks__task_id__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1336,7 +940,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/context/projects/{project_id}/tasks/{task_id}/relationships": {
+  "/api/context/workspaces/{workspace_id}/tasks/{task_id}/relationships": {
     parameters: {
       query?: never;
       header?: never;
@@ -1344,7 +948,7 @@ export interface paths {
       cookie?: never;
     };
     /** Relationships */
-    get: operations["relationships_api_context_projects__project_id__tasks__task_id__relationships_get"];
+    get: operations["relationships_api_context_workspaces__workspace_id__tasks__task_id__relationships_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1353,7 +957,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/context/projects/{project_id}/tasks/{task_id}/revisions": {
+  "/api/context/workspaces/{workspace_id}/tasks/{task_id}/revisions": {
     parameters: {
       query?: never;
       header?: never;
@@ -1361,7 +965,7 @@ export interface paths {
       cookie?: never;
     };
     /** Revisions */
-    get: operations["revisions_api_context_projects__project_id__tasks__task_id__revisions_get"];
+    get: operations["revisions_api_context_workspaces__workspace_id__tasks__task_id__revisions_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1370,7 +974,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/context/projects/{project_id}/activity": {
+  "/api/context/workspaces/{workspace_id}/activity": {
     parameters: {
       query?: never;
       header?: never;
@@ -1378,7 +982,7 @@ export interface paths {
       cookie?: never;
     };
     /** Activity */
-    get: operations["activity_api_context_projects__project_id__activity_get"];
+    get: operations["activity_api_context_workspaces__workspace_id__activity_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1387,7 +991,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/context/projects/{project_id}/activity/{entry_id}": {
+  "/api/context/workspaces/{workspace_id}/activity/{entry_id}": {
     parameters: {
       query?: never;
       header?: never;
@@ -1395,7 +999,7 @@ export interface paths {
       cookie?: never;
     };
     /** Activity Entry */
-    get: operations["activity_entry_api_context_projects__project_id__activity__entry_id__get"];
+    get: operations["activity_entry_api_context_workspaces__workspace_id__activity__entry_id__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1404,7 +1008,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/context/projects/{project_id}/text": {
+  "/api/context/workspaces/{workspace_id}/text": {
     parameters: {
       query?: never;
       header?: never;
@@ -1412,7 +1016,7 @@ export interface paths {
       cookie?: never;
     };
     /** Text */
-    get: operations["text_api_context_projects__project_id__text_get"];
+    get: operations["text_api_context_workspaces__workspace_id__text_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1421,7 +1025,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/context/projects/{project_id}/questions": {
+  "/api/context/workspaces/{workspace_id}/questions": {
     parameters: {
       query?: never;
       header?: never;
@@ -1429,7 +1033,7 @@ export interface paths {
       cookie?: never;
     };
     /** Questions */
-    get: operations["questions_api_context_projects__project_id__questions_get"];
+    get: operations["questions_api_context_workspaces__workspace_id__questions_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1438,7 +1042,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/context/projects/{project_id}/questions/{identity}": {
+  "/api/context/workspaces/{workspace_id}/questions/{identity}": {
     parameters: {
       query?: never;
       header?: never;
@@ -1446,7 +1050,7 @@ export interface paths {
       cookie?: never;
     };
     /** Question */
-    get: operations["question_api_context_projects__project_id__questions__identity__get"];
+    get: operations["question_api_context_workspaces__workspace_id__questions__identity__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1489,91 +1093,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/context/workspaces/{workspace_id}/milestones": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestones */
-    get: operations["milestones_api_context_workspaces__workspace_id__milestones_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/context/workspaces/{workspace_id}/milestones/{identity}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone */
-    get: operations["milestone_api_context_workspaces__workspace_id__milestones__identity__get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/context/workspaces/{workspace_id}/milestones/{identity}/history": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone History */
-    get: operations["milestone_history_api_context_workspaces__workspace_id__milestones__identity__history_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/context/workspaces/{workspace_id}/milestones/{identity}/impact": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone Impact */
-    get: operations["milestone_impact_api_context_workspaces__workspace_id__milestones__identity__impact_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/context/workspaces/{workspace_id}/milestones/{identity}/text": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone Text */
-    get: operations["milestone_text_api_context_workspaces__workspace_id__milestones__identity__text_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/context/workspaces/{workspace_id}/coordinator-history": {
     parameters: {
       query?: never;
@@ -1591,15 +1110,15 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/context/workspaces/{workspace_id}/text": {
+  "/api/context/workspaces/{workspace_id}/coordinator-text": {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    /** Text */
-    get: operations["text_api_context_workspaces__workspace_id__text_get"];
+    /** Coordinator Text */
+    get: operations["coordinator_text_api_context_workspaces__workspace_id__coordinator_text_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1608,7 +1127,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks/{task_id}/thread": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/thread": {
     parameters: {
       query?: never;
       header?: never;
@@ -1616,7 +1135,7 @@ export interface paths {
       cookie?: never;
     };
     /** Thread */
-    get: operations["thread_api_projects__project_id__tasks__task_id__thread_get"];
+    get: operations["thread_api_workspaces__workspace_id__tasks__task_id__thread_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1625,7 +1144,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks/{task_id}/thread/{item_id}": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/thread/{item_id}": {
     parameters: {
       query?: never;
       header?: never;
@@ -1633,7 +1152,7 @@ export interface paths {
       cookie?: never;
     };
     /** Thread Item */
-    get: operations["thread_item_api_projects__project_id__tasks__task_id__thread__item_id__get"];
+    get: operations["thread_item_api_workspaces__workspace_id__tasks__task_id__thread__item_id__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1642,7 +1161,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks/{task_id}/replies": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/replies": {
     parameters: {
       query?: never;
       header?: never;
@@ -1652,14 +1171,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Reply */
-    post: operations["reply_api_projects__project_id__tasks__task_id__replies_post"];
+    post: operations["reply_api_workspaces__workspace_id__tasks__task_id__replies_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks/{task_id}/replies/{reply_id}/cancel": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/replies/{reply_id}/cancel": {
     parameters: {
       query?: never;
       header?: never;
@@ -1669,14 +1188,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Cancel Reply */
-    post: operations["cancel_reply_api_projects__project_id__tasks__task_id__replies__reply_id__cancel_post"];
+    post: operations["cancel_reply_api_workspaces__workspace_id__tasks__task_id__replies__reply_id__cancel_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks/{task_id}/conversation": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/conversation": {
     parameters: {
       query?: never;
       header?: never;
@@ -1684,7 +1203,7 @@ export interface paths {
       cookie?: never;
     };
     /** Conversation */
-    get: operations["conversation_api_projects__project_id__tasks__task_id__conversation_get"];
+    get: operations["conversation_api_workspaces__workspace_id__tasks__task_id__conversation_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1693,7 +1212,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks/{task_id}/conversation/{item_id}": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/conversation/{item_id}": {
     parameters: {
       query?: never;
       header?: never;
@@ -1701,7 +1220,7 @@ export interface paths {
       cookie?: never;
     };
     /** Source */
-    get: operations["source_api_projects__project_id__tasks__task_id__conversation__item_id__get"];
+    get: operations["source_api_workspaces__workspace_id__tasks__task_id__conversation__item_id__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1710,7 +1229,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks/{task_id}/input-eligibility": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/input-eligibility": {
     parameters: {
       query?: never;
       header?: never;
@@ -1718,7 +1237,7 @@ export interface paths {
       cookie?: never;
     };
     /** Eligibility */
-    get: operations["eligibility_api_projects__project_id__tasks__task_id__input_eligibility_get"];
+    get: operations["eligibility_api_workspaces__workspace_id__tasks__task_id__input_eligibility_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1727,7 +1246,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/questions": {
+  "/api/workspaces/{workspace_id}/questions": {
     parameters: {
       query?: never;
       header?: never;
@@ -1735,17 +1254,17 @@ export interface paths {
       cookie?: never;
     };
     /** Questions */
-    get: operations["questions_api_projects__project_id__questions_get"];
+    get: operations["questions_api_workspaces__workspace_id__questions_get"];
     put?: never;
     /** Ask */
-    post: operations["ask_api_projects__project_id__questions_post"];
+    post: operations["ask_api_workspaces__workspace_id__questions_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/questions/{identity}": {
+  "/api/workspaces/{workspace_id}/questions/{identity}": {
     parameters: {
       query?: never;
       header?: never;
@@ -1753,7 +1272,7 @@ export interface paths {
       cookie?: never;
     };
     /** Question */
-    get: operations["question_api_projects__project_id__questions__identity__get"];
+    get: operations["question_api_workspaces__workspace_id__questions__identity__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1762,7 +1281,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/questions/{identity}/history": {
+  "/api/workspaces/{workspace_id}/questions/{identity}/history": {
     parameters: {
       query?: never;
       header?: never;
@@ -1770,7 +1289,7 @@ export interface paths {
       cookie?: never;
     };
     /** History */
-    get: operations["history_api_projects__project_id__questions__identity__history_get"];
+    get: operations["history_api_workspaces__workspace_id__questions__identity__history_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1779,7 +1298,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/questions/{identity}/answer": {
+  "/api/workspaces/{workspace_id}/questions/{identity}/answer": {
     parameters: {
       query?: never;
       header?: never;
@@ -1789,14 +1308,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Answer */
-    post: operations["answer_api_projects__project_id__questions__identity__answer_post"];
+    post: operations["answer_api_workspaces__workspace_id__questions__identity__answer_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/questions/{identity}/apply": {
+  "/api/workspaces/{workspace_id}/questions/{identity}/apply": {
     parameters: {
       query?: never;
       header?: never;
@@ -1806,14 +1325,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Apply */
-    post: operations["apply_api_projects__project_id__questions__identity__apply_post"];
+    post: operations["apply_api_workspaces__workspace_id__questions__identity__apply_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/questions/{identity}/correction": {
+  "/api/workspaces/{workspace_id}/questions/{identity}/correction": {
     parameters: {
       query?: never;
       header?: never;
@@ -1823,14 +1342,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Correct */
-    post: operations["correct_api_projects__project_id__questions__identity__correction_post"];
+    post: operations["correct_api_workspaces__workspace_id__questions__identity__correction_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/questions/{identity}/follow-up": {
+  "/api/workspaces/{workspace_id}/questions/{identity}/follow-up": {
     parameters: {
       query?: never;
       header?: never;
@@ -1840,14 +1359,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Follow Up */
-    post: operations["follow_up_api_projects__project_id__questions__identity__follow_up_post"];
+    post: operations["follow_up_api_workspaces__workspace_id__questions__identity__follow_up_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/questions/{identity}/retract-answer": {
+  "/api/workspaces/{workspace_id}/questions/{identity}/retract-answer": {
     parameters: {
       query?: never;
       header?: never;
@@ -1857,14 +1376,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Retract Answer */
-    post: operations["retract_answer_api_projects__project_id__questions__identity__retract_answer_post"];
+    post: operations["retract_answer_api_workspaces__workspace_id__questions__identity__retract_answer_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/questions/{identity}/withdraw": {
+  "/api/workspaces/{workspace_id}/questions/{identity}/withdraw": {
     parameters: {
       query?: never;
       header?: never;
@@ -1874,7 +1393,7 @@ export interface paths {
     get?: never;
     put?: never;
     /** Withdraw */
-    post: operations["withdraw_api_projects__project_id__questions__identity__withdraw_post"];
+    post: operations["withdraw_api_workspaces__workspace_id__questions__identity__withdraw_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1916,7 +1435,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/runs": {
+  "/api/workspaces/{workspace_id}/runs": {
     parameters: {
       query?: never;
       header?: never;
@@ -1924,7 +1443,7 @@ export interface paths {
       cookie?: never;
     };
     /** Runs */
-    get: operations["runs_api_projects__project_id__runs_get"];
+    get: operations["runs_api_workspaces__workspace_id__runs_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1933,7 +1452,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/runs/{run_id}": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/stop": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Stop Task */
+    post: operations["stop_task_api_workspaces__workspace_id__tasks__task_id__stop_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/runs/{run_id}": {
     parameters: {
       query?: never;
       header?: never;
@@ -1941,7 +1477,7 @@ export interface paths {
       cookie?: never;
     };
     /** Run */
-    get: operations["run_api_projects__project_id__runs__run_id__get"];
+    get: operations["run_api_workspaces__workspace_id__runs__run_id__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1950,7 +1486,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/runs/{run_id}/location": {
+  "/api/workspaces/{workspace_id}/runs/{run_id}/location": {
     parameters: {
       query?: never;
       header?: never;
@@ -1958,7 +1494,7 @@ export interface paths {
       cookie?: never;
     };
     /** Location */
-    get: operations["location_api_projects__project_id__runs__run_id__location_get"];
+    get: operations["location_api_workspaces__workspace_id__runs__run_id__location_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1967,7 +1503,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/runs/{run_id}/activity": {
+  "/api/workspaces/{workspace_id}/runs/{run_id}/activity": {
     parameters: {
       query?: never;
       header?: never;
@@ -1975,7 +1511,7 @@ export interface paths {
       cookie?: never;
     };
     /** Activity */
-    get: operations["activity_api_projects__project_id__runs__run_id__activity_get"];
+    get: operations["activity_api_workspaces__workspace_id__runs__run_id__activity_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1984,7 +1520,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/runs/{run_id}/diff": {
+  "/api/workspaces/{workspace_id}/runs/{run_id}/diff": {
     parameters: {
       query?: never;
       header?: never;
@@ -1992,7 +1528,7 @@ export interface paths {
       cookie?: never;
     };
     /** Diff */
-    get: operations["diff_api_projects__project_id__runs__run_id__diff_get"];
+    get: operations["diff_api_workspaces__workspace_id__runs__run_id__diff_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2001,7 +1537,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/runs/{run_id}/diff/{file_id}": {
+  "/api/workspaces/{workspace_id}/runs/{run_id}/diff/{file_id}": {
     parameters: {
       query?: never;
       header?: never;
@@ -2009,7 +1545,7 @@ export interface paths {
       cookie?: never;
     };
     /** Patch */
-    get: operations["patch_api_projects__project_id__runs__run_id__diff__file_id__get"];
+    get: operations["patch_api_workspaces__workspace_id__runs__run_id__diff__file_id__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2018,7 +1554,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/runs/{run_id}/stop": {
+  "/api/workspaces/{workspace_id}/runs/{run_id}/stop": {
     parameters: {
       query?: never;
       header?: never;
@@ -2028,14 +1564,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Stop */
-    post: operations["stop_api_projects__project_id__runs__run_id__stop_post"];
+    post: operations["stop_api_workspaces__workspace_id__runs__run_id__stop_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/runs/{run_id}/retry": {
+  "/api/workspaces/{workspace_id}/runs/{run_id}/retry": {
     parameters: {
       query?: never;
       header?: never;
@@ -2045,31 +1581,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Retry */
-    post: operations["retry_api_projects__project_id__runs__run_id__retry_post"];
+    post: operations["retry_api_workspaces__workspace_id__runs__run_id__retry_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/workspace": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Workspace */
-    get: operations["workspace_api_projects__project_id__workspace_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/projects/{project_id}/tasks/{task_id}/agent-settings": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/agent-settings": {
     parameters: {
       query?: never;
       header?: never;
@@ -2077,9 +1596,9 @@ export interface paths {
       cookie?: never;
     };
     /** Task Settings */
-    get: operations["task_settings_api_projects__project_id__tasks__task_id__agent_settings_get"];
+    get: operations["task_settings_api_workspaces__workspace_id__tasks__task_id__agent_settings_get"];
     /** Task Edit */
-    put: operations["task_edit_api_projects__project_id__tasks__task_id__agent_settings_put"];
+    put: operations["task_edit_api_workspaces__workspace_id__tasks__task_id__agent_settings_put"];
     post?: never;
     delete?: never;
     options?: never;
@@ -2087,7 +1606,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/permissions": {
+  "/api/workspaces/{workspace_id}/permissions": {
     parameters: {
       query?: never;
       header?: never;
@@ -2095,7 +1614,7 @@ export interface paths {
       cookie?: never;
     };
     /** Permissions */
-    get: operations["permissions_api_projects__project_id__permissions_get"];
+    get: operations["permissions_api_workspaces__workspace_id__permissions_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2104,7 +1623,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/permissions/{permission_id}/answer": {
+  "/api/workspaces/{workspace_id}/permissions/{permission_id}/answer": {
     parameters: {
       query?: never;
       header?: never;
@@ -2114,14 +1633,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Answer */
-    post: operations["answer_api_projects__project_id__permissions__permission_id__answer_post"];
+    post: operations["answer_api_workspaces__workspace_id__permissions__permission_id__answer_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/permissions/{permission_id}": {
+  "/api/workspaces/{workspace_id}/permissions/{permission_id}": {
     parameters: {
       query?: never;
       header?: never;
@@ -2129,7 +1648,7 @@ export interface paths {
       cookie?: never;
     };
     /** Permission */
-    get: operations["permission_api_projects__project_id__permissions__permission_id__get"];
+    get: operations["permission_api_workspaces__workspace_id__permissions__permission_id__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2362,7 +1881,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/attachments": {
+  "/api/workspaces/{workspace_id}/attachments": {
     parameters: {
       query?: never;
       header?: never;
@@ -2372,14 +1891,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Upload */
-    post: operations["upload_api_projects__project_id__attachments_post"];
+    post: operations["upload_api_workspaces__workspace_id__attachments_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/attachments/{identity}": {
+  "/api/workspaces/{workspace_id}/attachments/{identity}": {
     parameters: {
       query?: never;
       header?: never;
@@ -2387,41 +1906,7 @@ export interface paths {
       cookie?: never;
     };
     /** Download */
-    get: operations["download_api_projects__project_id__attachments__identity__get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{project_id}/attachments": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Upload */
-    post: operations["upload_api_workspaces__project_id__attachments_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/workspaces/{project_id}/attachments/{identity}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Download */
-    get: operations["download_api_workspaces__project_id__attachments__identity__get"];
+    get: operations["download_api_workspaces__workspace_id__attachments__identity__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2466,7 +1951,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/integrations": {
+  "/api/workspaces/{workspace_id}/integrations": {
     parameters: {
       query?: never;
       header?: never;
@@ -2474,7 +1959,7 @@ export interface paths {
       cookie?: never;
     };
     /** Listing */
-    get: operations["listing_api_projects__project_id__integrations_get"];
+    get: operations["listing_api_workspaces__workspace_id__integrations_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2483,7 +1968,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/integrations/{identity}": {
+  "/api/workspaces/{workspace_id}/integrations/{identity}": {
     parameters: {
       query?: never;
       header?: never;
@@ -2491,7 +1976,7 @@ export interface paths {
       cookie?: never;
     };
     /** Detail */
-    get: operations["detail_api_projects__project_id__integrations__identity__get"];
+    get: operations["detail_api_workspaces__workspace_id__integrations__identity__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2500,7 +1985,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/integrations/{identity}/diff": {
+  "/api/workspaces/{workspace_id}/integrations/{identity}/diff": {
     parameters: {
       query?: never;
       header?: never;
@@ -2508,7 +1993,7 @@ export interface paths {
       cookie?: never;
     };
     /** Diff */
-    get: operations["diff_api_projects__project_id__integrations__identity__diff_get"];
+    get: operations["diff_api_workspaces__workspace_id__integrations__identity__diff_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2517,7 +2002,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/integrations/{identity}/diff/{file_id}": {
+  "/api/workspaces/{workspace_id}/integrations/{identity}/diff/{file_id}": {
     parameters: {
       query?: never;
       header?: never;
@@ -2525,7 +2010,7 @@ export interface paths {
       cookie?: never;
     };
     /** Patch */
-    get: operations["patch_api_projects__project_id__integrations__identity__diff__file_id__get"];
+    get: operations["patch_api_workspaces__workspace_id__integrations__identity__diff__file_id__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2534,7 +2019,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks/{task_id}/history": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/history": {
     parameters: {
       query?: never;
       header?: never;
@@ -2542,7 +2027,7 @@ export interface paths {
       cookie?: never;
     };
     /** History */
-    get: operations["history_api_projects__project_id__tasks__task_id__history_get"];
+    get: operations["history_api_workspaces__workspace_id__tasks__task_id__history_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2551,7 +2036,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks/{task_id}/executions": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/executions": {
     parameters: {
       query?: never;
       header?: never;
@@ -2559,7 +2044,7 @@ export interface paths {
       cookie?: never;
     };
     /** Executions */
-    get: operations["executions_api_projects__project_id__tasks__task_id__executions_get"];
+    get: operations["executions_api_workspaces__workspace_id__tasks__task_id__executions_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2568,7 +2053,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks/{task_id}/executions/{identity}": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/executions/{identity}": {
     parameters: {
       query?: never;
       header?: never;
@@ -2576,7 +2061,7 @@ export interface paths {
       cookie?: never;
     };
     /** Execution */
-    get: operations["execution_api_projects__project_id__tasks__task_id__executions__identity__get"];
+    get: operations["execution_api_workspaces__workspace_id__tasks__task_id__executions__identity__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2585,7 +2070,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/tasks/{task_id}/results": {
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/results": {
     parameters: {
       query?: never;
       header?: never;
@@ -2593,7 +2078,7 @@ export interface paths {
       cookie?: never;
     };
     /** Listing */
-    get: operations["listing_api_projects__project_id__tasks__task_id__results_get"];
+    get: operations["listing_api_workspaces__workspace_id__tasks__task_id__results_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2602,7 +2087,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/results/{identity}": {
+  "/api/workspaces/{workspace_id}/results/{identity}": {
     parameters: {
       query?: never;
       header?: never;
@@ -2610,7 +2095,7 @@ export interface paths {
       cookie?: never;
     };
     /** Detail */
-    get: operations["detail_api_projects__project_id__results__identity__get"];
+    get: operations["detail_api_workspaces__workspace_id__results__identity__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2619,7 +2104,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/results/{identity}/review": {
+  "/api/workspaces/{workspace_id}/results/{identity}/review": {
     parameters: {
       query?: never;
       header?: never;
@@ -2629,14 +2114,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Review */
-    post: operations["review_api_projects__project_id__results__identity__review_post"];
+    post: operations["review_api_workspaces__workspace_id__results__identity__review_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/results/{identity}/prepare": {
+  "/api/workspaces/{workspace_id}/results/{identity}/prepare": {
     parameters: {
       query?: never;
       header?: never;
@@ -2646,14 +2131,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Prepare */
-    post: operations["prepare_api_projects__project_id__results__identity__prepare_post"];
+    post: operations["prepare_api_workspaces__workspace_id__results__identity__prepare_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/results/{identity}/cancel": {
+  "/api/workspaces/{workspace_id}/results/{identity}/cancel": {
     parameters: {
       query?: never;
       header?: never;
@@ -2663,14 +2148,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Cancel */
-    post: operations["cancel_api_projects__project_id__results__identity__cancel_post"];
+    post: operations["cancel_api_workspaces__workspace_id__results__identity__cancel_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/results/{identity}/retry-delivery": {
+  "/api/workspaces/{workspace_id}/results/{identity}/retry-delivery": {
     parameters: {
       query?: never;
       header?: never;
@@ -2680,14 +2165,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Retry Delivery */
-    post: operations["retry_delivery_api_projects__project_id__results__identity__retry_delivery_post"];
+    post: operations["retry_delivery_api_workspaces__workspace_id__results__identity__retry_delivery_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/results/{identity}/correct": {
+  "/api/workspaces/{workspace_id}/results/{identity}/correct": {
     parameters: {
       query?: never;
       header?: never;
@@ -2697,14 +2182,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Correct */
-    post: operations["correct_api_projects__project_id__results__identity__correct_post"];
+    post: operations["correct_api_workspaces__workspace_id__results__identity__correct_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/results/{identity}/revalidate": {
+  "/api/workspaces/{workspace_id}/results/{identity}/revalidate": {
     parameters: {
       query?: never;
       header?: never;
@@ -2714,14 +2199,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Revalidate */
-    post: operations["revalidate_api_projects__project_id__results__identity__revalidate_post"];
+    post: operations["revalidate_api_workspaces__workspace_id__results__identity__revalidate_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/workspaces/{workspace}/reviewers/{purpose}": {
+  "/api/workspaces/{workspace}/reviewer": {
     parameters: {
       query?: never;
       header?: never;
@@ -2729,9 +2214,9 @@ export interface paths {
       cookie?: never;
     };
     /** Settings */
-    get: operations["settings_api_workspaces__workspace__reviewers__purpose__get"];
+    get: operations["settings_api_workspaces__workspace__reviewer_get"];
     /** Configure */
-    put: operations["configure_api_workspaces__workspace__reviewers__purpose__put"];
+    put: operations["configure_api_workspaces__workspace__reviewer_put"];
     post?: never;
     delete?: never;
     options?: never;
@@ -2739,7 +2224,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project}/tasks/{task}/review": {
+  "/api/workspaces/{project}/tasks/{task}/review": {
     parameters: {
       query?: never;
       header?: never;
@@ -2747,7 +2232,7 @@ export interface paths {
       cookie?: never;
     };
     /** Current */
-    get: operations["current_api_projects__project__tasks__task__review_get"];
+    get: operations["current_api_workspaces__project__tasks__task__review_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2767,125 +2252,6 @@ export interface paths {
     get: operations["review_api_projects__project__reviews__identity__get"];
     put?: never;
     post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/projects/{project}/milestone-reviews/{identity}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone Review */
-    get: operations["milestone_review_api_projects__project__milestone_reviews__identity__get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/projects/{project}/milestone-reviews/{identity}/attempts": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone Attempts */
-    get: operations["milestone_attempts_api_projects__project__milestone_reviews__identity__attempts_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/projects/{project}/milestone-reviews/{identity}/activity": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone Activity */
-    get: operations["milestone_activity_api_projects__project__milestone_reviews__identity__activity_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/projects/{project}/milestone-reviews/{identity}/attempts/{attempt}/activity": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Milestone Attempt Activity */
-    get: operations["milestone_attempt_activity_api_projects__project__milestone_reviews__identity__attempts__attempt__activity_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/projects/{project}/milestone-reviews/{identity}/stop": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Stop Milestone Review */
-    post: operations["stop_milestone_review_api_projects__project__milestone_reviews__identity__stop_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/projects/{project}/milestone-reviews/{identity}/retry": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Retry Milestone Review */
-    post: operations["retry_milestone_review_api_projects__project__milestone_reviews__identity__retry_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/projects/{project}/milestone-reviews/{identity}/confirm-stopped": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Confirm Milestone Review Stopped */
-    post: operations["confirm_milestone_review_stopped_api_projects__project__milestone_reviews__identity__confirm_stopped_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -3012,7 +2378,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/inspection": {
+  "/api/workspaces/{workspace_id}/inspection": {
     parameters: {
       query?: never;
       header?: never;
@@ -3020,17 +2386,17 @@ export interface paths {
       cookie?: never;
     };
     /** Latest */
-    get: operations["latest_api_projects__project_id__inspection_get"];
+    get: operations["latest_api_workspaces__workspace_id__inspection_get"];
     put?: never;
     /** Prepare */
-    post: operations["prepare_api_projects__project_id__inspection_post"];
+    post: operations["prepare_api_workspaces__workspace_id__inspection_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project_id}/inspections/{identity}": {
+  "/api/workspaces/{workspace_id}/inspections/{identity}": {
     parameters: {
       query?: never;
       header?: never;
@@ -3038,7 +2404,7 @@ export interface paths {
       cookie?: never;
     };
     /** Detail */
-    get: operations["detail_api_projects__project_id__inspections__identity__get"];
+    get: operations["detail_api_workspaces__workspace_id__inspections__identity__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -3195,8 +2561,8 @@ export interface components {
       sequence: number;
       /** Id */
       id: string;
-      /** Project Id */
-      project_id: string;
+      /** Workspace Id */
+      workspace_id: string;
       /** Task Id */
       task_id: string | null;
       /**
@@ -3310,8 +2676,8 @@ export interface components {
       message: string;
       /** Href */
       href: string;
-      /** Project Id */
-      project_id?: string | null;
+      /** Workspace Id */
+      workspace_id?: string | null;
       /**
        * Kind
        * @enum {string}
@@ -3361,8 +2727,8 @@ export interface components {
     };
     /** AttentionItem */
     AttentionItem: {
-      /** Project Id */
-      project_id: string | null;
+      /** Workspace Id */
+      workspace_id: string | null;
       /** Id */
       id: string;
       /**
@@ -3376,8 +2742,7 @@ export interface components {
         | "integration"
         | "result"
         | "permission"
-        | "document"
-        | "milestone";
+        | "document";
       /** Task Key */
       task_key: string | null;
       /** Title */
@@ -3403,14 +2768,7 @@ export interface components {
       source_key?: string | null;
       /** Request Kind */
       request_kind?:
-        | (
-            | "question"
-            | "attempt"
-            | "integration"
-            | "result"
-            | "permission"
-            | "milestone"
-          )
+        | ("question" | "attempt" | "integration" | "result" | "permission")
         | null;
     };
     /** AttentionPage */
@@ -3424,9 +2782,8 @@ export interface components {
     };
     /** Board */
     Board: {
-      project: components["schemas"]["Project"];
-      /** Milestones */
-      milestones: components["schemas"]["Milestone"][];
+      /** Workspace Id */
+      workspace_id: string;
       /** Tasks */
       tasks: components["schemas"]["Task"][];
       /**
@@ -3440,52 +2797,15 @@ export interface components {
        */
       awaiting_application_count: number;
     };
-    /** BrowserBoard */
-    BrowserBoard: {
-      /** Labels */
-      labels: components["schemas"]["WorkspaceLabel"][];
-      /** Project */
-      project:
-        components["schemas"]["Project"] | components["schemas"]["WorkScope"];
-      /** Milestone Verifications */
-      milestone_verifications?: {
-        [key: string]: components["schemas"]["MilestoneVerificationSummary"];
-      };
-      /** Milestones */
-      milestones: components["schemas"]["Milestone"][];
-      /** Tasks */
-      tasks: components["schemas"]["TaskCard"][];
-      /** Needs You Count */
-      needs_you_count: number;
-      /** Awaiting Application Count */
-      awaiting_application_count: number;
-      /** Pending Code */
-      pending_code: {
-        [key: string]: components["schemas"]["TaskReference"][];
-      };
-    };
     /** BrowserWorkspaceBoard */
     BrowserWorkspaceBoard: {
-      workspace_work: components["schemas"]["WorkScope"];
       /** Document Count */
       document_count: number;
       workspace: components["schemas"]["WorkspaceRecord"];
       /** Projects */
       projects: components["schemas"]["Project"][];
-      /** Project Problems */
-      project_problems: {
-        [key: string]: string;
-      };
       /** Labels */
       labels: components["schemas"]["WorkspaceLabel"][];
-      /** Milestone Verifications */
-      milestone_verifications?: {
-        [key: string]: components["schemas"]["MilestoneVerificationSummary"];
-      };
-      /** Milestone Delivery Ids */
-      milestone_delivery_ids?: string[];
-      /** Milestones */
-      milestones: components["schemas"]["Milestone"][];
       /** Tasks */
       tasks: components["schemas"]["TaskCard"][];
       /** Needs You Count */
@@ -3725,14 +3045,14 @@ export interface components {
     };
     /** CoordinatorTaskContext */
     CoordinatorTaskContext: {
-      /** Project Id */
-      project_id: string;
       /** Task Id */
       task_id: string;
       /** Task Revision */
       task_revision: number;
       /** Result Id */
       result_id: string | null;
+      /** Project Id */
+      project_id: string | null;
       /** Key */
       key: string;
       /** Title */
@@ -3740,8 +3060,6 @@ export interface components {
     };
     /** CoordinatorTaskSelection */
     CoordinatorTaskSelection: {
-      /** Project Id */
-      project_id: string;
       /** Task Id */
       task_id: string;
       /** Task Revision */
@@ -3813,8 +3131,6 @@ export interface components {
         | "archive"
         | "projects"
         | "project"
-        | "milestones"
-        | "milestone"
         | "task"
         | "documents"
         | "files"
@@ -3822,33 +3138,15 @@ export interface components {
         | "request";
       /** Project Id */
       project_id: string | null;
-      /** Milestone Id */
-      milestone_id: string | null;
-      /** Milestone Revision */
-      milestone_revision: number | null;
-      /** Verification Id */
-      verification_id: string | null;
       /** Label Id */
       label_id: string | null;
-      /**
-       * Without Milestone
-       * @default false
-       */
-      without_milestone: boolean;
       /** Document Id */
       document_id: string | null;
       /** Document Revision */
       document_revision: number | null;
       /** Request Kind */
       request_kind:
-        | (
-            | "question"
-            | "attempt"
-            | "integration"
-            | "result"
-            | "permission"
-            | "milestone"
-          )
+        | ("question" | "attempt" | "integration" | "result" | "permission")
         | null;
       /** Request Id */
       request_id: string | null;
@@ -3860,12 +3158,6 @@ export interface components {
       project_name: string | null;
       /** Project Revision */
       project_revision: number | null;
-      /** Milestone Title */
-      milestone_title: string | null;
-      /** Verification Revision */
-      verification_revision: number | null;
-      /** Verification Status */
-      verification_status: string | null;
       /** Label Name */
       label_name: string | null;
       /** Label Revision */
@@ -3891,8 +3183,6 @@ export interface components {
         | "archive"
         | "projects"
         | "project"
-        | "milestones"
-        | "milestone"
         | "task"
         | "documents"
         | "files"
@@ -3900,33 +3190,15 @@ export interface components {
         | "request";
       /** Project Id */
       project_id?: string | null;
-      /** Milestone Id */
-      milestone_id?: string | null;
-      /** Milestone Revision */
-      milestone_revision?: number | null;
-      /** Verification Id */
-      verification_id?: string | null;
       /** Label Id */
       label_id?: string | null;
-      /**
-       * Without Milestone
-       * @default false
-       */
-      without_milestone: boolean;
       /** Document Id */
       document_id?: string | null;
       /** Document Revision */
       document_revision?: number | null;
       /** Request Kind */
       request_kind?:
-        | (
-            | "question"
-            | "attempt"
-            | "integration"
-            | "result"
-            | "permission"
-            | "milestone"
-          )
+        | ("question" | "attempt" | "integration" | "result" | "permission")
         | null;
       /** Request Id */
       request_id?: string | null;
@@ -3946,48 +3218,6 @@ export interface components {
       /** Number */
       number: number;
     };
-    /** CriterionFinding */
-    CriterionFinding: {
-      /**
-       * Check
-       * @description One-based number in the prepared checks list.
-       */
-      check: number;
-      /**
-       * Verdict
-       * @enum {string}
-       */
-      verdict: "passed" | "failed" | "unverified";
-      /** Evidence */
-      evidence: string;
-    };
-    /** DeliveredTask */
-    DeliveredTask: {
-      /** Project Id */
-      project_id: string;
-      /** Task Id */
-      task_id: string;
-      /** Task Key */
-      task_key: string;
-      /** Revision */
-      revision: number;
-      /** Agreement Revision */
-      agreement_revision: number;
-      /** Result Id */
-      result_id: string;
-      /** Result Revision */
-      result_revision: number;
-      /** Settings Revision */
-      settings_revision: number | null;
-      /** Commit */
-      commit: string | null;
-      /** Output Ids */
-      output_ids: string[];
-      /** Target Branch */
-      target_branch: string | null;
-      /** Reconciliation Reason */
-      reconciliation_reason: string | null;
-    };
     /** Delivery */
     Delivery: {
       /** Channel */
@@ -3999,35 +3229,6 @@ export interface components {
       system_allowed: boolean;
       /** Items */
       items?: components["schemas"]["Announcement"][];
-    };
-    /** DeliveryConfigure */
-    DeliveryConfigure: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Project Id */
-      project_id: string;
-      /** Branch */
-      branch?: string | null;
-    };
-    /** DependencyAssessment */
-    DependencyAssessment: {
-      /** Task Id */
-      task_id: string;
-      /** Check */
-      check: number;
-      /** Evidence */
-      evidence: string;
-    };
-    /** DependencyResolution */
-    DependencyResolution: {
-      /** Task Id */
-      task_id: string;
-      /** Check */
-      check: number;
-      /** Evidence */
-      evidence: string;
-      /** Revision */
-      revision: number;
     };
     /** DirectorySelection */
     DirectorySelection: {
@@ -4216,7 +3417,7 @@ export interface components {
        * Source
        * @enum {string}
        */
-      source: "project" | "workspace" | "override";
+      source: "workspace" | "override";
       /** Default Revision */
       default_revision: number;
       /** Override Revision */
@@ -4337,8 +3538,6 @@ export interface components {
       title: string;
       /** Task Key */
       task_key?: string | null;
-      /** Milestone Id */
-      milestone_id?: string | null;
     };
     /** FileWorkPage */
     FileWorkPage: {
@@ -4581,14 +3780,14 @@ export interface components {
     };
     /** Inspection */
     Inspection: {
+      /** Workspace Id */
+      workspace_id: string;
       /** Id */
       id: string;
       /** Project Id */
       project_id: string;
       /** Result Id */
       result_id: string | null;
-      /** Promotion Id */
-      promotion_id: string | null;
       /** Task Key */
       task_key: string | null;
       /** Version */
@@ -4681,6 +3880,10 @@ export interface components {
     };
     /** Integration */
     Integration: {
+      /** Workspace Id */
+      workspace_id: string;
+      /** Task Id */
+      task_id: string;
       /** Id */
       id: string;
       /** Project Id */
@@ -4811,6 +4014,10 @@ export interface components {
     };
     /** IntegrationSummary */
     IntegrationSummary: {
+      /** Workspace Id */
+      workspace_id: string;
+      /** Task Id */
+      task_id: string;
       /** Id */
       id: string;
       /** Project Id */
@@ -4951,479 +4158,6 @@ export interface components {
       /** Guidance */
       guidance?: string | null;
     };
-    /** Milestone */
-    Milestone: {
-      /** Id */
-      id: string;
-      /** Title */
-      title: string;
-      /** Body */
-      body: string;
-      /** Revision */
-      revision: number;
-      /** Created At */
-      created_at: string;
-      /** Updated At */
-      updated_at: string;
-      /** Updated By */
-      updated_by: string;
-      /** Workspace Id */
-      workspace_id: string;
-      /** Key */
-      key: string;
-      /**
-       * Acceptance Criteria
-       * @default
-       */
-      acceptance_criteria: string;
-    };
-    /** MilestoneBinding */
-    MilestoneBinding: {
-      /** Workspace Id */
-      workspace_id: string;
-      /** Id */
-      id: string;
-      /** Key */
-      key: string;
-      /** Title */
-      title: string;
-      /** Revision */
-      revision: number;
-      /**
-       * Origin
-       * @default preparation
-       * @enum {string}
-       */
-      origin: "preparation" | "upgrade";
-    };
-    /** MilestoneCreate */
-    MilestoneCreate: {
-      /** Title */
-      title: string;
-      /** Id */
-      id?: string | null;
-      /**
-       * Body
-       * @default
-       */
-      body: string;
-      /**
-       * Author
-       * @default human
-       */
-      author: string;
-      /**
-       * Acceptance Criteria
-       * @default
-       */
-      acceptance_criteria: string;
-    };
-    /** MilestoneDelivery */
-    MilestoneDelivery: {
-      /** Id */
-      id: string;
-      /** Workspace Id */
-      workspace_id: string;
-      /** Milestone Id */
-      milestone_id: string;
-      /** Project Id */
-      project_id: string;
-      /** Branch */
-      branch: string;
-      /** Destination Branch */
-      destination_branch: string;
-      /** Base Commit */
-      base_commit: string;
-      /** Path */
-      path: string;
-      checkout?: components["schemas"]["CheckoutBinding"] | null;
-      /**
-       * Status
-       * @default creating
-       * @enum {string}
-       */
-      status: "creating" | "ready" | "blocked";
-      /** Problem */
-      problem?: string | null;
-      /** Created At */
-      created_at: string;
-      integration_policy?: components["schemas"]["TaskIntegrationPolicy"];
-      /** Review Plan Question Id */
-      review_plan_question_id?: string | null;
-      /** Review Plan Question Revision */
-      review_plan_question_revision?: number | null;
-    };
-    /** MilestoneEdit */
-    MilestoneEdit: {
-      /** Expected Revision */
-      expected_revision: number;
-      /**
-       * Author
-       * @default human
-       */
-      author: string;
-      /** Title */
-      title?: string | null;
-      /** Body */
-      body?: string | null;
-      /** Acceptance Criteria */
-      acceptance_criteria?: string | null;
-    };
-    /** MilestoneInspectionPrepare */
-    MilestoneInspectionPrepare: {
-      /** Expected Revision */
-      expected_revision: number;
-      /**
-       * New Copy
-       * @default false
-       */
-      new_copy: boolean;
-    };
-    /** MilestoneObservationBinding */
-    MilestoneObservationBinding: {
-      /** Verification Id */
-      verification_id: string;
-      /** Verification Revision */
-      verification_revision: number;
-      /** Candidate Commit */
-      candidate_commit: string;
-    };
-    /** MilestonePromotion */
-    MilestonePromotion: {
-      /** Id */
-      id: string;
-      /** Workspace Id */
-      workspace_id: string;
-      /** Milestone Id */
-      milestone_id: string;
-      /** Verification Id */
-      verification_id: string;
-      /** Project Id */
-      project_id: string;
-      /** Source Branch */
-      source_branch: string;
-      /** Source Commit */
-      source_commit: string;
-      /** Target Branch */
-      target_branch: string;
-      /** Target Before */
-      target_before: string;
-      /** Settings Revision */
-      settings_revision: number;
-      checkout: components["schemas"]["CheckoutBinding"];
-      /**
-       * Status
-       * @default preparing
-       * @enum {string}
-       */
-      status:
-        | "preparing"
-        | "ready"
-        | "approved"
-        | "applying"
-        | "delivered"
-        | "blocked"
-        | "stale"
-        | "failed";
-      /** Candidate Commit */
-      candidate_commit: string | null;
-      /** Workspace */
-      workspace: string | null;
-      /** Setup Checks */
-      setup_checks: components["schemas"]["CheckResult"][];
-      /** Checks */
-      checks: components["schemas"]["CheckResult"][];
-      /** Problem */
-      problem: string | null;
-      /** Problem Code */
-      problem_code: string | null;
-      /** Created At */
-      created_at: string;
-      /** Validation Started At */
-      validation_started_at: string | null;
-      /** Approved At */
-      approved_at: string | null;
-      /** Approved By */
-      approved_by: string | null;
-      /** Apply Started At */
-      apply_started_at: string | null;
-      /** Delivered At */
-      delivered_at: string | null;
-    };
-    /** MilestoneReview */
-    MilestoneReview: {
-      /** Id */
-      id: string;
-      /** Project Id */
-      project_id: string;
-      /** Workspace Id */
-      workspace_id: string;
-      /**
-       * Revision
-       * @default 1
-       */
-      revision: number;
-      /**
-       * Status
-       * @default queued
-       * @enum {string}
-       */
-      status:
-        | "queued"
-        | "preparing"
-        | "running"
-        | "waiting"
-        | "decided"
-        | "stale"
-        | "stopped"
-        | "uncertain"
-        | "failed";
-      /** Created At */
-      created_at: string;
-      /** Started At */
-      started_at: string | null;
-      /** Completed At */
-      completed_at: string | null;
-      /** Problem */
-      problem: string | null;
-      /**
-       * Recipient
-       * @default reviewer
-       * @enum {string}
-       */
-      recipient: "reviewer" | "implementer";
-      /** Attempt Id */
-      attempt_id: string | null;
-      /** Question Id */
-      question_id: string | null;
-      /** Verification Id */
-      verification_id: string;
-      /** Milestone Id */
-      milestone_id: string;
-      /** Candidate Commit */
-      candidate_commit: string | null;
-      reviewer: components["schemas"]["EffectiveReviewer"];
-      verdict: components["schemas"]["MilestoneVerdict"] | null;
-      /** Applied At */
-      applied_at: string | null;
-    };
-    /** MilestoneReviewStatus */
-    MilestoneReviewStatus: {
-      plan: components["schemas"]["VerificationPlan"] | null;
-      reviewer: components["schemas"]["ReviewerSettingsView"];
-      review: components["schemas"]["MilestoneReview"] | null;
-      /** Message */
-      message: string;
-    };
-    /** MilestoneTestingNote */
-    MilestoneTestingNote: {
-      /** Id */
-      id: string;
-      /** Project Id */
-      project_id: string;
-      /** Task Key */
-      task_key: string;
-      /** Result Id */
-      result_id: string;
-      /** Body */
-      body: string;
-      actor: components["schemas"]["Actor"];
-      /** Created At */
-      created_at: string;
-    };
-    /** MilestoneTestingPage */
-    MilestoneTestingPage: {
-      /** Items */
-      items: components["schemas"]["MilestoneTestingNote"][];
-      /** Next Offset */
-      next_offset?: number | null;
-    };
-    /** MilestoneUpdate */
-    MilestoneUpdate: {
-      /** Workspace Id */
-      workspace_id: string;
-      /** Id */
-      id: string;
-      /** Key */
-      key: string;
-      /** Title */
-      title: string;
-      /** Prepared Revision */
-      prepared_revision: number;
-      /** Latest Revision */
-      latest_revision: number;
-    };
-    /** MilestoneVerdict */
-    MilestoneVerdict: {
-      /**
-       * Action
-       * @enum {string}
-       */
-      action: "report" | "ask_human";
-      /** Summary */
-      summary: string;
-      /** Evidence */
-      evidence: string;
-      /**
-       * Request
-       * @description Required for questions or corrections: state the question or bounded change.
-       * @default
-       */
-      request: string;
-      report: components["schemas"]["VerificationReport"] | null;
-      /** Correction Task Id */
-      correction_task_id: string | null;
-      /**
-       * Correction Check
-       * @description One-based number of the failed/unverified check.
-       */
-      correction_check: number | null;
-      /** Dependency Assessments */
-      dependency_assessments: components["schemas"]["DependencyAssessment"][];
-      /**
-       * Limitations
-       * @default
-       */
-      limitations: string;
-    };
-    /** MilestoneVerification */
-    MilestoneVerification: {
-      /** Id */
-      id: string;
-      /** Workspace Id */
-      workspace_id: string;
-      /** Milestone Id */
-      milestone_id: string;
-      /** Milestone Key */
-      milestone_key: string;
-      /** Milestone Revision */
-      milestone_revision: number;
-      /** Title */
-      title: string;
-      /** Criteria */
-      criteria: string;
-      /** Checks */
-      checks: string[];
-      /** Tasks */
-      tasks: components["schemas"]["DeliveredTask"][];
-      /** Project Id */
-      project_id: string;
-      /** Task Id */
-      task_id: string | null;
-      /** Task Key */
-      task_key: string | null;
-      /** Agreement Revision */
-      agreement_revision: number | null;
-      /**
-       * Revision
-       * @default 1
-       */
-      revision: number;
-      /**
-       * Status
-       * @default verifying
-       * @enum {string}
-       */
-      status:
-        | "preparing"
-        | "verifying"
-        | "ready"
-        | "failed"
-        | "stale"
-        | "accepted"
-        | "changes_requested"
-        | "promoting"
-        | "delivery_blocked";
-      /**
-       * Current
-       * @default true
-       */
-      current: boolean;
-      report: components["schemas"]["VerificationReport"] | null;
-      /**
-       * Summary
-       * @default
-       */
-      summary: string;
-      /** Dependency Resolutions */
-      dependency_resolutions: components["schemas"]["DependencyResolution"][];
-      /**
-       * Limitations
-       * @default
-       */
-      limitations: string;
-      /** Result Id */
-      result_id: string | null;
-      /** Created At */
-      created_at: string;
-      /** Updated At */
-      updated_at: string;
-      /** Author */
-      author: string;
-      /** Reviewed By */
-      reviewed_by: string | null;
-      /** Reviewed At */
-      reviewed_at: string | null;
-      /**
-       * Review Note
-       * @default
-       */
-      review_note: string;
-      /** Problem */
-      problem: string | null;
-      /** Promotion Id */
-      promotion_id: string | null;
-      promotion: components["schemas"]["MilestonePromotion"] | null;
-      /** Task Titles */
-      task_titles: {
-        [key: string]: string;
-      };
-      /** Files */
-      files: components["schemas"]["OutputFile"][];
-      /**
-       * Purpose
-       * @default task
-       * @enum {string}
-       */
-      purpose: "task" | "review";
-      /** Plan Revision */
-      plan_revision: number | null;
-      reviewer: components["schemas"]["EffectiveReviewer"] | null;
-      /** Review Id */
-      review_id: string | null;
-      /**
-       * Instructions
-       * @default
-       */
-      instructions: string;
-      /** Review Status */
-      review_status: string | null;
-    };
-    /** MilestoneVerificationSummary */
-    MilestoneVerificationSummary: {
-      /** Id */
-      id: string;
-      /**
-       * Status
-       * @enum {string}
-       */
-      status:
-        | "preparing"
-        | "verifying"
-        | "ready"
-        | "failed"
-        | "stale"
-        | "accepted"
-        | "changes_requested"
-        | "promoting"
-        | "delivery_blocked";
-      /** Checks Passed */
-      checks_passed: number | null;
-      /** Checks Total */
-      checks_total: number;
-      /** Review Status */
-      review_status?: string | null;
-    };
     /** ModelOption */
     ModelOption: {
       /** Id */
@@ -5463,8 +4197,6 @@ export interface components {
       id: string;
       /** Workspace Id */
       workspace_id: string;
-      /** Scope Id */
-      scope_id: string;
       /** Project Id */
       project_id: string | null;
       /** Task Id */
@@ -5473,10 +4205,6 @@ export interface components {
       task_key: string;
       /** Task Title */
       task_title: string;
-      /** Milestone Id */
-      milestone_id: string | null;
-      /** Milestone Title */
-      milestone_title: string | null;
       /** Run Id */
       run_id: string;
       /** Name */
@@ -5547,10 +4275,8 @@ export interface components {
     PermissionRecord: {
       /** Id */
       id: string;
-      /** Project Id */
-      project_id: string | null;
       /** Workspace Id */
-      workspace_id: string | null;
+      workspace_id: string;
       /**
        * Role
        * @enum {string}
@@ -5632,8 +4358,6 @@ export interface components {
       name: string;
       /** Path */
       path: string;
-      /** Task Prefix */
-      task_prefix: string;
       /**
        * Description
        * @default
@@ -5661,8 +4385,6 @@ export interface components {
       path: string;
       /** Name */
       name?: string | null;
-      /** Task Prefix */
-      task_prefix?: string | null;
       /**
        * Author
        * @default human
@@ -5682,8 +4404,6 @@ export interface components {
       name?: string | null;
       /** Description */
       description?: string | null;
-      /** Task Prefix */
-      task_prefix?: string | null;
       /** Worker Documents */
       worker_documents?:
         components["schemas"]["DocumentReference-Input"][] | null;
@@ -5701,15 +4421,6 @@ export interface components {
        * @default human
        */
       author: string;
-      /** Task Prefix */
-      task_prefix?: string | null;
-      coordinator?: components["schemas"]["AgentChoice-Input"] | null;
-      worker?: components["schemas"]["AgentChoice-Input"] | null;
-      /**
-       * Max Parallel
-       * @default 1
-       */
-      max_parallel: number;
     };
     /** ProjectSetupDefaults */
     ProjectSetupDefaults: {
@@ -5717,8 +4428,6 @@ export interface components {
       id: string;
       /** Name */
       name: string;
-      /** Task Prefix */
-      task_prefix: string;
     };
     /** Publication */
     Publication: {
@@ -5740,9 +4449,6 @@ export interface components {
       target_branch: string | null;
       /** Documents */
       documents: components["schemas"]["DocumentSnapshot"][];
-      milestone: components["schemas"]["MilestoneBinding"] | null;
-      /** Verification Id */
-      verification_id: string | null;
     };
     /** Question */
     Question: {
@@ -5767,8 +4473,8 @@ export interface components {
        * @default human
        */
       author: string;
-      /** Project Id */
-      project_id: string;
+      /** Workspace Id */
+      workspace_id: string;
       /** Task Key */
       task_key: string | null;
       /** Affected Task Keys */
@@ -5802,14 +4508,12 @@ export interface components {
       /** Correction Question Id */
       correction_question_id: string | null;
       delivery: components["schemas"]["InputDelivery"] | null;
-      /** Verification Url */
-      verification_url: string | null;
       /** Decision */
       decision: string | null;
       /** Applied Task Revision */
       applied_task_revision: number | null;
-      /** Applied Project Revision */
-      applied_project_revision: number | null;
+      /** Applied Workspace Revision */
+      applied_workspace_revision: number | null;
       /** Applied Task Revisions */
       applied_task_revisions: {
         [key: string]: number;
@@ -5839,8 +4543,8 @@ export interface components {
       expected_revision: number;
       /** Expected Task Revision */
       expected_task_revision?: number | null;
-      /** Expected Project Revision */
-      expected_project_revision?: number | null;
+      /** Expected Workspace Revision */
+      expected_workspace_revision?: number | null;
       /** Description */
       description?: string | null;
       /** Task Updates */
@@ -5956,15 +4660,13 @@ export interface components {
        * @default human
        */
       author: string;
-      /** @description For human testing of a combined milestone, bind the exact verification and candidate from get_milestone_verification. Only for action=observation. */
-      milestone: components["schemas"]["MilestoneObservationBinding"] | null;
       /**
        * Action
        * @enum {string}
        */
       action: "changes" | "answer" | "observation";
-      /** Project Id */
-      project_id: string;
+      /** Workspace Id */
+      workspace_id: string;
       /** Task Id */
       task_id: string;
       /** Created At */
@@ -6020,8 +4722,6 @@ export interface components {
        * @default human
        */
       author: string;
-      /** @description For human testing of a combined milestone, bind the exact verification and candidate from get_milestone_verification. Only for action=observation. */
-      milestone?: components["schemas"]["MilestoneObservationBinding"] | null;
       /**
        * Action
        * @enum {string}
@@ -6055,7 +4755,7 @@ export interface components {
        */
       reason: string;
       /** Settings */
-      settings: ("workers" | "integration") | null;
+      settings: ("workers" | "integration" | "reviewer") | null;
     };
     /** ResultPage */
     ResultPage: {
@@ -6070,6 +4770,8 @@ export interface components {
     };
     /** ResultReview */
     ResultReview: {
+      /** Subtask Id */
+      subtask_id?: string | null;
       /** Expected Revision */
       expected_revision: number;
       /** Candidate Commit */
@@ -6092,12 +4794,14 @@ export interface components {
     };
     /** ResultVersion */
     ResultVersion: {
+      /** Output Ids */
+      output_ids: string[];
       /** Files */
       files: components["schemas"]["OutputFile"][];
       /** Id */
       id: string;
-      /** Project Id */
-      project_id: string;
+      /** Workspace Id */
+      workspace_id: string;
       /** Task Id */
       task_id: string;
       /** Task Key */
@@ -6149,8 +4853,6 @@ export interface components {
       approved_at: string | null;
       /** Approved By */
       approved_by: string | null;
-      /** Delegated Review Id */
-      delegated_review_id: string | null;
       /**
        * Approval Note
        * @default
@@ -6234,22 +4936,12 @@ export interface components {
       integration_revision: number;
       /** Settings Revision */
       settings_revision: number;
-      /** Milestone Id */
-      milestone_id: string | null;
-      /** Milestone Revision */
-      milestone_revision: number | null;
       reviewer: components["schemas"]["EffectiveReviewer"];
       /**
        * Assignment Digest
        * @default
        */
       assignment_digest: string;
-      /** Delivery Id */
-      delivery_id: string | null;
-      /** Integration Policy Revision */
-      integration_policy_revision: number | null;
-      /** Workspace Integration Policy Revision */
-      workspace_integration_policy_revision: number | null;
       /**
        * Completion
        * @default code
@@ -6267,6 +4959,8 @@ export interface components {
     };
     /** ReviewVerdict */
     ReviewVerdict: {
+      /** Subtask Id */
+      subtask_id: string | null;
       /**
        * Action
        * @enum {string}
@@ -6309,18 +5003,26 @@ export interface components {
       harness_launch: components["schemas"]["HarnessLaunch"] | null;
       /** Id */
       id: string;
+      /** Workspace Id */
+      workspace_id: string;
       /** Project Id */
-      project_id: string;
+      project_id: string | null;
       /** Task Id */
       task_id: string;
+      /** Subtask Id */
+      subtask_id: string | null;
       /** Task Key */
       task_key: string;
+      /** Assembly Id */
+      assembly_id: string | null;
+      /** Subtask Revision */
+      subtask_revision: number | null;
       /**
        * Purpose
        * @default work
-       * @constant
+       * @enum {string}
        */
-      purpose: "work";
+      purpose: "work" | "assembly";
       /** Reply Id */
       reply_id: string | null;
       /**
@@ -6343,7 +5045,8 @@ export interface components {
         | "waiting_for_input"
         | "in_review"
         | "changes_requested"
-        | "accepted";
+        | "accepted"
+        | "contributed";
       /** Environment Id */
       environment_id: string;
       /** Predecessor Id */
@@ -6582,6 +5285,84 @@ export interface components {
       /** Expected Revision */
       expected_revision: number;
     };
+    /** Subtask */
+    Subtask: {
+      /** Workspace Id */
+      workspace_id: string;
+      /** Task Id */
+      task_id: string;
+      /** Id */
+      id: string;
+      /** Key */
+      key: string;
+      /** Title */
+      title: string;
+      /** Body */
+      body: string;
+      /**
+       * Completion
+       * @enum {string}
+       */
+      completion: "code" | "report";
+      /** Dependencies */
+      dependencies?: string[];
+      /**
+       * Revision
+       * @default 1
+       */
+      revision: number;
+      /** Created At */
+      created_at: string;
+      /** Updated At */
+      updated_at: string;
+      /** Updated By */
+      updated_by: string;
+      /** Contribution Run Id */
+      contribution_run_id?: string | null;
+      /**
+       * Status
+       * @default pending
+       * @enum {string}
+       */
+      status: "pending" | "running" | "blocked" | "complete";
+    };
+    /** SubtaskCreate */
+    SubtaskCreate: {
+      /** Title */
+      title: string;
+      /** Body */
+      body: string;
+      /**
+       * Completion
+       * @enum {string}
+       */
+      completion: "code" | "report";
+      /** Dependencies */
+      dependencies?: string[];
+      /**
+       * Author
+       * @default agent
+       */
+      author: string;
+    };
+    /** SubtaskEdit */
+    SubtaskEdit: {
+      /** Expected Revision */
+      expected_revision: number;
+      /**
+       * Author
+       * @default human
+       */
+      author: string;
+      /** Title */
+      title?: string | null;
+      /** Body */
+      body?: string | null;
+      /** Completion */
+      completion?: ("code" | "report") | null;
+      /** Dependencies */
+      dependencies?: string[] | null;
+    };
     /** Task */
     Task: {
       /** Id */
@@ -6598,8 +5379,15 @@ export interface components {
       updated_at: string;
       /** Updated By */
       updated_by: string;
+      /** Workspace Id */
+      workspace_id: string;
       /** Project Id */
-      project_id: string;
+      project_id: string | null;
+      /**
+       * Acceptance Criteria
+       * @default
+       */
+      acceptance_criteria: string;
       /** Input Files */
       input_files: string[];
       /**
@@ -6617,8 +5405,6 @@ export interface components {
        * @enum {string}
        */
       status: "backlog" | "up_next" | "in_progress" | "in_review" | "done";
-      /** Milestone Id */
-      milestone_id: string | null;
       /**
        * Archived
        * @default false
@@ -6635,11 +5421,8 @@ export interface components {
        * @default
        */
       change_note: string;
-      /** Report Completion Revision */
-      report_completion_revision: number | null;
       /** Document Updates */
       document_updates: components["schemas"]["DocumentUpdate"][];
-      milestone_update: components["schemas"]["MilestoneUpdate"] | null;
       /** Preparation Issue */
       preparation_issue: string | null;
       latest_update: components["schemas"]["ActivityEntry"] | null;
@@ -6674,8 +5457,10 @@ export interface components {
     };
     /** TaskCard */
     TaskCard: {
+      /** Workspace Id */
+      workspace_id: string;
       /** Project Id */
-      project_id: string;
+      project_id?: string | null;
       /** Id */
       id: string;
       /** Key */
@@ -6693,14 +5478,11 @@ export interface components {
       reconciliation_reason: string | null;
       /** Document Updates */
       document_updates?: components["schemas"]["DocumentUpdate"][];
-      milestone_update?: components["schemas"]["MilestoneUpdate"] | null;
       /** Preparation Issue */
       preparation_issue: string | null;
       state?: components["schemas"]["WorkState"] | null;
       /** Labels */
       labels: string[];
-      /** Milestone Id */
-      milestone_id: string | null;
       /** Revision */
       revision: number;
       /** Created At */
@@ -6753,6 +5535,13 @@ export interface components {
        * @default human
        */
       author: string;
+      /** Project Id */
+      project_id?: string | null;
+      /**
+       * Acceptance Criteria
+       * @default
+       */
+      acceptance_criteria: string;
       /** Input Files */
       input_files?: string[];
       preparation?: components["schemas"]["TaskPreparation"] | null;
@@ -6764,8 +5553,6 @@ export interface components {
        * @enum {string}
        */
       status: "backlog" | "up_next" | "in_progress" | "in_review" | "done";
-      /** Milestone Id */
-      milestone_id?: string | null;
       /** Dependencies */
       dependencies?: string[];
       /** Documents */
@@ -6773,8 +5560,10 @@ export interface components {
     };
     /** TaskDetail */
     TaskDetail: {
+      /** Workspace Id */
+      workspace_id: string;
       /** Project Id */
-      project_id: string;
+      project_id: string | null;
       /** Id */
       id: string;
       /** Key */
@@ -6795,14 +5584,11 @@ export interface components {
       reconciliation_reason: string | null;
       /** Document Updates */
       document_updates: components["schemas"]["DocumentUpdate"][];
-      milestone_update: components["schemas"]["MilestoneUpdate"] | null;
       /** Preparation Issue */
       preparation_issue: string | null;
       state: components["schemas"]["WorkState"] | null;
       /** Labels */
       labels: string[];
-      /** Milestone Id */
-      milestone_id: string | null;
       /** Revision */
       revision: number;
       /** Created At */
@@ -6843,6 +5629,11 @@ export interface components {
       blocking_questions: components["schemas"]["QuestionReference"][];
       /** Body */
       body: string;
+      /**
+       * Acceptance Criteria
+       * @default
+       */
+      acceptance_criteria: string;
       /** Input Files */
       input_files: string[];
       /** Documents */
@@ -6852,8 +5643,8 @@ export interface components {
        * @default
        */
       change_note: string;
-      /** Report Completion Revision */
-      report_completion_revision: number | null;
+      /** Subtasks */
+      subtasks: components["schemas"]["Subtask"][];
       /** Archive Blocker */
       archive_blocker: string | null;
       /** Prerequisites */
@@ -6870,6 +5661,8 @@ export interface components {
        * @default human
        */
       author: string;
+      /** Acceptance Criteria */
+      acceptance_criteria?: string | null;
       /** Input Files */
       input_files?: string[] | null;
       preparation?: components["schemas"]["TaskPreparation"] | null;
@@ -6879,8 +5672,6 @@ export interface components {
       body?: string | null;
       /** Labels */
       labels?: string[] | null;
-      /** Milestone Id */
-      milestone_id?: string | null;
       /** Archived */
       archived?: boolean | null;
       /** Dependencies */
@@ -6897,61 +5688,6 @@ export interface components {
       )[];
       /** Next Offset */
       next_offset: number | null;
-    };
-    /** TaskIntegrationPolicy */
-    TaskIntegrationPolicy: {
-      /**
-       * Revision
-       * @default 1
-       */
-      revision: number;
-      /** Enabled */
-      enabled?: boolean | null;
-      /** Updated At */
-      updated_at?: string | null;
-      /**
-       * Author
-       * @default human
-       */
-      author: string;
-    };
-    /** TaskIntegrationPolicyEdit */
-    TaskIntegrationPolicyEdit: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Delivery Id */
-      delivery_id: string;
-      /** Branch */
-      branch: string;
-      /** Enabled */
-      enabled: boolean | null;
-      /** Expected Workspace Revision */
-      expected_workspace_revision?: number | null;
-    };
-    /** TaskIntegrationPolicyView */
-    TaskIntegrationPolicyView: {
-      /**
-       * Revision
-       * @default 1
-       */
-      revision: number;
-      /** Enabled */
-      enabled?: boolean | null;
-      /** Updated At */
-      updated_at?: string | null;
-      /**
-       * Author
-       * @default human
-       */
-      author: string;
-      /** Delivery Id */
-      delivery_id: string;
-      /** Branch */
-      branch: string;
-      /** Effective Enabled */
-      effective_enabled: boolean;
-      /** Workspace Revision */
-      workspace_revision: number;
     };
     /** TaskPreparation */
     TaskPreparation: {
@@ -6977,23 +5713,6 @@ export interface components {
       status: "backlog" | "up_next";
       /** Before Id */
       before_id?: string | null;
-    };
-    /** TaskProgress */
-    TaskProgress: {
-      /** Expected Revision */
-      expected_revision: number;
-      /**
-       * Author
-       * @default human
-       */
-      author: string;
-      /**
-       * Status
-       * @enum {string}
-       */
-      status: "backlog" | "up_next" | "in_progress" | "in_review" | "done";
-      /** Completion */
-      completion?: "report" | null;
     };
     /** TaskPublish */
     TaskPublish: {
@@ -7026,8 +5745,10 @@ export interface components {
     };
     /** TaskReference */
     TaskReference: {
+      /** Workspace Id */
+      workspace_id: string;
       /** Project Id */
-      project_id: string;
+      project_id?: string | null;
       /** Id */
       id: string;
       /** Key */
@@ -7060,8 +5781,6 @@ export interface components {
     TaskReview: {
       /** Id */
       id: string;
-      /** Project Id */
-      project_id: string;
       /** Workspace Id */
       workspace_id: string;
       /**
@@ -7110,8 +5829,8 @@ export interface components {
       verdict: components["schemas"]["ReviewVerdict"] | null;
       /** Applied At */
       applied_at: string | null;
-      /** Integration Applied At */
-      integration_applied_at: string | null;
+      /** Responding Subtask Id */
+      responding_subtask_id: string | null;
     };
     /** TaskRevision */
     TaskRevision: {
@@ -7129,8 +5848,15 @@ export interface components {
       updated_at: string;
       /** Updated By */
       updated_by: string;
+      /** Workspace Id */
+      workspace_id: string;
       /** Project Id */
-      project_id: string;
+      project_id: string | null;
+      /**
+       * Acceptance Criteria
+       * @default
+       */
+      acceptance_criteria: string;
       /** Input Files */
       input_files: string[];
       /**
@@ -7148,8 +5874,6 @@ export interface components {
        * @enum {string}
        */
       status: "backlog" | "up_next" | "in_progress" | "in_review" | "done";
-      /** Milestone Id */
-      milestone_id: string | null;
       /**
        * Archived
        * @default false
@@ -7166,8 +5890,6 @@ export interface components {
        * @default
        */
       change_note: string;
-      /** Report Completion Revision */
-      report_completion_revision: number | null;
     };
     /** ThreadMessage */
     ThreadMessage: {
@@ -7203,7 +5925,7 @@ export interface components {
       /** Run Id */
       run_id: string | null;
       /** Purpose */
-      purpose: "work" | null;
+      purpose: ("work" | "assembly") | null;
       /** Question Id */
       question_id: string | null;
       /** Earlier Id */
@@ -7331,140 +6053,6 @@ export interface components {
       /** Context */
       ctx?: Record<string, never>;
     };
-    /** VerificationPlan */
-    VerificationPlan: {
-      /** Workspace Id */
-      workspace_id: string;
-      /** Milestone Id */
-      milestone_id: string;
-      /**
-       * Revision
-       * @default 1
-       */
-      revision: number;
-      /** Milestone Revision */
-      milestone_revision: number;
-      /** Checks */
-      checks: string[];
-      /** Instructions */
-      instructions: string;
-      /** Author */
-      author: string;
-      /** Updated At */
-      updated_at: string;
-    };
-    /** VerificationPlanEdit */
-    VerificationPlanEdit: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Milestone Revision */
-      milestone_revision: number;
-      /** Checks */
-      checks: string[];
-      /** Instructions */
-      instructions: string;
-      /**
-       * Author
-       * @default coordinator
-       */
-      author: string;
-    };
-    /** VerificationPrepare */
-    VerificationPrepare: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Project Id */
-      project_id: string;
-      /** Task Id */
-      task_id: string;
-      /** Expected Task Revision */
-      expected_task_revision: number;
-      /** Checks */
-      checks: string[];
-      /**
-       * Author
-       * @default coordinator
-       */
-      author: string;
-    };
-    /** VerificationReport */
-    VerificationReport: {
-      /** Verification Id */
-      verification_id: string;
-      /** Findings */
-      findings: components["schemas"]["CriterionFinding"][];
-      /**
-       * Coverage
-       * @enum {string}
-       */
-      coverage: "complete" | "incomplete";
-      /** Coverage Notes */
-      coverage_notes: string;
-      /** Output Ids */
-      output_ids: string[];
-    };
-    /** VerificationReview */
-    VerificationReview: {
-      /** Expected Revision */
-      expected_revision: number;
-      /**
-       * Action
-       * @enum {string}
-       */
-      action: "accept" | "request_changes" | "retry_promotion";
-      /**
-       * Note
-       * @default
-       */
-      note: string;
-      /**
-       * Author
-       * @default human
-       */
-      author: string;
-    };
-    /** WorkScope */
-    WorkScope: {
-      /** Id */
-      id: string;
-      /** Project Id */
-      project_id?: string | null;
-      /** Workspace Id */
-      workspace_id?: string | null;
-      /** Name */
-      name: string;
-      /** Path */
-      path: string;
-      /** Task Prefix */
-      task_prefix: string;
-      /**
-       * Description
-       * @default
-       */
-      description: string;
-      /**
-       * Revision
-       * @default 1
-       */
-      revision: number;
-      /**
-       * Created At
-       * @default
-       */
-      created_at: string;
-      /**
-       * Updated At
-       * @default
-       */
-      updated_at: string;
-      /**
-       * Updated By
-       * @default
-       */
-      updated_by: string;
-      /** Worker Documents */
-      worker_documents?: components["schemas"]["DocumentReference-Output"][];
-    };
     /** WorkState */
     WorkState: {
       /** Label */
@@ -7491,7 +6079,6 @@ export interface components {
     WorkerResult: {
       /** Files */
       files: components["schemas"]["OutputSelection"][];
-      verification: components["schemas"]["VerificationReport"] | null;
       /** Summary */
       summary: string;
       /** Checks */
@@ -7536,33 +6123,6 @@ export interface components {
       name?: string | null;
       /** Description */
       description?: string | null;
-    };
-    /** WorkspaceIntegrationPolicy */
-    WorkspaceIntegrationPolicy: {
-      /**
-       * Revision
-       * @default 1
-       */
-      revision: number;
-      /**
-       * Enabled
-       * @default false
-       */
-      enabled: boolean;
-      /** Updated At */
-      updated_at?: string | null;
-      /**
-       * Author
-       * @default human
-       */
-      author: string;
-    };
-    /** WorkspaceIntegrationPolicyEdit */
-    WorkspaceIntegrationPolicyEdit: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Enabled */
-      enabled: boolean;
     };
     /** WorkspaceLabel */
     WorkspaceLabel: {
@@ -7657,6 +6217,8 @@ export interface components {
        * @default false
        */
       enabled: boolean;
+      /** Problem */
+      problem: string | null;
     };
   };
   responses: never;
@@ -7723,28 +6285,6 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Project"][];
-        };
-      };
-    };
-  };
-  project_attention_counts_api_projects_attention_counts_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            [key: string]: number;
-          };
         };
       };
     };
@@ -7868,6 +6408,39 @@ export interface operations {
       };
     };
   };
+  project_workspace_api_projects__project_id__workspace_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: string;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   project_api_projects__project_id__get: {
     parameters: {
       query?: never;
@@ -7934,7 +6507,7 @@ export interface operations {
       };
     };
   };
-  activity_api_projects__project_id__activity_get: {
+  activity_api_workspaces__workspace_id__activity_get: {
     parameters: {
       query?: {
         task_id?: string | null;
@@ -7945,7 +6518,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -7971,12 +6544,12 @@ export interface operations {
       };
     };
   };
-  add_activity_api_projects__project_id__activity_post: {
+  add_activity_api_workspaces__workspace_id__activity_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -8006,12 +6579,12 @@ export interface operations {
       };
     };
   };
-  activity_entry_api_projects__project_id__activity__entry_id__get: {
+  activity_entry_api_workspaces__workspace_id__activity__entry_id__get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         entry_id: string;
       };
       cookie?: never;
@@ -8038,12 +6611,12 @@ export interface operations {
       };
     };
   };
-  board_api_projects__project_id__board_get: {
+  board_api_workspaces__workspace_id__board_get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -8069,14 +6642,14 @@ export interface operations {
       };
     };
   };
-  tasks_api_projects__project_id__tasks_get: {
+  tasks_api_workspaces__workspace_id__tasks_get: {
     parameters: {
       query?: {
         include_archived?: boolean;
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -8102,12 +6675,12 @@ export interface operations {
       };
     };
   };
-  create_task_api_projects__project_id__tasks_post: {
+  create_task_api_workspaces__workspace_id__tasks_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -8137,12 +6710,12 @@ export interface operations {
       };
     };
   };
-  task_api_projects__project_id__tasks__task_id__get: {
+  task_api_workspaces__workspace_id__tasks__task_id__get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -8169,12 +6742,12 @@ export interface operations {
       };
     };
   };
-  edit_task_api_projects__project_id__tasks__task_id__put: {
+  edit_task_api_workspaces__workspace_id__tasks__task_id__put: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -8205,12 +6778,12 @@ export interface operations {
       };
     };
   };
-  prioritize_task_api_projects__project_id__tasks__task_id__prioritize_post: {
+  prioritize_task_api_workspaces__workspace_id__tasks__task_id__prioritize_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -8241,12 +6814,12 @@ export interface operations {
       };
     };
   };
-  publish_task_api_projects__project_id__tasks__task_id__publish_post: {
+  publish_task_api_workspaces__workspace_id__tasks__task_id__publish_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -8277,48 +6850,12 @@ export interface operations {
       };
     };
   };
-  record_progress_api_projects__project_id__tasks__task_id__progress_post: {
+  reconcile_task_api_workspaces__workspace_id__tasks__task_id__reconcile_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
-        task_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["TaskProgress"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Task"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  reconcile_task_api_projects__project_id__tasks__task_id__reconcile_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -8349,12 +6886,12 @@ export interface operations {
       };
     };
   };
-  reopen_task_api_projects__project_id__tasks__task_id__reopen_post: {
+  reopen_task_api_workspaces__workspace_id__tasks__task_id__reopen_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -8494,8 +7031,8 @@ export interface operations {
   attention_api_workspaces__workspace_id__view_attention_get: {
     parameters: {
       query?: {
-        column?: "action" | "waiting" | "history";
         project_id?: string | null;
+        column?: "action" | "waiting" | "history";
         include_answered?: boolean;
         offset?: number;
         limit?: number;
@@ -8530,19 +7067,11 @@ export interface operations {
   };
   request_detail_api_workspaces__workspace_id__requests__kind___identity__get: {
     parameters: {
-      query?: {
-        project_id?: string | null;
-      };
+      query?: never;
       header?: never;
       path: {
         workspace_id: string;
-        kind:
-          | "question"
-          | "attempt"
-          | "integration"
-          | "result"
-          | "permission"
-          | "milestone";
+        kind: "question" | "attempt" | "integration" | "result" | "permission";
         identity: string;
       };
       cookie?: never;
@@ -8701,18 +7230,51 @@ export interface operations {
       };
     };
   };
-  create_workspace_task_api_workspaces__workspace_id__tasks_post: {
+  subtasks_api_workspaces__workspace_id__tasks__task_id__subtasks_get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
         workspace_id: string;
+        task_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Subtask"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_subtask_api_workspaces__workspace_id__tasks__task_id__subtasks_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        task_id: string;
       };
       cookie?: never;
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["TaskCreate"];
+        "application/json": components["schemas"]["SubtaskCreate"];
       };
     };
     responses: {
@@ -8722,7 +7284,77 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["Task"];
+          "application/json": components["schemas"]["Subtask"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  subtask_api_workspaces__workspace_id__tasks__task_id__subtasks__identity__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        task_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Subtask"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  edit_subtask_api_workspaces__workspace_id__tasks__task_id__subtasks__identity__put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        task_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SubtaskEdit"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Subtask"];
         };
       };
       /** @description Validation Error */
@@ -8955,975 +7587,6 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["WorkspaceWorkerSettings"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  permissions_api_workspaces__workspace_id__permissions_get: {
-    parameters: {
-      query?: {
-        before?: number | null;
-        limit?: number;
-      };
-      header?: never;
-      path: {
-        workspace_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["PermissionPage"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  permission_api_workspaces__workspace_id__permissions__permission_id__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        permission_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["PermissionRecord"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  answer_api_workspaces__workspace_id__permissions__permission_id__answer_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        permission_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PermissionAnswer"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["PermissionRecord"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestones_api_workspaces__workspace_id__milestones_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Milestone"][];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  create_milestone_api_workspaces__workspace_id__milestones_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["MilestoneCreate"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Milestone"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_api_workspaces__workspace_id__milestones__identity__get: {
-    parameters: {
-      query?: {
-        revision?: number | null;
-      };
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Milestone"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  edit_milestone_api_workspaces__workspace_id__milestones__identity__put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["MilestoneEdit"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Milestone"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_history_api_workspaces__workspace_id__milestones__identity__history_get: {
-    parameters: {
-      query?: {
-        before?: number | null;
-        limit?: number;
-      };
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_activity_api_workspaces__workspace_id__milestones__identity__activity_get: {
-    parameters: {
-      query?: {
-        before?: string | null;
-        limit?: number;
-      };
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_delivery_api_workspaces__workspace_id__milestones__identity__delivery_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MilestoneDelivery"] | null;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  configure_milestone_delivery_api_workspaces__workspace_id__milestones__identity__delivery_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["DeliveryConfigure"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MilestoneDelivery"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  verification_plan_api_workspaces__workspace_id__milestones__identity__verification_plan_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["VerificationPlan"] | null;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  save_verification_plan_api_workspaces__workspace_id__milestones__identity__verification_plan_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["VerificationPlanEdit"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["VerificationPlan"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_automation_api_workspaces__workspace_id__milestones__identity__automation_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MilestoneReviewStatus"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  read_milestone_integration_policy_api_workspaces__workspace_id__milestones__identity__delivery_integration_policy_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["TaskIntegrationPolicyView"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_integration_policy_api_workspaces__workspace_id__milestones__identity__delivery_integration_policy_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["TaskIntegrationPolicyEdit"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["TaskIntegrationPolicyView"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  workspace_integration_policy_api_workspaces__workspace_id__integration_policy_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["WorkspaceIntegrationPolicy"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  configure_workspace_integration_policy_api_workspaces__workspace_id__integration_policy_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["WorkspaceIntegrationPolicyEdit"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["WorkspaceIntegrationPolicy"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  verification_history_api_workspaces__workspace_id__milestones__identity__verifications_get: {
-    parameters: {
-      query?: {
-        before?: number | null;
-        limit?: number;
-      };
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  prepare_verification_api_workspaces__workspace_id__milestones__identity__verifications_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["VerificationPrepare"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MilestoneVerification"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  verification_api_workspaces__workspace_id__verifications__identity__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MilestoneVerification"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_testing_api_workspaces__workspace_id__verifications__identity__testing_get: {
-    parameters: {
-      query?: {
-        offset?: number;
-      };
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MilestoneTestingPage"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  review_verification_api_workspaces__workspace_id__verifications__identity__review_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["VerificationReview"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MilestoneVerification"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  inspect_milestone_api_workspaces__workspace_id__verifications__identity__inspection_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["MilestoneInspectionPrepare"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Inspection"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_diff_api_workspaces__workspace_id__verifications__identity__diff_get: {
-    parameters: {
-      query?: {
-        offset?: number;
-        limit?: number;
-      };
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ChangedFiles"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_patch_api_workspaces__workspace_id__verifications__identity__diff__file_id__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-        file_id: number;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["FilePatch"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_impact_api_workspaces__workspace_id__milestones__identity__impact_get: {
-    parameters: {
-      query?: {
-        after?: string | null;
-        limit?: number;
-      };
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_text_api_workspaces__workspace_id__milestones__identity__text_get: {
-    parameters: {
-      query?: {
-        revision?: number | null;
-        field?: "body" | "acceptance_criteria";
-        offset?: number;
-        limit?: number;
-      };
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
         };
       };
       /** @description Validation Error */
@@ -10327,7 +7990,6 @@ export interface operations {
         before?: number | null;
         limit?: number;
         task_key?: string | null;
-        milestone_id?: string | null;
       };
       header?: never;
       path: {
@@ -10362,7 +8024,6 @@ export interface operations {
       query?: {
         path?: string;
         task_key?: string | null;
-        milestone_id?: string | null;
         sort?: "name" | "newest" | "type";
         offset?: number;
       };
@@ -10564,43 +8225,12 @@ export interface operations {
       };
     };
   };
-  board_api_projects__project_id__view_board_get: {
+  task_api_workspaces__workspace_id__view_tasks__task_id__get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["BrowserBoard"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  task_api_projects__project_id__view_tasks__task_id__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -10627,12 +8257,12 @@ export interface operations {
       };
     };
   };
-  edit_task_api_projects__project_id__view_tasks__task_id__put: {
+  edit_task_api_workspaces__workspace_id__view_tasks__task_id__put: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -10663,12 +8293,12 @@ export interface operations {
       };
     };
   };
-  create_task_api_projects__project_id__view_tasks_post: {
+  create_task_api_workspaces__workspace_id__view_tasks_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -10698,12 +8328,12 @@ export interface operations {
       };
     };
   };
-  prioritize_task_api_projects__project_id__view_tasks__task_id__prioritize_post: {
+  prioritize_task_api_workspaces__workspace_id__view_tasks__task_id__prioritize_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -10734,12 +8364,12 @@ export interface operations {
       };
     };
   };
-  revision_api_projects__project_id__view_tasks__task_id__revisions__revision__get: {
+  revision_api_workspaces__workspace_id__view_tasks__task_id__revisions__revision__get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
         revision: number;
       };
@@ -10754,41 +8384,6 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["TaskRevision"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  attention_api_projects__project_id__view_attention_get: {
-    parameters: {
-      query: {
-        column: "action" | "waiting" | "history";
-        offset?: number;
-        limit?: number;
-      };
-      header?: never;
-      path: {
-        project_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AttentionPage"];
         };
       };
       /** @description Validation Error */
@@ -10869,12 +8464,12 @@ export interface operations {
       };
     };
   };
-  overview_api_context_projects__project_id__board_get: {
+  overview_api_context_workspaces__workspace_id__board_get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -10902,20 +8497,12 @@ export interface operations {
       };
     };
   };
-  search_api_context_projects__project_id__search_get: {
+  search_api_context_workspaces__workspace_id__search_get: {
     parameters: {
       query: {
         query: string;
         entity?:
-          | (
-              | "project"
-              | "milestone"
-              | "task"
-              | "activity"
-              | "question"
-              | "result"
-            )
-          | null;
+          ("project" | "task" | "activity" | "question" | "result") | null;
         kind?: string | null;
         task_id?: string | null;
         history?: "current" | "history" | "all";
@@ -10926,7 +8513,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -10954,13 +8541,12 @@ export interface operations {
       };
     };
   };
-  tasks_api_context_projects__project_id__tasks_get: {
+  tasks_api_context_workspaces__workspace_id__tasks_get: {
     parameters: {
       query?: {
         include_archived?: boolean;
         status?: string | null;
         label_id?: string | null;
-        milestone_id?: string | null;
         readiness?: string | null;
         query?: string | null;
         after?: number | null;
@@ -10968,7 +8554,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -10996,12 +8582,12 @@ export interface operations {
       };
     };
   };
-  task_api_context_projects__project_id__tasks__task_id__get: {
+  task_api_context_workspaces__workspace_id__tasks__task_id__get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -11030,7 +8616,7 @@ export interface operations {
       };
     };
   };
-  relationships_api_context_projects__project_id__tasks__task_id__relationships_get: {
+  relationships_api_context_workspaces__workspace_id__tasks__task_id__relationships_get: {
     parameters: {
       query?: {
         relation?: "prerequisites" | "blocked_by" | "dependents";
@@ -11039,7 +8625,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -11068,7 +8654,7 @@ export interface operations {
       };
     };
   };
-  revisions_api_context_projects__project_id__tasks__task_id__revisions_get: {
+  revisions_api_context_workspaces__workspace_id__tasks__task_id__revisions_get: {
     parameters: {
       query?: {
         before?: number | null;
@@ -11076,7 +8662,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -11105,7 +8691,7 @@ export interface operations {
       };
     };
   };
-  activity_api_context_projects__project_id__activity_get: {
+  activity_api_context_workspaces__workspace_id__activity_get: {
     parameters: {
       query?: {
         task_id?: string | null;
@@ -11116,7 +8702,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -11144,12 +8730,12 @@ export interface operations {
       };
     };
   };
-  activity_entry_api_context_projects__project_id__activity__entry_id__get: {
+  activity_entry_api_context_workspaces__workspace_id__activity__entry_id__get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         entry_id: string;
       };
       cookie?: never;
@@ -11178,7 +8764,7 @@ export interface operations {
       };
     };
   };
-  text_api_context_projects__project_id__text_get: {
+  text_api_context_workspaces__workspace_id__text_get: {
     parameters: {
       query: {
         resource: "task" | "project" | "activity" | "question" | "result";
@@ -11190,7 +8776,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -11218,7 +8804,7 @@ export interface operations {
       };
     };
   };
-  questions_api_context_projects__project_id__questions_get: {
+  questions_api_context_workspaces__workspace_id__questions_get: {
     parameters: {
       query?: {
         status?: string;
@@ -11228,7 +8814,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -11256,14 +8842,14 @@ export interface operations {
       };
     };
   };
-  question_api_context_projects__project_id__questions__identity__get: {
+  question_api_context_workspaces__workspace_id__questions__identity__get: {
     parameters: {
       query?: {
         revision?: number | null;
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -11331,204 +8917,11 @@ export interface operations {
   };
   request_detail_api_context_workspaces__workspace_id__requests__kind___identity__get: {
     parameters: {
-      query?: {
-        project_id?: string | null;
-      };
+      query?: never;
       header?: never;
       path: {
         workspace_id: string;
-        kind:
-          | "question"
-          | "attempt"
-          | "integration"
-          | "result"
-          | "permission"
-          | "milestone";
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestones_api_context_workspaces__workspace_id__milestones_get: {
-    parameters: {
-      query?: {
-        after?: string | null;
-        limit?: number;
-      };
-      header?: never;
-      path: {
-        workspace_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_api_context_workspaces__workspace_id__milestones__identity__get: {
-    parameters: {
-      query?: {
-        revision?: number | null;
-      };
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_history_api_context_workspaces__workspace_id__milestones__identity__history_get: {
-    parameters: {
-      query?: {
-        before?: number | null;
-        limit?: number;
-      };
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_impact_api_context_workspaces__workspace_id__milestones__identity__impact_get: {
-    parameters: {
-      query?: {
-        after?: string | null;
-        limit?: number;
-      };
-      header?: never;
-      path: {
-        workspace_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_text_api_context_workspaces__workspace_id__milestones__identity__text_get: {
-    parameters: {
-      query?: {
-        revision?: number | null;
-        field?: "body" | "acceptance_criteria";
-        offset?: number;
-        limit?: number;
-      };
-      header?: never;
-      path: {
-        workspace_id: string;
+        kind: "question" | "attempt" | "integration" | "result" | "permission";
         identity: string;
       };
       cookie?: never;
@@ -11593,7 +8986,7 @@ export interface operations {
       };
     };
   };
-  text_api_context_workspaces__workspace_id__text_get: {
+  coordinator_text_api_context_workspaces__workspace_id__coordinator_text_get: {
     parameters: {
       query: {
         identity: string;
@@ -11632,14 +9025,14 @@ export interface operations {
       };
     };
   };
-  thread_api_projects__project_id__tasks__task_id__thread_get: {
+  thread_api_workspaces__workspace_id__tasks__task_id__thread_get: {
     parameters: {
       query?: {
         cursor?: string | null;
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -11666,14 +9059,14 @@ export interface operations {
       };
     };
   };
-  thread_item_api_projects__project_id__tasks__task_id__thread__item_id__get: {
+  thread_item_api_workspaces__workspace_id__tasks__task_id__thread__item_id__get: {
     parameters: {
       query?: {
         full?: boolean;
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
         item_id: string;
       };
@@ -11701,12 +9094,12 @@ export interface operations {
       };
     };
   };
-  reply_api_projects__project_id__tasks__task_id__replies_post: {
+  reply_api_workspaces__workspace_id__tasks__task_id__replies_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -11737,12 +9130,12 @@ export interface operations {
       };
     };
   };
-  cancel_reply_api_projects__project_id__tasks__task_id__replies__reply_id__cancel_post: {
+  cancel_reply_api_workspaces__workspace_id__tasks__task_id__replies__reply_id__cancel_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
         reply_id: string;
       };
@@ -11770,7 +9163,7 @@ export interface operations {
       };
     };
   };
-  conversation_api_projects__project_id__tasks__task_id__conversation_get: {
+  conversation_api_workspaces__workspace_id__tasks__task_id__conversation_get: {
     parameters: {
       query?: {
         cursor?: string | null;
@@ -11778,7 +9171,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -11805,7 +9198,7 @@ export interface operations {
       };
     };
   };
-  source_api_projects__project_id__tasks__task_id__conversation__item_id__get: {
+  source_api_workspaces__workspace_id__tasks__task_id__conversation__item_id__get: {
     parameters: {
       query?: {
         offset?: number;
@@ -11813,7 +9206,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
         item_id: string;
       };
@@ -11841,14 +9234,14 @@ export interface operations {
       };
     };
   };
-  eligibility_api_projects__project_id__tasks__task_id__input_eligibility_get: {
+  eligibility_api_workspaces__workspace_id__tasks__task_id__input_eligibility_get: {
     parameters: {
       query?: {
         question_id?: string | null;
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -11875,7 +9268,7 @@ export interface operations {
       };
     };
   };
-  questions_api_projects__project_id__questions_get: {
+  questions_api_workspaces__workspace_id__questions_get: {
     parameters: {
       query?: {
         status?: string;
@@ -11885,7 +9278,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -11913,12 +9306,12 @@ export interface operations {
       };
     };
   };
-  ask_api_projects__project_id__questions_post: {
+  ask_api_workspaces__workspace_id__questions_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -11948,14 +9341,14 @@ export interface operations {
       };
     };
   };
-  question_api_projects__project_id__questions__identity__get: {
+  question_api_workspaces__workspace_id__questions__identity__get: {
     parameters: {
       query?: {
         revision?: number | null;
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -11982,7 +9375,7 @@ export interface operations {
       };
     };
   };
-  history_api_projects__project_id__questions__identity__history_get: {
+  history_api_workspaces__workspace_id__questions__identity__history_get: {
     parameters: {
       query?: {
         before?: number | null;
@@ -11990,7 +9383,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -12019,12 +9412,12 @@ export interface operations {
       };
     };
   };
-  answer_api_projects__project_id__questions__identity__answer_post: {
+  answer_api_workspaces__workspace_id__questions__identity__answer_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -12055,12 +9448,12 @@ export interface operations {
       };
     };
   };
-  apply_api_projects__project_id__questions__identity__apply_post: {
+  apply_api_workspaces__workspace_id__questions__identity__apply_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -12091,12 +9484,12 @@ export interface operations {
       };
     };
   };
-  correct_api_projects__project_id__questions__identity__correction_post: {
+  correct_api_workspaces__workspace_id__questions__identity__correction_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -12127,12 +9520,12 @@ export interface operations {
       };
     };
   };
-  follow_up_api_projects__project_id__questions__identity__follow_up_post: {
+  follow_up_api_workspaces__workspace_id__questions__identity__follow_up_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -12163,12 +9556,12 @@ export interface operations {
       };
     };
   };
-  retract_answer_api_projects__project_id__questions__identity__retract_answer_post: {
+  retract_answer_api_workspaces__workspace_id__questions__identity__retract_answer_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -12199,12 +9592,12 @@ export interface operations {
       };
     };
   };
-  withdraw_api_projects__project_id__questions__identity__withdraw_post: {
+  withdraw_api_workspaces__workspace_id__questions__identity__withdraw_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -12335,7 +9728,7 @@ export interface operations {
       };
     };
   };
-  runs_api_projects__project_id__runs_get: {
+  runs_api_workspaces__workspace_id__runs_get: {
     parameters: {
       query?: {
         task_id?: string | null;
@@ -12345,7 +9738,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -12371,12 +9764,48 @@ export interface operations {
       };
     };
   };
-  run_api_projects__project_id__runs__run_id__get: {
+  stop_task_api_workspaces__workspace_id__tasks__task_id__stop_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
+        task_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RunAction"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Run"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  run_api_workspaces__workspace_id__runs__run_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
         run_id: string;
       };
       cookie?: never;
@@ -12403,12 +9832,12 @@ export interface operations {
       };
     };
   };
-  location_api_projects__project_id__runs__run_id__location_get: {
+  location_api_workspaces__workspace_id__runs__run_id__location_get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         run_id: string;
       };
       cookie?: never;
@@ -12435,14 +9864,14 @@ export interface operations {
       };
     };
   };
-  activity_api_projects__project_id__runs__run_id__activity_get: {
+  activity_api_workspaces__workspace_id__runs__run_id__activity_get: {
     parameters: {
       query?: {
         after?: number;
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         run_id: string;
       };
       cookie?: never;
@@ -12469,7 +9898,7 @@ export interface operations {
       };
     };
   };
-  diff_api_projects__project_id__runs__run_id__diff_get: {
+  diff_api_workspaces__workspace_id__runs__run_id__diff_get: {
     parameters: {
       query?: {
         offset?: number;
@@ -12477,7 +9906,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         run_id: string;
       };
       cookie?: never;
@@ -12504,12 +9933,12 @@ export interface operations {
       };
     };
   };
-  patch_api_projects__project_id__runs__run_id__diff__file_id__get: {
+  patch_api_workspaces__workspace_id__runs__run_id__diff__file_id__get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         run_id: string;
         file_id: number;
       };
@@ -12537,12 +9966,12 @@ export interface operations {
       };
     };
   };
-  stop_api_projects__project_id__runs__run_id__stop_post: {
+  stop_api_workspaces__workspace_id__runs__run_id__stop_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         run_id: string;
       };
       cookie?: never;
@@ -12573,12 +10002,12 @@ export interface operations {
       };
     };
   };
-  retry_api_projects__project_id__runs__run_id__retry_post: {
+  retry_api_workspaces__workspace_id__runs__run_id__retry_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         run_id: string;
       };
       cookie?: never;
@@ -12609,43 +10038,12 @@ export interface operations {
       };
     };
   };
-  workspace_api_projects__project_id__workspace_get: {
+  task_settings_api_workspaces__workspace_id__tasks__task_id__agent_settings_get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["WorkspaceRecord"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  task_settings_api_projects__project_id__tasks__task_id__agent_settings_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -12672,12 +10070,12 @@ export interface operations {
       };
     };
   };
-  task_edit_api_projects__project_id__tasks__task_id__agent_settings_put: {
+  task_edit_api_workspaces__workspace_id__tasks__task_id__agent_settings_put: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -12708,7 +10106,7 @@ export interface operations {
       };
     };
   };
-  permissions_api_projects__project_id__permissions_get: {
+  permissions_api_workspaces__workspace_id__permissions_get: {
     parameters: {
       query?: {
         task_id?: string | null;
@@ -12718,7 +10116,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -12744,12 +10142,12 @@ export interface operations {
       };
     };
   };
-  answer_api_projects__project_id__permissions__permission_id__answer_post: {
+  answer_api_workspaces__workspace_id__permissions__permission_id__answer_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         permission_id: string;
       };
       cookie?: never;
@@ -12780,12 +10178,12 @@ export interface operations {
       };
     };
   };
-  permission_api_projects__project_id__permissions__permission_id__get: {
+  permission_api_workspaces__workspace_id__permissions__permission_id__get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         permission_id: string;
       };
       cookie?: never;
@@ -13330,12 +10728,12 @@ export interface operations {
       };
     };
   };
-  upload_api_projects__project_id__attachments_post: {
+  upload_api_workspaces__workspace_id__attachments_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -13374,88 +10772,12 @@ export interface operations {
       };
     };
   };
-  download_api_projects__project_id__attachments__identity__get: {
+  download_api_workspaces__workspace_id__attachments__identity__get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  upload_api_workspaces__project_id__attachments_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": {
-          /** Name */
-          name: string;
-          /** Mime */
-          mime: string;
-          /** Data */
-          data: string;
-          /** Task Id */
-          task_id?: string | null;
-        };
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Attachment"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  download_api_workspaces__project_id__attachments__identity__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -13616,7 +10938,7 @@ export interface operations {
       };
     };
   };
-  listing_api_projects__project_id__integrations_get: {
+  listing_api_workspaces__workspace_id__integrations_get: {
     parameters: {
       query?: {
         run_id?: string | null;
@@ -13625,7 +10947,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -13651,12 +10973,12 @@ export interface operations {
       };
     };
   };
-  detail_api_projects__project_id__integrations__identity__get: {
+  detail_api_workspaces__workspace_id__integrations__identity__get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -13683,7 +11005,7 @@ export interface operations {
       };
     };
   };
-  diff_api_projects__project_id__integrations__identity__diff_get: {
+  diff_api_workspaces__workspace_id__integrations__identity__diff_get: {
     parameters: {
       query?: {
         offset?: number;
@@ -13691,7 +11013,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -13718,12 +11040,12 @@ export interface operations {
       };
     };
   };
-  patch_api_projects__project_id__integrations__identity__diff__file_id__get: {
+  patch_api_workspaces__workspace_id__integrations__identity__diff__file_id__get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
         file_id: number;
       };
@@ -13751,7 +11073,7 @@ export interface operations {
       };
     };
   };
-  history_api_projects__project_id__tasks__task_id__history_get: {
+  history_api_workspaces__workspace_id__tasks__task_id__history_get: {
     parameters: {
       query?: {
         offset?: number;
@@ -13760,7 +11082,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -13787,7 +11109,7 @@ export interface operations {
       };
     };
   };
-  executions_api_projects__project_id__tasks__task_id__executions_get: {
+  executions_api_workspaces__workspace_id__tasks__task_id__executions_get: {
     parameters: {
       query?: {
         offset?: number;
@@ -13796,7 +11118,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -13823,12 +11145,12 @@ export interface operations {
       };
     };
   };
-  execution_api_projects__project_id__tasks__task_id__executions__identity__get: {
+  execution_api_workspaces__workspace_id__tasks__task_id__executions__identity__get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
         identity: string;
       };
@@ -13856,7 +11178,7 @@ export interface operations {
       };
     };
   };
-  listing_api_projects__project_id__tasks__task_id__results_get: {
+  listing_api_workspaces__workspace_id__tasks__task_id__results_get: {
     parameters: {
       query?: {
         before?: number | null;
@@ -13864,7 +11186,7 @@ export interface operations {
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         task_id: string;
       };
       cookie?: never;
@@ -13891,12 +11213,12 @@ export interface operations {
       };
     };
   };
-  detail_api_projects__project_id__results__identity__get: {
+  detail_api_workspaces__workspace_id__results__identity__get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -13923,12 +11245,12 @@ export interface operations {
       };
     };
   };
-  review_api_projects__project_id__results__identity__review_post: {
+  review_api_workspaces__workspace_id__results__identity__review_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -13959,12 +11281,12 @@ export interface operations {
       };
     };
   };
-  prepare_api_projects__project_id__results__identity__prepare_post: {
+  prepare_api_workspaces__workspace_id__results__identity__prepare_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -13995,12 +11317,12 @@ export interface operations {
       };
     };
   };
-  cancel_api_projects__project_id__results__identity__cancel_post: {
+  cancel_api_workspaces__workspace_id__results__identity__cancel_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -14031,12 +11353,12 @@ export interface operations {
       };
     };
   };
-  retry_delivery_api_projects__project_id__results__identity__retry_delivery_post: {
+  retry_delivery_api_workspaces__workspace_id__results__identity__retry_delivery_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -14067,12 +11389,12 @@ export interface operations {
       };
     };
   };
-  correct_api_projects__project_id__results__identity__correct_post: {
+  correct_api_workspaces__workspace_id__results__identity__correct_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -14103,12 +11425,12 @@ export interface operations {
       };
     };
   };
-  revalidate_api_projects__project_id__results__identity__revalidate_post: {
+  revalidate_api_workspaces__workspace_id__results__identity__revalidate_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;
@@ -14139,16 +11461,14 @@ export interface operations {
       };
     };
   };
-  settings_api_workspaces__workspace__reviewers__purpose__get: {
+  settings_api_workspaces__workspace__reviewer_get: {
     parameters: {
       query?: {
-        project?: string;
         entity?: string;
       };
       header?: never;
       path: {
         workspace: string;
-        purpose: "task" | "milestone";
       };
       cookie?: never;
     };
@@ -14174,16 +11494,14 @@ export interface operations {
       };
     };
   };
-  configure_api_workspaces__workspace__reviewers__purpose__put: {
+  configure_api_workspaces__workspace__reviewer_put: {
     parameters: {
       query?: {
-        project?: string;
         entity?: string;
       };
       header?: never;
       path: {
         workspace: string;
-        purpose: "task" | "milestone";
       };
       cookie?: never;
     };
@@ -14213,7 +11531,7 @@ export interface operations {
       };
     };
   };
-  current_api_projects__project__tasks__task__review_get: {
+  current_api_workspaces__project__tasks__task__review_get: {
     parameters: {
       query?: never;
       header?: never;
@@ -14264,245 +11582,6 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["TaskReview"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_review_api_projects__project__milestone_reviews__identity__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MilestoneReview"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_attempts_api_projects__project__milestone_reviews__identity__attempts_get: {
-    parameters: {
-      query?: {
-        before?: number | null;
-      };
-      header?: never;
-      path: {
-        project: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ReviewAttemptPage"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_activity_api_projects__project__milestone_reviews__identity__activity_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["RunActivityPage"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  milestone_attempt_activity_api_projects__project__milestone_reviews__identity__attempts__attempt__activity_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project: string;
-        identity: string;
-        attempt: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["RunActivityPage"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  stop_milestone_review_api_projects__project__milestone_reviews__identity__stop_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["RunAction"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MilestoneReview"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  retry_milestone_review_api_projects__project__milestone_reviews__identity__retry_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["RunAction"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MilestoneReview"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  confirm_milestone_review_stopped_api_projects__project__milestone_reviews__identity__confirm_stopped_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        project: string;
-        identity: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["RunAction"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["MilestoneReview"];
         };
       };
       /** @description Validation Error */
@@ -14789,14 +11868,14 @@ export interface operations {
       };
     };
   };
-  latest_api_projects__project_id__inspection_get: {
+  latest_api_workspaces__workspace_id__inspection_get: {
     parameters: {
       query: {
         result_id: string;
       };
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -14822,12 +11901,12 @@ export interface operations {
       };
     };
   };
-  prepare_api_projects__project_id__inspection_post: {
+  prepare_api_workspaces__workspace_id__inspection_post: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
       };
       cookie?: never;
     };
@@ -14857,12 +11936,12 @@ export interface operations {
       };
     };
   };
-  detail_api_projects__project_id__inspections__identity__get: {
+  detail_api_workspaces__workspace_id__inspections__identity__get: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        project_id: string;
+        workspace_id: string;
         identity: string;
       };
       cookie?: never;

@@ -30,28 +30,22 @@ type Settings = components["schemas"]["WorkspaceWorkerSettings"] & {
 
 export function QueueControls({
   workspaceId,
-  projectId,
   problems = [],
   refresh,
 }: {
-  projectId?: string;
-  workspaceId?: string;
+  workspaceId: string;
   problems?: { name: string; message: string; projectId: string }[];
   refresh: unknown;
 }) {
-  const path = workspaceId
-    ? `workspaces/${workspaceId}`
-    : `projects/${projectId}`;
-  const settingsHref = workspaceId
-    ? workspaceHref(workspaceId)
-    : projectHref(projectId!);
+  const path = `workspaces/${workspaceId}`;
+  const settingsHref = workspaceHref(workspaceId);
   const resource = useResource<Settings>(`${path}/workers`, refresh);
   const occupancy = useResource<components["schemas"]["WorkerOccupancy"]>(
     `${path}/workers/occupancy`,
     refresh,
   );
   useHarnessModels(
-    workspaceId ? { workspaceId } : projectId,
+    { workspaceId },
     resource.data?.selection?.harness,
     refresh,
     !!resource.data?.selection,
@@ -176,17 +170,15 @@ export function QueueControls({
 }
 
 export function WorkerSettings({
-  projectId,
   workspaceId,
   onDirty,
   refresh,
 }: {
   refresh: unknown;
-  projectId?: string;
-  workspaceId?: string;
+  workspaceId: string;
   onDirty: (value: boolean) => void;
 }) {
-  const path = `${workspaceId ? `workspaces/${workspaceId}` : `projects/${projectId}`}/workers`;
+  const path = `workspaces/${workspaceId}/workers`;
   const resource = useResource<Settings>(path, refresh);
   const [draft, setDraft] = useState<{
     harness: HarnessKind;
@@ -197,7 +189,7 @@ export function WorkerSettings({
     revision: number;
   } | null>(null);
   const source = useHarnessModels(
-    workspaceId ? { workspaceId } : projectId,
+    { workspaceId },
     draft?.harness ?? resource.data?.selection?.harness,
     refresh,
     !!resource.data,
@@ -412,20 +404,14 @@ export function WorkerSettings({
 }
 
 export function QueueSettings({
-  projectId,
   workspaceId,
   refresh,
 }: {
-  projectId?: string;
-  workspaceId?: string;
+  workspaceId: string;
   refresh: unknown;
 }) {
-  const path = workspaceId
-    ? `workspaces/${workspaceId}`
-    : `projects/${projectId}`;
-  const settingsHref = workspaceId
-    ? workspaceHref(workspaceId)
-    : projectHref(projectId!);
+  const path = `workspaces/${workspaceId}`;
+  const settingsHref = workspaceHref(workspaceId);
   const resource = useResource<Settings>(`${path}/workers`, refresh);
   const [busy, setBusy] = useState(false);
   const data = resource.data;

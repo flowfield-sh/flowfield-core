@@ -32,7 +32,8 @@ def setup(tmp_path, monkeypatch, scenario="normal", flags=()):
         "harbor",
         "coordinator",
         AgentSettingsEdit(
-            expected_revision=1, selection=AgentChoice(model="test-model", effort="low")
+            expected_revision=1,
+            selection=AgentChoice(model="test-model", effort="low", mode="read-only"),
         ),
     )
     conversation = service.coordinator.store.new("harbor")

@@ -4,14 +4,15 @@ import argparse
 import json
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 from flowfield.adapters.git_integration import run_checks
 from flowfield.adapters.git_workspace import baseline, git
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_models import AgentChoice
-from flowfield.application import MilestoneCreate, ProjectSetup, TaskCreate, TaskPublish, Workspace
+from flowfield.application import ProjectSetup, TaskCreate, TaskPublish, Workspace
 from flowfield.execution import Execution
-from flowfield.execution_models import QueueEdit, SettingsEdit, WorkerResult
+from flowfield.execution_models import SettingsEdit, WorkerResult
 from flowfield.integration import Integrations
 from flowfield.integration_models import IntegrationConfig
 from flowfield.results import Results
@@ -37,7 +38,7 @@ def main() -> None:
     space = spaces.create(WorkspaceCreate(name="Harbor integration workspace"))
     project = spaces.adopt(
         space.id,
-        ProjectSetup(path=str(repo), name="Harbor · Integration trial", task_prefix="INT"),
+        ProjectSetup(path=str(repo), name="Harbor · Integration trial"),
     )
     git(repo, "init", "-b", "main")
     (repo / "README.md").write_text("# Harbor\n\nOffline integration fixture; no model calls.\n")
@@ -67,18 +68,16 @@ def main() -> None:
         ),
     )
     git(repo, "switch", "integration")
-    for identity, title in [("catalog", "Catalog import"), ("reporting", "Reports")]:
-        workspace.create_milestone(project.id, MilestoneCreate(id=identity, title=title))
-    for identity, title, milestone, dependencies in [
-        ("loader", "Load a local JSON catalog", "catalog", []),
-        ("report", "Summarize the loaded catalog", "reporting", ["loader"]),
+    for identity, title, dependencies in [
+        ("loader", "Load a local JSON catalog", []),
+        ("report", "Summarize the loaded catalog", ["loader"]),
     ]:
         task = workspace.create_task(
-            project.id,
+            space.id,
             TaskCreate(
                 id=identity,
                 title=title,
-                milestone_id=milestone,
+                project_id=project.id,
                 dependencies=dependencies,
                 status="up_next",
                 body="Load the local catalog and verify behavior with unittest."
@@ -88,24 +87,29 @@ def main() -> None:
             ),
         )
         workspace.publish_task(
-            project.id,
+            space.id,
             task.id,
             TaskPublish(
                 completion="code",
                 expected_revision=task.revision,
             ),
         )
+    from flowfield.reviewer_settings import ReviewerEdit, Reviewers
+
+    Reviewers(workspace).configure(space.id, ReviewerEdit(expected_revision=1, enabled=False))
     execution = Execution(workspace)
     settings = execution.configure(
-        project.id,
+        space.id,
         SettingsEdit(
             expected_revision=1, selection=AgentChoice(model="offline-fixture", effort="none")
         ),
     )
-    execution.queue(project.id, QueueEdit(expected_revision=settings.revision, enabled=True))
-    run = execution.claim(project.id, head, {head: set()})
+    with patch.object(
+        execution, "_settings", return_value=settings.model_copy(update={"enabled": True})
+    ):
+        run = execution.claim(space.id, head, {head: set()})
     assert run and run.task_id == "loader"
-    execution.started(project.id, run.id)
+    execution.started(space.id, run.id)
     env = LocalHost(os.environ).prepare(workspace.directory, repo, run.id, head)
     execution.save_local(
         run.id,
@@ -151,7 +155,7 @@ def main() -> None:
     assert all(check.exit_code == 0 for check in reports)
     commit, _ = env.snapshot(head)
     run = execution.finish(
-        project.id,
+        space.id,
         run.id,
         "in_review",
         commit=commit,
@@ -169,14 +173,14 @@ def main() -> None:
         )
         target_commit, _ = target_env.snapshot(head)
         git(repo, "merge", "--ff-only", target_commit)
-    results.process(project.id)
-    version = results.page(project.id, run.task_id).items[0]
-    candidate = integration.get(project.id, version.integration_id)
+    results.process(space.id)
+    version = results.page(space.id, run.task_id).items[0]
+    candidate = integration.get(space.id, version.integration_id)
     assert candidate.status == ("failed" if args.conflict else "ready"), candidate.problem
     # A dirty human checkout makes preservation easy to verify in this trial.
     (repo / "README.md").write_text("# Harbor\n\nUnsaved human planning notes: preserve me.\n")
-    with workspace.connection(write=True, project_id=project.id) as db:
-        settings = execution._settings(db, project.id)
+    with workspace.connection(write=True, workspace_id=space.id) as db:
+        settings = execution._settings(db, space.id)
         settings.enabled, settings.selection = False, None
         execution._save_settings(db, settings)
     print(

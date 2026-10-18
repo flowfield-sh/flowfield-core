@@ -80,7 +80,7 @@ def test_combined_candidate_dirty_preview_and_current_destination_are_independen
     )
     service.results.process("harbor")
     assert current(service).status == "delivered"
-    assert service.integrations.head("harbor") == copy.commit
+    assert service.integrations.head("harbor", "work") == copy.commit
     assert git(repo, "show", copy.commit + ":result.txt") == b"implemented\n"
     assert (tmp_path / "preserved-readme").read_text() == "human dirty work"
 
@@ -122,8 +122,10 @@ def test_feedback_successor_preserves_earlier_copy_and_approval_binding(tmp_path
     )
     settings = service.execution.settings("harbor")
     service.execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=True))
-    head = service.integrations.head("harbor")
-    run = service.execution.claim("harbor", head, service._available("harbor", repo, head))
+    head = service.integrations.head("harbor", "work")
+    run = service.execution.claim(
+        "harbor", head, service._available("harbor", "harbor", repo, head)
+    )
     assert service.execution.assignment("harbor", run.id)["description"] == task.body
     env = LocalHost(os.environ).prepare(service.workspace.directory, repo, run.id, run.base_commit)
     (env.checkout / "result.txt").write_text("useful successor")
@@ -145,7 +147,7 @@ def test_feedback_successor_preserves_earlier_copy_and_approval_binding(tmp_path
         approve(service, first)
     approve(service, successor)
     service.results.process("harbor")
-    assert service.integrations.head("harbor") == newer.commit
+    assert service.integrations.head("harbor", "work") == newer.commit
 
 
 def test_settings_revisions_stale_requests_and_failed_preparation_preserve_evidence(
@@ -332,18 +334,18 @@ def test_real_mcp_and_http_inspect_the_same_candidate_without_running_commands(t
                 "get_inspection_settings",
             } <= names
             assert (
-                await api.get("/api/projects/harbor/inspection", params={"result_id": version.id})
+                await api.get("/api/workspaces/harbor/inspection", params={"result_id": version.id})
             ).json() is None
-            assert (await api.get("/api/projects/harbor/inspection")).status_code == 422
-            missing_source = await session.call_tool("get_inspection", {"project_id": "harbor"})
+            assert (await api.get("/api/workspaces/harbor/inspection")).status_code == 422
+            missing_source = await session.call_tool("get_inspection", {"workspace_id": "harbor"})
             assert missing_source.isError
             rejected = await api.post(
-                "/api/projects/harbor/inspection", json={"expected_revision": 1}
+                "/api/workspaces/harbor/inspection", json={"expected_revision": 1}
             )
             assert rejected.status_code == 422
             rejected_mcp = await session.call_tool(
                 "prepare_inspection",
-                {"project_id": "harbor", "request": {"expected_revision": 1}},
+                {"workspace_id": "harbor", "request": {"expected_revision": 1}},
             )
             assert rejected_mcp.isError
             result = await session.call_tool(
@@ -357,7 +359,7 @@ def test_real_mcp_and_http_inspect_the_same_candidate_without_running_commands(t
             result = await session.call_tool(
                 "prepare_inspection",
                 {
-                    "project_id": "harbor",
+                    "workspace_id": "harbor",
                     "request": {"result_id": version.id, "expected_revision": version.revision},
                 },
             )
@@ -365,7 +367,7 @@ def test_real_mcp_and_http_inspect_the_same_candidate_without_running_commands(t
             copy = result.structuredContent
             assert copy["commit"] == version.candidate_commit
             assert not (Path(copy["workspace"]) / "not-automatic").exists()
-            saved = (await api.get(f"/api/projects/harbor/inspections/{copy['id']}")).json()
+            saved = (await api.get(f"/api/workspaces/harbor/inspections/{copy['id']}")).json()
             assert saved["commit"] == copy["commit"] and saved["command"] == copy["command"]
             # Long trusted setup stays in the saved launcher, outside the short command.
             settings = (await api.get("/api/projects/harbor/integration")).json()
@@ -383,14 +385,16 @@ def test_real_mcp_and_http_inspect_the_same_candidate_without_running_commands(t
             # using its current revision, rather than racing the background validator.
             with anyio.fail_after(10):
                 while True:
-                    selected = (await api.get(f"/api/projects/harbor/results/{version.id}")).json()
+                    selected = (
+                        await api.get(f"/api/workspaces/harbor/results/{version.id}")
+                    ).json()
                     if selected["status"] == "stale":
                         break
                     await anyio.sleep(0.05)
             prepared = await session.call_tool(
                 "prepare_inspection",
                 {
-                    "project_id": "harbor",
+                    "workspace_id": "harbor",
                     "request": {
                         "result_id": version.id,
                         "expected_revision": selected["revision"],
@@ -401,11 +405,11 @@ def test_real_mcp_and_http_inspect_the_same_candidate_without_running_commands(t
             item = prepared.structuredContent
             assert item["command_next_offset"] is None
             assert len(item["command"]) < 1000
-            full = (await api.get(f"/api/projects/harbor/inspections/{item['id']}")).json()
+            full = (await api.get(f"/api/workspaces/harbor/inspections/{item['id']}")).json()
             assert item["command"] == full["command"]
             assert len(Path(full["launcher"]).read_text()) > 8000
             stale = await api.post(
-                "/api/projects/harbor/inspection",
+                "/api/workspaces/harbor/inspection",
                 json={"result_id": version.id, "expected_revision": 999},
             )
             assert stale.status_code == 409

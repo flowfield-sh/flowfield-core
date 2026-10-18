@@ -213,8 +213,8 @@ class Labels:
             # Record removals as ordinary metadata revisions, preserving agreements,
             # publications, approvals and historical classification references.
             for row in db.execute(
-                "SELECT t.data FROM tasks t JOIN workspace_scopes p ON p.project_id=t.project_id "
-                "WHERE p.workspace_id=? AND (EXISTS (SELECT 1 FROM json_each(t.data,'$.labels') "
+                "SELECT t.data FROM tasks t "
+                "WHERE t.workspace_id=? AND (EXISTS (SELECT 1 FROM json_each(t.data,'$.labels') "
                 "WHERE value=?) OR (json_type(t.data,'$.labels') IS NULL "
                 "AND json_extract(t.data,'$.task_type')=?))",
                 (workspace_id, identity, identity),

@@ -3,6 +3,7 @@
 import json
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 from project_fixtures import adopt, task_request
 
@@ -10,7 +11,7 @@ from flowfield.activity import ActivityCreate
 from flowfield.agent_models import AgentChoice
 from flowfield.application import ProjectSetup, TaskPublish, Workspace
 from flowfield.execution import Execution
-from flowfield.execution_models import QueueEdit, SettingsEdit, Usage
+from flowfield.execution_models import SettingsEdit, Usage
 from flowfield.run_activity import ActivityUpdate, ContextUsage, RunActivity
 
 ws = Workspace(Path(sys.argv[1]))
@@ -18,7 +19,7 @@ execution = Execution(ws)
 if sys.argv[2] == "create":
     path = Path(sys.argv[1]) / "stream-project"
     path.mkdir()
-    adopt(ws, ProjectSetup(path=str(path), task_prefix="STR"))
+    adopt(ws, ProjectSetup(path=str(path)))
     task = ws.create_task(
         "stream-project",
         task_request(
@@ -36,16 +37,17 @@ if sys.argv[2] == "create":
             expected_revision=task.revision,
         ),
     )
-    execution.configure(
+    settings = execution.configure(
         "stream-project",
         SettingsEdit(
             expected_revision=1, selection=AgentChoice(model="offline-fixture", effort="none")
         ),
     )
-    execution.queue("stream-project", QueueEdit(expected_revision=2, enabled=True))
-    run = execution.claim("stream-project", "a" * 40, {})
+    with patch.object(
+        execution, "_settings", return_value=settings.model_copy(update={"enabled": True})
+    ):
+        run = execution.claim("stream-project", "a" * 40, {})
     execution.started("stream-project", run.id)
-    execution.queue("stream-project", QueueEdit(expected_revision=3, enabled=False))
     RunActivity(ws).write(
         "stream-project",
         run.id,

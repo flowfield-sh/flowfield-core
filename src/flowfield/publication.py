@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from flowfield.document_models import DocumentSnapshot
-from flowfield.milestone_models import MilestoneBinding
 from flowfield.task_read_facts import TaskReadFacts
 
 if TYPE_CHECKING:
@@ -26,8 +25,6 @@ class Publication(BaseModel):
     completion: Literal["code", "report"] = "code"
     target_branch: str | None = None
     documents: list[DocumentSnapshot] = Field(default_factory=list)
-    milestone: MilestoneBinding | None = None
-    verification_id: str | None = None
 
 
 def publication_status(task: "TaskRevision") -> PublicationStatus:
@@ -69,8 +66,6 @@ def preparation_issue(
         return None
     if task.reconciliation_reason:
         return task.reconciliation_reason
-    if issue := verification_issue(db, task, facts=facts):
-        return issue
     state = publication_status(task)
     if state == "needs_reconciliation":
         return "Task changed. Review it with the coordinator before continuing."
@@ -81,8 +76,8 @@ def preparation_issue(
         if facts is not None
         else db.execute(
             "SELECT length(trim(json_extract(data, '$.body'), char(9)||char(10)||char(13)||' ')) "
-            "FROM tasks WHERE project_id=? AND id=?",
-            (task.project_id, task.id),
+            "FROM tasks WHERE workspace_id=? AND id=?",
+            (task.workspace_id, task.id),
         ).fetchone()[0]
     )
     if not has_description:
@@ -90,21 +85,3 @@ def preparation_issue(
     if task.publication:
         return "Task changed. Ask the coordinator to prepare it again."
     return "Ask the coordinator to prepare this task." if include_draft_hint else None
-
-
-def verification_issue(
-    db: sqlite3.Connection, task: "TaskRevision", *, facts: TaskReadFacts | None = None
-) -> str | None:
-    binding = task.publication.verification_id if task.publication else None
-    if not binding or task.status == "done" or task.archived:
-        return None
-    if facts is not None:
-        status = facts.row["verification_status"]
-    else:
-        row = db.execute(
-            "SELECT status FROM milestone_verifications WHERE id=?", (binding,)
-        ).fetchone()
-        status = row[0] if row else None
-    if status != "verifying":
-        return "Ask the coordinator to prepare a new milestone verification."
-    return None

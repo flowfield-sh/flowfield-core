@@ -1,16 +1,11 @@
-import { openResource } from "./shell-navigation";
 import {
   fixtureCliProject,
   projectWorkspace,
   fixtureProject,
-  fixtureMcpProject,
   choose,
-  fixtureProgress,
   test,
   existingDirectory,
   state,
-  cli,
-  connectMcp,
 } from "./support";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -36,17 +31,20 @@ test("CLI adoption updates the browser, task creation and initial connection rec
   await page
     .getByLabel("Workspace", { exact: true })
     .selectOption({ label: adopted.name });
-  const workspace = await projectWorkspace(request, adopted.id);
+  const workspace = await projectWorkspace(page.request, adopted.id);
   await expect(page).toHaveURL(`/workspaces/${workspace}/inbox`);
   await page.getByRole("link", { name: "Tasks", exact: true }).click();
   expect(
     (
-      await request.post(`/api/projects/${adopted.id}/tasks`, {
-        data: {
-          title: "Investigate large exports",
-          labels: ["investigation"],
+      await request.post(
+        `/api/workspaces/${await projectWorkspace(page.request, adopted.id)}/tasks`,
+        {
+          data: {
+            title: "Investigate large exports",
+            labels: ["investigation"],
+          },
         },
-      })
+      )
     ).ok(),
   ).toBeTruthy();
   await expect(
@@ -59,7 +57,11 @@ test("CLI adoption updates the browser, task creation and initial connection rec
         name: /Investigate large exports/,
       }),
   ).toBeVisible();
-  const tasks = await (await request.get("/api/projects/browser/tasks")).json();
+  const tasks = await (
+    await request.get(
+      `/api/workspaces/${await projectWorkspace(page.request, "browser")}/tasks`,
+    )
+  ).json();
   expect(tasks[0].labels).toEqual(["investigation"]);
   expect(tasks[0].id).toMatch(/^investigate-large-exports-/);
   await page.reload();
@@ -70,145 +72,15 @@ test("CLI adoption updates the browser, task creation and initial connection rec
   ).toBeVisible();
 });
 
-test("milestones group tasks with linked details and long project intent stays out of the shell", async ({
-  page,
-  request,
-}) => {
-  const call = await connectMcp(request);
-  const project_id = "milestone-trial";
-  const { workspace_id } = await fixtureMcpProject(call, {
-    project_id,
-    path: existingDirectory(join(state, project_id)),
-    task_prefix: "MIL",
-  });
-  const description = "Enduring project intent. ".repeat(500);
-  await call("edit_project", {
-    project_id,
-    changes: { expected_revision: 1, description },
-  });
-  const milestone = await call("create_milestone", {
-    workspace_id,
-    milestone: {
-      id: "export",
-      title: "CSV export",
-      body: "Deliver a useful export.",
-    },
-  });
-  expect(milestone.key).toBe("M-1");
-  expect(
-    (await call("get_milestone", { workspace_id, milestone_id: "M-1" })).id,
-  ).toBe("export");
-  expect(
-    cli(["milestone", "show", "M-1", "--workspace", workspace_id]).key,
-  ).toBe("M-1");
-  await call("create_task", {
-    project_id,
-    task: {
-      id: "serializer",
-      title: "Serialize CSV",
-      milestone_id: "M-1",
-    },
-  });
-  await fixtureProgress(request, {
-    project_id,
-    task_id: "serializer",
-    progress: { expected_revision: 1, status: "done", completion: "report" },
-  });
-  await call("create_task", {
-    project_id,
-    task: {
-      id: "download",
-      title: "Download CSV",
-      milestone_id: "M-1",
-    },
-  });
-  await call("create_task", {
-    project_id,
-    task: {
-      id: "unrelated",
-      title: "Independent bug",
-      labels: ["bug"],
-    },
-  });
-  await page.goto(`/projects/${project_id}`);
-  await expect(page.getByText(description, { exact: true })).toHaveCount(0);
-
-  const badge = page
-    .locator(".task-card")
-    .filter({ hasText: "Download CSV" })
-    .getByRole("link", { name: "M-1", exact: true });
-  await badge.hover();
-  await expect(page.getByRole("tooltip")).toHaveText("CSV export");
-  await badge.focus();
-  await expect(page.getByRole("tooltip")).toHaveText("CSV export");
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("tooltip")).toHaveCount(0);
-  await badge.click();
-  await expect(page).toHaveURL(`/workspaces/${workspace_id}/milestones/M-1`);
-  await expect(page.locator(".board")).not.toBeVisible();
-  const editor = page.getByRole("region", { name: "Milestone", exact: true });
-  await expect(
-    editor.getByText("Deliver a useful export.", { exact: true }),
-  ).toBeVisible();
-  await expect(editor.getByRole("textbox")).toHaveCount(0);
-  await call("edit_milestone", {
-    workspace_id,
-    milestone_id: "export",
-    changes: { expected_revision: 1, body: "Preserved milestone draft" },
-  });
-  await page.reload();
-  await expect(
-    page.getByRole("region", { name: "Milestone details", exact: true }),
-  ).toBeVisible();
-  await page.goto(`/workspaces/${workspace_id}/milestones/export`);
-  await expect(
-    editor.getByText("Preserved milestone draft", { exact: true }),
-  ).toBeVisible();
-  // Historical tab URLs remain valid aliases of the simplified detail.
-  await page.goto(`/workspaces/${workspace_id}/milestones/export/tasks`);
-  await expect(
-    editor.getByText("Preserved milestone draft", { exact: true }),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
-  await openResource(page, "Milestones");
-  await page.getByRole("link", { name: "CSV export", exact: true }).click();
-  await page.getByRole("link", { name: "View tasks", exact: true }).click();
-  await expect(page).toHaveURL(
-    `/workspaces/${workspace_id}/tasks?milestone=export`,
-  );
-  await expect(page.getByLabel("Filter by milestone")).toHaveValue("export");
-  await expect(page.locator(".task-card")).toHaveCount(2);
-  await expect(page.locator(".board")).toContainText("Serialize CSV");
-  await expect(page.locator(".board")).not.toContainText("Independent bug");
-  await page.getByLabel("Filter by project").selectOption(project_id);
-  await page
-    .getByRole("button", { name: "Project settings", exact: true })
-    .click();
-  const project = page.getByRole("region", {
-    name: "Edit project",
-    exact: true,
-  });
-  await expect(project.getByLabel("Description", { exact: true })).toHaveValue(
-    description,
-  );
-  await page
-    .getByRole("button", {
-      name: /^(Close editor|Back)$/,
-      exact: true,
-    })
-    .click();
-  await expect(page.getByText(description, { exact: true })).toHaveCount(0);
-});
-
 test("worker models load automatically and retry without replacing setting drafts", async ({
   page,
   request,
 }) => {
   const project = "model-discovery";
   await fixtureProject(request, {
-    data: { path: existingDirectory(join(state, project)), task_prefix: "MDL" },
+    data: { path: existingDirectory(join(state, project)) },
   });
-  const workspace = await projectWorkspace(request, project);
+  const workspace = await projectWorkspace(page.request, project);
   let calls = 0;
   let refreshCalls = 0;
   await page.route(`**/api/workspaces/${workspace}/models*`, async (route) => {
@@ -307,9 +179,9 @@ test("integration settings create an explicit local target without changing the 
   const project = "integration-settings";
   const repo = join(state, project);
   await fixtureProject(request, {
-    data: { path: existingDirectory(repo), task_prefix: "IGS" },
+    data: { path: existingDirectory(repo) },
   });
-  const workspace = await projectWorkspace(request, project);
+  const workspace = await projectWorkspace(page.request, project);
   const git = (...args: string[]) =>
     execFileSync(
       "git",

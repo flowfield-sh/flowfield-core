@@ -31,7 +31,6 @@ export function Result({
   onReply,
   onApprove,
   inputEnabled,
-  overview = false,
 }: {
   projectId: string;
   taskId: string;
@@ -41,12 +40,11 @@ export function Result({
   onReply: (version: Version) => void;
   onApprove: (version: Version) => void;
   inputEnabled: boolean;
-  overview?: boolean;
 }) {
   const { pathname } = useLocation();
   // Returning to a retained result rechecks external branch movement too.
   const observed = useMemo(() => ({ refresh, pathname }), [refresh, pathname]);
-  const path = `projects/${projectId}`;
+  const path = `workspaces/${projectId}`;
   const page = usePage<components["schemas"]["ResultPage"]>(
     `${path}/tasks/${taskId}/results`,
     observed,
@@ -87,7 +85,14 @@ export function Result({
   const current =
     version?.id === page.data?.current_id &&
     version?.run_id === page.data?.current_run_id;
-  const href = taskHref(projectId, { key: taskKey }, "result");
+  const settingsHref =
+    version?.next_action?.settings === "reviewer"
+      ? `${taskHref(projectId, { key: taskKey })}/settings`
+      : version?.next_action?.settings === "integration" &&
+          worker.data?.project_id
+        ? `/projects/${worker.data.project_id}/edit/integration`
+        : `/workspaces/${projectId}/edit/workers`;
+  const href = taskHref(projectId, { key: taskKey }, "changes");
   async function recover(
     action: "prepare" | "correct" | "cancel" | "revalidate" | "retry-delivery",
   ) {
@@ -140,10 +145,7 @@ export function Result({
       )}
       {version && version.task_id === taskId && (
         <>
-          <DetailSection
-            title={overview ? "Outcome" : "Worker report"}
-            panel={overview}
-          >
+          <DetailSection title="Outcome">
             <Markdown>{version.report.summary}</Markdown>
             {version.report.outcome === "partial" && (
               <DetailSection title="Work remaining">
@@ -151,18 +153,17 @@ export function Result({
               </DetailSection>
             )}
 
-            {version.report.limitations &&
-              (!overview || version.status !== "delivered") && (
-                <DetailSection title="Limitations">
-                  <Markdown>{version.report.limitations}</Markdown>
-                </DetailSection>
-              )}
+            {version.report.limitations && (
+              <DetailSection title="Limitations">
+                <Markdown>{version.report.limitations}</Markdown>
+              </DetailSection>
+            )}
             {version.feedback && (
               <DetailSection title="Review request">
                 <Markdown>{version.feedback}</Markdown>
               </DetailSection>
             )}
-            {!overview && worker.data?.feedback && !version.feedback && (
+            {worker.data?.feedback && !version.feedback && (
               <Disclosure
                 summary={<>Requested in the previous review</>}
                 className="review-disclosure"
@@ -172,7 +173,7 @@ export function Result({
             )}
           </DetailSection>
           <ResultFiles files={version.files} />
-          {current && !overview && (
+          {current && (
             <TaskReview
               projectId={projectId}
               taskId={taskId}
@@ -212,9 +213,7 @@ export function Result({
               current &&
               version.completion === "report" &&
               version.status === "ready"
-            ) &&
-            (!overview ||
-              ["preparing", "delivering"].includes(version.status)) && (
+            ) && (
               <DetailSection
                 title={version.completion === "code" ? "Delivery" : "Report"}
               >
@@ -335,9 +334,7 @@ export function Result({
                     )}
                     {version.next_action.settings &&
                       version.next_action.action !== "settings" && (
-                        <WorkspaceLink
-                          to={`/projects/${projectId}/edit/${version.next_action.settings}`}
-                        >
+                        <WorkspaceLink to={settingsHref}>
                           Project setup
                         </WorkspaceLink>
                       )}
@@ -346,9 +343,7 @@ export function Result({
               >
                 {version.next_action.action === "settings" ? (
                   <Button size="sm" asChild>
-                    <WorkspaceLink
-                      to={`/projects/${projectId}/edit/${version.next_action.settings}`}
-                    >
+                    <WorkspaceLink to={settingsHref}>
                       {version.next_action.label}
                     </WorkspaceLink>
                   </Button>
@@ -374,7 +369,7 @@ export function Result({
                 )}
               </ResultActions>
             )}
-          {!overview && (
+          {
             <DetailSection title="Checks" role="region" aria-label="Checks">
               {version.integration_id && !evidence.data ? (
                 <p>
@@ -391,46 +386,44 @@ export function Result({
                 />
               )}
             </DetailSection>
+          }
+          {version.completion === "code" && version.candidate_commit && (
+            <DetailSection title="Details">
+              <Inspection
+                key={version.id}
+                projectId={projectId}
+                result={version}
+                refresh={refresh}
+              />
+              {version.integration_id && version.candidate_commit && (
+                <Disclosure
+                  summary={<>Code changes</>}
+                  onToggle={(e) => setDiffOpen(e.currentTarget.open)}
+                >
+                  {diffOpen && (
+                    <Suspense fallback={<p>Loading changes…</p>}>
+                      <CodeDiff
+                        path={`${path}/integrations/${version.integration_id}`}
+                        result={version.candidate_commit}
+                        view={
+                          views[version.id] ?? {
+                            selected: 0,
+                            mode: "unified",
+                          }
+                        }
+                        changeView={(view) =>
+                          setViews((current) => ({
+                            ...current,
+                            [version.id]: view,
+                          }))
+                        }
+                      />
+                    </Suspense>
+                  )}
+                </Disclosure>
+              )}
+            </DetailSection>
           )}
-          {!overview &&
-            version.completion === "code" &&
-            version.candidate_commit && (
-              <DetailSection title="Details">
-                <Inspection
-                  key={version.id}
-                  projectId={projectId}
-                  result={version}
-                  refresh={refresh}
-                />
-                {version.integration_id && version.candidate_commit && (
-                  <Disclosure
-                    summary={<>Code changes</>}
-                    onToggle={(e) => setDiffOpen(e.currentTarget.open)}
-                  >
-                    {diffOpen && (
-                      <Suspense fallback={<p>Loading changes…</p>}>
-                        <CodeDiff
-                          path={`${path}/integrations/${version.integration_id}`}
-                          result={version.candidate_commit}
-                          view={
-                            views[version.id] ?? {
-                              selected: 0,
-                              mode: "unified",
-                            }
-                          }
-                          changeView={(view) =>
-                            setViews((current) => ({
-                              ...current,
-                              [version.id]: view,
-                            }))
-                          }
-                        />
-                      </Suspense>
-                    )}
-                  </Disclosure>
-                )}
-              </DetailSection>
-            )}
           {current &&
             version.completion === "code" &&
             version.next_action?.action === "review_result" &&

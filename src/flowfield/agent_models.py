@@ -21,7 +21,7 @@ class AgentChoice(AgentRecord):
 
 class EffectiveAgent(AgentRecord):
     choice: AgentChoice
-    source: Literal["project", "workspace", "override"]
+    source: Literal["workspace", "override"]
     default_revision: int
     override_revision: int | None = None
     registration: HarnessRegistration | None = None

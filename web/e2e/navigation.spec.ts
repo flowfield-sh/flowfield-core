@@ -3,7 +3,6 @@ import {
   fixtureCliProject,
   projectWorkspace,
   fixtureProject,
-  fixtureMcpProject,
   choose,
   test,
   existingDirectory,
@@ -29,40 +28,42 @@ test("task keys link to persistent selections with history and draft protection"
     existingDirectory(join(state, "nav-other")),
     "--name",
     "Other navigation",
-    "--prefix",
-    "NVO",
   ]);
   const call = await connectMcp(request);
-  const workspace = await projectWorkspace(request, "navigation");
-  const otherWorkspace = await projectWorkspace(request, "nav-other");
+  const workspace = await projectWorkspace(page.request, "navigation");
+  const otherWorkspace = await projectWorkspace(page.request, "nav-other");
   const one = await call("create_task", {
-    project_id: "navigation",
+    workspace_id: await projectWorkspace(page.request, "navigation"),
     task: {
+      project_id: "navigation",
       title: "Prepare the export",
       status: "up_next",
     },
   });
   const two = await call("create_task", {
-    project_id: "navigation",
+    workspace_id: await projectWorkspace(page.request, "navigation"),
     task: {
+      project_id: "navigation",
       title: "Download the export",
       status: "up_next",
       dependencies: [one.key],
     },
   });
   const old = await call("create_task", {
-    project_id: "navigation",
-    task: { title: "Earlier experiment" },
+    workspace_id: await projectWorkspace(page.request, "navigation"),
+    task: { project_id: "navigation", title: "Earlier experiment" },
   });
   await call("edit_task", {
-    project_id: "navigation",
+    workspace_id: await projectWorkspace(page.request, "navigation"),
     task_id: old.key,
     changes: { expected_revision: 1, archived: true },
   });
-  expect([one.key, two.key, old.key]).toEqual(["NAV-1", "NAV-2", "NAV-3"]);
+  expect([one.key, two.key, old.key]).toEqual(["T-1", "T-2", "T-3"]);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto(`/projects/navigation/tasks/${two.key}`);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "navigation")}/tasks/${two.key}`,
+  );
   const waiting = page.getByRole("region", {
     name: "Task details",
     exact: true,
@@ -74,13 +75,13 @@ test("task keys link to persistent selections with history and draft protection"
     waiting.getByRole("link", { name: one.key, exact: true }).first(),
   ).toBeVisible();
   await page.goto(`/workspaces/${workspace}/tasks`);
-  const blocker = page.getByRole("link", { name: "NAV-1", exact: true });
+  const blocker = page.getByRole("link", { name: "T-1", exact: true });
   await blocker.hover();
   await expect(page.getByRole("tooltip")).toHaveText("Prepare the export");
   await page.keyboard.press("Escape");
   await expect(blocker).toHaveAttribute(
     "href",
-    `/projects/navigation/tasks/NAV-1`,
+    `/workspaces/${await projectWorkspace(page.request, "navigation")}/tasks/T-1`,
   );
   await expect(
     page.getByText("Completion criteria set", { exact: true }),
@@ -89,7 +90,7 @@ test("task keys link to persistent selections with history and draft protection"
     page.getByText("Add completion criteria", { exact: true }),
   ).toHaveCount(0);
   await blocker.click();
-  await expect(page).toHaveURL(/tasks\/NAV-1$/);
+  await expect(page).toHaveURL(/tasks\/T-1$/);
   const editor = page.getByRole("region", {
     name: "Task details",
     exact: true,
@@ -111,7 +112,7 @@ test("task keys link to persistent selections with history and draft protection"
   await page.goBack();
   await expect(page).toHaveURL(`/workspaces/${workspace}/tasks`);
   await page.goForward();
-  await expect(page).toHaveURL(/tasks\/NAV-1$/);
+  await expect(page).toHaveURL(/tasks\/T-1$/);
   await expect(
     page.getByLabel("Message coordinator", { exact: true }),
   ).toHaveValue("Unsaved title");
@@ -128,15 +129,15 @@ test("task keys link to persistent selections with history and draft protection"
   await page
     .locator(".workspace-resource-content")
     .getByRole("link", {
-      name: /NAV-2 (?:Feature (?:DRAFT )?)?Download the export/,
+      name: /T-2 (?:Feature (?:DRAFT )?)?Download the export/,
     })
     .click();
-  const prerequisite = editor.getByRole("link", { name: "NAV-1", exact: true });
+  const prerequisite = editor.getByRole("link", { name: "T-1", exact: true });
   await expect(editor.getByLabel("Current task definition")).toBeVisible();
   await prerequisite.click();
-  await expect(page).toHaveURL(/tasks\/NAV-1$/);
+  await expect(page).toHaveURL(/tasks\/T-1$/);
   await page.goBack();
-  await expect(page).toHaveURL(/tasks\/NAV-2(?:\/dependencies)?$/);
+  await expect(page).toHaveURL(/tasks\/T-2(?:\/dependencies)?$/);
   await expect(
     page
       .getByRole("region", { name: "Task details", exact: true })
@@ -152,7 +153,7 @@ test("task keys link to persistent selections with history and draft protection"
   await page
     .locator(".workspace-resource-content")
     .getByRole("link", {
-      name: /NAV-2 (?:Feature (?:DRAFT )?)?Download the export/,
+      name: /T-2 (?:Feature (?:DRAFT )?)?Download the export/,
     })
     .click();
   await expect(
@@ -161,7 +162,7 @@ test("task keys link to persistent selections with history and draft protection"
       .getByRole("heading", { name: /Download the export$/ }),
   ).toBeVisible();
   const renamed = await call("edit_task", {
-    project_id: "navigation",
+    workspace_id: await projectWorkspace(page.request, "navigation"),
     task_id: one.key,
     changes: {
       expected_revision: 1,
@@ -169,7 +170,7 @@ test("task keys link to persistent selections with history and draft protection"
       labels: ["bug"],
     },
   });
-  expect(renamed.key).toBe("NAV-1");
+  expect(renamed.key).toBe("T-1");
   await prerequisite.hover();
   await expect(page.getByRole("tooltip")).toHaveText(
     "Prepare the corrected export",
@@ -177,8 +178,10 @@ test("task keys link to persistent selections with history and draft protection"
   await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 390, height: 844 });
 
-  await page.goto("/projects/navigation/tasks/NAV-3");
-  await expect(page).toHaveURL(/tasks\/NAV-3$/);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "navigation")}/tasks/T-3`,
+  );
+  await expect(page).toHaveURL(/tasks\/T-3$/);
   await expect(
     page.getByRole("region", { name: "Archived tasks", includeHidden: true }),
   ).toBeHidden();
@@ -191,7 +194,9 @@ test("task keys link to persistent selections with history and draft protection"
   await expect(
     editor.getByRole("button", { name: "Restore", exact: true }),
   ).toHaveCount(0);
-  await page.goto("/projects/navigation/tasks/NAV-999");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "navigation")}/tasks/T-999`,
+  );
   await expect(
     page.getByRole("heading", { name: "Task not found", exact: true }),
   ).toBeVisible();
@@ -199,201 +204,6 @@ test("task keys link to persistent selections with history and draft protection"
     page.getByRole("region", { name: "New task", exact: true }),
   ).toHaveCount(0);
   expect(errors).toEqual([]);
-});
-
-test("collections open and close entity details through the same routes", async ({
-  page,
-  request,
-}) => {
-  const call = await connectMcp(request);
-  const project_id = "collection-layout";
-  const { workspace_id } = await fixtureMcpProject(call, {
-    project_id,
-    path: existingDirectory(join(state, project_id)),
-    task_prefix: "COL",
-  });
-  await call("create_milestone", {
-    workspace_id,
-    milestone: { id: "group", title: "Delivery" },
-  });
-  await call("create_task", {
-    project_id,
-    task: { id: "retired", title: "Retired work" },
-  });
-  await call("edit_task", {
-    project_id,
-    task_id: "retired",
-    changes: { expected_revision: 1, archived: true },
-  });
-
-  for (const path of ["milestones", "archive"]) {
-    await page.goto(`/projects/${project_id}/${path}`);
-    const row =
-      path === "milestones"
-        ? page
-            .locator(".task-card")
-            .getByRole("link", { name: "Delivery", exact: true })
-            .first()
-        : page.locator(".archive-list .task-card-link").first();
-    await expect(row).toBeVisible();
-
-    await row.click();
-    await expect(page.locator(".entity-overlay, .entity-pane")).toBeVisible();
-
-    await page.keyboard.press("Escape");
-    await expect(
-      page.locator("[data-slot=dialog-content][data-state=open]"),
-    ).toHaveCount(0);
-  }
-});
-
-test("task metadata and internal Markdown links stay inside the router", async ({
-  page,
-  request,
-}) => {
-  const project_id = "link-routing";
-  await fixtureProject(request, {
-    data: {
-      path: existingDirectory(join(state, project_id)),
-      task_prefix: "LNK",
-    },
-  });
-  const workspace = await projectWorkspace(request, project_id);
-  const milestone = await request.post(
-    `/api/workspaces/${workspace}/milestones`,
-    { data: { id: "questions", title: "Export milestone" } },
-  );
-  expect(milestone.ok()).toBe(true);
-  await request.post(`/api/projects/${project_id}/tasks`, {
-    data: {
-      id: "export",
-      title: "Export books",
-      milestone_id: "questions",
-      body: `[Workspace milestones](/workspaces/${workspace}/milestones)`,
-    },
-  });
-  await page.goto(`/projects/${project_id}/tasks/LNK-1`);
-  const boot = await page.evaluate(() => performance.timeOrigin);
-  const editor = page.getByRole("region", {
-    name: "Task details",
-    exact: true,
-  });
-  await editor
-    .getByRole("link", { name: "Workspace milestones", exact: true })
-    .click();
-  await expect(page).toHaveURL(`/workspaces/${workspace}/milestones`);
-  expect(await page.evaluate(() => performance.timeOrigin)).toBe(boot);
-  await page.goBack();
-  await editor.getByRole("link", { name: "M-1", exact: true }).click();
-  await expect(page).toHaveURL(`/workspaces/${workspace}/milestones/M-1`);
-  expect(await page.evaluate(() => performance.timeOrigin)).toBe(boot);
-  await page.keyboard.press("Escape");
-  await openResource(page, "Milestones");
-  await page.locator(".task-card-link").first().click();
-  await page.getByRole("link", { name: "View tasks", exact: true }).click();
-  await expect(page).toHaveURL(
-    `/workspaces/${workspace}/tasks?milestone=questions`,
-  );
-  await expect(page.getByLabel("Filter by milestone")).toHaveValue("questions");
-  await expect(
-    page.getByRole("link", { name: /LNK-1 (?:Feature )?Export books/ }),
-  ).toBeVisible();
-});
-
-test("shared panes preserve the workspace and related return paths on mobile", async ({
-  page,
-  request,
-}) => {
-  const id = "edit"; // A project ID must not be mistaken for an editor route.
-  await fixtureProject(request, {
-    data: { path: existingDirectory(join(state, id)), task_prefix: "UNI" },
-  });
-  const workspace = await projectWorkspace(request, id);
-  await request.post(`/api/workspaces/${workspace}/milestones`, {
-    data: { id: "group", title: "First delivery" },
-  });
-  await request.post(`/api/projects/${id}/tasks`, {
-    data: {
-      id: "one",
-      title: "A focused task",
-      milestone_id: "group",
-    },
-  });
-  await page.goto(`/projects/${id}`);
-  const boot = await page.evaluate(() => performance.timeOrigin);
-  const board = page.locator(".board");
-  await expect(board).toBeVisible();
-
-  await expect(
-    page.getByRole("tablist", { name: "Open resources", exact: true }),
-  ).toContainText("Inbox");
-  await expect(
-    page
-      .locator(".workspace-frame .queue-controls")
-      .getByRole("button", { name: "Run queue" }),
-  ).toBeVisible();
-  await expect(page.locator(".workspace-frame .queue-controls")).toContainText(
-    "0 of 1 workers active",
-  );
-  await expect(page.getByText("Local workspace · Preview")).toHaveCount(0);
-  await page.getByLabel("Filter by milestone").selectOption("group");
-  const card = page.locator(".task-card-link");
-  await card.click();
-  const dialog = page.getByRole("region", {
-    name: "Task details",
-    exact: true,
-  });
-  await expect(dialog).toBeVisible();
-
-  await expect(dialog.locator(".task-definition")).toBeVisible();
-  await page.keyboard.press("Tab");
-  expect(
-    await dialog.evaluate((el) => el.contains(document.activeElement)),
-  ).toBe(true);
-  await page.keyboard.press("Escape");
-  if (await dialog.count()) await page.keyboard.press("Escape");
-  await expect(dialog).toHaveCount(0);
-  await expect(card).toBeFocused();
-  await expect(page.getByLabel("Filter by milestone")).toHaveValue("group");
-  await openResource(page, "Milestones");
-  const row = page.locator(".task-card");
-  await expect(row).toBeVisible();
-  await expect(
-    page.getByRole("tablist", { name: "Open resources" }),
-  ).toBeVisible();
-  await page.locator(".task-card-link").first().click();
-  await page.getByRole("link", { name: "View tasks", exact: true }).click();
-  await expect(page.getByLabel("Filter by milestone")).toHaveValue("group");
-  await card.click();
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: /^(Close editor|Back)$/ }).click();
-  await expect(page).toHaveURL(
-    `/workspaces/${workspace}/tasks?milestone=group`,
-  );
-  await openResource(page, "Settings");
-  await expect(
-    page.getByRole("region", { name: "Workspace settings", exact: true }),
-  ).toBeVisible();
-  await page.reload();
-  await expect(
-    page.getByRole("region", { name: "Workspace settings", exact: true }),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page).toHaveURL(`/workspaces/${workspace}/inbox`);
-  await openResource(page, "Milestones");
-  await expect(page.locator(".milestone-board")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "New milestone", exact: true }),
-  ).toHaveCount(0);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await openResource(page, "Tasks");
-  await expect(
-    page.getByRole("button", { name: "New task", exact: true }),
-  ).toHaveCount(0);
-  // The earlier explicit reload is the only document navigation in this journey.
-  expect(await page.evaluate(() => performance.timeOrigin)).toBeGreaterThan(
-    boot,
-  );
 });
 
 test("closing entity panes returns through history without duplicate collections", async ({
@@ -407,32 +217,34 @@ test("closing entity panes returns through history without duplicate collections
         data: {
           id,
           path: existingDirectory(join(state, id)),
-          task_prefix: "HRT",
         },
       })
     ).ok(),
   ).toBeTruthy();
-  await request.post(`/api/projects/${id}/tasks`, {
-    data: { id: "one", title: "History task" },
-  });
+  await request.post(
+    `/api/workspaces/${await projectWorkspace(page.request, id)}/tasks`,
+    {
+      data: { id: "one", title: "History task" },
+    },
+  );
   const call = await connectMcp(request);
   await call("ask_question", {
-    project_id: id,
+    workspace_id: await projectWorkspace(page.request, id),
     question: {
       id: "scope",
-      task_id: "HRT-1",
+      task_id: "T-1",
       question: "Which scope?",
       context: "Choose the scope",
       recommendation: "Small",
     },
   });
-  const workspace = await projectWorkspace(request, id);
+  const workspace = await projectWorkspace(page.request, id);
   const board = `/workspaces/${workspace}/tasks`;
   const inbox = `/workspaces/${workspace}/inbox`;
   await page.goto(board);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await page
-    .getByRole("link", { name: "HRT-1: Which scope?", exact: true })
+    .getByRole("link", { name: "T-1: Which scope?", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "Back", exact: true }),
@@ -440,7 +252,7 @@ test("closing entity panes returns through history without duplicate collections
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(page).toHaveURL(inbox);
   await page.goBack();
-  await expect(page).toHaveURL(/tasks\/HRT-1$/);
+  await expect(page).toHaveURL(/tasks\/T-1$/);
   await page.goBack();
   await expect(page).toHaveURL(inbox);
   await page.goBack();
@@ -474,7 +286,7 @@ test("closing entity panes returns through history without duplicate collections
   await openResource(page, "Tasks");
   await page
     .locator(".workspace-resource-content")
-    .getByRole("link", { name: /HRT-1/ })
+    .getByRole("link", { name: /T-1/ })
     .click();
   await page
     .getByRole("button", {
@@ -485,7 +297,9 @@ test("closing entity panes returns through history without duplicate collections
   await expect(page).toHaveURL(board);
   // A fresh browser entry retains the collection fallback; new work tabs start fresh.
   await page.evaluate(() => sessionStorage.clear());
-  await page.goto(`/projects/${id}/tasks/HRT-1`);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, id)}/tasks/T-1`,
+  );
   await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page).toHaveURL(board);
 });
@@ -496,19 +310,19 @@ test("entity identity and drafts persist across task and workspace tabs", async 
 }) => {
   const project = "identity-layout";
   await fixtureProject(request, {
-    data: { path: existingDirectory(join(state, project)), task_prefix: "IDN" },
+    data: { path: existingDirectory(join(state, project)) },
   });
-  const workspace = await projectWorkspace(request, project);
-  await request.post(`/api/workspaces/${workspace}/milestones`, {
-    data: { id: "first", title: "First milestone" },
-  });
-  await request.post(`/api/projects/${project}/tasks`, {
-    data: {
-      id: "first",
-      title: "First task",
-      milestone_id: "first",
+  const workspace = await projectWorkspace(page.request, project);
+
+  await request.post(
+    `/api/workspaces/${await projectWorkspace(page.request, project)}/tasks`,
+    {
+      data: {
+        id: "first",
+        title: "First task",
+      },
     },
-  });
+  );
   await page.goto("/");
   const sidebar = page.locator('[data-slot="sidebar"]');
   const logo = sidebar.getByRole("link", { name: "Home", exact: true });
@@ -525,23 +339,23 @@ test("entity identity and drafts persist across task and workspace tabs", async 
   await openResource(page, "Tasks");
   await page
     .locator(".workspace-resource-content")
-    .getByRole("link", { name: /IDN-1/ })
+    .getByRole("link", { name: /T-1/ })
     .click();
   const editor = page.getByRole("region", {
     name: "Task details",
     exact: true,
   });
   const title = editor.getByRole("heading", {
-    name: /IDN-1 First task$/,
+    name: /T-1 First task$/,
   });
 
-  await page.getByRole("tab", { name: "Activity", exact: true }).click();
+  await page.getByRole("tab", { name: "Task", exact: true }).click();
   await editor
     .getByRole("link", { name: "Permalink: Task defined", exact: true })
     .click();
   await expect(title).toBeVisible();
   await expect(
-    editor.getByRole("tab", { name: "Activity", exact: true }),
+    editor.getByRole("tab", { name: "Task", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await expect(
     editor.getByText("Loading execution…", { exact: true }),
@@ -596,25 +410,23 @@ test.describe("relative timestamps", () => {
     page,
   }) => {
     const project = "relative-times";
-    fixtureCliProject([
-      existingDirectory(join(state, project)),
-      "--prefix",
-      "TIM",
-    ]);
+    fixtureCliProject([existingDirectory(join(state, project))]);
     const task = cli([
       "task",
       "create",
       "--title",
       "Timestamp evidence",
-      "--project",
-      project,
+      "--workspace",
+      await projectWorkspace(page.request, project),
       "--body",
       "Keep timestamp evidence accessible.",
     ]);
     const created = Date.parse(task.updated_at);
     await page.clock.install({ time: new Date(created) });
     await page.clock.pauseAt(new Date(created + 10000));
-    await page.goto(`/projects/${project}/tasks/TIM-1/history`);
+    await page.goto(
+      `/workspaces/${await projectWorkspace(page.request, project)}/tasks/T-1/history`,
+    );
     const card = page.locator(".task-activity-item").first();
     const time = card.locator("time").first();
     await expect(time).toHaveText("just now");
@@ -659,15 +471,14 @@ test("workspace selector names remain accessible and idle input opens deliberate
     data: {
       path: existingDirectory(join(state, "sidebar-names")),
       name,
-      task_prefix: "SBN",
     },
   });
   await fixtureProject(request, {
     data: { path: existingDirectory(join(state, "short-name")), name: "Short" },
   });
-  const workspace = await projectWorkspace(request, "sidebar-names");
-  const shortWorkspace = await projectWorkspace(request, "short-name");
-  const path = "/api/projects/sidebar-names";
+  const workspace = await projectWorkspace(page.request, "sidebar-names");
+  const shortWorkspace = await projectWorkspace(page.request, "short-name");
+  const path = `/api/workspaces/${await projectWorkspace(page.request, "sidebar-names")}`;
   await request.post(path + "/tasks", {
     data: {
       id: "idle",
@@ -760,15 +571,19 @@ test("workspace navigation, mobile board and appearance work beside the coordina
     data: {
       path: existingDirectory(join(state, "workspace-frame")),
       name: "Workspace frame",
-      task_prefix: "WSF",
     },
   });
-  await request.post("/api/projects/workspace-frame/tasks", {
-    data: { title: "Review the workspace layout" },
-  });
-  const workspace = await projectWorkspace(request, "workspace-frame");
+  await request.post(
+    `/api/workspaces/${await projectWorkspace(page.request, "workspace-frame")}/tasks`,
+    {
+      data: { title: "Review the workspace layout" },
+    },
+  );
+  const workspace = await projectWorkspace(page.request, "workspace-frame");
   await page.emulateMedia({ colorScheme: "dark" });
-  await page.goto("/projects/workspace-frame");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "workspace-frame")}/tasks`,
+  );
   await expect(page.locator("html")).toHaveClass("dark");
   await expect(page.getByLabel("Workspace", { exact: true })).toBeVisible();
   await expect(
@@ -922,8 +737,8 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/inbox$/);
   await page.goBack();
-  await openResource(page, "Milestones");
-  await expect(page).toHaveURL(/\/milestones$/);
+  await openResource(page, "Files");
+  await expect(page).toHaveURL(/\/files$/);
   await page.goBack();
   await expect(page.getByRole("tab", { name: /^Tasks/ })).toHaveAttribute(
     "aria-selected",
@@ -983,20 +798,23 @@ test("long task tooltips never expand the workspace scroll owners", async ({
   await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, "tooltip-overflow")),
-      task_prefix: "TOV",
     },
   });
-  await request.post("/api/projects/tooltip-overflow/tasks", {
-    data: {
-      title: "Long definition",
-      body: Array.from(
-        { length: 70 },
-        (_, i) => `Paragraph ${i}: a detailed outcome and its verification.\n`,
-      ).join("\n"),
+  await request.post(
+    `/api/workspaces/${await projectWorkspace(page.request, "tooltip-overflow")}/tasks`,
+    {
+      data: {
+        title: "Long definition",
+        body: Array.from(
+          { length: 70 },
+          (_, i) =>
+            `Paragraph ${i}: a detailed outcome and its verification.\n`,
+        ).join("\n"),
+      },
     },
-  });
+  );
   const changed = await request.put(
-    "/api/projects/tooltip-overflow/tasks/TOV-1",
+    `/api/workspaces/${await projectWorkspace(page.request, "tooltip-overflow")}/tasks/T-1`,
     {
       data: {
         expected_revision: 1,
@@ -1009,7 +827,9 @@ test("long task tooltips never expand the workspace scroll owners", async ({
     },
   );
   expect(changed.ok()).toBe(true);
-  await page.goto("/projects/tooltip-overflow/tasks/TOV-1/history");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "tooltip-overflow")}/tasks/T-1/history`,
+  );
   const detail = page.getByRole("region", {
     name: "Task details",
     exact: true,

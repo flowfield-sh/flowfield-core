@@ -26,22 +26,19 @@ def test_exact_request_survives_answer_and_absence_from_action_page(tmp_path):
         "harbor",
         QuestionCreate(id="ask", question="Which format?", context="Export", recommendation="CSV"),
     )
-    item = get_request(ws, "harbor", "question", q.id, "harbor")
-    assert item.request_href == "/workspaces/harbor/requests/question/ask?project_id=harbor"
-    assert item.source_href == "/projects/harbor"
-    assert (
-        attention_page(ws, None, "action", workspace_id="harbor").items[0].request_href
-        == item.request_href
-    )
+    item = get_request(ws, "harbor", "question", q.id)
+    assert item.request_href == "/workspaces/harbor/requests/question/ask"
+    assert item.source_href == "/workspaces/harbor"
+    assert attention_page(ws, "harbor", "action").items[0].request_href == item.request_href
     questions.answer("harbor", q.id, QuestionAnswer(expected_revision=q.revision, answer="CSV"))
-    assert not attention_page(ws, None, "action", workspace_id="harbor").items
-    saved = get_request(ws, "harbor", "question", q.id, "harbor")
+    assert not attention_page(ws, "harbor", "action").items
+    saved = get_request(ws, "harbor", "question", q.id)
     assert saved.request_href == item.request_href and saved.status == "answered"
-    read = ContextReads(ws, "http://localhost:8765").request("harbor", "question", q.id, "harbor")
+    read = ContextReads(ws, "http://localhost:8765").request("harbor", "question", q.id)
     assert read["question"]["answer"] == "CSV"
     assert read["url"].endswith(item.request_href)
     questions.withdraw("harbor", q.id, QuestionWithdraw(expected_revision=2, reason="Superseded"))
-    assert get_request(ws, "harbor", "question", q.id, "harbor").status == "withdrawn"
+    assert get_request(ws, "harbor", "question", q.id).status == "withdrawn"
 
 
 def test_scope_and_exact_source_family_are_checked(tmp_path):
@@ -51,21 +48,20 @@ def test_scope_and_exact_source_family_are_checked(tmp_path):
         QuestionCreate(id="ask", question="Which format?", context="Export", recommendation="CSV"),
     )
     foreign = Workspaces(ws).create(WorkspaceCreate(name="Elsewhere"))
-    for workspace, kind, identity, project in [
-        (foreign.id, "question", q.id, "harbor"),
-        ("harbor", "result", q.id, "harbor"),
-        ("harbor", "question", q.id, None),
-        ("harbor", "question", "missing", "harbor"),
+    for workspace, kind, identity in [
+        (foreign.id, "question", q.id),
+        ("harbor", "result", q.id),
+        ("harbor", "question", "missing"),
     ]:
         with pytest.raises(ApplicationError):
-            get_request(ws, workspace, kind, identity, project)
+            get_request(ws, workspace, kind, identity)
     with ws.connection() as db:
         selection = CoordinatorViewSelection(
             surface="request", request_kind="question", request_id=q.id, project_id="harbor"
         )
         frozen = freeze_view(ws, db, "harbor", selection, None)
         assert frozen.request_title == q.question and frozen.request_status == "open"
-        assert frozen.request_href.endswith("?project_id=harbor")
+        assert frozen.request_href.endswith("/requests/question/ask")
         with pytest.raises(ApplicationError):
             freeze_view(ws, db, "harbor", selection.model_copy(update={"surface": "inbox"}), None)
 
@@ -75,11 +71,11 @@ def test_result_and_attempt_links_survive_result_creation(tmp_path):
     run = result(execution, partial=True)
     ws = execution.workspace
     result_item = attention_page(ws, "harbor", "action").items[0]
-    exact = get_request(ws, "harbor", "result", result_item.id, "harbor")
+    exact = get_request(ws, "harbor", "result", result_item.id)
     assert exact.id == result_item.id and exact.source_href.endswith(
         f"/tasks/{result_item.task_key}"
     )
-    attempt = get_request(ws, "harbor", "attempt", run.id, "harbor")
+    attempt = get_request(ws, "harbor", "attempt", run.id)
     assert attempt.id == run.id and "/requests/attempt/" in attempt.request_href
 
 
@@ -96,19 +92,17 @@ def test_scoped_coordinator_can_reference_requests_without_extra_authority(tmp_p
         grant = await workspace_scope(Supervisor(ws), "harbor")
         listed = await grant.call("list_requests", {})
         assert not listed.isError and listed.structuredContent["items"][0]["request_href"]
-        exact = await grant.call(
-            "get_request", {"kind": "question", "request_id": q.id, "project_id": "harbor"}
-        )
+        exact = await grant.call("get_request", {"kind": "question", "request_id": q.id})
         assert not exact.isError and exact.structuredContent["id"] == q.id
         # Workspace requests have no project; omission reaches the source lookup.
-        missing = await grant.call("get_request", {"kind": "milestone", "request_id": "missing"})
+        missing = await grant.call("get_request", {"kind": "result", "request_id": "missing"})
         assert missing.structuredContent["error"]["code"] == "request_not_found"
         foreign = await grant.call(
             "get_request", {"kind": "question", "request_id": q.id, "project_id": "foreign"}
         )
         assert foreign.isError
         required = await grant.call("get_task", {"task_id": "task"})
-        assert required.structuredContent["error"]["code"] == "project_required"
+        assert required.structuredContent["error"]["code"] == "not_found"
         grant.revoke()
 
     asyncio.run(check())

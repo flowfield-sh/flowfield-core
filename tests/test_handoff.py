@@ -19,7 +19,7 @@ def test_handoff_selection_conflicts_retry_and_restart(tmp_path: Path) -> None:
     service.create_task("harbor", task_request(id="one", title="Catalog"))
     first = ActivityCreate(
         id="first",
-        task_id="HAR-1",
+        task_id="T-1",
         kind="handoff",
         body="catalog.py; tests pass; add CLI next.",
         expected_task_revision=1,
@@ -90,7 +90,7 @@ def test_briefing_prioritizes_answers_and_exposes_omissions(tmp_path: Path) -> N
     )
     reads = ContextReads(service)
     assert reads.overview("harbor")["recommendation"]["id"] == "t4"
-    assert reads.overview("harbor")["recommendation"]["task_key"] == "HAR-5"
+    assert reads.overview("harbor")["recommendation"]["task_key"] == "T-5"
     questions = Questions(service)
     for number in range(5):
         questions.ask(
@@ -108,7 +108,6 @@ def test_briefing_prioritizes_answers_and_exposes_omissions(tmp_path: Path) -> N
     assert board["recommendation"]["id"] == "q4"
     assert board["attention"]["open"]["omitted_count"] == 1
     assert board["columns"][1]["omitted_count"] == 2
-    assert board["repository_guidance"]["paths"] == ["AGENTS.md"]
     assert board["observed_at"] and board["execution"] == "managed_local"
     assert size(board) < PAGE_BYTES
     questions.ask(

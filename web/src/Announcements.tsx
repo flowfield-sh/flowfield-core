@@ -57,7 +57,7 @@ export function groupAnnouncements(items: Announcement[]): Announcement[] {
   const updates = items.filter((item) => item.kind === "update");
   const work = items.filter((item) => item.kind === "work");
   if (work.length <= 3) return [...work, ...updates];
-  const projects = new Set(work.map((item) => item.project_id));
+  const workspaces = new Set(work.map((item) => item.workspace_id));
   const first = work[0];
   return [
     {
@@ -65,12 +65,12 @@ export function groupAnnouncements(items: Announcement[]): Announcement[] {
       source_key: `group:${first.id}`,
       title: `${work.length} items need your attention`,
       message:
-        projects.size === 1
+        workspaces.size === 1
           ? "Open Inbox to review them."
-          : `Across ${projects.size} projects. Open a project's Inbox to review them.`,
+          : `Across ${workspaces.size} workspaces. Open a workspace’s Inbox to review them.`,
       href:
-        projects.size === 1
-          ? `/projects/${encodeURIComponent(first.project_id!)}/inbox`
+        workspaces.size === 1
+          ? `/workspaces/${encodeURIComponent(first.workspace_id!)}/inbox`
           : "/",
     },
     ...updates,

@@ -1,8 +1,9 @@
 """Reusable isolated setup and scripted peers; no collected test cases."""
 
+from lifecycle_fixtures import run_report
 from project_fixtures import existing_directory
 
-from flowfield.application import ProjectSetup, TaskProgress, Workspace
+from flowfield.application import ProjectSetup, Workspace
 from flowfield.workspaces import WorkspaceCreate, Workspaces
 
 
@@ -18,8 +19,6 @@ def shared(tmp_path):
 
 def complete(store, project, identity):
     task = store.task(project, identity)
-    return store.record_progress(
-        project,
-        task.id,
-        TaskProgress(expected_revision=task.revision, status="done", completion="report"),
+    return run_report(
+        store, project, task.id, expected_revision=task.revision, status="done", completion="report"
     )

@@ -3,12 +3,13 @@
 import asyncio
 
 import pytest
+from lifecycle_fixtures import run_report
 from project_fixtures import adopt, task_request
 from result_fixtures import approve, current, fixture
 
 from flowfield.adapters import git_integration as gitops
 from flowfield.adapters.git_workspace import baseline, git
-from flowfield.application import ProjectSetup, TaskProgress, Workspace
+from flowfield.application import ProjectSetup, Workspace
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import QueueEdit
 from flowfield.integration_models import IntegrationApply
@@ -86,7 +87,7 @@ def test_validate_approve_deliver_and_idempotent_receipt(tmp_path):
     service.results.process("harbor")
     ready = current(service)
     assert ready.status == "ready", ready.problem
-    assert service.integrations.head("harbor") == run.base_commit
+    assert service.integrations.head("harbor", "work") == run.base_commit
     (repo / "README.md").write_text("human dirty work")
     delivery = approve(service, ready)
     assert delivery.status == "delivering"
@@ -108,7 +109,7 @@ def test_validate_approve_deliver_and_idempotent_receipt(tmp_path):
     service.results.process("harbor")
     assert current(service).status == "delivered"
     assert service.workspace.task("harbor", "work").status == "done"
-    assert service.integrations.head("harbor") == ready.candidate_commit
+    assert service.integrations.head("harbor", "work") == ready.candidate_commit
     assert baseline(repo) == ready.candidate_commit
     assert (repo / "result.txt").read_text() == "implemented\n"
     assert approve(service, ready).status == "delivered"
@@ -129,9 +130,9 @@ def test_raw_apply_and_progress_cannot_bypass_approval(tmp_path):
             ),
         )
     task = service.workspace.task("harbor", "work")
-    with pytest.raises(ApplicationError, match="manual progress"):
-        service.workspace.record_progress(
-            "harbor", task.id, TaskProgress(expected_revision=task.revision, status="done")
+    with pytest.raises(ApplicationError, match="exact result approval"):
+        run_report(
+            service.workspace, "harbor", task.id, expected_revision=task.revision, status="done"
         )
 
 
@@ -142,8 +143,8 @@ def test_failed_validation_never_becomes_approvable(tmp_path):
     assert version.status == "blocked"
     with pytest.raises(ApplicationError, match="successful candidate validation"):
         approve(service, version)
-    assert service.integrations.head("harbor") == run.base_commit
-    assert service.workspace.task("harbor", "work").status == "in_review"
+    assert service.integrations.head("harbor", "work") == run.base_commit
+    assert service.workspace.task("harbor", "work").status == "in_progress"
 
 
 def test_target_moves_after_approval_leaves_unfinished_delivery(tmp_path):
@@ -211,13 +212,17 @@ def test_manual_completion_requires_explicit_report(tmp_path):
     with pytest.raises(ApplicationError, match="Create the task"):
         workspace.create_task("harbor", task_request(title="Bypass", status="done"))
     task = workspace.create_task("harbor", task_request(title="Report"))
-    with pytest.raises(ApplicationError, match="explicitly accepted reports"):
-        workspace.record_progress(
-            "harbor", task.id, TaskProgress(expected_revision=1, status="done")
+    from pydantic import ValidationError
+
+    from flowfield.application import TaskPriority
+
+    with pytest.raises(ValidationError):
+        workspace.prioritize_task(
+            "harbor", task.id, TaskPriority(expected_revision=1, status="done")
         )
     assert (
-        workspace.record_progress(
-            "harbor", task.id, TaskProgress(expected_revision=1, status="done", completion="report")
+        run_report(
+            workspace, "harbor", task.id, expected_revision=1, status="done", completion="report"
         ).status
         == "done"
     )

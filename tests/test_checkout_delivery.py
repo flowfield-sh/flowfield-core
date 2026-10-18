@@ -40,7 +40,7 @@ def test_checkout_blockers_preserve_files_approval_and_retry_same_result(tmp_pat
     assert blocked.approved_at == approved.approved_at
     assert blocked.next_action.action == "retry-delivery"
     assert service.workspace.task("harbor", "work").status == "in_review"
-    assert service.integrations.head("harbor") == run.base_commit
+    assert service.integrations.head("harbor", "work") == run.base_commit
     if kind == "staged":
         assert (repo / "README.md").read_text() == "human edit\n"
         assert b"human edit" in git(repo, "diff", "--cached")

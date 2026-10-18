@@ -3,7 +3,7 @@ title: CLI
 description: Inspect work, configure execution and automate versioned operations.
 ---
 
-Most commands use the running local service. Project/task commands read `.flowfield/config.toml` in your repository; pass the command's `--project ID` option elsewhere. Workspace operations use an explicit ID. Use `--help` at any command level for its full options.
+Most commands use the running local service. Project commands read `.flowfield/config.toml` in your repository; pass the command's `--project ID` option elsewhere. Task and workspace operations require `--workspace WORKSPACE_ID`. Use `--help` at any command level for its full options.
 
 Add `--json` to data commands for structured output. Errors go to stderr with a nonzero exit status. Versioned edits require the current revision; paged reads return cursors or offsets that you must follow to read the remaining content.
 
@@ -35,34 +35,25 @@ flowfield project list
 flowfield project show
 ```
 
-Create a workspace before adopting a repository. `project init` accepts initial `--id`, `--name` and three-letter `--prefix` overrides; the prefix locks after the first task. See [workspaces](/workspaces) for ownership and navigation.
+Create a workspace before adopting a repository. `project init` accepts initial `--id` and `--name` overrides. See [workspaces](/workspaces) for ownership and navigation.
 
 For optional standalone coordinator guidance, use `project guidance preview`, `install` or `show`. `project guidance export --part coordinator` prints the packaged skill offline; `remove` removes unchanged owned content while preserving local edits. See [standalone setup](/agents/overview#standalone-conversations).
 
-## Tasks and milestones
+## Tasks and subtasks
 
 ```sh
-flowfield task list
-flowfield task show APP-1
-flowfield task activity APP-1
-flowfield task relationships APP-1
-flowfield task revisions APP-1
-flowfield milestone list --workspace WORKSPACE_ID
-flowfield milestone show M-1 --workspace WORKSPACE_ID
-flowfield milestone verifications M-1 --workspace WORKSPACE_ID
-flowfield milestone verification VERIFICATION_ID --workspace WORKSPACE_ID
-flowfield milestone delivery M-1 --workspace WORKSPACE_ID
+flowfield task list --workspace WORKSPACE_ID
+flowfield task show T-1 --workspace WORKSPACE_ID
+flowfield task activity T-1 --workspace WORKSPACE_ID
+flowfield task relationships T-1 --workspace WORKSPACE_ID
+flowfield task revisions T-1 --workspace WORKSPACE_ID
+flowfield task subtask list T-1 --workspace WORKSPACE_ID
+flowfield task subtask create T-1 --workspace WORKSPACE_ID --title "Implement API" --body "Add the agreed endpoint and tests" --completion code --workspace WORKSPACE_ID
 ```
 
-Before preparing its tasks, configure a milestone's owned branch with `milestone delivery M-1 --workspace WORKSPACE_ID --project PROJECT_ID --expected-revision REVISION`. Add `--branch BRANCH` to choose the name; the service otherwise generates one. The project's configured destination remains unchanged.
+Task creation accepts an optional `--project PROJECT_ID` for repository work. Task keys accept either case; internal IDs remain exact. Repeated `--depends-on` values name prerequisite tasks in the same workspace. For subtask creation and editing, they name sibling subtasks within the parent task. Repeated `--label` values replace a task’s labels; `--no-labels` clears them.
 
-`milestone verify` prepares an upcoming report task with repeated `--check` values and exact milestone/task revisions. The task must depend on every delivered contribution. For [owned milestone delivery](/tasks#assemble-and-review-a-milestone), Flowfield checks the combined candidate before starting the verifier.
-
-`milestone review VERIFICATION_ID --workspace WORKSPACE_ID --action accept --expected-revision REVISION` records human acceptance of current passing evidence. When the milestone owns a delivery branch, it also authorizes promotion of that exact verified candidate to the configured local destination. Use `--action retry_promotion` after resolving a checkout blocker, or `--action request_changes --note "Required change"` to return feedback. These actions do not push, deploy or publish a release.
-
-Task and milestone keys accept either case; internal IDs remain exact. `task create` and `edit` accept repeated `--depends-on` keys for same-workspace prerequisites, including other projects. Repeated `--label LABEL_ID` selects labels; edits replace that set. Use `--no-labels` to clear it.
-
-Use `task reopen APP-1 --note "Correction needed" --expected-revision REVISION` for authorized follow-up to completed work. It returns the same task to Draft/Backlog and retains delivered results and approvals. Prepare the revised task before scheduling it; reopening starts no worker and grants no approval to new code.
+Use `task reopen T-1 --workspace WORKSPACE_ID --note "Correction needed"` for follow-up to completed work. It returns the task to Draft/Backlog, retaining earlier results and approvals. Prepare the revised task before scheduling it.
 
 ## Execution, questions and results
 
@@ -71,12 +62,12 @@ flowfield workspace workers show --workspace WORKSPACE_ID
 flowfield workspace workers models --workspace WORKSPACE_ID
 flowfield workspace workers run --workspace WORKSPACE_ID
 flowfield workspace workers pause --workspace WORKSPACE_ID
-flowfield inbox list
-flowfield inbox show QUESTION_ID
-flowfield task runs list
-flowfield task runs show ATTEMPT_ID
-flowfield task results list APP-1
-flowfield task results show RESULT_ID
+flowfield inbox list --workspace WORKSPACE_ID
+flowfield inbox show QUESTION_ID --workspace WORKSPACE_ID
+flowfield task runs list --workspace WORKSPACE_ID
+flowfield task runs show ATTEMPT_ID --workspace WORKSPACE_ID
+flowfield task results list T-1 --workspace WORKSPACE_ID
+flowfield task results show RESULT_ID --workspace WORKSPACE_ID
 ```
 
 Workers models returns native IDs and supported controls; `--refresh` reloads after native account/configuration changes. `workspace workers configure --help` lists the harness/model, effort, access and capacity options. Saving settings enables no queue.

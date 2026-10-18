@@ -107,7 +107,6 @@ def failure(code: str, message: str) -> CallToolResult:
 
 
 def worker_scope(bridge: WorkerBridge) -> ScopedTools:
-    assignment = bridge.execution.assignment(bridge.run.project_id, bridge.run.id)
 
     async def call(name: str, arguments: dict[str, Any]) -> CallToolResult:
         result = await bridge.call(name, arguments)
@@ -125,7 +124,7 @@ def worker_scope(bridge: WorkerBridge) -> ScopedTools:
                     openWorldHint=item["name"] == "run_project_checks",
                 ),
             )
-            for item in worker_tools(verification=bool(assignment.get("milestone_verification")))
+            for item in worker_tools()
         ],
         call,
     )
@@ -190,7 +189,7 @@ async def workspace_scope(
                 raise ApplicationError(
                     "project_required", "Choose an explicit project for this operation.", 409
                 )
-            Workspaces(workspace).require_scope(workspace_id, destination)
+            Workspaces(workspace).require_project(workspace_id, destination)
         # Attribute every authored request, including omitted model defaults, to
         # its service-owned coordinator turn rather than impersonating the human.
         for key in authored_arguments[name]:

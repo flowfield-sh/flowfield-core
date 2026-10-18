@@ -58,8 +58,7 @@ class PermissionTurn:
         created = now()
         record = PermissionRecord(
             id=uuid4().hex,
-            project_id=self.project if self.role == "worker" else None,
-            workspace_id=self.project if self.role == "coordinator" else None,
+            workspace_id=self.project,
             role=self.role,
             task_id=self.task_id,
             run_id=self.run_id,
@@ -77,11 +76,9 @@ class PermissionTurn:
         future: asyncio.Future[str] = asyncio.get_running_loop().create_future()
         self.pending[record.id] = future
         try:
-            with self.owner.workspace.connection(
-                write=True, project_id=self.project if self.role == "worker" else None
-            ) as db:
+            with self.owner.workspace.connection(write=True, workspace_id=self.project) as db:
                 self.owner._live(db, self)
-                column = "workspace_id" if record.workspace_id else "project_id"
+                column = "workspace_id"
                 db.execute(
                     f"INSERT INTO agent_permissions(id,{column},task_id,binding,status,data) "
                     "VALUES (?,?,?,?,?,?)",
@@ -99,13 +96,9 @@ class PermissionTurn:
             except TimeoutError:
                 self.owner._end_request(self.project, record.id, "expired")
                 return None
-            with self.owner.workspace.connection(
-                write=True, project_id=self.project if self.role == "worker" else None
-            ) as db:
+            with self.owner.workspace.connection(write=True, workspace_id=self.project) as db:
                 self.owner._live(db, self)
-                current = self.owner._get(
-                    db, self.project, record.id, workspace_scope=bool(record.workspace_id)
-                )
+                current = self.owner._get(db, self.project, record.id)
                 if current.status != "answered" or current.answer != answer:
                     return None
                 current.released_at = now()
@@ -123,10 +116,8 @@ class Permissions:
         self.turns: dict[str, PermissionTurn] = {}
 
     @staticmethod
-    def _get(
-        db: sqlite3.Connection, project: str, identity: str, *, workspace_scope: bool = False
-    ) -> PermissionRecord:
-        column = "workspace_id" if workspace_scope else "project_id"
+    def _get(db: sqlite3.Connection, project: str, identity: str) -> PermissionRecord:
+        column = "workspace_id"
         row = db.execute(
             f"SELECT data FROM agent_permissions WHERE {column}=? AND id=?",
             (project, identity),
@@ -149,7 +140,7 @@ class Permissions:
             raise ApplicationError("permission_stale", "The agent turn is no longer waiting.", 409)
         if turn.run_id:
             row = db.execute(
-                "SELECT status FROM runs WHERE id=? AND project_id=?", (turn.run_id, turn.project)
+                "SELECT status FROM runs WHERE id=? AND workspace_id=?", (turn.run_id, turn.project)
             ).fetchone()
             if row is None or row[0] != "running":
                 raise ApplicationError("permission_stale", "The worker is no longer running.", 409)
@@ -194,10 +185,11 @@ class Permissions:
             if role == "coordinator":
                 validate(db, self.workspace, project)
             else:
-                self.workspace._work_scope(db, project)
+                self.workspace._workspace(db, project)
             if run_id:
                 row = db.execute(
-                    "SELECT task_id,status FROM runs WHERE id=? AND project_id=?", (run_id, project)
+                    "SELECT task_id,status FROM runs WHERE id=? AND workspace_id=?",
+                    (run_id, project),
                 ).fetchone()
                 if row is None or row[1] != "running":
                     raise ApplicationError(
@@ -283,13 +275,9 @@ class Permissions:
         project: str,
         identity: str,
         request: PermissionAnswer,
-        *,
-        workspace_scope: bool = False,
     ) -> PermissionRecord:
-        with self.workspace.connection(
-            write=True, project_id=None if workspace_scope else project
-        ) as db:
-            record = self._get(db, project, identity, workspace_scope=workspace_scope)
+        with self.workspace.connection(write=True, workspace_id=project) as db:
+            record = self._get(db, project, identity)
             # Identical HTTP retries are harmless evidence reads, never another delivery.
             if record.status == "answered" and record.answer == request.option_id:
                 return record
@@ -325,18 +313,10 @@ class Permissions:
         role: AgentRole | None = None,
         before: int | None = None,
         limit: int = 50,
-        workspace_scope: bool = False,
     ) -> PermissionPage:
         with self.workspace.connection() as db:
-            if workspace_scope:
-                validate(db, self.workspace, project)
-                if task_id or role == "worker":
-                    raise ApplicationError(
-                        "scope_mismatch", "Coordinator permissions have workspace scope.", 403
-                    )
-            else:
-                self.workspace._work_scope(db, project)
-            owner = "workspace_id" if workspace_scope else "project_id"
+            self.workspace._workspace(db, project)
+            owner = "workspace_id"
             if task_id:
                 task_id = self.workspace._task(db, project, task_id).id
             pending = db.execute(

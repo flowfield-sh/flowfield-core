@@ -21,23 +21,24 @@ class Results:
         self.workspace = workspace
         self.execution = Execution(workspace)
 
-    def _get(self, db: sqlite3.Connection, project_id: str, identity: str) -> ResultVersion:
+    def _get(self, db: sqlite3.Connection, workspace_id: str, identity: str) -> ResultVersion:
         row = db.execute(
-            "SELECT data FROM result_versions WHERE project_id=? AND id=?", (project_id, identity)
+            "SELECT data FROM result_versions WHERE workspace_id=? AND id=?",
+            (workspace_id, identity),
         ).fetchone()
         if not row:
             raise ApplicationError("not_found", "Result version not found in this project.", 404)
         return ResultVersion.model_validate_json(row[0])
 
-    def get(self, project_id: str, identity: str) -> ResultVersion:
+    def get(self, workspace_id: str, identity: str) -> ResultVersion:
         with self.workspace.connection() as db:
-            return self._present(db, self._get(db, project_id, identity))
+            return self._present(db, self._get(db, workspace_id, identity))
 
     def _present(self, db: sqlite3.Connection, value: ResultVersion) -> ResultVersion:
         from flowfield.outputs import Outputs
         from flowfield.result_actions import result_action
 
-        value.files = Outputs.for_run(db, value.run_id)
+        value.files = Outputs.selected(db, value.workspace_id, value.output_ids)
         value.next_action = result_action(self.workspace, db, value)
         value.recheck_of = db.execute(
             "SELECT min(version) FROM result_versions WHERE run_id=? AND version<?",
@@ -60,15 +61,15 @@ class Results:
         return value
 
     def page(
-        self, project_id: str, task_id: str, before: int | None = None, limit: int = 10
+        self, workspace_id: str, task_id: str, before: int | None = None, limit: int = 10
     ) -> ResultPage:
         with self.workspace.connection() as db:
-            task = self.workspace._task(db, project_id, task_id)
+            task = self.workspace._task(db, workspace_id, task_id)
             limit = max(1, min(limit, 50))
             rows = db.execute(
-                "SELECT version,data FROM result_versions WHERE project_id=? AND task_id=? "
+                "SELECT version,data FROM result_versions WHERE workspace_id=? AND task_id=? "
                 "AND (? IS NULL OR version<?) ORDER BY version DESC LIMIT ?",
-                (project_id, task.id, before, before, limit + 1),
+                (workspace_id, task.id, before, before, limit + 1),
             ).fetchall()
             return ResultPage(
                 items=[
@@ -77,17 +78,17 @@ class Results:
                 ],
                 current_id=(
                     db.execute(
-                        "SELECT id FROM result_versions WHERE project_id=? AND task_id=? "
+                        "SELECT id FROM result_versions WHERE workspace_id=? AND task_id=? "
                         "ORDER BY version DESC LIMIT 1",
-                        (project_id, task.id),
+                        (workspace_id, task.id),
                     ).fetchone()
                     or [None]
                 )[0],
                 current_run_id=(
                     db.execute(
-                        "SELECT id FROM work_runs WHERE project_id=? AND task_id=? "
+                        "SELECT id FROM runs WHERE workspace_id=? AND task_id=? "
                         "ORDER BY number DESC LIMIT 1",
-                        (project_id, task.id),
+                        (workspace_id, task.id),
                     ).fetchone()
                     or [None]
                 )[0],
@@ -107,9 +108,24 @@ class Results:
             ),
         )
 
-    def capture(self, db: sqlite3.Connection, run: Run) -> ResultVersion:
+    def ready(self, db: sqlite3.Connection, version: ResultVersion) -> None:
+        """A prepared code candidate waits for one review or explicit delivery approval."""
+        from flowfield.reviewer_settings import Reviewers
+
+        if version.status != "ready" or version.completion != "code":
+            return
+        if not Reviewers.resolved(db, version.workspace_id, version.task_id).effective.enabled:
+            task = self.workspace._task(db, version.workspace_id, version.task_id)
+            if task.status != "in_review":
+                self.execution._task_state(
+                    db, task, "in_review", "Ready for your delivery approval."
+                )
+
+    def capture(
+        self, db: sqlite3.Connection, run: Run, *, output_ids: list[str] | None = None
+    ) -> ResultVersion:
         assert run.result
-        if self.workspace._work_scope(db, run.project_id).project_id and not run.result_commit:
+        if run.project_id and not run.result_commit:
             raise ApplicationError("result_missing", "Repository results require captured code.")
         if run.result.files:
             from flowfield.outputs import Outputs
@@ -121,14 +137,25 @@ class Results:
                     "Retain every submitted file before capturing a result.",
                     409,
                 )
+        from flowfield.outputs import Outputs
+
+        selected = (
+            Outputs.for_run(db, run.id)
+            if output_ids is None
+            else Outputs.selected(db, run.workspace_id, output_ids)
+        )
+        if any(file.task_id != run.task_id for file in selected):
+            raise ApplicationError(
+                "output_owner", "Task results can only include this task's outputs."
+            )
         number = db.execute(
             "SELECT coalesce(max(version),0)+1 FROM result_versions "
-            "WHERE project_id=? AND task_id=?",
-            (run.project_id, run.task_id),
+            "WHERE workspace_id=? AND task_id=?",
+            (run.workspace_id, run.task_id),
         ).fetchone()[0]
         version = ResultVersion(
             id=uuid4().hex,
-            project_id=run.project_id,
+            workspace_id=run.workspace_id,
             task_id=run.task_id,
             task_key=run.task_key,
             version=number,
@@ -139,13 +166,14 @@ class Results:
             created_at=now(),
             target_branch=run.target_branch,
             review_requested=True,
+            output_ids=[file.id for file in selected],
         )
         db.execute(
-            "INSERT INTO result_versions(id,project_id,task_id,run_id,version,status,data) "
+            "INSERT INTO result_versions(id,workspace_id,task_id,run_id,version,status,data) "
             "VALUES (?,?,?,?,?,?,?)",
             (
                 version.id,
-                version.project_id,
+                version.workspace_id,
                 version.task_id,
                 run.id,
                 number,
@@ -157,14 +185,13 @@ class Results:
 
     def _current(self, db: sqlite3.Connection, version: ResultVersion) -> Run:
         latest = db.execute(
-            "SELECT id FROM result_versions WHERE project_id=? AND task_id=? "
+            "SELECT id FROM result_versions WHERE workspace_id=? AND task_id=? "
             "ORDER BY version DESC LIMIT 1",
-            (version.project_id, version.task_id),
+            (version.workspace_id, version.task_id),
         ).fetchone()
         last_run = db.execute(
-            "SELECT id FROM work_runs WHERE project_id=? AND task_id=? ORDER BY "
-            "number DESC LIMIT 1",
-            (version.project_id, version.task_id),
+            "SELECT id FROM runs WHERE workspace_id=? AND task_id=? ORDER BY number DESC LIMIT 1",
+            (version.workspace_id, version.task_id),
         ).fetchone()
         if not latest or latest[0] != version.id or not last_run or last_run[0] != version.run_id:
             raise ApplicationError(
@@ -172,35 +199,33 @@ class Results:
             )
         if (
             db.execute(
-                "SELECT 1 FROM runs WHERE project_id=? AND task_id=? AND status IN "
+                "SELECT 1 FROM runs WHERE workspace_id=? AND task_id=? AND status IN "
                 "('preparing','running','stopping','uncertain')",
-                (version.project_id, version.task_id),
+                (version.workspace_id, version.task_id),
             ).fetchone()
             or db.execute(
-                "SELECT 1 FROM task_replies WHERE project_id=? AND task_id=? AND "
+                "SELECT 1 FROM task_replies WHERE workspace_id=? AND task_id=? AND "
                 "json_extract(data,'$.status')='pending'",
-                (version.project_id, version.task_id),
+                (version.workspace_id, version.task_id),
             ).fetchone()
         ):
             raise ApplicationError(
                 "input_closed", "Wait for the current reply before reviewing this result.", 409
             )
-        return self.execution._run(db, version.project_id, version.run_id)
+        return self.execution._run(db, version.workspace_id, version.run_id)
 
-    def review(self, project_id: str, identity: str, request: ResultReview) -> ResultVersion:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            return self._review(db, project_id, identity, request)
+    def review(self, workspace_id: str, identity: str, request: ResultReview) -> ResultVersion:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            return self._review(db, workspace_id, identity, request)
 
     def _review(
         self,
         db: sqlite3.Connection,
-        project_id: str,
+        workspace_id: str,
         identity: str,
         request: ResultReview,
-        *,
-        delegated_review_id: str | None = None,
     ) -> ResultVersion:
-        version = self._get(db, project_id, identity)
+        version = self._get(db, workspace_id, identity)
         binding = version.candidate_commit or version.source_commit
         if request.candidate_commit != binding:
             raise ApplicationError(
@@ -211,9 +236,9 @@ class Results:
             return self._present(db, version)
         self.workspace._current(version.revision, request.expected_revision)
         if db.execute(
-            "SELECT 1 FROM task_reviews WHERE project_id=? AND task_id=? AND status IN "
+            "SELECT 1 FROM task_reviews WHERE workspace_id=? AND task_id=? AND status IN "
             "('queued','preparing','running','waiting','uncertain')",
-            (project_id, version.task_id),
+            (workspace_id, version.task_id),
         ).fetchone():
             raise ApplicationError(
                 "review_owns_result",
@@ -221,7 +246,7 @@ class Results:
                 409,
             )
         run = self._current(db, version)
-        task = self.workspace._task(db, project_id, version.task_id)
+        task = self.workspace._task(db, workspace_id, version.task_id)
         if request.action == "request_changes":
             if (
                 version.completion == "code"
@@ -237,6 +262,12 @@ class Results:
                 raise ApplicationError(
                     "result_changed", "This version is already closed for changes.", 409
                 )
+            if run.purpose == "assembly":
+                from flowfield.subtasks import Subtasks
+
+                Subtasks.request_changes(db, task, request.subtask_id, request.note)
+            elif request.subtask_id:
+                raise ApplicationError("subtask_not_found", "This task ran directly.")
             version.status, version.feedback = "changes_requested", request.note
             run.status, run.feedback = "changes_requested", request.note
             self.execution._task_state(
@@ -259,10 +290,32 @@ class Results:
                     "Wait for successful candidate validation before approval.",
                     409,
                 )
-            self.execution._current_assignment(run, task)
+            self.execution._current_assignment(db, run, task)
+            from flowfield.reviewer_settings import Reviewers
+            from flowfield.task_reviews import TaskReview, TaskReviews
+
+            if Reviewers.resolved(db, workspace_id, task.id).effective.enabled:
+                row = db.execute(
+                    "SELECT data FROM task_reviews WHERE result_id=? ORDER BY number DESC LIMIT 1",
+                    (version.id,),
+                ).fetchone()
+                review = TaskReview.model_validate_json(row[0]) if row else None
+                if (
+                    not review
+                    or review.status != "decided"
+                    or not review.verdict
+                    or review.verdict.action != "approve"
+                    or not TaskReviews(self.workspace)._fresh(db, review)
+                ):
+                    raise ApplicationError(
+                        "review_required",
+                        "The current task result must pass its configured review before "
+                        "delivery approval.",
+                        409,
+                    )
             if version.completion == "code":
                 assert version.integration_id
-                integration = Integrations(self.workspace).get(project_id, version.integration_id)
+                integration = Integrations(self.workspace).get(workspace_id, version.integration_id)
                 if integration.status != "ready" or integration.candidate_commit != binding:
                     raise ApplicationError(
                         "result_changed",
@@ -270,7 +323,6 @@ class Results:
                         409,
                     )
             version.approval_note = request.note.strip()
-            version.delegated_review_id = delegated_review_id
             version.approved_at, version.approved_by = now(), request.author
             run.status, run.accepted_at, run.accepted_by = (
                 "accepted",
@@ -282,13 +334,13 @@ class Results:
         self._save(db, version)
         return self._present(db, version)
 
-    def complete(self, db: sqlite3.Connection, project_id: str, integration_id: str) -> None:
+    def complete(self, db: sqlite3.Connection, workspace_id: str, integration_id: str) -> None:
         from flowfield.integration_models import Integration
 
         evidence = Integration.model_validate_json(
             db.execute(
-                "SELECT data FROM integrations WHERE project_id=? AND id=?",
-                (project_id, integration_id),
+                "SELECT data FROM integrations WHERE workspace_id=? AND id=?",
+                (workspace_id, integration_id),
             ).fetchone()[0]
         )
         if evidence.status != "integrated" or not evidence.checkout_verified_at:
@@ -296,17 +348,17 @@ class Results:
                 "delivery_unverified", "Project checkout delivery has not been verified.", 409
             )
         row = db.execute(
-            "SELECT id FROM result_versions WHERE project_id=? AND status='delivering' "
+            "SELECT id FROM result_versions WHERE workspace_id=? AND status='delivering' "
             "AND json_extract(data,'$.integration_id')=?",
-            (project_id, integration_id),
+            (workspace_id, integration_id),
         ).fetchone()
         if not row:
             return
-        version = self._get(db, project_id, row[0])
+        version = self._get(db, workspace_id, row[0])
         try:
             run = self._current(db, version)
-            task = self.workspace._task(db, project_id, version.task_id)
-            self.execution._current_assignment(run, task)
+            task = self.workspace._task(db, workspace_id, version.task_id)
+            self.execution._current_assignment(db, run, task)
         except ApplicationError as error:
             version.status = "stale"
             version.problem = (
@@ -324,13 +376,13 @@ class Results:
             version.approved_by or "flowfield",
         )
 
-    def reprepare(self, project_id: str, identity: str, request: RunAction) -> ResultVersion:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            version = self._get(db, project_id, identity)
+    def reprepare(self, workspace_id: str, identity: str, request: RunAction) -> ResultVersion:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            version = self._get(db, workspace_id, identity)
             self.workspace._current(version.revision, request.expected_revision)
             run = self._current(db, version)
-            task = self.workspace._task(db, project_id, run.task_id)
-            self.execution._current_assignment(run, task)
+            task = self.workspace._task(db, workspace_id, run.task_id)
+            self.execution._current_assignment(db, run, task)
             if version.status not in ("ready", "blocked", "stale", "delivered", "cancelled"):
                 raise ApplicationError(
                     "result_busy", "Wait for the current operation before preparing again.", 409
@@ -345,15 +397,15 @@ class Results:
             self.execution._save(db, run)
             return self.capture(db, run)
 
-    def retry_delivery(self, project_id: str, identity: str, request: RunAction) -> ResultVersion:
+    def retry_delivery(self, workspace_id: str, identity: str, request: RunAction) -> ResultVersion:
         from flowfield.integration_models import DELIVERY_BLOCKERS
 
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            version = self._get(db, project_id, identity)
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            version = self._get(db, workspace_id, identity)
             self.workspace._current(version.revision, request.expected_revision)
             run = self._current(db, version)
             self.execution._current_assignment(
-                run, self.workspace._task(db, project_id, version.task_id)
+                db, run, self.workspace._task(db, workspace_id, version.task_id)
             )
             if (
                 not version.approved_at
@@ -366,17 +418,20 @@ class Results:
                     409,
                 )
             service = Integrations(self.workspace)
-            if service.settings(project_id).revision != version.settings_revision:
+            if (
+                service.for_task(workspace_id, version.task_id).revision
+                != version.settings_revision
+            ):
                 version.status, version.problem_code = "stale", "settings_changed"
                 version.problem = "Settings changed. Prepare and approve a new candidate."
                 self._save(db, version)
                 return self._present(db, version)
             assert version.integration_id
-            record = service.get(project_id, version.integration_id)
+            record = service.get(workspace_id, version.integration_id)
             allowed = {version.target_before}
             if record.apply_started_at:
                 allowed.add(version.candidate_commit)
-            if service.head(project_id, version.task_id) not in allowed:
+            if service.head(workspace_id, version.task_id) not in allowed:
                 version.status, version.problem_code = "stale", "target_changed"
                 version.problem = "Destination moved. Prepare and approve a new candidate."
                 self._save(db, version)
@@ -386,9 +441,9 @@ class Results:
             self._save(db, version)
             return self._present(db, version)
 
-    def cancel(self, project_id: str, identity: str, request: RunAction) -> ResultVersion:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            version = self._get(db, project_id, identity)
+    def cancel(self, workspace_id: str, identity: str, request: RunAction) -> ResultVersion:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            version = self._get(db, workspace_id, identity)
             self.workspace._current(version.revision, request.expected_revision)
             run = self._current(db, version)
             if version.status not in ("preparing", "ready", "delivering", "blocked", "stale"):
@@ -397,7 +452,7 @@ class Results:
                 )
             if (
                 version.integration_id
-                and Integrations(self.workspace).get(project_id, version.integration_id).status
+                and Integrations(self.workspace).get(workspace_id, version.integration_id).status
                 == "applying"
             ):
                 raise ApplicationError(
@@ -414,29 +469,29 @@ class Results:
             self._save(db, version)
             return self._present(db, version)
 
-    def revalidate(self, project_id: str, identity: str, request: RunAction) -> ResultVersion:
-        version = self.get(project_id, identity)
+    def revalidate(self, workspace_id: str, identity: str, request: RunAction) -> ResultVersion:
+        version = self.get(workspace_id, identity)
         self.workspace._current(version.revision, request.expected_revision)
         with self.workspace.connection() as db:
             run = self._current(db, version)
         service = Integrations(self.workspace)
         record = service.prepare(
-            project_id,
+            workspace_id,
             run.id,
             IntegrationPrepare(expected_revision=run.revision, author=request.author),
             availability_result=version.id,
         )
-        service.refresh_availability(project_id)
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            current = self._get(db, project_id, identity)
+        service.refresh_availability(record.project_id)
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            current = self._get(db, workspace_id, identity)
             self._current(db, current)
             current.availability_id = record.id
             self._save(db, current)
             return self._present(db, current)
 
-    def correct(self, project_id: str, identity: str, request: RunAction) -> ResultVersion:
+    def correct(self, workspace_id: str, identity: str, request: RunAction) -> ResultVersion:
         """One explicit, capacity-bound worker continuation. Never transfers approval."""
-        version = self.get(project_id, identity)
+        version = self.get(workspace_id, identity)
         self.workspace._current(version.revision, request.expected_revision)
         if version.completion != "code" or version.status not in ("blocked", "stale"):
             raise ApplicationError(
@@ -444,14 +499,15 @@ class Results:
                 "Request correction for a blocked or stale code result.",
                 409,
             )
-        repository = Path(self.workspace.project(project_id).path)
+        settings = Integrations(self.workspace).for_task(workspace_id, version.task_id)
+        repository = Path(self.workspace.project(settings.project_id).path)
         integrations = Integrations(self.workspace)
         with gitops.lock(repository):
-            settings = integrations.for_task(project_id, version.task_id)
-            target = integrations.head(project_id, version.task_id)
+            settings = integrations.for_task(workspace_id, version.task_id)
+            target = integrations.head(workspace_id, version.task_id)
             with self.workspace.connection() as db:
                 run = self._current(db, version)
-                task = self.workspace._task(db, project_id, run.task_id)
+                task = self.workspace._task(db, workspace_id, run.task_id)
                 self.workspace._require_ready(task)
                 if not task.publication or task.publication.target_branch != settings.target_branch:
                     raise ApplicationError(
@@ -459,20 +515,20 @@ class Results:
                         "Reconcile the task's completion target before correcting its code.",
                         409,
                     )
-                workers = self.execution._settings(db, project_id)
+                workers = self.execution._settings(db, workspace_id)
                 if not workers.selection:
                     raise ApplicationError(
                         "worker_settings_required",
                         "Choose the correction harness and model in project Workers settings.",
                         409,
                     )
-                number = self.execution._correction_count(db, project_id, task.id) + 1
+                number = self.execution._correction_count(db, workspace_id, task.id) + 1
             assert version.source_commit
             seed, conflicts = gitops.correction_seed(
                 repository, target, version.source_commit, uuid4().hex
             )
             evidence = (
-                integrations.get(project_id, version.integration_id).model_dump()
+                integrations.get(workspace_id, version.integration_id).model_dump()
                 if version.integration_id
                 else {}
             )
@@ -495,14 +551,14 @@ class Results:
                     }
                 ),
             )
-            with self.workspace.connection(write=True, project_id=project_id) as db:
-                current = self._get(db, project_id, identity)
+            with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+                current = self._get(db, workspace_id, identity)
                 self.workspace._current(current.revision, request.expected_revision)
                 run = self._current(db, current)
-                latest_task = self.workspace._task(db, project_id, run.task_id)
+                latest_task = self.workspace._task(db, workspace_id, run.task_id)
                 self.workspace._current(latest_task.revision, task.revision)
                 self.workspace._require_ready(latest_task)
-                if integrations.head(project_id, version.task_id) != target:
+                if integrations.head(workspace_id, version.task_id) != target:
                     raise ApplicationError(
                         "target_changed",
                         "Target moved during correction preparation. Inspect it and request again.",
@@ -517,65 +573,34 @@ class Results:
                     current.feedback,
                     correction,
                 )
+                if run.purpose == "assembly":
+                    from flowfield.subtasks import Subtasks
+
+                    children = Subtasks.read_all(db, workspace_id, task.id)
+                    target_child = next(
+                        (child for child in reversed(children) if child.completion == "code"), None
+                    )
+                    if not target_child or not target_child.contribution_run_id:
+                        raise ApplicationError(
+                            "correction_unavailable",
+                            "No code contribution is available for correction.",
+                            409,
+                        )
+                    source_run = target_child.contribution_run_id
+                    Subtasks.request_changes(db, latest_task, target_child.id, current.feedback)
+                    worker = self.execution._run(db, workspace_id, source_run)
+                    worker.next_correction = correction
+                    self.execution._save(db, worker)
                 self.execution._save(db, run)
                 self._save(db, current)
                 self.execution._task_state(
                     db,
-                    self.workspace._task(db, project_id, run.task_id),
+                    self.workspace._task(db, workspace_id, run.task_id),
                     "up_next",
                     f"Requested correction {number} for result v{version.version}.",
                     request.author,
                 )
                 return self._present(db, current)
-
-    def milestone_correction(
-        self,
-        db: sqlite3.Connection,
-        project: str,
-        identity: str,
-        revision: int,
-        verification_id: str,
-        note: str,
-    ) -> None:
-        """Continue one delivered contribution within its unchanged published agreement."""
-        version = self._get(db, project, identity)
-        self.workspace._current(version.revision, revision)
-        run = self._current(db, version)
-        task = self.workspace._task(db, project, version.task_id)
-        self.execution._current_assignment(run, task)
-        if version.status != "delivered" or task.status != "done" or task.archived:
-            raise ApplicationError(
-                "correction_unavailable", "The contribution changed; reconcile the milestone.", 409
-            )
-        if version.completion == "report":
-            run.status, run.feedback = "changes_requested", note
-            self.execution._save(db, run)
-            self.execution._task_state(
-                db, task, "up_next", f"Milestone review requested correction: {note}", "reviewer"
-            )
-            return
-        assert version.source_commit
-        target = Integrations(self.workspace).head(project, task.id)
-        run.next_correction = Correction(
-            result_id=version.id,
-            source_commit=version.source_commit,
-            target_commit=target,
-            base_commit=target,
-            number=self.execution._correction_count(db, project, task.id) + 1,
-            details=json.dumps(
-                {
-                    "verification_id": verification_id,
-                    "instruction": note,
-                    "scope": "Correct only this contribution within its unchanged agreement. "
-                    "Ask about intent or scope changes.",
-                }
-            ),
-        )
-        run.status, run.feedback = "changes_requested", note
-        self.execution._save(db, run)
-        self.execution._task_state(
-            db, task, "up_next", f"Milestone review requested correction: {note}", "reviewer"
-        )
 
     def _finish_report(self, db: sqlite3.Connection, value: ResultVersion) -> None:
         """Complete retained findings, optionally after independent assessment."""
@@ -584,29 +609,28 @@ class Results:
         if value.completion != "report" or value.report.outcome != "complete":
             raise ApplicationError("report_incomplete", "Only complete findings can finish.", 409)
         run = self._current(db, value)
-        task = self.workspace._task(db, value.project_id, run.task_id)
-        self.execution._current_assignment(run, task)
+        task = self.workspace._task(db, value.workspace_id, run.task_id)
+        self.execution._current_assignment(db, run, task)
         for file in Outputs.for_run(db, run.id):
             Outputs(self.workspace).content(file)
         value.status, value.completed_at = "delivered", now()
         run.status = "accepted"
         run.accepted_at, run.accepted_by = value.completed_at, "flowfield"
         self.execution._save(db, run)
-        self.execution._task_state(db, task, "done", "Files and findings delivered.")
         self._save(db, value)
+        self.execution._task_state(db, task, "done", "Files and findings delivered.")
 
     def finish_unreviewed_report(self, project: str, identity: str) -> bool:
         from flowfield.reviewer_settings import Reviewers
-        from flowfield.worker_settings import workspace_id
 
-        with self.workspace.connection(write=True, project_id=project) as db:
+        with self.workspace.connection(write=True, workspace_id=project) as db:
             value = self._get(db, project, identity)
             if value.completion != "report" or value.status != "ready":
                 return False
-            owner = workspace_id(db, project)
+            owner = project
             assert owner
-            reviewer = Reviewers.resolved(db, owner, "task", project, value.task_id).effective
-            if reviewer.enabled and reviewer.agent:
+            reviewer = Reviewers.resolved(db, owner, value.task_id).effective
+            if reviewer.enabled:
                 return False
             if db.execute(
                 "SELECT 1 FROM task_reviews WHERE result_id=? "
@@ -617,19 +641,20 @@ class Results:
             self._finish_report(db, value)
             return True
 
-    def process(self, project_id: str) -> None:
+    def process(self, workspace_id: str) -> None:
         """One bounded local operation; called by the service even with worker queue paused."""
         with self.workspace.connection() as db:
             row = db.execute(
-                "SELECT id FROM result_versions v WHERE project_id=? "
+                "SELECT id FROM result_versions v WHERE workspace_id=? "
                 "AND status IN ('preparing','delivering') "
-                "AND NOT EXISTS (SELECT 1 FROM result_versions n WHERE n.project_id=v.project_id "
+                "AND NOT EXISTS (SELECT 1 FROM result_versions n WHERE "
+                "n.workspace_id=v.workspace_id "
                 "AND n.task_id=v.task_id AND n.version>v.version) ORDER BY number LIMIT 1",
-                (project_id,),
+                (workspace_id,),
             ).fetchone()
         if not row:
             return
-        version = self.get(project_id, row[0])
+        version = self.get(workspace_id, row[0])
         try:
             if version.files:
                 from flowfield.outputs import Outputs
@@ -638,33 +663,36 @@ class Results:
                     Outputs(self.workspace).content(output)
             service = Integrations(self.workspace)
             if version.integration_id:
-                interrupted = service.get(project_id, version.integration_id)
+                interrupted = service.get(workspace_id, version.integration_id)
                 if interrupted.status in ("preparing", "applying"):
                     service.recover(interrupted)
                     return
             with self.workspace.connection() as db:
                 run = self._current(db, version)
                 self.execution._current_assignment(
-                    run, self.workspace._task(db, project_id, run.task_id)
+                    db, run, self.workspace._task(db, workspace_id, run.task_id)
                 )
             if version.status == "preparing":
                 if version.completion == "report":
-                    scope = self.workspace.work_scope(project_id)
-                    repo = Path(scope.path)
-                    if scope.project_id and git(
-                        repo, "rev-parse", run.base_commit + "^{tree}"
-                    ) != git(repo, "rev-parse", (version.source_commit or "") + "^{tree}"):
+                    repo = (
+                        Path(self.workspace.project(run.project_id).path)
+                        if run.project_id
+                        else None
+                    )
+                    if repo and git(repo, "rev-parse", run.base_commit + "^{tree}") != git(
+                        repo, "rev-parse", (version.source_commit or "") + "^{tree}"
+                    ):
                         raise ApplicationError(
                             "report_changes_code",
                             "This report includes code changes. "
                             "Reconcile its completion requirement as code before review.",
                             409,
                         )
-                    with self.workspace.connection(write=True, project_id=project_id) as db:
-                        current = self._get(db, project_id, version.id)
+                    with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+                        current = self._get(db, workspace_id, version.id)
                         run = self._current(db, current)
-                        task = self.workspace._task(db, project_id, run.task_id)
-                        self.execution._current_assignment(run, task)
+                        task = self.workspace._task(db, workspace_id, run.task_id)
+                        self.execution._current_assignment(db, run, task)
                         if current.status == "preparing":
                             current.candidate_commit = current.source_commit
                             if current.report.outcome == "partial":
@@ -673,14 +701,11 @@ class Results:
                                 current.problem = current.report.remaining_work
                             else:
                                 from flowfield.reviewer_settings import Reviewers
-                                from flowfield.worker_settings import workspace_id
 
-                                owner = workspace_id(db, project_id)
+                                owner = workspace_id
                                 assert owner
-                                reviewer = Reviewers.resolved(
-                                    db, owner, "task", project_id, task.id
-                                )
-                                if reviewer.effective.enabled and reviewer.effective.agent:
+                                reviewer = Reviewers.resolved(db, owner, task.id)
+                                if reviewer.effective.enabled:
                                     current.status = "ready"
                                 else:
                                     self._finish_report(db, current)
@@ -688,10 +713,10 @@ class Results:
                             self._save(db, current)
                     return
                 integration = service.prepare(
-                    project_id, run.id, IntegrationPrepare(expected_revision=run.revision)
+                    workspace_id, run.id, IntegrationPrepare(expected_revision=run.revision)
                 )
-                with self.workspace.connection(write=True, project_id=project_id) as db:
-                    current = self._get(db, project_id, version.id)
+                with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+                    current = self._get(db, workspace_id, version.id)
                     self._current(db, current)
                     if current.status != "preparing":
                         return
@@ -707,14 +732,15 @@ class Results:
                         current.problem_code = "partial_outcome"
                         current.problem = current.report.remaining_work
                     self._save(db, current)
+                    self.ready(db, current)
             else:
                 assert version.integration_id and version.candidate_commit
-                integration = service.get(project_id, version.integration_id)
+                integration = service.get(workspace_id, version.integration_id)
                 if integration.status == "applying":
                     integration = service.recover(integration)
                 if integration.status in ("ready", "stale"):
                     integration = service.apply(
-                        project_id,
+                        workspace_id,
                         integration.id,
                         IntegrationApply(
                             expected_revision=integration.revision,
@@ -723,8 +749,8 @@ class Results:
                         ),
                     )
                 if integration.status == "integrated":
-                    with self.workspace.connection(write=True, project_id=project_id) as db:
-                        self.complete(db, project_id, integration.id)
+                    with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+                        self.complete(db, workspace_id, integration.id)
                 else:
                     self._problem(
                         version,
@@ -745,8 +771,8 @@ class Results:
     def _problem(
         self, version: ResultVersion, problem: str, *, stale: bool = False, code: str | None = None
     ) -> None:
-        with self.workspace.connection(write=True, project_id=version.project_id) as db:
-            current = self._get(db, version.project_id, version.id)
+        with self.workspace.connection(write=True, workspace_id=version.workspace_id) as db:
+            current = self._get(db, version.workspace_id, version.id)
             if current.status in ("preparing", "delivering"):
                 current.status = "stale" if stale else "blocked"
                 current.problem = problem

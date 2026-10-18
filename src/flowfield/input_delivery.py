@@ -16,26 +16,42 @@ class InputDelivery(BaseModel):
     run_id: str | None = None
 
 
+def other_input_blocks(
+    db: sqlite3.Connection, workspace: str, task: str, question: str, subtask: str | None
+) -> bool:
+    """Sibling input waits are local; task-wide planning blockers still apply."""
+    return (
+        db.execute(
+            "SELECT 1 FROM questions q WHERE workspace_id=? AND id<>? "
+            "AND status IN ('open','answered') AND "
+            "json_extract(data,'$.blocking_scope') IS NOT NULL "
+            "AND (task_id=? OR EXISTS (SELECT 1 FROM "
+            "json_each(data,'$.affected_task_ids') WHERE value=?)) "
+            "AND NOT (? IS NOT NULL AND EXISTS (SELECT 1 FROM runs r "
+            "WHERE r.id=json_extract(q.data,'$.origin_run_id') AND r.workspace_id=q.workspace_id "
+            "AND r.task_id=q.task_id AND r.subtask_id IS NOT NULL AND r.subtask_id<>?)) LIMIT 1",
+            (workspace, question, task, task, subtask, subtask),
+        ).fetchone()
+        is not None
+    )
+
+
 def question_delivery(
-    db: sqlite3.Connection, project_id: str, identity: str
+    db: sqlite3.Connection, workspace_id: str, identity: str
 ) -> InputDelivery | None:
     """One bounded, current projection for question, task and attention views."""
     from flowfield.execution_models import Run
 
     review_question = db.execute(
-        "SELECT data FROM questions WHERE project_id=? AND id=? "
+        "SELECT data FROM questions WHERE workspace_id=? AND id=? "
         "AND json_extract(data,'$.origin_review_id') IS NOT NULL",
-        (project_id, identity),
+        (workspace_id, identity),
     ).fetchone()
     if review_question:
         question = json.loads(review_question[0])
         row_review = db.execute(
             "SELECT data FROM task_reviews WHERE id=?", (question["origin_review_id"],)
         ).fetchone()
-        if not row_review:
-            row_review = db.execute(
-                "SELECT data FROM milestone_reviews WHERE id=?", (question["origin_review_id"],)
-            ).fetchone()
         if not row_review:
             return InputDelivery(
                 state="Review unavailable", message="Inspect the retained review before continuing."
@@ -70,8 +86,8 @@ def question_delivery(
     row = db.execute(
         "SELECT task_id,status,json_extract(data,'$.origin_run_id') AS origin, "
         "json_extract(data,'$.continuation_run_id') AS continuation FROM questions "
-        "WHERE project_id=? AND id=?",
-        (project_id, identity),
+        "WHERE workspace_id=? AND id=?",
+        (workspace_id, identity),
     ).fetchone()
     if not row or not row["origin"]:
         return None
@@ -80,10 +96,10 @@ def question_delivery(
             "SELECT json_set(data,'$.result',NULL,'$.feedback','','$.setup_checks',json('[]'),"
             "'$.setup_commands',json('[]'),'$.correction',NULL,'$.next_correction',NULL,"
             "'$.problem',substr(json_extract(data,'$.problem'),1,700)) "
-            "FROM runs WHERE project_id=? AND (id=? OR "
+            "FROM runs WHERE workspace_id=? AND (id=? OR "
             "json_extract(data,'$.input_question_id')=?) ORDER BY number DESC LIMIT 1",
             (
-                project_id,
+                workspace_id,
                 row["continuation"] or row["origin"],
                 identity if row["continuation"] else None,
             ),
@@ -100,6 +116,10 @@ def question_delivery(
         return state("Withdrawn", "This input was withdrawn; it will not launch work.")
     if row["continuation"]:
         labels = {
+            "contributed": (
+                "Work submitted",
+                "This contribution is ready for the task's combined review.",
+            ),
             "preparing": ("Resuming", "Preparing work with your saved answer."),
             "running": ("Working", "The worker owns the continuation with your answer."),
             "in_review": (
@@ -137,19 +157,22 @@ def question_delivery(
             "Continuation blocked", run.problem or "Work was stopped; reconcile before continuing."
         )
     latest = db.execute(
-        "SELECT id FROM work_runs WHERE project_id=? AND task_id=? ORDER BY number DESC LIMIT 1",
-        (project_id, row["task_id"]),
+        "SELECT id FROM runs WHERE workspace_id=? AND task_id=? "
+        "AND subtask_id IS ? ORDER BY number DESC LIMIT 1",
+        (workspace_id, row["task_id"], run.subtask_id),
     ).fetchone()[0]
     task = json.loads(
         db.execute(
             "SELECT json_set(data,'$.body','','$.change_note','') FROM tasks "
-            "WHERE project_id=? AND id=?",
-            (project_id, row["task_id"]),
+            "WHERE workspace_id=? AND id=?",
+            (workspace_id, row["task_id"]),
         ).fetchone()[0]
     )
-    from flowfield.milestone_delivery import effective_branch
-
-    target = effective_branch(db, project_id, task.get("milestone_id"))
+    target_row = db.execute(
+        "SELECT json_extract(data,'$.target_branch') FROM integration_settings WHERE project_id=?",
+        (run.project_id,),
+    ).fetchone()
+    target = target_row[0] if target_row else None
     if (
         latest != run.id
         or task["archived"]
@@ -178,29 +201,23 @@ def question_delivery(
             "Continuation blocked",
             "The unfinished work could not be prepared. Inspect the task before retrying.",
         )
-    if db.execute(
-        "SELECT 1 FROM questions WHERE project_id=? AND id<>? "
-        "AND status IN ('open','answered') AND json_extract(data,'$.blocking_scope') IS NOT NULL "
-        "AND (task_id=? OR EXISTS (SELECT 1 FROM json_each(data,'$.affected_task_ids') "
-        "WHERE value=?))",
-        (project_id, identity, row["task_id"], row["task_id"]),
-    ).fetchone():
+    if other_input_blocks(db, workspace_id, row["task_id"], identity, run.subtask_id):
         return state(
             "Waiting for input",
             "Your answer is saved. Another blocking question needs resolution.",
             stop=True,
         )
     if db.execute(
-        "SELECT 1 FROM tasks WHERE project_id=? AND id IN (SELECT value FROM json_each(?)) "
+        "SELECT 1 FROM tasks WHERE workspace_id=? AND id IN (SELECT value FROM json_each(?)) "
         "AND json_extract(data,'$.status')<>'done'",
-        (project_id, json.dumps(task["dependencies"])),
+        (workspace_id, json.dumps(task["dependencies"])),
     ).fetchone():
         return state(
             "Waiting for prerequisites",
             "Your answer is saved. Complete the task's prerequisites first.",
             stop=True,
         )
-    worker = worker_settings.read_project(db, project_id)
+    worker = worker_settings.read_workspace(db, workspace_id)
     if not worker.enabled:
         return state(
             "Paused",
@@ -209,7 +226,7 @@ def question_delivery(
         )
     if worker.problem:
         return state("Continuation blocked", worker.problem, stop=True)
-    occupied = worker_settings.occupancy(db, project=project_id)
+    occupied = worker_settings.occupancy(db, workspace=workspace_id)
     if occupied.active + occupied.uncertain >= worker.max_parallel:
         return state(
             "Waiting for capacity",

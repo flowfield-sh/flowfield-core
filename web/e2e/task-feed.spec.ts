@@ -1,6 +1,5 @@
 import { openResource } from "./shell-navigation";
 import {
-  fixtureCliProject,
   projectWorkspace,
   fixtureProject,
   fixtureMcpProject,
@@ -27,20 +26,22 @@ test("board failures use toasts and keep recovery beside retained work", async (
       await fixtureProject(request, {
         data: {
           path: existingDirectory(join(state, "board-recovery")),
-          task_prefix: "BRC",
         },
       })
     ).ok(),
   ).toBe(true);
   expect(
     (
-      await request.post("/api/projects/board-recovery/tasks", {
-        data: { title: "Preserved board work" },
-      })
+      await request.post(
+        `/api/workspaces/${await projectWorkspace(page.request, "board-recovery")}/tasks`,
+        {
+          data: { title: "Preserved board work" },
+        },
+      )
     ).ok(),
   ).toBe(true);
   let fail = true;
-  const workspace = await projectWorkspace(request, "board-recovery");
+  const workspace = await projectWorkspace(page.request, "board-recovery");
   await page.route(`**/api/workspaces/${workspace}/view/board`, (route) =>
     fail
       ? route.fulfill({
@@ -51,7 +52,9 @@ test("board failures use toasts and keep recovery beside retained work", async (
         })
       : route.continue(),
   );
-  await page.goto("/projects/board-recovery");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "board-recovery")}/tasks`,
+  );
   const alert = page
     .locator("[data-sonner-toast][data-type=error]")
     .filter({ hasText: "Temporary board failure" });
@@ -81,9 +84,12 @@ test("board failures use toasts and keep recovery beside retained work", async (
   fail = true;
   expect(
     (
-      await request.post("/api/projects/board-recovery/tasks", {
-        data: { title: "New work after recovery" },
-      })
+      await request.post(
+        `/api/workspaces/${await projectWorkspace(page.request, "board-recovery")}/tasks`,
+        {
+          data: { title: "New work after recovery" },
+        },
+      )
     ).ok(),
   ).toBe(true);
   await expect(alert).toContainText("Temporary board failure");
@@ -109,219 +115,6 @@ test("board failures use toasts and keep recovery beside retained work", async (
   );
 });
 
-test("three-task board across CLI, browser and MCP, with archive and mobile reading", async ({
-  page,
-  request,
-}) => {
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
-  const project = join(state, "harbor");
-  fixtureCliProject([existingDirectory(project), "--name", "Harbor"]);
-  const workspace = await projectWorkspace(request, "harbor");
-  cli([
-    "project",
-    "edit",
-    "--project",
-    "harbor",
-    "--description",
-    "Make expense reporting effortless",
-  ]);
-  cli([
-    "milestone",
-    "create",
-    "--workspace",
-    workspace,
-    "--id",
-    "csv",
-    "--title",
-    "CSV export",
-  ]);
-  for (const [id, title, type] of [
-    ["serializer", "Build CSV serializer", "feature"],
-    ["button", "Add download button", "feature"],
-    ["rounding", "Fix total rounding", "bug"],
-  ]) {
-    cli([
-      "task",
-      "create",
-      "--project",
-      "harbor",
-      "--id",
-      id,
-      "--title",
-      title,
-      "--label",
-      type,
-      "--status",
-      "up-next",
-      "--body",
-      "Verification passes",
-      ...(id === "rounding" ? [] : ["--milestone", "csv"]),
-    ]);
-  }
-  await page.goto("/projects/harbor");
-  await expect(page.getByLabel("Workspace", { exact: true })).toBeVisible();
-  await expect(page.getByText("Ship CSV export", { exact: true })).toHaveCount(
-    0,
-  );
-  const call = await connectMcp(request);
-  const rounding = page
-    .locator(".card-shell")
-    .filter({ hasText: "Fix total rounding" });
-  const backlog = page.getByRole("region", {
-    name: "Backlog",
-    exact: true,
-    includeHidden: true,
-  });
-  const upNext = page.getByRole("region", {
-    name: "Up next",
-    exact: true,
-    includeHidden: true,
-  });
-  await expect(rounding).not.toHaveAttribute("draggable", "true");
-  await call("prioritize_task", {
-    project_id: "harbor",
-    task_id: "rounding",
-    priority: { expected_revision: 1, status: "backlog" },
-  });
-  await expect(backlog).toContainText("Fix total rounding");
-  const queued = await call("get_task", {
-    project_id: "harbor",
-    task_id: "rounding",
-  });
-  await call("prioritize_task", {
-    project_id: "harbor",
-    task_id: "rounding",
-    priority: { expected_revision: queued.revision, status: "up_next" },
-  });
-  await expect(upNext).toContainText("Fix total rounding");
-  const current = await call("get_task", {
-    project_id: "harbor",
-    task_id: "rounding",
-  });
-  await fixtureProgress(request, {
-    project_id: "harbor",
-    task_id: "rounding",
-    progress: { expected_revision: current.revision, status: "in_progress" },
-  });
-  await expect(
-    page.getByRole("region", {
-      name: "In progress",
-      exact: true,
-      includeHidden: true,
-    }),
-  ).toContainText("Fix total rounding");
-  await expect(rounding).not.toHaveAttribute("draggable", "true");
-  await page
-    .locator(".workspace-resource-content")
-    .getByRole("link", { name: /Fix total rounding/ })
-    .click();
-  await expect(
-    page
-      .getByRole("region", { name: "Task details", exact: true })
-      .getByRole("button", { name: "Archive", exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Move task", exact: true }),
-  ).toHaveCount(0);
-  await page.getByRole("button", { name: /^(Close editor|Back)$/ }).click();
-  const button = await call("get_task", {
-    project_id: "harbor",
-    task_id: "button",
-  });
-  await call("prioritize_task", {
-    project_id: "harbor",
-    task_id: "button",
-    priority: {
-      expected_revision: button.revision,
-      status: "up_next",
-      before_id: "serializer",
-    },
-  });
-  await expect(
-    page
-      .getByRole("region", {
-        name: "Up next",
-        exact: true,
-        includeHidden: true,
-      })
-      .locator(".task-card")
-      .first(),
-  ).toContainText("Add download button");
-  await page.getByRole("link", { name: /Add download button/ }).click();
-  const toArchive = await call("get_task", {
-    project_id: "harbor",
-    task_id: "button",
-  });
-  await call("edit_task", {
-    project_id: "harbor",
-    task_id: "button",
-    changes: { expected_revision: toArchive.revision, archived: true },
-  });
-  await expect(
-    page
-      .getByRole("region", {
-        name: "Up next",
-        exact: true,
-        includeHidden: true,
-      })
-      .locator(".task-card"),
-  ).toHaveCount(0);
-  expect(cli(["task", "show", "button", "--project", "harbor"]).status).toBe(
-    "up_next",
-  );
-  await closeOverlay(page);
-  await expect(page.locator(".up_next .task-card")).toHaveCount(1);
-  await expect(page.getByLabel("Filter by project")).toHaveValue("harbor");
-  await openResource(page, "Archive");
-  await expect(
-    page.getByRole("link", { name: /Add download button/ }),
-  ).toBeVisible();
-  await expect(page.locator(".column")).toHaveCount(0);
-  await page.getByRole("link", { name: /Add download button/ }).click();
-  const archived = await call("get_task", {
-    project_id: "harbor",
-    task_id: "button",
-  });
-  await call("edit_task", {
-    project_id: "harbor",
-    task_id: "button",
-    changes: { expected_revision: archived.revision, archived: false },
-  });
-  await closeOverlay(page);
-  await openResource(page, "Tasks");
-  await page.getByLabel("Filter by milestone").selectOption("csv");
-  await expect(page.locator(".task-card")).toHaveCount(2);
-  await openResource(page, "Milestones");
-  await page.locator(".milestone-board .task-card-link").first().click();
-  await call("edit_milestone", {
-    workspace_id: workspace,
-    milestone_id: "csv",
-    changes: {
-      expected_revision: 1,
-      body: "Export filtered expenses without losing row order.",
-    },
-  });
-  await expect(
-    page.getByText("Export filtered expenses without losing row order.", {
-      exact: true,
-    }),
-  ).toBeVisible();
-  await openResource(page, "Tasks");
-  await page.getByLabel("Filter by milestone").selectOption("");
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("link", { name: /Build CSV serializer/ }).click();
-  await expect(page.locator(".task-definition")).toContainText(
-    "Verification passes",
-  );
-  await expect(
-    page.getByRole("button", { name: "Edit", exact: true }),
-  ).toHaveCount(0);
-
-  expect(errors).toEqual([]);
-});
-
 test("coordinator updates refresh the agreement while project editing retains conflict protection", async ({
   page,
   request,
@@ -333,14 +126,17 @@ test("coordinator updates refresh the agreement while project editing retains co
     name: "Live project",
   });
   await call("create_task", {
-    project_id: "live",
+    workspace_id: await projectWorkspace(page.request, "live"),
     task: {
+      project_id: "live",
       id: "one",
       title: "First task",
       body: "First description",
     },
   });
-  await page.goto("/projects/live");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "live")}/tasks`,
+  );
   await page
     .locator(".workspace-resource-content")
     .getByRole("link", { name: /First task/ })
@@ -349,7 +145,7 @@ test("coordinator updates refresh the agreement while project editing retains co
     "First description",
   );
   await call("edit_task", {
-    project_id: "live",
+    workspace_id: await projectWorkspace(page.request, "live"),
     task_id: "one",
     changes: { expected_revision: 1, body: "Agent update" },
   });
@@ -417,14 +213,17 @@ test("Conversation permalinks preserve message drafts while coordinator revision
     path: existingDirectory(join(state, "tabs")),
   });
   await call("create_task", {
-    project_id: "tabs",
+    workspace_id: await projectWorkspace(page.request, "tabs"),
     task: {
+      project_id: "tabs",
       id: "one",
       title: "Tabbed task",
       body: "Original description",
     },
   });
-  await page.goto("/projects/tabs");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "tabs")}/tasks`,
+  );
   await page
     .locator(".workspace-resource-content")
     .getByRole("link", { name: /Tabbed task/ })
@@ -435,7 +234,7 @@ test("Conversation permalinks preserve message drafts while coordinator revision
   await page
     .getByLabel("Message coordinator", { exact: true })
     .fill("Unsaved draft");
-  await page.getByRole("tab", { name: "Activity", exact: true }).click();
+  await page.getByRole("tab", { name: "Task", exact: true }).click();
   const history = page.getByRole("list", { name: "Task feed" });
   expect(revisionReads).toHaveLength(0);
   await history
@@ -444,7 +243,7 @@ test("Conversation permalinks preserve message drafts while coordinator revision
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/conversation\/definition%3A1$/);
   await call("edit_task", {
-    project_id: "tabs",
+    workspace_id: await projectWorkspace(page.request, "tabs"),
     task_id: "one",
     changes: { expected_revision: 1, body: "New saved context" },
   });
@@ -467,7 +266,7 @@ test("Conversation permalinks preserve message drafts while coordinator revision
   await expect(
     page.getByLabel("Message coordinator", { exact: true }),
   ).toHaveValue("Unsaved draft");
-  await page.getByRole("tab", { name: "Overview", exact: true }).click();
+  await page.getByRole("tab", { name: "Task", exact: true }).click();
   await expect(page.locator(".task-definition")).toContainText(
     "New saved context",
   );
@@ -484,25 +283,21 @@ test("archive preserves dated records and supports restore and mobile archiving"
   request,
 }) => {
   const call = await connectMcp(request);
-  const { workspace_id } = await fixtureMcpProject(call, {
+  await fixtureMcpProject(call, {
     project_id: "archive-list",
     path: existingDirectory(join(state, "archive-list")),
   });
-  await call("create_milestone", {
-    workspace_id,
-    milestone: { id: "csv", title: "Exports" },
-  });
-  for (const [id, status, milestone_id] of [
-    ["older", "up_next", "csv"],
-    ["newer", "done", null],
+  for (const [id, status] of [
+    ["older", "up_next"],
+    ["newer", "done"],
   ] as const) {
     await call("create_task", {
-      project_id: "archive-list",
+      workspace_id: await projectWorkspace(page.request, "archive-list"),
       task: {
+        project_id: "archive-list",
         id,
         title: `${id} task`,
         status: status === "done" ? "backlog" : status,
-        milestone_id,
       },
     });
     if (status === "done")
@@ -516,18 +311,28 @@ test("archive preserves dated records and supports restore and mobile archiving"
         },
       });
     await call("edit_task", {
-      project_id: "archive-list",
+      workspace_id: await projectWorkspace(page.request, "archive-list"),
       task_id: id,
-      changes: { expected_revision: status === "done" ? 2 : 1, archived: true },
+      changes: {
+        expected_revision: (
+          await call("get_task", {
+            workspace_id: await projectWorkspace(request, "archive-list"),
+            task_id: id,
+          })
+        ).revision,
+        archived: true,
+      },
     });
   }
   // Later text edits do not change when the older task was archived.
   await call("edit_task", {
-    project_id: "archive-list",
+    workspace_id: await projectWorkspace(page.request, "archive-list"),
     task_id: "older",
     changes: { expected_revision: 2, body: "Edited after archiving" },
   });
-  await page.goto("/projects/archive-list");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "archive-list")}/tasks`,
+  );
   await expect(
     page.getByRole("button", { name: "New task", exact: true }),
   ).toHaveCount(0);
@@ -546,9 +351,6 @@ test("archive preserves dated records and supports restore and mobile archiving"
   await expect(
     archive.getByRole("listitem").first().locator(".record-attribution time"),
   ).toBeVisible();
-  await page.getByLabel("Filter by milestone").selectOption("csv");
-  await expect(archive.getByRole("listitem")).toHaveCount(1);
-  await page.getByLabel("Filter by milestone").selectOption("");
   await archive.getByRole("link", { name: /older task/ }).click();
   const info = page.getByRole("region", { name: "Task details", exact: true });
   await expect(
@@ -569,24 +371,31 @@ test("archive preserves dated records and supports restore and mobile archiving"
     actions.getByRole("button", { name: "Restore", exact: true }),
   ).toHaveCount(0);
   await call("edit_task", {
-    project_id: "archive-list",
+    workspace_id: await projectWorkspace(page.request, "archive-list"),
     task_id: "older",
     changes: { expected_revision: 3, archived: false },
   });
   expect(
-    (await call("get_task", { project_id: "archive-list", task_id: "older" }))
-      .status,
+    (
+      await call("get_task", {
+        workspace_id: await projectWorkspace(page.request, "archive-list"),
+        task_id: "older",
+      })
+    ).status,
   ).toBe("up_next");
   await closeOverlay(page);
   await openResource(page, "Tasks");
-  await page.getByRole("link", { name: /older task/ }).click();
+  await page
+    .getByTestId("work")
+    .getByRole("link", { name: /older task/ })
+    .click();
   await page.setViewportSize({ width: 390, height: 844 });
 
   await expect(
     actions.getByRole("button", { name: "Archive", exact: true }),
   ).toHaveCount(0);
   await call("edit_task", {
-    project_id: "archive-list",
+    workspace_id: await projectWorkspace(page.request, "archive-list"),
     task_id: "older",
     changes: { expected_revision: 4, archived: true },
   });
@@ -595,108 +404,6 @@ test("archive preserves dated records and supports restore and mobile archiving"
   await expect(archive.getByRole("listitem").first()).toContainText(
     "older task",
   );
-});
-
-test("readable conversation preserves message drafts, revision links and legacy paths", async ({
-  page,
-  request,
-}) => {
-  await fixtureProject(request, {
-    data: {
-      path: existingDirectory(join(state, "readable")),
-      task_prefix: "REA",
-    },
-  });
-  await request.post("/api/projects/readable/tasks", {
-    data: {
-      title: "Readable agreement",
-      body: "## Outcome\n\nExport **all columns**.\n\n## Done when\n\n- [ ] Keep row order",
-    },
-  });
-  await page.goto("/projects/readable/tasks/REA-1");
-  const editor = page.getByRole("region", {
-    name: "Task details",
-    exact: true,
-  });
-  const thread = editor.getByRole("list", { name: "Task feed" });
-  await expect(page.locator(".task-definition .markdown strong")).toHaveText(
-    "all columns",
-  );
-  await expect(
-    page.locator(".task-definition").getByRole("checkbox"),
-  ).toBeDisabled();
-  await expect(editor.getByRole("textbox")).toHaveCount(0);
-  await expect(editor.getByRole("textbox")).toHaveCount(0);
-  await page
-    .getByLabel("Message coordinator", { exact: true })
-    .fill("Export **selected columns**.");
-  await page.getByRole("tab", { name: "Activity", exact: true }).click();
-  await expect(
-    thread
-      .locator('[data-kind="definition"]')
-      .getByRole("img", { name: "Recorded", exact: true }),
-  ).toBeVisible();
-  await expect(thread).toContainText("You");
-  await thread
-    .getByRole("link", { name: "Permalink: Task defined", exact: true })
-    .click();
-  await page.goBack();
-  await expect(
-    page.getByLabel("Message coordinator", { exact: true }),
-  ).toHaveValue("Export **selected columns**.");
-  const current = await (
-    await request.get("/api/projects/readable/tasks/REA-1")
-  ).json();
-  await request.put("/api/projects/readable/tasks/REA-1", {
-    data: {
-      expected_revision: current.revision,
-      body: "Export **selected columns**.",
-    },
-  });
-  await thread
-    .getByRole("link", {
-      name: "Permalink: Task definition updated",
-      exact: true,
-    })
-    .click();
-  await expect(page).toHaveURL(/conversation\/definition%3A2$/);
-  await expect
-    .poll(() =>
-      thread.locator(".text-changes").evaluateAll((nodes) =>
-        nodes
-          .map((node) => {
-            const copy = node.cloneNode(true) as HTMLElement;
-            copy.querySelectorAll("ins, .sr-only").forEach((el) => el.remove());
-            return copy.textContent;
-          })
-          .join(" "),
-      ),
-    )
-    .toContain("all columns");
-  await expect
-    .poll(() =>
-      thread.locator(".text-changes").evaluateAll((nodes) =>
-        nodes
-          .map((node) => {
-            const copy = node.cloneNode(true) as HTMLElement;
-            copy.querySelectorAll("del, .sr-only").forEach((el) => el.remove());
-            return copy.textContent;
-          })
-          .join(" "),
-      ),
-    )
-    .toContain("selected columns");
-  const url = page.url();
-  await page.reload();
-  const other = await page.context().newPage();
-  await other.goto(url);
-  await expect(other.locator('[data-message-id="definition:2"]')).toBeVisible();
-  await other.close();
-  await page.goto("/projects/readable/tasks/REA-1/history");
-  await expect(thread).toBeVisible();
-  await expect(
-    editor.getByRole("tab", { name: "Activity", exact: true }),
-  ).toHaveAttribute("aria-selected", "true");
 });
 
 test("task changes refresh their workspace without reloading the workspace catalog", async ({
@@ -710,20 +417,22 @@ test("task changes refresh their workspace without reloading the workspace catal
           data: {
             id,
             path: existingDirectory(join(state, id)),
-            task_prefix: id === "scope-one" ? "SOA" : "SOB",
           },
         })
       ).ok(),
     ).toBe(true);
     expect(
       (
-        await request.post(`/api/projects/${id}/tasks`, {
-          data: { id: "one", title: "Original" },
-        })
+        await request.post(
+          `/api/workspaces/${await projectWorkspace(page.request, id)}/tasks`,
+          {
+            data: { id: "one", title: "Original" },
+          },
+        )
       ).ok(),
     ).toBe(true);
   }
-  const workspace = await projectWorkspace(request, "scope-one");
+  const workspace = await projectWorkspace(page.request, "scope-one");
   await page.goto(`/workspaces/${workspace}/tasks`);
   await expect(
     page
@@ -735,20 +444,21 @@ test("task changes refresh their workspace without reloading the workspace catal
   ).toBeVisible();
   // Register a second listener before writing so the test knows the event arrived.
   await page.evaluate(
-    () =>
+    (otherWorkspace) =>
       new Promise<void>((ready) => {
         const events = new EventSource("/api/events");
         (window as unknown as { scopedChange: Promise<void> }).scopedChange =
           new Promise<void>((resolve) => {
             events.addEventListener("change", (event) => {
-              if (JSON.parse(event.data).projects === null) ready();
-              if (JSON.parse(event.data).projects?.includes("scope-two")) {
+              if (JSON.parse(event.data).workspaces === null) ready();
+              if (JSON.parse(event.data).workspaces?.includes(otherWorkspace)) {
                 events.close();
                 resolve();
               }
             });
           });
       }),
+    await projectWorkspace(request, "scope-two"),
   );
   const reads: string[] = [];
   page.on("request", (req) => {
@@ -762,9 +472,12 @@ test("task changes refresh their workspace without reloading the workspace catal
   });
   expect(
     (
-      await request.put("/api/projects/scope-two/tasks/one", {
-        data: { expected_revision: 1, title: "Other project change" },
-      })
+      await request.put(
+        `/api/workspaces/${await projectWorkspace(page.request, "scope-two")}/tasks/one`,
+        {
+          data: { expected_revision: 1, title: "Other project change" },
+        },
+      )
     ).ok(),
   ).toBe(true);
   await page.evaluate(
@@ -772,9 +485,12 @@ test("task changes refresh their workspace without reloading the workspace catal
   );
   expect(
     (
-      await request.put("/api/projects/scope-one/tasks/one", {
-        data: { expected_revision: 1, title: "Relevant change" },
-      })
+      await request.put(
+        `/api/workspaces/${await projectWorkspace(page.request, "scope-one")}/tasks/one`,
+        {
+          data: { expected_revision: 1, title: "Relevant change" },
+        },
+      )
     ).ok(),
   ).toBe(true);
   await expect(
@@ -793,18 +509,22 @@ test("publication shares browser, CLI and MCP state without manual editing", asy
   await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, "publication")),
-      task_prefix: "PRE",
     },
   });
-  await request.post("/api/projects/publication/tasks", {
-    data: {
-      id: "export",
-      title: "Export JSON",
-      status: "up_next",
-      body: "Export filtered rows as offline JSON. Test Unicode and empty results.",
+  await request.post(
+    `/api/workspaces/${await projectWorkspace(page.request, "publication")}/tasks`,
+    {
+      data: {
+        id: "export",
+        title: "Export JSON",
+        status: "up_next",
+        body: "Export filtered rows as offline JSON. Test Unicode and empty results.",
+      },
     },
-  });
-  await page.goto("/projects/publication/tasks/PRE-1");
+  );
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "publication")}/tasks/T-1`,
+  );
   const editor = page.getByRole("region", {
     name: "Task details",
     exact: true,
@@ -826,23 +546,23 @@ test("publication shares browser, CLI and MCP state without manual editing", asy
   const first = cli([
     "task",
     "prepare",
-    "PRE-1",
+    "T-1",
     "--completion",
     "report",
-    "--project",
-    "publication",
+    "--workspace",
+    await projectWorkspace(request, "publication"),
   ]);
   expect(first.publication_status).toBe("published");
   await expect(draft).toHaveCount(0);
   const call = await connectMcp(request);
   await call("add_activity", {
-    project_id: "publication",
-    entry: { task_id: "PRE-1", body: "The sample has many Unicode titles." },
+    workspace_id: await projectWorkspace(page.request, "publication"),
+    entry: { task_id: "T-1", body: "The sample has many Unicode titles." },
   });
   await expect(draft).toHaveCount(0);
   await call("edit_task", {
-    project_id: "publication",
-    task_id: "PRE-1",
+    workspace_id: await projectWorkspace(page.request, "publication"),
+    task_id: "T-1",
     changes: {
       expected_revision: first.revision,
 
@@ -853,17 +573,17 @@ test("publication shares browser, CLI and MCP state without manual editing", asy
   const fromCli = cli([
     "task",
     "prepare",
-    "PRE-1",
+    "T-1",
     "--completion",
     "report",
-    "--project",
-    "publication",
+    "--workspace",
+    await projectWorkspace(request, "publication"),
   ]);
   expect(fromCli.publication_status).toBe("published");
   await expect(draft).toHaveCount(0);
   await call("edit_task", {
-    project_id: "publication",
-    task_id: "PRE-1",
+    workspace_id: await projectWorkspace(page.request, "publication"),
+    task_id: "T-1",
     changes: {
       expected_revision: fromCli.revision,
       body: "Export filtered rows as JSON, capped at 500. Test Unicode, empty output and overflow. Use UTF-8.",
@@ -871,12 +591,12 @@ test("publication shares browser, CLI and MCP state without manual editing", asy
   });
   await expect(draft).toBeVisible();
   const current = await call("get_task", {
-    project_id: "publication",
-    task_id: "PRE-1",
+    workspace_id: await projectWorkspace(page.request, "publication"),
+    task_id: "T-1",
   });
   await call("edit_task", {
-    project_id: "publication",
-    task_id: "PRE-1",
+    workspace_id: await projectWorkspace(page.request, "publication"),
+    task_id: "T-1",
     changes: {
       preparation: { completion: "report" },
       expected_revision: current.revision,
@@ -895,7 +615,6 @@ test("conversation capture prepares atomically while task defaults show only use
   await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, project_id)),
-      task_prefix: "CAP",
     },
   });
   await page.goto(`/projects/${project_id}`);
@@ -903,10 +622,13 @@ test("conversation capture prepares atomically while task defaults show only use
     page.getByRole("link", { name: "Set up your coordinator" }),
   ).toHaveCount(0);
   const call = await connectMcp(request);
-  await call("get_board", { project_id });
+  await call("get_board", {
+    workspace_id: await projectWorkspace(page.request, project_id),
+  });
   const task = await call("create_task", {
-    project_id,
+    workspace_id: await projectWorkspace(page.request, project_id),
     task: {
+      project_id: project_id,
       title: "Investigate import formats",
       body: "Compare existing formats, evidence and a recommendation; deliver a report without changing repository files.",
       labels: ["investigation"],
@@ -920,11 +642,13 @@ test("conversation capture prepares atomically while task defaults show only use
   expect(
     (
       await call("get_workspace_workers", {
-        workspace_id: await projectWorkspace(request, project_id),
+        workspace_id: await projectWorkspace(page.request, project_id),
       })
     ).enabled,
   ).toBe(false);
-  await page.goto(`/projects/${project_id}/tasks/CAP-1`);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, project_id)}/tasks/T-1`,
+  );
   const editor = page.getByRole("region", {
     name: "Task details",
     exact: true,
@@ -942,9 +666,12 @@ test("conversation capture prepares atomically while task defaults show only use
   await expect(
     editor.getByRole("heading", { name: "Waiting on", exact: true }),
   ).toHaveCount(0);
-  const current = await call("get_task", { project_id, task_id: task.id });
+  const current = await call("get_task", {
+    workspace_id: await projectWorkspace(page.request, project_id),
+    task_id: task.id,
+  });
   const updated = await call("edit_task", {
-    project_id,
+    workspace_id: await projectWorkspace(page.request, project_id),
     task_id: task.id,
     changes: {
       expected_revision: current.revision,
@@ -956,14 +683,14 @@ test("conversation capture prepares atomically while task defaults show only use
     },
   });
   expect(updated.publication_status).toBe("published");
-  await page.getByRole("tab", { name: "Overview", exact: true }).click();
+  await page.getByRole("tab", { name: "Task", exact: true }).click();
   await expect(
     editor
       .getByLabel("Current task definition")
       .getByText(/Compare formats, include uncertainty/),
   ).toBeVisible();
   const stale = await request.put(
-    `/api/projects/${project_id}/tasks/${task.id}`,
+    `/api/workspaces/${await projectWorkspace(page.request, project_id)}/tasks/${task.id}`,
     {
       data: {
         expected_revision: current.revision,
@@ -976,8 +703,9 @@ test("conversation capture prepares atomically while task defaults show only use
   );
   expect(stale.status()).toBe(409);
   const related = await call("create_task", {
-    project_id,
+    workspace_id: await projectWorkspace(page.request, project_id),
     task: {
+      project_id: project_id,
       title: "Follow findings",
       dependencies: [task.id],
     },
@@ -985,7 +713,7 @@ test("conversation capture prepares atomically while task defaults show only use
   await expect(editor.getByText("Related work", { exact: true })).toHaveCount(
     0,
   );
-  await page.getByRole("tab", { name: "Overview", exact: true }).click();
+  await page.getByRole("tab", { name: "Task", exact: true }).click();
   await expect(editor.getByText("Needed by:", { exact: false })).toBeVisible();
   await expect(
     editor.getByRole("link", { name: related.key, exact: true }),
@@ -996,11 +724,11 @@ test("conversation capture prepares atomically while task defaults show only use
   expect(
     (
       await call("get_workspace_workers", {
-        workspace_id: await projectWorkspace(request, project_id),
+        workspace_id: await projectWorkspace(page.request, project_id),
       })
     ).enabled,
   ).toBe(false);
-  await page.getByRole("tab", { name: "Overview", exact: true }).click();
+  await page.getByRole("tab", { name: "Task", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   await expect(
@@ -1055,7 +783,9 @@ test("attempt activity updates without reloading the board and replays on reload
     await route.continue();
   });
   const seeded = await fixture("create");
-  await page.goto("/projects/stream-project/tasks/STR-1/history");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "stream-project")}/tasks/T-1/history`,
+  );
   const output = page.getByRole("region", {
     name: "Worker activity",
     exact: true,
@@ -1127,7 +857,9 @@ test("attempt activity updates without reloading the board and replays on reload
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(dot).toHaveCSS("animation-name", "none");
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.goto("/projects/stream-project/tasks/STR-1/history");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "stream-project")}/tasks/T-1/history`,
+  );
   await expect(output).toContainText("later observed output");
   await fixture("long");
   await expect(output).toContainText("long observed output");
@@ -1171,16 +903,17 @@ test("attempt activity updates without reloading the board and replays on reload
   await expect(
     attempt.getByRole("region", { name: "Execution details", exact: true }),
   ).toHaveCount(0);
-  await expect(page).toHaveURL(/STR-1\/history$/);
+  await expect(page).toHaveURL(/T-1\/history$/);
   await page.goto(
-    "/projects/stream-project/tasks/STR-1/history/worker:" + seeded.run_id,
+    `/workspaces/${await projectWorkspace(page.request, "stream-project")}/tasks/T-1/history/worker:` +
+      seeded.run_id,
   );
   await expect(
     attempt.getByRole("region", { name: "Execution details", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Stop worker", exact: true }).click();
+  await page.getByRole("button", { name: "Stop task", exact: true }).click();
   const stopConfirmation = page.getByRole("alertdialog", {
-    name: "Stop this worker?",
+    name: "Stop this task?",
     exact: true,
   });
   await expect(stopConfirmation).toBeVisible();
@@ -1188,21 +921,18 @@ test("attempt activity updates without reloading the board and replays on reload
     .getByRole("button", { name: "Cancel", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "Stop worker", exact: true }),
+    page.getByRole("button", { name: "Stop task", exact: true }),
   ).toBeEnabled();
   await expect(
     page.getByRole("button", { name: "Retry worker", exact: true }),
   ).toHaveCount(0);
-  await page.route(
-    `**/api/projects/stream-project/runs/${seeded.run_id}/stop`,
-    async (route) => {
-      await fixture("stop-race"); // Progress arrives after confirmation serialized its attempt revision.
-      await route.continue();
-    },
-  );
-  await page.getByRole("button", { name: "Stop worker", exact: true }).click();
+  await page.route(`**/api/workspaces/*/tasks/stream/stop`, async (route) => {
+    await fixture("stop-race"); // Progress arrives after confirmation serialized its attempt revision.
+    await route.continue();
+  });
+  await page.getByRole("button", { name: "Stop task", exact: true }).click();
   await stopConfirmation
-    .getByRole("button", { name: "Stop worker", exact: true })
+    .getByRole("button", { name: "Stop task", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "Retry worker", exact: true }),
@@ -1232,10 +962,9 @@ test("task feed follows the live end but preserves reading position and timestam
   await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, "feed-reading")),
-      task_prefix: "FED",
     },
   });
-  const path = "/api/projects/feed-reading";
+  const path = `/api/workspaces/${await projectWorkspace(page.request, "feed-reading")}`;
   await request.post(`${path}/tasks`, {
     data: {
       id: "one",
@@ -1251,7 +980,9 @@ test("task feed follows the live end but preserves reading position and timestam
       },
     });
   }
-  await page.goto("/projects/feed-reading/tasks/FED-1/history");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "feed-reading")}/tasks/T-1/history`,
+  );
   const pane = page.locator(".entity-pane-body");
   const feed = page.getByRole("list", { name: "Task feed" });
   const atBottom = () =>
@@ -1288,7 +1019,7 @@ test("task feed follows the live end but preserves reading position and timestam
     .toBe(true);
   await expect.poll(atBottom).toBe(false);
   await openResource(page, "Documents");
-  await page.getByRole("tab", { name: /FED-1 Read a growing feed/ }).click();
+  await page.getByRole("tab", { name: /T-1 Read a growing feed/ }).click();
   await expect(feed).toContainText("Newest while reading earlier work");
   await expect
     .poll(async () => Math.abs((await position()) - before) < 2)
@@ -1317,89 +1048,4 @@ test("task feed follows the live end but preserves reading position and timestam
     }),
   ).toBeInViewport();
   await expect(feed.locator(".detail-entry-title a")).toHaveCount(0);
-});
-
-test("legacy task-question links resolve into the feed and preserve answers", async ({
-  page,
-  request,
-}, testInfo) => {
-  await fixtureProject(request, {
-    data: {
-      path: existingDirectory(join(state, "feed-question")),
-      task_prefix: "FQN",
-    },
-  });
-  const path = "/api/projects/feed-question";
-  await request.post(`${path}/tasks`, {
-    data: {
-      id: "one",
-      title: "A question in its task",
-    },
-  });
-  await request.post(`${path}/questions`, {
-    data: {
-      id: "choice",
-      task_id: "one",
-      question: "Which format?",
-      context: "Choose an output.",
-      recommendation: "JSON",
-      choices: ["JSON", "CSV"],
-      blocking_scope: "Format",
-    },
-  });
-  await page.goto("/projects/feed-question/inbox/choice");
-  await expect(page).toHaveURL(
-    /tasks\/FQN-1\/conversation\/question%3Achoice$/,
-  );
-  await expect(
-    page.getByRole("dialog", { name: "Question", exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("heading", { name: "Waiting on", exact: true }),
-  ).toHaveCount(0);
-  const answer = page.getByRole("textbox", {
-    name: "Your answer",
-    exact: true,
-  });
-  await expect(answer).toHaveAttribute("placeholder", "Your answer…");
-  const input = page.getByRole("form", { name: "Task input", exact: true });
-  await expect(input).toContainText("Answer the question");
-  await expect(
-    input.getByRole("button", { name: "Worker settings", exact: true }),
-  ).toHaveCount(0);
-  await page.screenshot({
-    path: testInfo.outputPath("coordinator-question-desktop-light.png"),
-  });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.evaluate(() => localStorage.setItem("flowfield.theme", "dark"));
-  await page.reload();
-  await expect(answer).toBeVisible();
-  await expect(input).toContainText("Answer the question");
-  await page.screenshot({
-    path: testInfo.outputPath("coordinator-question-narrow-dark.png"),
-  });
-  await expect(
-    page.getByRole("button", { name: "JSON", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "CSV", exact: true }),
-  ).toBeVisible();
-  await answer.fill("JSON");
-  await page.getByRole("button", { name: "Send answer", exact: true }).click();
-  await expect(
-    page
-      .getByRole("region", { name: "Task details", exact: true })
-      .locator('[data-kind="answer"]'),
-  ).toContainText("JSON");
-  const question = await (await request.get(`${path}/questions/choice`)).json();
-  expect(question.answer).toBe("JSON");
-  await page.goto(
-    "/projects/feed-question/tasks/FQN-1/related/questions/choice",
-  );
-  await expect(page).toHaveURL(/conversation\/question%3Achoice$/);
-  await expect(
-    page
-      .getByRole("region", { name: "Task details", exact: true })
-      .locator('[data-kind="answer"]'),
-  ).toContainText("JSON");
 });

@@ -28,7 +28,6 @@ from flowfield.errors import ApplicationError
 from flowfield.harness_models import HarnessLaunch
 from flowfield.results import Results
 from flowfield.run_activity import ActivityUpdate, ContextUsage, update_activity
-from flowfield.workspaces import Workspaces
 
 
 class CoordinatorStore:
@@ -184,12 +183,8 @@ class CoordinatorStore:
     ) -> tuple[CoordinatorTurn, bool]:
         with self.workspace.connection(write=True) as db:
             self._conversation(db, project, conversation)
-            if request.task_context:
-                Workspaces.check_scope(db, project, request.task_context.project_id)
             task = (
-                self.workspace._task(
-                    db, request.task_context.project_id, request.task_context.task_id
-                )
+                self.workspace._task(db, project, request.task_context.task_id)
                 if request.task_context
                 else None
             )
@@ -233,7 +228,7 @@ class CoordinatorStore:
                 )
             if task and request.task_context and request.task_context.result_id:
                 selected_result = Results(self.workspace)._get(
-                    db, task.project_id, request.task_context.result_id
+                    db, task.workspace_id, request.task_context.result_id
                 )
                 if selected_result.task_id != task.id:
                     raise ApplicationError(
@@ -303,7 +298,6 @@ class CoordinatorStore:
                 None,
                 request.text,
                 bind=True,
-                workspace_scope=True,
             )
             result = db.execute(
                 "INSERT INTO coordinator_turns(id,workspace_id,conversation_id,status,data) "

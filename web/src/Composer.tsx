@@ -148,7 +148,7 @@ export function Composer({
             ...bytes.subarray(offset, offset + 8192),
           );
         const saved = await request<components["schemas"]["Attachment"]>(
-          `${workspaceId ? `workspaces/${workspaceId}` : `projects/${projectId}`}/attachments`,
+          `workspaces/${workspaceId ?? projectId}/attachments`,
           "POST",
           {
             name: file.name,

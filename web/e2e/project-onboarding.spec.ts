@@ -45,7 +45,6 @@ test("directory adoption preserves guidance, cancellation and required identity 
   for (const [label, value] of [
     ["Name", "native-directory-project"],
     ["Project ID", "native-directory-project"],
-    ["Task prefix", "NAT"],
   ]) {
     const field = setup.getByRole("textbox", { name: label, exact: true });
     await expect(field).toHaveValue(value);
@@ -126,18 +125,6 @@ test("registration conflicts retain the selected directory and allow identity co
   ).toContainText("another directory");
   expect(existsSync(join(selected, ".flowfield"))).toBe(false);
   await setup.getByLabel("Project ID", { exact: true }).fill("picked-unique");
-  const prefix = (
-    await (await request.get("/api/projects/picked-collision")).json()
-  ).task_prefix;
-  await setup.getByLabel("Task prefix", { exact: true }).fill(prefix);
-  await setup.getByRole("button", { name: "Add project", exact: true }).click();
-  await expect(
-    page
-      .locator("[data-sonner-toast][data-type=error]")
-      .filter({ hasText: `prefix ${prefix} is already used` }),
-  ).toBeVisible();
-  await expect(setup.getByLabel("Project directory")).toHaveValue(selected);
-  await setup.getByLabel("Task prefix", { exact: true }).fill("PKU");
   await setup.getByRole("button", { name: "Add project", exact: true }).click();
   await expect(page).toHaveURL(
     `/workspaces/${workspace}/tasks?project=picked-unique`,

@@ -88,7 +88,7 @@ def test_failed_preparation_rolls_back_creation_edits_history_and_notifications(
     w = setup(tmp_path)
     notifications = []
     w.on_change = notifications.append
-    with pytest.raises(ApplicationError, match="delivery target"):
+    with pytest.raises(ApplicationError, match="existing project"):
         w.create_task(
             "project",
             task_request(
@@ -171,7 +171,7 @@ def test_preparation_keeps_dependency_gates_and_manual_edits_show_next_owner(tmp
     )
     assert changed.publication_status == "draft"
     assert "prepare" in changed.preparation_issue.lower()
-    browser = BrowserReads(w).board("project")
+    browser = BrowserReads(w).workspace_board("project")
     assert (
         next(t for t in browser.tasks if t.id == second.id).preparation_issue
         == changed.preparation_issue

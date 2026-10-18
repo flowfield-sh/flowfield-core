@@ -96,7 +96,7 @@ export function DetailHeader({
   );
 }
 
-// One identity layout for board cards, archived rows, and milestone members.
+// One identity layout for board cards, archived rows, and task references.
 export function TaskIdentity({
   task,
   metadata,

@@ -10,7 +10,7 @@ test("long definitions collapse with a fade and history loads only when expanded
   const path = join(process.env.FLOWFIELD_SMOKE_STATE!, "definition-preview");
   mkdirSync(path, { recursive: true });
   await fixtureProject(request, {
-    data: { path, task_prefix: "DEF" },
+    data: { path },
   });
   const body =
     Array.from(
@@ -18,11 +18,16 @@ test("long definitions collapse with a fade and history loads only when expanded
       (_, i) => `Paragraph ${i + 1}: a specific part of the task definition.`,
     ).join("\n\n") + "\n\n[Reference](https://example.com)";
   const task = await (
-    await request.post("/api/projects/definition-preview/tasks", {
-      data: { title: "Read a long definition", body },
-    })
+    await request.post(
+      `/api/workspaces/${await projectWorkspace(request, "definition-preview")}/tasks`,
+      {
+        data: { title: "Read a long definition", body },
+      },
+    )
   ).json();
-  await page.goto(`/projects/definition-preview/tasks/${task.key}`);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "definition-preview")}/tasks/${task.key}`,
+  );
   const definition = page.getByLabel("Current task definition");
   const preview = definition.locator(".definition-preview");
   const expand = definition.getByRole("button", { name: "Expand definition" });
@@ -65,12 +70,15 @@ test("long definitions collapse with a fade and history loads only when expanded
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await request.put(`/api/projects/definition-preview/tasks/${task.id}`, {
-    data: { expected_revision: task.revision, body: "A short replacement." },
-  });
+  await request.put(
+    `/api/workspaces/${await projectWorkspace(request, "definition-preview")}/tasks/${task.id}`,
+    {
+      data: { expected_revision: task.revision, body: "A short replacement." },
+    },
+  );
   await expect(definition).toContainText("A short replacement.");
   await expect(expand).toHaveCount(0);
-  await page.getByRole("tab", { name: "Activity", exact: true }).click();
+  await page.getByRole("tab", { name: "Task", exact: true }).click();
   const initial = page.locator('[data-message-id="definition:1"]');
   await expect(initial.locator(".markdown")).toHaveCount(0);
   await initial.locator(".activity-entry > summary").click();
@@ -119,7 +127,7 @@ test("workspace worker defaults have no speed setting even when the model suppor
   const path = join(process.env.FLOWFIELD_SMOKE_STATE!, "task-speed");
   mkdirSync(path, { recursive: true });
   await fixtureProject(request, {
-    data: { path, task_prefix: "SPD" },
+    data: { path },
   });
   const workspace = await projectWorkspace(request, "task-speed");
   await page.route(`**/api/workspaces/${workspace}/models*`, (route) =>
@@ -170,26 +178,33 @@ test("definition revisions show focused word diffs and compact field values", as
   await fixtureProject(request, {
     data: {
       path: join(process.env.FLOWFIELD_SMOKE_STATE!, project),
-      task_prefix: "DIF",
     },
   });
   const task = await (
-    await request.post(`/api/projects/${project}/tasks`, {
-      data: {
-        title: "Search café",
-        labels: ["feature"],
-        body: "Keep all rows. Preserve café labels.",
+    await request.post(
+      `/api/workspaces/${await projectWorkspace(request, project)}/tasks`,
+      {
+        data: {
+          title: "Search café",
+          labels: ["feature"],
+          body: "Keep all rows. Preserve café labels.",
+        },
       },
-    })
+    )
   ).json();
-  await request.put(`/api/projects/${project}/tasks/${task.id}`, {
-    data: {
-      expected_revision: task.revision,
-      body: "Keep selected rows. Preserve café labels.",
-      labels: ["bug"],
+  await request.put(
+    `/api/workspaces/${await projectWorkspace(request, project)}/tasks/${task.id}`,
+    {
+      data: {
+        expected_revision: task.revision,
+        body: "Keep selected rows. Preserve café labels.",
+        labels: ["bug"],
+      },
     },
-  });
-  await page.goto(`/projects/${project}/tasks/${task.key}/history`);
+  );
+  await page.goto(
+    `/workspaces/${await projectWorkspace(request, project)}/tasks/${task.key}/history`,
+  );
   const revision = page.locator('[data-message-id="definition:2"]');
   await revision.locator(".activity-entry > summary").click();
   await expect(revision.locator("del")).toHaveText("all");

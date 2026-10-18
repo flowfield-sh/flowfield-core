@@ -19,9 +19,7 @@ from flowfield.workspaces import Workspaces
 MAX_FILE = 2 * 1024 * 1024
 MAX_TEXT = 64 * 1024
 MAX_FILES = 4
-REFERENCE = re.compile(
-    r"/api/(projects|workspaces)/([a-zA-Z0-9_-]+)/attachments/([a-f0-9]{32})(?![a-f0-9])"
-)
+REFERENCE = re.compile(r"/api/(workspaces)/([a-zA-Z0-9_-]+)/attachments/([a-f0-9]{32})(?![a-f0-9])")
 
 
 class Attachment(BaseModel):
@@ -43,16 +41,7 @@ class Attachments:
     def __init__(self, workspace: Workspace):
         self.workspace = workspace
 
-    def upload(
-        self, project: str, request: AttachmentUpload, *, workspace_scope: bool = False
-    ) -> Attachment:
-        if workspace_scope and request.task_id:
-            raise ApplicationError(
-                "scope_mismatch", "Workspace attachments belong to coordinator chat.", 403
-            )
-        if not workspace_scope and request.task_id is None:
-            project = Workspaces(self.workspace).for_project(project).id
-            workspace_scope = True
+    def upload(self, project: str, request: AttachmentUpload) -> Attachment:
         if any(ord(c) < 32 or c in "/\\" for c in request.name):
             raise ApplicationError("attachment_name", "Choose a file with a simple filename.")
         try:
@@ -84,11 +73,8 @@ class Attachments:
             mime = "text/plain"
         identity = uuid4().hex
         with self.workspace.connection(write=True, notify=False) as db:
-            if workspace_scope:
-                Workspaces.read(db, project)
-            else:
-                self.workspace._work_scope(db, project)
-            owner = "workspace_id" if workspace_scope else "project_id"
+            Workspaces.read(db, project)
+            owner = "workspace_id"
             task = (
                 self.workspace._task(db, project, request.task_id).id if request.task_id else None
             )
@@ -111,7 +97,7 @@ class Attachments:
                 "VALUES (?,?,?,?,?,?,?,?,0)",
                 (identity, project, task, request.name, mime, now(), content, len(content)),
             )
-        kind = "workspaces" if workspace_scope else "projects"
+        kind = "workspaces"
         return Attachment(
             id=identity,
             name=request.name,
@@ -129,18 +115,17 @@ class Attachments:
         *,
         bind: bool = False,
         limit: int = MAX_FILES,
-        workspace_scope: bool = False,
     ) -> list[sqlite3.Row]:
         identities = list(dict.fromkeys(REFERENCE.findall(text)))
         if len(identities) > limit:
             raise ApplicationError("attachment_count", "Attach at most four files per message.")
         rows = []
         for kind, owner, identity in identities:
-            column = "workspace_id" if workspace_scope else "project_id"
+            column = "workspace_id"
             row = db.execute(
                 f"SELECT * FROM attachments WHERE id=? AND {column}=?", (identity, project)
             ).fetchone()
-            expected_kind = "workspaces" if workspace_scope else "projects"
+            expected_kind = "workspaces"
             matches = kind == expected_kind and owner == project
             if not matches or not row or row["task_id"] != task:
                 raise ApplicationError(
@@ -157,9 +142,7 @@ class Attachments:
             rows.append(row)
         return rows
 
-    def inputs(
-        self, project: str, task: str | None, text: str, *, workspace_scope: bool = False
-    ) -> list[dict[str, str]]:
+    def inputs(self, project: str, task: str | None, text: str) -> list[dict[str, str]]:
         with self.workspace.connection() as db:
             return [
                 {
@@ -167,20 +150,12 @@ class Attachments:
                     "mime": row["mime"],
                     "data": base64.b64encode(row["content"]).decode(),
                 }
-                for row in self.references(
-                    db, project, task, text, limit=8, workspace_scope=workspace_scope
-                )
+                for row in self.references(db, project, task, text, limit=8)
             ]
 
 
-def attachment_router(
-    workspace: Callable[[], Workspace], *, workspace_scope: bool = False
-) -> APIRouter:
-    router = APIRouter(
-        prefix="/api/"
-        + ("workspaces" if workspace_scope else "projects")
-        + "/{project_id}/attachments"
-    )
+def attachment_router(workspace: Callable[[], Workspace]) -> APIRouter:
+    router = APIRouter(prefix="/api/workspaces/{workspace_id}/attachments")
 
     @router.post(
         "",
@@ -193,7 +168,7 @@ def attachment_router(
             }
         },
     )
-    async def upload(project_id: str, request: Request) -> Attachment:
+    async def upload(workspace_id: str, request: Request) -> Attachment:
         body = bytearray()
         async for chunk in request.stream():
             body.extend(chunk)
@@ -205,18 +180,14 @@ def attachment_router(
             raise ApplicationError(
                 "attachment_invalid", "The attachment upload is invalid."
             ) from None
-        return Attachments(workspace()).upload(project_id, value, workspace_scope=workspace_scope)
+        return Attachments(workspace()).upload(workspace_id, value)
 
     @router.get("/{identity}")
-    def download(project_id: str, identity: str) -> Response:
+    def download(workspace_id: str, identity: str) -> Response:
         with workspace().connection() as db:
             row = db.execute(
-                (
-                    "SELECT name,mime,content FROM attachments WHERE workspace_id=? AND id=?"
-                    if workspace_scope
-                    else "SELECT name,mime,content FROM attachments WHERE project_id=? AND id=?"
-                ),
-                (project_id, identity),
+                ("SELECT name,mime,content FROM attachments WHERE workspace_id=? AND id=?"),
+                (workspace_id, identity),
             ).fetchone()
             if not row:
                 raise ApplicationError("attachment_missing", "Attachment not found.", 404)

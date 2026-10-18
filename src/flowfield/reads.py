@@ -4,7 +4,6 @@ import json
 import sqlite3
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import quote, urlencode
 
@@ -71,7 +70,7 @@ def receipt(item: dict[str, Any]) -> dict[str, Any]:
         "task_key",
         "question_id",
         "applied_task_revision",
-        "applied_project_revision",
+        "applied_workspace_revision",
         "applied_task_revisions",
         "title",
         "name",
@@ -90,7 +89,6 @@ def receipt(item: dict[str, Any]) -> dict[str, Any]:
         "created_at",
         "supersedes",
         "superseded_by",
-        "task_prefix",
         "path",
         "version",
         "completion",
@@ -172,16 +170,8 @@ class ContextReads:
         self.workspace = workspace
         self.browser_origin = browser_origin.rstrip("/")
 
-    def url(self, project_id: str, *segments: str) -> str:
-        parts = ("projects", project_id, *segments)
-        if (
-            project_id.startswith("workspace_")
-            and len(segments) >= 2
-            and segments[0] == "tasks"
-            and segments[1].startswith("W-")
-        ):
-            parts = ("workspaces", project_id.removeprefix("workspace_"), *segments)
-        path = "/".join(quote(s, safe="") for s in parts)
+    def url(self, workspace_id: str, *segments: str) -> str:
+        path = "/".join(quote(s, safe="") for s in ("workspaces", workspace_id, *segments))
         return f"{self.browser_origin}/{path}"
 
     def _summary(
@@ -193,24 +183,20 @@ class ContextReads:
         records: dict[str, TaskRevision],
     ) -> dict[str, Any]:
         blocked = [p for p in item.dependencies if p not in completed]
-        questions = blocking_questions(db, item.project_id, item.id)
+        questions = blocking_questions(db, item.workspace_id, item.id)
         publication = publication_status(item)
         from flowfield.document_updates import task_updates
-        from flowfield.milestones import milestone_update
-
-        milestone_change = milestone_update(db, item)
 
         return excerpt(
             {
                 "id": item.id,
+                "workspace_id": item.workspace_id,
                 "project_id": item.project_id,
                 "key": item.key,
-                "url": self.url(item.project_id, "tasks", item.key),
+                "url": self.url(item.workspace_id, "tasks", item.key),
                 "title": item.title,
                 "labels": item.labels,
                 "status": item.status,
-                "milestone_id": item.milestone_id,
-                "milestone_update": milestone_change.model_dump() if milestone_change else None,
                 "archived": item.archived,
                 "revision": item.revision,
                 "position": position,
@@ -222,7 +208,7 @@ class ContextReads:
                 "publication_status": publication,
                 "preparation_issue": preparation_issue(db, item),
                 "document_updates": [
-                    update.model_dump() for update in task_updates(db, item.project_id, item.id)
+                    update.model_dump() for update in task_updates(db, item.workspace_id, item.id)
                 ]
                 if item.publication and item.publication.documents
                 else [],
@@ -240,18 +226,28 @@ class ContextReads:
         validate_page(limit)
         with self.workspace.connection() as db:
             rows = db.execute(
-                "SELECT id, name, path, task_prefix, revision FROM projects "
-                "WHERE id>? ORDER BY id LIMIT ?",
+                "SELECT id, name, path, revision FROM projects WHERE id>? ORDER BY id LIMIT ?",
                 (after or "", limit + 1),
             ).fetchall()
             return page(
-                [excerpt({**dict(r), "url": self.url(r["id"])}, 500) for r in rows], limit, "id"
+                [
+                    excerpt(
+                        {
+                            **dict(r),
+                            "url": f"{self.browser_origin}/projects/{quote(r['id'], safe='')}",
+                        },
+                        500,
+                    )
+                    for r in rows
+                ],
+                limit,
+                "id",
             )
 
     def project(self, project_id: str) -> dict[str, Any]:
         return {
             **excerpt(self.workspace.project(project_id).model_dump()),
-            "url": self.url(project_id),
+            "url": f"{self.browser_origin}/projects/{quote(project_id, safe='')}",
         }
 
     def coordinator_history(
@@ -278,7 +274,7 @@ class ContextReads:
                         "field": field,
                         "revision": revision,
                         "url": f"{self.browser_origin}/api/context/workspaces/"
-                        f"{quote(project_id, safe='')}/text?"
+                        f"{quote(project_id, safe='')}/coordinator-text?"
                         + urlencode(
                             {
                                 "resource": "coordinator",
@@ -293,27 +289,13 @@ class ContextReads:
                 items.append(item)
             return page(items, limit, "number")
 
-    def milestones(
-        self, project_id: str, *, after: str | None = None, limit: int = DEFAULT_LIMIT
-    ) -> dict[str, Any]:
-        from flowfield.milestones import Milestones
-        from flowfield.workspaces import Workspaces
-
-        return Milestones(self.workspace).page(
-            Workspaces(self.workspace).for_project(project_id).id, after=after, limit=limit
-        )
-
-    def milestone(self, project_id: str, milestone_id: str) -> dict[str, Any]:
-        return excerpt(self.workspace.milestone(project_id, milestone_id).model_dump())
-
     def tasks(
         self,
-        project_id: str,
+        workspace_id: str,
         *,
         include_archived: bool = False,
         status: str | None = None,
         label_id: str | None = None,
-        milestone_id: str | None = None,
         readiness: str | None = None,
         query: str | None = None,
         after: int | None = None,
@@ -330,19 +312,17 @@ class ContextReads:
         ):
             raise ApplicationError("invalid_request", "Unknown readiness.")
         with self.workspace.connection() as db:
-            self.workspace._work_scope(db, project_id)
-            records, positions = task_metadata(self.workspace, db, project_id)
+            self.workspace._workspace(db, workspace_id)
+            records, positions = task_metadata(self.workspace, db, workspace_id)
             if label_id:
                 from flowfield.labels import Labels
 
-                Labels.read(db, self.workspace._project_workspace(db, project_id), label_id)
-            if milestone_id:
-                milestone_id = self.workspace._milestone(db, project_id, milestone_id).id
+                Labels.read(db, self.workspace._project_workspace(db, workspace_id), label_id)
             completed = self.workspace._completed(records, db)
             items = []
             # Immutable task number gives stable pages even while priorities/status change.
             for item in sorted(records.values(), key=lambda t: int(t.key.split("-")[1])):
-                if item.project_id != project_id:
+                if item.workspace_id != workspace_id:
                     continue
                 number = int(item.key.split("-")[1])
                 if after is not None and number <= after:
@@ -354,7 +334,6 @@ class ContextReads:
                     (item.archived and not include_archived)
                     or (status is not None and item.status != status)
                     or (label_id is not None and label_id not in item.labels)
-                    or (milestone_id is not None and (item.milestone_id or "") != milestone_id)
                     or (readiness is not None and summary["readiness"] != readiness)
                     or (query and query.casefold() not in (item.key + " " + item.title).casefold())
                 ):
@@ -364,18 +343,18 @@ class ContextReads:
                     break
             return page(items, limit, "number")
 
-    def overview(self, project_id: str) -> dict[str, Any]:
+    def overview(self, workspace_id: str) -> dict[str, Any]:
         with self.workspace.connection() as db:
             project = {
-                **excerpt(self.workspace._work_scope(db, project_id).model_dump()),
-                "url": self.url(project_id),
+                **excerpt(self.workspace._workspace(db, workspace_id).model_dump()),
+                "url": self.url(workspace_id),
             }
-            records, positions = task_metadata(self.workspace, db, project_id)
+            records, positions = task_metadata(self.workspace, db, workspace_id)
             completed = self.workspace._completed(records, db)
             summaries = [
                 self._summary(t, completed, positions[self.workspace._record_key(t)], db, records)
                 for t in records.values()
-                if t.project_id == project_id and not t.archived
+                if t.workspace_id == workspace_id and not t.archived
             ]
             entered = dict(
                 db.execute(
@@ -383,10 +362,10 @@ class ContextReads:
                     "json_extract(data, '$.updated_at') AS updated_at, "
                     "lag(json_extract(data, '$.status')) OVER "
                     "(PARTITION BY task_id ORDER BY revision) "
-                    "AS previous FROM task_revisions WHERE project_id=?) "
+                    "AS previous FROM task_revisions WHERE workspace_id=?) "
                     "SELECT task_id, max(updated_at) FROM changes WHERE status IS NOT previous "
                     "GROUP BY task_id",
-                    (project_id,),
+                    (workspace_id,),
                 ).fetchall()
             )
             columns: list[dict[str, Any]] = []
@@ -410,9 +389,9 @@ class ContextReads:
             result = {
                 "project": project,
                 "columns": columns,
-                **Questions(self.workspace).counts(db, project_id),
+                **Questions(self.workspace).counts(db, workspace_id),
                 "archived_count": sum(
-                    t.archived for t in records.values() if t.project_id == project_id
+                    t.archived for t in records.values() if t.workspace_id == workspace_id
                 ),
                 "blocked_count": sum(t["readiness"] == "blocked" for t in summaries),
                 "reconciliation_count": sum(
@@ -420,12 +399,12 @@ class ContextReads:
                 ),
                 **self._briefing(
                     db,
-                    project_id,
+                    workspace_id,
                     summaries,
                     {
                         t.id: positions[self.workspace._record_key(t)]
                         for t in records.values()
-                        if t.project_id == project_id
+                        if t.workspace_id == workspace_id
                     },
                 ),
             }
@@ -437,14 +416,15 @@ class ContextReads:
                 column["omitted_count"] = column["count"] - len(column["tasks"])
             return result
 
-    def _worker_briefing(self, db: sqlite3.Connection, project_id: str) -> dict[str, Any]:
-        settings = worker_settings.read_project(db, project_id).model_dump()
+    def _worker_briefing(self, db: sqlite3.Connection, workspace_id: str) -> dict[str, Any]:
+        settings = worker_settings.read_workspace(db, workspace_id).model_dump()
         rows = db.execute(
-            "SELECT data FROM runs r WHERE project_id=? AND "
+            "SELECT data FROM runs r WHERE workspace_id=? AND "
             "status IN ('preparing','running','stopping','uncertain','failed','in_review') "
-            "AND NOT EXISTS (SELECT 1 FROM runs n WHERE n.project_id=r.project_id "
-            "AND n.task_id=r.task_id AND n.number>r.number) ORDER BY number DESC LIMIT 4",
-            (project_id,),
+            "AND NOT EXISTS (SELECT 1 FROM runs n WHERE n.workspace_id=r.workspace_id "
+            "AND n.task_id=r.task_id AND n.subtask_id IS r.subtask_id AND "
+            "n.number>r.number) ORDER BY number DESC LIMIT 4",
+            (workspace_id,),
         ).fetchall()
         runs = []
         for row in rows[:3]:
@@ -452,10 +432,10 @@ class ContextReads:
             runs.append(
                 {
                     **{key: run[key] for key in ("id", "task_key", "status", "revision")},
-                    "url": self.url(project_id, "tasks", run["task_key"], "runs", run["id"]),
+                    "url": self.url(workspace_id, "tasks", run["task_key"], "runs", run["id"]),
                 }
             )
-        occupancy = worker_settings.occupancy(db, project=project_id)
+        occupancy = worker_settings.occupancy(db, workspace=workspace_id)
         return {
             **excerpt(settings, 600),
             "attempts": runs,
@@ -467,34 +447,34 @@ class ContextReads:
     def _briefing(
         self,
         db: sqlite3.Connection,
-        project_id: str,
+        workspace_id: str,
         summaries: list[dict[str, Any]],
         positions: dict[str, int],
     ) -> dict[str, Any]:
         """Derived orientation, never a second mutable summary or a launch instruction."""
-        results = result_brief(self.workspace, db, project_id)
+        results = result_brief(self.workspace, db, workspace_id)
         for item in results["items"]:
-            item["url"] = self.url(project_id, "tasks", item["task_key"], "result", item["id"])
+            item["url"] = self.url(workspace_id, "tasks", item["task_key"], "result", item["id"])
         attention = {}
         for status in ("open", "answered"):
             rows = db.execute(
                 "SELECT id, task_id, json_extract(data, '$.question') AS question, "
                 "json_extract(data, '$.origin_run_id') AS origin_run_id, "
                 "json_extract(data, '$.revision') AS revision FROM questions "
-                "WHERE project_id=? AND status=? ORDER BY number LIMIT 3",
-                (project_id, status),
+                "WHERE workspace_id=? AND status=? ORDER BY number LIMIT 3",
+                (workspace_id, status),
             ).fetchall()
             count = db.execute(
-                "SELECT count(*) FROM questions WHERE project_id=? AND status=?",
-                (project_id, status),
+                "SELECT count(*) FROM questions WHERE workspace_id=? AND status=?",
+                (workspace_id, status),
             ).fetchone()[0]
             attention[status] = {
                 "items": [
                     {
                         **excerpt(dict(r), 400),
-                        "url": self.url(project_id, "inbox", r["id"]),
+                        "url": self.url(workspace_id, "inbox", r["id"]),
                         "delivery": delivery.model_dump()
-                        if (delivery := question_delivery(db, project_id, r["id"]))
+                        if (delivery := question_delivery(db, workspace_id, r["id"]))
                         else None,
                     }
                     for r in rows
@@ -505,20 +485,20 @@ class ContextReads:
         window_start = (datetime.now(UTC) - timedelta(hours=24)).isoformat()
         # Project questions also write task-local events; show the canonical event once.
         change_filter = (
-            " FROM activity a WHERE a.project_id=? AND a.created_at>=? "
+            " FROM activity a WHERE a.workspace_id=? AND a.created_at>=? "
             "AND NOT (a.task_id IS NOT NULL AND a.question_id IS NOT NULL AND EXISTS "
-            "(SELECT 1 FROM activity p WHERE p.project_id=a.project_id AND p.task_id IS NULL "
+            "(SELECT 1 FROM activity p WHERE p.workspace_id=a.workspace_id AND p.task_id IS NULL "
             "AND p.question_id=a.question_id AND p.created_at=a.created_at))"
         )
         changes = db.execute(
             "SELECT id, task_id, question_id, kind, body, task_revision, sequence, created_at"
             + change_filter
             + " ORDER BY sequence DESC LIMIT 5",
-            (project_id, window_start),
+            (workspace_id, window_start),
         ).fetchall()
         change_count = db.execute(
             "SELECT count(*)" + change_filter,
-            (project_id, window_start),
+            (workspace_id, window_start),
         ).fetchone()[0]
         ready = sorted(
             (t for t in summaries if t["status"] == "up_next" and t["readiness"] == "ready"),
@@ -583,26 +563,14 @@ class ContextReads:
                     recommendation["action"] = candidates[0]["next_action"]
                     recommendation["owner"] = candidates[0]["owner"]
                 break
-        root = Path(self.workspace._work_scope(db, project_id).path)
-        guidance = [
-            name
-            for name in (
-                "AGENTS.md",
-                "AGENTS.override.md",
-                ".agents/skills/flowfield-coordinator/SKILL.md",
-                "README.md",
-                "CONTRIBUTING.md",
-            )
-            if (root / name).is_file()
-        ]
         return {
             "observed_at": now(),
             "execution": "managed_local",
-            "workers": self._worker_briefing(db, project_id),
+            "workers": self._worker_briefing(db, workspace_id),
             "results": results,
             "links": {
-                "board": self.url(project_id),
-                "inbox": self.url(project_id, "inbox"),
+                "board": self.url(workspace_id),
+                "inbox": self.url(workspace_id, "inbox"),
             },
             "attention": attention,
             "recent_changes": {
@@ -612,10 +580,6 @@ class ContextReads:
                 "omitted_count": change_count - len(changes),
             },
             "recommendation": recommendation,
-            "repository_guidance": {
-                "paths": guidance,
-                "scope": "Root entry points only; also read applicable nested instructions.",
-            },
             "read_more": (
                 "get_task for description, blockers and handoff; get_question for answers; "
                 "list_tasks/list_questions for omitted items; list_activity for history; "
@@ -626,12 +590,12 @@ class ContextReads:
         }
 
     def _handoff(
-        self, db: sqlite3.Connection, project_id: str, task: TaskRevision
+        self, db: sqlite3.Connection, workspace_id: str, task: TaskRevision
     ) -> dict[str, Any] | None:
         row = db.execute(
             "SELECT id, body, author, created_at, task_revision FROM activity "
-            "WHERE project_id=? AND task_id=? AND kind='handoff' ORDER BY sequence DESC LIMIT 1",
-            (project_id, task.id),
+            "WHERE workspace_id=? AND task_id=? AND kind='handoff' ORDER BY sequence DESC LIMIT 1",
+            (workspace_id, task.id),
         ).fetchone()
         if row is None:
             return None
@@ -644,18 +608,18 @@ class ContextReads:
             ),
         }
 
-    def task(self, project_id: str, task_id: str) -> dict[str, Any]:
+    def task(self, workspace_id: str, task_id: str) -> dict[str, Any]:
         with self.workspace.connection() as db:
-            identity = self.workspace._activity_scope(db, project_id, task_id)
+            identity = self.workspace._activity_scope(db, workspace_id, task_id)
             row = db.execute(
-                "SELECT data FROM tasks WHERE project_id=? AND id=?", (project_id, identity)
+                "SELECT data FROM tasks WHERE workspace_id=? AND id=?", (workspace_id, identity)
             ).fetchone()
             current = TaskRevision.model_validate_json(row[0]).model_dump()
             assert identity is not None
-            records, positions = task_metadata(self.workspace, db, project_id)
+            records, positions = task_metadata(self.workspace, db, workspace_id)
             completed = self.workspace._completed(records, db)
             item = next(
-                t for t in records.values() if t.project_id == project_id and t.id == identity
+                t for t in records.values() if t.workspace_id == workspace_id and t.id == identity
             )
             summary = self._summary(
                 item, completed, positions[self.workspace._record_key(item)], db, records
@@ -679,23 +643,23 @@ class ContextReads:
                 ]
                 result[name + "_count"] = len(ids)
             result["blocking_questions"] = [
-                {**excerpt(q.model_dump(), 300), "url": self.url(project_id, "inbox", q.id)}
-                for q in blocking_questions(db, project_id, identity)[:5]
+                {**excerpt(q.model_dump(), 300), "url": self.url(workspace_id, "inbox", q.id)}
+                for q in blocking_questions(db, workspace_id, identity)[:5]
             ]
             result["dependencies"] = item.dependencies[:5]
-            latest = self.workspace._latest_update(db, project_id, item.id)
+            latest = self.workspace._latest_update(db, workspace_id, item.id)
             result["latest_update"] = excerpt(latest.model_dump(), 1000) if latest else None
-            result["handoff"] = self._handoff(db, project_id, item)
-            proposed = result_brief(self.workspace, db, project_id, item.id, 1)["items"]
+            result["handoff"] = self._handoff(db, workspace_id, item)
+            proposed = result_brief(self.workspace, db, workspace_id, item.id, 1)["items"]
             if proposed:
                 result["proposed_result"] = proposed[0]
                 result["proposed_result"]["url"] = self.url(
-                    project_id, "tasks", item.key, "result", proposed[0]["id"]
+                    workspace_id, "tasks", item.key, "result", proposed[0]["id"]
                 )
             latest_run = db.execute(
-                "SELECT data FROM runs WHERE project_id=? AND task_id=? "
+                "SELECT data FROM runs WHERE workspace_id=? AND task_id=? "
                 "ORDER BY number DESC LIMIT 1",
-                (project_id, item.id),
+                (workspace_id, item.id),
             ).fetchone()
             if latest_run:
                 run = json.loads(latest_run[0])
@@ -712,7 +676,7 @@ class ContextReads:
                     )
                 }
                 result["execution"]["url"] = (
-                    self.url(project_id, "tasks", item.key) + "/runs/" + run["id"]
+                    self.url(workspace_id, "tasks", item.key) + "/runs/" + run["id"]
                 )
             if latest and latest.kind == "handoff":
                 # The selected checkpoint has its own field; do not repeat its narrative.
@@ -732,7 +696,7 @@ class ContextReads:
 
     def relationships(
         self,
-        project_id: str,
+        workspace_id: str,
         task_id: str,
         *,
         relation: Literal["prerequisites", "blocked_by", "dependents"] = "prerequisites",
@@ -743,12 +707,12 @@ class ContextReads:
         if after is not None and (not isinstance(after, str) or not after):
             raise ApplicationError("invalid_request", "Use the returned task-key cursor.")
         with self.workspace.connection() as db:
-            identity = self.workspace._activity_scope(db, project_id, task_id)
+            identity = self.workspace._activity_scope(db, workspace_id, task_id)
             assert identity is not None
-            records, positions = task_metadata(self.workspace, db, project_id)
+            records, positions = task_metadata(self.workspace, db, workspace_id)
             completed = self.workspace._completed(records, db)
             item = next(
-                t for t in records.values() if t.project_id == project_id and t.id == identity
+                t for t in records.values() if t.workspace_id == workspace_id and t.id == identity
             )
             ids = (
                 item.dependencies
@@ -777,7 +741,7 @@ class ContextReads:
 
     def revisions(
         self,
-        project_id: str,
+        workspace_id: str,
         task_id: str,
         *,
         before: int | None = None,
@@ -785,18 +749,18 @@ class ContextReads:
     ) -> dict[str, Any]:
         validate_page(limit, before)
         with self.workspace.connection() as db:
-            identity = self.workspace._activity_scope(db, project_id, task_id)
+            identity = self.workspace._activity_scope(db, workspace_id, task_id)
             rows = db.execute(
                 "SELECT json_remove(data, '$.body', '$.dependencies') "
-                "FROM task_revisions WHERE project_id=? AND task_id=? AND revision<? "
+                "FROM task_revisions WHERE workspace_id=? AND task_id=? AND revision<? "
                 "ORDER BY revision DESC LIMIT ?",
-                (project_id, identity, before or 2**63 - 1, limit + 1),
+                (workspace_id, identity, before or 2**63 - 1, limit + 1),
             ).fetchall()
             return page([excerpt(json.loads(r[0]), 500) for r in rows], limit, "revision")
 
     def activity(
         self,
-        project_id: str,
+        workspace_id: str,
         *,
         task_id: str | None = None,
         kind: EntryKind | None = None,
@@ -806,7 +770,7 @@ class ContextReads:
     ) -> dict[str, Any]:
         validate_page(limit, before)
         source = self.workspace.activity(
-            project_id,
+            workspace_id,
             task_id=task_id,
             kind=kind,
             current_only=current_only,
@@ -818,8 +782,8 @@ class ContextReads:
             result["next_cursor"] = source.next_cursor
         return result
 
-    def activity_entry(self, project_id: str, entry_id: str) -> dict[str, Any]:
-        return excerpt(self.workspace.activity_entry(project_id, entry_id).model_dump(), 2000)
+    def activity_entry(self, workspace_id: str, entry_id: str) -> dict[str, Any]:
+        return excerpt(self.workspace.activity_entry(workspace_id, entry_id).model_dump(), 2000)
 
     def requests(
         self, workspace_id: str, column: str = "action", offset: int = 0, limit: int = 20
@@ -836,11 +800,10 @@ class ContextReads:
             raise ApplicationError("invalid_request", "Invalid request page.")
         value = attention_page(
             self.workspace,
-            None,
+            workspace_id,
             cast(AttentionColumn, column),
             offset,
             limit,
-            workspace_id=workspace_id,
             include_answered=True,
             requests_only=True,
         ).model_dump()
@@ -852,25 +815,23 @@ class ContextReads:
             value["next_offset"] = offset + len(value["items"])
         return value
 
-    def request(
-        self, workspace_id: str, kind: "RequestKind", identity: str, project_id: str | None = None
-    ) -> dict[str, Any]:
+    def request(self, workspace_id: str, kind: "RequestKind", identity: str) -> dict[str, Any]:
         from flowfield.requests import get_request
 
-        item = get_request(self.workspace, workspace_id, kind, identity, project_id)
+        item = get_request(self.workspace, workspace_id, kind, identity)
         value = item.model_dump()
         value["url"] = self.browser_origin + (item.request_href or "")
         # Content remains owned by the source-specific bounded read APIs.
-        value["source"] = {"kind": item.kind, "id": item.id, "project_id": item.project_id}
-        if item.kind == "question" and item.project_id:
-            value["question"] = self.question(item.project_id, item.id)
-        elif item.kind == "result" and item.project_id:
-            value["result"] = self.result(item.project_id, item.id)
+        value["source"] = {"kind": item.kind, "id": item.id, "workspace_id": item.workspace_id}
+        if item.kind == "question" and item.workspace_id:
+            value["question"] = self.question(item.workspace_id, item.id)
+        elif item.kind == "result" and item.workspace_id:
+            value["result"] = self.result(item.workspace_id, item.id)
         return value
 
     def questions(
         self,
-        project_id: str,
+        workspace_id: str,
         *,
         status: str = "active",
         task_id: str | None = None,
@@ -878,11 +839,11 @@ class ContextReads:
         limit: int = DEFAULT_LIMIT,
     ) -> dict[str, Any]:
         source = Questions(self.workspace).list(
-            project_id, status=status, task_id=task_id, after=after, limit=limit
+            workspace_id, status=status, task_id=task_id, after=after, limit=limit
         )
         result = page(
             [
-                {**item, "url": self.url(project_id, "inbox", item["id"])}
+                {**item, "url": self.url(workspace_id, "inbox", item["id"])}
                 for item in source["items"]
             ],
             limit,
@@ -894,19 +855,19 @@ class ContextReads:
 
     def question(
         self,
-        project_id: str,
+        workspace_id: str,
         identity: str,
         revision: int | None = None,
     ) -> dict[str, Any]:
         return {
-            **excerpt(Questions(self.workspace).get(project_id, identity, revision).model_dump()),
-            "url": self.url(project_id, "inbox", identity),
+            **excerpt(Questions(self.workspace).get(workspace_id, identity, revision).model_dump()),
+            "url": self.url(workspace_id, "inbox", identity),
         }
 
-    def result(self, project_id: str, identity: str) -> dict[str, Any]:
+    def result(self, workspace_id: str, identity: str) -> dict[str, Any]:
         from flowfield.results import Results
 
-        value = Results(self.workspace).get(project_id, identity).model_dump()
+        value = Results(self.workspace).get(workspace_id, identity).model_dump()
         value["files"] = [
             {key: file[key] for key in ("id", "workspace_id", "name", "size")}
             for file in value["files"]
@@ -936,10 +897,8 @@ class ContextReads:
 
     def text(
         self,
-        project_id: str,
-        resource: Literal[
-            "task", "milestone", "project", "activity", "question", "result", "coordinator"
-        ],
+        workspace_id: str,
+        resource: Literal["task", "project", "activity", "question", "result", "coordinator"],
         identity: str | None = None,
         field: str = "body",
         revision: int | None = None,
@@ -955,11 +914,11 @@ class ContextReads:
             "task": (
                 "body",
                 "change_note",
+                "acceptance_criteria",
                 "reconciliation_reason",
                 "dependencies",
             ),
             "project": ("description", "path"),
-            "milestone": ("body",),
             "activity": ("body",),
             "result": ("summary", "checks", "limitations", "feedback", "problem", "correction"),
             "question": (
@@ -980,7 +939,7 @@ class ContextReads:
             from flowfield.coordinator_store import CoordinatorStore
 
             with self.workspace.connection() as db:
-                turn = CoordinatorStore._get(db, project_id, identity or "")
+                turn = CoordinatorStore._get(db, workspace_id, identity or "")
                 prose = read_prose(db, turn.id)
             if revision is not None and turn.activity.revision != revision:
                 raise ApplicationError(
@@ -995,23 +954,25 @@ class ContextReads:
             }
         elif resource == "task":
             with self.workspace.connection() as db:
-                task_id = self.workspace._activity_scope(db, project_id, identity)
+                task_id = self.workspace._activity_scope(db, workspace_id, identity)
                 row = db.execute(
-                    "SELECT data FROM task_revisions WHERE project_id=? AND task_id=? "
+                    "SELECT data FROM task_revisions WHERE workspace_id=? AND task_id=? "
                     "AND (? IS NULL OR revision=?) ORDER BY revision DESC LIMIT 1",
-                    (project_id, task_id, revision, revision),
+                    (workspace_id, task_id, revision, revision),
                 ).fetchone()
                 if row is None:
                     raise ApplicationError("not_found", "Task revision not found.", 404)
                 item = json.loads(row[0])
         elif resource == "question":
-            item = Questions(self.workspace).get(project_id, identity or "", revision).model_dump()
+            item = (
+                Questions(self.workspace).get(workspace_id, identity or "", revision).model_dump()
+            )
         elif resource == "activity":
-            item = self.workspace.activity_entry(project_id, identity or "").model_dump()
+            item = self.workspace.activity_entry(workspace_id, identity or "").model_dump()
         elif resource == "result":
             from flowfield.results import Results
 
-            result = Results(self.workspace).get(project_id, identity or "")
+            result = Results(self.workspace).get(workspace_id, identity or "")
             if revision is not None and result.revision != revision:
                 raise ApplicationError(
                     "revision_conflict", "Result changed; reread its reference.", 409
@@ -1022,11 +983,13 @@ class ContextReads:
                 "correction": result.correction.details if result.correction else "",
             }
         else:
-            item = (
-                self.workspace.project(project_id)
-                if resource == "project"
-                else self.workspace.milestone(project_id, identity or "")
-            ).model_dump()
+            from flowfield.workspaces import Workspaces
+
+            if not identity:
+                raise ApplicationError("project_required", "Supply the project's ID.")
+            if Workspaces(self.workspace).for_project(identity).id != workspace_id:
+                raise ApplicationError("not_found", "Project not found in this workspace.", 404)
+            item = self.workspace.project(identity).model_dump()
             if revision is not None and item["revision"] != revision:
                 raise ApplicationError(
                     "revision_conflict", "Text changed. Start reading again.", 409

@@ -5,7 +5,6 @@ import {
   Columns3,
   FileText,
   Files,
-  Flag,
   Folder,
   Settings,
 } from "lucide-react";
@@ -15,7 +14,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { WorkIdentity } from "./WorkIdentity";
-import { milestoneCards } from "./Milestones";
 import { followLink, taskHref, workspaceHref } from "./navigation";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { canonicalResourceRoot } from "./WorkspaceTabs";
@@ -24,32 +22,16 @@ import type { WorkspaceBoard } from "./workspace";
 export function workItems(board: WorkspaceBoard) {
   const attention = new Set(board.attention_work_keys ?? []);
   return [
-    ...milestoneCards(board).map(
-      ({ milestone, column, tasks, archived, workState }) => ({
-        key: milestone.key,
-        title: milestone.title,
-        href: `${workspaceHref(board.workspace.id)}/milestones/${milestone.key}`,
-        complete: column === "Complete",
-        archived,
-        planned: column === "Planned",
-        attention:
-          attention.has(milestone.key) ||
-          tasks.some((t) => attention.has(t.key)),
-        state: workState,
-      }),
-    ),
-    ...board.tasks
-      .filter((t) => !t.milestone_id)
-      .map((t) => ({
-        key: t.key,
-        title: t.title,
-        href: taskHref(t.project_id, t),
-        complete: t.status === "done",
-        archived: t.archived,
-        planned: t.status === "backlog" || t.status === "up_next",
-        attention: attention.has(t.key),
-        state: t.state ?? { label: t.status, tone: "idle" as const },
-      })),
+    ...board.tasks.map((t) => ({
+      key: t.key,
+      title: t.title,
+      href: taskHref(t.workspace_id, t),
+      complete: t.status === "done",
+      archived: t.archived,
+      planned: t.status === "backlog" || t.status === "up_next",
+      attention: attention.has(t.key),
+      state: t.state ?? { label: t.status, tone: "idle" as const },
+    })),
   ].sort(
     (a, b) =>
       Number(b.attention) - Number(a.attention) ||
@@ -174,7 +156,6 @@ export function WorkNavigation({
   const base = workspaceHref(board.workspace.id);
   const resources = [
     { name: "Projects", href: base + "/projects", Icon: Folder },
-    { name: "Milestones", href: base + "/milestones", Icon: Flag },
     { name: "Tasks", href: base + "/tasks", Icon: Columns3 },
     { name: "Documents", href: base + "/documents", Icon: FileText },
     { name: "Files", href: base + "/files", Icon: Files },

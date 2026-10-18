@@ -1,33 +1,33 @@
 ---
 title: Files
-description: Browse durable outputs and follow them back to exact tasks and milestone results.
+description: Browse durable outputs and follow them back to exact task results.
 ---
 
 Ask the Coordinator for the files you need and how they should be checked. A workspace task can produce a report, image, dataset or binary without registering a repository. Project tasks can submit files alongside their code results.
 
 ## Browse and use results
 
-Open **Files** in the workspace sidebar. Choose a task or milestone on the left, then browse folders on the right. Breadcrumbs and **Up** return to parent folders. Sort by name, newest or type, and select a file to see its description, size, submission time and producing task or milestone. Earlier versions remain separately selectable.
+Open **Files** in the workspace sidebar. Choose a task on the left, browse folders in the center, and inspect the selected file on the right. Compact task labels show their full title in a tooltip. Breadcrumbs and **Up** return to parent folders. Sort by name, newest or type, and select a file to see its description, size, submission time and producing task. Earlier versions remain separately selectable.
 
-Choose **Open** for browser-supported PDF, text and image files, or **Download** to save a copy. Other types download. Active HTML and SVG content downloads rather than running inside Flowfield. Compact file links also appear in task results and milestone handoffs.
+Choose **Open** for browser-supported PDF, text and image files, or **Download** to save a copy. Other types download. Active HTML and SVG content downloads rather than running inside Flowfield. Compact file links also appear in task results.
 
 Use **New folder** to organize the library. Select a file and choose **Rename or move**, then enter its path; `/` separates folders. Organization changes preserve the submitted filename, exact bytes and original task/result references. **Submitted version** links to that original result. Folder organization survives service restart.
 
-Complete file/report tasks finish after their files are retained and any configured task reviewer signs off. Reviewers can request corrections or ask a focused question about missing input. Without a configured reviewer, incomplete results offer **Request follow-up** to send specific instructions to the worker. Completion records delivery; it does not endorse the report's conclusions.
+Complete file/report tasks finish after their files are retained and any configured task reviewer signs off. Reviewers can request corrections or ask a focused question about missing input. When task review is disabled, incomplete results offer **Request follow-up** to send specific instructions to the worker. Completion records delivery; it does not endorse the report's conclusions.
 
 ## Inputs and later versions
 
 The Coordinator can select sent message attachments or previously submitted files as task inputs. Workers receive separate copies of those exact bytes. Delivered prerequisite files are also supplied automatically. Later edits or successor results cannot silently replace the inputs of an existing attempt. Reopening a completed task preserves its previous files and result history.
 
-For a milestone, the Coordinator saves the review plan against its agreed criteria. The configured milestone reviewer inspects exact delivered contributions and selects the final files. This creates a review within the milestone, without a separate verification task. Review those files alongside the checks, then accept the milestone or request changes. Changed contributions make the verification outdated while its earlier files remain accessible.
+For decomposed work, the final task result contains its contributions’ retained files. The task reviewer checks the combined outcome. Earlier file versions remain accessible after corrections.
 
 ## Worker and coordinator tools
 
-Create repository-free work with `create_task(workspace_id=…, task=…)`, omitting `project_id`, and prepare it with `completion="report"`. Built-in Coordinator tools already bind the workspace. `get_workspace.workspace_task_scope` identifies its task owner for subsequent task tools; it is not a repository registration. Select immutable file IDs with `task.input_files`.
+Create repository-free work with `create_task(workspace_id=…, task=…)`, omitting `project_id`, and prepare it with `completion="report"`. Built-in Coordinator tools already bind the workspace. Subsequent task tools use the same `workspace_id` and task key. Select immutable file IDs with `task.input_files`.
 
 Workers write final files in the supplied `output_directory`, also available as `FLOWFIELD_OUTPUT_DIR`, and include relative paths and optional descriptions in `submit_result.files`. Only explicitly submitted files are retained. A submission supports up to 32 regular files, 128 MiB per file and 512 MiB total. Symlinks, hardlinks and paths outside the output directory are rejected. Finish writing files before submitting; a failed capture leaves the result unsubmitted so the worker can correct it.
 
-Use `list_workspace_files` for bounded browsing, optionally filtered by task key or milestone ID. `get_workspace_file` returns metadata and a verified local path. Inputs are limited to 32 explicitly selected files; with prerequisite and predecessor files, an attempt can receive up to 256 files and 512 MiB. The milestone reviewer selects final contributing file IDs in `submit_milestone_review.report.output_ids`.
+Use `list_workspace_files` for bounded browsing, optionally filtered by task key. `get_workspace_file` returns metadata and a verified local path. Inputs are limited to 32 explicitly selected files; with prerequisite and predecessor files, an attempt can receive up to 256 files and 512 MiB. Combined task outputs are bounded to 256 files and 512 MiB.
 
 ## Retention and backup
 

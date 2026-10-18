@@ -47,7 +47,7 @@ class ReviewBridge:
         ]
 
         async def call(name: str, arguments: dict[str, Any]) -> CallToolResult:
-            self.reviews.access(self.review.project_id, self.review.id, self.attempt)
+            self.reviews.access(self.review.workspace_id, self.review.id, self.attempt)
             if self.decision:
                 raise ApplicationError("review_closed", "The round is saved; end your turn.", 409)
             if name == "read_context":
@@ -64,8 +64,10 @@ class ReviewBridge:
                         "Request the remaining work or ask a focused question; "
                         "partial outcomes cannot be approved.",
                     )
+                if isinstance(decision, ReviewVerdict):
+                    self.reviews.validate_decision(self.review, decision)
                 self.reviews.save_decision(
-                    self.review.project_id, self.review.id, self.attempt, decision.model_dump()
+                    self.review.workspace_id, self.review.id, self.attempt, decision.model_dump()
                 )
                 self.decision = decision
                 result = (

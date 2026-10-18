@@ -17,8 +17,7 @@ class PermissionOption(AgentRecord):
 
 class PermissionRecord(AgentRecord):
     id: str
-    project_id: str | None = None
-    workspace_id: str | None = None
+    workspace_id: str
     role: AgentRole
     task_id: str | None = None
     run_id: str | None = None

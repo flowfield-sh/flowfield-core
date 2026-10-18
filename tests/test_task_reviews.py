@@ -11,10 +11,9 @@ from task_reviews_fixtures import configured, verdict
 
 from flowfield.adapters.git_workspace import git
 from flowfield.agent_models import AgentChoice
-from flowfield.application import MilestoneCreate, TaskEdit, Workspace
+from flowfield.application import TaskEdit, Workspace
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import QueueEdit, RunAction
-from flowfield.milestones import Milestones
 from flowfield.reviewer_settings import ReviewerEdit, Reviewers
 from flowfield.task_reviews import ReviewVerdict, TaskReviews
 from flowfield.worker_settings import occupancy
@@ -27,21 +26,17 @@ def test_defaults_inheritance_disable_and_reset_are_independent(tmp_path):
     reviewers = Reviewers(workspace)
     reviewers.configure(
         "harbor",
-        "task",
         ReviewerEdit(
-            expected_revision=1, enabled=True, selection=AgentChoice(model="review-fixture")
+            expected_revision=2, enabled=True, selection=AgentChoice(model="review-fixture")
         ),
     )
-    scope = {"project": "harbor", "entity": task_id}
-    task = reviewers.get("harbor", "task", **scope)
+    scope = {"entity": task_id}
+    task = reviewers.get("harbor", **scope)
     assert task.enabled is None and task.effective.enabled
     assert task.effective.agent.choice.model == "review-fixture"
     assert task.effective.agent.source == "workspace"
-    assert reviewers.get("harbor", "milestone").effective.enabled
-    assert reviewers.get("harbor", "milestone").effective.agent is None
     disabled = reviewers.configure(
         "harbor",
-        "task",
         ReviewerEdit(
             expected_revision=task.revision,
             enabled=False,
@@ -51,40 +46,31 @@ def test_defaults_inheritance_disable_and_reset_are_independent(tmp_path):
     )
     assert not disabled.effective.enabled
     assert disabled.effective.agent.source == "override"
-    defaults = reviewers.get("harbor", "task")
+    defaults = reviewers.get("harbor")
     reviewers.configure(
         "harbor",
-        "task",
         ReviewerEdit(
             expected_revision=defaults.revision,
             enabled=True,
             selection=AgentChoice(model="new-default"),
         ),
     )
-    assert reviewers.get("harbor", "task", **scope).effective.agent.choice.model == "special-review"
+    assert reviewers.get("harbor", **scope).effective.agent.choice.model == "special-review"
     reset = reviewers.configure(
-        "harbor", "task", ReviewerEdit(expected_revision=disabled.revision), **scope
+        "harbor", ReviewerEdit(expected_revision=disabled.revision), **scope
     )
     assert reset.effective.enabled and reset.effective.agent.choice.model == "new-default"
     with pytest.raises(ApplicationError):
-        reviewers.configure(
-            "harbor", "task", ReviewerEdit(expected_revision=disabled.revision), **scope
-        )
-    milestone = Milestones(workspace).create("harbor", MilestoneCreate(title="Combined outcome"))
-    reviewers.configure(
-        "harbor", "milestone", ReviewerEdit(expected_revision=1, enabled=False), entity=milestone.id
-    )
-    assert reviewers.get("harbor", "task", **scope).effective.enabled
-    with pytest.raises(ApplicationError, match="outside"):
-        reviewers.get("harbor", "task", project="other", entity=task_id)
-    with pytest.raises(ApplicationError, match="requires a task"):
-        reviewers.get("harbor", "task", project="harbor")
+        reviewers.configure("harbor", ReviewerEdit(expected_revision=disabled.revision), **scope)
 
 
 def test_enabled_without_model_never_guesses_or_starts_review(tmp_path):
     service, _, _ = fixture(tmp_path)
     service.results.process("harbor")
     reviews = TaskReviews(service.workspace)
+    Reviewers(service.workspace).configure(
+        "harbor", ReviewerEdit(expected_revision=2, enabled=True)
+    )
     with pytest.raises(ApplicationError, match="Choose a workspace or task reviewer"):
         reviews.prepare("harbor", current(service).id)
     with service.workspace.connection() as db:
@@ -104,7 +90,6 @@ def test_standalone_review_is_idempotent_and_grants_no_delivery(tmp_path):
         for key in ("completion", "output_ids", "outcome"):
             saved["binding"].pop(key)
         db.execute("UPDATE task_reviews SET data=? WHERE id=?", (json.dumps(saved), review.id))
-    assert review.binding.milestone_id is None
     assert reviews.prepare("harbor", result.id) == review
     assert "Deliver the result" in reviews.context("harbor", review.id, "assignment")
     assert "Worker-reported checks" in reviews.context("harbor", review.id, "result")
@@ -113,7 +98,7 @@ def test_standalone_review_is_idempotent_and_grants_no_delivery(tmp_path):
     assert prepared.status == "preparing" and prepared.started_at is None
     running = reviews.started("harbor", prepared.id, prepared.revision)
     with service.workspace.connection() as db:
-        assert occupancy(db, project="harbor").active == 1
+        assert occupancy(db, workspace="harbor").active == 1
     decided = reviews.conclude(
         "harbor", review.id, running.revision, verdict(), cleanup_confirmed=True
     )
@@ -124,15 +109,15 @@ def test_standalone_review_is_idempotent_and_grants_no_delivery(tmp_path):
     )
     service.results.process("harbor")
     presented = current(service)
-    assert presented.model_dump(exclude={"independent_review"}) == result.model_dump(
-        exclude={"independent_review"}
+    assert presented.model_dump(exclude={"independent_review", "next_action"}) == result.model_dump(
+        exclude={"independent_review", "next_action"}
     )
     assert presented.independent_review.summary == verdict().summary
     assert presented.approved_at is None
     assert service.workspace.task("harbor", run.task_id) == task_before
     assert git(repo, "rev-parse", "HEAD") == before
     with service.workspace.connection() as db:
-        assert occupancy(db, project="harbor").active == 0
+        assert occupancy(db, workspace="harbor").active == 0
     with pytest.raises(ApplicationError):
         reviews.conclude(
             "harbor",
@@ -151,10 +136,9 @@ def test_changed_bindings_cannot_produce_an_approval(tmp_path, change):
     prepared = reviews.claim("harbor", queued.id, queued.revision)
     running = reviews.started("harbor", prepared.id, prepared.revision)
     if change in ("policy", "disabled"):
-        saved = reviewers.get("harbor", "task")
+        saved = reviewers.get("harbor")
         reviewers.configure(
             "harbor",
-            "task",
             ReviewerEdit(
                 expected_revision=saved.revision,
                 enabled=change != "disabled",
@@ -225,11 +209,11 @@ def test_concurrent_claims_pause_and_unknown_cleanup_preserve_ownership(tmp_path
     )
     assert uncertain.status == "uncertain" and uncertain.verdict is None
     with service.workspace.connection() as db:
-        assert occupancy(db, project="harbor").uncertain == 1
+        assert occupancy(db, workspace="harbor").uncertain == 1
     stopped = reviews.stop("harbor", queued.id, uncertain.revision, cleanup_confirmed=True)
     assert stopped.status == "stopped"
     with service.workspace.connection() as db:
-        assert occupancy(db, project="harbor").uncertain == 0
+        assert occupancy(db, workspace="harbor").uncertain == 0
 
 
 def test_restart_retains_uncertain_slot_and_frozen_reviewer(tmp_path):
@@ -243,7 +227,7 @@ def test_restart_retains_uncertain_slot_and_frozen_reviewer(tmp_path):
     assert saved.status == "uncertain" and saved.binding == running.binding
     assert saved.verdict is None
     with service.workspace.connection() as db:
-        assert occupancy(db, project="harbor").uncertain == 1
+        assert occupancy(db, workspace="harbor").uncertain == 1
     reopened.restart()
     assert reopened.get("harbor", queued.id) == saved
 
@@ -258,6 +242,7 @@ def test_review_and_worker_share_capacity(tmp_path):
     task = service.workspace.create_task(
         "harbor",
         task_request(
+            project_id="harbor",
             id="another",
             title="Independent work",
             body="Keep this separate",

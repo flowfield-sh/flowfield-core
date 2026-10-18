@@ -623,9 +623,6 @@
     width: 100%;
     gap: 8px;
   }
-  a.milestone-tag {
-    text-decoration: none;
-  }
   .task-needs {
     list-style: none;
     padding: 0;

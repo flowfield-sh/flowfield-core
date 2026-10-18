@@ -14,14 +14,14 @@ class Replies:
     def __init__(self, workspace: Workspace):
         self.workspace = workspace
 
-    def submit(self, project_id: str, task_id: str, request: ReplyCreate) -> Reply:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            task_id = self.workspace._task(db, project_id, task_id).id
+    def submit(self, workspace_id: str, task_id: str, request: ReplyCreate) -> Reply:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            task_id = self.workspace._task(db, workspace_id, task_id).id
             old = db.execute("SELECT data FROM task_replies WHERE id=?", (request.id,)).fetchone()
             if old:
                 reply = Reply.model_validate_json(old[0])
                 if (
-                    reply.project_id != project_id
+                    reply.workspace_id != workspace_id
                     or reply.task_id != task_id
                     or reply.model_dump(include=set(ReplyCreate.model_fields))
                     != request.model_dump()
@@ -31,7 +31,7 @@ class Replies:
                     )
                 return reply
             gate = Conversation(self.workspace)._eligibility(
-                db, project_id, task_id, request.binding.question_id
+                db, workspace_id, task_id, request.binding.question_id
             )
             if not gate.enabled:
                 raise ApplicationError(
@@ -49,40 +49,11 @@ class Replies:
                 )
             if not request.body.strip():
                 raise ApplicationError("empty_reply", "Write a reply before sending.")
-            if request.milestone:
-                from flowfield.milestone_promotion import read as promotion_read
-                from flowfield.milestone_verification import read
-                from flowfield.worker_settings import workspace_id
-
-                owner = workspace_id(db, project_id)
-                if not owner:
-                    raise ApplicationError("not_found", "Workspace not found.", 404)
-                evidence = read(db, owner, request.milestone.verification_id)
-                promotion = (
-                    promotion_read(db, evidence.promotion_id) if evidence.promotion_id else None
-                )
-                self.workspace._current(evidence.revision, request.milestone.verification_revision)
-                if (
-                    request.action != "observation"
-                    or not evidence.current
-                    or not promotion
-                    or promotion.candidate_commit != request.milestone.candidate_commit
-                    or not any(
-                        task.project_id == project_id
-                        and task.task_id == task_id
-                        and task.result_id == binding.result_id
-                        and task.result_revision == binding.result_revision
-                        for task in evidence.tasks
-                    )
-                ):
-                    raise ApplicationError(
-                        "observation_stale",
-                        "Read the current milestone candidate before recording testing.",
-                        409,
-                    )
-            Attachments(self.workspace).references(db, project_id, task_id, request.body, bind=True)
+            Attachments(self.workspace).references(
+                db, workspace_id, task_id, request.body, bind=True
+            )
             reply = Reply(
-                **request.model_dump(), project_id=project_id, task_id=task_id, created_at=now()
+                **request.model_dump(), workspace_id=workspace_id, task_id=task_id, created_at=now()
             )
             if request.action == "answer":
                 if not binding.question_id or not binding.question_revision:
@@ -91,7 +62,7 @@ class Replies:
                     )
                 Questions(self.workspace)._answer(
                     db,
-                    project_id,
+                    workspace_id,
                     binding.question_id,
                     QuestionAnswer(
                         expected_revision=binding.question_revision,
@@ -122,10 +93,10 @@ class Replies:
                         409,
                     )
                 results = Results(self.workspace)
-                version = results._get(db, project_id, binding.result_id)
+                version = results._get(db, workspace_id, binding.result_id)
                 results._review(
                     db,
-                    project_id,
+                    workspace_id,
                     version.id,
                     ResultReview(
                         expected_revision=binding.result_revision,
@@ -138,16 +109,16 @@ class Replies:
                 reply.status = "recorded"
             db.execute(
                 "INSERT INTO task_replies VALUES (?,?,?,?,?)",
-                (project_id, task_id, reply.id, reply.created_at, reply.model_dump_json()),
+                (workspace_id, task_id, reply.id, reply.created_at, reply.model_dump_json()),
             )
             return reply
 
-    def cancel(self, project_id: str, task_id: str, identity: str) -> Reply:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            task_id = self.workspace._task(db, project_id, task_id).id
+    def cancel(self, workspace_id: str, task_id: str, identity: str) -> Reply:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            task_id = self.workspace._task(db, workspace_id, task_id).id
             row = db.execute(
-                "SELECT data FROM task_replies WHERE project_id=? AND task_id=? AND id=?",
-                (project_id, task_id, identity),
+                "SELECT data FROM task_replies WHERE workspace_id=? AND task_id=? AND id=?",
+                (workspace_id, task_id, identity),
             ).fetchone()
             if not row:
                 raise ApplicationError("not_found", "Message not found.", 404)

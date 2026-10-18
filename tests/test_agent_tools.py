@@ -28,10 +28,10 @@ def test_project_paging_contracts_are_declared_and_enforced(tmp_path):
             grant.tools["get_task_conversation"].inputSchema["properties"]["limit"]["maximum"] == 30
         )
         assert grant.tools["get_results"].inputSchema["properties"]["limit"]["maximum"] == 10
-        oversized = await grant.call("list_tasks", {"project_id": "harbor", "limit": 100})
+        oversized = await grant.call("list_tasks", {"limit": 100})
         assert oversized.isError
         assert oversized.structuredContent["error"]["code"] == "invalid_request"
-        valid = await grant.call("list_tasks", {"project_id": "harbor", "limit": 20})
+        valid = await grant.call("list_tasks", {"limit": 20})
         assert not valid.isError
         assert "items" in valid.structuredContent
         grant.revoke()
@@ -61,7 +61,7 @@ def test_coordinator_reads_overlap_with_bounded_revocable_access(tmp_path):
                     grant.call(
                         name,
                         {
-                            "project_id": "harbor",
+                            **({"project_id": "harbor"} if name == "get_project" else {}),
                         },
                     )
                 )
@@ -69,9 +69,7 @@ def test_coordinator_reads_overlap_with_bounded_revocable_access(tmp_path):
             assert await asyncio.wait_for(entered.get(), 2) == name
         excess = await grant.call(
             "get_board",
-            {
-                "project_id": "harbor",
-            },
+            {},
         )
         assert excess.structuredContent["error"]["code"] == "tool_busy"
         # Cancellation releases capacity; revocation rejects new work without
@@ -81,9 +79,7 @@ def test_coordinator_reads_overlap_with_bounded_revocable_access(tmp_path):
         replacement = asyncio.create_task(
             grant.call(
                 "get_board",
-                {
-                    "project_id": "harbor",
-                },
+                {},
             )
         )
         assert await asyncio.wait_for(entered.get(), 2) == "get_board"
@@ -91,9 +87,7 @@ def test_coordinator_reads_overlap_with_bounded_revocable_access(tmp_path):
         grant.revoke()
         closed = await grant.call(
             "get_board",
-            {
-                "project_id": "harbor",
-            },
+            {},
         )
         assert closed.structuredContent["error"]["code"] == "scope_closed"
         release.set()
@@ -118,12 +112,12 @@ def test_coordinator_captures_work_with_explicit_project(tmp_path):
             tmp_path,
             grant,
             [
-                {"name": "get_board", "arguments": {"project_id": "harbor"}},
+                {"name": "get_board", "arguments": {}},
                 {
                     "name": "create_task",
                     "arguments": {
-                        "project_id": "harbor",
                         "task": {
+                            "project_id": "harbor",
                             "id": "captured",
                             "title": "Captured in conversation",
                             "body": "Agreed outcome",
@@ -135,7 +129,7 @@ def test_coordinator_captures_work_with_explicit_project(tmp_path):
                 {"name": "initialize_project", "arguments": {}},
                 {
                     "name": "get_task",
-                    "arguments": {"project_id": "harbor", "task_id": "task-0"},
+                    "arguments": {"task_id": "task-0"},
                 },
             ],
         )
@@ -148,9 +142,7 @@ def test_coordinator_captures_work_with_explicit_project(tmp_path):
         assert execution.workspace.task("harbor", "captured").updated_by == "agent"
         denied = await grant.call(
             "get_board",
-            {
-                "project_id": "harbor",
-            },
+            {},
         )
         assert denied.isError and denied.structuredContent["error"]["code"] == "scope_closed"
 
@@ -431,12 +423,8 @@ def test_coordinator_reviews_exact_result_and_service_delivers_with_queue_paused
 
     async def exercise():
         grant = await workspace_scope(service, "harbor", author="coordinator:saved-turn")
-        assert not (
-            await grant.call("get_result", {"project_id": "harbor", "result_id": version.id})
-        ).isError
-        assert not (
-            await grant.call("get_task_input", {"project_id": "harbor", "task_id": "work"})
-        ).isError
+        assert not (await grant.call("get_result", {"result_id": version.id})).isError
+        assert not (await grant.call("get_task_input", {"task_id": "work"})).isError
         request = {
             "result_id": version.id,
             "review": {
@@ -445,15 +433,15 @@ def test_coordinator_reviews_exact_result_and_service_delivers_with_queue_paused
                 "action": "approve",
             },
         }
-        wrong = await grant.call("review_result", {"project_id": "harbor", **request})
+        wrong = await grant.call("review_result", {**request})
         assert wrong.isError
         assert current(service).approved_at is None
         request["review"]["candidate_commit"] = version.candidate_commit
         request["review"]["expected_revision"] += 1
-        assert (await grant.call("review_result", {"project_id": "harbor", **request})).isError
+        assert (await grant.call("review_result", {**request})).isError
         request["review"]["expected_revision"] = version.revision
         # Omitting author cannot inherit the request model's human default.
-        approved = await grant.call("review_result", {"project_id": "harbor", **request})
+        approved = await grant.call("review_result", {**request})
         assert not approved.isError, approved
         assert current(service).approved_by == "coordinator:saved-turn"
         assert actor(current(service).approved_by).label == "Coordinator"
@@ -526,18 +514,13 @@ def test_coordinator_controls_workers_and_preserves_worker_scope(tmp_path, monke
             assert denied.structuredContent["error"]["code"] == "operation_denied"
         stopped = await grant.call(
             "stop_run",
-            {
-                "project_id": "harbor",
-                "run_id": run.id,
-                "request": {"expected_revision": run.revision},
-            },
+            {"run_id": run.id, "request": {"expected_revision": run.revision}},
         )
         assert not stopped.isError, stopped
         assert execution.get("harbor", run.id).status == "stopped"
         retried = await grant.call(
             "retry_run",
             {
-                "project_id": "harbor",
                 "run_id": run.id,
                 "request": {"expected_revision": execution.get("harbor", run.id).revision},
             },
@@ -563,7 +546,7 @@ def test_coordinator_relays_bound_answer_once_without_enabling_queue(tmp_path):
         grant = await workspace_scope(
             Supervisor(execution.workspace), "harbor", author="coordinator:answer-turn"
         )
-        gate = await grant.call("get_task_input", {"project_id": "harbor", "task_id": run.task_id})
+        gate = await grant.call("get_task_input", {"task_id": run.task_id})
         binding = {key: gate.structuredContent[key] for key in ReplyBinding.model_fields}
         request = {
             "id": "answer-once",
@@ -572,13 +555,9 @@ def test_coordinator_relays_bound_answer_once_without_enabling_queue(tmp_path):
             "action": "answer",
             "author": "human",
         }
-        saved = await grant.call(
-            "reply_to_task", {"project_id": "harbor", "task_id": run.task_id, "request": request}
-        )
+        saved = await grant.call("reply_to_task", {"task_id": run.task_id, "request": request})
         assert not saved.isError, saved
-        repeated = await grant.call(
-            "reply_to_task", {"project_id": "harbor", "task_id": run.task_id, "request": request}
-        )
+        repeated = await grant.call("reply_to_task", {"task_id": run.task_id, "request": request})
         assert not repeated.isError
         assert repeated.structuredContent == saved.structuredContent
         answer = Questions(execution.workspace).get("harbor", question_record.id)

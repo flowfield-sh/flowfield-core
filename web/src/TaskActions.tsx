@@ -62,7 +62,7 @@ export function WorkerActions({
   changed: () => void;
 }) {
   const resource = useResource<Run>(
-    runId ? `projects/${projectId}/runs/${runId}` : null,
+    runId ? `workspaces/${projectId}/runs/${runId}` : null,
     refresh,
   );
   const [busy, setBusy] = useState(false);
@@ -78,13 +78,21 @@ export function WorkerActions({
     if (!run) return;
     setBusy(true);
     try {
-      setSaved(
-        await request<Run>(
-          `projects/${projectId}/runs/${run.id}/${action}`,
+      if (action === "stop") {
+        const stopped = await request<Run[]>(
+          `workspaces/${projectId}/tasks/${task.id}/stop`,
           "POST",
-          { expected_revision: run.revision, author: "human" },
-        ),
-      );
+          { expected_revision: task.revision, author: "human" },
+        );
+        setSaved(stopped.find((item) => item.id === run.id) ?? run);
+      } else
+        setSaved(
+          await request<Run>(
+            `workspaces/${projectId}/runs/${run.id}/${action}`,
+            "POST",
+            { expected_revision: run.revision, author: "human" },
+          ),
+        );
       if (action === "retry") setQueuedRevision(task.revision);
       resource.invalidate();
       changed();
@@ -109,16 +117,16 @@ export function WorkerActions({
           title={
             run.status === "uncertain"
               ? "Reconcile the worker process?"
-              : "Stop this worker?"
+              : "Stop this task?"
           }
-          description="Unfinished work is preserved. The project queue remains unchanged."
+          description="Unfinished work is preserved. Other tasks continue."
           action={() => void act("stop")}
         >
           {busy
-            ? "Stopping worker…"
+            ? "Stopping task…"
             : run.status === "uncertain"
               ? "Reconcile stopped process"
-              : "Stop worker"}
+              : "Stop task"}
         </ConfirmButton>
       )}
       {run &&

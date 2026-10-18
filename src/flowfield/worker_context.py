@@ -36,9 +36,9 @@ def enrich(db: sqlite3.Connection, run: Run, sections: dict[str, str]) -> None:
     # Freeze result-bound observations at claim. Later tests cannot be attributed to
     # an earlier assignment; successor code never inherits a claim that it was tested.
     observations = db.execute(
-        "SELECT data FROM task_replies WHERE project_id=? AND task_id=? "
+        "SELECT data FROM task_replies WHERE workspace_id=? AND task_id=? "
         "AND json_extract(data,'$.action')='observation' ORDER BY created_at,id",
-        (run.project_id, run.task_id),
+        (run.workspace_id, run.task_id),
     ).fetchall()
     sections["human_testing"] = (
         json.dumps(
@@ -55,9 +55,9 @@ def enrich(db: sqlite3.Connection, run: Run, sections: dict[str, str]) -> None:
     # summaries, with immutable submission evidence retained as separately retrievable text.
     rows = db.execute(
         "SELECT id,json_extract(data,'$.created_at') AS created_at,status,"
-        "json_extract(data,'$.result') AS report FROM runs WHERE project_id=? AND task_id=? "
+        "json_extract(data,'$.result') AS report FROM runs WHERE workspace_id=? AND task_id=? "
         "ORDER BY number",
-        (run.project_id, run.task_id),
+        (run.workspace_id, run.task_id),
     ).fetchall()
     sources = {}
     headers = []
@@ -105,8 +105,8 @@ def attempt_source(
     row = (
         db.execute(
             "SELECT json_extract(data,'$.result') FROM runs "
-            "WHERE project_id=? AND task_id=? AND id=?",
-            (run.project_id, run.task_id, identity),
+            "WHERE workspace_id=? AND task_id=? AND id=?",
+            (run.workspace_id, run.task_id, identity),
         ).fetchone()
         if digest
         else None
@@ -137,14 +137,13 @@ def brief_context(sections: dict[str, str]) -> dict[str, object]:
     candidates = (
         "input",
         "earlier_answers",
+        "task_intent",
+        "criteria",
+        "contribution",
         "correction",
         "validation",
         "documentation",
         "project",
-        "milestone",
-        "milestone_criteria",
-        "milestone_verification",
-        "milestone_agreement",
         "prerequisites",
         "files",
         "questions",
@@ -165,7 +164,9 @@ def brief_context(sections: dict[str, str]) -> dict[str, object]:
     policy = (
         "The description is the resolved task agreement. Inline context sections are complete "
         "frozen sources; use them directly. Use read_context for listed omitted sections and "
-        "truncated description/feedback before relying on them. Read omitted current input, "
+        "truncated description/feedback before relying on them. Read omitted "
+        "task_intent and criteria "
+        "for parent requirements, and omitted current input, "
         "constraints, validation, prerequisite evidence and unresolved concerns before acting. "
         "Retrieve historical evidence when relevant; it does not change the agreement. "
         "Do not request absent section names."

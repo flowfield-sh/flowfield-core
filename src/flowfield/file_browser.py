@@ -48,7 +48,6 @@ class FileWork(BaseModel):
     id: str
     title: str
     task_key: str | None = None
-    milestone_id: str | None = None
 
 
 class FileWorkPage(BaseModel):
@@ -66,12 +65,8 @@ class FileBrowser:
             rows = db.execute(
                 "WITH files AS (SELECT data FROM output_files WHERE workspace_id=?) "
                 "SELECT 'task:'||json_extract(data,'$.task_key') id, "
-                "json_extract(data,'$.task_key') task_key, NULL milestone_id, "
+                "json_extract(data,'$.task_key') task_key, "
                 "json_extract(data,'$.task_title') title FROM files GROUP BY task_key "
-                "UNION ALL SELECT 'milestone:'||json_extract(data,'$.milestone_id'), NULL, "
-                "json_extract(data,'$.milestone_id') milestone_id, "
-                "json_extract(data,'$.milestone_title') FROM files "
-                "WHERE milestone_id IS NOT NULL GROUP BY milestone_id "
                 "ORDER BY id LIMIT 51 OFFSET ?",
                 (workspace, offset),
             ).fetchall()
@@ -86,7 +81,6 @@ class FileBrowser:
         path: str = "",
         *,
         task_key: str | None = None,
-        milestone_id: str | None = None,
         sort: Literal["name", "newest", "type"] = "name",
         offset: int = 0,
     ) -> FileDirectory:
@@ -109,8 +103,7 @@ class FileBrowser:
                 "WITH paths AS (SELECT f.id,f.data,COALESCE(l.path,json_extract(f.data,'$.name')) "
                 "path,COALESCE(l.revision,1) revision FROM output_files f "
                 "LEFT JOIN output_locations l ON l.file_id=f.id WHERE f.workspace_id=? "
-                "AND (? IS NULL OR json_extract(f.data,'$.task_key')=?) "
-                "AND (? IS NULL OR json_extract(f.data,'$.milestone_id')=?)), "
+                "AND (? IS NULL OR json_extract(f.data,'$.task_key')=?)), "
                 "children AS (SELECT *,substr(path,?) rest FROM paths WHERE substr(path,1,?)=?), "
                 "folders AS (SELECT substr(rest,1,instr(rest,'/')-1) name FROM children "
                 "WHERE instr(rest,'/')>0 UNION SELECT "
@@ -126,8 +119,6 @@ class FileBrowser:
                     workspace,
                     task_key,
                     task_key,
-                    milestone_id,
-                    milestone_id,
                     len(prefix) + 1,
                     len(prefix),
                     prefix,

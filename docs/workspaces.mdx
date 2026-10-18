@@ -7,14 +7,14 @@ Create a workspace for work you want to plan together: research files, an API, i
 
 ## Create and adopt
 
-Choose **New workspace** from Home. Inside it, open **Projects → Add project → Choose directory**, select an existing repository and review the prefilled name, ID and task prefix. The three-letter prefix appears in task keys such as `API-1` and locks after the first task, including archived tasks.
+Choose **New workspace** from Home. Inside it, open **Projects → Add project → Choose directory**, select an existing repository and review the prefilled name and ID. Tasks use workspace-local keys such as `T-1` across all projects.
 
 The CLI uses the same registration:
 
 ```sh
 flowfield workspace create "Harbor"
-flowfield project init /absolute/path/catalog-api --workspace WORKSPACE_ID --prefix API
-flowfield project init /absolute/path/reader-app --workspace WORKSPACE_ID --prefix RDR
+flowfield project init /absolute/path/catalog-api --workspace WORKSPACE_ID
+flowfield project init /absolute/path/reader-app --workspace WORKSPACE_ID
 ```
 
 Replace `WORKSPACE_ID` with the returned workspace ID. Registration writes project identity to `.flowfield/config.toml`; it starts neither a model nor the queue. Before managed implementation, establish a committed repository baseline and [validate its integration settings](/worker-setup).
@@ -23,56 +23,35 @@ Existing registrations stay in their current workspace. Moving projects between 
 
 ## Find the work
 
-Opening a workspace takes you to **Inbox**. Choose **Tasks** for task columns and filters. The sidebar lists **Projects**, **Milestones**, **Tasks**, **Documents**, **Files**, **Archive** and **Settings** above **Work**, a compact list of milestones and standalone tasks. Tasks assigned to a milestone appear in its overview and in Tasks. **Show all** opens the All work list, including completed outcomes. Needs attention entries open the newest pending Inbox request for that task or milestone, including requests on its contributing tasks. The Work list scrolls independently, with queue controls below it. The top sidebar icons open Home and Global settings; the workspace selector below them switches conversations. Use the board background to drag overflowing task and milestone columns horizontally. Drag the left border of the content pane to resize the Coordinator.
+Opening a workspace takes you to **Inbox**. The sidebar provides **Projects**, **Tasks**, **Documents**, **Files**, **Archive** and **Settings**, plus a compact task list. Selecting a task opens that task beside the persistent Coordinator. The task list scrolls independently, with queue controls below it. Use the top sidebar icons for Home and Global settings, and the workspace selector to switch conversations. Drag the content pane border to resize the Coordinator.
 
 | View | Use it to |
 | --- | --- |
 | Tasks | Follow task state and execution priorities. |
 | Inbox | Answer questions, review results and resolve interventions. |
 | Projects | Add repositories, view a project's tasks and reach its settings. |
-| Milestones | Follow outcomes spanning several projects. |
 | Documents | Maintain shared guidance and references. |
 | Archive | Revisit work you set aside. |
 
-Work lists **Needs attention**, **In progress**, then **Planned**, keeping a stable order within each group. A milestone moves into Needs attention when it or one of its tasks has an unresolved Inbox request. Completed work remains in **All work**. Home shows each workspace’s Inbox count.
+Work lists **Needs attention**, **In progress**, then **Planned**, with stable ordering. Completed tasks remain available in **All work**. Home shows each workspace’s Inbox count.
 
-Task cards and their status links open the task’s **Overview**. Use **Activity** or an exact history link to inspect events. Filter Tasks and Archive by project, milestone or label. The URL preserves those filters for reload, sharing and browser history. Task, milestone and document views stay beside the same Coordinator; on phones, switch between **Work** and **Coordinator**.
+Task cards and sidebar links open the task itself, with its purpose and chronological feed. Filter Tasks and Archive by project or label. The URL preserves filters for reload, sharing and browser history. On phones, switch between **Work** and **Coordinator**.
 
 Sidebar and Coordinator links open or focus a resource tab. Links inside a work tab stay there, and its title follows the current view. Inbox resource links open independent work tabs; inner Inbox views and filters stay in Inbox. Use the **Back** icon beside the view title to return within that resource. Drag resource tabs to reorder them, or focus a tab and press Alt+Left/Right; Inbox stays first. Scroll overflowing tabs with the mouse wheel or trackpad; faded edges show where more tabs are available. Selecting a tab restores its current page; reopening its root from the sidebar returns to that resource's starting page. **Inbox** stays pinned and clicking it returns to the request list. Use **Open in work tab** for comparison: it creates an independent tab at the exact page you are viewing, with no inherited history. Back becomes available after navigating within that tab. Cmd/Ctrl-click a link for a native browser tab. Browser Back and Forward restore the tab and page from that navigation entry. Setup and settings open in the working area beside the Coordinator. Small model selectors remain popovers.
 
 Answers, review notes and document drafts stay bound to their original records when you switch or close resource tabs during the current browser session. Reloading or leaving the app warns about unsaved drafts. Only resource locations and layout preferences are stored in browser storage; draft contents stay in memory.
 
-## Keep a shared roadmap
+## Plan work together
 
-Describe the outcome to the Coordinator, which creates milestones and assigns tasks from different projects. Milestones appear under **Planned**, **In progress**, **Review** or **Complete**. A milestone with acceptance criteria reaches Complete after human acceptance and any configured promotion has been delivered; a lightweight group without delivery or criteria shows task completion. Its **Overview** leads with the outcome, current progress, acceptance criteria, available verification evidence and contributing tasks. **Activity** combines expandable definition revisions, verification rounds and their human decisions in one timeline. Overview’s **Delivery** labels the project and merge branches. **Settings** is a peer tab with separated **Integration** and **Reviewer** sections; the saved verification plan remains in Overview. Use **View tasks** or the task count on its card to open the filtered board.
+Use one task for an outcome such as implementing a feature, generating screenshots or producing a PDF. Tasks can depend on other tasks across the workspace. Larger tasks may contain a local graph of subtasks, disclosed within the task. The whole task owns review and delivery.
 
-Describe the intended outcome and, when useful, add **Acceptance criteria** for the complete experience. Keep each task's contribution in its own description. The task-based completion column reports progress; it does not verify those criteria.
-
-The **Revisions** sidebar opens earlier descriptions and acceptance criteria at stable links. Ask the Coordinator to revise the outcome or criteria; the pane preserves each saved version. When the Coordinator prepares a task, Flowfield saves the current milestone details as context for that worker. The task's description defines its specific contribution to the outcome.
-
-Later milestone edits leave prepared tasks intact and show **Milestone details changed** on affected unfinished work in Tasks and Inbox. The task header links directly to the milestone revision used at preparation; its tooltip identifies that revision. Ask the Coordinator to assess whether the task needs updating.
-
-### Verify and accept an outcome
-
-For an owned milestone branch, ask the Coordinator to prepare a verification plan alongside the tasks. Enable a milestone reviewer in workspace settings or that milestone's Settings. Once all contributions are delivered, Flowfield prepares the exact combined candidate, runs configured validation and schedules the reviewer through the shared queue. The reviewer checks the saved criteria and delivered contributions using code inspection and retained validation evidence. Missing runtime evidence or human judgment returns a question. Ordinary milestone groups can still use an explicit report task prepared by the Coordinator.
-
-Passing verification moves the milestone into **Review** and adds one acceptance request to Inbox. Reports lead with the outcome, limitations and **Checks**. Expand checks for evidence; **Details** contains inspection, exact criteria and contribution links. Status dots summarize the report and individual findings; hover or focus a dot for its status. Response controls and recovery hints sit at the bottom when action is needed. The same report and response controls are available in its standalone **Request** and the milestone’s **Activity** tab. For [owned milestone delivery](/tasks#assemble-and-review-a-milestone), use **Try milestone** and **Code changes** to inspect the combined candidate, then **Accept and promote** to deliver it to the project destination. Other milestones offer **Accept milestone** to record review of delivered versions. Enter feedback and **Request changes** when work needs correction. Neither action publishes a release.
-
-The milestone pane retains verification and review history. Changes to acceptance criteria, contributing tasks, their results or the verification plan make pending evidence out of date. Automatic verification binds fresh delivered inputs to a new report; changed criteria need a reconciled plan from the Coordinator. Earlier acceptance remains a historical receipt and does not accept the changed outcome. Explicit report tasks stay as historical reports when inputs change. Work in other repositories is unverified unless the verifier has deliberately prepared access and evidence.
-
-A milestone reviewer can return a failed check to its existing contributing task when the correction fits that task's unchanged agreement. The worker corrects the current milestone branch, its new result gets fresh task review and integration, and Flowfield verifies the new combined outcome. Earlier results, approvals and findings remain readable. Questions, changed intent and human change requests need your answer or a Coordinator turn; the Coordinator resumes planning when you send a message. It can reopen delivered work as Draft/Backlog and prepare the follow-up. Reopening alone starts no worker.
-
-When a correction changes a completed task's prerequisite, the milestone reviewer also checks that dependent work against its unchanged agreement. Specific passing evidence lets Flowfield record the dependency resolution in the same review. Needed fixes return to the responsible task; changes to intent or scope require your input. Earlier agreements, results and review evidence remain available.
-
-Milestone Activity opens the current or explicitly selected review. Its summary, check outcomes and material limitations support your decision; expand earlier activity rows for saved definitions and review rounds, or individual checks for evidence. Historical links and unsent review notes stay attached to their original report. For a coherent change, keep implementation, tests and documentation together; separate tasks when independent ownership or a real dependency helps delivery.
-
-Use [task dependencies](/tasks#dependencies) when one repository's work must finish before another can proceed. Milestones organize outcomes; dependencies connect individual tasks.
+Keep durable plans in workspace documents. The Coordinator maintains task definitions, priorities and dependencies as those plans become actionable.
 
 Labels are optional and shared across the workspace. Ask the Coordinator to maintain their names, colors, usage guidance and task assignments. A task can have several labels. Deleting a label removes current assignments while retaining its references in history.
 
 ## Configure at the right level
 
-- **Workspace settings** owns its name, queue, worker defaults, shared capacity, independent task and milestone reviewer settings, and the default for reviewed task integration into owned milestone branches. Milestones can override that default. The Coordinator can read these defaults while planning; changing them remains a human action.
+- **Workspace settings** owns the name, queue, worker defaults, shared capacity and task reviewer defaults. Task settings can override worker and reviewer choices. The Coordinator can read these defaults while planning; changing them remains a human action.
 - **Project settings** owns repository identity, description, worker-document defaults and Integration: branch, setup, checks and local result previews.
 - The **Coordinator input** owns its harness/model controls; task **Agent settings** can override the worker choice for subsequent attempts.
 

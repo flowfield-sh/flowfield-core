@@ -59,15 +59,16 @@ class InputEligibility(Record):
 PROJECTION = """
 WITH definitions AS (
     SELECT *, lag(data) OVER (ORDER BY revision) AS previous FROM task_revisions
-    WHERE project_id=:project AND task_id=:task
+    WHERE workspace_id=:project AND task_id=:task
 ), exchanges AS (
     SELECT r.*, lag(r.data) OVER (PARTITION BY r.question_id ORDER BY r.revision) AS previous
-    FROM question_revisions r JOIN questions q ON q.project_id=r.project_id AND q.id=r.question_id
-    WHERE q.project_id=:project AND q.task_id=:task
+    FROM question_revisions r JOIN questions q
+        ON q.workspace_id=r.workspace_id AND q.id=r.question_id
+    WHERE q.workspace_id=:project AND q.task_id=:task
 ), conversation AS (
     SELECT 'reply:'||id AS id, 'reply' AS kind, created_at,
         json_extract(data,'$.author') AS author, id AS source_id, NULL AS revision, data
-    FROM task_replies WHERE project_id=:project AND task_id=:task
+    FROM task_replies WHERE workspace_id=:project AND task_id=:task
         AND json_extract(data,'$.action')!='answer'
     UNION ALL
     SELECT 'definition:'||revision AS id, 'definition' AS kind,
@@ -95,25 +96,25 @@ WITH definitions AS (
         json_object('kind',a.kind,'body',a.body,'supersedes',a.supersedes,
           'question_id',a.question_id,'task_revision',a.task_revision,
           'superseded_by',(SELECT id FROM activity b WHERE b.supersedes=a.id))
-    FROM activity a WHERE project_id=:project AND task_id=:task AND kind!='event'
+    FROM activity a WHERE workspace_id=:project AND task_id=:task AND kind!='event'
     UNION ALL
     SELECT 'attempt:'||id, 'attempt', json_extract(data,'$.created_at'), 'worker', id,
         json_extract(data,'$.revision'), data
-    FROM runs WHERE project_id=:project AND task_id=:task
+    FROM runs WHERE workspace_id=:project AND task_id=:task
     UNION ALL
     SELECT 'result:'||id, 'result', json_extract(data,'$.created_at'), 'service', id,
         json_extract(data,'$.revision'), data
-    FROM result_versions WHERE project_id=:project AND task_id=:task
+    FROM result_versions WHERE workspace_id=:project AND task_id=:task
     UNION ALL
     SELECT 'approval:'||id, 'approval', json_extract(data,'$.approved_at'),
         coalesce(json_extract(data,'$.approved_by'),'human'), id,
         json_extract(data,'$.revision'), data
-    FROM result_versions WHERE project_id=:project AND task_id=:task
+    FROM result_versions WHERE workspace_id=:project AND task_id=:task
         AND json_extract(data,'$.approved_at') IS NOT NULL
     UNION ALL
     SELECT 'delivery:'||id, 'delivery', json_extract(data,'$.completed_at'),
         'service', id, json_extract(data,'$.revision'), data
-    FROM result_versions WHERE project_id=:project AND task_id=:task
+    FROM result_versions WHERE workspace_id=:project AND task_id=:task
         AND status='delivered' AND json_extract(data,'$.completed_at') IS NOT NULL
 )
 """
@@ -127,21 +128,21 @@ class Conversation:
     def __init__(self, workspace: Workspace):
         self.workspace = workspace
 
-    def _args(self, db: sqlite3.Connection, project_id: str, task_id: str) -> dict[str, str]:
-        task = self.workspace._activity_scope(db, project_id, task_id)
+    def _args(self, db: sqlite3.Connection, workspace_id: str, task_id: str) -> dict[str, str]:
+        task = self.workspace._activity_scope(db, workspace_id, task_id)
         assert task
-        return {"project": project_id, "task": task}
+        return {"project": workspace_id, "task": task}
 
     def page(
-        self, project_id: str, task_id: str, cursor: str | None = None, limit: int = 20
+        self, workspace_id: str, task_id: str, cursor: str | None = None, limit: int = 20
     ) -> ConversationPage:
         with self.workspace.connection() as db:
-            return self._page(db, project_id, task_id, cursor, limit)
+            return self._page(db, workspace_id, task_id, cursor, limit)
 
     def _page(
         self,
         db: sqlite3.Connection,
-        project_id: str,
+        workspace_id: str,
         task_id: str,
         cursor: str | None = None,
         limit: int = 20,
@@ -161,7 +162,7 @@ class Conversation:
                 stamp, identity = value
             except (ValueError, TypeError):
                 raise ApplicationError("invalid_cursor", "Invalid conversation cursor.") from None
-        args = self._args(db, project_id, task_id)
+        args = self._args(db, workspace_id, task_id)
         rows = db.execute(
             PROJECTION + f"SELECT {COLUMNS} FROM conversation "
             "WHERE :stamp='' OR (created_at,id)<(:stamp,:identity) "
@@ -178,7 +179,7 @@ class Conversation:
 
     def source(
         self,
-        project_id: str,
+        workspace_id: str,
         task_id: str,
         item_id: str,
         offset: int = 0,
@@ -187,7 +188,7 @@ class Conversation:
         if offset < 0:
             raise ApplicationError("invalid_offset", "Offset must be nonnegative.")
         with self.workspace.connection() as db:
-            args = self._args(db, project_id, task_id)
+            args = self._args(db, workspace_id, task_id)
             row = db.execute(
                 PROJECTION + f"SELECT {COLUMNS}, substr(data,:offset+1,6000) AS text "
                 "FROM conversation WHERE id=:id",
@@ -218,19 +219,23 @@ class Conversation:
             )
 
     def eligibility(
-        self, project_id: str, task_id: str, question_id: str | None = None
+        self, workspace_id: str, task_id: str, question_id: str | None = None
     ) -> InputEligibility:
         with self.workspace.connection() as db:
-            args = self._args(db, project_id, task_id)
+            args = self._args(db, workspace_id, task_id)
             return self._eligibility(db, args["project"], args["task"], question_id)
 
     def _eligibility(
-        self, db: sqlite3.Connection, project_id: str, task_id: str, question_id: str | None = None
+        self,
+        db: sqlite3.Connection,
+        workspace_id: str,
+        task_id: str,
+        question_id: str | None = None,
     ) -> InputEligibility:
         """Recheck inside the submit transaction; a read receipt never authorizes a write."""
         task = json.loads(
             db.execute(
-                "SELECT data FROM tasks WHERE project_id=? AND id=?", (project_id, task_id)
+                "SELECT data FROM tasks WHERE workspace_id=? AND id=?", (workspace_id, task_id)
             ).fetchone()[0]
         )
         result = InputEligibility(
@@ -239,14 +244,29 @@ class Conversation:
             task_revision=task["revision"],
             agreement_revision=task["agreement_revision"],
         )
+        question = db.execute(
+            "SELECT id,data FROM questions WHERE workspace_id=? AND task_id=? "
+            "AND status='open' AND (? IS NULL OR id=?) ORDER BY number LIMIT 1",
+            (workspace_id, task_id, question_id, question_id),
+        ).fetchone()
+        question_run = (
+            db.execute(
+                "SELECT subtask_id FROM runs WHERE workspace_id=? AND id=?",
+                (workspace_id, json.loads(question[1]).get("origin_run_id")),
+            ).fetchone()
+            if question
+            else None
+        )
+        subtask = question_run[0] if question_run else None
         run = db.execute(
-            "SELECT id FROM runs WHERE project_id=? AND task_id=? AND status IN (?,?,?,?)",
-            (project_id, task_id, *ACTIVE),
+            "SELECT id FROM runs WHERE workspace_id=? AND task_id=? AND status IN (?,?,?,?) "
+            "AND (? IS NULL OR subtask_id IS ?)",
+            (workspace_id, task_id, *ACTIVE, subtask, subtask),
         ).fetchone()
         version = db.execute(
-            "SELECT data FROM result_versions WHERE project_id=? AND task_id=? "
+            "SELECT data FROM result_versions WHERE workspace_id=? AND task_id=? "
             "ORDER BY version DESC LIMIT 1",
-            (project_id, task_id),
+            (workspace_id, task_id),
         ).fetchone()
         if version:
             value = json.loads(version[0])
@@ -265,9 +285,9 @@ class Conversation:
         if run:
             result.enabled, result.reason, result.run_id = False, "worker_owns_work", run[0]
         pending = db.execute(
-            "SELECT id FROM task_replies WHERE project_id=? AND task_id=? "
+            "SELECT id FROM task_replies WHERE workspace_id=? AND task_id=? "
             "AND json_extract(data,'$.status')='pending' ORDER BY created_at LIMIT 1",
-            (project_id, task_id),
+            (workspace_id, task_id),
         ).fetchone()
         if pending:
             result.enabled, result.reason, result.pending_reply_id = (
@@ -278,16 +298,11 @@ class Conversation:
         if task["archived"] or task["reconciliation_reason"]:
             result.enabled, result.reason = False, "reconcile_task"
         if db.execute(
-            "SELECT 1 FROM task_reviews WHERE project_id=? AND task_id=? "
+            "SELECT 1 FROM task_reviews WHERE workspace_id=? AND task_id=? "
             "AND status IN ('queued','preparing','running','uncertain')",
-            (project_id, task_id),
+            (workspace_id, task_id),
         ).fetchone():
             result.enabled, result.reason = False, "review_owns_result"
-        question = db.execute(
-            "SELECT id,data FROM questions WHERE project_id=? AND task_id=? "
-            "AND status='open' AND (? IS NULL OR id=?) ORDER BY number LIMIT 1",
-            (project_id, task_id, question_id, question_id),
-        ).fetchone()
         if question:
             result.question_id, result.question_revision = (
                 question[0],
@@ -297,14 +312,14 @@ class Conversation:
                 result.reason = "answer_expected"
         elif result.enabled:
             answered = db.execute(
-                "SELECT id,data FROM questions WHERE project_id=? AND task_id=? "
+                "SELECT id,data FROM questions WHERE workspace_id=? AND task_id=? "
                 "AND status='answered' AND (? IS NULL OR id=?) ORDER BY number LIMIT 1",
-                (project_id, task_id, question_id, question_id),
+                (workspace_id, task_id, question_id, question_id),
             ).fetchone()
             if answered:
                 from flowfield.input_delivery import question_delivery
 
-                delivery = question_delivery(db, project_id, answered[0])
+                delivery = question_delivery(db, workspace_id, answered[0])
                 if delivery is None or delivery.can_edit:
                     result.question_id = answered[0]
                     result.question_revision = json.loads(answered[1])["revision"]

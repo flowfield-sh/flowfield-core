@@ -77,7 +77,7 @@ class QuestionApply(BaseModel):
     model_config = ConfigDict(extra="forbid")
     expected_revision: int = Field(ge=1)
     expected_task_revision: int | None = Field(default=None, ge=1)
-    expected_project_revision: int | None = Field(default=None, ge=1)
+    expected_workspace_revision: int | None = Field(default=None, ge=1)
     description: Annotated[str, StringConstraints(max_length=200_000)] | None = None
     task_updates: list[QuestionTaskUpdate] = Field(default_factory=list, max_length=50)
     body: Annotated[str, StringConstraints(max_length=400_020)] | None = None
@@ -94,7 +94,7 @@ class QuestionWithdraw(BaseModel):
 
 class Question(QuestionCreate):
     model_config = ConfigDict(json_schema_serialization_defaults_required=True)
-    project_id: str
+    workspace_id: str
     task_key: str | None = None
     affected_task_keys: list[str] = Field(default_factory=list)
     status: Status = "open"
@@ -107,10 +107,9 @@ class Question(QuestionCreate):
     consumed_answer_revision: int | None = None
     correction_question_id: str | None = None
     delivery: InputDelivery | None = None
-    verification_url: str | None = None
     decision: str | None = None
     applied_task_revision: int | None = None
-    applied_project_revision: int | None = None
+    applied_workspace_revision: int | None = None
     applied_task_revisions: dict[str, int] = Field(default_factory=dict)
     created_at: str
     updated_at: str
@@ -128,14 +127,14 @@ class QuestionReference(BaseModel):
 
 
 def _pending_question_rows(
-    db: sqlite3.Connection, project_id: str, task_id: str | None, *, blocking_only: bool
+    db: sqlite3.Connection, workspace_id: str, task_id: str | None, *, blocking_only: bool
 ) -> list[sqlite3.Row]:
     return db.execute(
         "SELECT id,task_id,status,json_extract(data,'$.revision') AS revision, "
         "json_extract(data,'$.question') AS question, "
         "json_extract(data,'$.blocking_scope') AS blocking_scope, "
         "json_extract(data,'$.affected_task_ids') AS affected_task_ids FROM questions "
-        "WHERE project_id=? AND status IN ('open','answered') "
+        "WHERE workspace_id=? AND status IN ('open','answered') "
         + (
             "AND (task_id=? OR EXISTS (SELECT 1 FROM json_each(questions.data, "
             "'$.affected_task_ids') WHERE value=?)) "
@@ -144,32 +143,32 @@ def _pending_question_rows(
         )
         + ("AND json_extract(data,'$.blocking_scope') IS NOT NULL " if blocking_only else "")
         + "ORDER BY number",
-        (project_id, task_id, task_id) if task_id is not None else (project_id,),
+        (workspace_id, task_id, task_id) if task_id is not None else (workspace_id,),
     ).fetchall()
 
 
 def pending_questions(
-    db: sqlite3.Connection, project_id: str, task_id: str, *, blocking_only: bool = False
+    db: sqlite3.Connection, workspace_id: str, task_id: str, *, blocking_only: bool = False
 ) -> list[QuestionReference]:
     return [
-        QuestionReference(**dict(row), delivery=question_delivery(db, project_id, row["id"]))
-        for row in _pending_question_rows(db, project_id, task_id, blocking_only=blocking_only)
+        QuestionReference(**dict(row), delivery=question_delivery(db, workspace_id, row["id"]))
+        for row in _pending_question_rows(db, workspace_id, task_id, blocking_only=blocking_only)
     ]
 
 
 def blocking_questions(
-    db: sqlite3.Connection, project_id: str, task_id: str
+    db: sqlite3.Connection, workspace_id: str, task_id: str
 ) -> list[QuestionReference]:
-    return pending_questions(db, project_id, task_id, blocking_only=True)
+    return pending_questions(db, workspace_id, task_id, blocking_only=True)
 
 
 def project_blocking_questions(
-    db: sqlite3.Connection, project_id: str
+    db: sqlite3.Connection, workspace_id: str
 ) -> dict[str, list[QuestionReference]]:
     result: dict[str, list[QuestionReference]] = {}
-    for row in _pending_question_rows(db, project_id, None, blocking_only=True):
+    for row in _pending_question_rows(db, workspace_id, None, blocking_only=True):
         question = QuestionReference(
-            **dict(row), delivery=question_delivery(db, project_id, row["id"])
+            **dict(row), delivery=question_delivery(db, workspace_id, row["id"])
         )
         tasks = set(json.loads(row["affected_task_ids"] or "[]"))
         if row["task_id"] is not None:
@@ -184,68 +183,44 @@ class Questions:
         self.workspace = workspace
 
     def _get(
-        self, db: sqlite3.Connection, project_id: str, identity: str, revision: int | None = None
+        self, db: sqlite3.Connection, workspace_id: str, identity: str, revision: int | None = None
     ) -> Question:
         row = db.execute(
-            "SELECT data FROM questions WHERE project_id=? AND id=?"
+            "SELECT data FROM questions WHERE workspace_id=? AND id=?"
             if revision is None
             else (
                 "SELECT data FROM question_revisions "
-                "WHERE project_id=? AND question_id=? AND revision=?"
+                "WHERE workspace_id=? AND question_id=? AND revision=?"
             ),
-            (project_id, identity) if revision is None else (project_id, identity, revision),
+            (workspace_id, identity) if revision is None else (workspace_id, identity, revision),
         ).fetchone()
         if row is None:
             raise ApplicationError("not_found", "Question not found in this project.", 404)
         return Question.model_validate_json(row[0])
 
-    def get(self, project_id: str, identity: str, revision: int | None = None) -> Question:
+    def get(self, workspace_id: str, identity: str, revision: int | None = None) -> Question:
         with self.workspace.connection() as db:
-            result = self._get(db, project_id, identity, revision)
+            result = self._get(db, workspace_id, identity, revision)
             if revision is None:
-                result.delivery = question_delivery(db, project_id, identity)
-            if result.origin_run_id:
-                row = db.execute(
-                    "SELECT assignment FROM runs WHERE project_id=? AND id=?",
-                    (project_id, result.origin_run_id),
-                ).fetchone()
-                frozen = json.loads(row[0]).get("milestone_verification") if row else None
-                if frozen:
-                    verification = json.loads(frozen)
-                    result.verification_url = (
-                        f"/workspaces/{verification['workspace_id']}/milestones/"
-                        f"{verification['milestone_key']}?verification={verification['id']}"
-                    )
-            elif result.origin_review_id:
-                row = db.execute(
-                    "SELECT v.data FROM milestone_verifications v JOIN milestone_reviews r "
-                    "ON r.verification_id=v.id WHERE r.project_id=? AND r.id=?",
-                    (project_id, result.origin_review_id),
-                ).fetchone()
-                if row:
-                    verification = json.loads(row[0])
-                    result.verification_url = (
-                        f"/workspaces/{verification['workspace_id']}/milestones/"
-                        f"{verification['milestone_key']}?verification={verification['id']}"
-                    )
+                result.delivery = question_delivery(db, workspace_id, identity)
             return result
 
-    def counts(self, db: sqlite3.Connection, project_id: str) -> dict[str, int]:
+    def counts(self, db: sqlite3.Connection, workspace_id: str) -> dict[str, int]:
         from flowfield.attention import attention_counts
 
         return {
-            "needs_you_count": attention_counts(db, project_id).get("action", 0),
+            "needs_you_count": attention_counts(db, workspace_id).get("action", 0),
             "awaiting_application_count": db.execute(
-                "SELECT count(*) FROM questions WHERE project_id=? AND status='answered' "
+                "SELECT count(*) FROM questions WHERE workspace_id=? AND status='answered' "
                 "AND json_extract(data,'$.origin_run_id') IS NULL "
                 "AND json_extract(data,'$.origin_review_id') IS NULL",
-                (project_id,),
+                (workspace_id,),
             ).fetchone()[0],
         }
 
     def list(
         self,
-        project_id: str,
+        workspace_id: str,
         *,
         status: str = "active",
         task_id: str | None = None,
@@ -269,11 +244,11 @@ class Questions:
                 "Choose active, resolved, open, answered, assigned, applied, or withdrawn.",
             )
         with self.workspace.connection() as db:
-            self.workspace._work_scope(db, project_id)
-            where = "project_id=? AND number>?"
-            args: list[Any] = [project_id, after or 0]
+            self.workspace._workspace(db, workspace_id)
+            where = "workspace_id=? AND number>?"
+            args: list[Any] = [workspace_id, after or 0]
             if task_id:
-                task_id = self.workspace._activity_scope(db, project_id, task_id)
+                task_id = self.workspace._activity_scope(db, workspace_id, task_id)
                 where += (
                     " AND (task_id=? OR EXISTS (SELECT 1 FROM "
                     "json_each(questions.data, '$.affected_task_ids') WHERE value=?))"
@@ -300,7 +275,7 @@ class Questions:
                         {
                             "number": row["number"],
                             "delivery": delivery.model_dump()
-                            if (delivery := question_delivery(db, project_id, question.id))
+                            if (delivery := question_delivery(db, workspace_id, question.id))
                             else None,
                             **question.model_dump(
                                 include={
@@ -323,21 +298,21 @@ class Questions:
                 )
             return {
                 **page(items, limit, "number", budget=PAGE_BYTES - 200),
-                **self.counts(db, project_id),
+                **self.counts(db, workspace_id),
             }
 
     def history(
-        self, project_id: str, identity: str, *, before: int | None = None, limit: int = 10
+        self, workspace_id: str, identity: str, *, before: int | None = None, limit: int = 10
     ) -> dict[str, Any]:
         from flowfield.reads import excerpt, page, validate_page
 
         validate_page(limit, before)
         with self.workspace.connection() as db:
-            self._get(db, project_id, identity)
+            self._get(db, workspace_id, identity)
             rows = db.execute(
-                "SELECT data FROM question_revisions WHERE project_id=? AND question_id=? "
+                "SELECT data FROM question_revisions WHERE workspace_id=? AND question_id=? "
                 "AND revision<? ORDER BY revision DESC LIMIT ?",
-                (project_id, identity, before or 2**63 - 1, limit + 1),
+                (workspace_id, identity, before or 2**63 - 1, limit + 1),
             ).fetchall()
             return page(
                 [excerpt(Question.model_validate_json(r[0]).model_dump(), 1000) for r in rows],
@@ -346,20 +321,20 @@ class Questions:
             )
 
     def _save(self, db: sqlite3.Connection, question: Question, event: str) -> Question:
-        data = question.model_dump_json(exclude={"delivery", "verification_url"})
+        data = question.model_dump_json(exclude={"delivery"})
         db.execute(
-            "UPDATE questions SET status=?, data=? WHERE project_id=? AND id=?",
-            (question.status, data, question.project_id, question.id),
+            "UPDATE questions SET status=?, data=? WHERE workspace_id=? AND id=?",
+            (question.status, data, question.workspace_id, question.id),
         )
         db.execute(
             "INSERT INTO question_revisions VALUES (?, ?, ?, ?)",
-            (question.project_id, question.id, question.revision, data),
+            (question.workspace_id, question.id, question.revision, data),
         )
         scopes = [question.task_id] if question.task_id else [None, *question.affected_task_ids]
         for task_id in scopes:
             self.workspace._insert_activity(
                 db,
-                question.project_id,
+                question.workspace_id,
                 task_id,
                 uuid4().hex,
                 "event",
@@ -383,22 +358,24 @@ class Questions:
             }
         )
 
-    def ask(self, project_id: str, request: QuestionCreate) -> Question:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            return self._ask(db, project_id, request)
+    def ask(self, workspace_id: str, request: QuestionCreate) -> Question:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            return self._ask(db, workspace_id, request)
 
     def _ask(
         self,
         db: sqlite3.Connection,
-        project_id: str,
+        workspace_id: str,
         request: QuestionCreate,
         *,
         origin_run_id: str | None = None,
         origin_review_id: str | None = None,
     ) -> Question:
-        self.workspace._work_scope(db, project_id)
-        task = self.workspace._task(db, project_id, request.task_id) if request.task_id else None
-        affected = [self.workspace._task(db, project_id, key) for key in request.affected_task_ids]
+        self.workspace._workspace(db, workspace_id)
+        task = self.workspace._task(db, workspace_id, request.task_id) if request.task_id else None
+        affected = [
+            self.workspace._task(db, workspace_id, key) for key in request.affected_task_ids
+        ]
         affected = sorted({item.id: item for item in affected}.values(), key=lambda item: item.id)
         for item in [task] if task else affected:
             if item.archived or item.status == "done":
@@ -414,19 +391,19 @@ class Questions:
             }
         )
         if db.execute(
-            "SELECT 1 FROM questions WHERE project_id=? AND id=?", (project_id, request.id)
+            "SELECT 1 FROM questions WHERE workspace_id=? AND id=?", (workspace_id, request.id)
         ).fetchone():
-            original = self._get(db, project_id, request.id, 1)
+            original = self._get(db, workspace_id, request.id, 1)
             if (
                 original.model_dump(include=set(QuestionCreate.model_fields))
                 == normalized.model_dump()
             ):
-                return self._get(db, project_id, request.id)
+                return self._get(db, workspace_id, request.id)
             raise ApplicationError("question_conflict", "Question ID already used.", 409)
         stamp = datetime.now(UTC).isoformat()
         question = Question(
             **normalized.model_dump(),
-            project_id=project_id,
+            workspace_id=workspace_id,
             origin_run_id=origin_run_id,
             origin_review_id=origin_review_id,
             task_key=task.key if task else None,
@@ -436,19 +413,19 @@ class Questions:
             updated_by=request.author,
         )
         db.execute(
-            "INSERT INTO questions (project_id,id,task_id,status,data) VALUES (?,?,?,?,?)",
-            (project_id, question.id, question.task_id, "open", question.model_dump_json()),
+            "INSERT INTO questions (workspace_id,id,task_id,status,data) VALUES (?,?,?,?,?)",
+            (workspace_id, question.id, question.task_id, "open", question.model_dump_json()),
         )
         return self._save(db, question, "Input requested: " + question.question)
 
-    def answer(self, project_id: str, identity: str, request: QuestionAnswer) -> Question:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            return self._answer(db, project_id, identity, request)
+    def answer(self, workspace_id: str, identity: str, request: QuestionAnswer) -> Question:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            return self._answer(db, workspace_id, identity, request)
 
     def _answer(
-        self, db: sqlite3.Connection, project_id: str, identity: str, request: QuestionAnswer
+        self, db: sqlite3.Connection, workspace_id: str, identity: str, request: QuestionAnswer
     ) -> Question:
-        current = self._get(db, project_id, identity)
+        current = self._get(db, workspace_id, identity)
         # A replay of the exact preceding write is a receipt, not another continuation.
         if (
             (current.origin_run_id or current.origin_review_id)
@@ -460,7 +437,7 @@ class Questions:
                 (current.consumed_answer_revision or 0) - 1,
             )
         ):
-            current.delivery = question_delivery(db, project_id, identity)
+            current.delivery = question_delivery(db, workspace_id, identity)
             return current
         if current.continuation_run_id or current.consumed_answer_revision:
             raise ApplicationError(
@@ -489,15 +466,15 @@ class Questions:
             if current.origin_run_id or current.origin_review_id
             else "Answer saved; coordinator response needed.",
         )
-        question.delivery = question_delivery(db, project_id, identity)
+        question.delivery = question_delivery(db, workspace_id, identity)
         return question
 
-    def correct(self, project_id: str, identity: str, request: QuestionAnswer) -> Question:
+    def correct(self, workspace_id: str, identity: str, request: QuestionAnswer) -> Question:
         """A consumed answer is immutable; contradictory new input needs reconciliation."""
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            original = self._get(db, project_id, identity)
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            original = self._get(db, workspace_id, identity)
             if original.correction_question_id:
-                correction = self._get(db, project_id, original.correction_question_id)
+                correction = self._get(db, workspace_id, original.correction_question_id)
                 if correction.answer == request.answer:
                     return correction
             self.workspace._current(original.revision, request.expected_revision)
@@ -507,7 +484,7 @@ class Questions:
                 )
             correction = self._ask(
                 db,
-                project_id,
+                workspace_id,
                 QuestionCreate(
                     task_id=original.task_id,
                     question="Reconcile a correction to an earlier answer",
@@ -536,9 +513,9 @@ class Questions:
             self._save(db, original, "Correction recorded as new input; original answer retained.")
             return correction
 
-    def retract_answer(self, project_id: str, identity: str, request: AnswerRetract) -> Question:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            current = self._get(db, project_id, identity)
+    def retract_answer(self, workspace_id: str, identity: str, request: AnswerRetract) -> Question:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            current = self._get(db, workspace_id, identity)
             if current.origin_run_id or current.origin_review_id:
                 raise ApplicationError(
                     "managed_answer", "Edit pending input instead of retracting it.", 409
@@ -552,9 +529,9 @@ class Questions:
             )
             return self._save(db, question, "Answer retracted; question reopened.")
 
-    def follow_up(self, project_id: str, identity: str, request: QuestionFollowUp) -> Question:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            current = self._get(db, project_id, identity)
+    def follow_up(self, workspace_id: str, identity: str, request: QuestionFollowUp) -> Question:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            current = self._get(db, workspace_id, identity)
             if current.origin_run_id or current.origin_review_id:
                 raise ApplicationError(
                     "managed_answer", "Ask a new question; preserve managed input history.", 409
@@ -571,11 +548,11 @@ class Questions:
             )
             return self._save(db, question, "Follow-up requested: " + question.question)
 
-    def apply(self, project_id: str, identity: str, request: QuestionApply) -> Question:
+    def apply(self, workspace_id: str, identity: str, request: QuestionApply) -> Question:
         from flowfield.application import TaskEdit, TaskRevision
 
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            current = self._get(db, project_id, identity)
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            current = self._get(db, workspace_id, identity)
             if current.origin_run_id or current.origin_review_id:
                 raise ApplicationError(
                     "managed_answer",
@@ -586,20 +563,21 @@ class Questions:
                 raise ApplicationError("question_state", "Save an answer before applying it.", 409)
             self.workspace._current(current.revision, request.expected_revision)
             if current.task_id is None:
-                return self._apply_project(db, current, request)
+                return self._apply_workspace(db, current, request)
             if request.expected_task_revision is None:
                 raise ApplicationError(
                     "invalid_request", "Task application requires expected_task_revision."
                 )
             if (
-                request.expected_project_revision is not None
+                request.expected_workspace_revision is not None
                 or request.description is not None
                 or request.task_updates
             ):
                 raise ApplicationError(
-                    "invalid_request", "Project application fields do not apply to a task question."
+                    "invalid_request",
+                    "Workspace application fields do not apply to a task question.",
                 )
-            task = self.workspace._task(db, project_id, current.task_id)
+            task = self.workspace._task(db, workspace_id, current.task_id)
             self.workspace._current(task.revision, request.expected_task_revision)
             if task.archived:
                 raise ApplicationError(
@@ -625,7 +603,7 @@ class Questions:
                 self.workspace._apply_task(db, revised)
             self.workspace._insert_activity(
                 db,
-                project_id,
+                workspace_id,
                 task.id,
                 uuid4().hex,
                 "note",
@@ -635,29 +613,30 @@ class Questions:
                 question_id=identity,
             )
             question.applied_task_revision = db.execute(
-                "SELECT json_extract(data, '$.revision') FROM tasks WHERE project_id=? AND id=?",
-                (project_id, task.id),
+                "SELECT json_extract(data, '$.revision') FROM tasks WHERE workspace_id=? AND id=?",
+                (workspace_id, task.id),
             ).fetchone()[0]
             return self._save(db, question, "Answer applied.")
 
-    def _apply_project(
+    def _apply_workspace(
         self, db: sqlite3.Connection, current: Question, request: QuestionApply
     ) -> Question:
-        from flowfield.application import ProjectEdit, TaskEdit, TaskRevision
+        from flowfield.application import TaskEdit, TaskRevision
+        from flowfield.workspaces import WorkspaceEdit, Workspaces
 
-        if request.expected_project_revision is None:
+        if request.expected_workspace_revision is None:
             raise ApplicationError(
-                "invalid_request", "Project application requires expected_project_revision."
+                "invalid_request", "Workspace application requires expected_workspace_revision."
             )
         if request.expected_task_revision is not None or request.body is not None:
             raise ApplicationError(
                 "invalid_request",
-                "Use task_updates for affected tasks and description for project intent.",
+                "Use task_updates for affected tasks and description for workspace intent.",
             )
         revised_tasks = {}
         previous_revisions = {}
         for update in request.task_updates:
-            task = self.workspace._task(db, current.project_id, update.task_id)
+            task = self.workspace._task(db, current.workspace_id, update.task_id)
             if task.id in revised_tasks:
                 raise ApplicationError(
                     "invalid_request", "Each affected task may appear only once."
@@ -679,12 +658,12 @@ class Questions:
             raise ApplicationError(
                 "invalid_request", "Supply a fresh revision for every affected task, and no others."
             )
-        project = self.workspace._edit_project(
+        workspace = Workspaces(self.workspace)._edit(
             db,
-            current.project_id,
-            ProjectEdit.model_validate(
+            current.workspace_id,
+            WorkspaceEdit.model_validate(
                 {
-                    "expected_revision": request.expected_project_revision,
+                    "expected_revision": request.expected_workspace_revision,
                     "author": request.author,
                     **(
                         {"description": request.description}
@@ -708,11 +687,11 @@ class Questions:
             request.author,
             status="applied",
             decision=request.decision,
-            applied_project_revision=project.revision,
+            applied_workspace_revision=workspace.revision,
         )
         self.workspace._insert_activity(
             db,
-            current.project_id,
+            current.workspace_id,
             None,
             uuid4().hex,
             "event",
@@ -724,16 +703,16 @@ class Questions:
         question.applied_task_revisions = {
             row[0]: row[1]
             for row in db.execute(
-                "SELECT id, json_extract(data, '$.revision') FROM tasks WHERE project_id=?",
-                (current.project_id,),
+                "SELECT id, json_extract(data, '$.revision') FROM tasks WHERE workspace_id=?",
+                (current.workspace_id,),
             )
             if row[0] in revised_tasks
         }
-        return self._save(db, question, "Project answer applied.")
+        return self._save(db, question, "Workspace answer applied.")
 
-    def withdraw(self, project_id: str, identity: str, request: QuestionWithdraw) -> Question:
-        with self.workspace.connection(write=True, project_id=project_id) as db:
-            current = self._get(db, project_id, identity)
+    def withdraw(self, workspace_id: str, identity: str, request: QuestionWithdraw) -> Question:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            current = self._get(db, workspace_id, identity)
             if current.status not in ("open", "answered"):
                 raise ApplicationError("question_closed", "This question is already resolved.", 409)
             question = self._change(

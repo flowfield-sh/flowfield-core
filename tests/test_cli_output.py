@@ -16,7 +16,7 @@ from flowfield.errors import ApplicationError
 runner = CliRunner()
 
 
-def test_workspace_milestones_work_without_projects_and_page_exact_revisions(tmp_path):
+def test_workspace_tasks_work_without_projects_and_page_exact_revisions(tmp_path):
     with running_service(tmp_path / "state") as base:
         prefix = ["--port", base.rsplit(":", 1)[1]]
 
@@ -33,8 +33,8 @@ def test_workspace_milestones_work_without_projects_and_page_exact_revisions(tmp
         assert not invoke("workspace", "workers", "show", "--workspace", second["id"])["enabled"]
         assert not invoke("workspace", "workers", "pause", "--workspace", first["id"])["enabled"]
         body = "🦉" * 9000
-        milestone = invoke(
-            "milestone",
+        task = invoke(
+            "task",
             "create",
             "--workspace",
             first["id"],
@@ -45,25 +45,25 @@ def test_workspace_milestones_work_without_projects_and_page_exact_revisions(tmp
             "--acceptance-criteria",
             "Installed journey works",
         )
-        assert milestone["key"] == "M-1"
+        assert task["key"] == "T-1"
         assert invoke("project", "list")["items"] == []
-        listed = invoke("milestone", "list", "--workspace", first["id"], "--limit", "1")
-        assert [item["id"] for item in listed["items"]] == [milestone["id"]]
+        listed = invoke("task", "list", "--workspace", first["id"], "--limit", "1")
+        assert [item["id"] for item in listed["items"]] == [task["id"]]
         assert "body" not in listed["items"][0]
-        excerpt = invoke("milestone", "show", "m-1", "--workspace", first["id"])
+        excerpt = invoke("task", "show", "t-1", "--workspace", first["id"])
         assert excerpt["truncated_fields"]["body"]["total_characters"] == len(body)
-        text = invoke("milestone", "text", "M-1", "--workspace", first["id"], "--revision", "1")
+        text = invoke("task", "text", "T-1", "--workspace", first["id"], "--revision", "1")
         assert text["text"] == body[:4000] and text["next_offset"] == 4000
         assert (
-            invoke("milestone", "show", "M-1", "--workspace", second["id"], failure=True)["error"][
+            invoke("task", "show", "T-1", "--workspace", second["id"], failure=True)["error"][
                 "code"
             ]
             == "not_found"
         )
         changed = invoke(
-            "milestone",
+            "task",
             "edit",
-            "M-1",
+            "T-1",
             "--workspace",
             first["id"],
             "--title",
@@ -72,12 +72,12 @@ def test_workspace_milestones_work_without_projects_and_page_exact_revisions(tmp
             "1",
         )
         assert changed["revision"] == 2
-        retained = invoke("milestone", "text", "M-1", "--workspace", first["id"], "--revision", "1")
+        retained = invoke("task", "text", "T-1", "--workspace", first["id"], "--revision", "1")
         assert retained["text"] == body[:4000]
         criteria = invoke(
-            "milestone",
+            "task",
             "text",
-            "M-1",
+            "T-1",
             "--workspace",
             first["id"],
             "--field",
@@ -87,11 +87,31 @@ def test_workspace_milestones_work_without_projects_and_page_exact_revisions(tmp
         )
         assert criteria["text"] == "Installed journey works"
         history = runner.invoke(
-            app, [*prefix, "milestone", "history", "M-1", "--workspace", first["id"]]
+            app, [*prefix, "task", "revisions", "T-1", "--workspace", first["id"]]
         )
         assert history.exit_code == 0 and "Revision 1" in history.output
-        missing = runner.invoke(app, [*prefix, "milestone", "list"])
+        missing = runner.invoke(app, [*prefix, "task", "list"])
         assert missing.exit_code == 2 and "--workspace" in unstyle(missing.output)
+        child = invoke(
+            "task",
+            "subtask",
+            "create",
+            "T-1",
+            "--workspace",
+            first["id"],
+            "--title",
+            "Research launch",
+            "--body",
+            "Collect the launch facts",
+            "--completion",
+            "report",
+        )
+        assert child["key"] == "S-1"
+        listing = runner.invoke(
+            app, [*prefix, "task", "subtask", "list", "T-1", "--workspace", first["id"]]
+        )
+        assert listing.exit_code == 0, listing.output
+        assert "Research launch" in listing.output and "Pending" in listing.output
 
 
 def test_human_reads_cover_real_service_shapes_and_json(tmp_path):
@@ -122,11 +142,10 @@ def test_human_reads_cover_real_service_shapes_and_json(tmp_path):
         assert "changed_files" not in json.loads(guidance_json.stdout)
         guidance = invoke("project", "guidance", "remove", "--project", "harbor")
         assert "removed" in guidance.stdout
-        invoke("task", "create", "--project", "harbor", "--id", "export", "--title", "CSV export")
-        invoke("task", "note", "export", "--project", "harbor", "--body", "CSV evidence")
         invoke(
-            "milestone", "create", "--workspace", space["id"], "--id", "launch", "--title", "Launch"
+            "task", "create", "--workspace", space["id"], "--id", "export", "--title", "CSV export"
         )
+        invoke("task", "note", "export", "--workspace", space["id"], "--body", "CSV evidence")
         invoke(
             "harness",
             "configure",
@@ -148,11 +167,9 @@ def test_human_reads_cover_real_service_shapes_and_json(tmp_path):
             (["task", "activity", "export"], "CSV evidence"),
             (["task", "revisions", "export"], "Revision 1"),
             (["task", "relationships", "export"], "No items yet."),
-            (["project", "search", "CSV", "--limit", "1"], "More available: --before"),
-            (["project", "search", "unfindable"], "No matching evidence."),
+            (["workspace", "search", "CSV", "--limit", "1"], "More available: --before"),
+            (["workspace", "search", "unfindable"], "No matching evidence."),
             (["workspace", "coordinator-history"], "No saved coordinator exchanges."),
-            (["milestone", "list"], "Launch"),
-            (["milestone", "show", "launch"], "Launch"),
             (["inbox", "list"], "No questions in this view."),
             (["workspace", "workers", "show"], "Queue paused"),
             (["task", "runs", "list"], "No attempts yet."),
@@ -163,7 +180,8 @@ def test_human_reads_cover_real_service_shapes_and_json(tmp_path):
         for args, expected in cases:
             args += (
                 ["--workspace", space["id"]]
-                if args[0] in {"milestone", "workspace"}
+                if args[0] in {"task", "workspace", "inbox", "status"}
+                or args[:3] == ["project", "integration", "list"]
                 else ["--project", "harbor"]
                 if args != ["project", "list"]
                 else []
@@ -290,7 +308,7 @@ def test_results_keep_pagination_visible_without_json(monkeypatch):
     payload = {
         "items": [
             {
-                "task_key": "HAR-1",
+                "task_key": "T-1",
                 "version": 2,
                 "status": "ready",
                 "id": "result-one",
@@ -301,7 +319,7 @@ def test_results_keep_pagination_visible_without_json(monkeypatch):
         "next_before": 2,
     }
     monkeypatch.setattr(Client, "request", lambda *args, **kwargs: payload)
-    args = ["task", "results", "list", "HAR-1", "--project", "harbor"]
+    args = ["task", "results", "list", "T-1", "--workspace", "harbor"]
     human = runner.invoke(app, args)
     assert human.exit_code == 0
     assert "Result v2" in human.stdout and "More: --before 2" in human.stdout

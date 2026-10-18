@@ -4,17 +4,12 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from lifecycle_fixtures import run_report
 from project_fixtures import adopt, existing_directory, task_request
 
 from flowfield.activity import ActivityCreate
 from flowfield.api import create_app
-from flowfield.application import (
-    ProjectSetup,
-    TaskEdit,
-    TaskPriority,
-    TaskProgress,
-    Workspace,
-)
+from flowfield.application import ProjectSetup, TaskEdit, TaskPriority, Workspace
 from flowfield.errors import ApplicationError
 
 
@@ -29,7 +24,7 @@ def workspace(tmp_path: Path) -> Workspace:
 def test_activity_does_not_change_agreement_and_important_events_are_atomic(tmp_path: Path) -> None:
     service = workspace(tmp_path)
     original = service.task("harbor", "one")
-    note = ActivityCreate(id="retry-note", task_id="HAR-1", body="**Finding:** reuse serializer.")
+    note = ActivityCreate(id="retry-note", task_id="T-1", body="**Finding:** reuse serializer.")
     entry = service.add_activity("harbor", note)
     assert service.add_activity("harbor", note) == entry
     with pytest.raises(ApplicationError, match="already used"):
@@ -43,23 +38,28 @@ def test_activity_does_not_change_agreement_and_important_events_are_atomic(tmp_
     # Description edits are recorded; ordering within a column is not.
     assert len(service.activity("harbor", task_id="one").items) == 3
     assert service.activity("harbor", task_id="one").items[0].body == "Description updated."
-    service.record_progress(
-        "harbor", "one", TaskProgress(expected_revision=3, status="in_progress")
-    )
-    assert service.activity("harbor", task_id="one").items[0].body == "Backlog → In progress."
+    active = run_report(service, "harbor", "one", expected_revision=3, status="in_progress")
+    assert service.activity("harbor", task_id="one").items[0].body == "Up next → In progress."
     snapshot = service.activity("harbor", task_id="one")
     with pytest.raises(ApplicationError):
-        service.edit_task("harbor", "one", TaskEdit(expected_revision=4, dependencies=["missing"]))
+        service.edit_task(
+            "harbor", "one", TaskEdit(expected_revision=active.revision, dependencies=["missing"])
+        )
     assert service.activity("harbor", task_id="one") == snapshot
-    service.record_progress(
-        "harbor", "one", TaskProgress(expected_revision=4, status="done", completion="report")
+    done = run_report(
+        service,
+        "harbor",
+        "one",
+        expected_revision=active.revision,
+        status="done",
+        completion="report",
     )
-    service.edit_task("harbor", "one", TaskEdit(expected_revision=5, archived=True))
+    service.edit_task("harbor", "one", TaskEdit(expected_revision=done.revision, archived=True))
     service.add_activity(
         "harbor", ActivityCreate(task_id="one", body="Archived result remains useful.")
     )
     assert service.activity("harbor", task_id="one").items[1].body == "Task archived."
-    assert Workspace(tmp_path / "state").activity("harbor", task_id="HAR-1") == service.activity(
+    assert Workspace(tmp_path / "state").activity("harbor", task_id="T-1") == service.activity(
         "harbor", task_id="one"
     )
 
@@ -92,21 +92,21 @@ def test_http_activity_validates_and_preserves_scope(tmp_path: Path) -> None:
             json={"path": existing_directory(str(tmp_path / "harbor"))},
         )
         client.post(
-            "/api/projects/harbor/tasks",
+            f"/api/workspaces/{space}/tasks",
             json={"title": "CSV"},
         )
-        endpoint = "/api/projects/harbor/activity"
+        endpoint = f"/api/workspaces/{space}/activity"
         for entry in [
             {"body": "project note"},
-            {"task_id": "HAR-1", "body": "  "},
-            {"task_id": "HAR-1", "kind": "event", "body": "Fake completion"},
-            {"task_id": "HAR-1", "body": "Note", "supersedes": "old"},
+            {"task_id": "T-1", "body": "  "},
+            {"task_id": "T-1", "kind": "event", "body": "Fake completion"},
+            {"task_id": "T-1", "body": "Note", "supersedes": "old"},
         ]:
             assert client.post(endpoint, json=entry).status_code == 422
         response = client.post(
             endpoint,
             json={
-                "task_id": "HAR-1",
+                "task_id": "T-1",
                 "kind": "note",
                 "body": "# Export\n\nInclude **all columns**.",
             },
@@ -114,7 +114,7 @@ def test_http_activity_validates_and_preserves_scope(tmp_path: Path) -> None:
         assert response.status_code == 201
         entry = response.json()
         assert client.get(endpoint + "/" + entry["id"]).json() == entry
-        assert client.get(endpoint, params={"task_id": "HAR-1", "current_only": True}).json()[
+        assert client.get(endpoint, params={"task_id": "T-1", "current_only": True}).json()[
             "items"
         ] == [entry]
         assert client.get(endpoint).json()["items"] == []

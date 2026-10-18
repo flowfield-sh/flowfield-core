@@ -36,8 +36,13 @@ def test_optional_shared_labels_preserve_running_assignment_and_history(tmp_path
     assert tagged.labels == sorted(["bug", custom.id])
     assert tagged.agreement_revision == task.agreement_revision
     assert tagged.publication == task.publication
-    sibling = store.create_task("site", task_request(title="Release site", labels=[custom.id]))
-    assert store.create_task("site", task_request(title="Unclassified")).labels == []
+    sibling = store.create_task(
+        "harbor", task_request(project_id="site", title="Release site", labels=[custom.id])
+    )
+    assert (
+        store.create_task("harbor", task_request(project_id="site", title="Unclassified")).labels
+        == []
+    )
     run = execution.claim("harbor", BASE, {BASE: set()})
     original_assignment = execution.assignment("harbor", run.id)
     changed = labels.edit("harbor", custom.id, LabelEdit(expected_revision=1, name="Launch"))
@@ -53,7 +58,7 @@ def test_optional_shared_labels_preserve_running_assignment_and_history(tmp_path
     assert current.agreement_revision == task.agreement_revision
     assert current.publication == task.publication
     assert current.reconciliation_reason is None
-    assert store.task("site", sibling.id).labels == []
+    assert store.task("harbor", sibling.id).labels == []
     assert any(custom.id in revision.labels for revision in current.revisions)
     assert execution.assignment("harbor", run.id) == original_assignment
     assert labels.page("harbor")["items"] and all(
@@ -61,7 +66,9 @@ def test_optional_shared_labels_preserve_running_assignment_and_history(tmp_path
     )
     with pytest.raises(ApplicationError, match="existing workspace label"):
         store.edit_task(
-            "site", sibling.id, TaskEdit(expected_revision=sibling.revision + 1, labels=[custom.id])
+            "harbor",
+            sibling.id,
+            TaskEdit(expected_revision=sibling.revision + 1, labels=[custom.id]),
         )
     assert labels.create("harbor", LabelCreate(name="Launch")).id != custom.id
     assert [v["id"] for v in ContextReads(store).tasks("harbor", label_id="bug")["items"]] == [
@@ -77,15 +84,15 @@ def test_label_scope_and_assign_delete_race(tmp_path):
     spaces.adopt(first.id, ProjectSetup(path=existing_directory(tmp_path / "core")))
     labels = Labels(store)
     foreign = labels.create(second.id, LabelCreate(name="Private"))
-    task = store.create_task("core", task_request(title="Task"))
+    task = store.create_task(first.id, task_request(title="Task"))
     with pytest.raises(ApplicationError, match="not found"):
-        store.edit_task("core", task.id, TaskEdit(expected_revision=1, labels=[foreign.id]))
+        store.edit_task(first.id, task.id, TaskEdit(expected_revision=1, labels=[foreign.id]))
     custom = labels.create(first.id, LabelCreate(name="Race"))
 
     def assign():
         try:
             return store.edit_task(
-                "core", task.id, TaskEdit(expected_revision=1, labels=[custom.id])
+                first.id, task.id, TaskEdit(expected_revision=1, labels=[custom.id])
             )
         except ApplicationError as error:
             assert error.code == "label_deleted"
@@ -95,7 +102,7 @@ def test_label_scope_and_assign_delete_race(tmp_path):
         deleted = pool.submit(labels.delete, first.id, custom.id, Edit(expected_revision=1))
         assigned.result()
         assert deleted.result().deleted_at
-    assert store.task("core", task.id).labels == []
+    assert store.task(first.id, task.id).labels == []
 
 
 def test_label_http_and_coordinator_tools_are_revision_guarded_and_bounded(tmp_path):
@@ -178,7 +185,7 @@ def test_cli_repeated_labels_clear_and_discover(monkeypatch):
         [
             "task",
             "create",
-            "--project",
+            "--workspace",
             "core",
             "--title",
             "Task",
@@ -191,15 +198,15 @@ def test_cli_repeated_labels_clear_and_discover(monkeypatch):
         [
             "task",
             "edit",
-            "COR-1",
-            "--project",
+            "T-1",
+            "--workspace",
             "core",
             "--expected-revision",
             "1",
             "--no-labels",
             "--json",
         ],
-        ["task", "list", "--project", "core", "--label", "bug", "--json"],
+        ["task", "list", "--workspace", "core", "--label", "bug", "--json"],
     ):
         result = runner.invoke(app, arguments)
         assert result.exit_code == 0, result.output

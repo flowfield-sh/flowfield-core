@@ -78,16 +78,25 @@ export function EntityPane({
       requestAnimationFrame(() => {
         // History can reopen a task while the prior tab/button has focus. Return
         // to its visible collection entry, and never steal from a newer pane.
-        if (document.querySelector(".entity-pane")) return;
         const entry = [
-          ...(scope?.querySelectorAll<HTMLAnchorElement>("a[href]") ?? []),
+          ...((scope ?? document).querySelectorAll<HTMLAnchorElement>(
+            "a[href]",
+          ) ?? []),
         ].find(
           (link) =>
             (link.pathname === returnFocusHref ||
               link.pathname.startsWith(returnFocusHref + "/")) &&
             link.getClientRects().length > 0,
         );
-        const target = entry ?? opener.current;
+        const target =
+          opener.current?.isConnected &&
+          opener.current.getClientRects().length > 0
+            ? opener.current
+            : entry;
+        const currentPane = [...document.querySelectorAll(".entity-pane")]
+          .filter((pane) => pane.getClientRects().length > 0)
+          .at(-1);
+        if (currentPane && !currentPane.contains(target ?? null)) return;
         if (target?.isConnected) target.focus({ preventScroll: true });
       });
     },

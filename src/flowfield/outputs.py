@@ -55,13 +55,8 @@ class Outputs:
             return []
         if len({item.path for item in selections}) != len(selections):
             raise ApplicationError("output_duplicate", "Submit each file only once.")
-        owner = self.store._project_workspace(db, run.project_id)
-        task = self.store._task(db, run.project_id, run.task_id)
-        milestone = (
-            self.store._milestone(db, run.project_id, task.milestone_id)
-            if task.milestone_id
-            else None
-        )
+        owner = run.workspace_id
+        task = self.store._task(db, run.workspace_id, run.task_id)
         row = db.execute("SELECT data FROM execution_local WHERE run_id=?", (run.id,)).fetchone()
         metadata = json.loads(row[0]) if row else {}
         if not metadata.get("runtime"):
@@ -69,20 +64,15 @@ class Outputs:
         source = Path(metadata["runtime"]) / "output"
         copied: list[OutputFile] = []
         total = 0
-        # Files are durable before the transaction publishes references. An interrupted
-        # transaction may leave unreferenced bytes, never a successful missing output.
-        # Retention is deliberate; do not sweep orphan candidates during ordinary startup.
+        # Publish references only after immutable bytes are durable.
         for selection in selections:
             value = OutputFile(
                 id=uuid4().hex,
                 workspace_id=owner,
-                scope_id=run.project_id,
-                project_id=self.store._work_scope(db, run.project_id).project_id,
+                project_id=run.project_id,
                 task_id=task.id,
                 task_key=task.key,
                 task_title=task.title,
-                milestone_id=task.milestone_id,
-                milestone_title=milestone.title if milestone else None,
                 run_id=run.id,
                 name=selection.path,
                 description=selection.description,
@@ -150,19 +140,39 @@ class Outputs:
         return [
             Outputs._present(db, OutputFile.model_validate_json(row[0]))
             for row in db.execute(
-                "SELECT data FROM output_files WHERE run_id=? ORDER BY number", (run_id,)
+                "SELECT o.data FROM output_files o WHERE o.run_id=? OR EXISTS "
+                "(SELECT 1 FROM result_versions v,json_each(v.data,'$.output_ids') f "
+                "WHERE v.run_id=? AND f.value=o.id) ORDER BY o.number",
+                (run_id, run_id),
             )
         ]
 
     @staticmethod
     def _present(db: sqlite3.Connection, file: OutputFile) -> OutputFile:
         row = db.execute(
-            "SELECT id,version,status FROM result_versions WHERE run_id=? ORDER BY version LIMIT 1",
-            (file.run_id,),
+            "SELECT v.id,v.version,v.status FROM result_versions "
+            "v,json_each(v.data,'$.output_ids') f "
+            "WHERE v.workspace_id=? AND f.value=? ORDER BY v.version DESC LIMIT 1",
+            (file.workspace_id, file.id),
         ).fetchone()
         if row:
             file.result_id, file.result_version, file.result_status = row
         return file
+
+    @staticmethod
+    def selected(
+        db: sqlite3.Connection, workspace_id: str, identities: list[str]
+    ) -> list[OutputFile]:
+        files = []
+        for identity in dict.fromkeys(identities):
+            row = db.execute(
+                "SELECT data FROM output_files WHERE workspace_id=? AND id=?",
+                (workspace_id, identity),
+            ).fetchone()
+            if not row:
+                raise ApplicationError("output_missing", "A selected output is unavailable.", 409)
+            files.append(Outputs._present(db, OutputFile.model_validate_json(row[0])))
+        return files
 
     def get(self, workspace_id: str, identity: str) -> OutputFile:
         with self.store.connection() as db:
@@ -181,7 +191,6 @@ class Outputs:
         before: int | None = None,
         limit: int = 30,
         task_key: str | None = None,
-        milestone_id: str | None = None,
     ) -> OutputPage:
         from flowfield.workspaces import Workspaces
 
@@ -192,7 +201,6 @@ class Outputs:
                 "SELECT number,data FROM output_files WHERE workspace_id=? "
                 "AND (? IS NULL OR number<?) "
                 "AND (? IS NULL OR json_extract(data,'$.task_key')=?) "
-                "AND (? IS NULL OR json_extract(data,'$.milestone_id')=?) "
                 "ORDER BY number DESC LIMIT ?",
                 (
                     workspace_id,
@@ -200,8 +208,6 @@ class Outputs:
                     before,
                     task_key,
                     task_key,
-                    milestone_id,
-                    milestone_id,
                     limit + 1,
                 ),
             ).fetchall()

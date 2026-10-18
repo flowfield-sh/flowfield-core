@@ -91,21 +91,21 @@ export function useResource<T>(
     function updated(event: Event) {
       const update = (
         event as CustomEvent<{
-          projects?: string[] | null;
+          workspaces?: string[] | null;
           activity?: [string, string][];
           coordinator_activity?: [string, string][];
         }>
       ).detail;
       if (
-        update.projects === null ||
-        update.projects?.includes(projectId!) ||
+        update.workspaces === null ||
+        update.workspaces?.includes(workspaceId ?? projectId!) ||
         update.coordinator_activity?.some(
           ([workspace, turn]) =>
             workspace === workspaceId && turn === attemptId,
         ) ||
         update.activity?.some(
           ([project, attempt]) =>
-            project === projectId && attempt === attemptId,
+            project === (workspaceId ?? projectId) && attempt === attemptId,
         )
       )
         void read();

@@ -8,7 +8,6 @@ from flowfield.agent_models import AgentChoice, EffectiveAgent
 from flowfield.document_models import DocumentSnapshot
 from flowfield.harness_models import HarnessLaunch
 from flowfield.output_models import OutputSelection
-from flowfield.verification_report import VerificationReport
 
 ACTIVE = ("preparing", "running", "stopping", "uncertain")
 RunStatus = Literal[
@@ -22,20 +21,12 @@ RunStatus = Literal[
     "in_review",
     "changes_requested",
     "accepted",
+    "contributed",
 ]
 
 
 class Record(BaseModel):
     model_config = ConfigDict(extra="forbid", json_schema_serialization_defaults_required=True)
-
-
-class WorkerSettings(Record):
-    project_id: str
-    revision: int = 1
-    selection: AgentChoice | None = None
-    max_parallel: int = 1
-    enabled: bool = False
-    problem: str | None = None
 
 
 class WorkspaceWorkerSettings(Record):
@@ -44,6 +35,7 @@ class WorkspaceWorkerSettings(Record):
     selection: AgentChoice | None = None
     max_parallel: int = 1
     enabled: bool = False
+    problem: str | None = None
 
 
 class WorkerOccupancy(Record):
@@ -70,7 +62,6 @@ class RunAction(Record):
 
 class WorkerResult(Record):
     files: list[OutputSelection] = Field(default_factory=list, max_length=32)
-    verification: VerificationReport | None = None
     summary: str = Field(min_length=1, max_length=8000)
     checks: str = Field(min_length=1, max_length=8000)
     limitations: str = Field(default="", max_length=8000)
@@ -133,16 +124,19 @@ class Correction(Record):
 
 
 class Run(Record):
-    model_config = ConfigDict(extra="ignore")
     agent_settings: EffectiveAgent | None = None
     applied_agent: AgentChoice | None = None
     # Nonsecret observed native adapter locations; external credentials/files are not frozen.
     harness_launch: HarnessLaunch | None = None
     id: str
-    project_id: str
+    workspace_id: str
+    project_id: str | None = None
     task_id: str
+    subtask_id: str | None = None
     task_key: str
-    purpose: Literal["work"] = "work"
+    assembly_id: str | None = None
+    subtask_revision: int | None = None
+    purpose: Literal["work", "assembly"] = "work"
     reply_id: str | None = None
     revision: int = 1
     status: RunStatus = "preparing"

@@ -77,7 +77,7 @@ export function NewWorkspace({
       <ContentStack space="section" className="pane-form">
         <p>
           A workspace brings projects together around one Coordinator, shared
-          milestones and a board. You can add projects after creating it.
+          tasks and a board. You can add projects after creating it.
         </p>
         <form
           onSubmit={async (event) => {

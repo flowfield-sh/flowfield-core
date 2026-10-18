@@ -35,7 +35,7 @@ class TaskHistoryPage(Record):
 
 _PROJECTION = """
 WITH selected AS (
-    SELECT * FROM result_versions v WHERE project_id=:project AND task_id=:task
+    SELECT * FROM result_versions v WHERE workspace_id=:project AND task_id=:task
 ), history AS (
     SELECT 'worker:'||r.id AS id, 'worker' AS kind,
         CASE WHEN json_extract(r.data,'$.input_question_id') IS NOT NULL
@@ -51,7 +51,7 @@ WITH selected AS (
         r.id AS run_id, NULL AS integration_id, v.id AS result_id, v.version
     FROM runs r LEFT JOIN selected v ON v.run_id=r.id AND NOT EXISTS (
         SELECT 1 FROM selected n WHERE n.run_id=r.id AND n.version>v.version)
-    WHERE r.project_id=:project AND r.task_id=:task
+    WHERE r.workspace_id=:project AND r.task_id=:task
     UNION ALL
     SELECT 'validation:'||i.id, 'validation',
         CASE WHEN json_extract(i.data,'$.purpose')='availability' THEN 'Revalidate target for v'
@@ -88,21 +88,21 @@ class ExecutionHistory:
     def __init__(self, workspace: Workspace):
         self.workspace = workspace
 
-    def _args(self, db: sqlite3.Connection, project_id: str, task_id: str) -> dict[str, str]:
-        identity = self.workspace._activity_scope(db, project_id, task_id)
+    def _args(self, db: sqlite3.Connection, workspace_id: str, task_id: str) -> dict[str, str]:
+        identity = self.workspace._activity_scope(db, workspace_id, task_id)
         assert identity is not None
-        return {"project": project_id, "task": identity}
+        return {"project": workspace_id, "task": identity}
 
     def page(
         self,
-        project_id: str,
+        workspace_id: str,
         task_id: str,
         offset: int = 0,
         limit: int = 20,
         run_id: str | None = None,
     ) -> ExecutionPage:
         with self.workspace.connection() as db:
-            args = self._args(db, project_id, task_id)
+            args = self._args(db, workspace_id, task_id)
             rows = db.execute(
                 _PROJECTION + "SELECT * FROM history WHERE (:run IS NULL OR run_id=:run) "
                 "ORDER BY created_at DESC,id "
@@ -116,7 +116,7 @@ class ExecutionHistory:
 
     def timeline(
         self,
-        project_id: str,
+        workspace_id: str,
         task_id: str,
         offset: int = 0,
         limit: int = 30,
@@ -125,7 +125,7 @@ class ExecutionHistory:
         """Page one chronology before hydrating entries; checks nest under attempts."""
         with self.workspace.connection() as db:
             args = {
-                **self._args(db, project_id, task_id),
+                **self._args(db, workspace_id, task_id),
                 "mode": mode,
                 "limit": limit + 1,
                 "offset": offset,
@@ -137,7 +137,7 @@ class ExecutionHistory:
                     WHERE kind='worker' AND :mode IN ('all','attempts')
                     UNION ALL
                     SELECT a.id, 'activity', a.created_at, a.sequence FROM activity a
-                    WHERE a.project_id=:project AND a.task_id=:task AND (
+                    WHERE a.workspace_id=:project AND a.task_id=:task AND (
                         :mode='all' OR (:mode='notes' AND a.kind IN ('note','handoff')))
                 ) SELECT * FROM timeline ORDER BY created_at DESC,sequence DESC,id
                 LIMIT :limit OFFSET :offset""",
@@ -157,9 +157,9 @@ class ExecutionHistory:
                 items=items, next_offset=offset + limit if len(rows) > limit else None
             )
 
-    def get(self, project_id: str, task_id: str, identity: str) -> ExecutionItem:
+    def get(self, workspace_id: str, task_id: str, identity: str) -> ExecutionItem:
         with self.workspace.connection() as db:
-            args = self._args(db, project_id, task_id)
+            args = self._args(db, workspace_id, task_id)
             row = db.execute(
                 _PROJECTION + "SELECT * FROM history WHERE id=:id", {**args, "id": identity}
             ).fetchone()

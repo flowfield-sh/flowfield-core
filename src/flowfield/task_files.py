@@ -32,9 +32,8 @@ def freeze(db: sqlite3.Connection, workspace_id: str, identities: list[str]) -> 
         else:
             attachment = db.execute(
                 "SELECT name,size,content FROM attachments WHERE id=? AND bound=1 AND "
-                "(workspace_id=? OR project_id IN "
-                "(SELECT project_id FROM workspace_scopes WHERE workspace_id=?))",
-                (identity, workspace_id, workspace_id),
+                "workspace_id=?",
+                (identity, workspace_id),
             ).fetchone()
             if not attachment:
                 raise ApplicationError(
@@ -69,10 +68,8 @@ def materialize(
         else:
             with store.connection() as db:
                 row = db.execute(
-                    "SELECT content FROM attachments WHERE id=? AND bound=1 AND "
-                    "(workspace_id=? OR project_id IN "
-                    "(SELECT project_id FROM workspace_scopes WHERE workspace_id=?))",
-                    (file.id, owner, owner),
+                    "SELECT content FROM attachments WHERE id=? AND bound=1 AND workspace_id=?",
+                    (file.id, owner),
                 ).fetchone()
                 if not row:
                     raise ApplicationError(

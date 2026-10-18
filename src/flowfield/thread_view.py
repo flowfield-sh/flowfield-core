@@ -27,7 +27,7 @@ class ThreadMessage(Record):
     status: str | None = None
     result_id: str | None = None
     run_id: str | None = None
-    purpose: Literal["work"] | None = None
+    purpose: Literal["work", "assembly"] | None = None
     question_id: str | None = None
     earlier_id: str | None = None
     successor_id: str | None = None
@@ -44,7 +44,7 @@ class ThreadView(Conversation):
     def message(
         self,
         db: sqlite3.Connection,
-        project_id: str,
+        workspace_id: str,
         task_id: str,
         item: ConversationItem,
         full: bool = False,
@@ -52,17 +52,18 @@ class ThreadView(Conversation):
     ) -> ThreadMessage:
         row = db.execute(
             PROJECTION + "SELECT data FROM conversation WHERE id=:id",
-            {"project": project_id, "task": task_id, "id": item.id},
+            {"project": workspace_id, "task": task_id, "id": item.id},
         ).fetchone()
         if not row:
             raise ApplicationError("not_found", "Conversation item not found.", 404)
         data = json.loads(row[0])
         kind: str = item.kind
         body, title = "", ""
+        internal_plan = False
         if kind == "definition":
             before = db.execute(
-                "SELECT data FROM task_revisions WHERE project_id=? AND task_id=? AND revision=?",
-                (project_id, task_id, (item.revision or 1) - 1),
+                "SELECT data FROM task_revisions WHERE workspace_id=? AND task_id=? AND revision=?",
+                (workspace_id, task_id, (item.revision or 1) - 1),
             ).fetchone()
             previous = json.loads(before[0]) if before else None
             if previous and data["agreement_revision"] == previous["agreement_revision"]:
@@ -78,6 +79,21 @@ class ThreadView(Conversation):
             else:
                 title = "Task defined" if not previous else "Task definition updated"
                 body = "## " + data["title"] + "\n\n" + data["body"]
+                internal_plan = previous is not None and all(
+                    data.get(field) == previous.get(field)
+                    for field in (
+                        "title",
+                        "body",
+                        "acceptance_criteria",
+                        "project_id",
+                        "dependencies",
+                        "documents",
+                        "input_files",
+                        "publication",
+                    )
+                )
+                if internal_plan:
+                    title = "Work plan updated"
         elif kind == "question":
             title = "Question"
             body = "\n\n".join(
@@ -95,10 +111,10 @@ class ThreadView(Conversation):
             body = data["answer"] or ""
         elif kind == "activity":
             title = "Independent review" if item.author == "reviewer" else data["kind"].capitalize()
-            if item.author == "reviewer" and data.get("run_id"):
+            if item.author == "reviewer":
                 decision = db.execute(
                     "SELECT json_extract(data,'$.decision.action') FROM review_attempts WHERE id=?",
-                    (data["run_id"],),
+                    (item.source_id,),
                 ).fetchone()
                 if decision:
                     title = {
@@ -109,7 +125,7 @@ class ThreadView(Conversation):
                     }.get(decision[0], title)
             body = data["body"]
             if data["kind"] == "handoff":
-                task = self.workspace._task(db, project_id, task_id)
+                task = self.workspace._task(db, workspace_id, task_id)
                 data["status"] = (
                     "Superseded"
                     if data.get("superseded_by")
@@ -125,12 +141,18 @@ class ThreadView(Conversation):
             body = data["body"]
             if data["action"] == "observation":
                 version = db.execute(
-                    "SELECT version FROM result_versions WHERE project_id=? AND id=?",
-                    (project_id, data["binding"]["result_id"]),
+                    "SELECT version FROM result_versions WHERE workspace_id=? AND id=?",
+                    (workspace_id, data["binding"]["result_id"]),
                 ).fetchone()
                 title += f" · Result {version[0]}"
         elif kind == "attempt":
-            title = "Work started"
+            title = (
+                "Contribution work"
+                if data.get("subtask_id")
+                else "Task assembled"
+                if data.get("purpose") == "assembly"
+                else "Work started"
+            )
             body = data.get("problem") or ""
         elif kind == "result":
             title = "Result " + str(data["version"])
@@ -156,7 +178,7 @@ class ThreadView(Conversation):
                 kind,
                 data.get("status"),
                 item.id,
-                current_state or task_state(self.workspace, db, project_id, task_id),
+                current_state or task_state(self.workspace, db, workspace_id, task_id),
             ),
             title=title,
             question=data["question"] if kind == "question" else None,
@@ -174,27 +196,32 @@ class ThreadView(Conversation):
             earlier_id=data.get("supersedes") if kind == "activity" else None,
             successor_id=data.get("superseded_by") if kind == "activity" else None,
             choices=data.get("choices", []) if kind == "question" else [],
-            technical=kind == "plan" or (kind == "state" and title.startswith("Moved to ")),
+            technical=internal_plan
+            or (kind == "state" and title.startswith("Moved to "))
+            or (
+                kind == "attempt"
+                and bool(data.get("subtask_id") or data.get("purpose") == "assembly")
+            ),
         )
 
-    def page_view(self, project_id: str, task_id: str, cursor: str | None = None) -> ThreadPage:
+    def page_view(self, workspace_id: str, task_id: str, cursor: str | None = None) -> ThreadPage:
         with self.workspace.connection() as db:
-            page = self._page(db, project_id, task_id, cursor)
-            args = self._args(db, project_id, task_id)
-            state = task_state(self.workspace, db, project_id, args["task"])
+            page = self._page(db, workspace_id, task_id, cursor)
+            args = self._args(db, workspace_id, task_id)
+            state = task_state(self.workspace, db, workspace_id, args["task"])
             return ThreadPage(
                 items=[
-                    self.message(db, project_id, args["task"], i, current_state=state)
+                    self.message(db, workspace_id, args["task"], i, current_state=state)
                     for i in page.items
                 ],
                 next_cursor=page.next_cursor,
             )
 
     def item_view(
-        self, project_id: str, task_id: str, item_id: str, full: bool = False
+        self, workspace_id: str, task_id: str, item_id: str, full: bool = False
     ) -> ThreadMessage:
         with self.workspace.connection() as db:
-            args = self._args(db, project_id, task_id)
+            args = self._args(db, workspace_id, task_id)
             row = db.execute(
                 PROJECTION + f"SELECT {COLUMNS} FROM conversation WHERE id=:id",
                 {**args, "id": item_id},
@@ -211,5 +238,5 @@ class ThreadView(Conversation):
             if not row:
                 raise ApplicationError("not_found", "Conversation item not found.", 404)
             return self.message(
-                db, project_id, args["task"], ConversationItem.model_validate(dict(row)), full
+                db, workspace_id, args["task"], ConversationItem.model_validate(dict(row)), full
             )

@@ -83,7 +83,7 @@ function ExecutionDetail({
   view: DiffViewState;
   changeView: (view: DiffViewState) => void;
 }) {
-  const path = `projects/${projectId}`;
+  const path = `workspaces/${projectId}`;
   const run = useResource<Run>(
     item.kind === "worker" ? `${path}/runs/${item.run_id}` : null,
     refresh,
@@ -134,7 +134,7 @@ function ExecutionDetail({
       >
         {item.result_id && (
           <Link
-            to={`${taskHref(projectId, { key: taskKey }, "result")}/${item.result_id}`}
+            to={`${taskHref(projectId, { key: taskKey }, "changes")}/${item.result_id}`}
           >
             Review these changes
           </Link>
@@ -203,7 +203,7 @@ function WorkerEvidence({
 }) {
   const record = incoming;
   const [inspect, setInspect] = useState(false);
-  const path = `projects/${projectId}/runs/${record.id}`;
+  const path = `workspaces/${projectId}/runs/${record.id}`;
   const location = useResource<components["schemas"]["RunLocation"]>(
     inspect ? `${path}/location` : null,
     record.revision,
@@ -229,7 +229,7 @@ function WorkerEvidence({
       <WorkerDocumentEvidence documents={record.documents ?? []} />
       {record.predecessor_id && (
         <Link
-          to={`${taskHref(projectId, { key: taskKey }, "runs")}/worker:${record.predecessor_id}`}
+          to={`${taskHref(projectId, { key: taskKey }, "history")}/worker:${record.predecessor_id}`}
         >
           Previous worker attempt
         </Link>

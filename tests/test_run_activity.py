@@ -169,7 +169,7 @@ def test_shared_state_matches_question_attention_and_static_pause(tmp_path):
     execution = fixture(tmp_path)
     run, item = question(execution)
     execution.finish("harbor", run.id, "waiting_for_input", input_checkpoint=BASE)
-    board = BrowserReads(execution.workspace).board("harbor")
+    board = BrowserReads(execution.workspace).workspace_board("harbor")
     state = next(t.state for t in board.tasks if t.id == "task-0")
     attention = attention_page(execution.workspace, "harbor", "action")
     assert attention.items[0].state == state
@@ -198,5 +198,6 @@ def test_shared_state_matches_question_attention_and_static_pause(tmp_path):
     )
     # Another queued task is static, never an animated executor.
     assert all(
-        t.state.tone != "active" for t in BrowserReads(execution.workspace).board("harbor").tasks
+        t.state.tone != "active"
+        for t in BrowserReads(execution.workspace).workspace_board("harbor").tasks
     )

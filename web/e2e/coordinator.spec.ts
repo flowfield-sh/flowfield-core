@@ -40,7 +40,6 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
           data: {
             path: directory,
             name: id === "chat-browser" ? "Chat Browser" : "Chat Other",
-            task_prefix: id === "chat-browser" ? "CHT" : "CHO",
           },
         })
       ).ok(),
@@ -48,9 +47,12 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   }
   expect(
     (
-      await request.post("/api/projects/chat-browser/tasks", {
-        data: { title: "Plan the chat experience" },
-      })
+      await request.post(
+        `/api/workspaces/${await projectWorkspace(request, "chat-browser")}/tasks`,
+        {
+          data: { title: "Plan the chat experience" },
+        },
+      )
     ).ok(),
   ).toBeTruthy();
   const workspace = await projectWorkspace(request, "chat-browser");
@@ -254,14 +256,16 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
       });
     },
   );
-  await page.goto("/projects/chat-browser");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "chat-browser")}/tasks`,
+  );
   await expect(
     page.getByRole("region", { name: "Coordinator conversation", exact: true }),
   ).toBeVisible();
   await expect(
     page
       .locator(".workspace-resource-content")
-      .getByRole("link", { name: /CHT-1.*Plan the chat experience/ }),
+      .getByRole("link", { name: /T-1.*Plan the chat experience/ }),
   ).toBeVisible();
   const input = page.getByRole("textbox", { name: "Message coordinator" });
   expect(discoveries).toBe(0);
@@ -410,7 +414,6 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     'console.log("complete-prefix")\'`';
   permission = {
     id: "setup",
-    project_id: null,
     workspace_id: workspace,
     role: "coordinator",
     task_id: null,
@@ -439,9 +442,12 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   // notification. Exercise the real change stream for this scripted permission.
   expect(
     (
-      await request.post("/api/projects/chat-browser/tasks", {
-        data: { title: "Record the follow-up" },
-      })
+      await request.post(
+        `/api/workspaces/${await projectWorkspace(request, "chat-browser")}/tasks`,
+        {
+          data: { title: "Record the follow-up" },
+        },
+      )
     ).ok(),
   ).toBe(true);
   await expect(
@@ -488,7 +494,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     page.getByRole("button", { name: "Send", exact: true }),
   ).toHaveCount(0);
   active!.activity.items.find((item) => item.key === "reply")!.text +=
-    " Open [CHT-1](/projects/chat-browser/tasks/CHT-1).";
+    " Open [T-1](/projects/chat-browser/tasks/T-1).";
   await page.evaluate(
     ({ workspace, turn }) =>
       window.dispatchEvent(
@@ -501,7 +507,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   await expect(
     page
       .getByRole("region", { name: "Coordinator conversation" })
-      .getByRole("link", { name: "CHT-1" }),
+      .getByRole("link", { name: "T-1" }),
   ).toBeVisible();
   await input.fill("A draft for the next turn");
   await page.getByRole("button", { name: "Stop", exact: true }).click();
@@ -522,7 +528,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   await page.keyboard.press("Escape");
   await expect(page.getByLabel("Tool", { exact: true })).toBeHidden();
   await expect(
-    page.getByRole("link", { name: "CHT-1", exact: true }).first(),
+    page.getByRole("link", { name: "T-1", exact: true }).first(),
   ).toBeVisible();
   await page.locator(".coordinator-activity-summary > summary").click();
   await expect(page.getByLabel("Tool", { exact: true })).toBeVisible();
@@ -532,7 +538,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   await expect(timeline).toHaveText([
     "I’ll read the project first.",
     "Read project · completed\n/project/README.md",
-    "Let’s plan the work. Open CHT-1.",
+    "Let’s plan the work. Open T-1.",
   ]);
   await expect(timeline.nth(1)).toHaveCSS(
     "color",
@@ -685,7 +691,7 @@ test("single coordinator requires a saved model, labels loading and cancels dism
   const directory = join(state, "chat-settings");
   mkdirSync(directory, { recursive: true });
   await fixtureProject(request, {
-    data: { path: directory, name: "Chat Settings", task_prefix: "CST" },
+    data: { path: directory, name: "Chat Settings" },
   });
   const workspace = await projectWorkspace(request, "chat-settings");
   let release!: () => void;
@@ -774,7 +780,9 @@ test("single coordinator requires a saved model, labels loading and cancels dism
       });
     },
   );
-  await page.goto("/projects/chat-settings");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "chat-settings")}/tasks`,
+  );
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(
     page.getByRole("dialog", { name: "Coordinator model settings" }),
@@ -929,7 +937,7 @@ test("long project chat preserves loaded history while live pages advance", asyn
   const directory = join(state, "long-chat-project");
   mkdirSync(directory, { recursive: true });
   await fixtureProject(request, {
-    data: { path: directory, task_prefix: "LCH" },
+    data: { path: directory },
   });
   const workspace = await projectWorkspace(request, "long-chat-project");
   await page.route(`**/api/workspaces/${workspace}/models*`, (route) =>
@@ -1011,14 +1019,19 @@ test("long project chat preserves loaded history while live pages advance", asyn
       },
     });
   });
-  await page.goto("/projects/long-chat-project");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "long-chat-project")}/tasks`,
+  );
   await page.getByRole("button", { name: "Load earlier messages" }).click();
   const messages = page.locator(".coordinator-turn");
   await expect(messages).toHaveCount(40);
   count = 41;
-  await request.post("/api/projects/long-chat-project/tasks", {
-    data: { title: "Refresh project state" },
-  });
+  await request.post(
+    `/api/workspaces/${await projectWorkspace(request, "long-chat-project")}/tasks`,
+    {
+      data: { title: "Refresh project state" },
+    },
+  );
   await expect(
     page.getByText("Planning exchange 41", { exact: true }),
   ).toBeAttached();
@@ -1030,9 +1043,12 @@ test("long project chat preserves loaded history while live pages advance", asyn
     page.getByRole("button", { name: "Load earlier messages" }),
   ).toHaveCount(0);
   count = 100; // More than a page arrived while this browser was disconnected.
-  await request.post("/api/projects/long-chat-project/tasks", {
-    data: { title: "Reconnect with newer work" },
-  });
+  await request.post(
+    `/api/workspaces/${await projectWorkspace(request, "long-chat-project")}/tasks`,
+    {
+      data: { title: "Reconnect with newer work" },
+    },
+  );
   await expect(messages).toHaveCount(100);
   const scroll = page.locator(".coordinator-scroll");
   await scroll.hover();
@@ -1057,18 +1073,21 @@ test("automatic task context preserves one coordinator and immutable retry recei
     await request.post("/api/workspaces", { data: { name: "Focused chat" } })
   ).json();
   await request.post(`/api/workspaces/${workspace.id}/projects`, {
-    data: { path: join(state, project), task_prefix: "FOC" },
+    data: { path: join(state, project) },
   });
   const tasks: { id: string; key: string; revision: number }[] = [];
   for (const title of ["Define the search", "Review the index"]) {
     tasks.push(
       await (
-        await request.post(`/api/projects/${project}/tasks`, {
-          data: {
-            title,
-            body: "Keep the interaction simple.",
+        await request.post(
+          `/api/workspaces/${await projectWorkspace(request, project)}/tasks`,
+          {
+            data: {
+              title,
+              body: "Keep the interaction simple.",
+            },
           },
-        })
+        )
       ).json(),
     );
   }
@@ -1145,12 +1164,14 @@ test("automatic task context preserves one coordinator and immutable retry recei
     },
   );
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(`/projects/${project}`);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, project)}/tasks`,
+  );
   const input = page.getByLabel("Message coordinator", { exact: true });
   await input.fill("Explain this scope");
   await page
     .locator(".workspace-resource-content")
-    .getByRole("link", { name: /FOC-1.*Define the search/ })
+    .getByRole("link", { name: /T-1.*Define the search/ })
     .click();
   const detail = page.getByRole("region", {
     name: "Task details",
@@ -1168,12 +1189,15 @@ test("automatic task context preserves one coordinator and immutable retry recei
   await expect(
     page.locator("[data-sonner-toast][data-type=error]"),
   ).toBeVisible();
-  await request.put(`/api/projects/${project}/tasks/${tasks[0].id}`, {
-    data: {
-      expected_revision: tasks[0].revision,
-      body: "Updated scope after the uncertain response.",
+  await request.put(
+    `/api/workspaces/${await projectWorkspace(request, project)}/tasks/${tasks[0].id}`,
+    {
+      data: {
+        expected_revision: tasks[0].revision,
+        body: "Updated scope after the uncertain response.",
+      },
     },
-  });
+  );
   await expect(detail).toContainText(
     "Updated scope after the uncertain response.",
   );
@@ -1186,7 +1210,7 @@ test("automatic task context preserves one coordinator and immutable retry recei
   });
   await expect(
     page.getByRole("region", { name: "Coordinator conversation" }),
-  ).toContainText("FOC-1");
+  ).toContainText("T-1");
   await page.locator(".entity-pane .entity-pane-body").evaluate((element) => {
     element.scrollTop = 0;
   });
@@ -1197,14 +1221,14 @@ test("automatic task context preserves one coordinator and immutable retry recei
   await detail.getByRole("button", { name: "Back" }).click();
   await page
     .locator(".workspace-resource-content")
-    .getByRole("link", { name: /FOC-2.*Review the index/ })
+    .getByRole("link", { name: /T-2.*Review the index/ })
     .click();
   await expect(
     page.getByRole("group", { name: "Message task context" }),
   ).toHaveCount(0);
   await expect(
     page.getByRole("region", { name: "Coordinator conversation" }),
-  ).toContainText("FOC-1");
+  ).toContainText("T-1");
   await detail.getByRole("button", { name: "Back" }).click();
   await input.fill("Discuss the whole project");
   await page.getByRole("button", { name: "Send", exact: true }).click();
@@ -1212,7 +1236,7 @@ test("automatic task context preserves one coordinator and immutable retry recei
   expect(messages[1].task_context).toBeNull();
   await page
     .locator(".workspace-resource-content")
-    .getByRole("link", { name: /FOC-2.*Review the index/ })
+    .getByRole("link", { name: /T-2.*Review the index/ })
     .click();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(detail).toBeVisible();
@@ -1220,7 +1244,7 @@ test("automatic task context preserves one coordinator and immutable retry recei
   await expect(input).toBeVisible();
   await page
     .getByRole("region", { name: "Coordinator conversation" })
-    .getByRole("link", { name: "FOC-1", exact: true })
+    .getByRole("link", { name: "T-1", exact: true })
     .click();
   await expect(detail).toBeVisible();
   await expect(detail).toContainText("Define the search");
@@ -1258,7 +1282,7 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
   expect(
     (
       await fixtureProject(request, {
-        data: { path: join(state, project), task_prefix: "CFR" },
+        data: { path: join(state, project) },
       })
     ).ok(),
   ).toBe(true);
@@ -1384,13 +1408,13 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
         },
       },
       {
-        key: "milestone",
+        key: "taskRecord",
         kind: "tool",
         action: {
-          title: "Flowfield · Get milestone · completed",
-          details: 'Arguments: {"milestone_id":"M-1"}',
+          title: "Flowfield · Get task · completed",
+          details: 'Arguments: {"task_id":"T-1"}',
           output:
-            '{"id":"internal-milestone-id","title":"Deliver CSV export","body":"Download the complete inventory.","acceptance_criteria":"Empty inventories produce a valid CSV."}',
+            '{"id":"internal-task-id","title":"Deliver CSV export","body":"Download the complete inventory.","acceptance_criteria":"Empty inventories produce a valid CSV."}',
           output_preview: "Deliver CSV export",
         },
       },
@@ -1430,7 +1454,9 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
     preview: "",
     abridged: false,
   });
-  await page.goto(`/projects/${project}`);
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, project)}/tasks`,
+  );
   await expect(
     page.getByText("Opening … middle omitted … conclusion", { exact: true }),
   ).toBeVisible();
@@ -1498,19 +1524,19 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
   await expect(unknown.locator(".activity-console")).toContainText(
     '"count": 2',
   );
-  const milestone = page
+  const taskRecord = page
     .locator(".run-activity-entry")
-    .filter({ hasText: "Flowfield · Get milestone · completed" });
-  await milestone.locator("summary").first().click();
-  await expect(milestone.locator(".activity-record")).toContainText(
+    .filter({ hasText: "Flowfield · Get task · completed" });
+  await taskRecord.locator("summary").first().click();
+  await expect(taskRecord.locator(".activity-record")).toContainText(
     "Deliver CSV export",
   );
-  await expect(milestone.locator(".activity-record")).toContainText(
+  await expect(taskRecord.locator(".activity-record")).toContainText(
     "Empty inventories produce a valid CSV.",
   );
-  await expect(milestone.getByText(/internal-milestone-id/)).not.toBeVisible();
-  await milestone.getByText("Saved response", { exact: true }).click();
-  await expect(milestone.getByText(/internal-milestone-id/)).toBeVisible();
+  await expect(taskRecord.getByText(/internal-task-id/)).not.toBeVisible();
+  await taskRecord.getByText("Saved response", { exact: true }).click();
+  await expect(taskRecord.getByText(/internal-task-id/)).toBeVisible();
   await edit.scrollIntoViewIfNeeded();
   await page.screenshot({
     path: testInfo.outputPath("action-kinds-narrow-dark.png"),
@@ -1535,7 +1561,7 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
   });
 });
 
-test("project URL canonicalization preserves the selected mobile coordinator", async ({
+test("workspace board loading preserves the selected mobile coordinator", async ({
   page,
   request,
 }) => {
@@ -1543,7 +1569,7 @@ test("project URL canonicalization preserves the selected mobile coordinator", a
   const directory = join(state, "chat-alias");
   mkdirSync(directory, { recursive: true });
   await fixtureProject(request, {
-    data: { path: directory, name: "Chat Alias", task_prefix: "CAL" },
+    data: { path: directory, name: "Chat Alias" },
   });
   const workspace = await projectWorkspace(request, "chat-alias");
   let release!: () => void;
@@ -1557,15 +1583,15 @@ test("project URL canonicalization preserves the selected mobile coordinator", a
       await route.continue();
     },
   );
-  await page.goto("/projects/chat-alias");
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "chat-alias")}/tasks`,
+  );
   await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
   await expect(
     page.getByRole("tab", { name: "Coordinator", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   release();
-  await expect(page).toHaveURL(
-    new RegExp(`/workspaces/${workspace}/tasks\\?project=chat-alias$`),
-  );
+  await expect(page).toHaveURL(new RegExp(`/workspaces/${workspace}/tasks$`));
   await expect(
     page.getByRole("tab", { name: "Coordinator", exact: true }),
   ).toHaveAttribute("aria-selected", "true");

@@ -38,7 +38,7 @@ def test_changed_agreement_blocks_only_its_task_until_coordinator_reconciles(tmp
     assert task.readiness == card.readiness == brief["readiness"] == "draft"
     assert task.preparation_issue == card.preparation_issue == brief["preparation_issue"]
     assert "prepare" in task.preparation_issue
-    board = BrowserReads(workspace).board("harbor")
+    board = BrowserReads(workspace).workspace_board("harbor")
     assert next(item for item in board.tasks if item.id == task.id).state == card.state
     independent = execution.claim("harbor", BASE, {BASE: set()})
     assert independent.task_id == "task-1"
@@ -145,7 +145,7 @@ def test_changed_intent_only_blocks_its_own_parallel_result(tmp_path):
         Results(execution.workspace).page("harbor", changed.task_id).items[0].problem_code
         == "assignment_changed"
     )
-    assert execution.workspace.task("harbor", changed.task_id).status == "in_review"
+    assert execution.workspace.task("harbor", changed.task_id).status == "in_progress"
     assert execution.workspace.task("harbor", independent.task_id).status == "done"
     assert execution.assignment("harbor", changed.id)["description"] == task.body
 

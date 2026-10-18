@@ -24,7 +24,7 @@ class ResultAction(Record):
     ]
     label: str
     reason: str = ""
-    settings: Literal["workers", "integration"] | None = None
+    settings: Literal["workers", "integration", "reviewer"] | None = None
 
 
 class IndependentAssessment(Record):
@@ -36,9 +36,10 @@ class IndependentAssessment(Record):
 
 
 class ResultVersion(Record):
+    output_ids: list[str] = Field(default_factory=list)
     files: list[OutputFile] = Field(default_factory=list)
     id: str
-    project_id: str
+    workspace_id: str
     task_id: str
     task_key: str
     version: int
@@ -65,7 +66,6 @@ class ResultVersion(Record):
     settings_revision: int | None = None
     approved_at: str | None = None
     approved_by: str | None = None
-    delegated_review_id: str | None = None
     approval_note: str = Field(default="", max_length=8000)
     completed_at: str | None = None
     feedback: str = ""
@@ -87,6 +87,7 @@ class ResultPage(Record):
 
 
 class ResultReview(Record):
+    subtask_id: str | None = None
     expected_revision: int = Field(ge=1)
     candidate_commit: str | None
     action: Literal["approve", "request_changes"]

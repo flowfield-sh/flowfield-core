@@ -1,10 +1,10 @@
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { expect } from "@playwright/test";
-import { test, state, connectMcp } from "./support";
+import { test, state } from "./support";
 import { openResource } from "./shell-navigation";
 
-test("workspace files link exact task and milestone handoffs without a project", async ({
+test("workspace files organize retained task outputs without a project", async ({
   page,
   request,
 }, testInfo) => {
@@ -81,7 +81,7 @@ test("workspace files link exact task and milestone handoffs without a project",
   ).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("files-organized.png") });
   await details
-    .getByRole("link", { name: /W-1 Prepare launch research/ })
+    .getByRole("link", { name: /T-1 Prepare launch research/ })
     .click();
   await expect(page).toHaveURL(`${base}/tasks/${value.task}`);
   await openResource(page, "Files");
@@ -105,54 +105,12 @@ test("workspace files link exact task and milestone handoffs without a project",
     page.getByRole("button", { name: "Request follow-up", exact: true }),
   ).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("file-task-partial.png") });
-  await page.goto(`${base}/milestones/${value.milestone}`);
-  await expect(
-    page.getByText("launch-report.txt", { exact: true }),
-  ).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath("file-milestone-ready.png"),
-  });
-  await page.getByRole("tab", { name: "Activity", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Accept milestone", exact: true }),
-  ).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath("file-milestone-review.png"),
-  });
-  await page
-    .getByRole("button", { name: "Accept milestone", exact: true })
-    .click();
-  await expect(
-    page.getByRole("button", { name: "Accept milestone", exact: true }),
-  ).toHaveCount(0);
-  await page.screenshot({
-    path: testInfo.outputPath("file-milestone-accepted.png"),
-  });
-  const call = await connectMcp(request);
-  await call("edit_milestone", {
-    workspace_id: value.workspace,
-    milestone_id: value.milestone,
-    changes: {
-      expected_revision: 1,
-      acceptance_criteria: "Add a second market comparison.",
-    },
-  });
-  await page.reload();
-  await expect(
-    page.getByText(/This report checked milestone revision/),
-  ).toBeVisible();
-  await expect(
-    page.getByText("launch-report.txt", { exact: true }),
-  ).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath("file-milestone-stale.png"),
-  });
   await openResource(page, "Files");
   await expect(
     files.getByRole("button", { name: "Launch", exact: true }),
   ).toBeVisible();
   await page.goto(
-    `${base}/tasks/${value.review_task}/result/${value.review_result}`,
+    `${base}/tasks/${value.review_task}/changes/${value.review_result}`,
   );
   await expect(
     page.getByRole("button", { name: "Retry review", exact: true }),

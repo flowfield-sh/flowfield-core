@@ -42,9 +42,7 @@ def test_board_grouping_order_archive_and_restart(tmp_path: Path) -> None:
             == project
         )
         assert (tmp_path / "harbor/.flowfield/config.toml").read_bytes() == config
-        milestone = client.post(
-            f"/api/workspaces/{space}/milestones", json={"title": "CSV export"}
-        ).json()
+        base = f"/api/workspaces/{space}"
         for task_id in ["serializer", "button", "rounding"]:
             payload = {
                 "id": task_id,
@@ -52,8 +50,6 @@ def test_board_grouping_order_archive_and_restart(tmp_path: Path) -> None:
                 "status": "up_next",
                 "labels": ["bug" if task_id == "rounding" else "feature"],
             }
-            if task_id != "rounding":
-                payload["milestone_id"] = milestone["id"]
             assert client.post(base + "/tasks", json=payload).status_code == 201
         moved = client.post(
             base + "/tasks/rounding/prioritize",
@@ -61,8 +57,7 @@ def test_board_grouping_order_archive_and_restart(tmp_path: Path) -> None:
         ).json()
         board = client.get(base + "/board").json()
         assert [t["id"] for t in board["tasks"]] == ["rounding", "serializer", "button"]
-        assert moved["revision"] == 2 and moved["milestone_id"] is None
-        assert board["milestones"][0] == milestone and "status" not in milestone
+        assert moved["revision"] == 2
         assert (
             client.post(
                 base + "/tasks/rounding/prioritize",
@@ -98,9 +93,9 @@ def test_board_grouping_order_archive_and_restart(tmp_path: Path) -> None:
             "button",
             "rounding",
         ]
-        final = client.post(
-            base + "/tasks/rounding/progress",
-            json={"expected_revision": 4, "status": "in_progress", "author": "agent"},
+        final = client.put(
+            base + "/tasks/rounding",
+            json={"expected_revision": 4, "title": "Round correctly", "author": "agent"},
         ).json()
         assert final["updated_by"] == "agent"
         assert final["revisions"][2]["archived"]
@@ -125,19 +120,13 @@ def test_validation_and_scoped_atomic_edits(tmp_path: Path) -> None:
                 f"/api/workspaces/{space}/projects",
                 json={"id": identity, "path": existing_directory(str(tmp_path / identity))},
             )
-        client.post(
-            f"/api/workspaces/{spaces['two']}/milestones", json={"id": "foreign", "title": "Other"}
-        )
-        base = "/api/projects/one/tasks"
+        base = f"/api/workspaces/{spaces['one']}/tasks"
+        foreign = client.post(
+            f"/api/workspaces/{spaces['two']}/tasks", json={"id": "foreign", "title": "Other"}
+        ).json()
         assert (
-            client.post(
-                base,
-                json={
-                    "title": "Bad",
-                    "milestone_id": "foreign",
-                },
-            ).status_code
-            == 404
+            client.post(base, json={"title": "Bad", "dependencies": [foreign["id"]]}).status_code
+            == 400
         )
         assert client.get(base).json() == []
         task = client.post(
@@ -150,9 +139,10 @@ def test_validation_and_scoped_atomic_edits(tmp_path: Path) -> None:
         path = base + "/" + task["id"]
         assert (
             client.put(
-                path, json={"expected_revision": 1, "milestone_id": "foreign", "title": "Lost"}
+                path,
+                json={"expected_revision": 1, "dependencies": [foreign["id"]], "title": "Lost"},
             ).status_code
-            == 404
+            == 400
         )
         assert client.get(path).json() == task
         for invalid in [
@@ -174,7 +164,7 @@ def test_validation_and_scoped_atomic_edits(tmp_path: Path) -> None:
             client.post(
                 path + "/progress", json={"expected_revision": 1, "status": "done"}
             ).status_code
-            == 409
+            == 404
         )
         assert (
             client.post(
@@ -183,7 +173,7 @@ def test_validation_and_scoped_atomic_edits(tmp_path: Path) -> None:
             ).status_code
             == 400
         )
-        assert client.get("/api/projects/two/tasks/" + task["id"]).status_code == 404
+        assert client.get(f"/api/workspaces/{spaces['two']}/tasks/" + task["id"]).status_code == 404
         project = client.put(
             "/api/projects/one", json={"expected_revision": 1, "description": "Next"}
         ).json()
@@ -205,31 +195,6 @@ def test_validation_and_scoped_atomic_edits(tmp_path: Path) -> None:
                 ).status_code
                 == 403
             )
-        milestone = client.post(
-            f"/api/workspaces/{spaces['one']}/milestones", json={"title": "Group"}
-        ).json()
-        edited = client.put(
-            f"/api/workspaces/{spaces['one']}/milestones/" + milestone["id"],
-            json={"expected_revision": 1, "body": "Related tasks"},
-        )
-        assert edited.status_code == 200
-        assert (
-            client.put(
-                f"/api/workspaces/{spaces['one']}/milestones/" + milestone["id"],
-                json={"expected_revision": 1, "title": "Stale"},
-            ).status_code
-            == 409
-        )
-        assigned = client.put(
-            path, json={"expected_revision": 2, "milestone_id": milestone["id"]}
-        ).json()
-        assert assigned["milestone_id"] == milestone["id"]
-        assert (
-            client.put(path, json={"expected_revision": 3, "milestone_id": None}).json()[
-                "milestone_id"
-            ]
-            is None
-        )
 
 
 def test_concurrent_move_and_edit_have_one_winner(tmp_path: Path) -> None:
@@ -262,6 +227,8 @@ def test_cli_board_and_readable_output(tmp_path: Path, monkeypatch: pytest.Monke
         prefix = ["--port", base.rsplit(":", 1)[1]]
 
         def command(args: list[str], success: bool = True) -> dict | list:
+            if args[0] in {"task", "status"}:
+                args = [*args, "--workspace", space["id"]]
             result = runner.invoke(app, prefix + args + ["--json"])
             assert result.exit_code == (0 if success else 1), result.output
             assert (result.stderr if success else result.stdout) == ""
@@ -281,26 +248,21 @@ def test_cli_board_and_readable_output(tmp_path: Path, monkeypatch: pytest.Monke
         assert command(["project", "init", "--workspace", space["id"]]) == project
         command(["project", "edit", "--description", "CSV"])
         assert command(["project", "show"])["description"] == "CSV"
-        milestone = command(
-            ["milestone", "create", "--workspace", space["id"], "--title", "CSV export"]
-        )
         task = command(
             [
                 "task",
                 "create",
                 "--title",
                 "Serializer",
-                "--milestone",
-                milestone["id"],
                 "--body",
                 "Quotes commas",
             ]
         )
         identity = task["id"]
         command(["task", "prioritize", identity, "up-next"])
-        command(["task", "edit", identity, "--body", "Keep filters", "--no-milestone"])
+        command(["task", "edit", identity, "--body", "Keep filters"])
         shown = command(["task", "show", identity])
-        assert shown["revision"] == 3 and shown["milestone_id"] is None
+        assert shown["revision"] == 3
         error = command(
             ["task", "edit", identity, "--expected-revision", "1", "--title", "Stale"], False
         )
@@ -309,21 +271,14 @@ def test_cli_board_and_readable_output(tmp_path: Path, monkeypatch: pytest.Monke
         assert command(["task", "list"]) == {"items": [], "next_cursor": None}
         command(["task", "restore", identity])
         assert command(["status"])["columns"][1]["tasks"][0]["id"] == identity
-        human = runner.invoke(app, prefix + ["status"])
-        assert (
-            human.exit_code == 0
-            and "Up next (1)" in human.stdout
-            and "Description: CSV" in human.stdout
-        )
-        human = runner.invoke(app, prefix + ["task", "list"])
+        human = runner.invoke(app, prefix + ["status", "--workspace", space["id"]])
+        assert human.exit_code == 0 and "Up next (1)" in human.stdout and "Product" in human.stdout
+        human = runner.invoke(app, prefix + ["task", "list", "--workspace", space["id"]])
         assert (
             human.exit_code == 0
             and "Serializer" in human.stdout
             and not human.stdout.startswith("[")
         )
-        assert command(["task", "progress", identity, "in-progress"])["status"] == "in_progress"
-        assert command(["task", "archive", identity], False)["error"]["code"] == "active_task"
-        assert command(["task", "progress", identity, "backlog"])["status"] == "backlog"
         missing = command(
             ["task", "edit", identity, "--body-file", str(tmp_path / "missing")], False
         )
@@ -332,6 +287,7 @@ def test_cli_board_and_readable_output(tmp_path: Path, monkeypatch: pytest.Monke
             ["init"],
             ["connect", "codex"],
             ["task", "move", identity, "done"],
+            ["task", "progress", identity, "done"],
             ["task", "approve", identity],
             ["task", "revise", identity],
             ["project", "register"],
@@ -342,96 +298,26 @@ def test_cli_board_and_readable_output(tmp_path: Path, monkeypatch: pytest.Monke
     assert json.loads(result.stderr)["error"]["code"] == "service_unavailable"
 
 
-def test_priority_cannot_change_progress_and_times_survive_edits(tmp_path: Path) -> None:
-    with TestClient(create_app(data_dir=tmp_path / "state"), base_url="http://localhost") as client:
-        space = client.post("/api/workspaces", json={"name": "Fixture"}).json()["id"]
-        client.post(
-            f"/api/workspaces/{space}/projects",
-            json={"path": existing_directory(str(tmp_path / "harbor"))},
-        )
-        base = "/api/projects/harbor/tasks"
-        for identity in ["a", "b"]:
-            client.post(
-                base,
-                json={
-                    "id": identity,
-                    "title": identity,
-                    "status": "up_next",
-                },
+def test_priority_cannot_change_progress_and_times_survive_edits(tmp_path):
+    from execution_fixtures import BASE, fixture
+
+    from flowfield.browser import BrowserReads
+
+    execution = fixture(tmp_path, count=2)
+    store = execution.workspace
+    run = execution.claim("harbor", BASE, {BASE: set()})
+    execution.started("harbor", run.id)
+    task = store.task("harbor", run.task_id)
+    for revision in (1, task.revision):
+        with pytest.raises(ApplicationError):
+            store.prioritize_task(
+                "harbor", task.id, TaskPriority(expected_revision=revision, status="backlog")
             )
-        a = client.post(
-            base + "/a/progress", json={"expected_revision": 1, "status": "in_progress"}
-        ).json()
-        b = client.post(
-            base + "/b/progress", json={"expected_revision": 1, "status": "in_progress"}
-        ).json()
-        assert [t["id"] for t in client.get(base).json()] == ["a", "b"]
-        # Agent starts during a human drag: neither stale nor fresh priority can pull it back.
-        for revision in [1, 2]:
-            assert (
-                client.post(
-                    base + "/a/prioritize",
-                    json={"expected_revision": revision, "status": "backlog"},
-                ).status_code
-                == 409
-            )
-        assert (
-            client.put(base + "/a", json={"expected_revision": 2, "archived": True}).status_code
-            == 409
-        )
-        assert (
-            client.post(
-                base + "/a/prioritize", json={"expected_revision": 2, "status": "done"}
-            ).status_code
-            == 422
-        )
-        assert (
-            client.post(
-                base + "/a/progress",
-                json={"expected_revision": 2, "status": "in_progress", "before_id": "b"},
-            ).status_code
-            == 422
-        )
-        edited = client.put(
-            base + "/a", json={"expected_revision": 2, "title": "Clarified title"}
-        ).json()
-        assert edited["status_changed_at"] == a["status_changed_at"]
-        assert [t["id"] for t in client.get(base).json()] == ["a", "b"]
-        assert (
-            client.post(
-                base + "/a/progress", json={"expected_revision": 3, "status": "in_progress"}
-            ).json()
-            == edited
-        )
-        # Completion is recorded by the coordinator; newest accepted result is first.
-        for identity, revision in [("a", 3), ("b", 2)]:
-            result = client.post(
-                base + f"/{identity}/progress",
-                json={
-                    "expected_revision": revision,
-                    "status": "done",
-                    "completion": "report",
-                    "author": "agent",
-                },
-            )
-            assert result.status_code == 200
-        assert [t["id"] for t in client.get(base).json()] == ["b", "a"]
-        assert client.get(base + "/b").json()["status_changed_at"] != b["status_changed_at"]
-        # Reconciliation can reopen/defer; labels are attribution, not role-based authorization.
-        reopened = client.post(
-            base + "/a/progress",
-            json={"expected_revision": 4, "status": "backlog", "author": "human"},
-        ).json()
-        assert reopened["revision"] == 5
-        assert (
-            client.post(
-                base + "/a/prioritize", json={"expected_revision": 5, "status": "up_next"}
-            ).status_code
-            == 200
-        )
-        assert (
-            client.post(
-                base + "/a/move", json={"expected_revision": 6, "status": "done"}
-            ).status_code
-            == 404
-        )
+    with pytest.raises(ApplicationError):
+        store.edit_task("harbor", task.id, TaskEdit(expected_revision=task.revision, archived=True))
+    before = BrowserReads(store).task("harbor", task.id).status_changed_at
+    renamed = store.edit_task(
+        "harbor", task.id, TaskEdit(expected_revision=task.revision, title="Clearer title")
+    )
+    assert renamed.status == "in_progress"
+    assert BrowserReads(store).task("harbor", task.id).status_changed_at == before

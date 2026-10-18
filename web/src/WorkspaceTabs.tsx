@@ -57,7 +57,7 @@ export function resourceRoot(url: string) {
   }
   if (path.startsWith("/settings/")) return "/settings";
   return path.replace(
-    /(\/tasks\/[^/]+|\/documents\/[^/]+|\/milestones\/[^/]+|\/edit)(?:\/.*)?$/,
+    /(\/tasks\/[^/]+|\/documents\/[^/]+|\/edit)(?:\/.*)?$/,
     "$1",
   );
 }
@@ -69,18 +69,11 @@ export function canonicalResourceRoot(
   const key = decodeURIComponent(root.split("/").at(-1) ?? "");
   const task = board?.tasks.find(
     (task) =>
-      root.startsWith(`/projects/${task.project_id}/tasks/`) &&
+      root.startsWith(`/workspaces/${task.workspace_id}/tasks/`) &&
       (key === task.id || key === task.key),
   );
-  if (task) return `/projects/${task.project_id}/tasks/${task.key}`;
-  const milestone = board?.milestones.find(
-    (milestone) =>
-      root.includes("/milestones/") &&
-      (key === milestone.id || key === milestone.key),
-  );
-  return milestone
-    ? `${workspaceHref(board!.workspace.id)}/milestones/${milestone.key}`
-    : root;
+  if (task) return `/workspaces/${task.workspace_id}/tasks/${task.key}`;
+  return root;
 }
 function initial(workspace: string): TabState {
   const root = workspaceHref(workspace) + "/inbox";
@@ -349,25 +342,17 @@ function title(
   if (location.searchParams.has("permission")) return "Tool permission";
   if (/\/(?:inbox|related\/questions)\/[^/]+$/.test(location.pathname))
     return "Question";
-  const settings =
-    /\/milestones\/[^/]+\/settings$/.test(location.pathname) ||
-    (root.includes("/milestones/") &&
-      location.searchParams.get("tab") === "settings");
+  const settings = location.pathname.endsWith("/settings");
   const suffix = settings ? " · Settings" : "";
   if (titles[root]) return titles[root] + suffix;
   const key = decodeURIComponent(root.split("/").at(-1) ?? "");
   const task = board?.tasks.find(
     (t) =>
-      root.startsWith(`/projects/${t.project_id}/tasks/`) &&
+      root.startsWith(`/workspaces/${t.workspace_id}/tasks/`) &&
       (key === t.key || key === t.id),
   );
   if (task)
     return `${task.key} ${location.pathname.endsWith("/settings") ? "Settings" : task.title}`;
-  const milestone = board?.milestones.find(
-    (m) => root.includes("/milestones/") && (key === m.key || key === m.id),
-  );
-  if (milestone)
-    return `${milestone.key} ${settings ? "Settings" : milestone.title}`;
   const project = board?.projects.find(
     (p) => location.pathname === `/projects/${p.id}/overview`,
   );
@@ -380,7 +365,6 @@ function title(
         documents: "Documents",
         files: "Files",
         projects: "Projects",
-        milestones: "Milestones",
         archive: "Archive",
         work: "All work",
         settings: "Flowfield settings",

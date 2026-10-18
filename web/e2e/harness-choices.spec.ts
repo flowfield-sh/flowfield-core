@@ -21,7 +21,6 @@ for (const onlyClaude of [false, true]) {
     const initialized = await fixtureProject(request, {
       data: {
         path: existingDirectory(join(state, project)),
-        task_prefix: onlyClaude ? "KCL" : "MHC",
       },
     });
     const codex = hostStatus("codex", !onlyClaude);
@@ -162,9 +161,12 @@ for (const onlyClaude of [false, true]) {
     // It must not close/reopen discovery or clear the saved model.
     expect(
       (
-        await request.post(`/api/projects/${project}/tasks`, {
-          data: { title: "Refresh project settings" },
-        })
+        await request.post(
+          `/api/workspaces/${await projectWorkspace(request, project)}/tasks`,
+          {
+            data: { title: "Refresh project settings" },
+          },
+        )
       ).ok(),
     ).toBe(true);
     await expect.poll(() => savedReads).toBeGreaterThan(0);
@@ -194,7 +196,7 @@ test("Claude-only coordinator saves native choices independently of worker defau
 }, testInfo) => {
   const project = "claude-only-chat";
   const initialized = await fixtureProject(request, {
-    data: { path: existingDirectory(join(state, project)), task_prefix: "KCC" },
+    data: { path: existingDirectory(join(state, project)) },
   });
   expect(initialized.ok()).toBe(true);
   const workspace = await projectWorkspace(request, project);
@@ -254,7 +256,7 @@ test("Claude-only coordinator saves native choices independently of worker defau
       return route.fulfill({ json: settings });
     },
   );
-  await page.goto(`/projects/${project}`);
+  await page.goto(`/workspaces/${workspace}/tasks`);
   const picker = page.getByRole("dialog", {
     name: "Coordinator model settings",
     exact: true,
@@ -379,7 +381,6 @@ test("switching harnesses disables dependent controls and ignores late catalogs"
       await fixtureProject(request, {
         data: {
           path: existingDirectory(join(state, project)),
-          task_prefix: "HSR",
         },
       })
     ).ok(),
@@ -458,7 +459,6 @@ test("configured project choices preload and unknown harness status stays loadin
       await fixtureProject(request, {
         data: {
           path: existingDirectory(join(state, project)),
-          task_prefix: "PLC",
         },
       })
     ).ok(),
@@ -534,7 +534,7 @@ test("configured project choices preload and unknown harness status stays loadin
       ],
     });
   });
-  await page.goto(`/projects/${project}`);
+  await page.goto(`/workspaces/${workspace}/tasks`);
   const trigger = page.getByRole("button", {
     name: "Codex · saved-model · low",
     exact: true,

@@ -97,7 +97,7 @@ test("large bursts retain a destination across projects and preserve update anno
   const items = Array.from({ length: 200 }, (_, id) => ({
     id,
     source_key: `project:question:${id}`,
-    project_id: id % 2 ? "first" : "last",
+    workspace_id: id % 2 ? "first" : "last",
     kind: "work" as const,
     title: "Question",
     message: "Needs an answer",

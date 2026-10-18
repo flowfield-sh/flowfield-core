@@ -46,33 +46,37 @@ def execution_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
             refresh=refresh, harness=harness, project_id=project_id, project_path=project_path
         )
 
-    @router.get("/projects/{project_id}/runs")
+    @router.get("/workspaces/{workspace_id}/runs")
     def runs(
-        project_id: str,
+        workspace_id: str,
         task_id: str | None = None,
         before: int | None = None,
         limit: int = 20,
         attention: bool = False,
     ) -> RunPage:
         return supervisor().execution.page(
-            project_id, task_id=task_id, before=before, limit=limit, attention=attention
+            workspace_id, task_id=task_id, before=before, limit=limit, attention=attention
         )
 
-    @router.get("/projects/{project_id}/runs/{run_id}")
-    def run(project_id: str, run_id: str) -> Run:
-        return supervisor().execution.get(project_id, run_id)
+    @router.post("/workspaces/{workspace_id}/tasks/{task_id}/stop")
+    async def stop_task(workspace_id: str, task_id: str, request: RunAction) -> list[Run]:
+        return await supervisor().stop_task(workspace_id, task_id, request)
 
-    @router.get("/projects/{project_id}/runs/{run_id}/location")
-    def location(project_id: str, run_id: str) -> RunLocation:
-        return supervisor().location(project_id, run_id)
+    @router.get("/workspaces/{workspace_id}/runs/{run_id}")
+    def run(workspace_id: str, run_id: str) -> Run:
+        return supervisor().execution.get(workspace_id, run_id)
 
-    @router.get("/projects/{project_id}/runs/{run_id}/activity")
-    def activity(project_id: str, run_id: str, after: int = Query(-1, ge=-1)) -> RunActivityPage:
-        return RunActivity(supervisor().workspace).read(project_id, run_id, after)
+    @router.get("/workspaces/{workspace_id}/runs/{run_id}/location")
+    def location(workspace_id: str, run_id: str) -> RunLocation:
+        return supervisor().location(workspace_id, run_id)
 
-    def comparison(project_id: str, run_id: str) -> tuple[Path, str, str]:
+    @router.get("/workspaces/{workspace_id}/runs/{run_id}/activity")
+    def activity(workspace_id: str, run_id: str, after: int = Query(-1, ge=-1)) -> RunActivityPage:
+        return RunActivity(supervisor().workspace).read(workspace_id, run_id, after)
+
+    def comparison(workspace_id: str, run_id: str) -> tuple[Path, str, str]:
         service = supervisor()
-        record = service.execution.get(project_id, run_id)
+        record = service.execution.get(workspace_id, run_id)
         environment = service.environment(run_id)
         if not environment or not record.result_commit:
             raise ApplicationError(
@@ -80,27 +84,27 @@ def execution_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
             )
         return environment.checkout, record.base_commit, record.result_commit
 
-    @router.get("/projects/{project_id}/runs/{run_id}/diff")
+    @router.get("/workspaces/{workspace_id}/runs/{run_id}/diff")
     async def diff(
-        project_id: str,
+        workspace_id: str,
         run_id: str,
         offset: int = Query(default=0, ge=0),
         limit: int = Query(default=50, ge=1, le=100),
     ) -> ChangedFiles:
         return await asyncio.to_thread(
-            changed_files, *comparison(project_id, run_id), offset, limit
+            changed_files, *comparison(workspace_id, run_id), offset, limit
         )
 
-    @router.get("/projects/{project_id}/runs/{run_id}/diff/{file_id}")
-    async def patch(project_id: str, run_id: str, file_id: int) -> FilePatch:
-        return await asyncio.to_thread(file_patch, *comparison(project_id, run_id), file_id)
+    @router.get("/workspaces/{workspace_id}/runs/{run_id}/diff/{file_id}")
+    async def patch(workspace_id: str, run_id: str, file_id: int) -> FilePatch:
+        return await asyncio.to_thread(file_patch, *comparison(workspace_id, run_id), file_id)
 
-    @router.post("/projects/{project_id}/runs/{run_id}/stop")
-    async def stop(project_id: str, run_id: str, request: RunAction) -> Run:
-        return await supervisor().stop(project_id, run_id, request)
+    @router.post("/workspaces/{workspace_id}/runs/{run_id}/stop")
+    async def stop(workspace_id: str, run_id: str, request: RunAction) -> Run:
+        return await supervisor().stop(workspace_id, run_id, request)
 
-    @router.post("/projects/{project_id}/runs/{run_id}/retry")
-    def retry(project_id: str, run_id: str, request: RunAction) -> Run:
-        return supervisor().execution.retry(project_id, run_id, request)
+    @router.post("/workspaces/{workspace_id}/runs/{run_id}/retry")
+    def retry(workspace_id: str, run_id: str, request: RunAction) -> Run:
+        return supervisor().execution.retry(workspace_id, run_id, request)
 
     return router

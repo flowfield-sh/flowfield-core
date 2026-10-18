@@ -49,8 +49,6 @@ export function RequestDetail({
           ? {
               view: {
                 surface: "request",
-                without_milestone: false,
-                project_id: item.project_id,
                 request_kind: item.request_kind,
                 request_id: item.id,
               },

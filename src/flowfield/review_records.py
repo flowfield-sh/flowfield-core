@@ -14,7 +14,6 @@ from flowfield.run_activity import ActivityUpdate, RunActivityPage, update_activ
 
 class ReviewRecord(Record):
     id: str
-    project_id: str
     workspace_id: str
     revision: int = 1
     status: Literal[
@@ -51,7 +50,7 @@ class ReviewRecords[J: ReviewRecord](ABC):
 
     def _get(self, db: sqlite3.Connection, project: str, identity: str) -> J:
         row = db.execute(
-            f"SELECT data FROM {self.job_table} WHERE project_id=? AND id=?", (project, identity)
+            f"SELECT data FROM {self.job_table} WHERE workspace_id=? AND id=?", (project, identity)
         ).fetchone()
         if not row:
             raise ApplicationError("not_found", "Review job not found in this project.", 404)
@@ -73,14 +72,14 @@ class ReviewRecords[J: ReviewRecord](ABC):
 
         if review.question_id:
             owner = Questions(self.store)
-            question = owner._get(db, review.project_id, review.question_id)
+            question = owner._get(db, review.workspace_id, review.question_id)
             if question.status in ("open", "answered") and not question.consumed_answer_revision:
                 question = owner._change(question, question.revision, "service", status="withdrawn")
                 owner._save(db, question, reason)
 
     def started(self, project: str, identity: str, expected_revision: int) -> J:
         """The execution owner calls this only after observing native startup."""
-        with self.store.connection(write=True, project_id=project) as db:
+        with self.store.connection(write=True, workspace_id=project) as db:
             review = self._get(db, project, identity)
             self.store._current(review.revision, expected_revision)
             if review.status != "preparing":
@@ -93,7 +92,7 @@ class ReviewRecords[J: ReviewRecord](ABC):
 
     def check(self, project: str, identity: str) -> J:
         """Recheck immediately before a verdict consumer acts; never a delivery grant."""
-        with self.store.connection(write=True, project_id=project) as db:
+        with self.store.connection(write=True, workspace_id=project) as db:
             review = self._get(db, project, identity)
             if review.status in ("queued", "waiting", "decided"):
                 self._fresh(db, review)
@@ -102,7 +101,7 @@ class ReviewRecords[J: ReviewRecord](ABC):
     def stop(
         self, project: str, identity: str, expected_revision: int, *, cleanup_confirmed: bool
     ) -> J:
-        with self.store.connection(write=True, project_id=project) as db:
+        with self.store.connection(write=True, workspace_id=project) as db:
             review = self._get(db, project, identity)
             self.store._current(review.revision, expected_revision)
             if review.status not in ("queued", "preparing", "running", "waiting", "uncertain"):
@@ -187,7 +186,7 @@ class ReviewRecords[J: ReviewRecord](ABC):
             row = db.execute(
                 f"SELECT a.data FROM {self.attempt_table} a "
                 f"JOIN {self.job_table} r ON r.id=a.review_id "
-                "WHERE r.project_id=? AND a.id=? AND r.status IN ('preparing','running') "
+                "WHERE r.workspace_id=? AND a.id=? AND r.status IN ('preparing','running') "
                 "AND json_extract(r.data,'$.attempt_id')=a.id",
                 (project, attempt),
             ).fetchone()
@@ -223,7 +222,7 @@ class ReviewRecords[J: ReviewRecord](ABC):
         return page
 
     def begin_attempt(self, project: str, identity: str) -> J:
-        with self.store.connection(write=True, project_id=project) as db:
+        with self.store.connection(write=True, workspace_id=project) as db:
             review = self._get(db, project, identity)
             if review.status != "preparing":
                 raise ApplicationError("review_closed", "Review no longer owns preparation.", 409)
@@ -250,7 +249,7 @@ class ReviewRecords[J: ReviewRecord](ABC):
     def save_decision(
         self, project: str, identity: str, attempt: str, decision: dict[str, Any]
     ) -> None:
-        with self.store.connection(write=True, project_id=project) as db:
+        with self.store.connection(write=True, workspace_id=project) as db:
             review = self._get(db, project, identity)
             if review.status != "running" or review.attempt_id != attempt:
                 raise ApplicationError(
@@ -267,7 +266,7 @@ class ReviewRecords[J: ReviewRecord](ABC):
     def resume_answer(self, project: str, identity: str) -> J:
         from flowfield.questions import Questions
 
-        with self.store.connection(write=True, project_id=project) as db:
+        with self.store.connection(write=True, workspace_id=project) as db:
             review = self._get(db, project, identity)
             if review.status != "waiting" or not review.question_id:
                 return review
@@ -295,7 +294,7 @@ class ReviewRecords[J: ReviewRecord](ABC):
             return review
 
     def retry(self, project: str, identity: str, expected_revision: int) -> J:
-        with self.store.connection(write=True, project_id=project) as db:
+        with self.store.connection(write=True, workspace_id=project) as db:
             review = self._get(db, project, identity)
             self.store._current(review.revision, expected_revision)
             if review.status not in ("failed", "stopped"):
