@@ -289,10 +289,16 @@ class Documents:
                 "AND json_extract(t.data,'$.status')!='done' LIMIT 1",
                 (workspace_id, identity),
             ).fetchone()
-            if defaults or tasks:
+            projectless = db.execute(
+                "SELECT 1 FROM document_usage WHERE workspace_id=? AND id=? "
+                "AND projectless IS NOT NULL",
+                (workspace_id, identity),
+            ).fetchone()
+            if defaults or tasks or projectless:
                 raise ApplicationError(
                     "document_in_use",
-                    "Remove this document from project defaults and unfinished task selections "
+                    "Remove this document from project and projectless defaults "
+                    "and unfinished task selections "
                     "before deleting it.",
                     409,
                 )

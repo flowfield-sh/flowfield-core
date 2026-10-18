@@ -1,6 +1,6 @@
 """Current fresh-state schema. Older databases are not upgraded."""
 
-SCHEMA_VERSION = 85
+SCHEMA_VERSION = 86
 
 SCHEMA = """
 CREATE TABLE activity (
@@ -245,6 +245,11 @@ CREATE TABLE workspace_documents (workspace_id TEXT NOT NULL REFERENCES workspac
     id TEXT NOT NULL, revision INTEGER NOT NULL, deleted_at TEXT, deleted_by TEXT,
     PRIMARY KEY(workspace_id, id));
 
+CREATE TABLE document_usage (workspace_id TEXT NOT NULL, id TEXT NOT NULL,
+    revision INTEGER NOT NULL, projectless TEXT CHECK(projectless IN ('required','reference')),
+    PRIMARY KEY(workspace_id,id),
+    FOREIGN KEY(workspace_id,id) REFERENCES workspace_documents(workspace_id,id));
+
 
 CREATE TABLE workspace_labels (workspace_id TEXT NOT NULL REFERENCES workspaces(id),
     id TEXT NOT NULL, name TEXT NOT NULL, color TEXT NOT NULL, guidance TEXT NOT NULL,
@@ -392,5 +397,5 @@ INSERT INTO storage_metadata VALUES (1, lower(hex(randomblob(16))), 0);
 INSERT INTO harness_settings VALUES ('codex', 1, NULL, NULL), ('claude-code', 1, NULL,
     NULL), ('pi', 1, NULL, NULL);
 
-PRAGMA user_version = 85;
+PRAGMA user_version = 86;
 """

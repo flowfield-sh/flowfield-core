@@ -19,6 +19,7 @@ from flowfield.attention import (
     workspace_attention_counts,
 )
 from flowfield.browser import BrowserReads, BrowserWorkspaceBoard
+from flowfield.document_usage import DocumentUsage, DocumentUsageEdit, DocumentUsageView
 from flowfield.documents import (
     Document,
     DocumentCreate,
@@ -216,6 +217,16 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
         return Documents(supervisor().workspace).history(
             workspace_id, identity, before=before, limit=limit
         )
+
+    @router.get("/{workspace_id}/documents/{identity}/usage")
+    def document_usage(workspace_id: str, identity: str) -> DocumentUsageView:
+        return DocumentUsage(supervisor().workspace).get(workspace_id, identity)
+
+    @router.put("/{workspace_id}/documents/{identity}/usage")
+    def edit_document_usage(
+        workspace_id: str, identity: str, request: DocumentUsageEdit
+    ) -> DocumentUsageView:
+        return DocumentUsage(supervisor().workspace).edit(workspace_id, identity, request)
 
     @router.post("/{workspace_id}/documents/{identity}/restore")
     def restore_document(workspace_id: str, identity: str, request: DocumentRestore) -> Document:

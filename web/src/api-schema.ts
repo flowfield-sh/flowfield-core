@@ -633,6 +633,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/documents/{identity}/usage": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Document Usage */
+    get: operations["document_usage_api_workspaces__workspace_id__documents__identity__usage_get"];
+    /** Edit Document Usage */
+    put: operations["edit_document_usage_api_workspaces__workspace_id__documents__identity__usage_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/workspaces/{workspace_id}/documents/{identity}/restore": {
     parameters: {
       query?: never;
@@ -3366,6 +3384,29 @@ export interface components {
        */
       purpose: "required" | "reference";
     };
+    /** DocumentUsageEdit */
+    DocumentUsageEdit: {
+      /** Expected Revision */
+      expected_revision: number;
+      /**
+       * Author
+       * @default human
+       */
+      author: string;
+      /** Projectless */
+      projectless: ("required" | "reference") | null;
+      /** Projects */
+      projects?: components["schemas"]["ProjectDocumentEdit"][];
+    };
+    /** DocumentUsageView */
+    DocumentUsageView: {
+      /** Revision */
+      revision: number;
+      /** Projectless */
+      projectless: ("required" | "reference") | null;
+      /** Projects */
+      projects: components["schemas"]["ProjectDocumentUsage"][];
+    };
     /** Edit */
     Edit: {
       /** Expected Revision */
@@ -4339,6 +4380,26 @@ export interface components {
        * @default human
        */
       author: string;
+    };
+    /** ProjectDocumentEdit */
+    ProjectDocumentEdit: {
+      /** Id */
+      id: string;
+      /** Expected Revision */
+      expected_revision: number;
+      /** Purpose */
+      purpose: ("required" | "reference") | null;
+    };
+    /** ProjectDocumentUsage */
+    ProjectDocumentUsage: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Revision */
+      revision: number;
+      /** Purpose */
+      purpose: ("required" | "reference") | null;
     };
     /** ProjectEdit */
     ProjectEdit: {
@@ -7886,6 +7947,74 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["DocumentPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  document_usage_api_workspaces__workspace_id__documents__identity__usage_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocumentUsageView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  edit_document_usage_api_workspaces__workspace_id__documents__identity__usage_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DocumentUsageEdit"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocumentUsageView"];
         };
       };
       /** @description Validation Error */

@@ -1,5 +1,7 @@
 import type { DirtyCallback } from "./retainedState";
-import { useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
+import { DocumentUsage } from "./DocumentUsage";
+import { useDirtyItems } from "./useDirtyItems";
 import { ResourceTitles } from "./WorkspaceTabs";
 import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -112,6 +114,7 @@ export function Documents({
           latest={latest.data}
           historical={document.revision !== latest.data.revision}
           workspaceId={workspaceId}
+          refresh={refresh}
           projects={projects}
           path={path}
           base={base}
@@ -262,6 +265,7 @@ function DocumentEditor({
   latest,
   historical,
   workspaceId,
+  refresh,
   projects,
   path,
   base,
@@ -275,6 +279,7 @@ function DocumentEditor({
   latest: Document;
   historical: boolean;
   workspaceId: string;
+  refresh: string;
   projects: Project[];
   path: string;
   base: string;
@@ -284,10 +289,23 @@ function DocumentEditor({
   close: () => void;
   editCurrent?: () => void;
 }) {
+  const markDirty = useDirtyItems(onDirty);
+  const markBody = useCallback<DirtyCallback>(
+    (dirty, retained) => {
+      markDirty("body", dirty, retained);
+    },
+    [markDirty],
+  );
+  const markUsage = useCallback<DirtyCallback>(
+    (dirty, retained) => {
+      markDirty("usage", dirty, retained);
+    },
+    [markDirty],
+  );
   const state = useRecordEditor({
     incoming,
     fields,
-    onDirty,
+    onDirty: markBody,
     saved,
     read,
     recordName: "document",
@@ -392,6 +410,17 @@ function DocumentEditor({
                 project.worker_documents.some((ref) => ref.id === selected.id),
             ) && <span>None</span>}
           </div>
+          {!historical &&
+            !selected.deleted_at &&
+            (selected.id === "guidance" ? (
+              <p>Required for all tasks, including tasks without a project.</p>
+            ) : (
+              <DocumentUsage
+                path={`${path}/${selected.id}/usage`}
+                refresh={refresh}
+                onDirty={markUsage}
+              />
+            ))}
           <EditorFeedback state={state} />
           {selected.deleted_at && (
             <p role="status">
