@@ -134,13 +134,15 @@ def test_review_api_exposes_bounded_round_diagnostics(tmp_path, monkeypatch):
     app = FastAPI()
     app.include_router(reviewer_router(lambda: service))
     with TestClient(app) as client:
-        page = client.get(f"/api/projects/harbor/reviews/{review.id}/attempts")
+        exact = client.get(f"/api/workspaces/harbor/reviews/{review.id}")
+        assert exact.status_code == 200 and exact.json()["id"] == review.id
+        page = client.get(f"/api/workspaces/harbor/reviews/{review.id}/attempts")
         assert page.status_code == 200
         attempt = page.json()["items"][0]
         assert attempt["cleanup_confirmed"] and attempt["pid"]
         assert "harness_launch" not in attempt and "session_id" not in attempt
         activity = client.get(
-            f"/api/projects/harbor/reviews/{review.id}/attempts/{attempt['id']}/activity"
+            f"/api/workspaces/harbor/reviews/{review.id}/attempts/{attempt['id']}/activity"
         )
         assert activity.status_code == 200 and not activity.json()["active"]
 

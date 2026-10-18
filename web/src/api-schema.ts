@@ -2242,7 +2242,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project}/reviews/{identity}": {
+  "/api/workspaces/{project}/reviews/{identity}": {
     parameters: {
       query?: never;
       header?: never;
@@ -2250,7 +2250,7 @@ export interface paths {
       cookie?: never;
     };
     /** Review */
-    get: operations["review_api_projects__project__reviews__identity__get"];
+    get: operations["review_api_workspaces__project__reviews__identity__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2259,7 +2259,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project}/reviews/{identity}/attempts": {
+  "/api/workspaces/{project}/reviews/{identity}/attempts": {
     parameters: {
       query?: never;
       header?: never;
@@ -2267,7 +2267,7 @@ export interface paths {
       cookie?: never;
     };
     /** Attempts */
-    get: operations["attempts_api_projects__project__reviews__identity__attempts_get"];
+    get: operations["attempts_api_workspaces__project__reviews__identity__attempts_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2276,7 +2276,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project}/reviews/{identity}/stop": {
+  "/api/workspaces/{project}/reviews/{identity}/stop": {
     parameters: {
       query?: never;
       header?: never;
@@ -2286,14 +2286,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Stop */
-    post: operations["stop_api_projects__project__reviews__identity__stop_post"];
+    post: operations["stop_api_workspaces__project__reviews__identity__stop_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project}/reviews/{identity}/activity": {
+  "/api/workspaces/{project}/reviews/{identity}/activity": {
     parameters: {
       query?: never;
       header?: never;
@@ -2301,7 +2301,7 @@ export interface paths {
       cookie?: never;
     };
     /** Activity */
-    get: operations["activity_api_projects__project__reviews__identity__activity_get"];
+    get: operations["activity_api_workspaces__project__reviews__identity__activity_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2310,7 +2310,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project}/reviews/{identity}/attempts/{attempt}/activity": {
+  "/api/workspaces/{project}/reviews/{identity}/attempts/{attempt}/activity": {
     parameters: {
       query?: never;
       header?: never;
@@ -2318,7 +2318,7 @@ export interface paths {
       cookie?: never;
     };
     /** Attempt Activity */
-    get: operations["attempt_activity_api_projects__project__reviews__identity__attempts__attempt__activity_get"];
+    get: operations["attempt_activity_api_workspaces__project__reviews__identity__attempts__attempt__activity_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2327,7 +2327,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project}/reviews/{identity}/retry": {
+  "/api/workspaces/{project}/reviews/{identity}/retry": {
     parameters: {
       query?: never;
       header?: never;
@@ -2337,14 +2337,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Retry */
-    post: operations["retry_api_projects__project__reviews__identity__retry_post"];
+    post: operations["retry_api_workspaces__project__reviews__identity__retry_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/projects/{project}/reviews/{identity}/confirm-stopped": {
+  "/api/workspaces/{project}/reviews/{identity}/confirm-stopped": {
     parameters: {
       query?: never;
       header?: never;
@@ -2354,7 +2354,7 @@ export interface paths {
     get?: never;
     put?: never;
     /** Confirm Stopped */
-    post: operations["confirm_stopped_api_projects__project__reviews__identity__confirm_stopped_post"];
+    post: operations["confirm_stopped_api_workspaces__project__reviews__identity__confirm_stopped_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -11660,7 +11660,7 @@ export interface operations {
       };
     };
   };
-  review_api_projects__project__reviews__identity__get: {
+  review_api_workspaces__project__reviews__identity__get: {
     parameters: {
       query?: never;
       header?: never;
@@ -11692,7 +11692,7 @@ export interface operations {
       };
     };
   };
-  attempts_api_projects__project__reviews__identity__attempts_get: {
+  attempts_api_workspaces__project__reviews__identity__attempts_get: {
     parameters: {
       query?: {
         before?: number | null;
@@ -11726,7 +11726,7 @@ export interface operations {
       };
     };
   };
-  stop_api_projects__project__reviews__identity__stop_post: {
+  stop_api_workspaces__project__reviews__identity__stop_post: {
     parameters: {
       query?: never;
       header?: never;
@@ -11762,7 +11762,7 @@ export interface operations {
       };
     };
   };
-  activity_api_projects__project__reviews__identity__activity_get: {
+  activity_api_workspaces__project__reviews__identity__activity_get: {
     parameters: {
       query?: never;
       header?: never;
@@ -11794,7 +11794,7 @@ export interface operations {
       };
     };
   };
-  attempt_activity_api_projects__project__reviews__identity__attempts__attempt__activity_get: {
+  attempt_activity_api_workspaces__project__reviews__identity__attempts__attempt__activity_get: {
     parameters: {
       query?: never;
       header?: never;
@@ -11827,7 +11827,7 @@ export interface operations {
       };
     };
   };
-  retry_api_projects__project__reviews__identity__retry_post: {
+  retry_api_workspaces__project__reviews__identity__retry_post: {
     parameters: {
       query?: never;
       header?: never;
@@ -11863,7 +11863,7 @@ export interface operations {
       };
     };
   };
-  confirm_stopped_api_projects__project__reviews__identity__confirm_stopped_post: {
+  confirm_stopped_api_workspaces__project__reviews__identity__confirm_stopped_post: {
     parameters: {
       query?: never;
       header?: never;

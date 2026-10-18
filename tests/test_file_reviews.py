@@ -159,3 +159,34 @@ def test_partial_file_review_requests_followup_without_approving(tmp_path, monke
     assert review.verdict.action == "request_changes"
     assert store.task(scope, current.id).status == "up_next"
     assert Outputs(store).content(result.files[0]).read_text() == "Agreed report"
+
+
+def test_waiting_report_reviewer_accepts_exact_human_answer(tmp_path, monkeypatch):
+    from flowfield.conversation import Conversation
+    from flowfield.questions import Questions
+    from flowfield.replies import Replies
+    from flowfield.reply_models import ReplyBinding, ReplyCreate
+
+    store, owner, scope = setup(tmp_path / "state")
+    configure(store, owner)
+    current = task(store, scope)
+    deliver(store, scope, current.id, {"report.txt": "Agreed report"})
+    install(monkeypatch, action="ask_human")
+    queue(store, owner)
+    asyncio.run(step(Supervisor(store)))
+    review = TaskReviews(store).latest(scope, current.id)
+    assert review.status == "waiting"
+    gate = Conversation(store).eligibility(scope, current.id)
+    assert gate.enabled and gate.reason == "answer_expected"
+    assert gate.question_id == review.question_id
+    request = ReplyCreate(
+        id="report-review-answer",
+        action="answer",
+        body="Use the agreed source notes.",
+        binding=ReplyBinding(**gate.model_dump(include=set(ReplyBinding.model_fields))),
+    )
+    Replies(store).submit(scope, current.id, request)
+    saved = Questions(store).get(scope, review.question_id)
+    assert saved.answer == request.body
+    assert not Conversation(store).eligibility(scope, current.id).enabled
+    assert TaskReviews(store).latest(scope, current.id).verdict is None

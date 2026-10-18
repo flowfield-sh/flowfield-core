@@ -42,11 +42,11 @@ def reviewer_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     def current(project: str, task: str) -> TaskReview | None:
         return supervisor().review_execution.reviews.latest(project, task)
 
-    @router.get("/projects/{project}/reviews/{identity}")
+    @router.get("/workspaces/{project}/reviews/{identity}")
     def review(project: str, identity: str) -> TaskReview:
         return supervisor().review_execution.reviews.get(project, identity)
 
-    @router.get("/projects/{project}/reviews/{identity}/attempts")
+    @router.get("/workspaces/{project}/reviews/{identity}/attempts")
     def attempts(
         project: str, identity: str, before: int | None = Query(default=None, ge=1)
     ) -> ReviewAttemptPage:
@@ -65,27 +65,27 @@ def reviewer_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
             next_before=page["next_before"],
         )
 
-    @router.post("/projects/{project}/reviews/{identity}/stop")
+    @router.post("/workspaces/{project}/reviews/{identity}/stop")
     async def stop(project: str, identity: str, request: RunAction) -> TaskReview:
         return await supervisor().review_execution.stop(
             project, identity, request.expected_revision
         )
 
-    @router.get("/projects/{project}/reviews/{identity}/activity")
+    @router.get("/workspaces/{project}/reviews/{identity}/activity")
     def activity(project: str, identity: str) -> RunActivityPage:
         return supervisor().review_execution.reviews.activity(project, identity)
 
-    @router.get("/projects/{project}/reviews/{identity}/attempts/{attempt}/activity")
+    @router.get("/workspaces/{project}/reviews/{identity}/attempts/{attempt}/activity")
     def attempt_activity(project: str, identity: str, attempt: str) -> RunActivityPage:
         return supervisor().review_execution.reviews.activity(project, identity, attempt)
 
-    @router.post("/projects/{project}/reviews/{identity}/retry")
+    @router.post("/workspaces/{project}/reviews/{identity}/retry")
     def retry(project: str, identity: str, request: RunAction) -> TaskReview:
         return supervisor().review_execution.reviews.retry(
             project, identity, request.expected_revision
         )
 
-    @router.post("/projects/{project}/reviews/{identity}/confirm-stopped")
+    @router.post("/workspaces/{project}/reviews/{identity}/confirm-stopped")
     def confirm_stopped(project: str, identity: str, request: RunAction) -> TaskReview:
         return supervisor().review_execution.confirm_stopped(
             project, identity, request.expected_revision

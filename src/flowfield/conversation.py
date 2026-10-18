@@ -278,7 +278,19 @@ class Conversation:
             result.result_id, result.result_revision = value["id"], value["revision"]
             if value["status"] in ("preparing", "delivering"):
                 result.enabled, result.reason = False, "processing_result"
-            elif value["completion"] == "report":
+            elif value["completion"] == "report" and not (
+                question
+                and db.execute(
+                    "SELECT 1 FROM task_reviews WHERE workspace_id=? AND task_id=? "
+                    "AND status='waiting' AND id=? AND json_extract(data,'$.question_id')=?",
+                    (
+                        workspace_id,
+                        task_id,
+                        json.loads(question[1]).get("origin_review_id"),
+                        question[0],
+                    ),
+                ).fetchone()
+            ):
                 from flowfield.result_actions import result_action
                 from flowfield.result_models import ResultVersion
 
