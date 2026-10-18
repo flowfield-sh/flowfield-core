@@ -443,12 +443,15 @@ def test_code_assembly_review_exact_approval_and_delivered_dependency(tmp_path):
     )
     assert baseline(repo) == original
     Results(store).review(owner, result.id, approval)
+    assert reviews.check(owner, review.id).status == "decided"
     assert execution.claim(owner, "", {}, task_id=dependent.id) is None
     # Reconstruct owners to exercise durable approval through service restart.
     restarted = Workspace(store.directory)
     Results(restarted).process(owner)
     delivered = Results(restarted).get(owner, result.id)
     assert delivered.status == "delivered", (delivered.problem_code, delivered.problem)
+    assert TaskReviews(restarted).check(owner, review.id).status == "decided"
+    assert Results(restarted).get(owner, result.id).independent_review.status == "decided"
     assert baseline(repo) == result.candidate_commit
     assert restarted.task(owner, task.id).status == "done"
     assert Execution(restarted).claim(owner, "", {}, task_id=dependent.id)

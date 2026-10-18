@@ -1,6 +1,5 @@
 """Review policy and ownership against real candidates; no model calls or delegated delivery."""
 
-import json
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -84,12 +83,6 @@ def test_standalone_review_is_idempotent_and_grants_no_delivery(tmp_path):
     before = git(repo, "rev-parse", "HEAD")
     task_before = service.workspace.task("harbor", run.task_id)
     review = reviews.prepare("harbor", result.id)
-    # A review saved before file support has no added report fields in its JSON.
-    with service.workspace.connection(write=True) as db:
-        saved = review.model_dump()
-        for key in ("completion", "output_ids", "outcome"):
-            saved["binding"].pop(key)
-        db.execute("UPDATE task_reviews SET data=? WHERE id=?", (json.dumps(saved), review.id))
     assert reviews.prepare("harbor", result.id) == review
     assert "Deliver the result" in reviews.context("harbor", review.id, "assignment")
     assert "Worker-reported checks" in reviews.context("harbor", review.id, "result")

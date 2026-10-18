@@ -108,6 +108,7 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await expect(
     detail.getByText("Integrated into main", { exact: true }).first(),
   ).toBeVisible();
+  await expect(detail.getByText(/This assessment is outdated/)).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath("assembled-delivered.png"),
   });

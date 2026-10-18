@@ -266,6 +266,20 @@ class TaskReviews(ReviewRecords[TaskReview]):
 
     def _fresh(self, db: sqlite3.Connection, review: TaskReview) -> bool:
         try:
+            result = Results(self.store)._get(db, review.workspace_id, review.result_id)
+            if (
+                review.status == "decided"
+                and review.verdict
+                and review.verdict.action == "approve"
+                and (
+                    result.status == "delivered"
+                    or (result.status == "delivering" and result.approved_at)
+                )
+            ):
+                # Delivery consumed the exact assessment. Preserve that historical
+                # sign-off when delivery advances its destination and result revision.
+                # This receipt cannot authorize a different result or another delivery.
+                return True
             owner, task, current = self._binding(db, review.workspace_id, review.result_id)
             if (
                 current.completion == "report"
