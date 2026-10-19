@@ -282,10 +282,20 @@ test("settings toasts preserve drafts, support keyboard dismissal and expire acr
   await expect(failure).toHaveCount(0);
   await expect(editor).toBeVisible();
   await page.unroute(`**/api/projects/${project}`);
+  // Keep navigation speed independent from the toast's expiry deadline in CI.
+  await page.clock.install();
+  await page.clock.pauseAt(new Date(Date.now() + 200));
+  const saved = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/projects/${project}`) &&
+      response.request().method() === "PUT",
+  );
   await editor
     .getByRole("button", { name: "Save changes", exact: true })
     .click();
   const success = page.locator("[data-sonner-toast][data-type=success]");
+  await (await saved).finished();
+  await page.clock.runFor(200);
   await expect(success).toContainText("Changes saved.");
   await expect(success).toHaveAttribute("data-mounted", "true");
   // A direct-entry tab has no synthetic Back destination. Navigate normally
@@ -294,5 +304,6 @@ test("settings toasts preserve drafts, support keyboard dismissal and expire acr
   await expect(editor).toHaveCount(0);
   await expect(success).toBeVisible();
   await page.mouse.move(1, 1);
+  await page.clock.runFor(8000);
   await expect(success).toHaveCount(0, { timeout: 8000 });
 });

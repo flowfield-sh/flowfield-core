@@ -5,6 +5,7 @@ import {
   existingDirectory,
   state,
   choose,
+  stubResourcePresence,
 } from "./support";
 import { join } from "node:path";
 import { expect, type Locator, type Page } from "@playwright/test";
@@ -237,6 +238,7 @@ test("a saved correction is not offered for resubmission when the following read
     }),
   );
   let saved = 0;
+  await stubResourcePresence(page);
   await page.route(`**/api/workspaces/*/questions/scope`, (route) =>
     saved ? route.abort() : route.fulfill({ json: question }),
   );

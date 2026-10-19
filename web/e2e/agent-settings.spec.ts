@@ -1,4 +1,10 @@
-import { fixtureProject, projectWorkspace, choose, test } from "./support";
+import {
+  fixtureProject,
+  projectWorkspace,
+  choose,
+  test,
+  stubResourcePresence,
+} from "./support";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
@@ -343,6 +349,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   await page.route("**/permissions/request-1?*", (route) =>
     route.fulfill({ json: permission }),
   );
+  await stubResourcePresence(page);
   await page.goto(`/workspaces/${workspace}/requests/permission/request-1`);
   const permissionDetail = page.getByRole("region", {
     name: "Request",
@@ -490,7 +497,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     ).toBe(true);
     return route.fulfill({ json: permission });
   });
-  await page.goto(`/workspaces/${workspace}/inbox`);
+  await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   const action = page.getByRole("tabpanel", {
     name: "Needs me",
     exact: true,

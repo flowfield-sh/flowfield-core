@@ -125,7 +125,7 @@ def test_report_review_gates_completion_and_preserves_files(tmp_path, monkeypatc
         messages = ThreadView(store).page_view(scope, current.id).items
         reviewing = next(item for item in messages if item.kind == "review")
         assert reviewing.source_id == review.id
-        assert reviewing.title == "Reviewing results"
+        assert reviewing.title == "Reviewing result #1"
         assert reviewing.state.tone == "complete"
         signoff = next(item for item in messages if item.title == "Reviewer signed off")
         delivery = next(item for item in messages if item.kind == "delivery")

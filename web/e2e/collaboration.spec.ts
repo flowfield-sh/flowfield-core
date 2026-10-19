@@ -11,6 +11,7 @@ import {
   closeOverlay,
   connectMcp,
   resultMessage,
+  stubResourcePresence,
 } from "./support";
 import { join } from "node:path";
 
@@ -1253,6 +1254,9 @@ test("related questions preserve the page, drafts, focus and router history", as
   await page.goBack();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await expect(page).toHaveURL(origin);
+  await expect(
+    page.getByRole("tablist", { name: "Open resources" }).getByRole("tab"),
+  ).toHaveCount(2);
   await trigger.click();
   await expect(answer).toHaveValue("My unsaved answer");
   await answer.fill("");
@@ -1321,6 +1325,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   request,
 }) => {
   const project_id = "review-flow";
+  await stubResourcePresence(page);
   const call = await connectMcp(request);
   const { workspace_id } = await fixtureMcpProject(call, {
     project_id,
@@ -1726,9 +1731,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   );
   await page.unroute(workerSettingsPath);
   first = { ...first, status: "in_review" };
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, project_id)}/inbox`,
-  );
+  await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   const boot = await page.evaluate(() => performance.timeOrigin);
   await expect(
     page.getByRole("link", {

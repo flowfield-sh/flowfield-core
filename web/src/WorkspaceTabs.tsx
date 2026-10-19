@@ -291,6 +291,20 @@ export function useWorkspaceTabs(
     if (!restore || restore === path) return;
     change(restore, true, { workspaceTabs: JSON.parse(serialized) });
   }, [change, serialized, restore, path]);
+  useLayoutEffect(() => {
+    // Direct entries need the same history receipt as in-app navigation. Without
+    // it, browser Back invents a new tab and loses that tab's scroll/focus state.
+    if (
+      workspace &&
+      !restore &&
+      serialized !== "null" &&
+      !valid(incoming, workspace)
+    )
+      change(path, true, {
+        ...location.state,
+        workspaceTabs: JSON.parse(serialized),
+      });
+  }, [workspace, restore, serialized, incoming, change, path, location.state]);
   // One bounded shell read checks inactive tabs too. No content mounts, result
   // preparation or streams are needed. A failed read never means deletion.
   const latest = useRef(state);

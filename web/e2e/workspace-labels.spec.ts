@@ -140,9 +140,11 @@ test("coordinator labels update read-only task headers and preserve deletion his
   await page.goto(
     `/workspaces/${await projectWorkspace(request, project.id)}/tasks/new`,
   );
-  await expect(
-    page.getByRole("heading", { name: "Task not found", exact: true }),
-  ).toBeVisible();
+  // Retired creation URLs identify no resource; presence reconciliation closes
+  // the missing tab and returns to Inbox, without restoring a task editor.
+  await expect(page).toHaveURL(
+    `/workspaces/${await projectWorkspace(request, project.id)}/inbox`,
+  );
   await expect(
     page.getByRole("button", { name: "Create task", exact: true }),
   ).toHaveCount(0);
