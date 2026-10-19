@@ -101,6 +101,9 @@ def add_conversation_tools(mcp: FastMCP, workspace: Callable[[], Workspace]) -> 
         """Send an answer, request changes, or record result testing.
         Discuss task scope and result questions in the coordinator conversation.
         Reuse the same ID after an uncertain response; stale input must be reconciled.
+        For a local correction, action=changes and subtask_id target that contribution
+        and its dependents, preserving unrelated completed work. Omitting subtask_id
+        corrects every contribution; naming a subtask only in body does not scope it.
         action=observation saves human testing against the exact result without starting
         a worker, requesting changes or approving code. State what was tried and observed.
         Observations remain bound to the exact task result; changed candidates never inherit them.

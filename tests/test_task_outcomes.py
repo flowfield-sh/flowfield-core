@@ -12,6 +12,7 @@ from flowfield.application import (
     TaskPreparation,
     TaskPriority,
     TaskPublish,
+    TaskReconcile,
     Workspace,
 )
 from flowfield.errors import ApplicationError
@@ -272,8 +273,9 @@ def test_correction_preserves_independent_contribution(tmp_path):
 
 
 @pytest.mark.parametrize("dependent_contribution", [False, True])
+@pytest.mark.parametrize("correction_source", ["reply", "plan"])
 def test_code_assembly_review_exact_approval_and_delivered_dependency(
-    tmp_path, dependent_contribution
+    tmp_path, dependent_contribution, correction_source
 ):
     import os
 
@@ -406,17 +408,43 @@ def test_code_assembly_review_exact_approval_and_delivered_dependency(
     assert git(repo, "show", result.candidate_commit + ":ui.txt") == b"UI"
     # A correction replaces only the selected contribution and reassembles real Git code.
     previous_ui = children.get(owner, task.id, b.id).contribution_run_id
-    Results(store).review(
-        owner,
-        result.id,
-        ResultReview(
-            expected_revision=result.revision,
-            candidate_commit=result.candidate_commit,
-            action="request_changes",
-            subtask_id=a.id,
-            note="Version the API response",
-        ),
-    )
+    from flowfield.conversation import Conversation
+    from flowfield.replies import Replies
+    from flowfield.reply_models import ReplyBinding, ReplyCreate
+
+    if correction_source == "plan":
+        previous = children.get(owner, task.id, a.id)
+        children.edit(
+            owner,
+            task.id,
+            a.id,
+            SubtaskEdit(expected_revision=previous.revision, body="Version the API response"),
+        )
+        task = store.task(owner, task.id)
+        task = store.reconcile_task(
+            owner,
+            task.id,
+            TaskReconcile(expected_revision=task.revision, note="Refined API contribution"),
+        )
+        assert assemblies.ensure(task, original, []).id == assembly.id
+    else:
+        gate = Conversation(store).eligibility(owner, task.id)
+        request = ReplyCreate(
+            binding=ReplyBinding.model_validate(
+                gate.model_dump(include=set(ReplyBinding.model_fields))
+            ),
+            action="changes",
+            subtask_id=a.key,
+            body="Version the API response",
+        )
+        with pytest.raises(ApplicationError, match="Subtask not found"):
+            Replies(store).submit(owner, task.id, request.model_copy(update={"subtask_id": "S-99"}))
+        assert children.get(owner, task.id, b.id).contribution_run_id == previous_ui
+        reply = Replies(store).submit(owner, task.id, request)
+        assert reply.subtask_id == a.key
+        assert Replies(store).submit(owner, task.id, request) == reply
+        with pytest.raises(ApplicationError, match="already used"):
+            Replies(store).submit(owner, task.id, request.model_copy(update={"subtask_id": b.key}))
     corrected = children.get(owner, task.id, a.id)
     correction_base, inputs = assemblies.baseline(assembly, corrected)
     assert git(repo, "show", correction_base + ":api.txt") == b"API"
@@ -431,7 +459,11 @@ def test_code_assembly_review_exact_approval_and_delivered_dependency(
         assembly_id=assembly.id,
         contributions=inputs,
     )
-    assert retry and retry.feedback == "Version the API response"
+    assert retry
+    if correction_source == "reply":
+        assert retry.feedback == "Version the API response"
+    else:
+        assert execution.assignment(owner, retry.id)["description"] == "Version the API response"
     execution.started(owner, retry.id)
     environment = LocalHost(os.environ).prepare(store.directory, repo, retry.id, correction_base)
     (environment.checkout / "api.txt").write_text("API v2")

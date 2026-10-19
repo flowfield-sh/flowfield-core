@@ -260,6 +260,9 @@ to start/resume the queue. If already running, eligible prepared work can procee
 - `get_task_input` supplies exact bindings for `reply_to_task`. Answer an expected question,
   request selected-result changes, or record human testing. Discuss scope and explain
   results here in the coordinator conversation; do not start separate worker discussions.
+  For a local correction, use action `changes` with `subtask_id` to retain unrelated
+  contributions and refresh its dependents. Omitting that field corrects all contributions;
+  naming a subtask only in the message does not scope the correction.
   Read the selected exact result before explaining it. Do not steer a worker during processing. `answer_editable`
   means input is already saved, not that another answer is needed. Reuse the reply ID after
   uncertain responses; never silently retarget drafts.

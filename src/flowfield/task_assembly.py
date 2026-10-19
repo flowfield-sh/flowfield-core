@@ -251,14 +251,14 @@ class TaskAssembly:
                 (value.workspace_id, value.task_id, child.id),
             ).fetchone()
             prior = Run.model_validate_json(previous[0]) if previous else None
-        # A correction starts with its own retained work as well as current dependencies.
+        # Corrections and local plan edits retain their own work with current dependencies.
         # Only dependency runs become prerequisite evidence; the prior attempt remains
         # the predecessor. Never reuse code from a different frozen task assembly.
         corrected = (
             [prior]
             if prior
             and prior.assembly_id == value.id
-            and prior.status == "changes_requested"
+            and prior.status in ("contributed", "changes_requested")
             and prior.completion == child.completion
             and prior.result_commit
             else []

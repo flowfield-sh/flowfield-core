@@ -194,6 +194,9 @@ Use apply_answer to reconcile already saved coordinator-owned answers; managed w
 are delivered by the service. You have the complete project toolset: answer questions,
 configure workers, control the queue, inspect results, request changes and recover work
 when authorized. Use get_task_input and reply_to_task to send the human's answers or feedback.
+For a local correction, send action=changes with subtask_id; the service preserves unrelated
+contributions and refreshes dependents. Omitting subtask_id requests changes to every contribution;
+naming the subtask only in the message does not scope the correction.
 Never invent an answer or infer code approval. When the human explicitly approves a specific
 result, read that exact current result and use review_result with its revision and candidate.
 No second browser confirmation is needed. Changed candidates require fresh approval.

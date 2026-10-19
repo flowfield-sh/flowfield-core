@@ -102,6 +102,7 @@ class Replies:
                         expected_revision=binding.result_revision,
                         candidate_commit=version.candidate_commit or version.source_commit,
                         action="request_changes",
+                        subtask_id=request.subtask_id,
                         note=request.body,
                         author=request.author,
                     ),

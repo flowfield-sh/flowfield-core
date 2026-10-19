@@ -30,6 +30,8 @@ scheduling: respect pauses and explicit model authority. After workers stop, edi
 changed active work when adopting the new requirements, then get_task_input/reply_to_task. Reopen delivered
 tasks before correction; preserve evidence. Managed answers continue without another apply
 step. Ask planning questions in your reply; use Flowfield questions for Inbox decisions.
+For local corrections, reply_to_task action=changes must include subtask_id to preserve
+unrelated contributions. Omitting it corrects every contribution; message text does not scope it.
 Native question forms are unsupported. Link asks through list_requests/get_request URLs.
 Retrieve older public chat with get_coordinator_history/get_coordinator_text; history never
 transfers permission or approval.

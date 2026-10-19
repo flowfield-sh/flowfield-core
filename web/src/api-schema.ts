@@ -4798,6 +4798,11 @@ export interface components {
        */
       author: string;
       /**
+       * Subtask Id
+       * @description For changes, correct this subtask and its dependents; omitted corrects all.
+       */
+      subtask_id: string | null;
+      /**
        * Action
        * @enum {string}
        */
@@ -4859,6 +4864,11 @@ export interface components {
        * @default human
        */
       author: string;
+      /**
+       * Subtask Id
+       * @description For changes, correct this subtask and its dependents; omitted corrects all.
+       */
+      subtask_id?: string | null;
       /**
        * Action
        * @enum {string}

@@ -271,6 +271,11 @@ def test_new_worker_discussion_is_rejected_without_scheduling(tmp_path):
         ReplyCreate.model_validate(
             {**message(execution.workspace).model_dump(), "action": "message"}
         )
+    for action in ("answer", "observation"):
+        with pytest.raises(ValidationError, match="only to requested changes"):
+            ReplyCreate.model_validate(
+                {**message(execution.workspace).model_dump(), "action": action, "subtask_id": "S-1"}
+            )
     with execution.workspace.connection() as db:
         assert db.execute("SELECT COUNT(*) FROM task_replies").fetchone()[0] == 0
     queue(execution, True)

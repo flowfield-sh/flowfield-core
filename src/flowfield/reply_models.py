@@ -3,10 +3,11 @@
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from flowfield.execution_models import Record
 from flowfield.project_config import Identifier
+from flowfield.subtasks import SubtaskIdentifier
 
 
 class ReplyBinding(Record):
@@ -23,10 +24,20 @@ class ReplyFields(Record):
     binding: ReplyBinding
     body: str = Field(min_length=1, max_length=8000)
     author: str = Field(default="human", min_length=1, max_length=200)
+    subtask_id: SubtaskIdentifier | None = Field(
+        default=None,
+        description="For changes, correct this subtask and its dependents; omitted corrects all.",
+    )
 
 
 class ReplyCreate(ReplyFields):
     action: Literal["changes", "answer", "observation"]
+
+    @model_validator(mode="after")
+    def correction_scope(self) -> "ReplyCreate":
+        if self.subtask_id and self.action != "changes":
+            raise ValueError("A subtask scope applies only to requested changes.")
+        return self
 
 
 class Reply(ReplyFields):
