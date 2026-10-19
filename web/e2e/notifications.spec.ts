@@ -4,6 +4,7 @@ import {
   test,
   existingDirectory,
   state,
+  stubResourcePresence,
 } from "./support";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -644,6 +645,7 @@ test("resolved permission links open the exact request without permitting anythi
   request,
 }) => {
   await setup(request, "notify-prm");
+  await stubResourcePresence(page);
   const workspace = await projectWorkspace(request, "notify-prm");
   const now = new Date().toISOString();
   await page.route(
