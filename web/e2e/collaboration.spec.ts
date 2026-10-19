@@ -375,7 +375,10 @@ test("cards keep one state while project questions remain in Inbox", async ({
   await expect(card.locator(".task-needs")).toHaveCount(0);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(
-    page.getByText("Which project constraint?", { exact: true }),
+    page.getByRole("heading", {
+      name: "Which project constraint?",
+      exact: true,
+    }),
   ).toBeVisible();
 });
 
