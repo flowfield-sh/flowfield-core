@@ -283,6 +283,9 @@
 }
 .work-navigation-heading > span {
   color: var(--muted-foreground);
+  font-variant-caps: all-small-caps;
+  font-weight: 600;
+  letter-spacing: 0.06em;
 }
 .work-navigation-scroll {
   flex: 1;

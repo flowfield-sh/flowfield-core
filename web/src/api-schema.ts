@@ -770,6 +770,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/files/{identity}/text": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Text */
+    get: operations["text_api_workspaces__workspace_id__files__identity__text_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/workspaces/{workspace_id}/view/tasks/{task_id}": {
     parameters: {
       query?: never;
@@ -4311,6 +4328,15 @@ export interface components {
        */
       description: string;
     };
+    /** OutputText */
+    OutputText: {
+      /** Text */
+      text: string;
+      /** Supported */
+      supported: boolean;
+      /** Truncated */
+      truncated: boolean;
+    };
     /** PermissionAnswer */
     PermissionAnswer: {
       /** Expected Revision */
@@ -6034,6 +6060,8 @@ export interface components {
        * @default []
        */
       choices: string[];
+      /** Cycle Start */
+      cycle_start: ("correction" | "follow_up") | null;
     };
     /** ThreadPage */
     ThreadPage: {
@@ -8339,6 +8367,38 @@ export interface operations {
         };
         content: {
           "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  text_api_workspaces__workspace_id__files__identity__text_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OutputText"];
         };
       };
       /** @description Validation Error */

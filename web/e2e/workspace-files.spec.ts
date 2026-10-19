@@ -96,6 +96,9 @@ test("workspace files organize retained task outputs without a project", async (
     files.getByText("checklist-draft.txt", { exact: true }),
   ).toBeVisible();
   await files.getByRole("button", { name: /launch-report.txt/ }).click();
+  await expect(files.getByLabel("Preview of launch-report.txt")).toContainText(
+    "The pilot supports a focused launch.",
+  );
   const details = files.getByRole("region", {
     name: "File details",
     exact: true,
@@ -107,6 +110,19 @@ test("workspace files organize retained task outputs without a project", async (
   const download = page.waitForEvent("download");
   await details.getByRole("link", { name: "Download", exact: true }).click();
   expect((await download).suggestedFilename()).toBe("launch-report.txt");
+  await files.getByRole("button", { name: /preview.js/ }).click();
+  const code = files.getByLabel("Preview of preview.js");
+  await expect(code).toContainText("<img src=x onerror=alert(1)>");
+  await expect(code.locator(".token.keyword").first()).toHaveText("const");
+  await expect(code.locator("img,script")).toHaveCount(0);
+  await files.getByRole("button", { name: /preview.md/ }).click();
+  const markdown = files.getByLabel("Preview of preview.md");
+  await expect(
+    markdown.getByRole("heading", { name: "Launch notes" }),
+  ).toBeVisible();
+  await expect(markdown.locator("script")).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("markdown-preview.png") });
+  await files.getByRole("button", { name: /launch-report.txt/ }).click();
   for (const [width, height, theme] of [
     [1440, 1000, "light"],
     [1440, 1000, "dark"],

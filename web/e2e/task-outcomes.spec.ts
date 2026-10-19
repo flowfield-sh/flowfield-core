@@ -170,9 +170,38 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await page
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();
+  const resultId = page.url().split("/").at(-1)!;
+  const resultPath = `/api${base}/results/${resultId}`;
+  const oldResult = await (await request.get(resultPath)).json();
+  let submitted = false;
+  let releaseSave!: () => void;
+  const saveGate = new Promise<void>((resolve) => {
+    releaseSave = resolve;
+  });
+  await page.route(`**${resultPath}`, (route) =>
+    submitted ? route.fulfill({ json: oldResult }) : route.continue(),
+  );
+  await page.route(`**${resultPath}/review`, async (route) => {
+    submitted = true;
+    await saveGate;
+    await route.fulfill({ response: await route.fetch() });
+  });
   await page
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();
+  const saving = page.getByRole("button", {
+    name: "Approve and integrate",
+    exact: true,
+  });
+  await expect(saving).toHaveText("Saving…");
+  await expect(saving).toBeDisabled();
+  releaseSave();
+  await expect(saving).toHaveCount(0);
+  // Old GET responses cannot bring back approval controls after the mutation receipt.
+  await expect(
+    page.getByRole("button", { name: "Request changes", exact: true }),
+  ).toHaveCount(0);
+  await page.unroute(`**${resultPath}`);
   await expect
     .poll(
       async () =>

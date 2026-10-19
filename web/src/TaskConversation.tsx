@@ -82,98 +82,126 @@ export function TaskConversation({
   const ordered = active
     ? [...messages.filter((m) => m !== active), active]
     : messages;
+  const groups = groupMessages(ordered);
   return (
-    <ContentStack
-      space="section"
-      className="task-conversation rounded-lg border p-3"
-    >
+    <ContentStack space="section" className="task-conversation">
       <ResourceRetry resources={[page, execution, selected]} />
       {page.loading && !page.data && <p>Loading activity…</p>}
-      <ol className="conversation-messages" aria-label="Task feed">
-        {ordered.map((message) => (
-          <li
-            key={message.id}
-            data-message-id={message.id}
-            data-kind={message.kind}
-            className="task-activity-item"
+      <div
+        role="list"
+        aria-label="Task feed"
+        className="content-stack"
+        data-space="section"
+      >
+        {groups.map((group) => (
+          <section
+            role="listitem"
+            key={group.id}
+            className="task-feed-cycle rounded-lg border"
+            aria-label={group.title}
           >
-            <ActivityEntry
-              identity={path + ":" + message.id}
-              selected={message.id === selected.data?.id}
-              title={message.title}
-              state={message.state}
-              hasBody={hasBody(message)}
-              metadata={
-                <>
-                  {message.actor.label} ·{" "}
-                  <Timestamp date={message.created_at} />
-                </>
-              }
+            <h3 className="task-feed-cycle-title">{group.title}</h3>
+            <ol
+              className="conversation-messages"
+              aria-label={group.title + " events"}
             >
-              <ContentStack className="conversation-message-body">
-                {!["definition", "review"].includes(message.kind) && (
-                  <MessageBody message={message} path={path} />
-                )}
-                {message.kind === "question" && (
-                  <WorkspaceLink
-                    to={requestHref(projectId, "question", message.source_id)}
+              {group.messages.map((message) => (
+                <li
+                  key={message.id}
+                  data-message-id={message.id}
+                  data-kind={message.kind}
+                  className="task-activity-item"
+                >
+                  <ActivityEntry
+                    identity={path + ":" + message.id}
+                    selected={message.id === selected.data?.id}
+                    title={message.title}
+                    state={message.state}
+                    hasBody={hasBody(message)}
+                    metadata={
+                      <>
+                        {message.actor.label} ·{" "}
+                        <Timestamp date={message.created_at} />
+                      </>
+                    }
                   >
-                    View request
-                  </WorkspaceLink>
-                )}
-                {message.kind === "result" && (
-                  <ResultEvidence
-                    workspaceId={projectId}
-                    identity={message.source_id}
-                    refresh={refresh}
-                  />
-                )}
-                {message.question_id && (
-                  <WorkspaceLink
-                    to={requestHref(projectId, "question", message.question_id)}
-                  >
-                    Related question
-                  </WorkspaceLink>
-                )}
-                {message.kind === "reply" && message.result_id && (
-                  <WorkspaceLink to={resultHref(projectId, message.result_id)}>
-                    Tested result
-                  </WorkspaceLink>
-                )}
-                {message.kind === "attempt" && (
-                  <RunActivity
-                    projectId={projectId}
-                    runId={message.source_id}
-                  />
-                )}
-                {message.kind === "review" && (
-                  <ReviewActivity
-                    projectId={projectId}
-                    reviewId={message.source_id}
-                    refresh={refresh}
-                  />
-                )}
-                {message.kind === "definition" && (
-                  <TaskChanges
-                    revision={message.revision!}
-                    path={`workspaces/${projectId}/view/tasks/${task.id}`}
-                    tasks={board.tasks}
-                  />
-                )}
-                {message.kind === "attempt" &&
-                  execution.data?.run_id === message.source_id && (
-                    <ExecutionDetails
-                      projectId={projectId}
-                      taskKey={task.key}
-                      item={execution.data}
-                      refresh={refresh}
-                    />
-                  )}
-              </ContentStack>
-            </ActivityEntry>
-          </li>
+                    <ContentStack className="conversation-message-body">
+                      {!["definition", "review"].includes(message.kind) && (
+                        <MessageBody message={message} path={path} />
+                      )}
+                      {message.kind === "question" && (
+                        <WorkspaceLink
+                          to={requestHref(
+                            projectId,
+                            "question",
+                            message.source_id,
+                          )}
+                        >
+                          View request
+                        </WorkspaceLink>
+                      )}
+                      {message.kind === "result" && (
+                        <ResultEvidence
+                          workspaceId={projectId}
+                          identity={message.source_id}
+                          refresh={refresh}
+                        />
+                      )}
+                      {message.question_id && (
+                        <WorkspaceLink
+                          to={requestHref(
+                            projectId,
+                            "question",
+                            message.question_id,
+                          )}
+                        >
+                          Related question
+                        </WorkspaceLink>
+                      )}
+                      {message.kind === "reply" && message.result_id && (
+                        <WorkspaceLink
+                          to={resultHref(projectId, message.result_id)}
+                        >
+                          Tested result
+                        </WorkspaceLink>
+                      )}
+                      {message.kind === "attempt" && (
+                        <RunActivity
+                          projectId={projectId}
+                          runId={message.source_id}
+                        />
+                      )}
+                      {message.kind === "review" && (
+                        <ReviewActivity
+                          projectId={projectId}
+                          reviewId={message.source_id}
+                          refresh={refresh}
+                        />
+                      )}
+                      {message.kind === "definition" && (
+                        <TaskChanges
+                          revision={message.revision!}
+                          path={`workspaces/${projectId}/view/tasks/${task.id}`}
+                          tasks={board.tasks}
+                        />
+                      )}
+                      {message.kind === "attempt" &&
+                        execution.data?.run_id === message.source_id && (
+                          <ExecutionDetails
+                            projectId={projectId}
+                            taskKey={task.key}
+                            item={execution.data}
+                            refresh={refresh}
+                          />
+                        )}
+                    </ContentStack>
+                  </ActivityEntry>
+                </li>
+              ))}
+            </ol>
+          </section>
         ))}
-      </ol>
+      </div>
     </ContentStack>
   );
 }
@@ -210,4 +238,35 @@ function ResultEvidence({
       </WorkspaceLink>
     </ContentStack>
   );
+}
+
+/** Derive consecutive work cycles from recorded feedback/reopening, never editable stages. */
+function groupMessages(messages: Message[]) {
+  const groups: { id: string; title: string; messages: Message[] }[] = [];
+  let corrections = 0,
+    followUps = 0;
+  for (const message of messages) {
+    let group = groups.at(-1);
+    const boundary = message.cycle_start;
+    if (
+      !group ||
+      (boundary &&
+        group.messages.some(
+          (item) => item.kind === "attempt" || item.kind === "delivery",
+        ))
+    ) {
+      group = {
+        id: message.id,
+        title: !group
+          ? "Initial work"
+          : boundary === "follow_up"
+            ? "Follow-up " + ++followUps
+            : "Correction " + ++corrections,
+        messages: [],
+      };
+      groups.push(group);
+    }
+    group.messages.push(message);
+  }
+  return groups;
 }

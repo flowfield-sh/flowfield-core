@@ -94,6 +94,49 @@ test("coordinator labels update read-only task headers and preserve deletion his
   await expect(
     page.getByRole("tab", { name: "Labels", exact: true }),
   ).toHaveCount(0);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(
+    page.getByRole("list", { name: "Workspace labels" }),
+  ).toContainText("New or expanded product behavior.");
+  await page.getByRole("button", { name: "Add label", exact: true }).click();
+  const create = page.getByRole("form", { name: "New label" });
+  await create.getByLabel("Name", { exact: true }).fill("Customer request");
+  await create
+    .getByLabel("Guidance", { exact: true })
+    .fill("Changes requested by a customer.");
+  await page.getByRole("tab", { name: "Workers", exact: true }).click();
+  await page.getByRole("tab", { name: "General", exact: true }).click();
+  await expect(create.getByLabel("Name", { exact: true })).toHaveValue(
+    "Customer request",
+  );
+  await create
+    .getByRole("button", { name: "Create label", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Edit Customer request", exact: true })
+    .click();
+  const edit = page.getByRole("form", { name: "Edit Customer request" });
+  await edit
+    .getByLabel("Guidance", { exact: true })
+    .fill("Requested product improvements.");
+  await edit.getByRole("button", { name: "Save label", exact: true }).click();
+  await expect(
+    page.getByRole("list", { name: "Workspace labels" }),
+  ).toContainText("Requested product improvements.");
+  await page.screenshot({
+    path: testInfo.outputPath("workspace-label-settings.png"),
+  });
+  await page
+    .getByRole("button", { name: "Edit Customer request", exact: true })
+    .click();
+  await edit.getByRole("button", { name: "Delete label", exact: true }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Delete label", exact: true })
+    .click();
+  await expect(
+    page.getByRole("list", { name: "Workspace labels" }),
+  ).not.toContainText("Customer request");
   await page.goto(
     `/workspaces/${await projectWorkspace(request, project.id)}/tasks/new`,
   );

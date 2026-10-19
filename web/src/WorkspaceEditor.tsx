@@ -13,6 +13,7 @@ import { ReviewerSettings } from "./ReviewerSettings";
 import { QueueSettings, WorkerSettings } from "./Workers";
 import { workspaceHref } from "./navigation";
 import type { WorkspaceRecord } from "./workspace";
+import { WorkspaceLabels } from "./WorkspaceLabels";
 
 const fields = (record?: WorkspaceRecord) => ({
   name: record?.name ?? "",
@@ -43,6 +44,7 @@ export function WorkspaceEditor({
   const [workerDirty, setWorkerDirty] = useState(false);
   const [coordinatorDirty, setCoordinatorDirty] = useState(false);
   const [taskReviewerDirty, setTaskReviewerDirty] = useState(false);
+  const [labelsDirty, setLabelsDirty] = useState(false);
   const path = `workspaces/${incoming.id}`;
   const state = useRecordEditor({
     recordName: "workspace settings",
@@ -51,7 +53,8 @@ export function WorkspaceEditor({
     path: () => path,
     onDirty,
     saved,
-    otherDirty: workerDirty || coordinatorDirty || taskReviewerDirty,
+    otherDirty:
+      workerDirty || coordinatorDirty || taskReviewerDirty || labelsDirty,
   });
   const {
     element: editor,
@@ -134,6 +137,12 @@ export function WorkspaceEditor({
           </form>
           <Separator />
           <QueueSettings workspaceId={incoming.id} refresh={incoming} />
+          <Separator />
+          <WorkspaceLabels
+            workspaceId={incoming.id}
+            refresh={incoming}
+            onDirty={setLabelsDirty}
+          />
         </ContentStack>
       </div>
       <div

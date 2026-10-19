@@ -110,6 +110,8 @@ def test_human_test_feedback_reaches_same_task_without_approving_partial_work(tm
     text = "I tried the selected version: desktop keyboard play works. Finish the remaining checks."
     request = message(execution.workspace, action="changes", body=text)
     receipt = replies.submit("harbor", "task-0", request)
+    event = ThreadView(execution.workspace).item_view("harbor", "task-0", f"reply:{receipt.id}")
+    assert event.cycle_start == "correction"
     assert replies.submit("harbor", "task-0", request) == receipt
     version = Results(execution.workspace).page("harbor", "task-0").items[0]
     assert version.status == "changes_requested" and version.approved_at is None

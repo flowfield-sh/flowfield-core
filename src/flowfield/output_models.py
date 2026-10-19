@@ -53,3 +53,9 @@ class FileInput(BaseModel):
 class OutputPage(BaseModel):
     items: list[OutputFile]
     next_before: int | None = None
+
+
+class OutputText(BaseModel):
+    text: str
+    supported: bool
+    truncated: bool

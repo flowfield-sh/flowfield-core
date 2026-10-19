@@ -30,6 +30,7 @@ class ThreadMessage(Record):
     purpose: Literal["work", "assembly"] | None = None
     question_id: str | None = None
     choices: list[str] = []
+    cycle_start: Literal["correction", "follow_up"] | None = None
 
 
 class ThreadPage(Record):
@@ -57,12 +58,15 @@ class ThreadView(Conversation):
         kind: str = item.kind
         body, title = "", ""
         internal_plan = False
+        cycle_start: Literal["correction", "follow_up"] | None = None
         if kind == "definition":
             before = db.execute(
                 "SELECT data FROM task_revisions WHERE workspace_id=? AND task_id=? AND revision=?",
                 (workspace_id, task_id, (item.revision or 1) - 1),
             ).fetchone()
             previous = json.loads(before[0]) if before else None
+            if previous and previous["status"] == "done" and data["status"] != "done":
+                cycle_start = "follow_up"
             if previous and data["agreement_revision"] == previous["agreement_revision"]:
                 kind = "state"
                 title = "Moved to " + data["status"].replace("_", " ").capitalize()
@@ -114,6 +118,8 @@ class ThreadView(Conversation):
                     (item.source_id,),
                 ).fetchone()
                 if decision:
+                    if decision[0] == "request_changes":
+                        cycle_start = "correction"
                     title = {
                         "approve": "Reviewer signed off",
                         "request_changes": "Reviewer requested changes",
@@ -131,6 +137,8 @@ class ThreadView(Conversation):
                     else "Selected handoff"
                 )
         elif kind == "reply":
+            if data["action"] == "changes":
+                cycle_start = "correction"
             title = {
                 "changes": "Feedback",
                 "observation": "Testing observation",
@@ -143,6 +151,15 @@ class ThreadView(Conversation):
                 ).fetchone()
                 title += f" · Result {version[0]}"
         elif kind == "attempt":
+            if data.get("correction"):
+                cycle_start = "correction"
+            elif data.get("predecessor_id"):
+                predecessor = db.execute(
+                    "SELECT json_extract(data,'$.status') FROM runs WHERE id=?",
+                    (data["predecessor_id"],),
+                ).fetchone()
+                if predecessor and predecessor[0] == "changes_requested":
+                    cycle_start = "correction"
             title = (
                 "Contribution work"
                 if data.get("subtask_id")
@@ -194,6 +211,7 @@ class ThreadView(Conversation):
             purpose=data.get("purpose", "work") if kind == "attempt" else None,
             question_id=data.get("question_id") if kind == "activity" else None,
             choices=data.get("choices", []) if kind == "question" else [],
+            cycle_start=cycle_start,
         )
 
     def page_view(self, workspace_id: str, task_id: str, cursor: str | None = None) -> ThreadPage:

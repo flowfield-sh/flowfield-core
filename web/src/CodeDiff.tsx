@@ -4,20 +4,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useMemo, useState } from "react";
 import { Diff, Hunk, Decoration, parseDiff, tokenize } from "react-diff-view";
-import refractor from "refractor/core";
-import python from "refractor/lang/python";
-import typescript from "refractor/lang/typescript";
-import jsx from "refractor/lang/jsx";
-import tsx from "refractor/lang/tsx";
-import json from "refractor/lang/json";
-import bash from "refractor/lang/bash";
+import { refractor, codeLanguage } from "./codeHighlight";
 import "react-diff-view/style/index.css";
 import { usePage, useResource } from "./useResource";
 import { request, label } from "./workspace";
 import type { components } from "./api-schema";
 
-for (const language of [python, typescript, jsx, tsx, json, bash])
-  refractor.register(language);
 type Files = components["schemas"]["ChangedFiles"];
 type Patch = components["schemas"]["FilePatch"];
 async function readFiles(url: string, signal: AbortSignal) {
@@ -29,21 +21,6 @@ async function readFiles(url: string, signal: AbortSignal) {
   );
   return { ...page, items: files };
 }
-const languages: Record<string, string> = {
-  py: "python",
-  js: "javascript",
-  mjs: "javascript",
-  cjs: "javascript",
-  ts: "typescript",
-  jsx: "jsx",
-  tsx: "tsx",
-  json: "json",
-  sh: "bash",
-  bash: "bash",
-  html: "markup",
-  css: "css",
-};
-
 export type DiffViewState = { selected: number; mode: "unified" | "split" };
 
 export default function CodeDiff({
@@ -222,7 +199,7 @@ function HighlightedDiff({
   mode: "unified" | "split";
 }) {
   const tokens = useMemo(() => {
-    const language = languages[path.split(".").at(-1) ?? ""];
+    const language = codeLanguage(path);
     if (!language) return undefined;
     try {
       return tokenize(file.hunks, { highlight: true, refractor, language });

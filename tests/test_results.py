@@ -15,6 +15,7 @@ from flowfield.execution_models import QueueEdit
 from flowfield.integration_models import IntegrationApply
 from flowfield.result_models import ResultReview
 from flowfield.supervisor import Supervisor
+from flowfield.thread_view import ThreadView
 
 
 def test_task_history_pages_one_chronology_and_nests_service_evidence(tmp_path):
@@ -159,7 +160,7 @@ def test_target_moves_after_approval_leaves_unfinished_delivery(tmp_path):
 
 @pytest.mark.parametrize("enabled", [False, True])
 def test_requested_changes_explain_observed_queue_state(tmp_path, enabled):
-    service, _, _ = fixture(tmp_path)
+    service, repo, _ = fixture(tmp_path)
     service.results.process("harbor")
     version = current(service)
     settings = service.execution.settings("harbor")
@@ -180,6 +181,14 @@ def test_requested_changes_explain_observed_queue_state(tmp_path, enabled):
     assert action.label == ("Waiting for capacity" if enabled else "Paused")
     assert ("queue is paused" in action.reason) is not enabled
     assert ("when capacity is available" in action.reason) is enabled
+    if enabled:
+        head = service.integrations.head("harbor", "work")
+        run = service.execution.claim(
+            "harbor", head, service._available("harbor", "harbor", repo, head)
+        )
+        assert run
+        event = ThreadView(service.workspace).item_view("harbor", "work", f"attempt:{run.id}")
+        assert event.cycle_start == "correction"
 
 
 @pytest.mark.parametrize("restart", [True, False])

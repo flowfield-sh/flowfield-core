@@ -163,6 +163,7 @@ export function TaskResponse({
       : null);
   const showComposer = composerAction !== null;
   const [busy, setBusy] = useState(false);
+  const [savedResult, setSavedResult] = useState<Version | null>(null);
   const [uploading, setUploading] = useState(false);
   const paneBody = usePaneBody();
   const input = useRef<HTMLTextAreaElement>(null);
@@ -287,7 +288,7 @@ export function TaskResponse({
     setBusy(true);
     try {
       if (draft.action === "approve") {
-        await request(
+        const saved = await request<Version>(
           `workspaces/${projectId}/results/${draft.binding.result_id}/review`,
           "POST",
           {
@@ -298,6 +299,7 @@ export function TaskResponse({
             author: "human",
           },
         );
+        if (alive.current) setSavedResult(saved);
       } else await request(`${path}/replies`, "POST", draft);
       if (!alive.current) return;
       selected.invalidate();
@@ -374,7 +376,8 @@ export function TaskResponse({
             refresh={tick}
             onReply={requestChanges}
             onApprove={approve}
-            inputEnabled={inputEnabled && !gate.data?.question_id}
+            accepted={savedResult}
+            inputEnabled={inputEnabled && !busy && !gate.data?.question_id}
           />
         ) : requestTarget.kind === "question" ? (
           currentQuestion.data && (
@@ -521,7 +524,9 @@ export function TaskResponse({
                           stale
                         }
                       >
-                        {composerAction === "approve" ? (
+                        {busy ? (
+                          "Saving…"
+                        ) : composerAction === "approve" ? (
                           "Approve and integrate"
                         ) : (
                           <ArrowUp size={16} />

@@ -15,6 +15,7 @@ from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import QueueEdit, WorkerResult
 from flowfield.supervisor import WorkerBridge
+from flowfield.thread_view import ThreadView
 
 
 def delivered(tmp_path, completion="code"):
@@ -40,6 +41,8 @@ def test_reopen_preserves_evidence_and_requires_new_preparation_scheduling_and_a
         "harbor", "work", TaskReopen(expected_revision=task.revision, note="Cover another case")
     )
     assert reopened.status == "backlog" and reopened.publication_status == "draft"
+    event = ThreadView(store).item_view("harbor", "work", f"definition:{reopened.revision}")
+    assert event.cycle_start == "follow_up"
     assert reopened.agreement_revision == task.agreement_revision + 1
     assert service.execution.get("harbor", old_run.id) == saved_run
     retained = service.results.get("harbor", old.id)

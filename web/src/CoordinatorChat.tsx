@@ -360,9 +360,6 @@ export function CoordinatorChat({
                             : "Working…"}
                     </div>
                   )}
-                <div className="detail-metadata" role="status">
-                  Coordinator · {turn.status}
-                </div>
               </div>
             </article>
           ))}

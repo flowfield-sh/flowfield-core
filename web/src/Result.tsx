@@ -32,6 +32,7 @@ export function Result({
   onReply,
   onApprove,
   inputEnabled,
+  accepted,
 }: {
   projectId: string;
   projects: WorkspaceBoard["projects"];
@@ -42,6 +43,7 @@ export function Result({
   onReply: (version: Version) => void;
   onApprove: (version: Version) => void;
   inputEnabled: boolean;
+  accepted?: Version | null;
 }) {
   const { pathname } = useLocation();
   // Returning to a retained result rechecks external branch movement too.
@@ -53,7 +55,11 @@ export function Result({
   );
   const detail = useResource<Version>(`${path}/results/${versionId}`, observed);
   const [saved, setSaved] = useState<Version | null>(null);
-  const incoming = detail.data;
+  const incoming =
+    accepted?.id === versionId &&
+    accepted.revision > (detail.data?.revision ?? 0)
+      ? accepted
+      : detail.data;
   const version =
     saved && saved.id === incoming?.id && saved.revision > incoming.revision
       ? saved

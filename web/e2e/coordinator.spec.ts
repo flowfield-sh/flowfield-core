@@ -403,9 +403,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     "margin-top",
     "6px",
   );
-  await expect(
-    page.locator(".coordinator-message > .detail-metadata").last(),
-  ).toHaveText(/^Coordinator · \w+$/);
+  await expect(page.getByText(/^Coordinator · /)).toHaveCount(0);
   await expect(
     activeSettings.getByRole("button", { name: "Refresh models", exact: true }),
   ).toBeEnabled();
@@ -562,8 +560,8 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     page.getByRole("button", { name: "Expand projects" }),
   ).toHaveCount(0);
   await expect(
-    page.locator(".coordinator-message").last().locator(":scope > :last-child"),
-  ).toHaveText("Coordinator · stopped");
+    page.getByText("Coordinator · stopped", { exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByText("Read project · completed", { exact: false }),
   ).toContainText("/project/README.md");
@@ -635,7 +633,9 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   await page.reload();
   await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
   await expect(
-    page.getByText("Coordinator · failed", { exact: true }),
+    page.getByText("The saved agent session could not be resumed.", {
+      exact: true,
+    }),
   ).toBeVisible();
   const reset = page.getByRole("button", {
     name: "Start new session",

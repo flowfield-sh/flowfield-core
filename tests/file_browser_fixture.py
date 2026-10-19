@@ -25,6 +25,10 @@ def seed(directory):
         {
             "launch-report.txt": "Launch research\n\nThe pilot supports a focused launch.\n",
             "sources.csv": "source,observations\nInterviews,12\nPilot teams,4\n",
+            "preview.js": (
+                "const message = '<img src=x onerror=alert(1)>';\nconsole.log(message);\n"
+            ),
+            "preview.md": "# Launch notes\n\n- Read the report\n\n<script>alert(1)</script>\n",
         },
     )
     unfinished = task(store, scope, title="Prepare a launch checklist")

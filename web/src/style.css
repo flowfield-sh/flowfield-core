@@ -810,22 +810,22 @@
   .code-review .diff-decoration-content {
     padding: 5px 10px;
   }
-  .code-review .token.comment {
+  :is(.code-review, .output-code) .token.comment {
     color: var(--syntax-comment);
   }
-  .code-review .token.keyword,
-  .code-review .token.boolean {
+  :is(.code-review, .output-code) .token.keyword,
+  :is(.code-review, .output-code) .token.boolean {
     color: var(--syntax-keyword);
   }
-  .code-review .token.string {
+  :is(.code-review, .output-code) .token.string {
     color: var(--syntax-string);
   }
-  .code-review .token.number,
-  .code-review .token.function {
+  :is(.code-review, .output-code) .token.number,
+  :is(.code-review, .output-code) .token.function {
     color: var(--syntax-number);
   }
-  .code-review .token.operator,
-  .code-review .token.punctuation {
+  :is(.code-review, .output-code) .token.operator,
+  :is(.code-review, .output-code) .token.punctuation {
     color: var(--muted-foreground);
   }
   @media (max-width: 700px) {

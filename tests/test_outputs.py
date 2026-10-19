@@ -123,8 +123,38 @@ def test_download_active_content_is_attachment_and_passive_content_can_open(tmp_
         response = client.get(f"{base}/{plain.id}/content")
         assert response.headers["content-disposition"].startswith("inline;")
         assert response.text == "Findings"
+        preview = client.get(f"{base}/{html.id}/text")
+        assert preview.json() == {
+            "text": "<script>alert(1)</script>",
+            "supported": True,
+            "truncated": False,
+        }
+        assert preview.headers["content-type"].startswith("application/json")
         assert (
             client.get(f"{base}/{plain.id}/content?download=true")
             .headers["content-disposition"]
             .startswith("attachment;")
         )
+
+
+def test_text_preview_is_bounded_and_rejects_binary(tmp_path):
+    execution, run, output, owner = prepared(tmp_path)
+    (output / "large.txt").write_text("x" * 65535 + "🦉" * 10)
+    (output / "binary.txt").write_bytes(b"text\x00binary")
+    (output / "invalid.txt").write_bytes(b"text\xff")
+    large, binary, invalid = capture(execution, run, ["large.txt", "binary.txt", "invalid.txt"])
+    app = FastAPI()
+    app.include_router(output_router(lambda: execution.workspace))
+    with TestClient(app) as client:
+        base = f"/api/workspaces/{owner}/files"
+        assert client.get(f"{base}/{large.id}/text").json() == {
+            "text": "x" * 65535,
+            "supported": True,
+            "truncated": True,
+        }
+        for value in (binary, invalid):
+            assert client.get(f"{base}/{value.id}/text").json() == {
+                "text": "",
+                "supported": False,
+                "truncated": False,
+            }

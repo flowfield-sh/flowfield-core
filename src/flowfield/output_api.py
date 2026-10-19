@@ -1,5 +1,6 @@
 """Workspace-scoped metadata and retained file downloads."""
 
+import codecs
 from collections.abc import Callable
 from pathlib import PurePosixPath
 from typing import Literal
@@ -13,7 +14,7 @@ from flowfield.file_browser import (
     FileDirectory,
     FileWorkPage,
 )
-from flowfield.output_models import OutputFile, OutputPage
+from flowfield.output_models import OutputFile, OutputPage, OutputText
 from flowfield.outputs import Outputs
 
 # Never render active HTML/SVG or arbitrary worker-authored content on the app origin.
@@ -84,5 +85,23 @@ def output_router(workspace: Callable[[], Workspace]) -> APIRouter:
                 "Cache-Control": "private, no-store",
             },
         )
+
+    @router.get("/{identity}/text")
+    def text(workspace_id: str, identity: str) -> OutputText:
+        outputs = Outputs(workspace())
+        value = outputs.get(workspace_id, identity)
+        limit = 64 * 1024
+        with outputs.content(value).open("rb") as stream:
+            raw = stream.read(limit + 1)
+        truncated = len(raw) > limit
+        try:
+            decoded = codecs.getincrementaldecoder("utf-8-sig")().decode(
+                raw[:limit], final=not truncated
+            )
+            if any(ord(char) < 32 and char not in "\t\r\n" for char in decoded):
+                raise ValueError("Binary content")
+        except (UnicodeDecodeError, ValueError):
+            return OutputText(text="", supported=False, truncated=False)
+        return OutputText(text=decoded, supported=True, truncated=truncated)
 
     return router
