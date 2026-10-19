@@ -1355,4 +1355,6 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   releaseRun();
   await actions.getByRole("link", { name: "Fix project setup" }).click();
   await expect(page).toHaveURL(/edit\/integration/);
+  // Drain staggered result reads before Playwright disposes their response bodies.
+  await page.unrouteAll({ behavior: "wait" });
 });
