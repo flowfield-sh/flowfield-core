@@ -25,6 +25,18 @@ def action(version):
     return RunAction(expected_revision=version.revision, author="human")
 
 
+def test_approved_delivery_cannot_be_cancelled(tmp_path):
+    service, repo, run = fixture(tmp_path)
+    service.results.process("harbor")
+    approve(service, current(service))
+    delivering = current(service)
+    assert delivering.status == "delivering"
+    with pytest.raises(ApplicationError, match="already closed"):
+        service.results.cancel("harbor", delivering.id, action(delivering))
+    service.results.process("harbor")
+    assert current(service).status == "delivered"
+
+
 def claim_correction(service, repo):
     settings = service.execution.settings("harbor")
     service.execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=True))

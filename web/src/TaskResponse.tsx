@@ -53,6 +53,7 @@ export function TaskResponse({
   task,
   refresh,
   onDirty,
+  onResolved,
   requestTarget,
 }: {
   projectId: string;
@@ -64,6 +65,7 @@ export function TaskResponse({
   };
   refresh: unknown;
   onDirty: DirtyCallback;
+  onResolved?: () => void;
 }) {
   const path = `workspaces/${projectId}/tasks/${task.id}`;
   const [revision, setRevision] = useState(0);
@@ -310,6 +312,7 @@ export function TaskResponse({
         return next;
       });
       setChosen(null);
+      onResolved?.();
       setRevision((n) => n + 1);
     } catch (e) {
       if (alive.current) reportError(e, "Could not submit reply");

@@ -153,7 +153,7 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   ).json();
   expect(waiting.blocked_by).toHaveLength(1);
   await detail
-    .getByRole("link", { name: "Run result and view changes", exact: true })
+    .getByRole("link", { name: "Access results", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "Run result", exact: true }),
@@ -197,6 +197,9 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await expect(saving).toBeDisabled();
   releaseSave();
   await expect(saving).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Cancel delivery" }),
+  ).toHaveCount(0);
   // Old GET responses cannot bring back approval controls after the mutation receipt.
   await expect(
     page.getByRole("button", { name: "Request changes", exact: true }),
@@ -240,7 +243,7 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
     deliveries
       .locator("article")
       .first()
-      .getByRole("link", { name: "Run result", exact: true }),
+      .getByRole("link", { name: "Access results", exact: true }),
   ).toBeVisible();
   await expect(
     deliveries.locator("article").first().getByRole("img"),

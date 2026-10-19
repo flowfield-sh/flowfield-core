@@ -32,7 +32,7 @@ export function SourceReferences({
             </WorkspaceLink>
             <span className="detail-metadata">
               {" "}
-              · revision {item.revision} ·{" "}
+              · revision #{item.revision} ·{" "}
               {item.purpose === "reference" ? "Reference" : "Required"}
             </span>
             {updates
@@ -48,7 +48,7 @@ export function SourceReferences({
                   <WorkspaceLink
                     to={`/workspaces/${item.workspace_id}/documents/${item.id}/revisions/${update.latest_revision}`}
                   >
-                    Revision {update.latest_revision} available
+                    Revision #{update.latest_revision} available
                   </WorkspaceLink>
                 </span>
               ))}

@@ -232,9 +232,7 @@ function ResultEvidence({
         />
       )}
       <WorkspaceLink to={resultHref(workspaceId, identity)}>
-        {result.data?.completion === "code"
-          ? "Run result and view changes"
-          : "View result"}
+        {result.data?.completion === "code" ? "Access results" : "View result"}
       </WorkspaceLink>
     </ContentStack>
   );
@@ -260,8 +258,8 @@ function groupMessages(messages: Message[]) {
         title: !group
           ? "Initial work"
           : boundary === "follow_up"
-            ? "Follow-up " + ++followUps
-            : "Correction " + ++corrections,
+            ? "Follow-up #" + ++followUps
+            : "Correction #" + ++corrections,
         messages: [],
       };
       groups.push(group);

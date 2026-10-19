@@ -23,8 +23,14 @@ import {
   TooltipContent,
   TooltipProvider,
 } from "@/components/ui/tooltip";
-import { canonicalHref, followLink, workspaceHref } from "./navigation";
-import type { WorkspaceBoard } from "./workspace";
+import {
+  canonicalHref,
+  followLink,
+  workspaceHref,
+  workspacePaths,
+} from "./navigation";
+import { matchPath } from "react-router";
+import { request, type WorkspaceBoard } from "./workspace";
 
 export type NavigationIntent = "within" | "open";
 export const ResourceNavigation = createContext<
@@ -106,12 +112,14 @@ function valid(value: unknown, workspace: string): value is TabState {
     Array.isArray(v.tabs) &&
     v.tabs.length > 0 &&
     v.tabs.length <= limit &&
+    v.tabs.every((tab) => !!tab && typeof tab === "object") &&
     v.tabs[0]?.id === workspaceHref(workspace) + "/inbox" &&
     v.tabs[0]?.root === workspaceHref(workspace) + "/inbox" &&
     new Set(v.tabs.map((tab) => tab.id)).size === v.tabs.length &&
     v.tabs.some((t) => t.id === v.active) &&
     v.tabs.every(
       (t) =>
+        !!t &&
         typeof t.id === "string" &&
         typeof t.root === "string" &&
         t.root.startsWith("/") &&
@@ -124,6 +132,7 @@ function valid(value: unknown, workspace: string): value is TabState {
             typeof p === "string" &&
             p.startsWith("/") &&
             !p.startsWith("//") &&
+            !p.includes("\\") &&
             p.length < 4096,
         ) &&
         Number.isInteger(t.index) &&
@@ -135,13 +144,27 @@ function valid(value: unknown, workspace: string): value is TabState {
 function load(workspace: string) {
   try {
     const value: unknown = JSON.parse(
-      sessionStorage.getItem(`flowfield:tabs:${workspace}`) ?? "null",
+      localStorage.getItem(`flowfield:tabs:${workspace}`) ?? "null",
     );
     if (valid(value, workspace)) return value;
   } catch {
     /* Unavailable storage does not prevent navigation. */
   }
   return initial(workspace);
+}
+function knownLocation(url: string, workspace: string) {
+  try {
+    const path = new URL(url, "http://flowfield.local").pathname;
+    return workspacePaths.some((pattern) => {
+      const match = matchPath(pattern, path);
+      return (
+        !!match &&
+        (!match.params.workspaceId || match.params.workspaceId === workspace)
+      );
+    });
+  } catch {
+    return false;
+  }
 }
 function visit(
   state: TabState,
@@ -202,9 +225,11 @@ export function useWorkspaceTabs(
   ) => void,
   owners: Record<string, string>,
   board: WorkspaceBoard | null,
+  refresh: unknown,
 ) {
   const location = useLocation();
   const [saved, setSaved] = useState<TabState | null>(null);
+  const [restore, setRestore] = useState<string | null>(null);
   const [titles, setTitles] = useState<Record<string, string>>({});
   const labelResource = useCallback((url: string, title: string) => {
     const root = resourceRoot(url);
@@ -224,6 +249,7 @@ export function useWorkspaceTabs(
     owners,
   );
   const incoming = location.state?.workspaceTabs as unknown;
+  if (restore && path === restore) setRestore(null);
   let state =
     workspace && board?.workspace.id === workspace
       ? saved?.workspace === workspace
@@ -233,7 +259,15 @@ export function useWorkspaceTabs(
   if (workspace && state) {
     if (valid(incoming, workspace)) state = incoming;
     const active = state.tabs.find((t) => t.id === state?.active);
-    if (active?.history[active.index] !== path)
+    const restoring =
+      saved?.workspace !== workspace &&
+      !incoming &&
+      path === workspaceHref(workspace) + "/inbox" &&
+      active?.id !== state.tabs[0].id
+        ? (active?.history[active.index] ?? null)
+        : restore;
+    if (restoring !== restore) setRestore(restoring);
+    if (!restoring && active?.history[active.index] !== path)
       state = visit(
         state,
         path,
@@ -248,11 +282,84 @@ export function useWorkspaceTabs(
     const next = JSON.parse(serialized) as TabState | null;
     if (next)
       try {
-        sessionStorage.setItem(`flowfield:tabs:${next.workspace}`, serialized);
+        localStorage.setItem(`flowfield:tabs:${next.workspace}`, serialized);
       } catch {
         /* Optional preferences. */
       }
   }, [serialized]);
+  useLayoutEffect(() => {
+    if (!restore || restore === path) return;
+    change(restore, true, { workspaceTabs: JSON.parse(serialized) });
+  }, [change, serialized, restore, path]);
+  // One bounded shell read checks inactive tabs too. No content mounts, result
+  // preparation or streams are needed. A failed read never means deletion.
+  const latest = useRef(state);
+  useLayoutEffect(() => {
+    latest.current = JSON.parse(serialized) as TabState | null;
+  }, [serialized]);
+  const locations = JSON.stringify(
+    state?.tabs.map((tab) => tab.history[tab.index]) ?? [],
+  );
+  useEffect(() => {
+    if (!workspace || locations === "[]") return;
+    const controller = new AbortController();
+    let reading = false;
+    async function reconcile() {
+      if (reading || controller.signal.aborted) return;
+      reading = true;
+      try {
+        const urls = JSON.parse(locations) as string[];
+        const params = new URLSearchParams();
+        urls
+          .filter((url) => knownLocation(url, workspace!))
+          .forEach((url) => params.append("location", url));
+        const present = await request<Record<string, boolean>>(
+          `workspaces/${workspace}/view/resource-presence?${params}`,
+          "GET",
+          undefined,
+          controller.signal,
+        );
+        if (controller.signal.aborted) return;
+        const missing = new Set(
+          urls.filter(
+            (url) => !knownLocation(url, workspace!) || present[url] === false,
+          ),
+        );
+        const current = latest.current;
+        if (!missing.size || !current || current.workspace !== workspace)
+          return;
+        const tabs = current.tabs
+          .filter(
+            (tab, index) => index === 0 || !missing.has(tab.history[tab.index]),
+          )
+          .map((tab) => {
+            const history = tab.history.filter((url) => !missing.has(url));
+            const index = tab.history
+              .slice(0, tab.index)
+              .filter((url) => !missing.has(url)).length;
+            return { ...tab, history, index };
+          });
+        const active = tabs.find((tab) => tab.id === current.active) ?? tabs[0];
+        const next = { ...current, tabs, active: active.id };
+        if (JSON.stringify(next) !== JSON.stringify(current))
+          change(active.history[active.index], active.id === current.active, {
+            workspaceTabs: next,
+          });
+      } catch {
+        // Connection recovery and the next workspace update retry this check.
+      } finally {
+        reading = false;
+      }
+    }
+    void reconcile();
+    window.addEventListener("focus", reconcile);
+    window.addEventListener("flowfield:service-recovered", reconcile);
+    return () => {
+      controller.abort();
+      window.removeEventListener("focus", reconcile);
+      window.removeEventListener("flowfield:service-recovered", reconcile);
+    };
+  }, [workspace, locations, refresh, change]);
   const go = useCallback(
     (url: string, intent: NavigationIntent = "within", replace = false) => {
       url = canonicalHref(url, owners);

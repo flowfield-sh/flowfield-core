@@ -9,6 +9,7 @@ import {
   cli,
   connectMcp,
   resultMessage,
+  stubResourcePresence,
 } from "./support";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
@@ -18,6 +19,7 @@ import { expect, type Route } from "@playwright/test";
 test("managed review keeps its URL, binds the result, and preserves feedback on conflict", async ({
   page,
 }, testInfo) => {
+  await stubResourcePresence(page);
   fixtureCliProject([existingDirectory(join(state, "run-ui"))]);
   cli([
     "task",
@@ -236,10 +238,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
     if (path.includes("/runs/")) return route.fulfill({ json: run });
     return route.fallback();
   });
-  for (const [status, action] of [
-    ["preparing", "Stop checks"],
-    ["delivering", "Cancel delivery"],
-  ]) {
+  for (const [status, action] of [["preparing", "Stop checks"]]) {
     run = { ...run, status };
     await page.goto(
       `/workspaces/${await projectWorkspace(page.request, "run-ui")}/results/attempt-one`,
@@ -256,7 +255,17 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
       page.getByText("Code and check output were kept.", { exact: false }),
     ).toBeVisible();
   }
-  expect(cancellations).toBe(2);
+  expect(cancellations).toBe(1);
+  run = { ...run, status: "delivering" };
+  await page.goto(
+    `/workspaces/${await projectWorkspace(page.request, "run-ui")}/results/attempt-one`,
+  );
+  await expect(
+    page.getByText("Integrating changes", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Cancel delivery" }),
+  ).toHaveCount(0);
   run = { ...run, status: "in_review", revision: 7 };
   await page.goto(
     `/workspaces/${await projectWorkspace(page.request, "run-ui")}/results/attempt-one`,

@@ -7,7 +7,7 @@
 - Plan and deliver work as tasks, with optional local subtasks and dependencies. Flowfield assembles contributions into one outcome with one task review and final delivery.
 - Give each task an independent Reviewer, with its own harness/model choice. Reviewers assess the whole result, request scoped corrections and bring questions to Inbox. Code still requires your exact approval.
 - Create reports, images and datasets without a repository. Browse retained outputs in Files, preview images, CSV, text, Markdown and code, and supply exact files to later tasks.
-- Work from an Inbox with Needs me, Delivered and History. Answer requests directly, return to completed outcomes and keep related tasks, documents and results open beside the Coordinator.
+- Work from an Inbox with Needs me, Delivered and History. Answer requests directly, return to completed outcomes and keep related tasks, documents and results open beside the Coordinator. Work tabs restore their order and navigation history when you return in the same browser.
 
 ### Improvements
 

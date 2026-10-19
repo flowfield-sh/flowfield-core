@@ -211,7 +211,7 @@ function DocumentList({
               <ContentStack space="tight" className="min-w-0">
                 <strong>{item.title}</strong>
                 <span className="detail-metadata">
-                  {item.id === "guidance" ? "Main guidance · " : ""}Revision{" "}
+                  {item.id === "guidance" ? "Main guidance · " : ""}Revision #
                   {item.revision} · <Timestamp date={item.created_at} />
                 </span>
                 <span className="detail-metadata">
