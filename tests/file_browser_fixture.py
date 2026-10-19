@@ -24,7 +24,13 @@ def seed(directory):
         producer.id,
         {
             "launch-report.txt": "Launch research\n\nThe pilot supports a focused launch.\n",
-            "sources.csv": "source,observations\nInterviews,12\nPilot teams,4\n",
+            "sources.csv": (
+                'source,observations\r\n"Interviews, users",0012\r\n'
+                '"Two\nlines","Said ""yes"""\r\n<img src=x>,=1+1\r\n'
+            ),
+            "large.csv": "source,value\n" + "entry,1\n" * 250,
+            "malformed.csv": 'source,value\n"unterminated,1',
+            "long.txt": "Long retained text for the available preview space.\n" * 200,
             "preview.js": (
                 "const message = '<img src=x onerror=alert(1)>';\nconsole.log(message);\n"
             ),

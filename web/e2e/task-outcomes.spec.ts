@@ -90,7 +90,7 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
     detail.getByRole("img", { name: "Observation recorded", exact: true }),
   ).toBeVisible();
   await expect(
-    detail.getByText("Testing observation · Result 1", { exact: true }),
+    detail.getByText("Testing observation · Result #1", { exact: true }),
   ).toBeVisible();
   const observation = detail.locator(
     '[data-kind="reply"] details.activity-entry',
@@ -107,7 +107,7 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
     path: testInfo.outputPath("recorded-observation.png"),
   });
   await expect(detail.locator('[data-kind="review"]')).toContainText(
-    "Reviewing results",
+    "Reviewing result #1",
   );
   await expect(
     detail.locator('[data-kind="review"] details.activity-entry'),

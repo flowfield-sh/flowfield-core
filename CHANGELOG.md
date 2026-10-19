@@ -11,7 +11,7 @@
 
 - Prepare and execute tasks directly from their agreed requirements, without maintaining a separate progress checklist. Worker activity, checks and reviewer sign-offs retain the execution history.
 - Follow purpose, progress, questions and results on one task page. Internal work stays disclosed, and worker and reviewer overrides live in task Settings.
-- Preview text, Markdown and code alongside images in Files and results. Maintain the workspace label catalogue in General settings, and read task history in compact work/correction/follow-up panels.
+- Preview CSV tables, text, Markdown and code alongside images in Files and results. Maintain the workspace label catalogue in General settings, and read task history in compact work/correction/follow-up panels.
 - Open code results with a directly visible, copyable launch command. Document editors have their own links, and task feeds load the full event list with deliberate expansion.
 
 ### Bug fixes
@@ -20,7 +20,7 @@
 
 - Keep model selection explicit when navigating to Tasks; opening a page no longer opens the Coordinator model selector automatically.
 - Keep completed tasks and their delivered results stable when prerequisite work changes later, without unnecessary warnings or downstream reconciliation.
-- Keep task pages and worker output at the reader's position instead of jumping to the latest event. Show saved Coordinator replies directly without a broken full-reply control.
+- Keep task pages at the reader's position while worker/reviewer output follows its latest entry until the reader scrolls up. Show one active review indicator with its exact result number. Show saved Coordinator replies directly without a broken full-reply control.
 
 ### Breaking changes
 

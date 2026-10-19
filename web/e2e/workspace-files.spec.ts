@@ -122,7 +122,50 @@ test("workspace files organize retained task outputs without a project", async (
   ).toBeVisible();
   await expect(markdown.locator("script")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("markdown-preview.png") });
+  await files.getByRole("button", { name: /sources.csv/ }).click();
+  const csv = files.getByRole("table", { name: "CSV preview" });
+  await expect(
+    csv.getByRole("cell", { name: "Interviews, users", exact: true }),
+  ).toBeVisible();
+  await expect(
+    csv.getByRole("cell", { name: "0012", exact: true }),
+  ).toBeVisible();
+  await expect(
+    csv.getByRole("cell", { name: 'Said "yes"', exact: true }),
+  ).toBeVisible();
+  await expect(
+    csv.getByRole("cell", { name: "=1+1", exact: true }),
+  ).toBeVisible();
+  await expect(csv.locator("img,script")).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("csv-preview.png") });
+  await files.getByRole("button", { name: /large.csv/ }).click();
+  await expect(csv.getByRole("row")).toHaveCount(201);
+  await expect(files.getByText(/Table preview is limited/)).toBeVisible();
+  await files.getByRole("button", { name: /malformed.csv/ }).click();
+  await expect(files.getByText(/CSV could not be displayed/)).toBeVisible();
+  await files.getByRole("button", { name: /long.txt/ }).click();
+  const long = files.getByLabel("Preview of long.txt");
+  await expect(long).toContainText("Long retained text");
+  await expect
+    .poll(async () => {
+      const preview = (await long.boundingBox())!;
+      const inspector = (await files
+        .getByRole("complementary", { name: "Selected file" })
+        .boundingBox())!;
+      return Math.abs(
+        preview.y + preview.height - inspector.y - inspector.height,
+      );
+    })
+    .toBeLessThan(3);
+  await page.screenshot({ path: testInfo.outputPath("text-full-height.png") });
   await files.getByRole("button", { name: /launch-report.txt/ }).click();
+  await expect
+    .poll(
+      async () =>
+        (await files.getByLabel("Preview of launch-report.txt").boundingBox())
+          ?.height ?? 1000,
+    )
+    .toBeLessThan(150);
   for (const [width, height, theme] of [
     [1440, 1000, "light"],
     [1440, 1000, "dark"],

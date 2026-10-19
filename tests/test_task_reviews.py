@@ -15,6 +15,7 @@ from flowfield.errors import ApplicationError
 from flowfield.execution_models import QueueEdit, RunAction
 from flowfield.reviewer_settings import ReviewerEdit, Reviewers
 from flowfield.task_reviews import ReviewVerdict, TaskReviews
+from flowfield.thread_view import ThreadView
 from flowfield.worker_settings import occupancy
 
 
@@ -90,6 +91,14 @@ def test_standalone_review_is_idempotent_and_grants_no_delivery(tmp_path):
     prepared = reviews.claim("harbor", review.id, review.revision)
     assert prepared.status == "preparing" and prepared.started_at is None
     running = reviews.started("harbor", prepared.id, prepared.revision)
+    feed = ThreadView(service.workspace).page_view("harbor", run.task_id)
+    result_event = next(item for item in feed.items if item.id == f"result:{result.id}")
+    review_event = next(item for item in feed.items if item.id == f"review:{review.id}")
+    assert result_event.title == f"Result #{result.version}"
+    assert result_event.state.tone == "waiting"
+    assert review_event.title == f"Reviewing result #{result.version}"
+    assert review_event.state.tone == "active"
+    assert sum(item.state.tone == "active" for item in feed.items) == 1
     with service.workspace.connection() as db:
         assert occupancy(db, workspace="harbor").active == 1
     decided = reviews.conclude(

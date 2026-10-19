@@ -71,7 +71,11 @@ export function OutputFiles({ files }: { files: OutputFile[] }) {
 function FileDetails({ entry }: { entry: FileEntry }) {
   const file = entry.file!;
   return (
-    <DetailSection title={entry.name} aria-label="File details">
+    <DetailSection
+      title={entry.name}
+      aria-label="File details"
+      className="file-details min-h-0"
+    >
       <p className="detail-metadata">
         {sizeLabel(file.size)} · <Timestamp date={file.created_at} />
       </p>
@@ -319,7 +323,7 @@ export function Files({
         <aside
           key={entry?.id}
           aria-label="Selected file"
-          className="files-scroll col-span-2 max-h-[40vh] min-h-0 min-w-0 overflow-y-auto border-t pt-4 @2xl:col-span-1 @2xl:max-h-none @2xl:border-t-0 @2xl:border-l @2xl:pt-0 @2xl:pl-4"
+          className="files-scroll flex flex-col col-span-2 max-h-[40vh] min-h-0 min-w-0 overflow-y-auto border-t pt-4 @2xl:col-span-1 @2xl:max-h-none @2xl:border-t-0 @2xl:border-l @2xl:pt-0 @2xl:pl-4"
         >
           {entry?.file && <FileDetails key={entry.id} entry={entry} />}
           {!entry?.file && (

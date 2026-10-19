@@ -784,7 +784,7 @@ test("attempt activity updates without reloading the board and replays on reload
     output.evaluate(
       (el) => el.scrollHeight - el.scrollTop - el.clientHeight < 3,
     );
-  await expect.poll(() => output.evaluate((el) => el.scrollTop)).toBe(0);
+  await expect.poll(atEnd).toBe(true);
   await output.evaluate((el) => el.scrollTo({ top: el.scrollHeight / 3 }));
   await expect.poll(atEnd).toBe(false);
   const before = await output.evaluate((el) => el.scrollTop);
@@ -793,13 +793,12 @@ test("attempt activity updates without reloading the board and replays on reload
   await expect.poll(() => output.evaluate((el) => el.scrollTop)).toBe(before);
   await output.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
   await expect.poll(atEnd).toBe(true);
-  const bottomPosition = await output.evaluate((el) => el.scrollTop);
   await fixture("following-again");
   await expect(output).toContainText("following-again observed output");
-  await expect
-    .poll(() => output.evaluate((el) => el.scrollTop))
-    .toBe(bottomPosition);
-  await expect.poll(atEnd).toBe(false);
+  await expect.poll(atEnd).toBe(true);
+  await activeEntry.locator(".activity-entry-state").click();
+  await activeEntry.locator(".activity-entry-state").click();
+  await expect.poll(atEnd).toBe(true);
   await expect(
     page.getByRole("button", { name: "Follow latest activity" }),
   ).toHaveCount(0);

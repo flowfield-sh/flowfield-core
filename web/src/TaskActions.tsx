@@ -36,7 +36,7 @@ export function ResultActions({
             <div
               className="result-actions"
               role="group"
-              aria-label={`Actions for Result ${version}`}
+              aria-label={`Actions for Result #${version}`}
             >
               {children}
             </div>,

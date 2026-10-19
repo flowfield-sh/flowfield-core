@@ -149,7 +149,7 @@ class ThreadView(Conversation):
                     "SELECT version FROM result_versions WHERE workspace_id=? AND id=?",
                     (workspace_id, data["binding"]["result_id"]),
                 ).fetchone()
-                title += f" · Result {version[0]}"
+                title += f" · Result #{version[0]}"
         elif kind == "attempt":
             if data.get("correction"):
                 cycle_start = "correction"
@@ -169,10 +169,14 @@ class ThreadView(Conversation):
             )
             body = data.get("problem") or ""
         elif kind == "result":
-            title = "Result " + str(data["version"])
+            title = "Result #" + str(data["version"])
             body = data["report"]["summary"]
         elif kind == "review":
-            title = "Reviewing results"
+            version = db.execute(
+                "SELECT version FROM result_versions WHERE workspace_id=? AND id=?",
+                (workspace_id, data["result_id"]),
+            ).fetchone()
+            title = f"Reviewing result #{version[0]}"
             body = data.get("problem") or ""
         elif kind == "approval":
             title = "Approved for integration"

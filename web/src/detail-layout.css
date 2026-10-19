@@ -82,6 +82,13 @@
   .content-stack[data-space="flush"] {
     gap: 0;
   }
+  .file-details > .content-stack {
+    min-height: 0;
+  }
+  .file-details > h4,
+  .file-details > .content-stack > :not(.text-preview) {
+    flex-shrink: 0;
+  }
   .content-stack[data-space="tight"] {
     gap: 4px;
   }

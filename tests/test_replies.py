@@ -161,7 +161,7 @@ def test_human_testing_records_exact_result_without_work_and_reaches_successor(t
     assert current(service) == version and service.workspace.task("harbor", "work") == before
     restarted = Workspace(service.workspace.directory)
     entry = ThreadView(restarted).item_view("harbor", "work", "reply:" + receipt.id)
-    assert entry.title == "Testing observation · Result 1" and entry.result_id == version.id
+    assert entry.title == "Testing observation · Result #1" and entry.result_id == version.id
     assert entry.state.label == "Observation recorded" and entry.state.tone == "complete"
     assert entry.body == text
     source = Conversation(restarted).source("harbor", "work", "reply:" + receipt.id)

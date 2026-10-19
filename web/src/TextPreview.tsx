@@ -4,6 +4,7 @@ import { Markdown } from "./Markdown";
 import { useResource } from "./useResource";
 import { ResourceRetry } from "./ResourceRetry";
 import type { components } from "./api-schema";
+import { CsvPreview } from "./CsvPreview";
 
 type Node = ReturnType<typeof refractor.highlight>[number];
 function tokens(nodes: Node[]): ReactNode {
@@ -47,7 +48,7 @@ export default function TextPreview({
   }, [language, text]);
   const markdown = /\.(md|markdown)$/i.test(file.name);
   return (
-    <div className="content-stack">
+    <div className="text-preview content-stack min-h-0">
       <ResourceRetry resources={[resource]}>Retry preview</ResourceRetry>
       {resource.loading && !resource.data && (
         <p role="status">Loading preview…</p>
@@ -58,9 +59,11 @@ export default function TextPreview({
             <div
               aria-label={`Preview of ${file.name}`}
               tabIndex={0}
-              className={`output-code min-w-0 overflow-auto rounded-md border p-3 ${compact ? "max-h-48" : "max-h-[65vh]"}`}
+              className={`output-code min-h-0 min-w-0 overflow-auto rounded-md border p-3 ${compact ? "max-h-48" : ""}`}
             >
-              {markdown ? (
+              {/\.csv$/i.test(file.name) || file.media_type === "text/csv" ? (
+                <CsvPreview text={text} truncated={resource.data.truncated} />
+              ) : markdown ? (
                 <Markdown>{text}</Markdown>
               ) : (
                 <pre

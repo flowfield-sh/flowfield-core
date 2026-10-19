@@ -28,6 +28,12 @@ class WorkState(BaseModel):
 def event_state(kind: str, status: str | None, identity: str, current: WorkState) -> WorkState:
     """Live state belongs only to its owning event; historical facts never inherit it."""
     target = current._event_id
+    if (
+        kind == "result"
+        and target == identity
+        and current.label in ("Reviewing changes", "Reviewing result", "Preparing reviewer")
+    ):
+        return WorkState(label="Awaiting reviewer", tone="waiting")
     if kind in ("attempt", "result", "question") and target == identity:
         return current.model_copy(update={"href": None})
     if kind == "attempt":

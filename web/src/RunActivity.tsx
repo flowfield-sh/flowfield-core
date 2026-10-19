@@ -1,5 +1,7 @@
 import { ResourceRetry } from "./ResourceRetry";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useContext, useState } from "react";
+import { ActivityBodyVisible } from "./ActivityEntry";
+import { useActivityFollow } from "./useActivityFollow";
 import { useResource } from "./useResource";
 import { label } from "./workspace";
 import type { components } from "./api-schema";
@@ -41,6 +43,11 @@ export function RunActivity({
     { projectId, attemptId: reviewAttemptId ?? runId, isActive },
   );
   const { data: page, error } = resource;
+  const visible = useContext(ActivityBodyVisible);
+  const { pane: outputRef, content: contentRef } = useActivityFollow(
+    visible,
+    !!page?.supported,
+  );
   return (
     <div className="run-activity content-stack">
       <ResourceRetry resources={[resource]}>Retry activity</ResourceRetry>
@@ -54,15 +61,18 @@ export function RunActivity({
       )}
       {page?.supported && (
         <div
+          ref={outputRef}
           className="run-activity-output content-stack"
           role="region"
           aria-label={review ? "Review activity" : "Worker activity"}
           tabIndex={0}
         >
-          {page.omitted && (
-            <p className="muted">Earlier activity was omitted.</p>
-          )}
-          <ActivityEntries items={page.items} />{" "}
+          <div ref={contentRef} className="content-stack">
+            {page.omitted && (
+              <p className="muted">Earlier activity was omitted.</p>
+            )}
+            <ActivityEntries items={page.items} />
+          </div>
         </div>
       )}
       {(page?.context || page?.usage?.total_tokens != null) && (
