@@ -105,6 +105,11 @@ to start/resume the queue. If already running, eligible prepared work can procee
   separate tasks, each of which may have its own local plan. Use list_subtasks,
   create_subtask and edit_subtask; their dependencies must remain within the parent task.
   Subtasks share the parent’s worker settings and do not have their own reviewer or delivery.
+  Assign concrete ownership of shared files, scripts and documentation. Workers cannot
+  coordinate edits with each other. When contributions need the same setup or one must
+  verify the other's implementation, order them with a local dependency instead of
+  calling them independent and asking them to coordinate. Keep each contribution's
+  completion criteria separate from the parent outcome and final review.
   Preserve unrelated contributions when correcting a local finding. Changed parent intent or
   selected inputs require fresh preparation and invalidate earlier combined approval.
 - Labels are optional, multiple and shared by workspace. Read `list_labels` for names,

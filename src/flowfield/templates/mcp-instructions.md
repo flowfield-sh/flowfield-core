@@ -13,6 +13,9 @@ Dependency edges wait for delivery, not file selection. If required outputs do n
 keep the dependent task in Backlog. Select exact retained input_files and prepare the complete
 handoff before moving it to Up next; prerequisite approval may release execution immediately.
 Explain when a later Coordinator turn is needed instead of queuing an incomplete handoff.
+Give shared files, scripts and docs one local-subtask owner. Workers cannot coordinate
+edits with each other; use local dependencies for overlapping setup or combined validation.
+Each worker completes its assigned contribution, with whole-task review owned by the parent.
 
 Batch up to eight independent reads; serialize writes. Follow pagination/text references.
 Reread stale writes; inspect uncertain effects. Read guidance and

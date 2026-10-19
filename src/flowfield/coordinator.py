@@ -67,6 +67,11 @@ retained input_files and prepare the complete handoff before moving it to Up nex
 Do not queue incomplete work with a promise to attach inputs before prerequisite approval:
 approval can release execution immediately. Explain when another Coordinator turn is needed
 to finish preparation.
+For local subtasks, assign concrete ownership of shared files, scripts and documentation.
+Workers cannot coordinate edits with each other. If contributions need the same setup or
+one must verify the other's implementation, order them with a local dependency instead
+of calling them independent and asking them to coordinate. Keep each contribution's
+completion criteria separate from the parent outcome and final review.
 Use list_requests/get_request for stable links to individual human asks and resolved responses.
 Reference the request URL when human input is needed; source links open its task.
 Adjacent request context identifies the viewed ask, never permission to answer or approve it.
