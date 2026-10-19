@@ -80,14 +80,20 @@ class Execution:
             settings.problem = problem
             self._save_settings(db, settings)
 
-    def task_problem(self, workspace_id: str, task_id: str, problem: str | None) -> None:
+    def task_problem(
+        self, workspace_id: str, task_id: str, problem: str | None, *, details: str | None = None
+    ) -> None:
         with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
             self.workspace._task(db, workspace_id, task_id)
-            db.execute(
+            changed = db.execute(
                 "UPDATE tasks SET scheduling_problem=? WHERE workspace_id=? AND id=? "
                 "AND scheduling_problem IS NOT ?",
                 (problem, workspace_id, task_id, problem),
             )
+            if changed.rowcount and problem and details:
+                self.workspace._insert_activity(
+                    db, workspace_id, task_id, uuid4().hex, "note", details, "flowfield", now()
+                )
 
     def _run(self, db: sqlite3.Connection, workspace_id: str, run_id: str) -> Run:
         row = db.execute(

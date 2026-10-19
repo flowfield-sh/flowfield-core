@@ -96,3 +96,28 @@ def test_settings_race_requires_fresh_preflight(tmp_path, monkeypatch):
     )
     assert execution.claim("harbor", BASE, {BASE: set()}, checked_agents=checked) is None
     assert execution.page("harbor").items == []
+
+
+def test_scheduling_diagnostics_are_retained_once_and_survive_recovery(tmp_path):
+    execution = fixture(tmp_path)
+    reason = "Local contributions conflict. Ask the Coordinator to reconcile shared files."
+    details = "Git conflict evidence\nREADME.md: conflicting contribution edits"
+    for _ in range(3):
+        execution.task_problem("harbor", "task-0", reason, details=details)
+    with execution.workspace.connection() as db:
+        assert (
+            db.execute("SELECT scheduling_problem FROM tasks WHERE id='task-0'").fetchone()[0]
+            == reason
+        )
+        assert (
+            db.execute("SELECT count(*) FROM activity WHERE body=?", (details,)).fetchone()[0] == 1
+        )
+    execution.task_problem("harbor", "task-0", None)
+    with execution.workspace.connection() as db:
+        assert (
+            db.execute("SELECT scheduling_problem FROM tasks WHERE id='task-0'").fetchone()[0]
+            is None
+        )
+        assert (
+            db.execute("SELECT count(*) FROM activity WHERE body=?", (details,)).fetchone()[0] == 1
+        )

@@ -339,7 +339,16 @@ class Supervisor:
                     job.add_done_callback(partial(self._job_finished, run.id))
                     self.execution.task_problem(workspace_id, task_id, None)
             except ApplicationError as error:
-                self.execution.task_problem(workspace_id, task_id, error.message)
+                if error.code == "integration_conflict":
+                    self.execution.task_problem(
+                        workspace_id,
+                        task_id,
+                        "Local contributions conflict. Ask the Coordinator to reconcile their "
+                        "shared files or ordering before assembly can continue.",
+                        details=error.message,
+                    )
+                else:
+                    self.execution.task_problem(workspace_id, task_id, error.message)
             except Exception:
                 logging.getLogger(__name__).exception("Task scheduling failed")
                 self.execution.task_problem(
