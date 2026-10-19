@@ -10,7 +10,7 @@ Before running tasks, configure each project's **Project settings → Integratio
 | Destination branch | Existing local branch where approved code is delivered. | `main` |
 | Setup commands | Install dependencies in fresh worktrees. | `pnpm install --frozen-lockfile` |
 | Validation commands | Check the proposed code before approval. | `pnpm test` |
-| Run command | Optional launcher for **Try result**. | `pnpm dev` |
+| Run command | Optional launcher for **Run result**. | `pnpm dev` |
 
 Enter one shell command per line for setup and validation. Choose commands appropriate to your repository; the service host must already provide the language tools and credentials.
 
@@ -53,6 +53,6 @@ Workers use separate Git worktrees and scoped Flowfield connections. Git isolati
 
 ## Try a result
 
-**Try result** prepares an independent copy of the selected candidate and supplies a launcher. Run it in your terminal to execute setup followed by the saved Run command. Preparing or running the copy grants no approval.
+**Run result** prepares an independent copy of the selected candidate and supplies a launcher. Run it in your terminal to execute setup followed by the saved Run command. Preparing or running the copy grants no approval.
 
 Use the same resource-isolation rules for preview copies. Review the exact result before [approving its delivery](/tasks#review-an-exact-result).

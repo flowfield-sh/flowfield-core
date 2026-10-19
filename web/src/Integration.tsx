@@ -214,7 +214,7 @@ export function IntegrationSettings({
               />
             </Label>
             <p id={`${id}-run-help`} className="detail-metadata">
-              Used by Try result after setup; you run it in the prepared copy.
+              Used by Run result after setup; you run it in the prepared copy.
             </p>
             {inspection.stale && (
               <p>

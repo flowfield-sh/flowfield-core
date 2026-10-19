@@ -127,7 +127,9 @@ export function useRecordEditor<R extends { revision: number }, V>({
     if (!dirty || window.confirm("Discard your unsaved edits?")) {
       setValues(fields(loaded));
       setEditing(false);
+      return true;
     }
+    return false;
   }
   function reload() {
     if (

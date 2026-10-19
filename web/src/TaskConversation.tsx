@@ -1,11 +1,9 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { useParams } from "react-router";
 import { ExecutionDetails } from "./Runs";
 import { ActivityEntry } from "./ActivityEntry";
 import { ContentStack } from "./DetailLayout";
-import { LoadMore } from "./LoadMore";
 import { ResourceRetry } from "./ResourceRetry";
-import { reportError } from "./requestFeedback";
 import { useResource } from "./useResource";
 import { useFeedScroll } from "./useFeedScroll";
 import { request, type Task, type WorkspaceBoard } from "./workspace";
@@ -22,6 +20,27 @@ import { ResultFiles } from "./Files";
 
 type Page = components["schemas"]["ThreadPage"];
 
+async function readThread(path: string, signal: AbortSignal): Promise<Page> {
+  let page = await request<Page>(path, "GET", undefined, signal);
+  const visited = new Set<string>();
+  while (page.next_cursor) {
+    const cursor = page.next_cursor;
+    if (visited.has(cursor))
+      throw new Error(
+        "Could not advance through task activity. Retry loading it.",
+      );
+    visited.add(cursor);
+    const next = await request<Page>(
+      `${path}?cursor=${encodeURIComponent(cursor)}`,
+      "GET",
+      undefined,
+      signal,
+    );
+    page = { ...next, items: merge(page.items, next.items) };
+  }
+  return page;
+}
+
 /** Tasks retain the chronology. Exact requests/results own every response. */
 export function TaskConversation({
   projectId,
@@ -35,8 +54,13 @@ export function TaskConversation({
   refresh: unknown;
 }) {
   const path = `workspaces/${projectId}/tasks/${task.id}`;
-  const page = useResource<Page>(`${path}/thread`, refresh);
-  const initial = useResource<Message>(`${path}/thread/definition:1`, task.id);
+  const page = useResource<Page>(
+    `${path}/thread`,
+    refresh,
+    10000,
+    undefined,
+    readThread,
+  );
   const { runId: executionId } = useParams();
   const execution = useResource<components["schemas"]["ExecutionItem"]>(
     executionId ? `${path}/executions/${executionId}` : null,
@@ -46,16 +70,8 @@ export function TaskConversation({
     execution.data ? `${path}/thread/attempt:${execution.data.run_id}` : null,
     refresh,
   );
-  const [items, setItems] = useState<Message[]>([]);
-  const [seen, setSeen] = useState<Page | null>(null);
-  const [cursor, setCursor] = useState<string | null>(null);
-  if (page.data && page.data !== seen) {
-    setSeen(page.data);
-    setItems((values) => merge(values, page.data!.items));
-    if (!seen) setCursor(page.data.next_cursor);
-  }
   const messages = merge(
-    merge(items, initial.data ? [initial.data] : []),
+    page.data?.items ?? [],
     selected.data ? [selected.data] : [],
   );
   const active = [...messages]
@@ -69,45 +85,21 @@ export function TaskConversation({
     ? [...messages.filter((m) => m !== active), active]
     : messages;
   const root = useRef<HTMLDivElement>(null);
-  const scrolling = useFeedScroll(
+  useFeedScroll(
     root,
-    !!page.data && !!initial.data && (!executionId || !!execution.data),
+    !!page.data && (!executionId || !!execution.data),
     selected.data?.id,
     !!selected.data,
   );
-  const [busy, setBusy] = useState(false);
-  async function older() {
-    if (!cursor) return;
-    setBusy(true);
-    try {
-      const next = await request<Page>(
-        `${path}/thread?cursor=${encodeURIComponent(cursor)}`,
-      );
-      scrolling.readingEarlier();
-      setItems((values) => merge(values, next.items));
-      setCursor(next.next_cursor);
-    } catch (error) {
-      reportError(error, "Could not load earlier activity");
-    } finally {
-      setBusy(false);
-    }
-  }
   return (
     <ContentStack
       ref={root}
       space="section"
       className="task-conversation rounded-lg border p-3"
     >
-      <ResourceRetry resources={[page, initial, execution, selected]} />
+      <ResourceRetry resources={[page, execution, selected]} />
       {page.loading && !page.data && <p>Loading activity…</p>}
       <ol className="conversation-messages" aria-label="Task feed">
-        {cursor && (
-          <li>
-            <LoadMore disabled={busy} onClick={() => void older()}>
-              Load earlier activity
-            </LoadMore>
-          </li>
-        )}
         {ordered.map((message) => (
           <li
             key={message.id}
@@ -117,7 +109,7 @@ export function TaskConversation({
           >
             <ActivityEntry
               identity={path + ":" + message.id}
-              selected={message.id === (selected.data?.id ?? active?.id)}
+              selected={message.id === selected.data?.id}
               title={message.title}
               state={message.state}
               hasBody={hasBody(message)}
@@ -221,12 +213,7 @@ function ResultEvidence({
           supporting={result.data.completion === "code"}
         />
       )}
-      <WorkspaceLink
-        to={
-          resultHref(workspaceId, identity) +
-          (result.data?.completion === "code" ? "?run=1" : "")
-        }
-      >
+      <WorkspaceLink to={resultHref(workspaceId, identity)}>
         {result.data?.completion === "code"
           ? "Run result and view changes"
           : "View result"}

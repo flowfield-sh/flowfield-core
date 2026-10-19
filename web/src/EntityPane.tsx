@@ -97,7 +97,7 @@ export function EntityPane({
           .at(-1);
         // A routed pane may mount after the clicked link lost focus. An old
         // body/outside-pane opener must not suppress the matching return link.
-        const target = [opener.current, entry].find(
+        const target = [entry, opener.current].find(
           (candidate) =>
             candidate &&
             candidate !== document.body &&

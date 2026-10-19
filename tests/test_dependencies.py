@@ -14,6 +14,7 @@ from workspace_fixtures import TEST_AGENTS
 
 from flowfield.api import create_app
 from flowfield.application import ProjectSetup, TaskEdit, TaskReconcile, Workspace
+from flowfield.browser import BrowserReads
 from flowfield.cli import app
 from flowfield.errors import ApplicationError
 
@@ -100,6 +101,9 @@ def test_readiness_archive_and_downstream_reconciliation(tmp_path: Path) -> None
         affected = service.task("harbor", key)
         assert affected.status == "done" and affected.readiness == "needs_reconciliation"
         assert affected.reconciliation_reason
+        state = BrowserReads(service).task("harbor", key).state
+        assert state.label == "Delivered for earlier inputs"
+        assert state.tone == "complete" and state.reason == "historical_inputs"
         assert affected.revisions[-1].change_note
         with pytest.raises(ApplicationError):
             service.reconcile_task(
@@ -122,6 +126,7 @@ def test_readiness_archive_and_downstream_reconciliation(tmp_path: Path) -> None
         )
         assert result.readiness == "ready" and result.status == "done"
         assert result.change_note.startswith("Reviewed output")
+        assert BrowserReads(service).task("harbor", key).state.reason is None
     assert Workspace(tmp_path / "state").board("harbor") == service.board("harbor")
 
 

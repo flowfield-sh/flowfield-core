@@ -135,7 +135,7 @@ export function Disclosure({
                 <CircleHelp aria-hidden="true" />
               </button>
             </TooltipTrigger>
-            <TooltipContent className="max-w-xs">{help}</TooltipContent>
+            <TooltipContent>{help}</TooltipContent>
           </Tooltip>
         )}
       </summary>

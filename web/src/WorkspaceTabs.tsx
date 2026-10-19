@@ -76,8 +76,6 @@ export function canonicalResourceRoot(
 }
 function exactView(url: string, board: WorkspaceBoard | null) {
   const view = new URL(url, "http://flowfield.local");
-  // Run result opens a disclosure on the same result; it is not another view.
-  if (view.pathname.includes("/results/")) view.searchParams.delete("run");
   const match = view.pathname.match(
     /^(\/workspaces\/[^/]+\/tasks\/)([^/]+)(.*)$/,
   );
@@ -181,20 +179,7 @@ function visit(
       history: [url],
       index: 0,
     };
-  else if (intent === "open") {
-    const target = new URL(url, "http://flowfield.local");
-    const currentIndex = tab.index;
-    if (
-      target.pathname.includes("/results/") &&
-      target.searchParams.get("run") === "1"
-    )
-      tab = {
-        ...tab,
-        history: tab.history.map((value, index) =>
-          index === currentIndex ? url : value,
-        ),
-      };
-  } else if (tab.history[tab.index] !== url) {
+  else if (intent !== "open" && tab.history[tab.index] !== url) {
     const history = [
       ...tab.history.slice(0, tab.index + (replace ? 0 : 1)),
       url,
@@ -377,7 +362,11 @@ function title(
   if (root.includes("/results/")) return titles[root] ?? "Result";
   if (root.includes("/requests/")) return titles[root] ?? "Request";
   const settings = location.pathname.endsWith("/settings");
-  const suffix = settings ? " · Settings" : "";
+  const suffix = settings
+    ? " · Settings"
+    : location.pathname.endsWith("/edit") && root.includes("/documents/")
+      ? " · Edit"
+      : "";
   if (titles[root]) return titles[root] + suffix;
   const key = decodeURIComponent(root.split("/").at(-1) ?? "");
   const task = board?.tasks.find(

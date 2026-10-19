@@ -6158,7 +6158,7 @@ export interface components {
       /** Href */
       href?: string | null;
       /** Reason */
-      reason?: ("prerequisites" | "scheduling") | null;
+      reason?: ("prerequisites" | "scheduling" | "historical_inputs") | null;
     };
     /** WorkerOccupancy */
     WorkerOccupancy: {

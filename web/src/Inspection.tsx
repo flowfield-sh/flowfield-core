@@ -1,7 +1,7 @@
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   InputGroup,
@@ -11,7 +11,7 @@ import {
 import { Copy } from "lucide-react";
 import { ActionTooltip } from "./ActionTooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ContentStack, Disclosure } from "./DetailLayout";
+import { ContentStack } from "./DetailLayout";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { useResource } from "./useResource";
 import { request } from "./workspace";
@@ -24,60 +24,71 @@ export function Inspection({
   projectId,
   result,
   refresh,
-  initiallyOpen = false,
 }: {
   projectId: string;
   result: Version;
   refresh: unknown;
-  initiallyOpen?: boolean;
 }) {
   const path = `workspaces/${projectId}`;
-  const title = "Try result";
   const [identity, setIdentity] = useState<string | null>(null);
   const [saved, setSaved] = useState<Copy | null>(null);
-  const [open, setOpen] = useState(initiallyOpen);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const preparing = useRef(false);
   const resource = useResource<Copy>(
-    identity && open ? `${path}/inspections/${identity}` : null,
+    identity ? `${path}/inspections/${identity}` : null,
     refresh,
   );
   const value = resource.data?.id === identity ? resource.data : saved;
-  async function prepare(newCopy = false) {
-    if (preparing.current) return;
-    preparing.current = true;
+  const invalidate = resource.invalidate;
+  const prepare = useCallback(
+    (newCopy = false) => {
+      if (preparing.current) return;
+      preparing.current = true;
+      // Reopening a result reads its saved copy. Approval/status updates must
+      // not recreate it or silently adopt newer project launch settings.
+      return (
+        newCopy
+          ? Promise.resolve(null)
+          : request<Copy | null>(
+              `${path}/inspection?result_id=${encodeURIComponent(result.id)}`,
+            )
+      )
+        .then(
+          (existing) =>
+            existing ??
+            request<Copy>(`${path}/inspection`, "POST", {
+              result_id: result.id,
+              expected_revision: result.revision,
+              new_copy: newCopy,
+            }),
+        )
+        .then((next) => {
+          setSaved(next);
+          setIdentity(next.id);
+          invalidate();
+        })
+        .catch((e) => {
+          setError((e as Error).message);
+          reportError(e, "Could not prepare inspection");
+        })
+        .finally(() => {
+          preparing.current = false;
+          setBusy(false);
+        });
+    },
+    [path, result.id, result.revision, invalidate],
+  );
+  useEffect(() => {
+    if (!value && !error) void prepare();
+  }, [prepare, value, error]);
+  function retry(newCopy = false) {
     setBusy(true);
     setError("");
-    try {
-      const next = await request<Copy>(`${path}/inspection`, "POST", {
-        ...(result ? { result_id: result.id } : {}),
-        expected_revision: result.revision,
-        new_copy: newCopy,
-      });
-      setSaved(next);
-      setIdentity(next.id);
-      resource.invalidate();
-    } catch (e) {
-      setError((e as Error).message);
-      reportError(e, "Could not prepare inspection");
-    } finally {
-      preparing.current = false;
-      setBusy(false);
-    }
+    void prepare(newCopy);
   }
   return (
-    <Disclosure
-      summary={title}
-      role="region"
-      aria-label={title}
-      open={open}
-      onToggle={(e) => {
-        const expanded = e.currentTarget.open;
-        setOpen(expanded);
-        if (expanded && !value && !error) void prepare();
-      }}
-    >
+    <ContentStack role="region" aria-label="Run command">
       {busy && <p role="status">Preparing inspection…</p>}
       <ResourceRetry resources={[resource]} />
       {error && !value && (
@@ -85,12 +96,12 @@ export function Inspection({
           size="sm"
           variant="outline"
           disabled={busy}
-          onClick={() => void prepare()}
+          onClick={() => retry()}
         >
           Retry preparation
         </Button>
       )}
-      {open && value && (
+      {value && (
         <ContentStack>
           {value.source_changed && (
             <p>
@@ -113,12 +124,6 @@ export function Inspection({
           )}
           {value.status === "preparing" && (
             <p>Still preparing. Retry if the service was interrupted.</p>
-          )}
-          {value.workspace && (
-            <p>
-              Directory:{" "}
-              <code className="wrap-anywhere">{value.workspace}</code>
-            </p>
           )}
           {value.status === "ready" &&
             !value.problem &&
@@ -177,13 +182,13 @@ export function Inspection({
               size="sm"
               variant="outline"
               disabled={busy}
-              onClick={() => void prepare(true)}
+              onClick={() => retry(true)}
             >
               Prepare another copy
             </Button>
           )}
         </ContentStack>
       )}
-    </Disclosure>
+    </ContentStack>
   );
 }

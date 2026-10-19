@@ -692,6 +692,14 @@ test("attempt activity updates without reloading the board and replays on reload
     name: "Worker activity",
     exact: true,
   });
+  const activeEntry = page.locator(
+    `[data-message-id="attempt:${seeded.run_id}"]`,
+  );
+  await expect(
+    activeEntry.locator("details.activity-entry"),
+  ).not.toHaveAttribute("open");
+  await expect(output).toHaveCount(0);
+  await activeEntry.locator(".activity-entry-state").click();
   await expect(output).toContainText("create observed output");
   await expect(
     page.getByText("Token usage not reported", { exact: true }),
@@ -732,6 +740,10 @@ test("attempt activity updates without reloading the board and replays on reload
   await expect(output).toContainText("later observed output");
   expect(boards).toBe(0);
   await page.reload();
+  await expect(
+    activeEntry.locator("details.activity-entry"),
+  ).not.toHaveAttribute("open");
+  await activeEntry.locator(".activity-entry-state").click();
   await expect(output).toContainText("create observed output");
   await expect(output).toContainText("later observed output");
   await expect(page.locator(".task-activity-item").last()).toHaveAttribute(
@@ -764,6 +776,7 @@ test("attempt activity updates without reloading the board and replays on reload
   await page.goto(
     `/workspaces/${await projectWorkspace(page.request, "stream-project")}/tasks/T-1/history`,
   );
+  await activeEntry.locator(".activity-entry-state").click();
   await expect(output).toContainText("later observed output");
   await fixture("long");
   await expect(output).toContainText("long observed output");

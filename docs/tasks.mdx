@@ -5,7 +5,7 @@ description: Prioritize work, resolve questions and decide which exact results t
 
 Open a task from Work or Tasks Board. **Task** shows its purpose, related work and chronological conversation. Local subtasks appear directly beneath its purpose. **View result** opens the exact result with checks, inspection and review controls. **Settings** configures its worker and reviewer overrides.
 
-The task feed keeps dated definition changes, captured sources, questions, worker attempts and results. Expand a row to read its evidence or collapse it again; only the latest active event opens automatically. Timestamps show the exact time on hover or focus. Discuss plans in the Coordinator. Open a request or result to answer its question, request changes or approve the selected result.
+The task feed loads all dated definition changes, captured sources, questions, worker attempts and results. Events start collapsed, including active work. Click a row or its status dot to read its evidence or collapse it again. Timestamps show the exact time on hover or focus. Discuss plans in the Coordinator. Open a request or result to answer its question, request changes or approve the selected result.
 
 Each Inbox ask has a stable **Request** link. Use the header’s **Open request in work tab** button to respond in a separate tab; the source badge opens its task or project. Inbox History opens the same Request after resolution. Drafts and responses are shared across these views, and earlier requests keep their original evidence and approval bindings. The Coordinator can reference requests directly with `list_requests` and `get_request`.
 
@@ -88,7 +88,7 @@ An independent approval recommends the candidate. Code delivery still needs your
 
 Read the worker report, limitations and checks against the task's success criteria. Project checks and worker-authored tests are useful evidence; try representative inputs or ask the Coordinator to investigate gaps before deciding what ships.
 
-**Run result** opens the selected code result with **Try result** expanded, showing its independent directory and copyable launch command. **Code changes** shows the candidate's changed files and diff. Supporting files remain available below the outcome. See [worker setup](/worker-setup#try-a-result). Trying or inspecting a result grants no approval.
+**Run result** opens the selected code result with its copyable launch command directly visible. **Code changes** shows the candidate's changed files and diff. Supporting files remain available below the outcome. See [worker setup](/worker-setup#try-a-result). Trying or inspecting a result grants no approval.
 
 ![Code changes and exact-result review beside the Coordinator](/images/code-review.png)
 
@@ -98,7 +98,7 @@ Flowfield checks and delivers the approved candidate to the configured project c
 
 ## Stay oriented
 
-Saved definitions, answers, feedback, reviewer activity and results remain in the task feed. Only the current active event opens automatically; older results stay inspectable through their exact links. Tasks contain information, history and settings. Open the linked request or result to respond, review or inspect delivery; these are also available in Inbox and the recent sidebar. Request and result cards have an upper-right **Open in work tab** icon, and their task badge opens the task. Numeric context occupancy appears beside the worker's ring, with reported consumed tokens labeled separately.
+Saved definitions, answers, feedback, reviewer activity and results remain in the task feed. Disclosure choices persist, and older results stay inspectable through their exact links. Tasks contain information, history and settings. Open the linked request or result to respond, review or inspect delivery; these are also available in Inbox and the recent sidebar. Request and result cards have an upper-right **Open in work tab** icon, and their task badge opens the task. Numeric context occupancy appears beside the worker's ring, with reported consumed tokens labeled separately.
 
 Optional Inbox notifications link back to the item. Configure in-app and system delivery in **Settings → Notifications**; system notifications require browser permission and an open Flowfield page. Closing an alert answers no question and approves no result. Update announcements lead to **Settings → Updates**; see [installation](/installation#update).
 

@@ -157,7 +157,7 @@ export async function closeOverlay(page: Page) {
 }
 
 export async function ensureEditing(page: Page) {
-  const button = page.getByRole("button", { name: "Edit", exact: true });
+  const button = page.getByRole("link", { name: "Edit", exact: true });
   const field = page
     .getByLabel("Title", { exact: true })
     .or(page.getByLabel("Description", { exact: true }));

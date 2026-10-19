@@ -64,7 +64,7 @@ export function ReviewChecks({
             </>
           }
           className="review-disclosure check-source"
-          help={`Independent checks on the proposed code combined with ${branch}. Expand a command to read its output.`}
+          help={`Independent checks of the code combined with ${branch}. Expand a command for its output.`}
           open={[
             ...(preparation.setup_checks ?? []),
             ...preparation.checks,

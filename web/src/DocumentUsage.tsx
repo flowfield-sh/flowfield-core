@@ -42,26 +42,29 @@ export function DocumentUsage({
     <ContentStack>
       <ResourceRetry resources={[resource]} />
       {state.loaded && (
-        <p className="document-projects">
-          Projects:{" "}
-          {state.loaded.projects
-            .filter((p) => p.purpose)
-            .map((p, i) => (
-              <span key={p.id}>
-                {i > 0 && ", "}
-                <WorkspaceLink to={`/projects/${p.id}/overview`}>
-                  {p.name}
-                </WorkspaceLink>
-              </span>
-            ))}
-          {!state.loaded.projects.some((p) => p.purpose) && "None"} · Without a
-          project:{" "}
-          {state.loaded.projectless === "required"
-            ? "Required"
-            : state.loaded.projectless === "reference"
-              ? "Reference"
-              : "Off"}
-        </p>
+        <ContentStack space="tight">
+          <p className="document-projects">
+            Projects:{" "}
+            {state.loaded.projects
+              .filter((p) => p.purpose)
+              .map((p, i) => (
+                <span key={p.id}>
+                  {i > 0 && ", "}
+                  <WorkspaceLink to={`/projects/${p.id}/overview`}>
+                    {p.name}
+                  </WorkspaceLink>
+                </span>
+              ))}
+            {!state.loaded.projects.some((p) => p.purpose) && "None"}
+          </p>
+          <p className="document-projects">
+            {state.loaded.projectless === "required"
+              ? "Required reading for tasks without a project."
+              : state.loaded.projectless === "reference"
+                ? "Reference for tasks without a project."
+                : "Not included in tasks without a project."}
+          </p>
+        </ContentStack>
       )}
       {editing && (
         <DetailSection title="Use this document">

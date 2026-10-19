@@ -28,10 +28,12 @@ test("Documents shares project defaults and opts projectless tasks into exact so
   ).json();
   await page.goto(`/workspaces/${workspace}/documents/${doc.id}`);
   await expect(
-    page.getByText("Without a project: Off", { exact: false }),
+    page.getByText("Not included in tasks without a project.", {
+      exact: false,
+    }),
   ).toBeVisible();
   await expect(page.getByRole("checkbox")).toHaveCount(0);
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("link", { name: "Edit", exact: true }).click();
   const projectless = page.getByRole("checkbox", {
     name: "Include for tasks without a project",
   });

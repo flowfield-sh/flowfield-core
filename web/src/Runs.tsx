@@ -294,8 +294,8 @@ function WorkerEvidence({
                   {location.data.diff_command}
                 </pre>
                 <p>
-                  These are worker files. Use Try result beside the result to
-                  run the combined candidate.
+                  These are worker files. Open Run result to run the combined
+                  candidate.
                 </p>
               </DetailSection>
             </>

@@ -70,7 +70,9 @@ export function ProjectOverview({
                 )}
               </DetailSection>
               <DetailSection title="Runtime">
-                <p>Local</p>
+                {!settings.data.setup_commands.length && (
+                  <p>No setup commands</p>
+                )}
                 {settings.data.setup_commands.map((command, index) => (
                   <code key={index} className="wrap-anywhere">
                     {command}

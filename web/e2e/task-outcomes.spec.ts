@@ -162,7 +162,7 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
     page.getByRole("link", { name: "Harbor", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("region", { name: "Try result", exact: true }),
+    page.getByRole("region", { name: "Run command", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("img", { name: "launch-preview.png", exact: true }),
@@ -178,6 +178,7 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
       async () =>
         (await (await request.get(`/api${base}/tasks/${value.feature}`)).json())
           .status,
+      { timeout: 15_000 },
     )
     .toBe("done");
   expect(

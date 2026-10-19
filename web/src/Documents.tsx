@@ -118,9 +118,8 @@ export function Documents({
           base={base}
           onDirty={onDirty}
           close={close}
-          editCurrent={
-            revision ? () => navigate(`${base}/${identity}`) : undefined
-          }
+          editing={pathname.endsWith("/edit")}
+          viewDocument={() => navigate(`${base}/${identity}`, true)}
           read={async () => {
             const fresh = await request<Document>(`${path}/${identity}`);
             latest.invalidate();
@@ -269,7 +268,8 @@ function DocumentEditor({
   saved,
   read,
   close,
-  editCurrent,
+  editing,
+  viewDocument,
 }: {
   incoming: Document;
   latest: Document;
@@ -281,7 +281,8 @@ function DocumentEditor({
   saved: (record: Document, method: string) => void;
   read: () => Promise<Document>;
   close: () => void;
-  editCurrent?: () => void;
+  editing: boolean;
+  viewDocument: () => void;
 }) {
   const markDirty = useDirtyItems(onDirty);
   const [usageDirty, setUsageDirty] = useState(false);
@@ -302,7 +303,10 @@ function DocumentEditor({
     incoming,
     fields,
     onDirty: markBody,
-    saved,
+    saved: (value, method) => {
+      saved(value, method);
+      if (method === "PUT" && !usageDirty) viewDocument();
+    },
     read,
     recordName: "document",
     retainedKey: `${path}/${incoming.id}:${historical ? incoming.revision : "latest"}`,
@@ -314,18 +318,15 @@ function DocumentEditor({
     change,
     busy,
     dirty,
-    editing: bodyEditing,
-    setEditing,
     element: editor,
     cancel,
   } = state;
-  const editing = bodyEditing || usageDirty;
-  const selected = loaded!;
+  const selected = editing ? loaded! : incoming;
   return (
     <section
       ref={editor}
       className="editor documents-page"
-      aria-label="Document"
+      aria-label={editing ? "Edit document" : "Document"}
     >
       <DetailHeader
         title={selected.title}
@@ -363,18 +364,13 @@ function DocumentEditor({
                 </Button>
               </>
             ) : (
-              !editing && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setEditing(true);
-                    editCurrent?.();
-                  }}
+              <Button size="sm" variant="outline" asChild>
+                <WorkspaceLink
+                  to={`${base}/${selected.id}${editing ? "" : "/edit"}`}
                 >
-                  Edit
-                </Button>
-              )
+                  {editing ? "View document" : "Edit"}
+                </WorkspaceLink>
+              </Button>
             )}
           </div>
         }
@@ -392,7 +388,7 @@ function DocumentEditor({
               selected.id !== "guidance"
             }
           />
-          <EditorFeedback state={state} />
+          {editing && <EditorFeedback state={state} />}
           {selected.deleted_at && (
             <p role="status">
               This document was deleted. Restore a revision to use it again.
@@ -437,7 +433,9 @@ function DocumentEditor({
                     type="button"
                     size="sm"
                     variant="outline"
-                    onClick={cancel}
+                    onClick={() => {
+                      if (cancel() && !usageDirty) viewDocument();
+                    }}
                   >
                     Cancel
                   </Button>

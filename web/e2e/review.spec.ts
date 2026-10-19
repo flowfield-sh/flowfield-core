@@ -91,6 +91,24 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   await page.route("**/api/workspaces/*/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
+    if (path.endsWith("/inspection") || path.includes("/inspections/"))
+      return route.fulfill({
+        json: {
+          id: "preview-one",
+          workspace_id: path.split("/")[3],
+          project_id: "run-ui",
+          result_id: run.id,
+          target_branch: "main",
+          commit: run.result_commit,
+          created_at: "2026-10-19T00:00:00Z",
+          status: "ready",
+          command: "echo preview",
+          workspace: "/fixture/worktree",
+          locally_changed: false,
+          source_changed: false,
+          instructions_changed: false,
+        },
+      });
     if (path.includes("/requests/result/"))
       return route.fulfill({
         json: resultRequest(version(), url.pathname.split("/")[3]),
@@ -431,6 +449,8 @@ test("validated result approval delivers real Git code with the worker queue pau
   page,
   request,
 }, testInfo) => {
+  // Several real scheduler/delivery transitions each have bounded waits below.
+  test.setTimeout(60_000);
   const seed = JSON.parse(
     execFileSync(
       join(checkout, ".venv/bin/python"),
@@ -841,6 +861,14 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   // Two result generations and multiple Git copies need a bounded hosted-runner budget.
   test.setTimeout(60000);
   const project = "inspection-browser";
+  let preparations = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      new URL(request.url()).pathname.endsWith("/inspection")
+    )
+      preparations++;
+  });
   const fixture = (operation: string) =>
     execFileSync(
       "uv",
@@ -882,21 +910,9 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   const preview = () =>
     page
       .locator(`.task-result[data-result-id="${selectedPreview}"]`)
-      .getByRole("region", { name: "Try result", exact: true });
-  await expect(
-    preview()
-      .locator("summary")
-      .filter({ hasText: /^Try result$/ }),
-  ).toBeVisible();
-  expect(
-    await (
-      await request.get(`${path}/inspection?result_id=${first!.id}`)
-    ).json(),
-  ).toBeNull();
-  await preview()
-    .locator("summary")
-    .filter({ hasText: /^Try result$/ })
-    .click();
+      .getByRole("region", { name: "Run command", exact: true });
+  await expect(preview()).toBeVisible();
+  await expect(preview().locator("summary")).toHaveCount(0);
   await expect(
     preview().getByRole("textbox", { name: "Terminal commands" }),
   ).toBeVisible();
@@ -917,6 +933,12 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await expect(
     preview().getByRole("textbox", { name: "Terminal commands" }),
   ).toHaveValue(copy.command);
+  expect(preparations).toBe(1);
+  await page.reload();
+  await expect(
+    preview().getByRole("textbox", { name: "Terminal commands" }),
+  ).toHaveValue(copy.command);
+  expect(preparations).toBe(1); // Reopening reads the existing copy without another write.
   await page.setViewportSize({ width: 390, height: 844 });
   const copyButton = preview().getByRole("button", {
     name: "Copy commands",
@@ -1008,15 +1030,8 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await page.goto(
     `/workspaces/${await projectWorkspace(page.request, project)}/results/${selectedPreview}`,
   );
-  await expect(
-    preview()
-      .locator("summary")
-      .filter({ hasText: /^Try result$/ }),
-  ).toBeVisible();
-  await preview()
-    .locator("summary")
-    .filter({ hasText: /^Try result$/ })
-    .click();
+  await expect(preview()).toBeVisible();
+  await expect(preview().locator("summary")).toHaveCount(0);
   await expect(
     preview().getByRole("textbox", { name: "Terminal commands" }),
   ).toBeVisible();
@@ -1068,10 +1083,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await page.goto(
     `/workspaces/${await projectWorkspace(page.request, project)}/results/${first!.id}`,
   );
-  await preview()
-    .locator("summary")
-    .filter({ hasText: /^Try result$/ })
-    .click();
+  await expect(preview().locator("summary")).toHaveCount(0);
   await expect(
     preview().getByText("excluding edits in this copy.", { exact: false }),
   ).toBeVisible();

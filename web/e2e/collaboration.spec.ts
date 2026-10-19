@@ -285,9 +285,6 @@ test("conversation pages exact revisions without hiding notes or superseded hand
     activity.getByRole("img", { name: "Superseded", exact: true }),
   ).toBeVisible();
   await expect(activity).toContainText("Pause to discuss scope.");
-  await page
-    .getByRole("button", { name: "Load earlier activity", exact: true })
-    .click();
   await expect(activity.locator('[data-kind="definition"]')).toHaveCount(34);
   await expect(
     page.getByRole("button", { name: "Load earlier activity", exact: true }),
