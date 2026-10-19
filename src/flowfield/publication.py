@@ -36,6 +36,13 @@ def publication_status(task: "TaskRevision") -> PublicationStatus:
     return "published"
 
 
+def blocked_dependencies(task: "TaskRevision", completed: set[str]) -> list[str]:
+    """Delivered snapshots have no live prerequisite obligations."""
+    return (
+        [key for key in task.dependencies if key not in completed] if task.status != "done" else []
+    )
+
+
 def readiness(
     task: "TaskRevision",
     publication: PublicationStatus,

@@ -12,7 +12,6 @@ export function ExpandableMarkdown({
   title: string;
 }) {
   const id = useId();
-  const container = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [preview, setPreview] = useState({ height: 0, long: false });
@@ -33,7 +32,7 @@ export function ExpandableMarkdown({
   }, []);
   const collapsed = preview.long && !expanded;
   return (
-    <div ref={container} className="content-stack" data-space="tight">
+    <div className="content-stack" data-space="tight">
       <DetailSection title={title}>
         <div
           id={id}
@@ -60,13 +59,7 @@ export function ExpandableMarkdown({
             className="disclosure-control definition-toggle"
             aria-expanded={expanded}
             aria-controls={id}
-            onClick={() => {
-              setExpanded(!expanded);
-              if (expanded)
-                requestAnimationFrame(() =>
-                  container.current?.scrollIntoView({ block: "start" }),
-                );
-            }}
+            onClick={() => setExpanded(!expanded)}
           >
             {expanded ? (
               <ChevronUp aria-hidden="true" />

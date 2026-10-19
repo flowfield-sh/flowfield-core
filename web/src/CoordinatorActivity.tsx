@@ -18,7 +18,13 @@ function Reply({
       className={intermediate ? "activity-prose" : undefined}
     >
       <Markdown>{item.text}</Markdown>
-      {item.omitted && <p className="muted">Reply preview shortened.</p>}
+      {item.omitted && (
+        <p className="muted">
+          {intermediate
+            ? "Reply preview shortened."
+            : "Some reply output could not be retained."}
+        </p>
+      )}
     </div>
   );
 }
@@ -59,9 +65,8 @@ export function CoordinatorActivity({
   finished: boolean;
 }) {
   if (!finished) return <Timeline items={items} />;
-  const last = items.at(-1);
-  const reply = last?.kind === "agent" ? last : null;
-  const history = reply ? items.slice(0, -1) : items;
+  const reply = [...items].reverse().find((item) => item.kind === "agent");
+  const history = items.filter((item) => item !== reply);
   return (
     <>
       {!!history.length && (

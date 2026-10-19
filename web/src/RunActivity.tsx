@@ -1,5 +1,5 @@
 import { ResourceRetry } from "./ResourceRetry";
-import { lazy, Suspense, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useResource } from "./useResource";
 import { label } from "./workspace";
 import type { components } from "./api-schema";
@@ -41,12 +41,6 @@ export function RunActivity({
     { projectId, attemptId: reviewAttemptId ?? runId, isActive },
   );
   const { data: page, error } = resource;
-  const pane = useRef<HTMLDivElement>(null);
-  const follow = useRef(true);
-  useLayoutEffect(() => {
-    if (follow.current && pane.current)
-      pane.current.scrollTop = pane.current.scrollHeight;
-  }, [page]);
   return (
     <div className="run-activity content-stack">
       <ResourceRetry resources={[resource]}>Retry activity</ResourceRetry>
@@ -60,17 +54,10 @@ export function RunActivity({
       )}
       {page?.supported && (
         <div
-          ref={pane}
           className="run-activity-output content-stack"
           role="region"
           aria-label={review ? "Review activity" : "Worker activity"}
           tabIndex={0}
-          onScroll={() => {
-            const element = pane.current!;
-            follow.current =
-              element.scrollHeight - element.scrollTop - element.clientHeight <
-              24;
-          }}
         >
           {page.omitted && (
             <p className="muted">Earlier activity was omitted.</p>

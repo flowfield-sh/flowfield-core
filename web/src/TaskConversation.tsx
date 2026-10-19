@@ -1,11 +1,9 @@
-import { useRef } from "react";
 import { useParams } from "react-router";
 import { ExecutionDetails } from "./Runs";
 import { ActivityEntry } from "./ActivityEntry";
 import { ContentStack } from "./DetailLayout";
 import { ResourceRetry } from "./ResourceRetry";
 import { useResource } from "./useResource";
-import { useFeedScroll } from "./useFeedScroll";
 import { request, type Task, type WorkspaceBoard } from "./workspace";
 import type { components } from "./api-schema";
 import { MessageBody, merge, hasBody, type Message } from "./TaskMessages";
@@ -84,16 +82,8 @@ export function TaskConversation({
   const ordered = active
     ? [...messages.filter((m) => m !== active), active]
     : messages;
-  const root = useRef<HTMLDivElement>(null);
-  useFeedScroll(
-    root,
-    !!page.data && (!executionId || !!execution.data),
-    selected.data?.id,
-    !!selected.data,
-  );
   return (
     <ContentStack
-      ref={root}
       space="section"
       className="task-conversation rounded-lg border p-3"
     >

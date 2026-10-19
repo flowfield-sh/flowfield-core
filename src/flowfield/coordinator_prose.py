@@ -4,7 +4,19 @@ import json
 import sqlite3
 from typing import Any
 
-from flowfield.run_activity import ActivityUpdate, clean
+from flowfield.run_activity import ActivityUpdate, RunActivityEntry, clean
+
+
+def latest(db: sqlite3.Connection, identity: str) -> RunActivityEntry | None:
+    """Read only the latest retained reply, independently of the bounded tool feed."""
+    row = db.execute(
+        "SELECT json_extract(data,'$.items[#-1]'),json_extract(data,'$.omitted') "
+        "FROM coordinator_prose WHERE turn_id=?",
+        (identity,),
+    ).fetchone()
+    if not row or not row[0]:
+        return None
+    return RunActivityEntry(**json.loads(row[0]), kind="agent", omitted=bool(row[1]))
 
 
 def read(db: sqlite3.Connection, identity: str) -> dict[str, Any]:

@@ -20,6 +20,7 @@ from flowfield.coordinator_models import (
     CoordinatorTurn,
 )
 from flowfield.coordinator_ownership import serialized, validate
+from flowfield.coordinator_prose import latest as latest_reply
 from flowfield.coordinator_prose import write as write_prose
 from flowfield.coordinator_settings import CoordinatorSettings
 from flowfield.coordinator_welcome import WELCOME
@@ -147,6 +148,22 @@ class CoordinatorStore:
                 ).fetchall()
             items = [CoordinatorTurn.model_validate_json(row[0]) for row in rows[:20]]
             for turn in items:
+                # Final prose is conversation, not a tool-log preview. Read one reply
+                # per visible turn; earlier prose/tool details remain bounded activity.
+                reply = latest_reply(db, turn.id)
+                if reply:
+                    index = next(
+                        (
+                            i
+                            for i, entry in enumerate(turn.activity.items)
+                            if entry.key == reply.key
+                        ),
+                        None,
+                    )
+                    if index is None:
+                        turn.activity.items.append(reply)
+                    else:
+                        turn.activity.items[index] = reply
                 for entry in turn.activity.items:
                     entry.preview = preview(entry.text, entry.kind)
                     entry.abridged = entry.preview != entry.text

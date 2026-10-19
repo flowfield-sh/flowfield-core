@@ -17,6 +17,7 @@
 
 - Keep model selection explicit when navigating to Tasks; opening a page no longer opens the Coordinator model selector automatically.
 - Keep completed tasks and their delivered results stable when prerequisite work changes later, without unnecessary warnings or downstream reconciliation.
+- Keep task pages and worker output at the reader's position instead of jumping to the latest event. Show saved Coordinator replies directly without a broken full-reply control.
 
 ### Breaking changes
 

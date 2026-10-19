@@ -784,7 +784,7 @@ test("attempt activity updates without reloading the board and replays on reload
     output.evaluate(
       (el) => el.scrollHeight - el.scrollTop - el.clientHeight < 3,
     );
-  await expect.poll(atEnd).toBe(true);
+  await expect.poll(() => output.evaluate((el) => el.scrollTop)).toBe(0);
   await output.evaluate((el) => el.scrollTo({ top: el.scrollHeight / 3 }));
   await expect.poll(atEnd).toBe(false);
   const before = await output.evaluate((el) => el.scrollTop);
@@ -793,9 +793,13 @@ test("attempt activity updates without reloading the board and replays on reload
   await expect.poll(() => output.evaluate((el) => el.scrollTop)).toBe(before);
   await output.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
   await expect.poll(atEnd).toBe(true);
+  const bottomPosition = await output.evaluate((el) => el.scrollTop);
   await fixture("following-again");
   await expect(output).toContainText("following-again observed output");
-  await expect.poll(atEnd).toBe(true);
+  await expect
+    .poll(() => output.evaluate((el) => el.scrollTop))
+    .toBe(bottomPosition);
+  await expect.poll(atEnd).toBe(false);
   await expect(
     page.getByRole("button", { name: "Follow latest activity" }),
   ).toHaveCount(0);
@@ -863,7 +867,7 @@ test("attempt activity updates without reloading the board and replays on reload
   await expect(page.locator(".up_next")).toContainText("Queue paused");
 });
 
-test("task feed follows the live end but preserves reading position and plain timestamps", async ({
+test("task feed stays static on opening and updates and restores explicit tab position", async ({
   page,
   request,
 }) => {
@@ -896,12 +900,12 @@ test("task feed follows the live end but preserves reading position and plain ti
   const atBottom = () =>
     pane.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight < 3);
   await expect(feed).toContainText("Observation 11");
-  await expect.poll(atBottom).toBe(true);
+  await expect.poll(() => pane.evaluate((el) => el.scrollTop)).toBe(0);
   await request.post(`${path}/activity`, {
     data: { task_id: "one", body: "Newest while following" },
   });
   await expect(feed).toContainText("Newest while following");
-  await expect.poll(atBottom).toBe(true);
+  await expect.poll(() => pane.evaluate((el) => el.scrollTop)).toBe(0);
   // Expand retained notes so this still exercises reading long evidence.
   for (const row of await feed
     .locator('[data-kind="activity"] .activity-entry > summary')
@@ -933,15 +937,18 @@ test("task feed follows the live end but preserves reading position and plain ti
     .poll(async () => Math.abs((await position()) - before) < 2)
     .toBe(true);
   await expect.poll(atBottom).toBe(false);
-  await pane.evaluate((el) => {
-    el.scrollTop = el.scrollHeight;
-  });
+  await pane.hover();
+  await page.mouse.wheel(0, 10000);
   await expect.poll(atBottom).toBe(true);
+  const bottomPosition = await pane.evaluate((el) => el.scrollTop);
   await request.post(`${path}/activity`, {
     data: { task_id: "one", body: "Newest after returning to the bottom" },
   });
   await expect(feed).toContainText("Newest after returning to the bottom");
-  await expect.poll(atBottom).toBe(true);
+  await expect
+    .poll(() => pane.evaluate((el) => el.scrollTop))
+    .toBe(bottomPosition);
+  await expect.poll(atBottom).toBe(false);
   await expect(feed.getByRole("link", { name: /^Permalink:/ })).toHaveCount(0);
   await expect(
     page.getByRole("button", {

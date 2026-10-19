@@ -121,9 +121,9 @@ export function WorkNavigation({
         </a>
       </nav>
       <div className="work-navigation-heading">
-        <span>Work</span>
+        <span>Recent Work</span>
       </div>
-      <nav className="work-navigation-scroll" aria-label="Work">
+      <nav className="work-navigation-scroll" aria-label="Recent Work">
         <div className="work-navigation-list">
           {(!!attention.data?.items.length || attention.error) && (
             <section aria-label="Needs attention">

@@ -1185,7 +1185,17 @@ test("automatic task context preserves one coordinator and immutable retry recei
         number: turns.length + 1,
         created_at: new Date().toISOString(),
         status: "completed",
-        activity: { items: [], omitted: false },
+        activity: {
+          items: [
+            {
+              key: "reply",
+              kind: "agent",
+              text: `Discuss [T-1](/workspaces/${workspace.id}/tasks/T-1).`,
+              omitted: false,
+            },
+          ],
+          omitted: false,
+        },
       });
       return route.fulfill({ json: turns.at(-1) });
     },
@@ -1236,15 +1246,9 @@ test("automatic task context preserves one coordinator and immutable retry recei
     task_revision: tasks[0].revision,
   });
   const humanMessage = page.locator(".coordinator-human").first();
-  await expect(humanMessage).toContainText("Context: T-1");
-  const contextLink = humanMessage.getByRole("link", {
-    name: "T-1",
-    exact: true,
-  });
-  const messageBody = humanMessage.locator(".markdown");
-  expect((await contextLink.boundingBox())!.y).toBeGreaterThan(
-    (await messageBody.boundingBox())!.y,
-  );
+  await expect(humanMessage).toHaveText("Explain this scope");
+  await expect(humanMessage.locator("time")).toHaveCount(0);
+  await expect(humanMessage.getByText(/Context:|You ·/)).toHaveCount(0);
   await expect(
     page.getByRole("region", { name: "Coordinator conversation" }),
   ).toContainText("T-1");
@@ -1282,6 +1286,7 @@ test("automatic task context preserves one coordinator and immutable retry recei
   await page
     .getByRole("region", { name: "Coordinator conversation" })
     .getByRole("link", { name: "T-1", exact: true })
+    .first()
     .click();
   await expect(detail).toBeVisible();
   await expect(detail).toContainText("Define the search");
@@ -1310,7 +1315,7 @@ test("automatic task context preserves one coordinator and immutable retry recei
   });
 });
 
-test("abridged coordinator activity opens revision-bound saved reply pages", async ({
+test("coordinator final replies render directly despite abridged tool activity", async ({
   page,
   request,
 }, testInfo) => {
@@ -1358,8 +1363,8 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
         {
           key: "reply",
           kind: "agent",
-          text: "Opening … middle omitted … conclusion",
-          omitted: true,
+          text: "Opening. Saved middle of the explanation. Final decision: keep the public API.",
+          omitted: false,
           preview: "",
           abridged: true,
         },
@@ -1378,7 +1383,7 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
       },
     }),
   );
-  const offsets: string[] = [];
+  const replyRequests: string[] = [];
   const actionOutput = Array.from(
     { length: 30 },
     (_, i) => `Found task ${i + 1}`,
@@ -1463,25 +1468,19 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
       abridged: false,
     })),
   );
-  await page.route(`**/api/context/workspaces/${workspace}/text?*`, (route) => {
-    const params = new URL(route.request().url()).searchParams;
-    expect(params.get("revision")).toBe("7");
-    expect(params.get("identity")).toBe(turn.id);
-    offsets.push(params.get("offset")!);
-    return route.fulfill({
-      json:
-        params.get("offset") === "0"
-          ? {
-              text: "Opening. Saved middle of the explanation. ",
-              next_offset: 41,
-              output_omitted: false,
-            }
-          : {
-              text: "Final decision: keep the public API.",
-              next_offset: null,
-              output_omitted: false,
-            },
-    });
+  page.on("request", (request) => {
+    if (request.url().includes("/context/") && request.url().includes("/text"))
+      replyRequests.push(request.url());
+  });
+  turn.activity.omitted = true;
+  // Transport completion after the prose must not hide the final answer in Activity.
+  turn.activity.items.push({
+    key: "finished",
+    kind: "status",
+    text: "Turn completed",
+    omitted: false,
+    preview: "",
+    abridged: false,
   });
   turn.activity.items.unshift({
     key: "thinking",
@@ -1495,14 +1494,14 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
     `/workspaces/${await projectWorkspace(page.request, project)}/tasks`,
   );
   await expect(
-    page.getByText("Opening … middle omitted … conclusion", { exact: true }),
+    page.getByText(/Opening. Saved middle of the explanation. Final decision:/),
   ).toBeVisible();
   await page.locator(".coordinator-activity-summary > summary").click();
   await expect(page.locator(".activity-prose")).toContainText(
     "I’ll check the current task and queue state.",
   );
   await expect(page.locator(".activity-prose")).not.toContainText(
-    "Opening … middle omitted … conclusion",
+    "Final decision: keep the public API.",
   );
   const action = page
     .locator('.run-activity-entry[data-kind="tool"]')
@@ -1579,20 +1578,16 @@ test("abridged coordinator activity opens revision-bound saved reply pages", asy
     path: testInfo.outputPath("action-kinds-narrow-dark.png"),
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(page.getByText("Read full reply", { exact: true })).toHaveCount(
+    0,
+  );
   await expect(
-    page.getByText("Read full reply", { exact: true }),
-  ).toBeVisible();
-  expect(offsets).toEqual([]);
-  await page.getByText("Read full reply", { exact: true }).click();
-  await expect(page.getByText(/Saved middle of the explanation/)).toBeVisible();
-  await page.getByRole("button", { name: "Load more", exact: true }).click();
+    page.getByText("Earlier activity is hidden.", { exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByText(/Final decision: keep the public API/),
   ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Load more", exact: true }),
-  ).toHaveCount(0);
-  expect(offsets).toEqual(["0", "41"]);
+  expect(replyRequests).toEqual([]);
   await page.screenshot({
     path: testInfo.outputPath("coordinator-full-reply.png"),
   });

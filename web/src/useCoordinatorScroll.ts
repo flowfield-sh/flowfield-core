@@ -1,50 +1,25 @@
-import { useContext, useLayoutEffect, useRef, type RefObject } from "react";
-import { usePaneBody } from "./EntityPane";
-import { ResourceScrollKey } from "./ResourceScroll";
+import { useLayoutEffect, useRef, type RefObject } from "react";
 
 const initialPosition = () => ({
   ready: false,
   following: true,
   initialized: false,
   interacted: false,
-  restored: false,
-  target: "",
   anchor: null as { id: string; offset: number } | null,
   top: 0,
   height: 0,
   viewport: 0,
 });
-const positions = new Map<string, ReturnType<typeof initialPosition>>();
 
 /** Follow the live end, or preserve the first visible entry while reading history.
  * Observe layout as well as records: output, checks and Markdown load independently.
  */
-export function useFeedScroll(
+export function useCoordinatorScroll(
   root: RefObject<HTMLDivElement | null>,
   ready: boolean,
-  target: string | undefined,
-  targetReady: boolean,
-  scrollPane?: HTMLDivElement | null,
+  pane: HTMLDivElement | null,
 ) {
-  const entityPane = usePaneBody();
-  const pane = scrollPane ?? entityPane;
-  const key = useContext(ResourceScrollKey);
-  const scope = useRef<string | null | undefined>(undefined);
   const control = useRef(initialPosition());
-  useLayoutEffect(() => {
-    if (scope.current === key) return;
-    scope.current = key;
-    const saved = key ? positions.get(key) : undefined;
-    control.current = saved
-      ? {
-          ...saved,
-          ready: false,
-          initialized: false,
-          interacted: false,
-          restored: true,
-        }
-      : initialPosition();
-  }, [key]);
   const update = useRef<() => void>(() => {});
   useLayoutEffect(() => {
     const content = root.current;
@@ -107,8 +82,7 @@ export function useFeedScroll(
         settle();
         return;
       }
-      // Our positioning also queues a scroll event. It must not turn an exact
-      // permalink into follow mode just because its loading placeholder fits.
+      // Ignore queued scroll events from our own positioning.
       if (pane.scrollTop === state.top) return;
       state.following =
         pane.scrollHeight - pane.scrollTop - pane.clientHeight < 24;
@@ -116,7 +90,7 @@ export function useFeedScroll(
     };
     update.current = settle;
     const observer = new ResizeObserver(settle);
-    observer.observe(content.closest(".task-detail") ?? content);
+    observer.observe(content);
     observer.observe(pane);
     const interact = () => {
       if (!state.initialized) {
@@ -146,52 +120,19 @@ export function useFeedScroll(
     pane.addEventListener("click", inspect, true);
     settle();
     return () => {
-      if (key && state.initialized) {
-        positions.delete(key);
-        positions.set(key, { ...state });
-        while (positions.size > 160)
-          positions.delete(positions.keys().next().value!);
-      }
       observer.disconnect();
       pane.removeEventListener("scroll", scroll);
       pane.removeEventListener("click", inspect, true);
       for (const event of intentEvents)
         pane.removeEventListener(event, interact);
     };
-  }, [root, pane, ready, key]);
+  }, [root, pane, ready]);
   useLayoutEffect(() => {
     const state = control.current;
-    state.ready = ready && (!target || targetReady);
-    if (!pane || !state.ready) return;
-    const nextTarget = target ?? "";
-    if (state.initialized && state.target === nextTarget) return;
-    const restored = state.restored && state.target === nextTarget;
-    state.restored = false;
-    if (state.initialized) state.interacted = false;
-    state.initialized = false;
-    state.target = nextTarget;
-    if (!restored) state.following = !target && !state.interacted;
-    // The pane resets its body in a parent layout effect. Ignore its queued
-    // scroll events until our own initial positioning has run after that reset.
+    state.ready = ready;
+    if (!pane || !ready || state.initialized) return;
+    state.following = !state.interacted;
     const frame = requestAnimationFrame(() => {
-      const entry =
-        target && !state.interacted
-          ? root.current?.querySelector<HTMLElement>(
-              `[data-message-id="${CSS.escape(target)}"]`,
-            )
-          : null;
-      if (restored) {
-        pane.scrollTo({ top: state.top });
-      } else if (entry) {
-        state.anchor = {
-          id: target!,
-          // Keep the intended inset, not a position clamped by a short loading
-          // placeholder. Later content/viewport growth can then honor the link.
-          offset:
-            (parseFloat(getComputedStyle(pane).scrollPaddingTop) || 0) +
-            (parseFloat(getComputedStyle(entry).scrollMarginTop) || 0),
-        };
-      } else state.anchor = null;
       state.top = pane.scrollTop;
       state.height = pane.scrollHeight;
       state.viewport = pane.clientHeight;
@@ -199,7 +140,7 @@ export function useFeedScroll(
       update.current();
     });
     return () => cancelAnimationFrame(frame);
-  }, [pane, ready, root, target, targetReady, key]);
+  }, [pane, ready]);
   return {
     readingEarlier: () => {
       control.current.following = false;

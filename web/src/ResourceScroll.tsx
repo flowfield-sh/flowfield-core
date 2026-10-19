@@ -1,12 +1,8 @@
-import { createContext, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { useLocation } from "react-router";
 
 const positions = new Map<string, Map<string, { top: number; left: number }>>();
 const focusLinks = new Map<string, string>();
-export const ResourceScrollKey = createContext<string | null>(null);
-const feedOwns = (node: HTMLElement) =>
-  node.matches(".entity-pane-body") &&
-  !!node.querySelector(".conversation-messages");
 const selector =
   ".entity-pane-body, .workspace-work-content, .column-cards, .board, .files-scroll";
 export function ResourceScroll({
@@ -43,7 +39,6 @@ export function ResourceScroll({
       }
       if (!restoring || !saved) return;
       for (const node of host!.querySelectorAll<HTMLElement>(selector)) {
-        if (feedOwns(node)) continue;
         const value = saved.get(identity(node));
         if (value) {
           node.scrollTop = value.top;
@@ -55,7 +50,6 @@ export function ResourceScroll({
       if (restoring) return;
       const node = event.target;
       if (!(node instanceof HTMLElement) || !node.matches(selector)) return;
-      if (feedOwns(node)) return;
       const values = positions.get(key) ?? new Map();
       values.set(identity(node), {
         top: node.scrollTop,
@@ -107,9 +101,7 @@ export function ResourceScroll({
   }, [key]);
   return (
     <div className="workspace-resource-scroll" ref={root}>
-      <ResourceScrollKey.Provider value={key}>
-        {children}
-      </ResourceScrollKey.Provider>
+      {children}
     </div>
   );
 }

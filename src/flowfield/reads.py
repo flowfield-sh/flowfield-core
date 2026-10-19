@@ -16,6 +16,7 @@ from flowfield.coordinator_prose import read as read_prose
 from flowfield.errors import ApplicationError
 from flowfield.input_delivery import question_delivery
 from flowfield.publication import (
+    blocked_dependencies,
     preparation_issue,
     publication_status,
     readiness,
@@ -182,7 +183,7 @@ class ContextReads:
         db: sqlite3.Connection,
         records: dict[str, TaskRevision],
     ) -> dict[str, Any]:
-        blocked = [p for p in item.dependencies if p not in completed]
+        blocked = blocked_dependencies(item, completed)
         questions = blocking_questions(db, item.workspace_id, item.id)
         publication = publication_status(item)
         from flowfield.document_updates import task_updates
@@ -637,7 +638,7 @@ class ContextReads:
             }
             for name, ids in {
                 "prerequisites": item.dependencies,
-                "blocked_by": [p for p in item.dependencies if p not in completed],
+                "blocked_by": blocked_dependencies(item, completed),
                 "dependents": [
                     self.workspace._record_key(t)
                     for t in records.values()
@@ -724,7 +725,7 @@ class ContextReads:
             ids = (
                 item.dependencies
                 if relation == "prerequisites"
-                else [p for p in item.dependencies if p not in completed]
+                else blocked_dependencies(item, completed)
                 if relation == "blocked_by"
                 else [
                     self.workspace._record_key(t)

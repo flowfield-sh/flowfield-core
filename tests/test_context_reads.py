@@ -122,6 +122,10 @@ def test_context_readiness_matches_domain_and_invalid_input(tmp_path: Path) -> N
             detail = reads.task("harbor", task.key)
             assert detail["readiness"] == task.readiness
             assert {p["id"] for p in detail["blocked_by"]} == {p.id for p in task.blocked_by}
+            related = reads.relationships("harbor", task.key, relation="blocked_by")
+            assert {p["id"] for p in related["items"]} == {p.id for p in task.blocked_by}
+            if task.status == "done":
+                assert detail["blocked_count"] == detail["blocked_by_count"] == 0
     for kwargs in [{"limit": 51}, {"after": -1}, {"status": "invalid"}]:
         with pytest.raises(ApplicationError):
             reads.tasks("harbor", **kwargs)

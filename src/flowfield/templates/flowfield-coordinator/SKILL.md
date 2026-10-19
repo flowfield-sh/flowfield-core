@@ -102,7 +102,10 @@ to start/resume the queue. If already running, eligible prepared work can procee
   Preserve unrelated contributions when correcting a local finding. Changed parent intent or
   selected inputs require fresh preparation and invalidate earlier combined approval.
 - Labels are optional, multiple and shared by workspace. Read `list_labels` for names,
-  colors and usage guidance; use their IDs when assigning labels. Maintain agreed labels
+  colors and usage guidance when planning work. Apply existing labels whose guidance clearly
+  fits when creating or refining a task (for example Feature for new product behavior or
+  Bug for a correction); optional does not mean omit them by default. Use their IDs.
+  Maintain agreed labels
   through `create_label`, `edit_label` and `delete_label`. Labels describe work without
   changing execution, completion or approval. Deletion removes current assignments and
   preserves historical references. Do not manufacture a label when none is useful.
@@ -164,6 +167,12 @@ to start/resume the queue. If already running, eligible prepared work can procee
   the registered checkout's current branch. Choose worker harness/model/controls only with human
   authorization; no implicit fallback or account changes. Capacity defaults to one; configure
   the agreed maximum for parallel work. Lowering it limits new starts without stopping active work.
+- Make the run handoff usable: a web launcher should print its actual browser URL after
+  listening, required companion services and how to stop it. Keep machine readiness markers
+  when tests use them, but a bare port/READY marker is not the human handoff. For separate
+  repositories, state which result starts which service and how the selected snapshots connect;
+  do not imply one project's run command automatically launches its dependencies. Preserve
+  historical results and fix launcher behavior through new work or an explicitly reopened task.
 - Discover environment needs in this coordinating conversation and clarify data, services and
   access with the human before preparing dependent work. Separate task change scope from extra
   read/runtime needs; cross-project prerequisite evidence supplies neither checkouts nor services.

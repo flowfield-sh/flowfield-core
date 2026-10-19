@@ -276,7 +276,10 @@ test("Needs attention opens exact requests and collection navigation stays disti
       },
     );
   await page.goto(base + "/inbox");
-  const work = page.getByRole("navigation", { name: "Work", exact: true });
+  const work = page.getByRole("navigation", {
+    name: "Recent Work",
+    exact: true,
+  });
 
   for (const id of ["newer", "earlier"]) {
     const href = `${base}/requests/question/${id}`;

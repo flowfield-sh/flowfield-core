@@ -5,7 +5,9 @@ from uuid import uuid4
 
 from coordinator_history_fixtures import saved_exchange
 from execution_fixtures import fixture
+from fastapi.testclient import TestClient
 
+from flowfield.api import create_app
 from flowfield.application import Workspace
 from flowfield.coordinator_models import CoordinatorSend
 from flowfield.coordinator_store import CoordinatorStore
@@ -38,6 +40,15 @@ def test_streamed_public_reply_survives_activity_trimming_and_restart(tmp_path):
         current.status = "completed"
         store._save(db, current)
     assert store.get("harbor", turn.id).activity.omitted
+    # Browser history renders retained prose directly, including after the last
+    # prose entry has fallen out of bounded tool activity. The source stays bounded.
+    with TestClient(create_app(data_dir=workspace.directory), base_url="http://localhost") as api:
+        page = api.get("/api/workspaces/harbor/coordinator").json()
+        reply = next(
+            item for item in page["items"][0]["activity"]["items"] if item["key"] == "reply"
+        )
+        assert reply["text"] == full and not reply["omitted"]
+    assert not any(item.key == "reply" for item in store.get("harbor", turn.id).activity.items)
     reads = ContextReads(Workspace(workspace.directory))
     result, offset = "", 0
     while True:
@@ -57,3 +68,22 @@ def test_streamed_public_reply_survives_activity_trimming_and_restart(tmp_path):
         ]
         == full
     )
+
+
+def test_browser_restores_latest_reply_without_combining_intermediate_prose(tmp_path):
+    workspace = fixture(tmp_path).workspace
+    turn = saved_exchange(workspace, "Explain", finish=False)
+    store = CoordinatorStore(workspace)
+    full = "Final answer.\n" + "Complete retained prose.\n" * 500
+    store.write("harbor", turn.id, [ActivityUpdate(key="final", kind="agent", text=full)])
+    with workspace.connection(write=True) as db:
+        current = store._get(db, "harbor", turn.id)
+        current.status = "completed"
+        store._save(db, current)
+    page = store.page("harbor")
+    prose = [item for item in page.items[0].activity.items if item.kind == "agent"]
+    assert prose[-1].text == full and not prose[-1].omitted
+    assert len(prose) == 2 and prose[0].text == "Public reply Explain"
+    # The stored preview remains small and the normal incremental read also restores prose.
+    assert store.get("harbor", turn.id).activity.items[-1].omitted
+    assert store.page("harbor", after=turn.number).items[0].activity.items[-1].text == full

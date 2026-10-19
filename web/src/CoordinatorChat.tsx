@@ -9,23 +9,17 @@ import type { components } from "./api-schema";
 import { useResource } from "./useResource";
 import { request, RequestError } from "./workspace";
 import { Markdown } from "./Markdown";
-import { Timestamp } from "./Timestamp";
-import { Separator } from "@/components/ui/separator";
-import { ContentStack } from "./DetailLayout";
 import { AgentSettingsControl } from "./AgentSettings";
 import { choiceLabel } from "./HarnessModels";
 import { ActionTooltip } from "./ActionTooltip";
 import { Composer } from "./Composer";
 import { ContextRing } from "./ContextRing";
-import { CoordinatorFullReply } from "./CoordinatorFullReply";
 import { AgentPermissions } from "./AgentPermissions";
 import { CoordinatorActivity } from "./CoordinatorActivity";
-import { useFeedScroll } from "./useFeedScroll";
+import { useCoordinatorScroll } from "./useCoordinatorScroll";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowUp, LoaderCircle, Square } from "lucide-react";
-import { WorkspaceLink } from "./WorkspaceLink";
-import { taskHref } from "./navigation";
 type Page = components["schemas"]["CoordinatorPage"];
 type Turn = components["schemas"]["CoordinatorTurn"];
 const isActive = (page: Page) =>
@@ -191,7 +185,7 @@ export function CoordinatorChat({
   const running = !!active && active.status !== "uncertain";
   const cursor = before;
   const turns = history.items;
-  const scroll = useFeedScroll(content, !!page, undefined, true, pane);
+  const scroll = useCoordinatorScroll(content, !!page, pane);
   function update(text: string) {
     const next = {
       id: draft.text === text ? draft.id : crypto.randomUUID(),
@@ -331,11 +325,7 @@ export function CoordinatorChat({
               className="coordinator-turn"
             >
               <div className="coordinator-message coordinator-human">
-                <div className="detail-metadata">
-                  You · <Timestamp date={turn.created_at} />
-                </div>
                 <Markdown>{turn.text}</Markdown>
-                <MessageContext turn={turn} workspaceId={workspaceId} />
               </div>
               <div className="coordinator-message">
                 <CoordinatorActivity
@@ -346,23 +336,6 @@ export function CoordinatorChat({
                     )
                   }
                 />
-                {turn.activity.omitted && (
-                  <p className="muted">Earlier activity is hidden.</p>
-                )}
-                {(turn.activity.omitted ||
-                  turn.activity.items.some(
-                    (entry) => entry.kind === "agent" && entry.omitted,
-                  )) &&
-                  !["starting", "running", "stopping", "uncertain"].includes(
-                    turn.status,
-                  ) && (
-                    <CoordinatorFullReply
-                      key={turn.activity.revision}
-                      workspaceId={workspaceId}
-                      turn={turn.id}
-                      revision={turn.activity.revision}
-                    />
-                  )}
                 {turn.notice && <p role="status">{turn.notice}</p>}
                 {["starting", "running", "stopping"].includes(turn.status) &&
                   !resource.error && (
@@ -524,53 +497,5 @@ export function CoordinatorChat({
         />
       </div>
     </>
-  );
-}
-
-function MessageContext({
-  turn,
-  workspaceId,
-}: {
-  turn: Turn;
-  workspaceId: string;
-}) {
-  const view = turn.view_context;
-  const task = turn.task_context;
-  if (!task && !view) return null;
-  const base = `/workspaces/${encodeURIComponent(workspaceId)}`;
-  let href: string;
-  let title: string;
-  if (task) {
-    href = task.result_id
-      ? `${base}/results/${encodeURIComponent(task.result_id)}`
-      : taskHref(workspaceId, task);
-    title = task.key + (task.result_id ? " · result" : "");
-  } else if (view?.document_id) {
-    href = `${base}/documents/${encodeURIComponent(view.document_id)}/revisions/${view.document_revision}`;
-    title = view.document_title ?? "Document";
-  } else if (view?.request_href) {
-    href = view.request_href;
-    title = view.request_title ?? "Request";
-  } else if (view?.surface === "project" && view.project_id) {
-    href = `/projects/${encodeURIComponent(view.project_id)}`;
-    title = view.project_name ?? "Project";
-  } else {
-    const surface =
-      view?.surface === "board" ? "tasks" : (view?.surface ?? "tasks");
-    const params = new URLSearchParams();
-    if (view?.project_id) params.set("project", view.project_id);
-    if (view?.label_id) params.set("label", view.label_id);
-    href = `${base}/${surface}${params.size ? `?${params}` : ""}`;
-    title = surface.charAt(0).toUpperCase() + surface.slice(1);
-    if (view?.project_name) title += ` · ${view.project_name}`;
-    if (view?.label_name) title += ` · ${view.label_name}`;
-  }
-  return (
-    <ContentStack space="tight" className="detail-metadata">
-      <Separator />
-      <div>
-        Context: <WorkspaceLink to={href}>{title}</WorkspaceLink>
-      </div>
-    </ContentStack>
   );
 }

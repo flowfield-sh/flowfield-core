@@ -43,6 +43,7 @@ from flowfield.publication import (
     Publication,
     PublicationStatus,
     Readiness,
+    blocked_dependencies,
     preparation_issue,
     publication_status,
     readiness,
@@ -824,11 +825,7 @@ class Workspace:
         ]
         records = records if records is not None else self._records(db, workspace_id)
         completed = completed if completed is not None else self._completed(records, db)
-        blocked = (
-            [records[p] for p in current.dependencies if p not in completed]
-            if current.status != "done"
-            else []
-        )
+        blocked = [records[p] for p in blocked_dependencies(current, completed)]
         questions = blocking_questions(db, workspace_id, task_id)
         publication = publication_status(current)
         from flowfield.document_updates import task_updates
