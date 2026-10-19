@@ -41,7 +41,7 @@ Each board column scrolls independently. On narrow screens, scroll sideways to r
 
 A task can depend on tasks in other projects within the same workspace. Prerequisites must finish before dependent work starts; cycles and cross-workspace dependencies are rejected. A dependency is satisfied by the task’s delivered result. A review recommendation or completed subtask alone does not release dependent tasks. Foreign prerequisite code is not merged into that repository's Git history.
 
-Reopening or changing completed prerequisite work can require downstream reconciliation. Archiving unfinished work does not satisfy its dependents. Ask the Coordinator to review affected tasks when the plan changes.
+Completed tasks retain their delivered results and captured inputs when prerequisite work changes later. They do not need updating or reconciling. Create a new task for a new outcome, or explicitly reopen the task you want to correct; earlier results remain available. Unfinished dependent work still requires ready prerequisites and reconciliation when its inputs change. Archiving unfinished work does not satisfy its dependents.
 
 ## Follow an attempt
 

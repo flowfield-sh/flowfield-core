@@ -107,6 +107,63 @@ test("coordinator dependencies update blockers, links and reconciliation without
   await expect(
     card.getByText("Needs code from T-1", { exact: true }),
   ).toHaveCount(0);
+  const workspace = await projectWorkspace(request, identity.project_id);
+  for (const taskId of [three.id, two.id]) {
+    const task = await (
+      await request.get(`/api/workspaces/${workspace}/tasks/${taskId}`)
+    ).json();
+    await fixtureProgress(request, {
+      ...identity,
+      task_id: taskId,
+      progress: { expected_revision: task.revision, status: "done" },
+    });
+  }
+  const completed = await (
+    await request.get(`/api/workspaces/${workspace}/tasks/${two.id}`)
+  ).json();
+  const prerequisite = await (
+    await request.get(`/api/workspaces/${workspace}/tasks/${one.id}`)
+  ).json();
+  const reopened = await request.post(
+    `/api/workspaces/${workspace}/tasks/${one.id}/reopen`,
+    {
+      data: {
+        expected_revision: prerequisite.revision,
+        note: "An explicit correction",
+      },
+    },
+  );
+  expect(reopened.ok(), await reopened.text()).toBeTruthy();
+  await expect(
+    page
+      .getByRole("region", { name: "Done tasks", exact: true })
+      .getByRole("link", { name: "T-2 Download CSV", exact: true }),
+  ).toBeVisible();
+  await expect(card.locator(".work-state")).toHaveCount(0);
+  await page.goto(`/workspaces/${workspace}/tasks/T-2`);
+  await expect(
+    detail
+      .locator(".entity-pane-title")
+      .getByRole("img", { name: "Delivered", exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    detail.getByRole("heading", { name: "Waiting on", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    detail.getByRole("heading", { name: "Delivery context", exact: true }),
+  ).toHaveCount(0);
+  await expect(detail.getByText("Prerequisites:")).toBeVisible();
+  const retained = await (
+    await request.get(`/api/workspaces/${workspace}/tasks/${two.id}`)
+  ).json();
+  expect(retained.revision).toBe(completed.revision);
+  expect(retained.blocked_by).toEqual([]);
+  await page.reload();
+  await expect(
+    detail
+      .locator(".entity-pane-title")
+      .getByRole("img", { name: "Delivered", exact: true }),
+  ).toHaveCount(1);
 });
 
 test("task activity, Markdown and independently retrievable handoffs preserve the current agreement", async ({

@@ -16,7 +16,7 @@
 ### Bug fixes
 
 - Keep model selection explicit when navigating to Tasks; opening a page no longer opens the Coordinator model selector automatically.
-- Explain when a completed result predates changed prerequisites, preserving its delivery and making the next Coordinator decision clear.
+- Keep completed tasks and their delivered results stable when prerequisite work changes later, without unnecessary warnings or downstream reconciliation.
 
 ### Breaking changes
 

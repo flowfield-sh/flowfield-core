@@ -93,49 +93,33 @@ export function TaskDetail({
               </WorkspaceLink>
             </p>
           )}
-          {task.state?.reason === "historical_inputs" && (
-            <DetailSection title="Delivery context">
-              <p>
-                This result was delivered before its prerequisites changed. Ask
-                the coordinator to refresh this outcome or verify that the
-                existing result still applies.
-              </p>
+          {hasTaskNeeds(task, board.pending_code[task.key], false, true) && (
+            <DetailSection title="Waiting on">
+              <TaskNeeds
+                task={task}
+                projectId={workspaceId}
+                pendingCode={board.pending_code[task.key]}
+                open={openTask}
+                detailed
+                includeDependencies
+                showQuestions={false}
+              />
             </DetailSection>
           )}
-          {task.state?.reason !== "historical_inputs" &&
-            hasTaskNeeds(task, board.pending_code[task.key], false, true) && (
-              <DetailSection title="Waiting on">
-                <TaskNeeds
-                  task={task}
-                  projectId={workspaceId}
-                  pendingCode={board.pending_code[task.key]}
-                  open={openTask}
-                  detailed
-                  includeDependencies
-                  showQuestions={false}
-                />
-              </DetailSection>
-            )}
           {(task.dependents.length > 0 ||
             task.prerequisites.some(
-              (p) =>
-                task.state?.reason === "historical_inputs" ||
-                !task.blocked_by.some((b) => b.key === p.key),
+              (p) => !task.blocked_by.some((b) => b.key === p.key),
             )) && (
             <ContentStack aria-label="Related work">
               {task.prerequisites.some(
-                (p) =>
-                  task.state?.reason === "historical_inputs" ||
-                  !task.blocked_by.some((b) => b.key === p.key),
+                (p) => !task.blocked_by.some((b) => b.key === p.key),
               ) && (
                 <p>
                   <BlockedBy
                     prefix="Prerequisites:"
                     projectId={workspaceId}
                     tasks={task.prerequisites.filter(
-                      (p) =>
-                        task.state?.reason === "historical_inputs" ||
-                        !task.blocked_by.some((b) => b.key === p.key),
+                      (p) => !task.blocked_by.some((b) => b.key === p.key),
                     )}
                     open={openTask}
                   />

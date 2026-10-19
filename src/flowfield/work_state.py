@@ -22,7 +22,7 @@ class WorkState(BaseModel):
     label: str
     tone: Literal["active", "attention", "waiting", "complete", "idle"] = "idle"
     href: str | None = None
-    reason: Literal["prerequisites", "scheduling", "historical_inputs"] | None = None
+    reason: Literal["prerequisites", "scheduling"] | None = None
 
 
 def event_state(kind: str, status: str | None, identity: str, current: WorkState) -> WorkState:
@@ -99,7 +99,6 @@ def task_state(
     *,
     facts: TaskReadFacts | None = None,
 ) -> WorkState:
-    from flowfield.publication import DEPENDENCY_CHANGED
     from flowfield.result_actions import result_action
     from flowfield.result_models import ResultVersion
 
@@ -124,13 +123,6 @@ def task_state(
     if task["question_id"]:
         return question_state(db, project, task["question_id"])
     if task["reason"]:
-        if task["status"] == "done" and task["reason"] == DEPENDENCY_CHANGED:
-            return WorkState(
-                label="Delivered for earlier inputs",
-                tone="complete",
-                href=href,
-                reason="historical_inputs",
-            )
         return WorkState(label="Update task", tone="attention", href=href)
     if task["scheduling_problem"] and not task["archived"]:
         return WorkState(

@@ -91,11 +91,23 @@ test("cross-project prerequisites link to their owner and refresh dependent view
       response.url().includes(`/view/tasks/`) &&
       response.ok(),
   );
-  await fixtureProgress(request, {
+  const completed = await fixtureProgress(request, {
     project_id: "dependency-core",
     task_id: "dependency-core",
     progress: { expected_revision: 1, status: "done", completion: "report" },
   });
+  // The model-free fixture writes outside the running service. Notify through a
+  // real coordinator edit so this assertion observes its normal live refresh.
+  const edited = await request.put(
+    `/api/workspaces/${workspace.id}/tasks/${completed.id}`,
+    {
+      data: {
+        expected_revision: completed.revision,
+        title: "Delivered API outcome",
+      },
+    },
+  );
+  expect(edited.ok(), await edited.text()).toBeTruthy();
   await refreshed;
   await expect(
     task.getByRole("heading", { name: "Waiting on", exact: true }),

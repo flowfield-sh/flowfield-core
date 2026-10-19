@@ -74,7 +74,7 @@ def test_graph_validation_is_atomic_and_scoped(tmp_path: Path) -> None:
     assert Workspace(tmp_path / "state").board("harbor") == before
 
 
-def test_readiness_archive_and_downstream_reconciliation(tmp_path: Path) -> None:
+def test_completed_deliveries_survive_upstream_reopening_without_cascades(tmp_path: Path) -> None:
     service = workspace(tmp_path)
     for key, dependencies in [("a", []), ("b", ["a"]), ("c", ["b"])]:
         service.create_task(
@@ -95,39 +95,65 @@ def test_readiness_archive_and_downstream_reconciliation(tmp_path: Path) -> None
     service.edit_task(
         "harbor", "a", TaskEdit(expected_revision=current.revision + 1, archived=False)
     )
-    entered = service.task("harbor", "b").status_changed_at
+    saved = {key: service.task("harbor", key) for key in ["b", "c"]}
+    with service.connection() as db:
+        results = db.execute("SELECT data FROM result_versions ORDER BY id").fetchall()
+    # A new consumer of B can use its completed snapshot even while A is corrected.
+    service.create_task("harbor", task_request(id="d", title="New outcome", dependencies=["b"]))
     progress(service, "a", "in_progress")
     for key in ["b", "c"]:
-        affected = service.task("harbor", key)
-        assert affected.status == "done" and affected.readiness == "needs_reconciliation"
-        assert affected.reconciliation_reason
+        retained = service.task("harbor", key)
+        assert retained.status == "done" and retained.readiness == "ready"
+        assert not retained.blocked_by and retained.reconciliation_reason is None
+        assert retained.revisions == saved[key].revisions
+        assert retained.status_changed_at == saved[key].status_changed_at
+        assert retained.publication == saved[key].publication
         state = BrowserReads(service).task("harbor", key).state
-        assert state.label == "Delivered for earlier inputs"
-        assert state.tone == "complete" and state.reason == "historical_inputs"
-        assert affected.revisions[-1].change_note
-        with pytest.raises(ApplicationError):
+        assert state.label == "Delivered" and state.tone == "complete"
+        assert state.reason is None
+        card = next(t for t in BrowserReads(service).workspace_board("harbor").tasks if t.id == key)
+        assert not card.blocked_by and card.readiness == "ready"
+        with pytest.raises(ApplicationError, match="does not need reconciliation"):
             service.reconcile_task(
-                "harbor", key, TaskReconcile(expected_revision=affected.revision, note="Reviewed")
+                "harbor", key, TaskReconcile(expected_revision=retained.revision, note="Reviewed")
             )
-    assert service.task("harbor", "b").status_changed_at == entered
+    with service.connection() as db:
+        retained_results = db.execute("SELECT data FROM result_versions ORDER BY id").fetchall()
+    assert [row[0] for row in retained_results] == [row[0] for row in results]
+    assert not service.task("harbor", "d").blocked_by
+    progress(service, "d", "done")
+    progress(service, "a", "done")
+    for key in ["b", "c"]:
+        assert service.task("harbor", key).revisions == saved[key].revisions
+    # Explicitly reopening B does require its own preparation, leaving C delivered.
+    progress(service, "b", "in_progress")
+    assert service.task("harbor", "c").revisions == saved["c"].revisions
+    assert service.task("harbor", "c").readiness == "ready"
+    assert Workspace(tmp_path / "state").board("harbor") == service.board("harbor")
+
+
+def test_unfinished_dependents_still_reconcile_changed_prerequisites(tmp_path: Path) -> None:
+    service = workspace(tmp_path)
+    service.create_task("harbor", task_request(id="a", title="A"))
+    service.create_task("harbor", task_request(id="b", title="B", dependencies=["a"]))
+    progress(service, "a", "done")
+    progress(service, "b", "in_progress")
+    progress(service, "a", "in_progress")
+    affected = service.task("harbor", "b")
+    assert affected.status == "in_progress" and affected.readiness == "needs_reconciliation"
+    assert affected.reconciliation_reason and affected.blocked_by
+    with pytest.raises(ApplicationError, match="Blocked by"):
+        progress(service, "b", "done")
     progress(service, "a", "done")
     with pytest.raises(ApplicationError, match="reconcile"):
-        progress(service, "b", "done")  # Even a same-status completion must not bypass review.
-    for key in ["b", "c"]:
-        current = service.task("harbor", key)
-        result = service.reconcile_task(
-            "harbor",
-            key,
-            TaskReconcile(
-                expected_revision=current.revision,
-                note="Reviewed output against the corrected prerequisite.",
-                author="coordinator",
-            ),
-        )
-        assert result.readiness == "ready" and result.status == "done"
-        assert result.change_note.startswith("Reviewed output")
-        assert BrowserReads(service).task("harbor", key).state.reason is None
-    assert Workspace(tmp_path / "state").board("harbor") == service.board("harbor")
+        progress(service, "b", "done")
+    current = service.task("harbor", "b")
+    reconciled = service.reconcile_task(
+        "harbor",
+        "b",
+        TaskReconcile(expected_revision=current.revision, note="Review changed inputs"),
+    )
+    assert reconciled.readiness == "ready" and not reconciled.reconciliation_reason
 
 
 def test_added_dependency_preserves_work_and_explicit_replanning(tmp_path: Path) -> None:
@@ -195,10 +221,11 @@ def test_concurrent_edges_and_completion_are_serialized(tmp_path: Path) -> None:
     with ThreadPoolExecutor(2) as pool:
         list(pool.map(race, ["reopen", "complete"]))
     final = service.task("harbor", linked.id)
-    assert final.blocked_by
-    assert final.status in {"backlog", "up_next"} or (
-        final.status == "done" and final.reconciliation_reason
-    )
+    if final.status == "done":
+        assert not final.blocked_by and not final.reconciliation_reason
+        assert final.readiness == "ready"
+    else:
+        assert final.status in {"backlog", "up_next"} and final.blocked_by
 
 
 def test_http_reconciliation_and_cli_dependencies(tmp_path: Path) -> None:

@@ -34,7 +34,7 @@ def test_waiting_state_matches_workspace_prerequisites(tmp_path, destination):
     assert BrowserReads(store).task(space, second.id).state.reason is None
 
 
-def test_same_local_ids_scope_cycles_pagination_and_downstream_reconciliation(tmp_path):
+def test_same_local_ids_scope_cycles_pagination_and_completed_dependencies(tmp_path):
     store = shared(tmp_path)
     space = Workspaces(store).for_project("core").id
     core = store.create_task(
@@ -80,16 +80,18 @@ def test_same_local_ids_scope_cycles_pagination_and_downstream_reconciliation(tm
     assert {space} == set(notifications)
     assert not store.task(space, site.id).blocked_by
     complete(store, space, site.id)
+    saved = store.task(space, site.id)
     notifications.clear()
     current = store.task(space, core.id)
     store.edit_task(
         space, core.id, TaskEdit(expected_revision=current.revision, body="Changed API contract")
     )
     revised = store.task(space, site.id)
-    assert revised.reconciliation_reason and revised.body == "Site behavior"
+    assert revised.reconciliation_reason is None and revised.body == "Site behavior"
+    assert revised.revisions == saved.revisions and revised.readiness == "ready"
     assert {space} == set(notifications)
     assert store.task(foreign_space, foreign.id).reconciliation_reason is None
-    assert store.task(space, joined.id).blocked_by
+    assert [p.id for p in store.task(space, joined.id).blocked_by] == [core.id]
 
 
 def test_competing_cross_project_edges_cannot_commit_a_cycle(tmp_path):

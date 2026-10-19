@@ -159,7 +159,11 @@ class BrowserReads:
         timeline: sqlite3.Row,
         batch: CardReadBatch | None = None,
     ) -> TaskCard:
-        blocked = [records[key] for key in task.dependencies if key not in completed]
+        blocked = (
+            [records[key] for key in task.dependencies if key not in completed]
+            if task.status != "done"
+            else []
+        )
         questions = (
             batch.questions.get(task.id, [])
             if batch

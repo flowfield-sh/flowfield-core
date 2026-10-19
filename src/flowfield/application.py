@@ -699,9 +699,9 @@ class Workspace:
         return order
 
     def _completed(self, records: dict[str, TaskRevision], db: sqlite3.Connection) -> set[str]:
+        """Completion belongs to the task's delivery, not its ancestors' later work."""
         completed: set[str] = set()
-        for key in self._dependency_order(records):
-            task = records[key]
+        for key, task in records.items():
             if (
                 task.status == "done"
                 and db.execute(
@@ -715,7 +715,6 @@ class Workspace:
                 ).fetchone()
                 and not task.reconciliation_reason
                 and publication_status(task) != "needs_reconciliation"
-                and all(prerequisite in completed for prerequisite in task.dependencies)
             ):
                 completed.add(key)
         return completed
@@ -764,7 +763,11 @@ class Workspace:
             if any(prerequisite in affected for prerequisite in item.dependencies):
                 affected.add(key)
             blocked = [p for p in item.dependencies if p not in completed]
-            if blocked and item.status not in PLANNING and not item.reconciliation_reason:
+            if (
+                blocked
+                and item.status in ("in_progress", "in_review")
+                and not item.reconciliation_reason
+            ):
                 reason = DEPENDENCY_CHANGED
                 if key not in changed:
                     item = TaskRevision.model_validate_json(
@@ -786,7 +789,6 @@ class Workspace:
                 changed.add(key)
             if (
                 item.status == "done"
-                and not blocked
                 and not item.reconciliation_reason
                 and publication_status(item) != "needs_reconciliation"
             ):
@@ -822,7 +824,11 @@ class Workspace:
         ]
         records = records if records is not None else self._records(db, workspace_id)
         completed = completed if completed is not None else self._completed(records, db)
-        blocked = [records[p] for p in current.dependencies if p not in completed]
+        blocked = (
+            [records[p] for p in current.dependencies if p not in completed]
+            if current.status != "done"
+            else []
+        )
         questions = blocking_questions(db, workspace_id, task_id)
         publication = publication_status(current)
         from flowfield.document_updates import task_updates

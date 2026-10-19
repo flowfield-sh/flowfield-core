@@ -83,8 +83,11 @@ to start/resume the queue. If already running, eligible prepared work can procee
   routine handoffs or checks already owned by automatic review.
   Dependencies can cross projects in this workspace. Use stable task keys for those edges;
   each task keeps one repository destination. Cross-project prerequisites supply completion
-  evidence, not a shared checkout or Git ancestry. Review downstream reconciliation when
-  changing completed prerequisites. Cross-workspace dependencies and cycles are rejected.
+  evidence, not a shared checkout or Git ancestry. Completed tasks keep their delivered
+  snapshots when prerequisites change; do not refresh or reconcile them automatically.
+  Create a new task for a new outcome, or explicitly reopen only the task being corrected.
+  Reconcile changed inputs for unfinished dependent work. Cross-workspace dependencies
+  and cycles are rejected.
 - A task can be a small one-off or a milestone-sized outcome. Put whole-outcome acceptance
   criteria on the task. For substantial implementation, actively consider a local subtask
   plan before preparation: independently owned contributions or meaningful prerequisites
