@@ -180,7 +180,9 @@ def test_shared_state_matches_question_attention_and_static_pause(tmp_path):
             "WHERE source_key=? ORDER BY id DESC",
             (f"harbor:question:{item.id}",),
         ).fetchone()
-    assert notice[0] == state.href
+    # Announcements open the actionable request; task state retains its feed context.
+    assert notice[0] == f"/workspaces/harbor/requests/question/{item.id}"
+    assert state.href == f"/workspaces/harbor/tasks/T-1/conversation/question:{item.id}:1"
     second = Questions(execution.workspace).ask(
         "harbor",
         QuestionCreate(

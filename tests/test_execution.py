@@ -149,6 +149,47 @@ def test_review_is_bound_to_code_and_current_intent(tmp_path: Path) -> None:
         execution.finish("harbor", run.id, "in_review", result=run.result, commit=BASE)
 
 
+def test_reopened_delivery_keeps_history_without_repeating_resolved_feedback(tmp_path):
+    execution = fixture(tmp_path)
+    previous = result(execution, partial=True)
+    results = Results(execution.workspace)
+    version = results.page("harbor", previous.task_id).items[0]
+    results.review(
+        "harbor",
+        version.id,
+        ResultReview(
+            expected_revision=version.revision,
+            action="request_changes",
+            note="Resolve the original missing check",
+            candidate_commit=RESULT,
+            author="human",
+        ),
+    )
+    corrected = execution.claim("harbor", BASE, {BASE: set()})
+    assert corrected and corrected.feedback == "Resolve the original missing check"
+    execution.started("harbor", corrected.id)
+    execution.finish(
+        "harbor",
+        corrected.id,
+        "in_review",
+        result=WorkerResult(summary="Original outcome delivered", checks="Missing check passed"),
+        commit=RESULT,
+    )
+    validate_report(execution)
+    assert execution.get("harbor", corrected.id).status == "accepted"
+    task = execution.workspace.task("harbor", previous.task_id)
+    run_report(
+        execution.workspace, "harbor", task.id, expected_revision=task.revision, status="up_next"
+    )
+    followup = execution.claim("harbor", RESULT, {RESULT: set()})
+    assert followup and followup.predecessor_id == corrected.id
+    assert followup.feedback == ""
+    assignment = execution.assignment("harbor", followup.id)
+    assert assignment["feedback"] == ""
+    assert "Original outcome delivered" in assignment["predecessor"]
+    assert execution.get("harbor", corrected.id).feedback == "Resolve the original missing check"
+
+
 def test_report_prerequisite_does_not_require_code_availability(tmp_path: Path) -> None:
     execution = fixture(tmp_path, count=2)
     workspace = execution.workspace

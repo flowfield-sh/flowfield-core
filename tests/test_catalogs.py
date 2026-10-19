@@ -12,6 +12,8 @@ from flowfield.execution_models import ModelOption
 from flowfield.harness_models import HarnessEdit
 from flowfield.harness_settings import HarnessSettings
 
+pytestmark = pytest.mark.usefixtures("catalog_host")
+
 
 def test_cached_models_do_not_hide_a_disconnected_harness(tmp_path, monkeypatch):
     workspace = fixture(tmp_path).workspace
@@ -324,7 +326,7 @@ def test_service_shutdown_waits_for_cleanup_and_preserves_uncertainty(
 
     async def exercise():
         waiter = asyncio.create_task(catalogs.run(registration))
-        await started.wait()
+        await asyncio.wait_for(started.wait(), 3)
         await catalogs.close()
         assert finished.is_set()
         with pytest.raises(asyncio.CancelledError):

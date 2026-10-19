@@ -101,7 +101,7 @@ def test_settings_validation_and_permission_http_journey(tmp_path, monkeypatch):
     asyncio.run(exercise())
 
 
-def test_model_catalog_coalesces_caches_refreshes_and_retries(tmp_path, monkeypatch):
+def test_model_catalog_coalesces_caches_refreshes_and_retries(tmp_path, monkeypatch, catalog_host):
     calls = 0
     fail = False
 

@@ -650,7 +650,9 @@ class Execution:
                     base_commit=chosen_base,
                     completion=child.completion if child else task.publication.completion,
                     target_branch=task.publication.target_branch,
-                    feedback=predecessor.feedback if predecessor else "",
+                    feedback=predecessor.feedback
+                    if predecessor and predecessor.status != "accepted"
+                    else "",
                     created_at=now(),
                 )
                 assignment = self._assignment(
