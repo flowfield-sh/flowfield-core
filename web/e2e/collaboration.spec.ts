@@ -98,12 +98,6 @@ test("coordinator dependencies update blockers, links and reconciliation without
     detail.getByText("Needs code from T-1", { exact: true }),
   ).toHaveCount(0);
   await expect(dependencyState).toContainText("Blocked by T-3");
-  await page
-    .getByRole("button", {
-      name: /^(Close editor|Back)$/,
-      exact: true,
-    })
-    .click();
   await openResource(page, "Tasks Board");
   const card = page.locator(".task-card").filter({ hasText: "Download CSV" });
   await expect(card.locator(".work-state")).toHaveText("Waiting on T-3");
@@ -460,14 +454,11 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   await expect(
     page.getByRole("tab", { name: "Task", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
-  // Explicit history links still select the exact question, unlike card entry.
-  await page.goto(
-    `/workspaces/${await projectWorkspace(request, project_id)}/tasks/T-2/conversation/question:export-scope:1`,
-  );
   await expect(page.getByRole("list", { name: "Task feed" })).toBeVisible();
   const questionEntry = page.locator(
     '.task-activity-item[data-kind="question"]',
   );
+  await questionEntry.locator("summary").click();
   await expect(questionEntry.locator(".activity-entry-title")).toHaveText(
     "Question",
   );
@@ -834,7 +825,10 @@ test("retracting answers reopens questions and preserves earlier responses", asy
       })
     ).blocking_question_count,
   ).toBe(1);
-  await detail.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(
+    detail.getByRole("button", { name: "Back", exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(page).toHaveURL(
     `/workspaces/${await projectWorkspace(request, project_id)}/inbox`,
   );
@@ -1097,12 +1091,12 @@ test("selected handoff survives a fresh MCP connection and shows stale context",
     .locator('[data-kind="activity"] .activity-entry > summary')
     .all())
     await row.click();
-  await expect(
-    page.getByText("Earlier handoff", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Earlier handoff", { exact: true })).toHaveCount(
+    0,
+  );
   await expect(
     page.getByText("Replacement handoff", { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await page.reload();
   await page
     .locator('[data-kind="activity"]')

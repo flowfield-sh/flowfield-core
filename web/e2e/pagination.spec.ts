@@ -86,25 +86,34 @@ test("service recovery cancels pending review pagination with an unchanged revie
     task_id: task.id,
     progress: { status: "done", expected_revision: task.revision },
   });
+  const thread = await (
+    await request.get(
+      `/api/workspaces/${await projectWorkspace(request, project)}/tasks/${task.id}/thread`,
+    )
+  ).json();
   await page.route("**/api/events", (route) => route.abort());
-  await page.route(
-    `**/api/workspaces/*/tasks/${task.id}/thread/review*`,
-    (route) =>
-      route.fulfill({
-        json: {
-          id: "review:review",
-          kind: "review",
-          source_id: "review",
-          revision: 1,
-          created_at: "2026-10-16T12:00:00Z",
-          author: "reviewer",
-          actor: { kind: "reviewer", label: "Reviewer" },
-          state: { label: "Review failed", tone: "attention" },
-          title: "Reviewing results",
-          body: "",
-          status: "failed",
-        },
-      }),
+  await page.route(`**/api/workspaces/*/tasks/${task.id}/thread`, (route) =>
+    route.fulfill({
+      json: {
+        ...thread,
+        items: [
+          ...thread.items,
+          {
+            id: "review:review",
+            kind: "review",
+            source_id: "review",
+            revision: 1,
+            created_at: "2026-10-16T12:00:00Z",
+            author: "reviewer",
+            actor: { kind: "reviewer", label: "Reviewer" },
+            state: { label: "Review failed", tone: "attention" },
+            title: "Reviewing results",
+            body: "",
+            status: "failed",
+          },
+        ],
+      },
+    }),
   );
   await page.route("**/api/workspaces/*/reviews/review", (route) =>
     route.fulfill({
@@ -175,9 +184,10 @@ test("service recovery cancels pending review pagination with an unchanged revie
     },
   );
   await page.goto(
-    `/workspaces/${await projectWorkspace(request, project)}/tasks/${task.key}/conversation/review:review`,
+    `/workspaces/${await projectWorkspace(request, project)}/tasks/${task.key}`,
   );
   await expect(page.locator(".entity-pane-footer")).toHaveCount(0);
+  await page.locator('[data-kind="review"] summary').click();
   await expect(
     page.getByText("Reviewer activity: original", { exact: true }),
   ).toBeVisible();

@@ -1,5 +1,5 @@
 import { Separator } from "@/components/ui/separator";
-import { useParams } from "react-router";
+import { useLocation } from "react-router";
 import { useContext } from "react";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { StatusNotice } from "./StatusNotice";
@@ -33,9 +33,8 @@ export function TaskDetail({
   close: () => void;
   openTask: (id: string) => void;
 }) {
-  const route = useParams();
   const navigate = useContext(ResourceNavigation);
-  const settings = route.tab === "settings";
+  const settings = useLocation().pathname.endsWith("/settings");
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [reviewerDirty, setReviewerDirty] = useState(false);
   useEffect(() => {
@@ -54,18 +53,6 @@ export function TaskDetail({
         }
         close={close}
         closeLabel="Back"
-        metadata={
-          task.project_id && (
-            <>
-              Project:{" "}
-              <WorkspaceLink to={`/projects/${task.project_id}/overview`}>
-                {board.projects.find(
-                  (project) => project.id === task.project_id,
-                )?.name ?? task.project_id}
-              </WorkspaceLink>
-            </>
-          )
-        }
       />
       <ContentStack space="section" className="task-view-navigation">
         <div className="task-header-badges" aria-label="Task labels">
@@ -96,6 +83,16 @@ export function TaskDetail({
               {task.body}
             </ExpandableMarkdown>
           </div>
+          {task.project_id && (
+            <p>
+              Project:{" "}
+              <WorkspaceLink to={`/projects/${task.project_id}/overview`}>
+                {board.projects.find(
+                  (project) => project.id === task.project_id,
+                )?.name ?? task.project_id}
+              </WorkspaceLink>
+            </p>
+          )}
           {hasTaskNeeds(task, board.pending_code[task.key], false, true) && (
             <DetailSection title="Waiting on">
               <TaskNeeds

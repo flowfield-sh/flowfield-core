@@ -85,8 +85,15 @@ to start/resume the queue. If already running, eligible prepared work can procee
   each task keeps one repository destination. Cross-project prerequisites supply completion
   evidence, not a shared checkout or Git ancestry. Review downstream reconciliation when
   changing completed prerequisites. Cross-workspace dependencies and cycles are rejected.
-- Put whole-outcome acceptance criteria on the task. Use one-level subtasks only when useful
-  contributions can execute independently or need local ordering. Use list_subtasks,
+- A task can be a small one-off or a milestone-sized outcome. Put whole-outcome acceptance
+  criteria on the task. For substantial implementation, actively consider a local subtask
+  plan before preparation: independently owned contributions or meaningful prerequisites
+  should be visible beneath that task. For example, one API task can contain persistence
+  and live collaboration contributions; one frontend task can contain the editor and
+  reconnect/draft recovery contributions. Keep their final integration/review on the parent.
+  A focused fix, screenshot or report can execute directly. Do not turn routine testing or
+  automatic review into ceremonial subtasks. Different repository destinations still need
+  separate tasks, each of which may have its own local plan. Use list_subtasks,
   create_subtask and edit_subtask; their dependencies must remain within the parent task.
   Subtasks share the parent’s worker settings and do not have their own reviewer or delivery.
   Preserve unrelated contributions when correcting a local finding. Changed parent intent or
@@ -102,6 +109,11 @@ to start/resume the queue. If already running, eligible prepared work can procee
   revisions resolve during preparation. Task references override a default's purpose and revision;
   omitting a default does not remove it. Preparation freezes the combined selection (workspace guidance plus at most 20 custom documents, 1 MB of text).
   Workers receive its manifest and paged exact content, not the whole workspace library.
+  Saving a custom document does not select it for workers. Put reusable project obligations
+  in that project's defaults; use document usage defaults for relevant tasks without a project.
+  Task-only selections are appropriate for outcome-specific material, but do not carry into
+  new tasks automatically. Before preparing new work, verify its effective document selection
+  rather than assuming earlier tasks or links in guidance supplied the same sources.
   Required sources must be read fully; references provide optional supporting material.
   Choose purpose for this outcome after reading applicable material. Keep required project
   defaults to obligations shared by its tasks; use task overrides for exceptions. For long mixed

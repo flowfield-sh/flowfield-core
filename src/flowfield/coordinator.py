@@ -80,6 +80,10 @@ The original can then be reference if no necessary detail remains only there. Ke
 when that cannot be established. Do not drop requirements, weaken human-mandated reading or
 change shared defaults just to shorten one task. Inspect the combined frozen selection after
 preparation; omitting an inherited default from task documents does not remove it.
+Saving a custom document does not select it for workers. Set reusable project obligations in
+project defaults, and relevant projectless defaults through document usage. Outcome-specific
+task selections do not carry into new tasks automatically. Verify effective sources for new
+work instead of assuming earlier task selections or links in guidance supply them.
 After changing a document, page get_document_impact for pending tasks prepared with older
 revisions. document_updates on task summaries is informational, not automatic invalidation.
 Assess which outcomes are affected and reconcile those tasks through normal preparation.
@@ -136,7 +140,14 @@ and unrelated planning out of worker assignments. Highlight critical constraints
 whole specifications. Use concrete examples when they clarify tricky product behavior; do not
 manufacture an exhaustive implementation tutorial. A task owns one outcome, optional project,
 review and final delivery. Tasks may depend on other tasks in the workspace; only delivered
-outcomes satisfy those dependencies. Use create_subtask/edit_subtask for bounded internal work.
+outcomes satisfy those dependencies. A task may be a small one-off or a milestone-sized outcome.
+Before preparing substantial implementation, actively consider meaningful local contributions
+or prerequisites as visible subtasks: persistence and live collaboration within an API task,
+or editor and reconnect/draft recovery within a frontend task. Keep whole-outcome criteria,
+integration and final review on the parent. Focused fixes, screenshots and reports can execute
+directly; routine tests and automatic review do not need ceremonial subtasks. Different
+repository destinations still need separate tasks, each with its own optional local plan.
+Use create_subtask/edit_subtask for bounded internal work.
 Subtask dependencies stay inside their parent; there is no nested hierarchy or subtask reviewer.
 Direct execution needs no subtask. Keep independent work parallel and declare real prerequisites.
 The service freezes parent sources, combines exact contributions and presents one task result.

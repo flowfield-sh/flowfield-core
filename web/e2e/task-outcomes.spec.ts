@@ -92,9 +92,17 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await expect(
     detail.getByText("Testing observation · Result 1", { exact: true }),
   ).toBeVisible();
+  const observation = detail.locator(
+    '[data-kind="reply"] details.activity-entry',
+  );
+  await expect(observation).not.toHaveAttribute("open");
+  await observation.locator(":scope > summary").click();
+  await expect(observation).toHaveAttribute("open");
+  await observation.locator(":scope > summary").click();
+  await expect(observation).not.toHaveAttribute("open");
   await expect(
-    detail.getByRole("link", { name: "Harbor", exact: true }),
-  ).toBeInViewport();
+    detail.locator(".detail-header").getByText("Project:"),
+  ).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath("recorded-observation.png"),
   });

@@ -182,7 +182,7 @@ def test_shared_state_matches_question_attention_and_static_pause(tmp_path):
         ).fetchone()
     # Announcements open the actionable request; task state retains its feed context.
     assert notice[0] == f"/workspaces/harbor/requests/question/{item.id}"
-    assert state.href == f"/workspaces/harbor/tasks/T-1/conversation/question:{item.id}:1"
+    assert state.href == f"/workspaces/harbor/requests/question/{item.id}"
     second = Questions(execution.workspace).ask(
         "harbor",
         QuestionCreate(

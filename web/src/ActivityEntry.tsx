@@ -16,7 +16,6 @@ export function ActivityEntry({
   metadata,
   children,
   hasBody,
-  alwaysOpen = false,
 }: {
   identity: string;
   selected: boolean;
@@ -25,7 +24,6 @@ export function ActivityEntry({
   metadata: ReactNode;
   children: ReactNode;
   hasBody: boolean;
-  alwaysOpen?: boolean;
 }) {
   const [manual, setManual] = useRetainedState<boolean | null>(
     `activity:${identity}:manual`,
@@ -46,13 +44,6 @@ export function ActivityEntry({
       <span className="activity-entry-meta">{metadata}</span>
     </span>
   );
-  if (alwaysOpen)
-    return (
-      <div className="activity-entry">
-        <div className="activity-entry-record">{heading}</div>
-        <div className="disclosure-body">{children}</div>
-      </div>
-    );
   return hasBody ? (
     <Disclosure
       className="activity-entry"

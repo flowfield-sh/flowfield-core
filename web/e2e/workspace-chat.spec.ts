@@ -143,10 +143,12 @@ test("member projects share coordinator history and a draft", async ({
   // Keep an uncertain send receipt, then select the another task in the shared workspace.
   // The second send must capture the new project instead of reusing the first receipt.
   await openProject("shared-core");
+  await page.getByRole("link", { name: "View tasks", exact: true }).click();
   await page.getByText("shared-core task", { exact: true }).first().click();
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(() => messages.length).toBe(1);
   await openProject("shared-site");
+  await page.getByRole("link", { name: "View tasks", exact: true }).click();
   await page.getByText("shared-site task", { exact: true }).first().click();
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(() => messages.length).toBe(2);

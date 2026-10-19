@@ -202,19 +202,6 @@
     overflow: auto;
     max-height: 30rem;
   }
-  .inspection-command {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-  }
-  .inspection-command .evidence-output {
-    flex: 1;
-    min-width: 0;
-    max-height: 8rem;
-  }
-  .inspection-command button {
-    flex-shrink: 0;
-  }
 }
 
 @layer components {

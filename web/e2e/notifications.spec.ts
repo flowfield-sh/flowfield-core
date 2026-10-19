@@ -695,7 +695,12 @@ test("resolved permission links open the exact request without permitting anythi
   await expect(dialog.getByRole("button", { name: "Allow once" })).toHaveCount(
     0,
   );
+  await expect(
+    page.getByRole("button", { name: "Back", exact: true }),
+  ).toBeDisabled();
   await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(href);
+  await page.getByRole("tab", { name: /^Inbox/ }).click();
   await expect(page).toHaveURL(`/workspaces/${workspace}/inbox`);
 });
 

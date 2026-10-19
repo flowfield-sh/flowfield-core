@@ -541,11 +541,9 @@ function MessageContext({
   let href: string;
   let title: string;
   if (task) {
-    href =
-      taskHref(workspaceId, task) +
-      (task.result_id
-        ? `/conversation/result:${encodeURIComponent(task.result_id)}`
-        : "");
+    href = task.result_id
+      ? `${base}/results/${encodeURIComponent(task.result_id)}`
+      : taskHref(workspaceId, task);
     title = task.key + (task.result_id ? " · result" : "");
   } else if (view?.document_id) {
     href = `${base}/documents/${encodeURIComponent(view.document_id)}/revisions/${view.document_revision}`;

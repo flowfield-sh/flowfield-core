@@ -7,6 +7,7 @@ import {
 } from "./support";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
+import { openResource } from "./shell-navigation";
 
 test("home, welcome and editable settings form a complete project journey", async ({
   page,
@@ -287,9 +288,9 @@ test("settings toasts preserve drafts, support keyboard dismissal and expire acr
   const success = page.locator("[data-sonner-toast][data-type=success]");
   await expect(success).toContainText("Changes saved.");
   await expect(success).toHaveAttribute("data-mounted", "true");
-  // The viewport toast covers the close button on mobile; Escape closes the
-  // dialog while the toast is still present, without racing its entry animation.
-  await page.keyboard.press("Escape");
+  // A direct-entry tab has no synthetic Back destination. Navigate normally
+  // while the viewport toast remains visible.
+  await openResource(page, "Projects");
   await expect(editor).toHaveCount(0);
   await expect(success).toBeVisible();
   await page.mouse.move(1, 1);

@@ -72,9 +72,7 @@ export function TaskResponse({
     `${path}/input-eligibility${requestTarget.kind === "question" ? `?question_id=${encodeURIComponent(requestTarget.id)}` : ""}`,
     tick,
   );
-  const currentAttemptId =
-    gate.data?.run_id ??
-    task.state?.href?.match(/\/conversation\/attempt:([^/?#]+)/)?.[1];
+  const currentAttemptId = gate.data?.run_id ?? gate.data?.latest_attempt?.id;
   const currentAttempt = useResource<Message>(
     currentAttemptId ? `${path}/thread/attempt:${currentAttemptId}` : null,
     tick,

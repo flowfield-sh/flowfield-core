@@ -112,7 +112,7 @@ export function TaskNeeds({
             )}
             {q.task_id ? (
               <WorkspaceLink
-                to={`${taskHref(projectId, task)}/conversation/${encodeURIComponent(`question:${q.id}:${q.revision}`)}`}
+                to={`/workspaces/${projectId}/requests/question/${q.id}`}
                 className={`input-request${q.status === "open" ? " needs-answer" : ""}`}
               >
                 {detailed

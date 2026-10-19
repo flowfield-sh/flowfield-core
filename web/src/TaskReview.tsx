@@ -92,9 +92,7 @@ export function TaskReview({
               saved={resource.setData}
             />
             {["uncertain", "failed", "stopped"].includes(review.status) && (
-              <WorkspaceLink
-                to={`${taskHref(projectId, { key: taskKey })}/conversation/review:${review.id}`}
-              >
+              <WorkspaceLink to={taskHref(projectId, { key: taskKey })}>
                 Review rounds and diagnostics
               </WorkspaceLink>
             )}

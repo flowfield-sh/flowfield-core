@@ -9,7 +9,9 @@ const pagePaths = [
   "new-workspace",
   "workspaces/:workspaceId",
   "workspaces/:workspaceId/tasks",
-  "workspaces/:workspaceId/tasks/:taskKey/:tab?/:runId?",
+  "workspaces/:workspaceId/tasks/:taskKey",
+  "workspaces/:workspaceId/tasks/:taskKey/settings",
+  "workspaces/:workspaceId/tasks/:taskKey/history/:runId?",
   "workspaces/:workspaceId/documents",
   "workspaces/:workspaceId/files",
   "workspaces/:workspaceId/documents/:documentId",
@@ -95,7 +97,7 @@ function editorIdentity(path: string) {
       "$1",
     )
     .replace(
-      /\/(conversation(?:\/[^/]+)?|task|changes(?:\/[^/]+)?|history(?:\/[^/]+)?(?:\/integrations\/[^/]+)?|tasks)\/?$/,
+      /\/(task|changes(?:\/[^/]+)?|history(?:\/[^/]+)?(?:\/integrations\/[^/]+)?|tasks)\/?$/,
       "",
     );
 }
@@ -189,9 +191,7 @@ export function useWorkspaceNavigation(
       (!!params.requestKind &&
         !["question", "attempt", "integration", "permission"].includes(
           params.requestKind,
-        )) ||
-      (!!params.tab &&
-        !["task", "conversation", "history", "settings"].includes(params.tab)),
+        )),
   };
 }
 export function followLink(

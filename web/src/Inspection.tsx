@@ -3,11 +3,15 @@ import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  InputGroup,
+  InputGroupInput,
+  InputGroupAddon,
+} from "@/components/ui/input-group";
 import { Copy } from "lucide-react";
 import { ActionTooltip } from "./ActionTooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ContentStack, Disclosure } from "./DetailLayout";
-import { Timestamp } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { useResource } from "./useResource";
 import { request } from "./workspace";
@@ -20,16 +24,18 @@ export function Inspection({
   projectId,
   result,
   refresh,
+  initiallyOpen = false,
 }: {
   projectId: string;
   result: Version;
   refresh: unknown;
+  initiallyOpen?: boolean;
 }) {
   const path = `workspaces/${projectId}`;
   const title = "Try result";
   const [identity, setIdentity] = useState<string | null>(null);
   const [saved, setSaved] = useState<Copy | null>(null);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const preparing = useRef(false);
@@ -86,12 +92,6 @@ export function Inspection({
       )}
       {open && value && (
         <ContentStack>
-          {
-            <p className="detail-metadata">
-              {value.task_key} · Result {value.version} ·{" "}
-              <Timestamp date={value.created_at} />
-            </p>
-          }
           {value.source_changed && (
             <p>
               The source has changed. This copy contains the selected review.
@@ -124,34 +124,37 @@ export function Inspection({
             !value.problem &&
             (value.command ? (
               <>
-                <p>Run on the service machine:</p>
-                <div className="inspection-command">
-                  <pre
-                    className="evidence-output"
+                <InputGroup>
+                  <InputGroupInput
+                    className="font-mono text-xs"
                     aria-label="Terminal commands"
-                    tabIndex={0}
-                  >
-                    {value.command}
-                  </pre>
-                  <ActionTooltip label="Copy commands">
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      aria-label="Copy commands"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(value.command).then(
-                          () => toast.info("Commands copied."),
-                          () =>
-                            toast.error(
-                              "Could not copy. Select the commands and copy them manually.",
-                            ),
-                        );
-                      }}
-                    >
-                      <Copy size={16} aria-hidden="true" />
-                    </Button>
-                  </ActionTooltip>
-                </div>
+                    readOnly
+                    value={value.command}
+                    onFocus={(event) => event.currentTarget.select()}
+                  />
+                  <InputGroupAddon>
+                    <ActionTooltip label="Copy commands">
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label="Copy commands"
+                        onClick={() => {
+                          void navigator.clipboard
+                            .writeText(value.command)
+                            .then(
+                              () => toast.info("Commands copied."),
+                              () =>
+                                toast.error(
+                                  "Could not copy. Select the commands and copy them manually.",
+                                ),
+                            );
+                        }}
+                      >
+                        <Copy size={16} aria-hidden="true" />
+                      </Button>
+                    </ActionTooltip>
+                  </InputGroupAddon>
+                </InputGroup>
               </>
             ) : (
               <p>

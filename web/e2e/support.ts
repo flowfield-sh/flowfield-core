@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { basename, resolve, join } from "node:path";
 import { execFileSync } from "node:child_process";
+import { openResource } from "./shell-navigation";
 import {
   test as base,
   expect,
@@ -131,7 +132,16 @@ export async function closeOverlay(page: Page) {
       .all())
       await toast.click();
     try {
-      await dialog.locator(".close-control").first().click({ timeout: 1000 });
+      const close = dialog.locator(".close-control").first();
+      if (await close.isDisabled()) {
+        if (new URL(page.url()).pathname.includes("/tasks/"))
+          await openResource(page, "Tasks Board");
+        else if (new URL(page.url()).pathname.includes("/documents/"))
+          await openResource(page, "Documents");
+        else await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
+        return;
+      }
+      await close.click({ timeout: 1000 });
     } catch (error) {
       // Archive/Restore may finish closing while the click waits for stability.
       if (await dialog.count()) throw error;

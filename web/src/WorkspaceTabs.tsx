@@ -26,7 +26,7 @@ import {
 import { canonicalHref, followLink, workspaceHref } from "./navigation";
 import type { WorkspaceBoard } from "./workspace";
 
-export type NavigationIntent = "within" | "open" | "new";
+export type NavigationIntent = "within" | "open";
 export const ResourceNavigation = createContext<
   ((url: string, intent?: NavigationIntent) => void) | null
 >(null);
@@ -39,7 +39,6 @@ type Tab = {
   root: string;
   history: string[];
   index: number;
-  fresh?: boolean;
 };
 type TabState = { workspace: string; active: string; tabs: Tab[] };
 const limit = 24;
@@ -74,6 +73,24 @@ export function canonicalResourceRoot(
   );
   if (task) return `/workspaces/${task.workspace_id}/tasks/${task.key}`;
   return root;
+}
+function exactView(url: string, board: WorkspaceBoard | null) {
+  const view = new URL(url, "http://flowfield.local");
+  // Run result opens a disclosure on the same result; it is not another view.
+  if (view.pathname.includes("/results/")) view.searchParams.delete("run");
+  const match = view.pathname.match(
+    /^(\/workspaces\/[^/]+\/tasks\/)([^/]+)(.*)$/,
+  );
+  if (match) {
+    const task = board?.tasks.find(
+      (task) =>
+        task.id === decodeURIComponent(match[2]) ||
+        task.key === decodeURIComponent(match[2]),
+    );
+    if (task) view.pathname = match[1] + task.key + match[3];
+  }
+  view.searchParams.sort();
+  return view.pathname + view.search + view.hash;
 }
 function initial(workspace: string): TabState {
   const root = workspaceHref(workspace) + "/inbox";
@@ -142,33 +159,42 @@ function visit(
     state.active === inbox.id &&
     !isInboxView(url, inbox.root)
   )
-    intent = "new";
+    intent = "open";
+  if (isInboxView(url, inbox.root)) {
+    const updated = { ...inbox, history: [url], index: 0 };
+    return {
+      ...state,
+      active: inbox.id,
+      tabs: [updated, ...state.tabs.slice(1)],
+    };
+  }
   let tab =
-    intent === "new"
-      ? undefined
-      : intent === "open"
-        ? state.tabs.find(
-            (t) => canonicalResourceRoot(t.history[t.index], board) === root,
-          )
-        : state.tabs.find((t) => t.id === state.active);
+    intent === "open"
+      ? state.tabs.find(
+          (t) => exactView(t.history[t.index], board) === exactView(url, board),
+        )
+      : state.tabs.find((t) => t.id === state.active);
   if (!tab)
     tab = {
-      id:
-        intent === "new" || state.tabs.some((t) => t.id === root)
-          ? crypto.randomUUID()
-          : root,
+      id: state.tabs.some((t) => t.id === root) ? crypto.randomUUID() : root,
       root,
       history: [url],
       index: 0,
-      fresh: intent === "new",
     };
-  else if (intent === "open" && tab.history[tab.index] !== url)
-    tab = {
-      ...tab,
-      history: [...tab.history.slice(0, tab.index + 1), url].slice(-40),
-      index: Math.min(tab.index + 1, 39),
-    };
-  else if (tab.history[tab.index] !== url) {
+  else if (intent === "open") {
+    const target = new URL(url, "http://flowfield.local");
+    const currentIndex = tab.index;
+    if (
+      target.pathname.includes("/results/") &&
+      target.searchParams.get("run") === "1"
+    )
+      tab = {
+        ...tab,
+        history: tab.history.map((value, index) =>
+          index === currentIndex ? url : value,
+        ),
+      };
+  } else if (tab.history[tab.index] !== url) {
     const history = [
       ...tab.history.slice(0, tab.index + (replace ? 0 : 1)),
       url,
@@ -247,7 +273,12 @@ export function useWorkspaceTabs(
       url = canonicalHref(url, owners);
       const s = JSON.parse(serialized) as TabState | null;
       const next = s ? visit(s, url, intent, replace, board) : null;
-      change(url, replace, next ? { workspaceTabs: next } : undefined);
+      const selected = next?.tabs.find((tab) => tab.id === next.active);
+      change(
+        selected ? selected.history[selected.index] : url,
+        replace,
+        next ? { workspaceTabs: next } : undefined,
+      );
     },
     [change, serialized, owners, board],
   );
@@ -328,7 +359,7 @@ export function OpenInWorkTab({
         <a
           href={href}
           aria-label={label}
-          onClick={(event) => followLink(event, () => open(href, "new"))}
+          onClick={(event) => followLink(event, () => open(href, "open"))}
         >
           <ExternalLink />
         </a>
@@ -570,10 +601,7 @@ export function WorkspaceTabs({
   return (
     <ResourceTitles.Provider value={controller.labelResource}>
       <ResourceBackAvailable.Provider
-        value={
-          state.tabs.find((tab) => tab.id === state.active)!.index > 0 ||
-          !state.tabs.find((tab) => tab.id === state.active)!.fresh
-        }
+        value={state.tabs.find((tab) => tab.id === state.active)!.index > 0}
       >
         <Tabs
           className="workspace-resource-tabs"

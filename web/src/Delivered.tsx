@@ -69,7 +69,9 @@ export function Delivered({
               <>
                 <p>Integrated into {item.target_branch}</p>
                 <Button size="sm" variant="outline" asChild>
-                  <WorkspaceLink to={resultHref(workspaceId, item.id)}>
+                  <WorkspaceLink
+                    to={resultHref(workspaceId, item.id) + "?run=1"}
+                  >
                     Run result
                   </WorkspaceLink>
                 </Button>

@@ -54,8 +54,6 @@ export function hasBody(message: Message) {
   return !!(
     message.body ||
     message.question_id ||
-    message.earlier_id ||
-    message.successor_id ||
     ["attempt", "result", "question", "definition"].includes(message.kind)
   );
 }

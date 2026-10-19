@@ -898,7 +898,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     .filter({ hasText: /^Try result$/ })
     .click();
   await expect(
-    preview().getByText("Run on the service machine:", { exact: false }),
+    preview().getByRole("textbox", { name: "Terminal commands" }),
   ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Inspection", exact: true }),
@@ -914,7 +914,9 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   ).json();
   expect(copy.commit).toBe(first!.candidate_commit);
   expect(copy.command).toMatch(/^\/bin\/sh /);
-  await expect(preview().locator("pre")).toHaveText(copy.command);
+  await expect(
+    preview().getByRole("textbox", { name: "Terminal commands" }),
+  ).toHaveValue(copy.command);
   await page.setViewportSize({ width: 390, height: 844 });
   const copyButton = preview().getByRole("button", {
     name: "Copy commands",
@@ -927,7 +929,12 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     })
     .toBe(true);
   await expect
-    .poll(async () => (await preview().locator("pre").boundingBox())!.height)
+    .poll(
+      async () =>
+        (await preview()
+          .getByRole("textbox", { name: "Terminal commands" })
+          .boundingBox())!.height,
+    )
     .toBeLessThanOrEqual(128);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
@@ -1010,7 +1017,10 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     .locator("summary")
     .filter({ hasText: /^Try result$/ })
     .click();
-  await expect(preview().getByText(/T-1 · Result 2/)).toBeVisible();
+  await expect(
+    preview().getByRole("textbox", { name: "Terminal commands" }),
+  ).toBeVisible();
+  await expect(preview().getByText(/T-1 · Result 2/)).toHaveCount(0);
   const second = (await (await request.get(`${path}/tasks/try/results`)).json())
     .items[0];
   const next = await (

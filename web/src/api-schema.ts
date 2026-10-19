@@ -6029,10 +6029,6 @@ export interface components {
       purpose: ("work" | "assembly") | null;
       /** Question Id */
       question_id: string | null;
-      /** Earlier Id */
-      earlier_id: string | null;
-      /** Successor Id */
-      successor_id: string | null;
       /**
        * Choices
        * @default []

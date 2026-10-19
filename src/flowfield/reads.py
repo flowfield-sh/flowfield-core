@@ -684,9 +684,7 @@ class ContextReads:
                         "code_available",
                     )
                 }
-                result["execution"]["url"] = (
-                    self.url(workspace_id, "tasks", item.key) + "/conversation/attempt:" + run["id"]
-                )
+                result["execution"]["url"] = self.url(workspace_id, "tasks", item.key)
             if latest and latest.kind == "handoff":
                 # The selected checkpoint has its own field; do not repeat its narrative.
                 result["latest_update"] = {

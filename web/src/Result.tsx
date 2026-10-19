@@ -43,7 +43,7 @@ export function Result({
   onApprove: (version: Version) => void;
   inputEnabled: boolean;
 }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   // Returning to a retained result rechecks external branch movement too.
   const observed = useMemo(() => ({ refresh, pathname }), [refresh, pathname]);
   const path = `workspaces/${projectId}`;
@@ -170,10 +170,11 @@ export function Result({
                 )}
               </p>
               <Inspection
-                key={version.id}
+                key={version.id + ":" + new URLSearchParams(search).get("run")}
                 projectId={projectId}
                 result={version}
                 refresh={refresh}
+                initiallyOpen={new URLSearchParams(search).get("run") === "1"}
               />
             </DetailSection>
           )}
@@ -230,9 +231,7 @@ export function Result({
               <Disclosure summary="Review evidence">
                 <Markdown>{version.independent_review.evidence}</Markdown>
               </Disclosure>
-              <WorkspaceLink
-                to={`${taskHref(projectId, { key: taskKey })}/conversation/review:${version.independent_review.id}`}
-              >
+              <WorkspaceLink to={taskHref(projectId, { key: taskKey })}>
                 Review history
               </WorkspaceLink>
             </DetailSection>

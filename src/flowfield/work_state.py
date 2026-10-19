@@ -3,7 +3,7 @@
 import sqlite3
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, PrivateAttr
 
 from flowfield.browser_links import workspace_href
 from flowfield.task_read_facts import TaskReadFacts, read_task_facts
@@ -13,6 +13,12 @@ if TYPE_CHECKING:
 
 
 class WorkState(BaseModel):
+    _event_id: str | None = PrivateAttr(default=None)
+
+    def for_event(self, identity: str) -> "WorkState":
+        self._event_id = identity
+        return self
+
     label: str
     tone: Literal["active", "attention", "waiting", "complete", "idle"] = "idle"
     href: str | None = None
@@ -21,7 +27,7 @@ class WorkState(BaseModel):
 
 def event_state(kind: str, status: str | None, identity: str, current: WorkState) -> WorkState:
     """Live state belongs only to its owning event; historical facts never inherit it."""
-    target = (current.href or "").split("/conversation/")[-1]
+    target = current._event_id
     if kind in ("attempt", "result", "question") and target == identity:
         return current.model_copy(update={"href": None})
     if kind == "attempt":
@@ -69,9 +75,8 @@ def question_state(db: sqlite3.Connection, project: str, identity: str) -> WorkS
     from flowfield.input_delivery import question_delivery
 
     row = db.execute(
-        "SELECT q.status,json_extract(q.data,'$.revision') AS revision,t.key "
-        "FROM questions q LEFT JOIN tasks t ON t.workspace_id=q.workspace_id AND t.id=q.task_id "
-        "WHERE q.workspace_id=? AND q.id=?",
+        "SELECT status,json_extract(data,'$.revision') AS revision "
+        "FROM questions WHERE workspace_id=? AND id=?",
         (project, identity),
     ).fetchone()
     delivery = question_delivery(db, project, identity)
@@ -82,13 +87,8 @@ def question_state(db: sqlite3.Connection, project: str, identity: str) -> WorkS
         if delivery
         else "Resume coordinator",
         tone="waiting",
-        href=(
-            f"{workspace_href(project)}/tasks/{row['key']}/conversation/question:{identity}"
-            + (f":{row['revision']}" if row["status"] in ("open", "answered", "withdrawn") else "")
-        )
-        if row["key"]
-        else f"{workspace_href(project)}/inbox/{identity}",
-    )
+        href=f"{workspace_href(project)}/requests/question/{identity}",
+    ).for_event(f"question:{identity}:{row['revision']}")
 
 
 def task_state(
@@ -118,8 +118,8 @@ def task_state(
                 "uncertain": "Check worker state",
             }[status],
             tone="attention" if status == "uncertain" else "active",
-            href=href + "/conversation/attempt:" + task["owner_id"],
-        )
+            href=href,
+        ).for_event("attempt:" + task["owner_id"])
     if task["question_id"]:
         return question_state(db, project, task["question_id"])
     if task["reason"]:
@@ -157,14 +157,14 @@ def task_state(
             return WorkState(
                 label="Integration blocked" if action.action == "retry-delivery" else action.label,
                 tone=tone,
-                href=href + "/conversation/result:" + result.id,
-            )
+                href=f"{workspace_href(project)}/results/{result.id}",
+            ).for_event("result:" + result.id)
     if task["latest_status"] in ("failed", "stopped") and task["status"] != "up_next":
         return WorkState(
             label="Worker failed" if task["latest_status"] == "failed" else "Work stopped",
             tone="attention" if task["latest_status"] == "failed" else "waiting",
-            href=href + "/conversation/attempt:" + task["latest_id"],
-        )
+            href=href,
+        ).for_event("attempt:" + task["latest_id"])
     if task["archived"]:
         return WorkState(label="Archived")
     if task["status"] == "done":

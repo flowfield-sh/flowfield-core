@@ -29,8 +29,8 @@ def test_actor_preserves_identity(identity, role, label):
 
 def test_only_current_question_revision_needs_attention():
     current = WorkState(
-        label="Needs your answer", tone="attention", href="/conversation/question:q:3"
-    )
+        label="Needs your answer", tone="attention", href="/requests/question/q"
+    ).for_event("question:q:3")
     assert event_state("question", "open", "question:q:3", current).tone == "attention"
     assert event_state("question", "open", "question:q:1", current).tone == "complete"
     assert event_state("answer", "answered", "answer:q:2", current).tone == "complete"
@@ -81,15 +81,17 @@ def test_feed_tracks_owner_but_keeps_old_attempt_and_definition_static(tmp_path)
 
 
 def test_historical_result_cannot_inherit_new_check_cycle():
-    current = WorkState(label="Checking changes", tone="active", href="/conversation/result:new")
+    current = WorkState(label="Checking changes", tone="active", href="/results/new").for_event(
+        "result:new"
+    )
     assert event_state("result", "preparing", "result:old", current).tone == "idle"
     assert event_state("result", "preparing", "result:new", current).tone == "active"
     assert event_state("approval", "delivering", "approval:new", current).tone == "complete"
 
 
 def test_uncertain_worker_needs_attention_without_animation():
-    current = WorkState(
-        label="Check worker state", tone="attention", href="/conversation/attempt:a"
+    current = WorkState(label="Check worker state", tone="attention", href="/tasks/T-1").for_event(
+        "attempt:a"
     )
     assert event_state("attempt", "uncertain", "attempt:a", current).tone == "attention"
     assert event_state("state", "in_progress", "definition:2", current).tone == "complete"

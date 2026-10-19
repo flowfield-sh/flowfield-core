@@ -228,25 +228,16 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
     return state.tabs.find((tab: { id: string }) => tab.id === state.active);
   }, workspace);
   await comparison.click();
-  await expect(taskTab).toHaveCount(2);
-  await expect(
-    page.getByRole("button", { name: "Back", exact: true }),
-  ).toBeDisabled();
-  const fresh = await page.evaluate(
+  await expect(taskTab).toHaveCount(1);
+  const focused = await page.evaluate(
     (id) => JSON.parse(sessionStorage.getItem("flowfield:tabs:" + id)!),
     workspace,
   );
   expect(
-    fresh.tabs.find((tab: { id: string }) => tab.id === fresh.active).history,
-  ).toEqual([original.history[original.index]]);
-  expect(
-    fresh.tabs.find((tab: { id: string }) => tab.id === original.id),
+    focused.tabs.find((tab: { id: string }) => tab.id === focused.active),
   ).toEqual(original);
   await page.reload();
-  await expect(taskTab).toHaveCount(2);
-  await expect(
-    page.getByRole("button", { name: "Back", exact: true }),
-  ).toBeDisabled();
+  await expect(taskTab).toHaveCount(1);
   const copied = taskTab.last();
   await copied.hover();
   await expect(page.getByRole("tooltip", { name: /T-2 / })).toBeVisible();

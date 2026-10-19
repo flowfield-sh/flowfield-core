@@ -199,7 +199,7 @@ test("coordinator updates refresh the agreement while project editing retains co
   ).toContainText("stale");
 });
 
-test("Conversation permalinks preserve message drafts while coordinator revisions update", async ({
+test("Feed disclosures preserve message drafts while coordinator revisions update", async ({
   page,
   request,
 }) => {
@@ -237,11 +237,9 @@ test("Conversation permalinks preserve message drafts while coordinator revision
   await page.getByRole("tab", { name: "Task", exact: true }).click();
   const history = page.getByRole("list", { name: "Task feed" });
   expect(revisionReads).toHaveLength(0);
-  await history
-    .getByRole("link", { name: "Permalink: Task defined", exact: true })
-    .focus();
+  await history.locator('[data-message-id="definition:1"] summary').focus();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/conversation\/definition%3A1$/);
+  await expect(page).toHaveURL(/tasks\/T-1$/);
   await call("edit_task", {
     workspace_id: await projectWorkspace(page.request, "tabs"),
     task_id: "one",
@@ -852,7 +850,7 @@ test("attempt activity updates without reloading the board and replays on reload
   await expect(page.locator(".up_next")).toContainText("Queue paused");
 });
 
-test("task feed follows the live end but preserves reading position and timestamp targets", async ({
+test("task feed follows the live end but preserves reading position and plain timestamps", async ({
   page,
   request,
 }) => {
@@ -931,13 +929,7 @@ test("task feed follows the live end but preserves reading position and timestam
   });
   await expect(feed).toContainText("Newest after returning to the bottom");
   await expect.poll(atBottom).toBe(true);
-  const stamp = anchor.getByRole("link", {
-    name: "Permalink: Note",
-    exact: true,
-  });
-  const href = await stamp.getAttribute("href");
-  await page.goto(href!);
-  await expect(anchor).toBeInViewport();
+  await expect(feed.getByRole("link", { name: /^Permalink:/ })).toHaveCount(0);
   await expect(
     page.getByRole("button", {
       name: /^(Close editor|Back)$/,

@@ -114,11 +114,11 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   await page.mouse.up();
   await expect
     .poll(titles)
-    .toEqual([before[0], before[1], "Files", "Projects", before.at(-2)]);
+    .toEqual([...before.slice(0, -3), "Files", "Projects", before.at(-2)]);
   await page.reload();
   await expect
     .poll(titles)
-    .toEqual([before[0], before[1], "Files", "Projects", before.at(-2)]);
+    .toEqual([...before.slice(0, -3), "Files", "Projects", before.at(-2)]);
   await expect(tabs.getByRole("tab").first()).toHaveAccessibleName("Inbox 1");
   await resources.getByRole("link", { name: "Settings", exact: true }).click();
   await expect(

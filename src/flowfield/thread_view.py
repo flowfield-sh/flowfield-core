@@ -29,8 +29,6 @@ class ThreadMessage(Record):
     run_id: str | None = None
     purpose: Literal["work", "assembly"] | None = None
     question_id: str | None = None
-    earlier_id: str | None = None
-    successor_id: str | None = None
     choices: list[str] = []
 
 
@@ -195,8 +193,6 @@ class ThreadView(Conversation):
             run_id=item.source_id if kind == "attempt" else data.get("run_id"),
             purpose=data.get("purpose", "work") if kind == "attempt" else None,
             question_id=data.get("question_id") if kind == "activity" else None,
-            earlier_id=data.get("supersedes") if kind == "activity" else None,
-            successor_id=data.get("superseded_by") if kind == "activity" else None,
             choices=data.get("choices", []) if kind == "question" else [],
         )
 

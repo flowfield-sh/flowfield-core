@@ -324,7 +324,7 @@ export function App() {
   }
   function backFromGlobal() {
     const tab = tabs.state?.tabs.find((item) => item.id === tabs.state?.active);
-    if (tab?.fresh && tab.index === 0) return;
+    if (tab?.index === 0) return;
     if (tab && tab.index > 0) {
       let index = tab.index - 1;
       while (
@@ -531,7 +531,7 @@ export function App() {
                             const tab = tabs.state?.tabs.find(
                               (t) => t.id === tabs.state?.active,
                             );
-                            if (tab?.fresh && tab.index === 0) return;
+                            if (tab?.index === 0) return;
                             if (
                               /^\/(?:workspaces|projects)\/[^/]+\/edit(?:\/|$)/.test(
                                 pathname,
@@ -738,13 +738,7 @@ function WorkspaceResource({
               ? {
                   task_id: taskDetail.id,
                   task_revision: taskDetail.revision,
-                  result_id:
-                    params.tab === "changes"
-                      ? (params.runId ?? null)
-                      : params.tab === "conversation" &&
-                          params.runId?.startsWith("result:")
-                        ? params.runId.slice(7)
-                        : null,
+                  result_id: null,
                 }
               : null,
         }

@@ -1,10 +1,12 @@
 import { Button } from "@/components/ui/button";
-import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
+import { ContentStack, DetailSection } from "./DetailLayout";
 import { DetailHeader } from "./Presentation";
 import { Markdown } from "./Markdown";
-import { WorkIdentity } from "./WorkIdentity";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { boardHref, projectHref, taskHref } from "./navigation";
+import { boardHref, projectHref } from "./navigation";
+import { useResource } from "./useResource";
+import { ResourceRetry } from "./ResourceRetry";
+import type { components } from "./api-schema";
 import type { Project, WorkspaceBoard } from "./workspace";
 
 export function ProjectOverview({
@@ -16,8 +18,9 @@ export function ProjectOverview({
   board: WorkspaceBoard;
   close: () => void;
 }) {
-  const tasks = board.tasks.filter(
-    (task) => task.project_id === project.id && !task.archived,
+  const settings = useResource<components["schemas"]["IntegrationSettings"]>(
+    `projects/${project.id}/integration`,
+    board,
   );
   return (
     <section className="editor" aria-label="Project overview">
@@ -25,51 +28,68 @@ export function ProjectOverview({
         title={project.name}
         close={close}
         actions={
-          <Button size="sm" variant="outline" asChild>
-            <WorkspaceLink to={`${projectHref(project.id)}/edit`}>
-              Settings
-            </WorkspaceLink>
-          </Button>
-        }
-      />
-      <ContentStack space="section">
-        {project.description && <Markdown>{project.description}</Markdown>}
-        <DetailSection
-          title="Tasks"
-          actions={
+          <div className="actions">
             <Button size="sm" variant="outline" asChild>
               <WorkspaceLink
                 to={boardHref(board.workspace.id, { project: project.id })}
               >
-                View board
+                View tasks
               </WorkspaceLink>
             </Button>
-          }
-        >
-          {tasks.length ? (
-            <ul className="work-resource-list">
-              {tasks.map((task) => (
-                <li key={task.id}>
-                  <WorkspaceLink
-                    className="work-navigation-row"
-                    to={taskHref(board.workspace.id, task)}
-                  >
-                    <WorkIdentity
-                      state={task.state}
-                      itemKey={task.key}
-                      title={task.title}
-                    />
-                  </WorkspaceLink>
-                </li>
-              ))}
-            </ul>
+            <Button size="sm" variant="outline" asChild>
+              <WorkspaceLink to={`${projectHref(project.id)}/edit`}>
+                Settings
+              </WorkspaceLink>
+            </Button>
+          </div>
+        }
+      />
+      <ContentStack space="section" className="@container">
+        {project.description && <Markdown>{project.description}</Markdown>}
+        <ResourceRetry resources={[settings]} />
+        <div className="grid gap-4 rounded-lg border p-4 @min-[36rem]:grid-cols-2">
+          <DetailSection title="Directory">
+            <code className="wrap-anywhere">{project.path}</code>
+          </DetailSection>
+          {settings.data ? (
+            <>
+              <DetailSection title="Branch">
+                <p>{settings.data.target_branch || "Not configured"}</p>
+              </DetailSection>
+              <DetailSection title="Validation">
+                {settings.data.checks.length ? (
+                  <ul className="content-stack">
+                    {settings.data.checks.map((command, index) => (
+                      <li key={index}>
+                        <code className="wrap-anywhere">{command}</code>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No checks configured</p>
+                )}
+              </DetailSection>
+              <DetailSection title="Runtime">
+                <p>Local</p>
+                {settings.data.setup_commands.map((command, index) => (
+                  <code key={index} className="wrap-anywhere">
+                    {command}
+                  </code>
+                ))}
+              </DetailSection>
+              <DetailSection title="Time limits">
+                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+                  <dt>Setup</dt>
+                  <dd>{settings.data.setup_timeout_seconds}s</dd>
+                  <dt>Each check</dt>
+                  <dd>{settings.data.check_timeout_seconds}s</dd>
+                </dl>
+              </DetailSection>
+            </>
           ) : (
-            <p className="collection-empty">No tasks yet</p>
+            !settings.error && <p>Loading settings…</p>
           )}
-        </DetailSection>
-        <Disclosure summary="Project details">
-          <p className="break-all">{project.path}</p>
-        </Disclosure>
+        </div>
       </ContentStack>
     </section>
   );

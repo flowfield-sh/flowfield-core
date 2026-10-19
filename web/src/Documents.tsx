@@ -19,7 +19,7 @@ import { WorkspaceLink } from "./WorkspaceLink";
 import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
 import { useResource } from "./useResource";
 import { request, type Project } from "./workspace";
-import { boardHref, workspaceHref } from "./navigation";
+import { workspaceHref } from "./navigation";
 
 type Document = components["schemas"]["Document"];
 type DocumentPage = components["schemas"]["DocumentPage"];
@@ -113,9 +113,7 @@ export function Documents({
           incoming={document}
           latest={latest.data}
           historical={document.revision !== latest.data.revision}
-          workspaceId={workspaceId}
           refresh={refresh}
-          projects={projects}
           path={path}
           base={base}
           onDirty={onDirty}
@@ -264,9 +262,7 @@ function DocumentEditor({
   incoming,
   latest,
   historical,
-  workspaceId,
   refresh,
-  projects,
   path,
   base,
   onDirty,
@@ -278,9 +274,7 @@ function DocumentEditor({
   incoming: Document;
   latest: Document;
   historical: boolean;
-  workspaceId: string;
   refresh: string;
-  projects: Project[];
   path: string;
   base: string;
   onDirty: DirtyCallback;
@@ -290,6 +284,7 @@ function DocumentEditor({
   editCurrent?: () => void;
 }) {
   const markDirty = useDirtyItems(onDirty);
+  const [usageDirty, setUsageDirty] = useState(false);
   const markBody = useCallback<DirtyCallback>(
     (dirty, retained) => {
       markDirty("body", dirty, retained);
@@ -298,6 +293,7 @@ function DocumentEditor({
   );
   const markUsage = useCallback<DirtyCallback>(
     (dirty, retained) => {
+      setUsageDirty(dirty);
       markDirty("usage", dirty, retained);
     },
     [markDirty],
@@ -318,11 +314,12 @@ function DocumentEditor({
     change,
     busy,
     dirty,
-    editing,
+    editing: bodyEditing,
     setEditing,
     element: editor,
     cancel,
   } = state;
+  const editing = bodyEditing || usageDirty;
   const selected = loaded!;
   return (
     <section
@@ -384,43 +381,17 @@ function DocumentEditor({
       />
       <div className="document-layout">
         <ContentStack space="section" className="document-content">
-          <div className="document-projects">
-            Projects:{" "}
-            {projects
-              .filter(
-                (project) =>
-                  selected.id === "guidance" ||
-                  project.worker_documents.some(
-                    (ref) => ref.id === selected.id,
-                  ),
-              )
-              .map((project, index) => (
-                <span key={project.id}>
-                  {index > 0 && ", "}
-                  <WorkspaceLink
-                    to={boardHref(workspaceId, { project: project.id })}
-                  >
-                    {project.name}
-                  </WorkspaceLink>
-                </span>
-              ))}
-            {!projects.some(
-              (project) =>
-                selected.id === "guidance" ||
-                project.worker_documents.some((ref) => ref.id === selected.id),
-            ) && <span>None</span>}
-          </div>
-          {!historical &&
-            !selected.deleted_at &&
-            (selected.id === "guidance" ? (
-              <p>Required for all tasks, including tasks without a project.</p>
-            ) : (
-              <DocumentUsage
-                path={`${path}/${selected.id}/usage`}
-                refresh={refresh}
-                onDirty={markUsage}
-              />
-            ))}
+          <DocumentUsage
+            path={`${path}/${selected.id}/usage`}
+            refresh={refresh}
+            onDirty={markUsage}
+            editing={
+              editing &&
+              !historical &&
+              !selected.deleted_at &&
+              selected.id !== "guidance"
+            }
+          />
           <EditorFeedback state={state} />
           {selected.deleted_at && (
             <p role="status">

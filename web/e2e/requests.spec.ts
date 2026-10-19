@@ -8,7 +8,7 @@ import {
   projectWorkspace,
 } from "./support";
 
-test("individual requests retain answers and drafts across independent tabs", async ({
+test("individual requests retain answers and drafts across Inbox and reused tabs", async ({
   page,
   request,
 }, info) => {
@@ -80,7 +80,7 @@ test("individual requests retain answers and drafts across independent tabs", as
   await detail
     .getByRole("link", { name: "Open in work tab", exact: true })
     .click();
-  await expect(tabs.getByRole("tab", { name: /T-1 Question/ })).toHaveCount(2);
+  await expect(tabs.getByRole("tab", { name: /T-1 Question/ })).toHaveCount(1);
   await detail
     .getByRole("textbox", { name: "Your answer", exact: true })
     .fill("Name and rate");

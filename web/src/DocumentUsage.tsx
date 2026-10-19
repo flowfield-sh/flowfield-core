@@ -1,7 +1,8 @@
+import { WorkspaceLink } from "./WorkspaceLink";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import type { components } from "./api-schema";
-import { ContentStack, Disclosure } from "./DetailLayout";
+import { ContentStack, DetailSection } from "./DetailLayout";
 import { SettingsCheckbox } from "./SettingsCheckbox";
 import { ResourceRetry } from "./ResourceRetry";
 import type { DirtyCallback } from "./retainedState";
@@ -19,10 +20,12 @@ export function DocumentUsage({
   path,
   refresh,
   onDirty,
+  editing,
 }: {
   path: string;
   refresh: unknown;
   onDirty: DirtyCallback;
+  editing: boolean;
 }) {
   const resource = useResource<Usage>(path, refresh);
   const state = useRecordEditor({
@@ -36,105 +39,139 @@ export function DocumentUsage({
     version: (value) => JSON.stringify(value),
   });
   return (
-    <Disclosure summary="Use this document">
-      <ContentStack space="section">
-        <p>Defaults for future tasks. Prepared work keeps its saved sources.</p>
-        <ResourceRetry resources={[resource]} />
-        <EditorFeedback state={state} />
-        {state.loaded && (
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void state.run("PUT", {
-                expected_revision: state.loaded!.revision,
-                projectless: state.values.projectless,
-                projects: state.values.projects.flatMap((project) => {
-                  const original = state.loaded!.projects.find(
-                    (item) => item.id === project.id,
-                  )!;
-                  return original.purpose === project.purpose
-                    ? []
-                    : [{ ...project, expected_revision: original.revision }];
-                }),
-                author: "human",
-              });
-            }}
-          >
-            <fieldset
-              disabled={state.busy}
-              className="content-stack"
-              data-space="section"
-            >
-              <ContentStack>
-                <SettingsCheckbox
-                  checked={state.values.projectless !== null}
-                  onChange={(event) =>
-                    state.change(
-                      "projectless",
-                      event.target.checked ? "required" : null,
-                    )
-                  }
+    <ContentStack>
+      <ResourceRetry resources={[resource]} />
+      {state.loaded && (
+        <p className="document-projects">
+          Projects:{" "}
+          {state.loaded.projects
+            .filter((p) => p.purpose)
+            .map((p, i) => (
+              <span key={p.id}>
+                {i > 0 && ", "}
+                <WorkspaceLink to={`/projects/${p.id}/overview`}>
+                  {p.name}
+                </WorkspaceLink>
+              </span>
+            ))}
+          {!state.loaded.projects.some((p) => p.purpose) && "None"} · Without a
+          project:{" "}
+          {state.loaded.projectless === "required"
+            ? "Required"
+            : state.loaded.projectless === "reference"
+              ? "Reference"
+              : "Off"}
+        </p>
+      )}
+      {editing && (
+        <DetailSection title="Use this document">
+          <ContentStack space="section">
+            <p>
+              Defaults for future tasks. Prepared work keeps its saved sources.
+            </p>
+            <EditorFeedback state={state} />
+            {state.loaded && (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void state.run("PUT", {
+                    expected_revision: state.loaded!.revision,
+                    projectless: state.values.projectless,
+                    projects: state.values.projects.flatMap((project) => {
+                      const original = state.loaded!.projects.find(
+                        (item) => item.id === project.id,
+                      )!;
+                      return original.purpose === project.purpose
+                        ? []
+                        : [
+                            {
+                              ...project,
+                              expected_revision: original.revision,
+                            },
+                          ];
+                    }),
+                    author: "human",
+                  });
+                }}
+              >
+                <fieldset
+                  disabled={state.busy}
+                  className="content-stack"
+                  data-space="section"
                 >
-                  Include for tasks without a project
-                </SettingsCheckbox>
-                {state.values.projectless && (
-                  <PurposeSelect
-                    label="Use for tasks without a project as"
-                    value={state.values.projectless}
-                    change={(value) => state.change("projectless", value)}
-                  />
-                )}
-              </ContentStack>
-              {state.loaded.projects.map((project) => {
-                const value =
-                  state.values.projects.find((item) => item.id === project.id)
-                    ?.purpose ?? null;
-                const change = (purpose: Purpose | null) =>
-                  state.change(
-                    "projects",
-                    state.values.projects.map((item) =>
-                      item.id === project.id ? { ...item, purpose } : item,
-                    ),
-                  );
-                return (
-                  <ContentStack key={project.id}>
+                  <ContentStack>
                     <SettingsCheckbox
-                      checked={value !== null}
+                      checked={state.values.projectless !== null}
                       onChange={(event) =>
-                        change(event.target.checked ? "required" : null)
+                        state.change(
+                          "projectless",
+                          event.target.checked ? "required" : null,
+                        )
                       }
                     >
-                      {project.name}
+                      Include for tasks without a project
                     </SettingsCheckbox>
-                    {value && (
+                    {state.values.projectless && (
                       <PurposeSelect
-                        label={`Use for ${project.name} as`}
-                        value={value}
-                        change={change}
+                        label="Use for tasks without a project as"
+                        value={state.values.projectless}
+                        change={(value) => state.change("projectless", value)}
                       />
                     )}
                   </ContentStack>
-                );
-              })}
-              <div className="actions">
-                <Button size="sm" disabled={!state.dirty}>
-                  Save usage
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={!state.dirty}
-                  onClick={state.cancel}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </fieldset>
-          </form>
-        )}
-      </ContentStack>
-    </Disclosure>
+                  {state.loaded.projects.map((project) => {
+                    const value =
+                      state.values.projects.find(
+                        (item) => item.id === project.id,
+                      )?.purpose ?? null;
+                    const change = (purpose: Purpose | null) =>
+                      state.change(
+                        "projects",
+                        state.values.projects.map((item) =>
+                          item.id === project.id ? { ...item, purpose } : item,
+                        ),
+                      );
+                    return (
+                      <ContentStack key={project.id}>
+                        <SettingsCheckbox
+                          checked={value !== null}
+                          onChange={(event) =>
+                            change(event.target.checked ? "required" : null)
+                          }
+                        >
+                          {project.name}
+                        </SettingsCheckbox>
+                        {value && (
+                          <PurposeSelect
+                            label={`Use for ${project.name} as`}
+                            value={value}
+                            change={change}
+                          />
+                        )}
+                      </ContentStack>
+                    );
+                  })}
+                  <div className="actions">
+                    <Button size="sm" disabled={!state.dirty}>
+                      Save usage
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!state.dirty}
+                      onClick={state.cancel}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </fieldset>
+              </form>
+            )}
+          </ContentStack>
+        </DetailSection>
+      )}
+    </ContentStack>
   );
 }
 

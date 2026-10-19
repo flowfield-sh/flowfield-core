@@ -5,7 +5,7 @@ description: Prioritize work, resolve questions and decide which exact results t
 
 Open a task from Work or Tasks Board. **Task** shows its purpose, related work and chronological conversation. Local subtasks appear directly beneath its purpose. **View result** opens the exact result with checks, inspection and review controls. **Settings** configures its worker and reviewer overrides.
 
-The task feed keeps dated definition changes, captured sources, questions, worker attempts and results. Expand a row to read its evidence; timestamp links select an exact event, and only the latest active event opens automatically. Discuss plans in the Coordinator. Open a request or result to answer its question, request changes or approve the selected result.
+The task feed keeps dated definition changes, captured sources, questions, worker attempts and results. Expand a row to read its evidence or collapse it again; only the latest active event opens automatically. Timestamps show the exact time on hover or focus. Discuss plans in the Coordinator. Open a request or result to answer its question, request changes or approve the selected result.
 
 Each Inbox ask has a stable **Request** link. Use the header’s **Open request in work tab** button to respond in a separate tab; the source badge opens its task or project. Inbox History opens the same Request after resolution. Drafts and responses are shared across these views, and earlier requests keep their original evidence and approval bindings. The Coordinator can reference requests directly with `list_requests` and `get_request`.
 
@@ -88,7 +88,7 @@ An independent approval recommends the candidate. Code delivery still needs your
 
 Read the worker report, limitations and checks against the task's success criteria. Project checks and worker-authored tests are useful evidence; try representative inputs or ask the Coordinator to investigate gaps before deciding what ships.
 
-**Code changes** shows the candidate's changed files and diff. **Try result** prepares an independent copy and a launcher using the project's saved run configuration. See [worker setup](/worker-setup#try-a-result). Trying or inspecting a result grants no approval.
+**Run result** opens the selected code result with **Try result** expanded, showing its independent directory and copyable launch command. **Code changes** shows the candidate's changed files and diff. Supporting files remain available below the outcome. See [worker setup](/worker-setup#try-a-result). Trying or inspecting a result grants no approval.
 
 ![Code changes and exact-result review beside the Coordinator](/images/code-review.png)
 

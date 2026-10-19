@@ -281,10 +281,12 @@ test("task and project questions accept suggested or free answers inside Inbox",
     page.getByRole("link", { name: /Which format should we prioritize/ }),
   ).toBeVisible();
   await page.goto("/workspaces/" + workspace + "/tasks/T-1");
+  await page.locator('[data-kind="answer"] summary').click();
   await expect(
     page.getByText("All records, excluding archived entries.", { exact: true }),
   ).toBeVisible();
   await page.reload();
+  await page.locator('[data-kind="answer"] summary').click();
   await expect(
     page.getByText("All records, excluding archived entries.", { exact: true }),
   ).toBeVisible();

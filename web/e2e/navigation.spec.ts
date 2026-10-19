@@ -295,12 +295,15 @@ test("closing entity panes returns through history without duplicate collections
     })
     .click();
   await expect(page).toHaveURL(board);
-  // A fresh browser entry retains the collection fallback; new work tabs start fresh.
+  // A fresh browser entry has no synthetic history; use the sidebar to open Board.
   await page.evaluate(() => sessionStorage.clear());
   await page.goto(
     `/workspaces/${await projectWorkspace(page.request, id)}/tasks/T-1`,
   );
-  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Back", exact: true }),
+  ).toBeDisabled();
+  await openResource(page, "Tasks Board");
   await expect(page).toHaveURL(board);
 });
 
@@ -350,9 +353,7 @@ test("entity identity and drafts persist across task and workspace tabs", async 
   });
 
   await page.getByRole("tab", { name: "Task", exact: true }).click();
-  await editor
-    .getByRole("link", { name: "Permalink: Task defined", exact: true })
-    .click();
+  await editor.locator('[data-message-id="definition:1"] summary').click();
   await expect(title).toBeVisible();
   await expect(
     editor.getByRole("tab", { name: "Task", exact: true }),

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useParams } from "react-router";
+import { ExecutionDetails } from "./Runs";
 import { ActivityEntry } from "./ActivityEntry";
 import { ContentStack } from "./DetailLayout";
 import { LoadMore } from "./LoadMore";
@@ -13,12 +14,11 @@ import { MessageBody, merge, hasBody, type Message } from "./TaskMessages";
 import { TaskChanges } from "./TaskChanges";
 import { RunActivity } from "./RunActivity";
 import { ReviewActivity } from "./TaskReview";
-import { Timestamp, ExactTimeTooltip } from "./Timestamp";
+import { Timestamp } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { taskHref, resultHref } from "./navigation";
+import { resultHref } from "./navigation";
 import { requestHref } from "./requestLinks";
 import { ResultFiles } from "./Files";
-import { ExecutionDetails } from "./Runs";
 
 type Page = components["schemas"]["ThreadPage"];
 
@@ -34,23 +34,16 @@ export function TaskConversation({
   board: Pick<WorkspaceBoard, "tasks">;
   refresh: unknown;
 }) {
-  const route = useParams();
   const path = `workspaces/${projectId}/tasks/${task.id}`;
   const page = useResource<Page>(`${path}/thread`, refresh);
   const initial = useResource<Message>(`${path}/thread/definition:1`, task.id);
-  const executionId = route.tab === "history" ? route.runId : undefined;
+  const { runId: executionId } = useParams();
   const execution = useResource<components["schemas"]["ExecutionItem"]>(
     executionId ? `${path}/executions/${executionId}` : null,
     refresh,
   );
-  const target =
-    route.tab === "conversation"
-      ? route.runId
-      : execution.data
-        ? `attempt:${execution.data.run_id}`
-        : undefined;
   const selected = useResource<Message>(
-    target ? `${path}/thread/${encodeURIComponent(target)}` : null,
+    execution.data ? `${path}/thread/attempt:${execution.data.run_id}` : null,
     refresh,
   );
   const [items, setItems] = useState<Message[]>([]);
@@ -79,7 +72,7 @@ export function TaskConversation({
   const scrolling = useFeedScroll(
     root,
     !!page.data && !!initial.data && (!executionId || !!execution.data),
-    selected.data?.id ?? target,
+    selected.data?.id,
     !!selected.data,
   );
   const [busy, setBusy] = useState(false);
@@ -100,8 +93,12 @@ export function TaskConversation({
     }
   }
   return (
-    <ContentStack ref={root} space="section" className="task-conversation">
-      <ResourceRetry resources={[page, initial, selected, execution]} />
+    <ContentStack
+      ref={root}
+      space="section"
+      className="task-conversation rounded-lg border p-3"
+    >
+      <ResourceRetry resources={[page, initial, execution, selected]} />
       {page.loading && !page.data && <p>Loading activity…</p>}
       <ol className="conversation-messages" aria-label="Task feed">
         {cursor && (
@@ -120,22 +117,14 @@ export function TaskConversation({
           >
             <ActivityEntry
               identity={path + ":" + message.id}
-              selected={message.id === (target ?? active?.id)}
-              alwaysOpen={message.kind === "answer" || message.kind === "reply"}
+              selected={message.id === (selected.data?.id ?? active?.id)}
               title={message.title}
               state={message.state}
               hasBody={hasBody(message)}
               metadata={
                 <>
                   {message.actor.label} ·{" "}
-                  <ExactTimeTooltip date={message.created_at}>
-                    <WorkspaceLink
-                      to={`${taskHref(projectId, task)}/conversation/${encodeURIComponent(message.id)}`}
-                      aria-label={"Permalink: " + message.title}
-                    >
-                      <Timestamp date={message.created_at} tooltip={false} />
-                    </WorkspaceLink>
-                  </ExactTimeTooltip>
+                  <Timestamp date={message.created_at} />
                 </>
               }
             >
@@ -169,20 +158,6 @@ export function TaskConversation({
                     Tested result
                   </WorkspaceLink>
                 )}
-                {message.earlier_id && (
-                  <WorkspaceLink
-                    to={`${taskHref(projectId, task)}/conversation/activity:${message.earlier_id}`}
-                  >
-                    Earlier {message.title.toLowerCase()}
-                  </WorkspaceLink>
-                )}
-                {message.successor_id && (
-                  <WorkspaceLink
-                    to={`${taskHref(projectId, task)}/conversation/activity:${message.successor_id}`}
-                  >
-                    Replacement {message.title.toLowerCase()}
-                  </WorkspaceLink>
-                )}
                 {message.kind === "attempt" && (
                   <RunActivity
                     projectId={projectId}
@@ -196,17 +171,6 @@ export function TaskConversation({
                     refresh={refresh}
                   />
                 )}
-                {message.kind === "attempt" &&
-                  executionId &&
-                  execution.data?.run_id === message.source_id && (
-                    <ExecutionDetails
-                      key={executionId}
-                      projectId={projectId}
-                      taskKey={task.key}
-                      item={execution.data}
-                      refresh={refresh}
-                    />
-                  )}
                 {message.kind === "definition" && (
                   <TaskChanges
                     revision={message.revision!}
@@ -214,6 +178,15 @@ export function TaskConversation({
                     tasks={board.tasks}
                   />
                 )}
+                {message.kind === "attempt" &&
+                  execution.data?.run_id === message.source_id && (
+                    <ExecutionDetails
+                      projectId={projectId}
+                      taskKey={task.key}
+                      item={execution.data}
+                      refresh={refresh}
+                    />
+                  )}
               </ContentStack>
             </ActivityEntry>
           </li>
@@ -248,7 +221,12 @@ function ResultEvidence({
           supporting={result.data.completion === "code"}
         />
       )}
-      <WorkspaceLink to={resultHref(workspaceId, identity)}>
+      <WorkspaceLink
+        to={
+          resultHref(workspaceId, identity) +
+          (result.data?.completion === "code" ? "?run=1" : "")
+        }
+      >
         {result.data?.completion === "code"
           ? "Run result and view changes"
           : "View result"}
