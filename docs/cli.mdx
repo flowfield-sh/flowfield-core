@@ -50,7 +50,7 @@ flowfield task activity T-1 --workspace WORKSPACE_ID
 flowfield task relationships T-1 --workspace WORKSPACE_ID
 flowfield task revisions T-1 --workspace WORKSPACE_ID
 flowfield task subtask list T-1 --workspace WORKSPACE_ID
-flowfield task subtask create T-1 --workspace WORKSPACE_ID --title "Implement API" --body "Add the agreed endpoint and tests" --completion code --workspace WORKSPACE_ID
+flowfield task subtask create T-1 --workspace WORKSPACE_ID --title "Implement API" --body "Add the agreed endpoint and tests" --completion code
 ```
 
 Task creation accepts an optional `--project PROJECT_ID` for repository work. Task keys accept either case; internal IDs remain exact. Repeated `--depends-on` values name prerequisite tasks in the same workspace. For subtask creation and editing, they name sibling subtasks within the parent task. Repeated `--label` values replace a task’s labels; `--no-labels` clears them.
