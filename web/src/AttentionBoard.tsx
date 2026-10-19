@@ -45,10 +45,12 @@ function itemHref(item: Item, workspaceId: string) {
 
 function TaskRequest({
   item,
+  board,
   refresh,
   onDirty,
 }: {
   item: Item;
+  board: WorkspaceBoard;
   refresh: unknown;
   onDirty: DirtyCallback;
 }) {
@@ -70,6 +72,7 @@ function TaskRequest({
       {task.data && (
         <TaskResponse
           projectId={item.workspace_id!}
+          projects={board.projects}
           task={task.data}
           refresh={refresh}
           onDirty={response}
@@ -135,7 +138,12 @@ export function RequestCard({
           "intervention",
           "integration",
         ].includes(item.kind) && item.task_key ? (
-        <TaskRequest item={item} refresh={refresh} onDirty={dirty} />
+        <TaskRequest
+          item={item}
+          board={board}
+          refresh={refresh}
+          onDirty={dirty}
+        />
       ) : (
         <>
           <strong>{item.title}</strong>

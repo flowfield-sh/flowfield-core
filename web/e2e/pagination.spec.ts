@@ -151,10 +151,36 @@ test("service recovery cancels pending review pagination with an unchanged revie
       },
     });
   });
+  await page.route(
+    "**/api/workspaces/*/reviews/review/attempts/*/activity",
+    (route) => {
+      const identity = new URL(route.request().url()).pathname
+        .split("/")
+        .at(-2);
+      return route.fulfill({
+        json: {
+          supported: true,
+          active: false,
+          omitted: false,
+          items: [
+            {
+              key: identity,
+              kind: "agent",
+              text: `Reviewer activity: ${identity}`,
+              preview: `Reviewer activity: ${identity}`,
+            },
+          ],
+        },
+      });
+    },
+  );
   await page.goto(
     `/workspaces/${await projectWorkspace(request, project)}/tasks/${task.key}/conversation/review:review`,
   );
   await expect(page.locator(".entity-pane-footer")).toHaveCount(0);
+  await expect(
+    page.getByText("Reviewer activity: original", { exact: true }),
+  ).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("review-recovery-desktop.png"),
     animations: "disabled",
@@ -174,7 +200,16 @@ test("service recovery cancels pending review pagination with an unchanged revie
   }
   await expect(
     page.locator("summary").filter({ hasText: /^Reviewer ·/ }),
-  ).toHaveCount(1);
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Reviewer activity: fresh", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Reviewer activity: original", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Reviewer activity: stale", { exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.locator("summary").filter({ hasText: /^Implementer ·/ }),
   ).toHaveCount(0);

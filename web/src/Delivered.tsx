@@ -7,6 +7,7 @@ import { ResourceRetry } from "./ResourceRetry";
 import { Timestamp } from "./Timestamp";
 import { OpenInWorkTab } from "./WorkspaceTabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { taskHref } from "./navigation";
 import { WorkIdentity } from "./WorkIdentity";
 import { WorkspaceLink } from "./WorkspaceLink";
@@ -65,16 +66,24 @@ export function Delivered({
           <ContentStack className="p-3">
             <Markdown>{item.summary}</Markdown>
             {item.completion === "code" && (
-              <p className="detail-metadata">
-                Integrated into {item.target_branch}
-              </p>
+              <>
+                <p>Integrated into {item.target_branch}</p>
+                <Button size="sm" variant="outline" asChild>
+                  <WorkspaceLink to={resultHref(workspaceId, item.id)}>
+                    Run result
+                  </WorkspaceLink>
+                </Button>
+              </>
             )}
-            {!!item.files.length && <OutputFiles files={item.files} />}
-            {item.file_count > item.files.length && (
-              <WorkspaceLink to={resultHref(workspaceId, item.id)}>
-                View all {item.file_count} files
-              </WorkspaceLink>
+            {item.completion !== "code" && !!item.files.length && (
+              <OutputFiles files={item.files} />
             )}
+            {item.completion !== "code" &&
+              item.file_count > item.files.length && (
+                <WorkspaceLink to={resultHref(workspaceId, item.id)}>
+                  View all {item.file_count} files
+                </WorkspaceLink>
+              )}
           </ContentStack>
         </article>
       ))}

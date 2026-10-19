@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChoiceSelect } from "@/components/ui/choice-select";
 import type { components } from "./api-schema";
-import { ContentStack, DetailSection } from "./DetailLayout";
+import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { LoadMore } from "./LoadMore";
 import { ResourceRetry } from "./ResourceRetry";
 import { Timestamp } from "./Timestamp";
@@ -333,10 +333,21 @@ export function Files({
   );
 }
 
-export function ResultFiles({ files }: { files: OutputFile[] }) {
-  return files.length ? (
+export function ResultFiles({
+  files,
+  supporting = false,
+}: {
+  files: OutputFile[];
+  supporting?: boolean;
+}) {
+  if (!files.length) return null;
+  return supporting ? (
+    <Disclosure summary="Supporting files">
+      <OutputFiles files={files} />
+    </Disclosure>
+  ) : (
     <DetailSection title="Files">
       <OutputFiles files={files} />
     </DetailSection>
-  ) : null;
+  );
 }

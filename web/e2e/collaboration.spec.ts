@@ -1813,7 +1813,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     .click();
   await page
     .locator('[data-message-id="result:older"]')
-    .getByRole("link", { name: "View result", exact: true })
+    .getByRole("link", { name: "Run result and view changes", exact: true })
     .click();
   await expect(
     page.getByRole("region", { name: "Proposed result", exact: true }),

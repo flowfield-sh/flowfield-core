@@ -120,12 +120,13 @@ function ReviewRounds({
   return (
     <ContentStack>
       <ResourceRetry resources={[page]}>Retry review history</ResourceRetry>
-      {page.data?.items.map((attempt) => (
+      {page.data?.items.map((attempt, index) => (
         <ReviewRound
           key={attempt.id}
           projectId={projectId}
           reviewId={review.id}
           attempt={attempt}
+          inline={index === 0}
         />
       ))}
       {page.data?.next_before != null && (
@@ -146,15 +147,50 @@ function ReviewRound({
   projectId,
   reviewId,
   attempt,
+  inline,
 }: {
   projectId: string;
   reviewId: string;
   attempt: components["schemas"]["ReviewAttemptInfo"];
+  inline: boolean;
 }) {
   const [manual, setManual] = useState<boolean | null>(null);
   const open =
     manual ??
     ["preparing", "running", "waiting", "uncertain"].includes(attempt.status);
+  const body = (
+    <ContentStack>
+      {attempt.problem && <p>{attempt.problem}</p>}
+      <RunActivity
+        projectId={projectId}
+        runId={reviewId}
+        review
+        reviewAttemptId={attempt.id}
+      />
+      {attempt.status === "uncertain" && !attempt.cleanup_confirmed && (
+        <Disclosure summary="Process evidence">
+          <p>
+            Attempt: <code>{attempt.id}</code>
+          </p>
+          <p>
+            Requested model: {attempt.requested_agent?.model || "Not launched"}
+          </p>
+          <p>
+            Applied model: {attempt.applied_agent?.model || "Not confirmed"}
+          </p>
+          <p>PID: {attempt.pid ?? "Not recorded"}</p>
+          <p>
+            Process identity:{" "}
+            <code>{attempt.process_stamp || "Not recorded"}</code>
+          </p>
+          <p>
+            Checkout: <code>{attempt.checkout || "Not prepared"}</code>
+          </p>
+        </Disclosure>
+      )}
+    </ContentStack>
+  );
+  if (inline) return body;
   return (
     <Disclosure
       open={open}
@@ -174,39 +210,7 @@ function ReviewRound({
         }
       }}
     >
-      {open && (
-        <ContentStack>
-          {attempt.problem && <p>{attempt.problem}</p>}
-          <RunActivity
-            projectId={projectId}
-            runId={reviewId}
-            review
-            reviewAttemptId={attempt.id}
-          />
-          {attempt.status === "uncertain" && !attempt.cleanup_confirmed && (
-            <Disclosure summary="Process evidence">
-              <p>
-                Attempt: <code>{attempt.id}</code>
-              </p>
-              <p>
-                Requested model:{" "}
-                {attempt.requested_agent?.model || "Not launched"}
-              </p>
-              <p>
-                Applied model: {attempt.applied_agent?.model || "Not confirmed"}
-              </p>
-              <p>PID: {attempt.pid ?? "Not recorded"}</p>
-              <p>
-                Process identity:{" "}
-                <code>{attempt.process_stamp || "Not recorded"}</code>
-              </p>
-              <p>
-                Checkout: <code>{attempt.checkout || "Not prepared"}</code>
-              </p>
-            </Disclosure>
-          )}
-        </ContentStack>
-      )}
+      {open && body}
     </Disclosure>
   );
 }

@@ -20,11 +20,14 @@ from flowfield.application import (
     TaskPublish,
     Workspace,
 )
+from flowfield.conversation import Conversation
 from flowfield.execution import Execution
 from flowfield.execution_models import SettingsEdit, WorkerResult
 from flowfield.integration import Integrations
 from flowfield.integration_models import IntegrationConfig
 from flowfield.output_models import OutputSelection
+from flowfield.replies import Replies
+from flowfield.reply_models import ReplyBinding, ReplyCreate
 from flowfield.results import Results
 from flowfield.reviewer_settings import ReviewerEdit, Reviewers
 from flowfield.subtasks import SubtaskCreate, Subtasks
@@ -232,6 +235,22 @@ def seed(state: Path, assets: Path, agents=None):
         execution.finish(owner, run.id, "in_review", result=result, commit=commit)
     assert assemblies.assemble(owner, feature.id)
     reviewed = signoff(feature)
+    gate = Conversation(store).eligibility(owner, feature.id)
+    Replies(store).submit(
+        owner,
+        feature.id,
+        ReplyCreate(
+            action="observation",
+            body=(
+                "Inspected the release overview and its retained preview.\n\n"
+                "This records a human observation of this exact result; "
+                "it does not approve integration."
+            ),
+            binding=ReplyBinding.model_validate(
+                gate.model_dump(include=set(ReplyBinding.model_fields))
+            ),
+        ),
+    )
     waiting = store.create_task(
         owner,
         TaskCreate(

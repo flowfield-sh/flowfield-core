@@ -49,8 +49,8 @@ export function ActivityEntry({
   if (alwaysOpen)
     return (
       <div className="activity-entry">
-        {heading}
-        {children}
+        <div className="activity-entry-record">{heading}</div>
+        <div className="disclosure-body">{children}</div>
       </div>
     );
   return hasBody ? (

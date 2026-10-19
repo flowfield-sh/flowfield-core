@@ -365,6 +365,9 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
       });
   }
   expect(await actionFits("Send")).toBe(true);
+  await expect(
+    page.getByRole("button", { name: "Send", exact: true }),
+  ).toBeEnabled();
   await input.press("Enter");
   await expect(page.getByText("Let’s plan the work.")).toBeVisible();
   expect(await actionFits("Stop")).toBe(true);

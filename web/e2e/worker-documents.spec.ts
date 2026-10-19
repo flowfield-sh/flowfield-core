@@ -48,7 +48,13 @@ test("project defaults prepare exact task documents and preserve revision links"
   await page
     .getByRole("combobox", { name: "Use Core conventions as" })
     .selectOption("reference");
+  const savedDocuments = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/projects/${project.id}`) &&
+      response.request().method() === "PUT",
+  );
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  expect((await savedDocuments).ok()).toBe(true);
   await expect(
     page.getByRole("button", { name: "Save changes", exact: true }),
   ).toBeDisabled();

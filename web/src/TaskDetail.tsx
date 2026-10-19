@@ -54,6 +54,18 @@ export function TaskDetail({
         }
         close={close}
         closeLabel="Back"
+        metadata={
+          task.project_id && (
+            <>
+              Project:{" "}
+              <WorkspaceLink to={`/projects/${task.project_id}/overview`}>
+                {board.projects.find(
+                  (project) => project.id === task.project_id,
+                )?.name ?? task.project_id}
+              </WorkspaceLink>
+            </>
+          )
+        }
       />
       <ContentStack space="section" className="task-view-navigation">
         <div className="task-header-badges" aria-label="Task labels">

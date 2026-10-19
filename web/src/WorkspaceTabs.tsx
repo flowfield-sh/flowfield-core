@@ -147,21 +147,26 @@ function visit(
     intent === "new"
       ? undefined
       : intent === "open"
-        ? state.tabs.find((t) => canonicalResourceRoot(t.root, board) === root)
+        ? state.tabs.find(
+            (t) => canonicalResourceRoot(t.history[t.index], board) === root,
+          )
         : state.tabs.find((t) => t.id === state.active);
   if (!tab)
     tab = {
-      id: intent === "new" ? crypto.randomUUID() : root,
+      id:
+        intent === "new" || state.tabs.some((t) => t.id === root)
+          ? crypto.randomUUID()
+          : root,
       root,
       history: [url],
       index: 0,
       fresh: intent === "new",
     };
-  else if (intent === "open")
+  else if (intent === "open" && tab.history[tab.index] !== url)
     tab = {
       ...tab,
-      history: [url],
-      index: 0,
+      history: [...tab.history.slice(0, tab.index + 1), url].slice(-40),
+      index: Math.min(tab.index + 1, 39),
     };
   else if (tab.history[tab.index] !== url) {
     const history = [

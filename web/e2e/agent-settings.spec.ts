@@ -481,14 +481,11 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     // must also exercise that stream instead of relying on unrelated activity.
     expect(
       (
-        await request.post(
-          `/api/workspaces/${await projectWorkspace(request, "agent-settings")}/tasks`,
-          {
-            data: {
-              title: "Record scripted permission receipt",
-            },
+        await request.post(`/api/workspaces/${workspace}/tasks`, {
+          data: {
+            title: "Record scripted permission receipt",
           },
-        )
+        })
       ).ok(),
     ).toBe(true);
     return route.fulfill({ json: permission });

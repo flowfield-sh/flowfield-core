@@ -58,6 +58,8 @@ def event_state(kind: str, status: str | None, identity: str, current: WorkState
         )
     if kind in ("approval", "delivery"):
         return WorkState(label="Recorded", tone="complete")
+    if kind == "reply" and status == "recorded":
+        return WorkState(label="Observation recorded", tone="complete")
     if status and (kind in ("activity", "reply") or (kind == "question" and status == "withdrawn")):
         return WorkState(label=status.replace("_", " ")[:1].upper() + status.replace("_", " ")[1:])
     return WorkState(label="Recorded", tone="complete")

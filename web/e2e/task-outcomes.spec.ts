@@ -86,12 +86,37 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
     exact: true,
   });
   await expect(detail.getByRole("list", { name: "Task feed" })).toBeVisible();
+  await expect(
+    detail.getByRole("img", { name: "Observation recorded", exact: true }),
+  ).toBeVisible();
+  await expect(
+    detail.getByText("Testing observation · Result 1", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    detail.getByRole("link", { name: "Harbor", exact: true }),
+  ).toBeInViewport();
+  await page.screenshot({
+    path: testInfo.outputPath("recorded-observation.png"),
+  });
   await expect(detail.locator('[data-kind="review"]')).toContainText(
     "Reviewing results",
   );
   await expect(
     detail.locator('[data-kind="review"] details.activity-entry'),
   ).not.toHaveAttribute("open");
+  const reviewerOutput = page.waitForResponse(
+    (response) =>
+      response.url().includes("/reviews/") &&
+      response.url().includes("/attempts/") &&
+      response.url().endsWith("/activity"),
+  );
+  await detail
+    .locator('[data-kind="review"] details.activity-entry > summary')
+    .click();
+  expect((await reviewerOutput).ok()).toBe(true);
+  await expect(
+    detail.locator("summary").filter({ hasText: /^Reviewer ·/ }),
+  ).toHaveCount(0);
 
   await expect(
     detail.locator(".work-identity-title").filter({ hasText: /^Release API$/ }),
@@ -106,13 +131,34 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
     .click();
   await expect(
     detail.getByRole("img", { name: "launch-preview.png", exact: true }),
+  ).not.toBeVisible();
+  await detail
+    .locator("summary")
+    .filter({ hasText: /^Supporting files$/ })
+    .click();
+  await expect(
+    detail.getByRole("img", { name: "launch-preview.png", exact: true }),
   ).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("assembled-ready.png") });
   const waiting = await (
     await request.get(`/api${base}/tasks/${value.dependent}`)
   ).json();
   expect(waiting.blocked_by).toHaveLength(1);
-  await detail.getByRole("link", { name: "View result", exact: true }).click();
+  await detail
+    .getByRole("link", { name: "Run result and view changes", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Run result", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Harbor", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Try result", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: "launch-preview.png", exact: true }),
+  ).not.toBeVisible();
   await page
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();
@@ -152,6 +198,15 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await expect(deliveries.locator("article").first()).toContainText(
     "Integrated into main",
   );
+  await expect(
+    deliveries
+      .locator("article")
+      .first()
+      .getByRole("link", { name: "Run result", exact: true }),
+  ).toBeVisible();
+  await expect(
+    deliveries.locator("article").first().getByRole("img"),
+  ).toHaveCount(0);
   const recent = page.getByRole("region", { name: "Delivered", exact: true });
   await expect(recent.locator(".work-navigation-row").first()).toContainText(
     "T-2",

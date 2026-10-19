@@ -49,7 +49,9 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
             "and ask about missing tools or external access."
         ),
         "Verify the complete outcome with meaningful checks. Keep the result summary to a few "
-        "sentences about the outcome; put command output, paths, hashes and detailed evidence "
+        "sentences about the complete current outcome, including what remains available from "
+        "earlier work when correcting or reopening a task. Do not describe only the latest patch. "
+        "Put command output, paths, hashes and detailed evidence "
         "in checks, with unresolved constraints in limitations. "
         "Partial progress is not completion.",
     ]
@@ -63,6 +65,9 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
         rules.append(
             "The service captures the tracked/nonignored tree after execution stops and checks it "
             "for exact review. Only the service delivers code under explicit human approval. "
+            "Describe how to run or access the implemented behavior and its prerequisites. "
+            "Do not submit duplicate patches or candidate manifests as deliverable files; "
+            "the service already retains exact code changes. "
             "Do not approve or integrate code yourself."
         )
     elif repository:

@@ -135,7 +135,7 @@ class ThreadView(Conversation):
         elif kind == "reply":
             title = {
                 "changes": "Feedback",
-                "observation": "Human testing",
+                "observation": "Testing observation",
             }.get(data["action"], "Message")
             body = data["body"]
             if data["action"] == "observation":

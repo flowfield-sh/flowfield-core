@@ -17,7 +17,7 @@ import { Timestamp, ExactTimeTooltip } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { taskHref, resultHref } from "./navigation";
 import { requestHref } from "./requestLinks";
-import { OutputFiles } from "./Files";
+import { ResultFiles } from "./Files";
 import { ExecutionDetails } from "./Runs";
 
 type Page = components["schemas"]["ThreadPage"];
@@ -242,9 +242,16 @@ function ResultEvidence({
       {result.data?.independent_review?.summary && (
         <p>Reviewer: {result.data.independent_review.summary}</p>
       )}
-      {!!result.data?.files.length && <OutputFiles files={result.data.files} />}
+      {result.data && (
+        <ResultFiles
+          files={result.data.files}
+          supporting={result.data.completion === "code"}
+        />
+      )}
       <WorkspaceLink to={resultHref(workspaceId, identity)}>
-        View result
+        {result.data?.completion === "code"
+          ? "Run result and view changes"
+          : "View result"}
       </WorkspaceLink>
     </ContentStack>
   );

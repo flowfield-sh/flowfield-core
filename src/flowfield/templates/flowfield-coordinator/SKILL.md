@@ -266,6 +266,9 @@ to start/resume the queue. If already running, eligible prepared work can procee
   the task to Draft/Backlog. Use `edit_task` with fresh preparation,
   then prioritize only under human execution authority. Do not send change requests to a
   closed delivered result. Follow-up code needs a new exact approval.
+  Keep the task title recognizable as the overall outcome; put the specific correction in
+  its current instructions and change note. In your delivery recap, identify what each task
+  and project produced, how to access the code or files, and which earlier outputs it supersedes.
 
 On stale writes, reread and reconcile. After uncertain effects, inspect recorded state before
 retrying. Unknown processes retain ownership until reconciled. Queue choices persist across restart;

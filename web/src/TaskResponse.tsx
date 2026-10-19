@@ -13,7 +13,7 @@ import { ArrowUp } from "lucide-react";
 import { ContentStack } from "./DetailLayout";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
-import { request, type Task } from "./workspace";
+import { request, type Task, type WorkspaceBoard } from "./workspace";
 import { Markdown } from "./Markdown";
 import { Result } from "./Result";
 import { ExecutionDetails } from "./Runs";
@@ -49,12 +49,14 @@ const contextKey = (value: Binding) =>
       : "task";
 export function TaskResponse({
   projectId,
+  projects,
   task,
   refresh,
   onDirty,
   requestTarget,
 }: {
   projectId: string;
+  projects: WorkspaceBoard["projects"];
   task: Task;
   requestTarget: {
     kind: "question" | "result" | "intervention" | "review" | "integration";
@@ -367,6 +369,7 @@ export function TaskResponse({
         {requestTarget.kind === "result" ? (
           <Result
             projectId={projectId}
+            projects={projects}
             taskId={task.id}
             taskKey={task.key}
             versionId={requestTarget.id}

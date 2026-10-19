@@ -11,7 +11,7 @@ import type { DiffViewState } from "./CodeDiff";
 import { Markdown } from "./Markdown";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { usePage, useResource } from "./useResource";
-import { label, request } from "./workspace";
+import { label, request, type WorkspaceBoard } from "./workspace";
 import { taskHref } from "./navigation";
 import { FailureEvidence } from "./Integration";
 import { ReviewChecks } from "./ReviewChecks";
@@ -24,6 +24,7 @@ type Version = components["schemas"]["ResultVersion"];
 
 export function Result({
   projectId,
+  projects,
   taskId,
   taskKey,
   refresh,
@@ -33,6 +34,7 @@ export function Result({
   inputEnabled,
 }: {
   projectId: string;
+  projects: WorkspaceBoard["projects"];
   taskId: string;
   taskKey: string;
   refresh: unknown;
@@ -146,6 +148,35 @@ export function Result({
       )}
       {version && version.task_id === taskId && (
         <>
+          {version.completion === "code" && version.candidate_commit && (
+            <DetailSection title="Run result">
+              <p>
+                {version.status === "delivered"
+                  ? "Integrated into "
+                  : "Destination: "}
+                <strong>{version.target_branch}</strong>
+                {worker.data?.project_id && (
+                  <>
+                    {" "}
+                    ·{" "}
+                    <WorkspaceLink
+                      to={`/projects/${worker.data.project_id}/overview`}
+                    >
+                      {projects.find(
+                        (project) => project.id === worker.data?.project_id,
+                      )?.name ?? "Project"}
+                    </WorkspaceLink>
+                  </>
+                )}
+              </p>
+              <Inspection
+                key={version.id}
+                projectId={projectId}
+                result={version}
+                refresh={refresh}
+              />
+            </DetailSection>
+          )}
           <DetailSection title="Outcome">
             <Markdown>{version.report.summary}</Markdown>
             {version.report.outcome === "partial" && (
@@ -173,7 +204,10 @@ export function Result({
               </Disclosure>
             )}
           </DetailSection>
-          <ResultFiles files={version.files} />
+          <ResultFiles
+            files={version.files}
+            supporting={version.completion === "code"}
+          />
           {current && (
             <TaskActionContext>
               <TaskReview
@@ -236,7 +270,7 @@ export function Result({
                     </strong>
                   </p>
                 }
-                {version.completion === "code" && (
+                {version.completion === "code" && !version.candidate_commit && (
                   <p>
                     Destination: <strong>{version.target_branch}</strong>
                   </p>
@@ -391,12 +425,6 @@ export function Result({
           }
           {version.completion === "code" && version.candidate_commit && (
             <DetailSection title="Details">
-              <Inspection
-                key={version.id}
-                projectId={projectId}
-                result={version}
-                refresh={refresh}
-              />
               {version.integration_id && version.candidate_commit && (
                 <Disclosure
                   summary={<>Code changes</>}
