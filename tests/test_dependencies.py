@@ -17,6 +17,8 @@ from flowfield.application import ProjectSetup, TaskEdit, TaskReconcile, Workspa
 from flowfield.browser import BrowserReads
 from flowfield.cli import app
 from flowfield.errors import ApplicationError
+from flowfield.execution import Execution
+from flowfield.results import Results
 
 
 def workspace(tmp_path: Path) -> Workspace:
@@ -225,7 +227,50 @@ def test_concurrent_edges_and_completion_are_serialized(tmp_path: Path) -> None:
         assert not final.blocked_by and not final.reconciliation_reason
         assert final.readiness == "ready"
     else:
-        assert final.status in {"backlog", "up_next"} and final.blocked_by
+        # The fixture drives claim, start, submission and delivery separately. A
+        # prerequisite can reopen after claim; that preserves blocked work.
+        assert final.status in {"backlog", "up_next", "in_progress"} and final.blocked_by
+
+
+@pytest.mark.parametrize("phase", ["before_start", "before_submission", "before_delivery"])
+def test_reopened_prerequisite_blocks_each_report_completion_phase(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, phase: str
+) -> None:
+    service = workspace(tmp_path)
+    service.create_task("harbor", task_request(id="upstream", title="Upstream"))
+    service.create_task(
+        "harbor", task_request(id="dependent", title="Dependent", dependencies=["upstream"])
+    )
+    progress(service, "upstream", "done")
+    owner, method = {
+        "before_start": (Execution, "started"),
+        "before_submission": (Execution, "finish"),
+        "before_delivery": (Results, "process"),
+    }[phase]
+    original = getattr(owner, method)
+
+    def reopen_before(instance, *args, **kwargs):
+        progress(service, "upstream", "up_next")
+        return original(instance, *args, **kwargs)
+
+    monkeypatch.setattr(owner, method, reopen_before)
+    if phase == "before_start":
+        with pytest.raises(ApplicationError, match="older or blocked assignment"):
+            progress(service, "dependent", "done")
+    else:
+        progress(service, "dependent", "done")
+    final = service.task("harbor", "dependent")
+    assert final.status == "in_progress" and final.blocked_by
+    assert final.readiness != "ready"
+    with service.connection() as db:
+        rows = db.execute(
+            "SELECT status,data FROM result_versions WHERE task_id=?", (final.id,)
+        ).fetchall()
+    if phase == "before_start":
+        assert not rows
+    else:
+        assert len(rows) == 1 and rows[0]["status"] == "blocked"
+        assert json.loads(rows[0]["data"])["problem_code"] == "assignment_changed"
 
 
 def test_http_reconciliation_and_cli_dependencies(tmp_path: Path) -> None:
