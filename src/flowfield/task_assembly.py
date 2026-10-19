@@ -251,18 +251,20 @@ class TaskAssembly:
                 (value.workspace_id, value.task_id, child.id),
             ).fetchone()
             prior = Run.model_validate_json(previous[0]) if previous else None
-        # Corrections and local plan edits retain their own work with current dependencies.
+        # Corrections, retries and local plan edits retain work with current dependencies.
         # Only dependency runs become prerequisite evidence; the prior attempt remains
         # the predecessor. Never reuse code from a different frozen task assembly.
-        corrected = (
-            [prior]
-            if prior
-            and prior.assembly_id == value.id
-            and prior.status in ("contributed", "changes_requested")
-            and prior.completion == child.completion
-            and prior.result_commit
-            else []
-        )
+        corrected = []
+        if prior and prior.assembly_id == value.id and prior.completion == child.completion:
+            commit = (
+                prior.checkpoint_commit
+                if prior.status in ("failed", "stopped")
+                else prior.result_commit
+                if prior.status in ("contributed", "changes_requested")
+                else None
+            )
+            if commit:
+                corrected.append(prior.model_copy(update={"result_commit": commit}))
         return self._combine(value, [*runs, *corrected]), runs
 
     def _combine(self, value: Assembly, runs: list[Run]) -> str:

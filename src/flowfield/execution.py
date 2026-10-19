@@ -528,8 +528,10 @@ class Execution:
                     if retrying_input and predecessor
                     else None
                 )
+                # Local contributions combine checkpoints with current dependencies in baseline().
                 if (
                     predecessor
+                    and not child
                     and predecessor.checkpoint_commit
                     and predecessor.agreement_revision == task.agreement_revision
                     and predecessor.status in ("failed", "stopped")

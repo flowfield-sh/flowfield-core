@@ -273,7 +273,7 @@ def test_correction_preserves_independent_contribution(tmp_path):
 
 
 @pytest.mark.parametrize("dependent_contribution", [False, True])
-@pytest.mark.parametrize("correction_source", ["reply", "plan"])
+@pytest.mark.parametrize("correction_source", ["reply", "plan", "stopped", "failed"])
 def test_code_assembly_review_exact_approval_and_delivered_dependency(
     tmp_path, dependent_contribution, correction_source
 ):
@@ -412,7 +412,7 @@ def test_code_assembly_review_exact_approval_and_delivered_dependency(
     from flowfield.replies import Replies
     from flowfield.reply_models import ReplyBinding, ReplyCreate
 
-    if correction_source == "plan":
+    if correction_source != "reply":
         previous = children.get(owner, task.id, a.id)
         children.edit(
             owner,
@@ -466,6 +466,47 @@ def test_code_assembly_review_exact_approval_and_delivered_dependency(
         assert execution.assignment(owner, retry.id)["description"] == "Version the API response"
     execution.started(owner, retry.id)
     environment = LocalHost(os.environ).prepare(store.directory, repo, retry.id, correction_base)
+    if correction_source in ("stopped", "failed"):
+        import asyncio
+
+        from flowfield.supervisor import Supervisor
+
+        (environment.checkout / "recovery.txt").write_text("Retained unfinished work")
+        asyncio.run(Supervisor(store)._checkpoint(retry, environment))
+        execution.finish(owner, retry.id, correction_source)
+        previous = children.get(owner, task.id, a.id)
+        children.edit(
+            owner,
+            task.id,
+            a.id,
+            SubtaskEdit(expected_revision=previous.revision, body="Resume the API correction"),
+        )
+        task = store.task(owner, task.id)
+        task = store.reconcile_task(
+            owner,
+            task.id,
+            TaskReconcile(expected_revision=task.revision, note="Clarified recovery instructions"),
+        )
+        assert assemblies.ensure(task, original, []).id == assembly.id
+        correction_base, inputs = assemblies.baseline(assembly, children.get(owner, task.id, a.id))
+        assert git(repo, "show", correction_base + ":recovery.txt") == b"Retained unfinished work"
+        assert git(repo, "show", correction_base + ":api-contract.txt") == b"Keep this contract"
+        previous_run = retry
+        retry = execution.claim(
+            owner,
+            correction_base,
+            {correction_base: set()},
+            task_id=task.id,
+            subtask_id=a.id,
+            assembly_id=assembly.id,
+            contributions=inputs,
+        )
+        assert retry and retry.predecessor_id == previous_run.id
+        assert (retry.input_base_commit or retry.base_commit) == correction_base
+        execution.started(owner, retry.id)
+        environment = LocalHost(os.environ).prepare(
+            store.directory, repo, retry.id, correction_base
+        )
     (environment.checkout / "api.txt").write_text("API v2")
     corrected_commit, _ = environment.snapshot(correction_base)
     report = WorkerResult(summary="API versioned", checks="Checked the revised API")
