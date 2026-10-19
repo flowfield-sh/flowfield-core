@@ -48,11 +48,13 @@ function TaskRequest({
   board,
   refresh,
   onDirty,
+  onResolved,
 }: {
   item: Item;
   board: WorkspaceBoard;
   refresh: unknown;
   onDirty: DirtyCallback;
+  onResolved?: () => void;
 }) {
   const task = useResource<Task>(
     `workspaces/${item.workspace_id}/view/tasks/${item.task_key}`,
@@ -76,6 +78,7 @@ function TaskRequest({
           task={task.data}
           refresh={refresh}
           onDirty={response}
+          onResolved={onResolved}
           requestTarget={{
             kind: item.kind as
               "question" | "result" | "intervention" | "review" | "integration",
@@ -94,6 +97,7 @@ export function RequestCard({
   refresh,
   markDirty,
   standalone = false,
+  onResolved,
 }: {
   item: Item;
   workspaceId: string;
@@ -101,6 +105,7 @@ export function RequestCard({
   refresh: unknown;
   markDirty: (id: string, dirty: boolean, retained?: boolean) => void;
   standalone?: boolean;
+  onResolved?: () => void;
 }) {
   const navigate = useNavigate();
   const resourceNavigate = useContext(ResourceNavigation);
@@ -143,6 +148,7 @@ export function RequestCard({
           board={board}
           refresh={refresh}
           onDirty={dirty}
+          onResolved={onResolved}
         />
       ) : (
         <>
@@ -234,17 +240,24 @@ function InboxList({
     `inbox:${workspaceId}:${projectId}:drafts`,
     {},
   );
+  const [pending, setPending] = useState<Record<string, boolean>>({});
   const markDirty = useCallback(
     (id: string, dirty: boolean, retained?: boolean) => {
       mark(id, dirty, retained);
       // Cleanup clears mounted navigation guards, not the retained response.
       if (retained === undefined) return;
+      setPending((previous) =>
+        previous[id] === (dirty && !retained)
+          ? previous
+          : { ...previous, [id]: dirty && !retained },
+      );
       setDrafts((previous) =>
         previous[id] === dirty ? previous : { ...previous, [id]: dirty },
       );
     },
     [mark, setDrafts],
   );
+  const [resolved, setResolved] = useState<Record<string, string>>({});
   const [seen, setSeen] = useState<Page | null>(null);
   const [retained, setRetained] = useRetainedState<Item[]>(
     `inbox:${workspaceId}:${projectId}:items`,
@@ -281,7 +294,11 @@ function InboxList({
     const current = new Set(page.data?.items.map(identityOf));
     return (
       tab === "needs_me"
-        ? retained.filter((item) => current.has(identityOf(item)))
+        ? retained.filter(
+            (item) =>
+              (current.has(identityOf(item)) || pending[identityOf(item)]) &&
+              resolved[identityOf(item)] !== item.updated_at,
+          )
         : [
             ...retained.filter(
               (item) =>
@@ -296,7 +313,7 @@ function InboxList({
         b.updated_at.localeCompare(a.updated_at) ||
         identityOf(a).localeCompare(identityOf(b)),
     );
-  }, [page.data, tab, retained, drafts, currentIds]);
+  }, [page.data, tab, retained, drafts, currentIds, resolved, pending]);
   const list = useRef<HTMLDivElement>(null);
   const focused = useRef<{ id: string; index: number } | null>(null);
   useLayoutEffect(() => {
@@ -336,7 +353,9 @@ function InboxList({
       {tab === "needs_me" &&
         retained.some(
           (item) =>
-            drafts[identityOf(item)] && !currentIds.includes(identityOf(item)),
+            drafts[identityOf(item)] &&
+            !pending[identityOf(item)] &&
+            !currentIds.includes(identityOf(item)),
         ) && (
           <p>
             Unsent responses to resolved requests are saved in{" "}
@@ -365,6 +384,18 @@ function InboxList({
                   board={board}
                   refresh={refresh}
                   markDirty={markDirty}
+                  onResolved={() => {
+                    const id = identityOf(item);
+                    // Clear the draft marker in the same render that removes the card.
+                    // A newer actionable receipt (e.g. delivery failure) may return.
+                    setDrafts((previous) => ({ ...previous, [id]: false }));
+                    setPending((previous) => ({ ...previous, [id]: false }));
+                    setResolved((previous) => ({
+                      ...previous,
+                      [id]: item.updated_at,
+                    }));
+                    page.retry();
+                  }}
                 />
               ) : (
                 <ContentStack>

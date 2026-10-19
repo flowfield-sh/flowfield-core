@@ -44,13 +44,13 @@ export function RevisionHistory({
             <WorkspaceLink
               className="project-list-row document-revision"
               key={item.revision}
-              aria-label={`Revision ${item.revision}`}
+              aria-label={`Revision #${item.revision}`}
               aria-current={item.revision === selected ? "page" : undefined}
               to={`${href}/revisions/${item.revision}`}
             >
               <ContentStack space="tight" className="col-span-2 gap-0.5">
                 <span>
-                  Revision {item.revision}
+                  Revision #{item.revision}
                   {item.revision === revision ? " · Current" : ""}
                 </span>
                 <span className="detail-metadata">

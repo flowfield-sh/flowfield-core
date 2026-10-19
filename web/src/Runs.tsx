@@ -215,7 +215,7 @@ function WorkerEvidence({
       )}
       {record.correction && (
         <p>
-          Correction attempt {record.correction.number} · both the worker’s
+          Correction attempt #{record.correction.number} · both the worker’s
           changes and current branch code are included.
         </p>
       )}

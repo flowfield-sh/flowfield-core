@@ -220,7 +220,7 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
   await expect(
     page.getByRole("button", { name: "Close Inbox", exact: true }),
   ).toHaveCount(0);
-  const storage = await page.evaluate(() => JSON.stringify(sessionStorage));
+  const storage = await page.evaluate(() => JSON.stringify(localStorage));
   expect(storage).not.toContain("Retain this exact document draft");
   await taskTab.click();
   await expect(page).toHaveURL(/T-2$/);
@@ -234,13 +234,13 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
   await expect(nativeTab).toHaveURL(/T-2$/);
   await nativeTab.close();
   const original = await page.evaluate((id) => {
-    const state = JSON.parse(sessionStorage.getItem("flowfield:tabs:" + id)!);
+    const state = JSON.parse(localStorage.getItem("flowfield:tabs:" + id)!);
     return state.tabs.find((tab: { id: string }) => tab.id === state.active);
   }, workspace);
   await comparison.click();
   await expect(taskTab).toHaveCount(1);
   const focused = await page.evaluate(
-    (id) => JSON.parse(sessionStorage.getItem("flowfield:tabs:" + id)!),
+    (id) => JSON.parse(localStorage.getItem("flowfield:tabs:" + id)!),
     workspace,
   );
   expect(

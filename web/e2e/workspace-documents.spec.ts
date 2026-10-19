@@ -88,7 +88,7 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Load latest", exact: true }).click();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await page.getByRole("link", { name: "Revision 2", exact: true }).click();
+  await page.getByRole("link", { name: "Revision #2", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Working together", exact: true }),
   ).toBeVisible();
@@ -98,7 +98,7 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   await expect(
     page.getByRole("button", { name: "Restore", exact: true }),
   ).toBeEnabled();
-  await page.getByRole("link", { name: "Revision 3", exact: true }).click();
+  await page.getByRole("link", { name: "Revision #3", exact: true }).click();
   await expect(
     page.getByRole("link", { name: "Edit", exact: true }),
   ).toBeVisible();
@@ -118,7 +118,7 @@ test("workspace documents preserve drafts, exact history and restore as a new re
     page.getByRole("textbox", { name: "Content", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await page.getByRole("link", { name: "Revision 2", exact: true }).click();
+  await page.getByRole("link", { name: "Revision #2", exact: true }).click();
   await page.screenshot({
     path: testInfo.outputPath("document-history-desktop-light.png"),
     animations: "disabled",
@@ -272,7 +272,7 @@ test("document conversation context keeps an uncertain receipt until navigation 
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(() => messages.length).toBe(2);
   expect(messages[1]).toEqual(messages[0]);
-  await page.getByRole("link", { name: "Revision 2", exact: true }).click();
+  await page.getByRole("link", { name: "Revision #2", exact: true }).click();
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect.poll(() => messages.length).toBe(3);
   expect(messages[2].id).not.toBe(messages[1].id);

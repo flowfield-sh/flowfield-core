@@ -175,6 +175,7 @@ export function App() {
     rawChangeLocation,
     tabOwners,
     board,
+    workspaceRefresh,
   );
   const tabGo = tabs.go;
   const changeLocation = useCallback(

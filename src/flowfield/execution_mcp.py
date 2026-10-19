@@ -104,7 +104,7 @@ def add_execution_tools(
 
     @mcp.tool(annotations=write)
     def cancel_result(workspace_id: str, result_id: str, request: RunAction) -> dict[str, Any]:
-        """Cancel before branch application begins. Preserve code; running checks may finish."""
+        """Cancel unapproved result checks. Preserve code; running checks may finish."""
         return receipt(supervisor().results.cancel(workspace_id, result_id, request).model_dump())
 
     @mcp.tool(annotations=write)

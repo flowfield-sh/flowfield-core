@@ -7,12 +7,14 @@ import {
   fixtureProject,
   existingDirectory,
   projectWorkspace,
+  stubResourcePresence,
 } from "./support";
 
 test("mixed Inbox history opens exact permission records without response controls", async ({
   page,
   request,
 }, info) => {
+  await stubResourcePresence(page);
   const project = "history-records";
   const adopted = await fixtureProject(request, {
     data: {
@@ -334,6 +336,35 @@ test("code review in Inbox approves the exact result and delivers without naviga
       name: "Testing notes or approval comment (optional)",
     })
     .fill("Reviewed the exact candidate.");
+  let releaseReceipt!: () => void;
+  let received = false;
+  const receipt = new Promise<void>((resolve) => {
+    releaseReceipt = resolve;
+  });
+  await page.route(
+    `**/api/workspaces/${workspace}/results/*/review`,
+    async (route) => {
+      const response = await route.fetch();
+      received = true;
+      await receipt;
+      await route.fulfill({ response });
+    },
+  );
+  await page.evaluate(() => {
+    const glitches: string[] = [];
+    Object.assign(window, { approvalGlitches: glitches });
+    new MutationObserver(() => {
+      for (const text of [
+        "Cancel delivery",
+        "Unsent responses to resolved requests",
+      ])
+        if (document.body.innerText.includes(text)) glitches.push(text);
+    }).observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+  });
   await page
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();
@@ -350,8 +381,26 @@ test("code review in Inbox approves the exact result and delivers without naviga
       { timeout: 15000 },
     )
     .toBe("done");
+  await expect.poll(() => received).toBe(true);
+  // SSE can resolve the request before its delayed POST receipt reaches the composer.
+  await expect(
+    reviewCard.getByRole("button", {
+      name: "Approve and integrate",
+      exact: true,
+    }),
+  ).toHaveText("Saving…");
+  releaseReceipt();
   await expect(page).toHaveURL(new RegExp(`/workspaces/${workspace}/inbox$`));
   await expect(page.getByRole("article", { name: /^Result:/ })).toHaveCount(0);
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { approvalGlitches: string[] }).approvalGlitches,
+    ),
+  ).toEqual([]);
+  await page.screenshot({
+    path: testInfo.outputPath("code-inbox-resolved.png"),
+  });
   await page.goto(
     `/workspaces/${await projectWorkspace(page.request, project)}/tasks/T-1`,
   );

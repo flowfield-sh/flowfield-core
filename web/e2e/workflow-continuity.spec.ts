@@ -27,7 +27,7 @@ test("outer navigation reuses exact views and project overview explains its envi
   });
   const tabs = () =>
     page.evaluate((id) => {
-      const saved = JSON.parse(sessionStorage.getItem(`flowfield:tabs:${id}`)!);
+      const saved = JSON.parse(localStorage.getItem(`flowfield:tabs:${id}`)!);
       return saved.tabs.map(
         (tab: { history: string[]; index: number }) => tab.history[tab.index],
       );

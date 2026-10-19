@@ -446,19 +446,14 @@ class Results:
             version = self._get(db, workspace_id, identity)
             self.workspace._current(version.revision, request.expected_revision)
             run = self._current(db, version)
-            if version.status not in ("preparing", "ready", "delivering", "blocked", "stale"):
-                raise ApplicationError(
-                    "result_closed", "This result operation is already closed.", 409
-                )
-            if (
-                version.integration_id
-                and Integrations(self.workspace).get(workspace_id, version.integration_id).status
-                == "applying"
+            if version.approved_at or version.status not in (
+                "preparing",
+                "ready",
+                "blocked",
+                "stale",
             ):
                 raise ApplicationError(
-                    "delivery_started",
-                    "Branch update started. Inspect its reconciled outcome before further action.",
-                    409,
+                    "result_closed", "This result operation is already closed.", 409
                 )
             version.status, version.problem = (
                 "cancelled",

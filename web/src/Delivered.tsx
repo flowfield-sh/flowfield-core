@@ -70,7 +70,7 @@ export function Delivered({
                 <p>Integrated into {item.target_branch}</p>
                 <Button size="sm" variant="outline" asChild>
                   <WorkspaceLink to={resultHref(workspaceId, item.id)}>
-                    Run result
+                    Access results
                   </WorkspaceLink>
                 </Button>
               </>

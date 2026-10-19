@@ -64,7 +64,7 @@ export function WorkerDocumentPicker({
                   document.id === "guidance"
                     ? "Required for every project"
                     : selected?.revision
-                      ? `Revision ${selected.revision}`
+                      ? `Revision #${selected.revision}`
                       : undefined
                 }
               >
@@ -159,7 +159,7 @@ export function WorkerDocumentEvidence({
             <WorkspaceLink
               to={`/workspaces/${item.workspace_id}/documents/${item.id}/revisions/${item.revision}`}
             >
-              {item.title} · revision {item.revision}
+              {item.title} · revision #{item.revision}
             </WorkspaceLink>
             {" · " + (item.purpose === "reference" ? "Reference" : "Required")}
             {updates
@@ -170,7 +170,7 @@ export function WorkerDocumentEvidence({
                   <WorkspaceLink
                     to={`/workspaces/${item.workspace_id}/documents/${item.id}/revisions/${update.latest_revision}`}
                   >
-                    Revision {update.latest_revision} available
+                    Revision #{update.latest_revision} available
                   </WorkspaceLink>
                 </span>
               ))}

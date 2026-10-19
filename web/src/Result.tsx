@@ -278,7 +278,7 @@ export function Result({
                 )}
                 {version.recheck_of != null && (
                   <p className="muted">
-                    Updated checks for review {version.recheck_of}; the worker
+                    Updated checks for review #{version.recheck_of}; the worker
                     submission is unchanged.
                   </p>
                 )}
@@ -300,31 +300,26 @@ export function Result({
                     </AlertDescription>
                   </Alert>
                 )}
-                {current &&
-                  ["preparing", "delivering"].includes(version.status) && (
-                    <>
-                      <p>
-                        {version.status === "preparing"
-                          ? version.completion === "code"
-                            ? "Combining changes and running checks. Stopping keeps code and output."
-                            : "Retaining and checking submitted outputs."
-                          : "Approved; waiting to update the branch. You can cancel until delivery starts."}
-                      </p>
-                      <ResultActions version={version.version}>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={busy}
-                          onClick={() => void recover("cancel")}
-                        >
-                          {version.status === "preparing"
-                            ? "Stop checks"
-                            : "Cancel delivery"}
-                        </Button>
-                      </ResultActions>
-                    </>
-                  )}
+                {current && version.status === "preparing" && (
+                  <>
+                    <p>
+                      {version.completion === "code"
+                        ? "Combining changes and running checks. Stopping keeps code and output."
+                        : "Retaining and checking submitted outputs."}
+                    </p>
+                    <ResultActions version={version.version}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => void recover("cancel")}
+                      >
+                        Stop checks
+                      </Button>
+                    </ResultActions>
+                  </>
+                )}
                 {version.status === "changes_requested" && current && (
                   <p>{version.next_action?.reason || "Changes requested."}</p>
                 )}

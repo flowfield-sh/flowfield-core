@@ -197,9 +197,10 @@ test("task keys link to persistent selections with history and draft protection"
   await page.goto(
     `/workspaces/${await projectWorkspace(page.request, "navigation")}/tasks/T-999`,
   );
+  await expect(page).toHaveURL(/\/inbox$/);
   await expect(
-    page.getByRole("heading", { name: "Task not found", exact: true }),
-  ).toBeVisible();
+    page.getByRole("tab", { name: "T-999", exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("region", { name: "New task", exact: true }),
   ).toHaveCount(0);
@@ -296,7 +297,7 @@ test("closing entity panes returns through history without duplicate collections
     .click();
   await expect(page).toHaveURL(board);
   // A fresh browser entry has no synthetic history; use the sidebar to open Board.
-  await page.evaluate(() => sessionStorage.clear());
+  await page.evaluate(() => localStorage.clear());
   await page.goto(
     `/workspaces/${await projectWorkspace(page.request, id)}/tasks/T-1`,
   );

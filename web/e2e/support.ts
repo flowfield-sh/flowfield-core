@@ -87,6 +87,20 @@ export async function stubModelCatalog(context: BrowserContext) {
   );
 }
 
+// Invented canonical records must exist in the shell's presence read too.
+// Real-resource journeys use the actual endpoint.
+export async function stubResourcePresence(page: Page) {
+  await page.route("**/view/resource-presence?*", (route) =>
+    route.fulfill({
+      json: Object.fromEntries(
+        new URL(route.request().url()).searchParams
+          .getAll("location")
+          .map((url) => [url, true]),
+      ),
+    }),
+  );
+}
+
 export function existingDirectory(path: string) {
   mkdirSync(path, { recursive: true });
   return path;

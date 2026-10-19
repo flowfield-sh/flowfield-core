@@ -1,8 +1,10 @@
 """Explicit workspace entry and shared settings; repository adoption creates no defaults."""
 
 from collections.abc import Callable
+from typing import Annotated
 
 from fastapi import APIRouter, Query
+from pydantic import StringConstraints
 
 from flowfield.agent_models import AgentSettingsEdit, AgentSettingsView
 from flowfield.application import (
@@ -93,6 +95,18 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
             include_answered=include_answered,
             project_id=project_id,
         )
+
+    @router.get("/{workspace_id}/view/resource-presence")
+    def resource_presence(
+        workspace_id: str,
+        location: Annotated[
+            list[Annotated[str, StringConstraints(max_length=4096)]],
+            Query(max_length=24),
+        ],
+    ) -> dict[str, bool]:
+        from flowfield.browser_tabs import resource_presence
+
+        return resource_presence(supervisor().workspace, workspace_id, location)
 
     @router.get("/{workspace_id}/view/delivered")
     def delivered(
