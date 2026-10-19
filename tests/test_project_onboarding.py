@@ -20,7 +20,9 @@ from flowfield.execution_models import ModelOption
 from flowfield.integration import Integrations
 
 
-def test_creation_configures_workspace_roles_separately_from_adoption(tmp_path, monkeypatch):
+def test_creation_configures_workspace_roles_separately_from_adoption(
+    tmp_path, monkeypatch, catalog_host
+):
     root = tmp_path / "agents-ready"
     root.mkdir()
     calls = []

@@ -493,9 +493,15 @@ test("validated result approval delivers real Git code with the worker queue pau
     .getByLabel("Testing notes or approval comment (optional)", { exact: true })
     .fill("Keyboard checked; mobile not tested.");
   await page.screenshot({ path: testInfo.outputPath("approval-comment.png") });
+  const approvalResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`${base}/results/${seed.result}/review`) &&
+      response.request().method() === "POST",
+  );
   await page
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();
+  expect((await approvalResponse).ok()).toBe(true);
   await page.goto(`${base.replace("/api", "")}/tasks/T-1`);
   const approval = page.locator('[data-kind="approval"] .activity-entry');
   await expect(approval).toBeVisible();

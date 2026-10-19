@@ -119,7 +119,9 @@ def test_explicit_creation_adoption_scope_and_no_implicit_resources(tmp_path, mo
         assert not (state / "coordinators").exists()
 
 
-def test_shared_role_settings_validate_in_managed_home_and_preserve_queue(tmp_path, monkeypatch):
+def test_shared_role_settings_validate_in_managed_home_and_preserve_queue(
+    tmp_path, monkeypatch, catalog_host
+):
     calls = []
 
     async def discover(directory, *, cwd, registration, on_cleanup, **kwargs):
