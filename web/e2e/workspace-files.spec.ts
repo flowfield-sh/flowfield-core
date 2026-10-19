@@ -68,6 +68,23 @@ test("workspace files organize retained task outputs without a project", async (
   await expect(
     files.getByRole("list", { name: "Folder contents" }).locator("li"),
   ).toHaveCount(55);
+  const contents = files.getByRole("list", { name: "Folder contents" });
+  const lastFile = contents.getByRole("button").last();
+  await contents.hover();
+  await page.mouse.wheel(0, 10000);
+  await expect(lastFile).toBeInViewport();
+  await lastFile.click();
+  await expect(
+    files
+      .getByRole("region", { name: "File details", exact: true })
+      .getByRole("heading"),
+  ).toBeInViewport();
+  await expect(
+    files.getByRole("navigation", { name: "Files by work" }),
+  ).toBeInViewport();
+  await lastFile.hover();
+  await page.mouse.wheel(0, -10000);
+  await expect(contents.getByRole("button").first()).toBeInViewport();
   await files
     .getByRole("navigation", { name: "Files by work" })
     .getByRole("button", { name: "All files", exact: true })

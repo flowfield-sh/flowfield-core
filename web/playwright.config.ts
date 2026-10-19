@@ -12,11 +12,15 @@ export default defineConfig({
   workers: 2,
   forbidOnly: !!process.env.CI,
   projects: [
-    { name: "journeys", testIgnore: "notifications.spec.ts" },
+    {
+      name: "journeys",
+      testIgnore: ["notifications.spec.ts", "workspace-events.spec.ts"],
+    },
     {
       name: "notifications",
-      testMatch: "notifications.spec.ts",
-      // These journeys change service-wide preferences and exercise shared delivery claims.
+      testMatch: ["notifications.spec.ts", "workspace-events.spec.ts"],
+      workers: 1,
+      // Service-wide preferences, delivery claims and event counts need isolated fixtures.
       dependencies: ["journeys"],
     },
   ],

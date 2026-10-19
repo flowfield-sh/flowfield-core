@@ -142,9 +142,12 @@ export function Files({
   }
   const parts = path.split("/").filter(Boolean);
   return (
-    <section className="setup-page @container" aria-label="Files">
-      <div className="grid min-h-0 grid-cols-[6rem_minmax(0,1fr)] gap-3 @2xl:grid-cols-[7rem_minmax(10rem,1fr)_minmax(0,2fr)]">
-        <nav aria-label="Files by work" className="min-w-0 border-r pr-2">
+    <section className="files-page @container p-5" aria-label="Files">
+      <div className="grid h-full min-h-0 grid-cols-[6rem_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] gap-3 @2xl:grid-cols-[7rem_minmax(10rem,1fr)_minmax(0,2fr)] @2xl:grid-rows-[minmax(0,1fr)]">
+        <nav
+          aria-label="Files by work"
+          className="files-scroll min-h-0 min-w-0 overflow-y-auto border-r pr-2"
+        >
           <ContentStack>
             <Button
               variant="ghost"
@@ -187,7 +190,11 @@ export function Files({
             )}
           </ContentStack>
         </nav>
-        <ContentStack space="section" className="min-w-0">
+        <ContentStack
+          space="section"
+          className="files-scroll min-h-0 min-w-0 overflow-y-auto"
+          aria-label="File listing"
+        >
           <div className="flex flex-wrap items-center gap-2">
             <nav
               aria-label="File location"
@@ -310,8 +317,9 @@ export function Files({
           )}
         </ContentStack>
         <aside
+          key={entry?.id}
           aria-label="Selected file"
-          className="col-span-2 min-w-0 border-t pt-4 @2xl:col-span-1 @2xl:border-t-0 @2xl:border-l @2xl:pt-0 @2xl:pl-4"
+          className="files-scroll col-span-2 max-h-[40vh] min-h-0 min-w-0 overflow-y-auto border-t pt-4 @2xl:col-span-1 @2xl:max-h-none @2xl:border-t-0 @2xl:border-l @2xl:pt-0 @2xl:pl-4"
         >
           {entry?.file && <FileDetails key={entry.id} entry={entry} />}
           {!entry?.file && (

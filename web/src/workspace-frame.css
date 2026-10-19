@@ -155,7 +155,8 @@
   padding: 0;
   overflow: hidden;
 }
-.workspace-work-content.workspace-detail-content > .entity-pane {
+.workspace-work-content.workspace-detail-content > .entity-pane,
+.workspace-work-content.workspace-detail-content > .files-page {
   flex: 1;
   min-height: 0;
 }
