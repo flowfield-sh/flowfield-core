@@ -3,9 +3,9 @@ title: Getting started
 description: Create a workspace, shape a useful first task, and review its result.
 ---
 
-Flowfield keeps your planning conversation, shared context and agent work together. Start with one existing repository, then add related projects when you need them.
+Flowfield keeps the plan, context, agent work and reviewed results together. Plan with the Coordinator, let workers carry out focused tasks, and decide which exact code to deliver. Start with one existing repository, then add related projects when you need them.
 
-For reports, datasets or other files, you can also start with an empty workspace. Describe the outcome to the Coordinator, prepare a workspace task. [File delivery](/files) uses the shared queue without repository setup.
+For reports, datasets or other files, start with a workspace and skip repository setup. Ask the Coordinator to prepare a file task with clear success criteria. [File delivery](/files) uses the same queue and independent review.
 
 ![A Flowfield workspace with its Coordinator and shared board](/images/board-overview.png)
 
@@ -34,22 +34,26 @@ See [Workspaces and projects](/workspaces) when coordinating several repositorie
 
 ## Shape the first task
 
-Choose the Coordinator's harness and model beside its input, save, and describe the problem. For example:
+Describe the problem to the Coordinator. The model you selected at workspace creation is ready in its input controls. For example:
 
 > People get stuck importing their first catalog. Read the existing code and instructions, help me narrow the scope, and prepare a small task with clear success criteria.
 
 Work through assumptions and tradeoffs before queuing implementation. Edit documents directly; use the Coordinator to maintain tasks. Open a task beside the conversation to discuss its definition or a particular result.
 
-Before running workers, ask the Coordinator to configure the project's delivery branch, setup commands and checks, then validate setup. Choose a worker harness and model in **Workspace settings → Workers**. [Worker setup and checks](/worker-setup) explains configuration and local result previews.
+Before running code tasks, ask the Coordinator to configure the project's delivery branch, setup commands, checks and a useful Run command, then validate setup. Workspace settings retain your Worker and Reviewer choices. [Worker setup and checks](/worker-setup) explains configuration and local result previews.
 
 ## Run the task
 
-Move the prepared task to **Up next** and choose **Run queue**. Its status explains any missing setup, input or prerequisite. Eligible work runs in an isolated checkout; open the task to follow activity.
+Ask the Coordinator to place the prepared task in **Up next**, then choose **Run queue** in the sidebar. Its status explains any missing setup, input or prerequisite. Eligible work runs in an isolated checkout; open the task to follow activity.
 
-Questions and reviews appear in **Inbox**. A saved worker answer continues managed work when the queue permits it. **Pause queue** prevents new starts while active workers continue; **Stop worker** stops one attempt.
+Questions and decisions appear in **Inbox → Needs me**. Send an answer there or open its exact request. A saved worker answer continues managed work when the queue permits it. **Pause queue** prevents new starts while active work continues; ask the Coordinator to stop a specific worker or review when needed.
 
 ## Review the result
 
-Read the worker's report and project checks. Inspect **Code changes**, or use **Run result** to test an independent copy. Request changes when needed. When the exact result is ready, choose **Approve and integrate** and confirm, or explicitly approve that result in the Coordinator conversation.
+The configured Reviewer assesses the whole task and can request corrections before handing code back to you. Read the result, reviewer findings, checks and limitations. Inspect **Code changes**, or copy the **Run result** command into your terminal to try an independent copy. Opening the result prepares that copy; it does not start the application.
 
-Flowfield delivers approved code to the configured checkout before marking the task **Done**. If local changes block delivery, follow the recovery action without discarding your work. See [Tasks, Inbox and review](/tasks) for dependencies, feedback and recovery.
+Choose **Request changes** for another pass. When the exact code is ready, choose **Approve and integrate** and confirm, or explicitly approve that result in the Coordinator conversation. Flowfield delivers it to the configured local branch and checkout before marking the task **Done**. If local changes block delivery, follow the recovery action without discarding your work.
+
+## Return to the outcome
+
+Open **Inbox → Delivered** to revisit completed work. Complete reports and files finish after the configured review without a code-approval step; their outputs remain in **Files**. The task feed retains questions, answers, corrections and earlier results. See [Results, review and delivery](/review) for exact approval and recovery.

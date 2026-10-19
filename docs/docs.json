@@ -17,14 +17,21 @@
         ]
       },
       {
-        "group": "Workflow",
+        "group": "Plan and run work",
         "pages": [
           "workspaces",
           "coordinator",
           "documents",
-          "files",
           "tasks",
           "worker-setup"
+        ]
+      },
+      {
+        "group": "Review and use results",
+        "pages": [
+          "inbox",
+          "review",
+          "files"
         ]
       },
       {

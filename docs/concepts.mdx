@@ -3,7 +3,7 @@ title: How Flowfield works
 description: The roles, work records and approval boundaries behind a coding conversation.
 ---
 
-Flowfield is a workspace behind your coding conversation. You and the Coordinator shape the problem and keep the plan current; workers implement bounded tasks while the service tracks execution and delivers approved results.
+Flowfield is a workspace for you and your coding agents. Shape the plan in one conversation, give workers the context they need, and keep review and delivery attached to the outcome.
 
 ## People and agents
 
@@ -12,6 +12,7 @@ Flowfield is a workspace behind your coding conversation. You and the Coordinato
 | You | Define what matters, prioritize work, answer questions and approve exact code results. |
 | Coordinator | Explore ideas, maintain shared context, organize tasks and help review outcomes. |
 | Workers | Complete assigned tasks in isolated directories or repository checkouts. |
+| Reviewer | Assess the whole task result, request corrections and surface decisions needing you. |
 | Service | Schedule eligible work, retain execution evidence and deliver authorized results. |
 
 The Coordinator can keep planning while workers run. Browser, CLI and Flowfield tools act on the same records; opening a task or inspecting code starts no worker and grants no approval.
@@ -31,16 +32,18 @@ A task describes an outcome and success criteria. Repository changes belong to a
 
 ## The board and queue
 
-The board shows **Backlog → Up next → In progress → In review → Done**. Priority, readiness and human attention are separate: an Up next task may still need setup or clarification. The workspace's shared queue starts eligible work when dependencies and worker capacity allow it.
+The board shows **Backlog → Up next → In progress → In review → Done**. Automatic implementation and assessment remain In progress; In review means a human decision or approved delivery is pending. An Up next task may still need setup or clarification. The shared queue starts eligible work when dependencies and capacity allow it.
 
-[Tasks, Inbox and review](/tasks) covers scheduling, questions, feedback and recovery. Inbox is the single place to find work needing your attention; notifications point back to it.
+[Tasks and execution](/tasks) covers preparation, scheduling and local subtasks. [Inbox](/inbox) separates decisions in Needs me, completed outcomes in Delivered and earlier responses in History. Notifications point back to the relevant item.
 
 ## Agent settings and permissions
 
-The Coordinator has its own harness/model choice. Workspace worker defaults apply to tasks unless a task overrides them. Project settings own setup, checks and the delivery branch. See [agent setup](/agents/overview) and [worker configuration](/worker-setup).
+Choose Codex, Claude Code or Pi independently for the Coordinator, Workers and Reviewer. Workspace worker/reviewer defaults apply unless a task overrides them; running attempts retain their captured choices. Project settings own setup, checks and the delivery branch. See [agent setup](/agents/overview) and [worker configuration](/worker-setup).
 
 Native tool permissions govern agent actions on the service host. A tool permission decision is separate from human approval to deliver worker code.
 
 ## Results and approval
 
-A result records an outcome, submitted files and verification evidence. Approval identifies the exact code candidate and destination; a changed candidate needs another review. Flowfield validates and delivers approved code while preserving conflicting local changes. A file or report task finishes when its agreed outcome is complete and its submitted files are retained and the configured task review passes. Browse those files and their source results in [Files](/files).
+A result records the outcome, submitted files and verification evidence. The configured Reviewer assesses the complete direct or assembled task. Code still needs your exact approval: the candidate and destination are bound to that decision. Flowfield validates and delivers approved code while preserving conflicting local changes. Complete files and reports finish after their outputs are retained and configured review passes. See [review and delivery](/review) and [Files](/files).
+
+Delivery is local. It does not push, deploy or publish, and tasks across repositories have separate approvals. A completed result remains a stable snapshot when later work changes its prerequisites.

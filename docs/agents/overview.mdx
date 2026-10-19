@@ -1,6 +1,6 @@
 ---
 title: Agent setup
-description: Use your native coding harness for the Coordinator, workers or a standalone conversation.
+description: Use your native coding harness for the Coordinator, Workers, Reviewer or a standalone conversation.
 ---
 
 Use [Codex](/agents/codex), [Claude Code](/agents/claude-code), [Pi](/agents/pi), or a mix. Flowfield includes their integrations; native accounts, providers and advanced settings stay with each harness.
@@ -8,7 +8,7 @@ Use [Codex](/agents/codex), [Claude Code](/agents/claude-code), [Pi](/agents/pi)
 ## Setup
 
 1. Install and sign in to a supported harness on the machine running Flowfield.
-2. Choose the Coordinator's harness/model beside its input. Choose worker defaults in **Workspace settings → Workers**; tasks can override them.
+2. Select Coordinator, Worker and Reviewer choices when creating a workspace. Update them in workspace settings; the Coordinator input edits the same saved choice. Tasks can override Worker and Reviewer defaults.
 3. Configure and validate [project integration](/worker-setup) before running workers.
 
 **Settings → Harnesses** detects installations. Override executable or configuration-directory paths only when detection needs help. **Verify installation** checks version and native sign-in for Codex/Claude Code; Pi verification checks version, while provider access remains in Pi. It sends no model prompt. Successful use establishes model access.
@@ -19,7 +19,7 @@ Models load when you open a selector; saved choices preload on open and reconnec
 
 ## Flowfield tools
 
-Built-in Coordinator and workers receive [MCP](https://modelcontextprotocol.io/docs/getting-started/intro) connections automatically, scoped to their workspace or task attempt. Coordinator repository operations name a member project; workers retain their assigned checkout and selected context. Browser, CLI and tools share the same revision, saved-answer and exact-approval rules.
+Built-in Coordinator, workers and reviewers receive [MCP](https://modelcontextprotocol.io/docs/getting-started/intro) connections automatically, scoped to their workspace or task attempt. Coordinator repository operations name a member project; workers retain their assigned checkout and selected context. Browser, CLI and tools share the same revision, saved-answer and exact-approval rules.
 
 Native instructions and extensions can still apply. Reconcile relevant conventions through [workspace documents](/documents); selecting an access mode or allowing a tool never approves worker code delivery.
 

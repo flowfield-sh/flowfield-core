@@ -1,7 +1,7 @@
 <h1 align="center">Flowfield</h1>
 
 <p align="center"><strong>Ship software. Not slop.</strong></p>
-<p align="center">A workspace for you and your coding agents.<br>Work through the idea, keep the context, and build across projects without losing the plot.</p>
+<p align="center">A workspace for you and your coding agents.<br>Shape the plan, build across projects, and bring every outcome through review.</p>
 
 <p align="center">
   <a href="https://flowfield.sh">Website</a> · <a href="https://docs.flowfield.sh/getting-started">Get started</a> · <a href="https://docs.flowfield.sh">Documentation</a>
@@ -13,13 +13,13 @@
   <a href="https://github.com/flowfield-sh/flowfield-core/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-2563eb" alt="Apache 2.0 license"></a>
 </p>
 
-![The workspace board and Coordinator, with work spanning several projects](https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/board-hero.png)
+![The Coordinator beside task priorities, review and delivered outcomes](docs/images/board-hero.png)
 
 The idea is in one conversation. The implementation is in another. An agent needs an answer, a task is waiting on another task, and the reason you chose this approach is buried twenty messages back.
 
-**Flowfield gives that work a home.** Delegate planning and coordination through one conversation while workers carry out focused tasks in your existing repositories. Shared knowledge stays in versioned documents, and questions and reviews come back to one Inbox. You decide what ships.
+**Flowfield gives that work a home.** Plan with the Coordinator while workers carry out focused tasks across your existing repositories. Keep shared knowledge in versioned documents, let a Reviewer assess each complete outcome, and answer questions in one Inbox. Code, reports and files stay connected to the work that produced them. You decide which code ships.
 
-Flowfield works with **Codex, Claude Code and Pi**, with more harness support coming. Choose independently for the Coordinator and workers.
+Flowfield runs locally and works with **Codex, Claude Code and Pi**. Choose independently for the Coordinator, Workers and Reviewer.
 
 ## Get started
 
@@ -30,36 +30,38 @@ uv tool install flowfield-core
 flowfield serve
 ```
 
-Open [localhost:8765](http://127.0.0.1:8765), create a workspace and add your existing repositories. See [Getting started](https://docs.flowfield.sh/getting-started) for the walkthrough or [Installation](https://docs.flowfield.sh/installation) for requirements and alternatives.
+Open [localhost:8765](http://127.0.0.1:8765), create a workspace and choose its agents. Add existing repositories for code work, or start with a report or file task. See [Getting started](https://docs.flowfield.sh/getting-started) for the walkthrough or [Installation](https://docs.flowfield.sh/installation) for requirements and alternatives.
+
+Upgrading from an earlier database schema requires a fresh data directory. Existing state is preserved but not migrated; read [Local storage](https://docs.flowfield.sh/storage#starting-fresh) before updating.
 
 ## How does Flowfield work?
 
-Ask the Coordinator to organize the work, maintain shared context and follow up on results. Use Tasks to follow progress, edit shared documents and respond through Inbox. Conversation and direct actions work on the same plan.
+Ask the Coordinator to organize work and maintain shared context. Each task owns a useful outcome, its history and delivery. Follow Tasks Board, edit documents and respond through Inbox while the same conversation stays beside the work.
 
 **💬 Shape the idea**<br>Talk through the problem with the Coordinator. It turns agreed decisions into tasks while the work continues beside the conversation.
 
-**🗂️ Connect your projects**<br>Work across your existing repositories in one workspace. The Coordinator can organize shared priorities and link dependent tasks across projects.
+**🗂️ Connect your projects**<br>Bring your API, application and documentation into one workspace. Link dependent tasks across projects, or create reports and files without a repository.
 
 **📚 Give workers the right context**<br>The Coordinator maintains shared documents and selects the sources each task needs. Prepared tasks keep their exact document revisions, and newer revisions stay visible for review.
 
-**⚡ Build in parallel**<br>Workers carry out independent tasks in separate Git checkouts using your tools and checks. Flowfield holds dependent work until its prerequisites are complete.
+**⚡ Build in parallel**<br>Workers carry out independent tasks in separate checkouts using your tools and checks. Larger tasks can use local subtasks that assemble into one result. Dependent work waits for delivered prerequisites.
 
-**📥 Know what needs you**<br>Inbox brings together questions, blockers and results. Ask the Coordinator to sort through them, or respond directly. Task feeds preserve progress, answers and evidence.
+**📥 Know what needs you**<br>Inbox separates decisions in Needs me, completed outcomes in Delivered and earlier responses in History. Answer a question once and managed work continues when eligible. Task feeds preserve the story.
 
-**🔎 Own the finish**<br>Ask the Coordinator to help review a result or request another pass. Inspect and try the code yourself when useful, then approve delivery through the conversation or task controls. Approval stays tied to the exact result.
+**🔎 Own the finish**<br>The Reviewer assesses the whole task and can request corrections. Inspect or run the result, then approve exact code for delivery to your local branch. Complete reports and files finish after configured review and remain available in Files. Pushing and deployment stay yours.
 
 ## Screenshots
 
 <table>
   <tr>
-    <td width="33%" align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/board.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/board.png" alt="Workspace board with code, file and report tasks"></a><br><strong>Tasks</strong></td>
-    <td width="33%" align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/documents.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/documents.png" alt="Shared workspace document with revision history"></a><br><strong>Documents</strong></td>
-    <td width="33%" align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/files.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/files.png" alt="Retained task files with folders and a file inspector"></a><br><strong>Files</strong></td>
+    <td width="33%" align="center"><a href="docs/images/readme/board.png"><img src="docs/images/readme/board.png" alt="Workspace board with code, file and report tasks"></a><br><strong>Tasks</strong></td>
+    <td width="33%" align="center"><a href="docs/images/readme/documents.png"><img src="docs/images/readme/documents.png" alt="Shared workspace document with revision history"></a><br><strong>Documents</strong></td>
+    <td width="33%" align="center"><a href="docs/images/readme/files.png"><img src="docs/images/readme/files.png" alt="Retained task files with folders and a file inspector"></a><br><strong>Files</strong></td>
   </tr>
   <tr>
-    <td align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/inbox.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/inbox.png" alt="Inbox with a question and code ready for review"></a><br><strong>Inbox</strong></td>
-    <td align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/task.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/task.png" alt="Task conversation with a question and reply controls"></a><br><strong>Task conversation</strong></td>
-    <td align="center"><a href="https://github.com/flowfield-sh/flowfield-core/blob/main/docs/images/readme/review.png"><img src="https://raw.githubusercontent.com/flowfield-sh/flowfield-core/main/docs/images/readme/review.png" alt="Code result with its diff, checks and review actions"></a><br><strong>Code review</strong></td>
+    <td align="center"><a href="docs/images/readme/inbox.png"><img src="docs/images/readme/inbox.png" alt="Inbox with a question and code ready for review"></a><br><strong>Inbox</strong></td>
+    <td align="center"><a href="docs/images/readme/task.png"><img src="docs/images/readme/task.png" alt="Task history with local subtasks, work and whole-task review"></a><br><strong>Task history</strong></td>
+    <td align="center"><a href="docs/images/readme/review.png"><img src="docs/images/readme/review.png" alt="Code result with its diff, checks and review actions"></a><br><strong>Code review</strong></td>
   </tr>
 </table>
 

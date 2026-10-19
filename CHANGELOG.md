@@ -4,28 +4,31 @@
 
 ### Features
 
-- Plan and deliver work as tasks, with optional internal subtasks and local dependencies. One task owns the combined result, reviewer sign-off and final delivery; code still requires exact approval.
-- Create file and report tasks without a project. Browse retained outputs by task and folder in Files, with compact navigation and a file inspector.
+- Plan and deliver work as tasks, with optional local subtasks and dependencies. Flowfield assembles contributions into one outcome with one task review and final delivery.
+- Give each task an independent Reviewer, with its own harness/model choice. Reviewers assess the whole result, request scoped corrections and bring questions to Inbox. Code still requires your exact approval.
+- Create reports, images and datasets without a repository. Browse retained outputs in Files, preview images, CSV, text, Markdown and code, and supply exact files to later tasks.
+- Work from an Inbox with Needs me, Delivered and History. Answer requests directly, return to completed outcomes and keep related tasks, documents and results open beside the Coordinator.
 
 ### Improvements
 
-- Prepare and execute tasks directly from their agreed requirements, without maintaining a separate progress checklist. Worker activity, checks and reviewer sign-offs retain the execution history.
-- Follow purpose, progress, questions and results on one task page. Internal work stays disclosed, and worker and reviewer overrides live in task Settings.
-- Preview CSV tables, text, Markdown and code alongside images in Files and results. Maintain the workspace label catalogue in General settings, and read task history in compact work/correction/follow-up panels.
-- Open code results with a directly visible, copyable launch command. Document editors have their own links, and task feeds load the full event list with deliberate expansion.
+- Keep task purpose, local contributions, questions, corrections and reviewer sign-offs in one chronological feed. Exact requests and results own response actions, while task Settings holds Worker and Reviewer overrides.
+- Configure document usage from its editor, including defaults for tasks without a project. Prepared assignments keep their selected revisions. Maintain the shared label catalogue in workspace settings.
+- Try exact code results through a directly visible launcher, inspect their diffs and approve delivery to the configured local branch. Project settings can explicitly permit workers to run saved validation commands through Flowfield.
 
 ### Bug fixes
 
-- Keep approval controls disabled while saving and apply the saved decision immediately, without briefly showing the previous approval actions.
-
-- Keep model selection explicit when navigating to Tasks; opening a page no longer opens the Coordinator model selector automatically.
-- Keep completed tasks and their delivered results stable when prerequisite work changes later, without unnecessary warnings or downstream reconciliation.
-- Keep task pages at the reader's position while worker/reviewer output follows its latest entry until the reader scrolls up. Show one active review indicator with its exact result number. Show saved Coordinator replies directly without a broken full-reply control.
+- Preserve saved answers and review context through correction and recovery, keep resolved requests historical when reopening work, and retain completed deliveries when prerequisites change later.
+- Keep approval controls disabled while saving and apply the saved decision immediately. Preserve unrelated drafts and reading positions during navigation and refresh.
+- Render saved Coordinator replies directly, keep task pages stationary while expanded activity follows new output, and avoid turning a single notification timeout into a service-wide interruption.
 
 ### Breaking changes
 
 - Milestones and their separate board, review and delivery controls are replaced by workspace tasks. Task APIs, MCP tools and CLI commands use workspace identity; older task and milestone routes are removed.
-- Older Flowfield databases are no longer migrated. Start with a fresh data directory when the schema differs; existing databases are rejected without automatic deletion. The pre-upgrade database backup and restore commands have been removed. See [local storage](https://docs.flowfield.sh/storage).
+- Older Flowfield databases are no longer migrated. Existing incompatible stores are rejected without automatic deletion. The earlier database backup and restore commands are removed.
+
+### Upgrade
+
+Stop Flowfield and preserve the complete old data directory and relevant repositories before upgrading. Start this version with a new data directory, create a workspace and adopt your existing repositories. Older state requires its matching build for access; native harness accounts remain separate. See [starting fresh](https://docs.flowfield.sh/storage#starting-fresh).
 
 ## 0.5.0
 

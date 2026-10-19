@@ -1,13 +1,11 @@
 ---
-title: Tasks, Inbox and review
-description: Prioritize work, resolve questions and decide which exact results to deliver.
+title: Tasks and execution
+description: Turn an agreed outcome into focused work, with dependencies and optional local subtasks.
 ---
 
-Open a task from Work or Tasks Board. **Task** shows its purpose, related work and chronological conversation. Local subtasks appear directly beneath its purpose. **View result** opens the exact result with checks, inspection and review controls. **Settings** configures its worker and reviewer overrides.
+A task owns an outcome, its success criteria, sources, activity, results and final delivery. Ask the Coordinator to create and prepare tasks; use **Tasks Board** to follow the plan. Repository work belongs to one project. Reports and files can belong directly to the workspace.
 
-The task feed loads all dated definition changes, captured sources, questions, worker attempts and results. Bordered panels separate initial work, requested corrections and follow-ups after reopening. Each panel keeps questions, work, review and delivery in order. Events start collapsed, including active work. Worker and reviewer output opens at the latest entry and follows new output within its panel. Scroll up to inspect earlier output; return to the bottom to resume following. The surrounding task feed stays in place. Click a row or its status dot to read its evidence or collapse it again. Timestamps show the exact time on hover or focus. Discuss plans in the Coordinator. Open a request or result to answer its question, request changes or approve the selected result.
-
-Each Inbox ask has a stable **Request** link. Use the header’s **Open request in work tab** button to respond in a separate tab; the source badge opens its task or project. Inbox History opens the same Request after resolution. Drafts and responses are shared across these views, and earlier requests keep their original evidence and approval bindings. The Coordinator can reference requests directly with `list_requests` and `get_request`.
+Open a task to read its purpose, related work, optional **Subtasks** and chronological feed. **Settings** holds Worker and Reviewer overrides. Questions and result decisions open in [Inbox or their exact request](/inbox); [results](/review) own inspection, feedback and approval.
 
 ## Define useful work
 
@@ -43,68 +41,9 @@ A task can depend on tasks in other projects within the same workspace. Prerequi
 
 Completed tasks retain their delivered results and captured inputs when prerequisite work changes later. They do not need updating or reconciling. Create a new task for a new outcome, or explicitly reopen the task you want to correct; earlier results remain available. Unfinished dependent work still requires ready prerequisites and reconciliation when its inputs change. Archiving unfinished work does not satisfy its dependents.
 
-## Follow an attempt
-
-Open an **In progress** task to follow the worker's activity. The worker should finish by submitting an outcome with its checks and limitations, or asking a blocking question. A final chat summary alone does not create a reviewable result.
-
-If a worker ends normally without either, Flowfield immediately gives it one reminder in the same session and checkout. The reminder appears in activity and asks it to report the work already performed, including partial progress or a blocking question when appropriate. The worker keeps its existing tools and permissions; submitted code still requires your exact approval.
-
-Normal submissions need no extra model turn. When the reminder is needed, it uses additional model tokens; its cost depends on the session context, model and caching, not just the reminder's length. It keeps the worker slot occupied until the attempt ends and cleanup is confirmed. If the worker still finishes without a submission or question, work is preserved and the attempt needs inspection and explicit retry.
-
-Ask the Coordinator to stop active task workers; unfinished work is preserved. **Retry worker** queues a fresh attempt; it respects pause, dependencies and capacity. Follow the displayed recovery action if native cleanup is uncertain. The reporting reminder does not restart stopped or interrupted attempts.
-
-## Work through Inbox
-
-Inbox has three tabs: **Needs me** for human decisions, **Delivered** for completed outcomes, and **History** for past responses, including answers awaiting Coordinator follow-up. Its badge counts actionable requests. Each request identifies its source, explains the decision and offers the relevant response controls directly in Inbox. Expand evidence or follow the source link when you need more context. Resource links from Inbox open a separate work tab; Inbox keeps its selected view.
-
-**Delivered** lists completed tasks by delivery time, with their outcome, saved files or code destination. Opening a result leaves it in the list. Recent delivered tasks also appear in the sidebar; select a Delivered entry to open its exact result. Archived tasks remain available in **Archive**.
-
-Resolved requests disappear from **Needs me** as you respond. Drafts on other requests stay in place, including on pages you have already loaded. Failed saves keep your input; if another session resolves a request while you are writing, discard your retained draft when you are ready.
-
-| Item | Next action |
-| --- | --- |
-| Question | Read the context, choose a suggested answer or write your own, then send it. Worker answers continue managed work when eligible; planning answers need the Coordinator to resume and reconcile them. |
-| Result | Read the selected result and destination, optionally try or inspect it, then request changes or approve and integrate it. |
-| Intervention | Inspect the failure or blocker and follow its recovery action. |
-| Tool permission | Allow or deny the native request while its turn is waiting. This grants no code-delivery approval. |
-
-Suggested answers fill the composer; selecting one does not send it. Responses stay bound to the question or result you were reviewing. If that request changes while you are typing, your draft is preserved and cannot silently approve or answer its replacement.
-
-Saved worker answers need no separate human apply step. Once assigned to a continuation, the answer remains in history; send a correction as new input rather than replacing it. Answering or retrying never enables a paused queue. The same actions are available from the task, and the Coordinator can help sort the Inbox and follow up. **Needs me** contains only unresolved requests. Once resolved, an item moves to compact **History**; if you still have an unsent response, it remains bound to that record in History until you discard it. Approved results with blocked delivery remain actionable as recovery requests.
-
-## Independent task review
-
-In **Workspace settings → Reviewers**, choose the native harness and model for **Task reviewer**. Assessment defaults on, but no model is selected automatically. A task's **Settings** can override the workspace choice or reset to inheritance. Subtasks use their parent task’s worker settings and have no separate reviewer.
-
-Complete code and file outcomes receive an independent assessment against their exact assignment, sources, destination and saved validation. Reviews share worker capacity and respect the queue: pausing prevents new rounds, while an active round continues. The reviewer inspects the saved candidate and validation evidence; this review does not execute project checks itself.
-
-Reviewer sign-offs appear on the task and in the exact result. The reviewer can ask the implementer a scoped clarification, request an in-scope correction, or send an intent, scope or access question to Inbox. Saved human answers continue the review without another apply step. A correction produces a new candidate and fresh independent assessment. Changes to the agreement or authority require Coordinator reconciliation; an answer does not silently amend them. Waiting for an answer releases capacity.
-
-Ask the Coordinator to stop a review; stopping preserves the candidate and findings. Failed or stopped reviews require explicit **Retry review**. If cleanup is uncertain, inspect **Review rounds and diagnostics**, confirm the retained processes have stopped, then retry. Uncertain execution keeps its capacity reserved. Changed inputs make an assessment outdated and retain its evidence; questions belonging to that assessment are withdrawn with their saved answers preserved.
-
-An independent approval recommends the candidate. Code delivery still needs your exact approval. Complete file and report results finish after the configured review. Stop an active review before making a manual result decision. Assessment alone grants no delivery authority.
-
-## Review an exact result
-
-Read the worker report, limitations and checks against the task's success criteria. Project checks and worker-authored tests are useful evidence; try representative inputs or ask the Coordinator to investigate gaps before deciding what ships.
-
-**Run result** opens the selected code result with its copyable launch command directly visible. **Code changes** shows the candidate's changed files and diff. Supporting files remain available below the outcome. See [worker setup](/worker-setup#try-a-result). Trying or inspecting a result grants no approval.
-
-![Code changes and exact-result review beside the Coordinator](/images/code-review.png)
-
-Choose **Request changes** to send concrete feedback for another pass. Attach relevant files or testing observations when needed. Or choose **Approve and integrate**, confirm the selected result and optionally include a testing comment. Explicit approval in the Coordinator conversation records the same exact decision without a second browser confirmation.
-
-Flowfield checks and delivers the approved candidate to the configured project checkout. Conflicting local changes remain intact. Resolve the reported blocker and use its delivery retry action; if the candidate changes, review and approve the new result. A complete report-only result can finish without code approval.
-
-## Stay oriented
-
-Saved definitions, answers, feedback, reviewer activity and results remain in the task feed. Disclosure choices persist, and older results stay inspectable through their exact links. Tasks contain information, history and settings. Open the linked request or result to respond, review or inspect delivery; these are also available in Inbox and the recent sidebar. Request and result cards have an upper-right **Open in work tab** icon, and their task badge opens the task. Numeric context occupancy appears beside the worker's ring, with reported consumed tokens labeled separately.
-
-Optional Inbox notifications link back to the item. Configure in-app and system delivery in **Settings → Notifications**; system notifications require browser permission and an open Flowfield page. Closing an alert answers no question and approves no result. Update announcements lead to **Settings → Updates**; see [installation](/installation#update).
-
-Ask the Coordinator to archive work you set aside after reconciling active work, reviews and questions. Restoring a task retains its previous work state; Archive is not completion.
-
 ## Work within a task
+
+![A task with local subtasks, dependencies and its activity feed](/images/task.png)
 
 A task can run directly or contain one level of subtasks. Ask the Coordinator to split work when independent contributions or a concrete dependency make execution clearer. Subtasks appear directly in the task’s **Subtasks** section; the board and sidebar continue to show the task.
 
@@ -115,3 +54,21 @@ When every contribution is ready, Flowfield assembles one task result and checks
 A correction can target a contribution and invalidate its downstream dependents while retaining independent completed work. A changed task agreement or selected source requires fresh preparation. Earlier results, files and sign-offs remain in history.
 
 Tool permission requests remain pending while the native session is waiting. Stopping the session or service cancels an undelivered request; saved decisions are never replayed into a replacement session. Task access settings apply to the next attempt.
+
+## Follow an attempt
+
+Open an **In progress** task to follow the worker's activity. The worker should finish by submitting an outcome with its checks and limitations, or asking a blocking question. A final chat summary alone does not create a reviewable result.
+
+If a worker ends normally without either, Flowfield immediately gives it one reminder in the same session and checkout. The reminder appears in activity and asks it to report the work already performed, including partial progress or a blocking question when appropriate. The worker keeps its existing tools and permissions; submitted code still requires your exact approval.
+
+Normal submissions need no extra model turn. When the reminder is needed, it uses additional model tokens; its cost depends on the session context, model and caching, not just the reminder's length. It keeps the worker slot occupied until the attempt ends and cleanup is confirmed. If the worker still finishes without a submission or question, work is preserved and the attempt needs inspection and explicit retry.
+
+Ask the Coordinator to stop active task workers; unfinished work is preserved. **Retry worker** queues a fresh attempt; it respects pause, dependencies and capacity. Follow the displayed recovery action if native cleanup is uncertain. The reporting reminder does not restart stopped or interrupted attempts.
+
+## Read the task story
+
+The feed keeps definition changes, captured sources, questions, answers, worker activity, numbered results and reviewer sign-offs in order. Work cycles group initial work, corrections and follow-ups after reopening. Events start collapsed; expand the evidence you need. Exact-time tooltips accompany relative timestamps.
+
+The task page stays at your reading position. Open worker or reviewer output to follow new entries inside that panel; scroll up to read earlier output and return to the bottom to follow again. Manual disclosure choices survive work-tab navigation. Numeric context occupancy and reported consumed tokens are separate measurements.
+
+The task is a record of the work. Follow its request or result link to answer, request changes, retry a failed review or approve code. Ask the Coordinator to archive work you set aside after reconciling active attempts and questions; restoring retains its earlier state. Archive is not completion.

@@ -23,7 +23,7 @@ Enter one shell command per line for setup and validation. Choose commands appro
 
 Setup and checks run in the worktree directory and must leave source files unchanged. Keep dependency outputs ignored; use `FLOWFIELD_RUNTIME_DIR` for temporary files and `FLOWFIELD_WORKSPACE` for the checkout path. Checks must finish and return a failing exit code on failure. A development server belongs in Run command, not validation.
 
-Read failed validation output, fix the scripts or configuration and validate again. Revalidate after changing setup, checks or the destination branch. Setup and validation commands have configured timeouts. Follow an active worker and use **Stop worker** from the [task conversation](/tasks#follow-an-attempt).
+Read failed validation output, fix the scripts or configuration and validate again. Revalidate after changing setup, checks or the destination branch. Setup and validation commands have configured timeouts. Follow an active worker in its [task feed](/tasks#follow-an-attempt), and ask the Coordinator to stop it when needed.
 
 The Coordinator can discover environment requirements from your repository and clarify data, service and access choices in the main conversation. Save reusable setup in repository scripts and project settings so a fresh worker can reproduce it. Setup evidence records the tested commit and settings; the Coordinator can retrieve earlier observations after revalidation. A passing check establishes what ran then, not whether an external service is still available or a worker's native permissions allow the same commands.
 
@@ -41,11 +41,11 @@ For a shared service, agree the endpoint, data permissions, version assumptions 
 
 The worker cannot supply a command, working directory or environment to this operation. Commands run in its owned checkout with saved timeouts, bounded retained output and ordinary child-process cleanup. Latest full output is available through worker `read_context` pages and attempt evidence; final candidate validation still runs separately before approval.
 
-Changing integration settings or replacing the registered repository directory invalidates permission. Enable the revised settings deliberately and start a fresh attempt to adopt changed commands. Revocation prevents future calls; **Stop worker** cancels checks already running. Process cleanup uncertainty remains visible and reserves ownership until reconciled. Repository scripts must not detach services or modify shared data without explicit agreement.
+Changing integration settings or replacing the registered repository directory invalidates permission. Enable the revised settings deliberately and start a fresh attempt to adopt changed commands. Revocation prevents future calls; stopping the worker cancels checks already running. Process cleanup uncertainty remains visible and reserves ownership until reconciled. Repository scripts must not detach services or modify shared data without explicit agreement.
 
 ## Choose workers
 
-Workspace defaults apply across member projects. Task **Agent settings** can override them; each attempt retains the harness, model and host registration it started with. Changes affect subsequent attempts, and unavailable choices fail explicitly rather than substituting a model.
+Workspace defaults apply across member projects. Task **Settings → Worker** can override them; each attempt retains the harness, model and host registration it started with. Changes affect subsequent attempts, and unavailable choices fail explicitly rather than substituting a model.
 
 The Coordinator's choice is independent. Supported Fast mode can be enabled per task for subsequent attempts; it starts off and has no workspace-wide default. [Agent setup](/agents/overview) covers native accounts, discovery and permissions; [documents](/documents#supply-worker-context) covers the sources selected for workers.
 
@@ -53,6 +53,10 @@ Workers use separate Git worktrees and scoped Flowfield connections. Git isolati
 
 ## Try a result
 
-**Run result** prepares an independent copy of the selected candidate and supplies a launcher. Run it in your terminal to execute setup followed by the saved Run command. Preparing or running the copy grants no approval.
+Opening an exact code result prepares an independent copy of that candidate. Its **Run result** section shows a complete, copyable launcher. Run it in your terminal to execute setup followed by the saved Run command. Opening or copying the command starts no application process; running it grants no approval.
 
-Use the same resource-isolation rules for preview copies. Review the exact result before [approving its delivery](/tasks#review-an-exact-result).
+Make the Run command useful on its own. For an app with an API or database, use a repository-owned launcher that prepares the required components at their intended versions, uses isolated ports and data, waits for readiness, prints the browser URL and explains how to stop them. Verify that complete journey before submitting the task. Flowfield does not automatically compose services from other projects; a frontend-only command does not establish that the whole feature works.
+
+Existing copies keep their files and saved settings. A later delivery does not update them automatically. Open the result you intend to try, and follow any displayed preparation or destination recovery action.
+
+Use the same resource-isolation rules for preview copies. Review the exact result before [approving its delivery](/review#review-an-exact-result).
