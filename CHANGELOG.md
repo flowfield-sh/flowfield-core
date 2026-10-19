@@ -18,6 +18,7 @@
 ### Bug fixes
 
 - Preserve saved answers and review context through correction and recovery, keep resolved requests historical when reopening work, and retain completed deliveries when prerequisites change later.
+- Retain a subtask's existing code when correcting it against current dependencies, preserve unaffected contributions, and keep workers focused on their assigned part of the outcome.
 - Keep approval controls disabled while saving and apply the saved decision immediately. Preserve unrelated drafts and reading positions during navigation and refresh.
 - Render saved Coordinator replies directly, keep task pages stationary while expanded activity follows new output, and avoid turning a single notification timeout into a service-wide interruption.
 

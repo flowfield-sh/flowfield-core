@@ -74,6 +74,13 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
         "in checks, with unresolved constraints in limitations. "
         "Partial progress is not completion.",
     ]
+    if contribution:
+        rules.append(
+            "Use outcome=complete when your assigned contribution is implemented and verified. "
+            "Pending sibling work, assembly, parent review or human delivery alone do not make "
+            "this contribution partial. Describe implemented behavior and actual limitations; "
+            "leave current workflow status to Flowfield."
+        )
     rules.append(
         "Selected input_files are exact copies in this attempt; their names and paths are in "
         "the brief. Put deliverables in output_directory (also FLOWFIELD_OUTPUT_DIR), finish "
@@ -148,7 +155,13 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
     if present("feedback") or present("predecessor"):
         rules.append(
             "Read the preceding result and its bound feedback. Address the requested changes while "
-            "rechecking the whole agreed outcome and retaining unfinished requirements."
+            + (
+                "rechecking your whole assigned contribution and retaining its unfinished "
+                "requirements. Feedback about siblings is handoff context, not permission "
+                "to take over their work."
+                if contribution
+                else "rechecking the whole agreed outcome and retaining unfinished requirements."
+            )
         )
     if present("human_testing"):
         rules.append(

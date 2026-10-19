@@ -271,7 +271,10 @@ def test_correction_preserves_independent_contribution(tmp_path):
     assert Results(store).get(owner, result.id).status == "changes_requested"
 
 
-def test_code_assembly_review_exact_approval_and_delivered_dependency(tmp_path):
+@pytest.mark.parametrize("dependent_contribution", [False, True])
+def test_code_assembly_review_exact_approval_and_delivered_dependency(
+    tmp_path, dependent_contribution
+):
     import os
 
     from flowfield.adapters.git_workspace import baseline, git
@@ -341,7 +344,14 @@ def test_code_assembly_review_exact_approval_and_delivered_dependency(tmp_path):
         owner, task.id, SubtaskCreate(title="API", body="Implement API", completion="code")
     )
     b = children.create(
-        owner, task.id, SubtaskCreate(title="UI", body="Implement UI", completion="code")
+        owner,
+        task.id,
+        SubtaskCreate(
+            title="UI",
+            body="Implement UI",
+            completion="code",
+            dependencies=[a.id] if dependent_contribution else [],
+        ),
     )
     task = store.task(owner, task.id)
     task = store.publish_task(
@@ -364,19 +374,23 @@ def test_code_assembly_review_exact_approval_and_delivered_dependency(tmp_path):
     assemblies = TaskAssembly(store)
     assembly = assemblies.ensure(task, original, [])
     for child, name in [(a, "api.txt"), (b, "ui.txt")]:
+        child_base, inputs = assemblies.baseline(assembly, child)
         run = execution.claim(
             owner,
-            original,
-            {original: set()},
+            child_base,
+            {child_base: set()},
             task_id=task.id,
             subtask_id=child.id,
             assembly_id=assembly.id,
+            contributions=inputs,
         )
         assert run
         execution.started(owner, run.id)
-        environment = LocalHost(os.environ).prepare(store.directory, repo, run.id, original)
+        environment = LocalHost(os.environ).prepare(store.directory, repo, run.id, child_base)
         (environment.checkout / name).write_text(child.title)
-        commit, _ = environment.snapshot(original)
+        if child.id == a.id:
+            (environment.checkout / "api-contract.txt").write_text("Keep this contract")
+        commit, _ = environment.snapshot(child_base)
         result = WorkerResult(summary=f"{child.title} complete", checks="Verified file")
         execution.report_result(owner, run.id, result)
         execution.finish(owner, run.id, "in_review", result=result, commit=commit)
@@ -405,6 +419,9 @@ def test_code_assembly_review_exact_approval_and_delivered_dependency(tmp_path):
     )
     corrected = children.get(owner, task.id, a.id)
     correction_base, inputs = assemblies.baseline(assembly, corrected)
+    assert git(repo, "show", correction_base + ":api.txt") == b"API"
+    assert git(repo, "show", correction_base + ":api-contract.txt") == b"Keep this contract"
+    assert inputs == []  # The prior contribution is a predecessor, not its own dependency.
     retry = execution.claim(
         owner,
         correction_base,
@@ -422,12 +439,34 @@ def test_code_assembly_review_exact_approval_and_delivered_dependency(tmp_path):
     report = WorkerResult(summary="API versioned", checks="Checked the revised API")
     execution.report_result(owner, retry.id, report)
     execution.finish(owner, retry.id, "in_review", result=report, commit=corrected_commit)
-    assert children.get(owner, task.id, b.id).contribution_run_id == previous_ui
+    if dependent_contribution:
+        assert children.get(owner, task.id, b.id).contribution_run_id is None
+        refreshed = children.get(owner, task.id, b.id)
+        refreshed_base, refreshed_inputs = assemblies.baseline(assembly, refreshed)
+        assert git(repo, "show", refreshed_base + ":api.txt") == b"API v2"
+        assert git(repo, "show", refreshed_base + ":ui.txt") == b"UI"
+        assert [item.id for item in refreshed_inputs] == [retry.id]
+        refreshed_run = execution.claim(
+            owner,
+            refreshed_base,
+            {refreshed_base: set()},
+            task_id=task.id,
+            subtask_id=b.id,
+            assembly_id=assembly.id,
+            contributions=refreshed_inputs,
+        )
+        assert refreshed_run and refreshed_run.predecessor_id == previous_ui
+        execution.started(owner, refreshed_run.id)
+        execution.report_result(owner, refreshed_run.id, report)
+        execution.finish(owner, refreshed_run.id, "in_review", result=report, commit=refreshed_base)
+    else:
+        assert children.get(owner, task.id, b.id).contribution_run_id == previous_ui
     assert assemblies.assemble(owner, task.id)
     Results(store).process(owner)
     result = Results(store).page(owner, task.id).items[0]
     assert result.candidate_commit
     assert git(repo, "show", result.candidate_commit + ":api.txt") == b"API v2"
+    assert git(repo, "show", result.candidate_commit + ":api-contract.txt") == b"Keep this contract"
     assert git(repo, "show", result.candidate_commit + ":ui.txt") == b"UI"
     assert baseline(repo) == original
     approval = ResultReview(

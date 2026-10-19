@@ -245,7 +245,25 @@ class TaskAssembly:
                         "subtask_blocked", "A prerequisite contribution needs fresh inputs.", 409
                     )
                 runs.append(run)
-        return self._combine(value, runs), runs
+            previous = db.execute(
+                "SELECT data FROM runs WHERE workspace_id=? AND task_id=? AND subtask_id=? "
+                "ORDER BY number DESC LIMIT 1",
+                (value.workspace_id, value.task_id, child.id),
+            ).fetchone()
+            prior = Run.model_validate_json(previous[0]) if previous else None
+        # A correction starts with its own retained work as well as current dependencies.
+        # Only dependency runs become prerequisite evidence; the prior attempt remains
+        # the predecessor. Never reuse code from a different frozen task assembly.
+        corrected = (
+            [prior]
+            if prior
+            and prior.assembly_id == value.id
+            and prior.status == "changes_requested"
+            and prior.completion == child.completion
+            and prior.result_commit
+            else []
+        )
+        return self._combine(value, [*runs, *corrected]), runs
 
     def _combine(self, value: Assembly, runs: list[Run]) -> str:
         if not value.project_id:
