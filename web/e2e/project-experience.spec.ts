@@ -222,7 +222,7 @@ test("settings toasts preserve drafts, support keyboard dismissal and expire acr
   page,
   request,
 }, testInfo) => {
-  const project = "toast-settings";
+  const project = `toast-settings-${testInfo.repeatEachIndex}`;
   await fixtureProject(request, {
     data: {
       path: existingDirectory(join(state, project)),
@@ -282,6 +282,9 @@ test("settings toasts preserve drafts, support keyboard dismissal and expire acr
   await expect(failure).toHaveCount(0);
   await expect(editor).toBeVisible();
   await page.unroute(`**/api/projects/${project}`);
+  // The narrow toast temporarily covers the workspace trigger. Exercise
+  // navigation with the persistent desktop sidebar while expiry is paused.
+  await page.setViewportSize({ width: 1440, height: 1000 });
   // Keep navigation speed independent from the toast's expiry deadline in CI.
   await page.clock.install();
   await page.clock.pauseAt(new Date(Date.now() + 200));

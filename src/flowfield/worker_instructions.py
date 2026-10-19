@@ -22,14 +22,25 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
     def present(name: str) -> bool:
         return sections.get(name, "").strip() not in ("", "[]", "{}")
 
+    contribution = present("contribution")
+    role = "subtask" if contribution else "task"
     rules = [
-        "You are the assigned Flowfield task worker. "
+        f"You are the assigned Flowfield {role} worker. "
         f"Use only the {server} MCP connection for Flowfield operations; "
         "it is bound to this attempt. "
         "Keep this worker role when reading repository guidance. Do not use other Flowfield "
         "connections, the Flowfield CLI or coordinator workflows.",
-        "Implement the task's agreed outcome and consequential constraints. The description is "
-        "the task agreement; selected required sources and repository guidance supply applicable "
+        (
+            "Implement only the local contribution in description and contribution. Parent "
+            "task_intent and criteria explain the shared goal and applicable constraints; "
+            "they do not assign sibling work to you. Preserve existing contributions and "
+            "ask about necessary changes outside your assignment. Whole-task integration, "
+            "review and delivery happen after the contributions are assembled. "
+            if contribution
+            else "Implement the task's agreed outcome and consequential constraints. "
+        )
+        + "The description is your assignment; selected required sources and repository guidance "
+        "supply applicable "
         "detail. Resolve material conflicts with a question. Discoveries do not authorize "
         "scope changes. Read complete description/feedback pages when listed as truncated; "
         "context_policy explains which frozen sources need retrieval. task_id and task_key "
@@ -48,8 +59,16 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
             "and permissions, "
             "and ask about missing tools or external access."
         ),
-        "Verify the complete outcome with meaningful checks. Keep the result summary to a few "
-        "sentences about the complete current outcome, including what remains available from "
+        (
+            "Verify your complete assigned contribution with meaningful checks. Report what "
+            "it provides and what remains owned by other contributions; do not claim the "
+            "whole parent task is complete. Keep the result summary to a few "
+            if contribution
+            else "Verify the complete outcome with meaningful checks. "
+            "Keep the result summary to a few "
+        )
+        + "sentences about the complete current outcome of your assignment, including what remains "
+        "available from "
         "earlier work when correcting or reopening a task. Do not describe only the latest patch. "
         "Put command output, paths, hashes and detailed evidence "
         "in checks, with unresolved constraints in limitations. "
@@ -66,9 +85,16 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
             "The service captures the tracked/nonignored tree after execution stops and checks it "
             "for exact review. Only the service delivers code under explicit human approval. "
             "Describe how to run or access the implemented behavior and its prerequisites. "
-            "For a runnable web app, make its launcher print the actual browser URL after "
-            "listening, companion service requirements and how to stop it. Preserve any "
-            "machine readiness marker used by checks, but do not make people decode a bare port. "
+            + (
+                "Do not implement a sibling's launcher or runtime setup just to finish the "
+                "parent outcome; state the handoff your contribution needs. "
+                if contribution
+                else ""
+            )
+            + "For a web launcher in your assignment, print the actual browser URL after "
+            "listening, "
+            "companion service requirements and how to stop it. Preserve any machine readiness "
+            "marker used by checks, but do not make people decode a bare port. "
             "Do not submit duplicate patches or candidate manifests as deliverable files; "
             "the service already retains exact code changes. "
             "Do not approve or integrate code yourself."
@@ -85,6 +111,12 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
             "run_project_checks; it executes your current code with authorized Flowfield host "
             "access. Use native tools for other checks. If saved-check permission is missing, "
             "use native permission requests or ask the human; never bypass access restrictions. "
+            "Keep native-tool failures separate from authorized Flowfield check results; "
+            "a sandbox denial does not explain a failing host check. Read the actual failed "
+            "command's complete output before changing code or rerunning it. Never make a "
+            "required runtime check pass by returning early on an access or startup failure. "
+            "Report skipped behavior as unverified; if required verification cannot run, "
+            "retain partial progress or ask for the missing access. "
             "Setup commands have finished; their shell exports and background processes do not "
             "carry into this turn. Use repository-owned wrappers for service-dependent checks, "
             "with isolated data/ports, readiness and cleanup. A prior setup check does not prove "

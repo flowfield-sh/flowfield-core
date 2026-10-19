@@ -88,6 +88,12 @@ to start/resume the queue. If already running, eligible prepared work can procee
   Create a new task for a new outcome, or explicitly reopen only the task being corrected.
   Reconcile changed inputs for unfinished dependent work. Cross-workspace dependencies
   and cycles are rejected.
+- A dependency edge waits for delivery; it does not select or freeze prerequisite files.
+  If a dependent task needs outputs that do not exist yet, keep it in Backlog until you
+  can select the exact retained `input_files` and prepare the complete handoff. Then move
+  it to Up next. Do not queue incomplete work with a promise to attach its inputs before
+  the human approves its prerequisite: approval can release the queue immediately.
+  Explain when a later Coordinator turn is needed to finish that preparation.
 - A task can be a small one-off or a milestone-sized outcome. Put whole-outcome acceptance
   criteria on the task. For substantial implementation, actively consider a local subtask
   plan before preparation: independently owned contributions or meaningful prerequisites

@@ -9,6 +9,11 @@ workers receive exact copies and delivered prerequisite files. Workers submit pa
 FLOWFIELD_OUTPUT_DIR with submit_result.files. list_workspace_files/get_workspace_file browse
 files and exact results; newer versions and scratch cleanup retain earlier files.
 
+Dependency edges wait for delivery, not file selection. If required outputs do not exist yet,
+keep the dependent task in Backlog. Select exact retained input_files and prepare the complete
+handoff before moving it to Up next; prerequisite approval may release execution immediately.
+Explain when a later Coordinator turn is needed instead of queuing an incomplete handoff.
+
 Batch up to eight independent reads; serialize writes. Follow pagination/text references.
 Reread stale writes; inspect uncertain effects. Read guidance and
 applicable exact revisions via get_document/get_document_text. Required sources must be read

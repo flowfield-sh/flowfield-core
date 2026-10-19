@@ -179,6 +179,12 @@ def brief_context(sections: dict[str, str]) -> dict[str, object]:
             "their inclusion does not require reading them in full. References do not override "
             "the task agreement or required sources."
         )
+    if "contribution" in available:
+        policy += (
+            " For this subtask, description and contribution define your local assignment. "
+            "Parent task_intent and criteria constrain that assignment, not ownership of "
+            "sibling contributions or whole-task completion."
+        )
     return {
         **{key: sections.get(key, "")[:limit] for key, limit in limits.items()},
         "context": context,

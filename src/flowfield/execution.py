@@ -671,7 +671,7 @@ class Execution:
                     assignment["contribution"] = child.model_dump_json()
                     assignment["agreement"] = json.dumps(
                         {
-                            "agreement_revision": task.agreement_revision,
+                            **json.loads(assignment["agreement"]),
                             "subtask_revision": child.revision,
                             "completion": child.completion,
                             "scope": (

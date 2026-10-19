@@ -61,6 +61,12 @@ Select sent attachment or retained output IDs in input_files. Workers receive ex
 including files from delivered prerequisites. list_workspace_files/get_workspace_file browse
 durable submissions; successor results preserve older files. Workers submit paths relative to
 FLOWFIELD_OUTPUT_DIR through submit_result.files. Files remain available after attempt cleanup.
+A dependency edge waits for delivery; it does not select or freeze prerequisite files.
+If required outputs do not exist yet, keep the dependent task in Backlog. Select the exact
+retained input_files and prepare the complete handoff before moving it to Up next.
+Do not queue incomplete work with a promise to attach inputs before prerequisite approval:
+approval can release execution immediately. Explain when another Coordinator turn is needed
+to finish preparation.
 Use list_requests/get_request for stable links to individual human asks and resolved responses.
 Reference the request URL when human input is needed; source links open its task.
 Adjacent request context identifies the viewed ask, never permission to answer or approve it.

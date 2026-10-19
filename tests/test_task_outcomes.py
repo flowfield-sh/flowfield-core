@@ -188,6 +188,14 @@ def test_parallel_contributions_exact_inputs_and_single_delivery(tmp_path):
         owner, "", {}, task_id=task.id, subtask_id=b.id, assembly_id=assembly.id
     )
     assert first and second
+    assignment = execution.assignment(owner, first.id)
+    agreement = json.loads(assignment["agreement"])
+    assert agreement["repository"] is False
+    assert agreement["agreement_revision"] == task.agreement_revision
+    assert agreement["completion"] == a.completion
+    assert assignment["description"] == a.body
+    assert assignment["task_intent"] == task.body
+    assert json.loads(assignment["contribution"])["id"] == a.id
     assert (
         execution.claim(owner, "", {}, task_id=task.id, subtask_id=c.id, assembly_id=assembly.id)
         is None
