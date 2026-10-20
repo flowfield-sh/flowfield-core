@@ -3,7 +3,7 @@ title: Local storage
 description: Locate your data, inspect storage and start with a fresh store.
 ---
 
-One service data directory stores all your Flowfield workspaces. Project repositories and installed native harness configuration remain separate.
+One service data directory stores all your Flowfield workspaces. The default is `~/.flowfield` on macOS/Linux and `%USERPROFILE%\.flowfield` on Windows. Project repositories and installed native harness configuration remain separate.
 
 | Location | Contents |
 | --- | --- |
@@ -24,6 +24,10 @@ This build requires a fresh data directory when your existing database has a dif
 ```sh
 flowfield --data-dir /absolute/path/to/new-flowfield-data serve
 ```
+
+To reuse the default location, stop every Flowfield service and preserve the complete old directory and your repositories first. Rename the old directory to an unused backup name, such as `.flowfield-before-0.6.0` beside the original. Restart Flowfield to create a fresh `~/.flowfield` directory, then create your workspace and adopt the repositories again. If you used `FLOWFIELD_DATA_DIR` or `--data-dir`, apply these steps to that configured directory.
+
+After verifying your backup and deciding you no longer need the old work history, you can delete the old Flowfield directory. Keep the adopted repositories, native harness configuration and credentials.
 
 Existing repositories and native harness configuration remain separate. Startup rejects incompatible databases without modifying or deleting them. Reopening the current schema preserves saved work and queue choices; pause queues before shutdown if you want to review work before new starts resume. Interrupted workers still need recovery.
 

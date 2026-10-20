@@ -4,7 +4,7 @@
 
 ### Features
 
-- Plan and deliver work as tasks, with optional local subtasks and dependencies. Flowfield assembles contributions into one outcome with one task review and final delivery.
+- Tasks replace milestones as the unit of planning and delivery, with optional local subtasks and dependencies. Flowfield assembles contributions into one outcome with one task review and final delivery.
 - Give each task an independent Reviewer, with its own harness/model choice. Reviewers assess the whole result, request scoped corrections and bring questions to Inbox. Code still requires your exact approval.
 - Create reports, images and datasets without a repository. Browse retained outputs in Files, preview images, CSV, text, Markdown and code, and supply exact files to later tasks.
 - Work from an Inbox with Needs me, Delivered and History. Answer requests directly, return to completed outcomes and keep related tasks, documents and results open beside the Coordinator. Work tabs restore their order and navigation history when you return in the same browser.
@@ -12,6 +12,7 @@
 ### Improvements
 
 - Keep task purpose, local contributions, questions, corrections and reviewer sign-offs in one chronological feed. Exact requests and results own response actions, while task Settings holds Worker and Reviewer overrides.
+- Choose Worker and Reviewer defaults, including supported Fast mode, when creating a workspace or in workspace settings. Tasks can override these choices.
 - Configure document usage from its editor, including defaults for tasks without a project. Prepared assignments keep their selected revisions. Maintain the shared label catalogue in workspace settings.
 - Try exact code results through a directly visible launcher, inspect their diffs and approve delivery to the configured local branch. Project settings can explicitly permit workers to run saved validation commands through Flowfield.
 
@@ -29,7 +30,9 @@
 
 ### Upgrade
 
-Stop Flowfield and preserve the complete old data directory and relevant repositories before upgrading. Start this version with a new data directory, create a workspace and adopt your existing repositories. Older state requires its matching build for access; native harness accounts remain separate. See [starting fresh](https://docs.flowfield.sh/storage#starting-fresh).
+Stop all Flowfield services before upgrading. The default data directory is `~/.flowfield` on macOS/Linux and `%USERPROFILE%\.flowfield` on Windows. If you set `FLOWFIELD_DATA_DIR` or `--data-dir`, use that directory instead. Preserve the entire directory and relevant repositories, then rename the old directory to an unused backup name such as `.flowfield-before-0.6.0`. Starting Flowfield again creates a fresh store at the original location; create a workspace and adopt your existing repositories. Alternatively, start with `flowfield --data-dir /absolute/path/to/new-flowfield-data serve`.
+
+Once you have verified the backup and no longer need the old work history, you can delete that old Flowfield data directory. Keep your project repositories, native harness configuration and credentials. Old state requires its matching Flowfield build for access. See [starting fresh](https://docs.flowfield.sh/storage#starting-fresh).
 
 ## 0.5.0
 
