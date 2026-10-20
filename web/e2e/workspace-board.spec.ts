@@ -105,6 +105,21 @@ test("shared workspace board, project filters, Inbox and settings", async ({
   );
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(base + "/tasks");
+  const resources = page.getByRole("navigation", {
+    name: "Workspace resources",
+  });
+  await expect(resources.getByRole("link")).toHaveText([
+    "Inbox2",
+    "Tasks Board",
+    "Documents",
+    "Files",
+    "Projects",
+    "Archive",
+    "Settings",
+  ]);
+  await expect(
+    resources.getByRole("link", { name: "Inbox 2", exact: true }),
+  ).toBeVisible();
   await expect(
     page
       .locator(".workspace-resource-content")
@@ -166,6 +181,13 @@ test("shared workspace board, project filters, Inbox and settings", async ({
   await expect(
     page.getByTestId("work").getByText("Site release scope?", { exact: true }),
   ).toHaveCount(0);
+  await openResource(page, "Projects");
+  await resources.getByRole("link", { name: "Inbox 2", exact: true }).click();
+  await expect(page).toHaveURL(`${base}/inbox`);
+  await expect(page.getByLabel("Filter by project")).toHaveValue("");
+  await expect(
+    page.getByTestId("work").getByText("Site release scope?", { exact: true }),
+  ).toBeVisible();
   await openResource(page, "Projects");
   await expect(page.getByRole("link", { name: /board-site/ })).toBeVisible();
   await openResource(page, "Settings");

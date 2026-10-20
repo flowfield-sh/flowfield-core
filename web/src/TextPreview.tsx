@@ -5,6 +5,7 @@ import { useResource } from "./useResource";
 import { ResourceRetry } from "./ResourceRetry";
 import type { components } from "./api-schema";
 import { CsvPreview } from "./CsvPreview";
+import { PreviewUnavailable } from "./PreviewUnavailable";
 
 type Node = ReturnType<typeof refractor.highlight>[number];
 function tokens(nodes: Node[]): ReactNode {
@@ -50,6 +51,7 @@ export default function TextPreview({
   return (
     <div className="text-preview content-stack min-h-0">
       <ResourceRetry resources={[resource]}>Retry preview</ResourceRetry>
+      {!compact && resource.error && !resource.data && <PreviewUnavailable />}
       {resource.loading && !resource.data && (
         <p role="status">Loading preview…</p>
       )}
@@ -80,10 +82,12 @@ export default function TextPreview({
               </p>
             )}
           </>
-        ) : (
+        ) : compact ? (
           <p className="detail-metadata">
             No text preview for this file. Open or download it.
           </p>
+        ) : (
+          <PreviewUnavailable />
         ))}
     </div>
   );

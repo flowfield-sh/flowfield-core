@@ -77,20 +77,14 @@ function FileDetails({ entry }: { entry: FileEntry }) {
       className="file-details min-h-0"
     >
       <p className="detail-metadata">
-        {sizeLabel(file.size)} · <Timestamp date={file.created_at} />
-      </p>
-      <div className="actions">
         <WorkspaceLink to={taskHref(file.workspace_id, { key: file.task_key })}>
           <Badge variant="outline">{file.task_key}</Badge>
         </WorkspaceLink>
-        {file.result_id && (
-          <WorkspaceLink to={resultHref(file.workspace_id, file.result_id)}>
-            Source result
-          </WorkspaceLink>
-        )}
-      </div>
+        {" · "}
+        {sizeLabel(file.size)} · <Timestamp date={file.created_at} />
+      </p>
       <div className="actions">
-        <Button size="sm" asChild>
+        <Button size="sm" variant="outline" asChild>
           <a href={contentHref(file)} target="_blank" rel="noreferrer">
             Open
           </a>
@@ -100,6 +94,13 @@ function FileDetails({ entry }: { entry: FileEntry }) {
             Download
           </a>
         </Button>
+        {file.result_id && (
+          <Button size="sm" variant="outline" asChild>
+            <WorkspaceLink to={resultHref(file.workspace_id, file.result_id)}>
+              Source
+            </WorkspaceLink>
+          </Button>
+        )}
       </div>
       <OutputPreview key={file.id} file={file} />
     </DetailSection>

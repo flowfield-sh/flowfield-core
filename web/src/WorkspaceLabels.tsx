@@ -50,6 +50,23 @@ export function WorkspaceLabels({
       <ResourceRetry resources={[labels]} />
       {!labels.data && !labels.error && <p>Loading labels…</p>}
       <ul className="divide-y rounded-md border" aria-label="Workspace labels">
+        {editing === "new" && (
+          <li className="px-3 py-2">
+            <LabelEditor
+              path={path}
+              onDirty={onDirty}
+              close={() => {
+                setEditing(null);
+                onDirty(false);
+              }}
+              saved={() => {
+                labels.retry();
+                setEditing(null);
+                onDirty(false);
+              }}
+            />
+          </li>
+        )}
         {labels.data
           ?.filter((label) => !label.deleted_at || editing === label.id)
           .map((label) => (
@@ -101,23 +118,6 @@ export function WorkspaceLabels({
               )}
             </li>
           ))}
-        {editing === "new" && (
-          <li className="px-3 py-2">
-            <LabelEditor
-              path={path}
-              onDirty={onDirty}
-              close={() => {
-                setEditing(null);
-                onDirty(false);
-              }}
-              saved={() => {
-                labels.retry();
-                setEditing(null);
-                onDirty(false);
-              }}
-            />
-          </li>
-        )}
       </ul>
     </DetailSection>
   );

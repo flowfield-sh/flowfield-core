@@ -5,6 +5,7 @@ import {
   FileText,
   Files,
   Folder,
+  Inbox,
   Settings,
 } from "lucide-react";
 import {
@@ -93,10 +94,11 @@ export function WorkNavigation({
     )
     .slice(0, 5);
   const resources = [
-    { name: "Projects", href: base + "/projects", Icon: Folder },
+    { name: "Inbox", href: base + "/inbox", Icon: Inbox },
     { name: "Tasks Board", href: base + "/tasks", Icon: Columns3 },
     { name: "Documents", href: base + "/documents", Icon: FileText },
     { name: "Files", href: base + "/files", Icon: Files },
+    { name: "Projects", href: base + "/projects", Icon: Folder },
     { name: "Archive", href: base + "/archive", Icon: Archive },
   ];
   return (
@@ -106,11 +108,25 @@ export function WorkNavigation({
           <a
             key={name}
             href={href}
-            aria-current={current === href ? "page" : undefined}
+            aria-label={
+              name === "Inbox" && board.needs_you_count
+                ? `Inbox ${board.needs_you_count}`
+                : undefined
+            }
+            aria-current={current.split("?")[0] === href ? "page" : undefined}
             onClick={(e) => followLink(e, () => open(href))}
           >
             <Icon size={16} />
             <span>{name}</span>
+            {name === "Inbox" && !!board.needs_you_count && (
+              <span
+                className="nav-count needs-attention ml-auto border"
+                aria-hidden="true"
+              >
+                {Math.min(99, board.needs_you_count)}
+                {board.needs_you_count > 99 ? "+" : ""}
+              </span>
+            )}
           </a>
         ))}
         <a

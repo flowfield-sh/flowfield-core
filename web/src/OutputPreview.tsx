@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import type { components } from "./api-schema";
+import { PreviewUnavailable } from "./PreviewUnavailable";
 
 type OutputFile = components["schemas"]["OutputFile"];
 const TextPreview = lazy(() => import("./TextPreview"));
@@ -34,12 +35,15 @@ export function OutputPreview({
         <TextPreview file={file} compact={compact} />
       </Suspense>
     );
-  if (!imageTypes.has(file.media_type)) return null;
+  if (!imageTypes.has(file.media_type))
+    return compact ? null : <PreviewUnavailable />;
   if (failed)
-    return (
+    return compact ? (
       <p className="detail-metadata">
         Preview unavailable. Open or download the file.
       </p>
+    ) : (
+      <PreviewUnavailable />
     );
   return (
     <a

@@ -35,6 +35,7 @@ def seed(directory):
                 "const message = '<img src=x onerror=alert(1)>';\nconsole.log(message);\n"
             ),
             "preview.md": "# Launch notes\n\n- Read the report\n\n<script>alert(1)</script>\n",
+            "bundle.bin": "Retained output without a supported inline preview.",
         },
     )
     unfinished = task(store, scope, title="Prepare a launch checklist")

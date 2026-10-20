@@ -100,6 +100,13 @@ test("coordinator labels update read-only task headers and preserve deletion his
   ).toContainText("New or expanded product behavior.");
   await page.getByRole("button", { name: "Add label", exact: true }).click();
   const create = page.getByRole("form", { name: "New label" });
+  await expect(
+    page
+      .getByRole("list", { name: "Workspace labels" })
+      .locator(":scope > li")
+      .first()
+      .getByRole("form", { name: "New label" }),
+  ).toBeVisible();
   await create.getByLabel("Name", { exact: true }).fill("Customer request");
   await create
     .getByLabel("Guidance", { exact: true })
