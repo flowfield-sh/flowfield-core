@@ -507,7 +507,7 @@ def main() -> None:
                         )
                     )
                     assert workers["selection"]["model"] == "install-fixture"
-                    assert workers["max_parallel"] == 1
+                    assert workers["max_parallel"] == 5
                     assert workers["enabled"] is False
                     assert json.loads(command("task", "runs", "list", "--json"))["items"] == []
                     assert board["observed_at"]

@@ -12,7 +12,7 @@ from flowfield.adapters.git_workspace import git
 from flowfield.agent_models import AgentChoice
 from flowfield.application import TaskEdit, Workspace
 from flowfield.errors import ApplicationError
-from flowfield.execution_models import QueueEdit, RunAction
+from flowfield.execution_models import QueueEdit, RunAction, SettingsEdit
 from flowfield.reviewer_settings import ReviewerEdit, Reviewers
 from flowfield.task_reviews import ReviewVerdict, TaskReviews
 from flowfield.thread_view import ThreadView
@@ -241,6 +241,15 @@ def test_review_and_worker_share_capacity(tmp_path):
     from flowfield.application import TaskPublish
 
     service, repo, _, _, reviews = configured(tmp_path)
+    settings = service.execution.settings("harbor")
+    service.execution.configure(
+        "harbor",
+        SettingsEdit(
+            expected_revision=settings.revision,
+            selection=settings.selection,
+            max_parallel=1,
+        ),
+    )
     task = service.workspace.create_task(
         "harbor",
         task_request(

@@ -224,7 +224,9 @@ def register(workspace_app: typer.Typer, task_app: typer.Typer) -> None:
             None,
             help="Access mode from `workers models`; choose explicitly for a new harness.",
         ),
-        max_parallel: int = typer.Option(5, min=1, max=16),
+        max_parallel: int | None = typer.Option(
+            None, min=1, max=16, help="Keep the saved workspace capacity when omitted."
+        ),
         json_output: Json = False,
     ) -> None:
         def perform() -> Any:
@@ -245,7 +247,9 @@ def register(workspace_app: typer.Typer, task_app: typer.Typer) -> None:
                         else (choice.get("mode") if choice.get("harness") == harness else None),
                         "fast": False,
                     },
-                    "max_parallel": max_parallel,
+                    "max_parallel": max_parallel
+                    if max_parallel is not None
+                    else current["max_parallel"],
                 },
             )
             return ctx.obj.request("GET", path)

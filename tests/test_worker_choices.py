@@ -14,7 +14,10 @@ from flowfield.execution_models import ModelOption, SettingsEdit
 from flowfield.supervisor import Supervisor
 
 
-def test_worker_cli_uses_one_choice_and_does_not_carry_access_between_harnesses(monkeypatch):
+@pytest.mark.parametrize("capacity", [1, 5])
+def test_worker_cli_uses_one_choice_and_does_not_carry_access_between_harnesses(
+    monkeypatch, capacity
+):
     from typer.testing import CliRunner
 
     from flowfield.cli import app
@@ -25,7 +28,7 @@ def test_worker_cli_uses_one_choice_and_does_not_carry_access_between_harnesses(
         "revision": 7,
         "workspace_id": "harbor",
         "enabled": False,
-        "max_parallel": 1,
+        "max_parallel": capacity,
         "selection": dict(harness="codex", model="old", effort="low", mode="read-only", fast=False),
     }
 
@@ -57,7 +60,7 @@ def test_worker_cli_uses_one_choice_and_does_not_carry_access_between_harnesses(
         "workspaces/harbor/workers",
         {
             "expected_revision": 7,
-            "max_parallel": 1,
+            "max_parallel": capacity,
             "selection": dict(
                 harness="claude-code", model="native", effort=None, mode=None, fast=False
             ),
@@ -79,6 +82,23 @@ def test_worker_cli_uses_one_choice_and_does_not_carry_access_between_harnesses(
     )
     assert result.exit_code == 0, result.output
     assert calls[-1][1] == "workspaces/harbor/models?harness=claude-code&refresh=true"
+    result = CliRunner().invoke(
+        app,
+        [
+            "workspace",
+            "workers",
+            "configure",
+            "--workspace",
+            "harbor",
+            "--model",
+            "explicit",
+            "--max-parallel",
+            "3",
+            "--json",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert current["max_parallel"] == 3
 
 
 def test_worker_defaults_preserve_harness_optional_effort_and_override_provenance(tmp_path):

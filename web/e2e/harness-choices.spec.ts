@@ -146,7 +146,7 @@ for (const onlyClaude of [false, true]) {
       .poll(() => captured)
       .toEqual({
         expected_revision: 1,
-        max_parallel: onlyClaude ? 1 : 3,
+        max_parallel: onlyClaude ? 5 : 3,
         selection: {
           harness: "claude-code",
           model: "claude-sonnet-5-5",
