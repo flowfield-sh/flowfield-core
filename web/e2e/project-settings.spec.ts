@@ -107,10 +107,10 @@ test("worker models load automatically and retry without replacing setting draft
   ).toContainText("Catalog temporarily unavailable");
   await expect(settings).not.toContainText("Catalog temporarily unavailable");
   await expect(
-    settings.getByRole("button", { name: "Refresh models" }),
+    settings.getByRole("button", { name: "Retry loading models" }),
   ).toBeEnabled();
   await settings.getByLabel("Maximum parallel workers").fill("3");
-  await settings.getByRole("button", { name: "Refresh models" }).click();
+  await settings.getByRole("button", { name: "Retry loading models" }).click();
   const model = settings.getByLabel("Model", { exact: true });
   const effort = settings.getByLabel("Reasoning effort");
   await expect(model).toBeEnabled();

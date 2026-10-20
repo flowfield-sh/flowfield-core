@@ -1,4 +1,3 @@
-import { SettingsCheckbox } from "./SettingsCheckbox";
 import { ContentStack } from "./DetailLayout";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
@@ -18,7 +17,6 @@ import { useResource } from "./useResource";
 import { projectHref, workspaceHref } from "./navigation";
 import {
   HarnessModelSource,
-  RefreshModels,
   modelSupports,
   useHarnessModels,
   type HarnessKind,
@@ -342,7 +340,6 @@ export function WorkerSettings({
             >
               Save
             </Button>
-            <RefreshModels source={source} />
             {dirty && (
               <Button
                 type="button"
@@ -397,63 +394,6 @@ export function WorkerSettings({
           </Button>
         </>
       )}
-    </section>
-  );
-}
-
-export function QueueSettings({
-  workspaceId,
-  refresh,
-}: {
-  workspaceId: string;
-  refresh: unknown;
-}) {
-  const path = `workspaces/${workspaceId}`;
-  const settingsHref = workspaceHref(workspaceId);
-  const resource = useResource<Settings>(`${path}/workers`, refresh);
-  const [busy, setBusy] = useState(false);
-  const data = resource.data;
-  return (
-    <section
-      className="content-stack"
-      data-space="tight"
-      aria-label="Queue settings"
-    >
-      <SettingsCheckbox
-        hint="Starts eligible Up next tasks. Saves immediately and persists after restart; pausing leaves active workers running."
-        checked={data?.enabled ?? false}
-        disabled={busy || !data}
-        onChange={async (event) => {
-          if (!data) return;
-          const enabled = event.target.checked;
-          setBusy(true);
-          try {
-            const updated = await request<Settings>(`${path}/queue`, "POST", {
-              expected_revision: data.revision,
-              enabled,
-            });
-            resource.invalidate();
-            resource.setData(updated);
-            toast.success(
-              updated.enabled
-                ? "Worker queue enabled."
-                : "Worker queue paused.",
-            );
-          } catch (failure) {
-            reportError(failure, "Could not update worker queue");
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        Run worker queue
-      </SettingsCheckbox>
-      {!data?.selection && data && (
-        <Link to={settingsHref + "/edit/workers"}>
-          Choose a worker model first
-        </Link>
-      )}
-      <ResourceRetry resources={[resource]} />
     </section>
   );
 }

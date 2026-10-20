@@ -1027,6 +1027,12 @@ class Execution:
 
     def restart(self) -> None:
         with self.workspace.connection(write=True) as db:
+            for row in db.execute("SELECT id FROM workspaces").fetchall():
+                settings = self._settings(db, row["id"])
+                if settings.enabled != settings.auto_start_queue:
+                    settings.enabled = settings.auto_start_queue
+                    settings.problem = None
+                    self._save_settings(db, settings)
             for row in db.execute(
                 "SELECT data FROM runs WHERE status IN ('preparing','running','stopping')"
             ).fetchall():

@@ -16,6 +16,7 @@ from flowfield.execution_models import SettingsEdit, WorkerResult
 from flowfield.integration import Integrations
 from flowfield.integration_models import IntegrationConfig
 from flowfield.results import Results
+from flowfield.run_activity import ActivityUpdate, RunActivity
 from flowfield.workspaces import WorkspaceCreate, Workspaces
 
 
@@ -161,6 +162,17 @@ def main() -> None:
     )
     reports = run_checks(env, ["python -m unittest -v"])
     assert all(check.exit_code == 0 for check in reports)
+    RunActivity(workspace).write(
+        space.id,
+        run.id,
+        [
+            ActivityUpdate(
+                key="checks",
+                kind="agent",
+                text="Ran the saved Python unit tests; all checks passed.",
+            )
+        ],
+    )
     commit, _ = env.snapshot(head)
     run = execution.finish(
         space.id,

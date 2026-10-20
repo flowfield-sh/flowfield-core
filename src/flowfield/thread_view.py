@@ -24,6 +24,7 @@ class ThreadMessage(Record):
     question: str | None = None
     body: str
     truncated: bool = False
+    has_activity: bool = False
     status: str | None = None
     result_id: str | None = None
     run_id: str | None = None
@@ -57,7 +58,7 @@ class ThreadView(Conversation):
         data = json.loads(row[0])
         kind: str = item.kind
         body, title = "", ""
-        internal_plan = False
+        review_decision = None
         cycle_start: Literal["correction", "follow_up"] | None = None
         if kind == "definition":
             before = db.execute(
@@ -67,7 +68,25 @@ class ThreadView(Conversation):
             previous = json.loads(before[0]) if before else None
             if previous and previous["status"] == "done" and data["status"] != "done":
                 cycle_start = "follow_up"
-            if previous and data["agreement_revision"] == previous["agreement_revision"]:
+            authored_fields = (
+                "title",
+                "body",
+                "acceptance_criteria",
+                "project_id",
+                "dependencies",
+                "documents",
+                "input_files",
+                "publication",
+                "labels",
+            )
+            same_definition = previous is not None and all(
+                data.get(field) == previous.get(field) for field in authored_fields
+            )
+            if (
+                previous
+                and data["agreement_revision"] == previous["agreement_revision"]
+                and same_definition
+            ):
                 kind = "state"
                 title = "Moved to " + data["status"].replace("_", " ").capitalize()
                 if data.get("reconciliation_reason"):
@@ -80,21 +99,12 @@ class ThreadView(Conversation):
             else:
                 title = "Task defined" if not previous else "Task definition updated"
                 body = "## " + data["title"] + "\n\n" + data["body"]
-                internal_plan = previous is not None and all(
-                    data.get(field) == previous.get(field)
-                    for field in (
-                        "title",
-                        "body",
-                        "acceptance_criteria",
-                        "project_id",
-                        "dependencies",
-                        "documents",
-                        "input_files",
-                        "publication",
+                if same_definition and previous is not None:
+                    kind = "subtasks"
+                    title = "Subtasks updated"
+                    body = subtask_changes(
+                        db, workspace_id, task_id, previous["updated_at"], data["updated_at"]
                     )
-                )
-                if internal_plan:
-                    title = "Work plan updated"
         elif kind == "question":
             title = "Question"
             body = "\n\n".join(
@@ -118,6 +128,7 @@ class ThreadView(Conversation):
                     (item.source_id,),
                 ).fetchone()
                 if decision:
+                    review_decision = decision[0]
                     if decision[0] == "request_changes":
                         cycle_start = "correction"
                     title = {
@@ -178,6 +189,7 @@ class ThreadView(Conversation):
             ).fetchone()
             title = f"Reviewing result #{version[0]}"
             body = data.get("problem") or ""
+            review_decision = (data.get("verdict") or {}).get("action")
         elif kind == "approval":
             title = "Approved for integration"
             body = data.get("approval_note", "")
@@ -187,6 +199,34 @@ class ThreadView(Conversation):
                 if data["completion"] == "code"
                 else "Findings delivered"
             )
+        assembled = kind == "attempt" and data.get("purpose") == "assembly"
+        has_activity = False
+        if kind in ("attempt", "review") and not assembled:
+            has_activity = data.get("status") in ("preparing", "running", "stopping")
+            if kind == "attempt":
+                evidence = db.execute(
+                    "SELECT 1 FROM run_activity WHERE run_id=? AND "
+                    "(json_array_length(data,'$.items')>0 OR json_extract(data,'$.omitted')=1 "
+                    "OR json_type(data,'$.context')='object')",
+                    (item.source_id,),
+                ).fetchone()
+                has_activity = (
+                    has_activity
+                    or bool(evidence)
+                    or (data.get("usage") or {}).get("total_tokens") is not None
+                )
+            else:
+                evidence = db.execute(
+                    "SELECT 1 FROM review_attempts WHERE review_id=? AND "
+                    "(json_array_length(data,'$.activity.items')>0 "
+                    "OR json_extract(data,'$.activity.omitted')=1 "
+                    "OR json_type(data,'$.activity.context')='object' "
+                    "OR json_extract(data,'$.usage.total_tokens') IS NOT NULL "
+                    "OR coalesce(json_extract(data,'$.problem'),'')!='' "
+                    "OR json_extract(data,'$.status')='uncertain') LIMIT 1",
+                    (item.source_id,),
+                ).fetchone()
+                has_activity = has_activity or bool(evidence)
         return ThreadMessage(
             id=item.id,
             kind=kind,
@@ -195,16 +235,20 @@ class ThreadView(Conversation):
             created_at=item.created_at,
             author=item.author,
             actor=actor(item.author),
-            state=event_state(
+            state=WorkState(label="Contributions assembled", tone="complete")
+            if assembled and not body
+            else event_state(
                 kind,
                 data.get("status"),
                 item.id,
                 current_state or task_state(self.workspace, db, workspace_id, task_id),
+                decision=review_decision,
             ),
             title=title,
             question=data["question"] if kind == "question" else None,
             body=body if full else body[:6000],
             truncated=not full and len(body) > 6000,
+            has_activity=has_activity,
             status=data.get("status"),
             result_id=item.source_id
             if kind in ("result", "approval", "delivery")
@@ -254,3 +298,48 @@ class ThreadView(Conversation):
             return self.message(
                 db, workspace_id, args["task"], ConversationItem.model_validate(dict(row)), full
             )
+
+
+def subtask_changes(
+    db: sqlite3.Connection, workspace: str, task: str, before: str, after: str
+) -> str:
+    """Describe authored changes in the exact parent revision's time window."""
+    entries = []
+    for row in db.execute(
+        "SELECT data FROM subtask_revisions WHERE workspace_id=? AND task_id=? "
+        "AND json_extract(data,'$.updated_at')>? AND json_extract(data,'$.updated_at')<=? "
+        "ORDER BY json_extract(data,'$.updated_at'),revision",
+        (workspace, task, before, after),
+    ):
+        value = json.loads(row[0])
+        previous = db.execute(
+            "SELECT data FROM subtask_revisions WHERE workspace_id=? AND task_id=? "
+            "AND subtask_id=? AND revision=?",
+            (workspace, task, value["id"], value["revision"] - 1),
+        ).fetchone()
+        old = json.loads(previous[0]) if previous else None
+        fields = [
+            ("title", "Title"),
+            ("body", "Description"),
+            ("completion", "Outcome"),
+            ("dependencies", "Prerequisites"),
+        ]
+        changed = [label for key, label in fields if old is None or old[key] != value[key]]
+        if not changed:
+            continue
+        dependencies = [
+            json.loads(
+                db.execute(
+                    "SELECT data FROM subtasks WHERE workspace_id=? AND task_id=? AND id=?",
+                    (workspace, task, identity),
+                ).fetchone()[0]
+            )["key"]
+            for identity in value["dependencies"]
+        ]
+        entries.append(
+            f"### {value['key']}: {value['title']}\n\n"
+            + ("Added subtask." if old is None else "Updated " + ", ".join(changed).lower() + ".")
+            + f"\n\n{value['body']}\n\nOutcome: {value['completion']} · Prerequisites: "
+            + (", ".join(dependencies) or "None")
+        )
+    return "\n\n".join(entries)

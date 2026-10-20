@@ -38,6 +38,13 @@ def test_managed_claim_result_review_and_restart(tmp_path, monkeypatch):
     monkeypatch.setattr("flowfield.adapters.agent_selection.CodexAgent", FakeWorker)
     monkeypatch.setattr("flowfield.supervisor.process_stamp", lambda pid: "fixture-process")
     execution = fixture(tmp_path)
+    from flowfield.workspaces import WorkspaceEdit, Workspaces
+
+    spaces = Workspaces(execution.workspace)
+    spaces.edit(
+        "harbor",
+        WorkspaceEdit(expected_revision=spaces.get("harbor").revision, auto_start_queue=True),
+    )
     repo = tmp_path / "harbor"
     git(repo, "init")
     (repo / "base.txt").write_text("base")

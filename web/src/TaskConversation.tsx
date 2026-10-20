@@ -14,7 +14,6 @@ import { Timestamp } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { resultHref } from "./navigation";
 import { requestHref } from "./requestLinks";
-import { ResultFiles } from "./Files";
 
 type Page = components["schemas"]["ThreadPage"];
 
@@ -117,7 +116,11 @@ export function TaskConversation({
                     selected={message.id === selected.data?.id}
                     title={message.title}
                     state={message.state}
-                    hasBody={hasBody(message)}
+                    hasBody={
+                      hasBody(message) ||
+                      (message.kind === "attempt" &&
+                        execution.data?.run_id === message.source_id)
+                    }
                     metadata={
                       <>
                         {message.actor.label} ·{" "}
@@ -141,11 +144,11 @@ export function TaskConversation({
                         </WorkspaceLink>
                       )}
                       {message.kind === "result" && (
-                        <ResultEvidence
-                          workspaceId={projectId}
-                          identity={message.source_id}
-                          refresh={refresh}
-                        />
+                        <WorkspaceLink
+                          to={resultHref(projectId, message.source_id)}
+                        >
+                          Access results
+                        </WorkspaceLink>
                       )}
                       {message.question_id && (
                         <WorkspaceLink
@@ -165,7 +168,7 @@ export function TaskConversation({
                           Tested result
                         </WorkspaceLink>
                       )}
-                      {message.kind === "attempt" && (
+                      {message.kind === "attempt" && message.has_activity && (
                         <RunActivity
                           projectId={projectId}
                           runId={message.source_id}
@@ -202,38 +205,6 @@ export function TaskConversation({
           </section>
         ))}
       </div>
-    </ContentStack>
-  );
-}
-
-function ResultEvidence({
-  workspaceId,
-  identity,
-  refresh,
-}: {
-  workspaceId: string;
-  identity: string;
-  refresh: unknown;
-}) {
-  const result = useResource<components["schemas"]["ResultVersion"]>(
-    `workspaces/${workspaceId}/results/${identity}`,
-    refresh,
-  );
-  return (
-    <ContentStack>
-      <ResourceRetry resources={[result]} />
-      {result.data?.independent_review?.summary && (
-        <p>Reviewer: {result.data.independent_review.summary}</p>
-      )}
-      {result.data && (
-        <ResultFiles
-          files={result.data.files}
-          supporting={result.data.completion === "code"}
-        />
-      )}
-      <WorkspaceLink to={resultHref(workspaceId, identity)}>
-        {result.data?.completion === "code" ? "Access results" : "View result"}
-      </WorkspaceLink>
     </ContentStack>
   );
 }

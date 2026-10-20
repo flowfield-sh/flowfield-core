@@ -394,7 +394,7 @@ function useAgentSettingsContent({
                 Reset
               </Button>
             )}
-            <RefreshModels source={source} />
+            {compact && <RefreshModels source={source} />}
             {(stale || error || resource.error) && (
               <Button
                 type="button"

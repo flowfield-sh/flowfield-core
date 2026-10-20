@@ -108,7 +108,8 @@ WITH definitions AS (
           'superseded_by',(SELECT id FROM activity b WHERE b.supersedes=a.id))
     FROM activity a WHERE workspace_id=:project AND task_id=:task AND kind!='event'
     UNION ALL
-    SELECT 'attempt:'||id, 'attempt', json_extract(data,'$.created_at'), 'worker', id,
+    SELECT 'attempt:'||id, 'attempt', json_extract(data,'$.created_at'),
+        CASE WHEN json_extract(data,'$.purpose')='assembly' THEN 'flowfield' ELSE 'worker' END, id,
         json_extract(data,'$.revision'), data
     FROM runs WHERE workspace_id=:project AND task_id=:task
     UNION ALL

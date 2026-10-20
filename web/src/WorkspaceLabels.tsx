@@ -33,7 +33,20 @@ export function WorkspaceLabels({
   const labels = useResource<WorkspaceLabel[]>(path, refresh);
   const [editing, setEditing] = useState<string | null>(null);
   return (
-    <DetailSection title="Labels">
+    <DetailSection
+      title="Labels"
+      actions={
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={editing !== null}
+          onClick={() => setEditing("new")}
+        >
+          Add label
+        </Button>
+      }
+    >
       <ResourceRetry resources={[labels]} />
       {!labels.data && !labels.error && <p>Loading labels…</p>}
       <ul className="divide-y rounded-md border" aria-label="Workspace labels">
@@ -57,7 +70,7 @@ export function WorkspaceLabels({
                   }}
                 />
               ) : (
-                <div className="flex items-start gap-3">
+                <div className="flex items-center gap-3">
                   <div
                     className="min-w-0 flex-1 content-stack"
                     data-space="tight"
@@ -88,34 +101,24 @@ export function WorkspaceLabels({
               )}
             </li>
           ))}
+        {editing === "new" && (
+          <li className="px-3 py-2">
+            <LabelEditor
+              path={path}
+              onDirty={onDirty}
+              close={() => {
+                setEditing(null);
+                onDirty(false);
+              }}
+              saved={() => {
+                labels.retry();
+                setEditing(null);
+                onDirty(false);
+              }}
+            />
+          </li>
+        )}
       </ul>
-      {editing === "new" ? (
-        <LabelEditor
-          path={path}
-          onDirty={onDirty}
-          close={() => {
-            setEditing(null);
-            onDirty(false);
-          }}
-          saved={() => {
-            labels.retry();
-            setEditing(null);
-            onDirty(false);
-          }}
-        />
-      ) : (
-        <div className="actions">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={editing !== null}
-            onClick={() => setEditing("new")}
-          >
-            Add label
-          </Button>
-        </div>
-      )}
     </DetailSection>
   );
 }

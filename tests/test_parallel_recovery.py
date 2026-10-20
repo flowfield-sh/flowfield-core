@@ -71,6 +71,13 @@ def test_answer_continues_once_beside_independent_work(tmp_path, restart):
     )
     answer(questions, q, "All rows")
     execution.finish("harbor", asking.id, "waiting_for_input", input_checkpoint=RESULT)
+    from flowfield.workspaces import WorkspaceEdit, Workspaces
+
+    spaces = Workspaces(execution.workspace)
+    spaces.edit(
+        "harbor",
+        WorkspaceEdit(expected_revision=spaces.get("harbor").revision, auto_start_queue=True),
+    )
     if restart:
         execution.restart()
         assert execution.get("harbor", independent.id).status == "uncertain"

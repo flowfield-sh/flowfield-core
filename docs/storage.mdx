@@ -29,7 +29,7 @@ To reuse the default location, stop every Flowfield service and preserve the com
 
 After verifying your backup and deciding you no longer need the old work history, you can delete the old Flowfield directory. Keep the adopted repositories, native harness configuration and credentials.
 
-Existing repositories and native harness configuration remain separate. Startup rejects incompatible databases without modifying or deleting them. Reopening the current schema preserves saved work and queue choices; pause queues before shutdown if you want to review work before new starts resume. Interrupted workers still need recovery.
+Existing repositories and native harness configuration remain separate. Startup rejects incompatible databases without modifying or deleting them. Reopening the current schema preserves saved work. Queues start paused unless **Auto-start worker queue** is saved in workspace General settings; sidebar Run/Pause does not change that startup preference. Interrupted workers still need recovery.
 
 ## Inspect storage
 

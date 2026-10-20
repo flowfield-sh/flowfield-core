@@ -186,16 +186,16 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     picker.getByRole("button", { name: "Fast mode", exact: true }),
   ).toHaveCount(0);
 
+  await expect(
+    picker.getByRole("button", { name: "Refresh models", exact: true }),
+  ).toHaveCount(0);
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
     // Radix repositions on the next frame after a viewport change.
     await expect
       .poll(async () => {
         const tops = await Promise.all(
-          (width === 1280
-            ? ["Save", "Reset", "Refresh models"]
-            : ["Save", "Reset"]
-          ).map(
+          ["Save", "Reset"].map(
             async (name) =>
               (await picker
                 .getByRole("button", { name, exact: true })
@@ -206,7 +206,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
       })
       .toBeLessThan(1);
     const bounds = await Promise.all(
-      ["Save", "Reset", "Refresh models"].map(
+      ["Save", "Reset"].map(
         async (name) =>
           (await picker
             .getByRole("button", { name, exact: true })

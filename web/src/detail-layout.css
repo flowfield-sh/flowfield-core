@@ -36,7 +36,8 @@
   .settings-checkbox input {
     flex: none;
   }
-  .settings-checkbox > .detail-metadata {
+  .settings-checkbox > .detail-metadata,
+  .settings-checkbox-content {
     padding-left: 21px;
   }
   .definition-preview[data-collapsed="true"] {

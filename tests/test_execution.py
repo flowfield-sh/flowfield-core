@@ -225,7 +225,7 @@ def test_failure_retry_and_restart_never_automatically_relaunch(tmp_path: Path) 
     run = execution.claim("harbor", BASE, {BASE: set()})
     assert run
     execution.restart()
-    assert execution.settings("harbor").enabled
+    assert not execution.settings("harbor").enabled
     assert execution.claim("harbor", BASE, {BASE: set()}) is None
     settings = execution.settings("harbor")
     execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=False))
@@ -320,12 +320,22 @@ def test_followup_checks_prerequisites_in_its_own_base(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("enabled", [True, False])
-def test_queue_choice_persists_after_restart_and_allows_only_enabled_claims(tmp_path, enabled):
+@pytest.mark.parametrize("auto_start", [True, False])
+def test_queue_startup_preference_is_independent_of_runtime(tmp_path, enabled, auto_start):
     execution = fixture(tmp_path)
     settings = execution.settings("harbor")
     execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=enabled))
-    saved = execution.settings("harbor")
+    from flowfield.workspaces import WorkspaceEdit, Workspaces
+
+    spaces = Workspaces(execution.workspace)
+    before = spaces.get("harbor")
+    saved = spaces.edit(
+        "harbor", WorkspaceEdit(expected_revision=before.revision, auto_start_queue=auto_start)
+    )
+    assert execution.settings("harbor").enabled is enabled
+    assert spaces.get("harbor").auto_start_queue is auto_start
     restarted = Execution(Workspace(execution.workspace.directory))
     restarted.restart()
-    assert restarted.settings("harbor") == saved
-    assert bool(restarted.claim("harbor", BASE, {BASE: set()})) is enabled
+    assert restarted.settings("harbor").enabled is auto_start
+    assert Workspaces(restarted.workspace).get("harbor") == saved
+    assert bool(restarted.claim("harbor", BASE, {BASE: set()})) is auto_start

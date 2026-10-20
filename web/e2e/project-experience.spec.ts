@@ -195,13 +195,27 @@ test("home, welcome and editable settings form a complete project journey", asyn
     exact: true,
   });
   await expect(shared.locator('[data-slot="separator"]').first()).toBeVisible();
-  await shared.getByLabel("Run worker queue", { exact: true }).click();
+  await shared.getByLabel("Auto-start worker queue", { exact: true }).click();
   await expect(
-    shared.getByLabel("Run worker queue", { exact: true }),
+    shared.getByLabel("Auto-start worker queue", { exact: true }),
   ).toBeChecked();
+  expect(
+    (await (await request.get(`/api/workspaces/${workspace}`)).json())
+      .auto_start_queue,
+  ).toBe(false);
+  await shared
+    .getByRole("button", { name: "Save changes", exact: true })
+    .click();
+  await expect(
+    shared.getByRole("button", { name: "Save changes", exact: true }),
+  ).toBeDisabled();
+  expect(
+    (await (await request.get(`/api/workspaces/${workspace}/workers`)).json())
+      .enabled,
+  ).toBe(false);
   await page.reload();
   await expect(
-    shared.getByLabel("Run worker queue", { exact: true }),
+    shared.getByLabel("Auto-start worker queue", { exact: true }),
   ).toBeChecked();
   await page.goto("/");
   await expect(

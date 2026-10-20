@@ -6072,6 +6072,11 @@ export interface components {
        * @default false
        */
       truncated: boolean;
+      /**
+       * Has Activity
+       * @default false
+       */
+      has_activity: boolean;
       /** Status */
       status: string | null;
       /** Result Id */
@@ -6273,6 +6278,8 @@ export interface components {
       name?: string | null;
       /** Description */
       description?: string | null;
+      /** Auto Start Queue */
+      auto_start_queue?: boolean | null;
     };
     /** WorkspaceLabel */
     WorkspaceLabel: {
@@ -6336,6 +6343,11 @@ export interface components {
        */
       description: string;
       /**
+       * Auto Start Queue
+       * @default false
+       */
+      auto_start_queue: boolean;
+      /**
        * Revision
        * @default 1
        */
@@ -6362,6 +6374,11 @@ export interface components {
        * @default 1
        */
       max_parallel: number;
+      /**
+       * Auto Start Queue
+       * @default false
+       */
+      auto_start_queue: boolean;
       /**
        * Enabled
        * @default false

@@ -25,8 +25,15 @@ class WorkState(BaseModel):
     reason: Literal["prerequisites", "scheduling"] | None = None
 
 
-def event_state(kind: str, status: str | None, identity: str, current: WorkState) -> WorkState:
+def event_state(
+    kind: str, status: str | None, identity: str, current: WorkState, *, decision: str | None = None
+) -> WorkState:
     """Live state belongs only to its owning event; historical facts never inherit it."""
+    if decision in ("request_changes", "ask_human", "ask_worker"):
+        return WorkState(
+            label="Changes requested" if decision == "request_changes" else "Question asked",
+            tone="waiting",
+        )
     target = current._event_id
     if (
         kind == "result"
@@ -40,6 +47,7 @@ def event_state(kind: str, status: str | None, identity: str, current: WorkState
         return WorkState(
             label={
                 "accepted": "Finished",
+                "contributed": "Contribution completed",
                 "in_review": "Work submitted",
                 "replied": "Replied",
                 "changes_requested": "Changes requested",
@@ -47,11 +55,17 @@ def event_state(kind: str, status: str | None, identity: str, current: WorkState
                 "stopped": "Stopped",
                 "failed": "Failed",
             }.get(status or "", "Earlier attempt"),
-            tone="complete" if status in ("accepted", "in_review", "replied") else "idle",
+            tone="complete"
+            if status in ("accepted", "in_review", "replied", "contributed")
+            else "attention"
+            if status in ("failed", "uncertain")
+            else "waiting"
+            if status in ("changes_requested", "waiting_for_input")
+            else "idle",
         )
     if kind == "result":
         return WorkState(
-            label="Earlier result", tone="complete" if status == "delivered" else "idle"
+            label="Delivered" if status == "delivered" else "Result submitted", tone="complete"
         )
     if kind == "review":
         return WorkState(
@@ -68,6 +82,8 @@ def event_state(kind: str, status: str | None, identity: str, current: WorkState
             if status == "stale"
             else "waiting",
         )
+    if kind == "state":
+        return WorkState(label="Recorded", tone="idle")
     if kind in ("approval", "delivery"):
         return WorkState(label="Recorded", tone="complete")
     if kind == "reply" and status == "recorded":

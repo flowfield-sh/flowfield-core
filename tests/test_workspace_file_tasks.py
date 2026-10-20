@@ -92,6 +92,9 @@ def test_managed_files_and_dependency_inputs_use_one_queue(tmp_path, monkeypatch
         ),
     )
     spaces.queue(owner.id, QueueEdit(expected_revision=settings.revision, enabled=True))
+    from flowfield.workspaces import WorkspaceEdit
+
+    spaces.edit(owner.id, WorkspaceEdit(expected_revision=owner.revision, auto_start_queue=True))
     service = Supervisor(store)
     from unittest.mock import AsyncMock
 

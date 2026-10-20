@@ -10,12 +10,26 @@ import { TextChanges } from "./TextChanges";
 import { ArrowRight } from "lucide-react";
 import { type TaskReference, type TaskRevision } from "./workspace";
 
-type Field = "body" | "title" | "labels" | "dependencies";
+type Field =
+  | "body"
+  | "title"
+  | "labels"
+  | "dependencies"
+  | "acceptance_criteria"
+  | "project_id"
+  | "documents"
+  | "input_files"
+  | "publication";
 const fields: [Field, string][] = [
   ["body", "Description"],
   ["title", "Title"],
   ["labels", "Labels"],
   ["dependencies", "Prerequisites"],
+  ["acceptance_criteria", "Acceptance criteria"],
+  ["project_id", "Project"],
+  ["documents", "Selected documents"],
+  ["input_files", "Input files"],
+  ["publication", "Preparation"],
 ];
 export function TaskChanges({
   revision,
@@ -60,7 +74,21 @@ export function TaskChanges({
           )
           .join(", ") || "None"
       );
-    return record[field];
+    if (field === "documents")
+      return (
+        record.documents
+          .map(
+            (item) =>
+              `${item.id} · ${item.revision ? `revision #${item.revision}` : "latest revision"} · ${item.purpose}`,
+          )
+          .join("\n") || "None"
+      );
+    if (field === "input_files") return record.input_files.join(", ") || "None";
+    if (field === "publication")
+      return record.publication
+        ? `Prepared revision #${record.publication.task_revision} for ${record.publication.completion}${record.publication.target_branch ? ` into ${record.publication.target_branch}` : ""}`
+        : "Not prepared";
+    return record[field] ?? "None";
   }
   return (
     <ContentStack className="task-changes">
@@ -109,7 +137,7 @@ export function TaskChanges({
             </DetailSection>
           ))
         ) : (
-          <p>No net change across these edits.</p>
+          <p>{after.change_note || "Task settings updated."}</p>
         ))}
       {open &&
         after?.publication &&

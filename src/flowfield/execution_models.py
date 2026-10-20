@@ -34,6 +34,7 @@ class WorkspaceWorkerSettings(Record):
     revision: int = 1
     selection: AgentChoice | None = None
     max_parallel: int = 1
+    auto_start_queue: bool = False
     enabled: bool = False
     problem: str | None = None
 

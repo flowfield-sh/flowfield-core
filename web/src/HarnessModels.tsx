@@ -164,6 +164,21 @@ export function HarnessModelSource({
         />
       </Label>
       <ResourceRetry resources={[hosts]} />
+      <ResourceRetry
+        resources={[
+          {
+            error:
+              catalog.error ||
+              (loaded && catalog.data?.length === 0
+                ? "No models available"
+                : ""),
+            loading: catalog.loading,
+            retry: source.load,
+          },
+        ]}
+      >
+        Retry loading models
+      </ResourceRetry>
       {!hosts.loading && unavailable && (
         <p className="detail-metadata">
           Set up an available harness or resolve its discovery hold.{" "}
@@ -179,8 +194,8 @@ export function HarnessModelSource({
           <Alert>
             <AlertDescription>
               {kind === "pi"
-                ? "Pi has no available models. Configure a provider in Pi on the service host, then refresh models."
-                : `No models are available from ${kind ? harnessNames[kind] : "this harness"}. Check its native account and model settings, then refresh models.`}{" "}
+                ? "Pi has no available models. Configure a provider in Pi on the service host, then retry loading models."
+                : `No models are available from ${kind ? harnessNames[kind] : "this harness"}. Check its native account and model settings, then retry loading models.`}{" "}
               <WorkspaceLink to="/settings/harnesses">
                 Harness settings
               </WorkspaceLink>

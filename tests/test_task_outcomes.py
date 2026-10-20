@@ -128,12 +128,17 @@ def test_task_and_subtask_graphs_are_distinct_and_transactional(tmp_path):
 
     messages = ThreadView(store).page_view(owner, first.id).items
     definitions = sorted(
-        (message for message in messages if message.kind == "definition"),
+        (message for message in messages if message.kind in ("definition", "subtasks")),
         key=lambda message: message.revision or 0,
     )
     assert definitions[0].title == "Task defined"
-    assert all(message.title == "Work plan updated" for message in definitions[1:])
-    assert all(message.title == "Work plan updated" for message in definitions[1:])
+    assert [message.title for message in definitions[1:]] == [
+        "Subtasks updated",
+        "Subtasks updated",
+    ]
+    assert "S-1: A" in definitions[1].body and "First contribution" in definitions[1].body
+    assert "S-2: B" not in definitions[1].body
+    assert "S-2: B" in definitions[2].body and "Prerequisites: S-1" in definitions[2].body
     with pytest.raises(ApplicationError):
         children.create(
             owner,
@@ -221,6 +226,11 @@ def test_parallel_contributions_exact_inputs_and_single_delivery(tmp_path):
     result = Results(store).page(owner, task.id).items[0]
     assert {file.name for file in result.files} == {"research.pdf", "report.pdf"}
     assert result.run_id not in {first.id, second.id, last.id}
+    from flowfield.thread_view import ThreadView
+
+    assembled = ThreadView(store).item_view(owner, task.id, "attempt:" + result.run_id)
+    assert assembled.author == assembled.actor.identity == "flowfield"
+    assert assembled.state.tone == "complete" and not assembled.has_activity and not assembled.body
     Results(store).process(owner)
     assert store.task(owner, task.id).status == "done"
     assert len(Results(store).page(owner, task.id).items) == 1

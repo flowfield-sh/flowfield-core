@@ -36,14 +36,16 @@ export function RunActivity({
   review?: boolean;
   reviewAttemptId?: string;
 }) {
+  const visible = useContext(ActivityBodyVisible);
   const resource = useResource<Page>(
-    `workspaces/${projectId}/${review ? "reviews" : "runs"}/${runId}${reviewAttemptId ? `/attempts/${reviewAttemptId}` : ""}/activity`,
+    visible
+      ? `workspaces/${projectId}/${review ? "reviews" : "runs"}/${runId}${reviewAttemptId ? `/attempts/${reviewAttemptId}` : ""}/activity`
+      : null,
     runId,
     10000,
     { projectId, attemptId: reviewAttemptId ?? runId, isActive },
   );
   const { data: page, error } = resource;
-  const visible = useContext(ActivityBodyVisible);
   const { pane: outputRef, content: contentRef } = useActivityFollow(
     visible,
     !!page?.supported,
@@ -52,12 +54,8 @@ export function RunActivity({
     <div className="run-activity content-stack">
       <ResourceRetry resources={[resource]}>Retry activity</ResourceRetry>
       {!page && !error && <p className="muted">Loading activity…</p>}
-      {page && !page.supported && (
-        <p className="muted">
-          {page.active
-            ? "Waiting for public activity…"
-            : "This attempt has no recorded activity feed."}
-        </p>
+      {page?.active && !page.supported && (
+        <p className="muted">Waiting for public activity…</p>
       )}
       {page?.supported && (
         <div

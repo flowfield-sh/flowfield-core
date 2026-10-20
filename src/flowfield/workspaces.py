@@ -50,12 +50,14 @@ class ProjectAdoption(Input):
 class WorkspaceEdit(Edit):
     name: WorkspaceName | None = None
     description: Markdown | None = None
+    auto_start_queue: bool | None = None
 
 
 class WorkspaceRecord(Input):
     id: Identifier
     name: WorkspaceName
     description: str = ""
+    auto_start_queue: bool = False
     revision: int = 1
     created_at: str
     updated_at: str
@@ -71,7 +73,10 @@ class Workspaces:
         row = db.execute("SELECT * FROM workspaces WHERE id=?", (identity,)).fetchone()
         if row is None:
             raise ApplicationError("not_found", "Workspace not found.", 404)
-        return WorkspaceRecord(**dict(row))
+        return WorkspaceRecord(
+            **dict(row),
+            auto_start_queue=worker_settings.read_workspace(db, identity).auto_start_queue,
+        )
 
     def get(self, identity: str) -> WorkspaceRecord:
         with self.store.connection() as db:
@@ -80,7 +85,7 @@ class Workspaces:
     def all(self) -> list[WorkspaceRecord]:
         with self.store.connection() as db:
             return [
-                WorkspaceRecord(**dict(row))
+                self.read(db, row["id"])
                 for row in db.execute("SELECT * FROM workspaces ORDER BY created_at, id")
             ]
 
@@ -155,6 +160,10 @@ class Workspaces:
         current = self.read(db, identity)
         changes = self.store._patch(current, request)
         updated = current.model_copy(update=changes)
+        if updated.auto_start_queue != current.auto_start_queue:
+            settings = worker_settings.read_workspace(db, identity)
+            settings.auto_start_queue = updated.auto_start_queue
+            worker_settings.save_workspace(db, settings)
         db.execute(
             "UPDATE workspaces SET name=?,description=?,revision=?,updated_at=?,updated_by=? "
             "WHERE id=?",

@@ -28,13 +28,9 @@ test("workspace files organize retained task outputs without a project", async (
   await expect(
     footer.getByRole("button", { name: "Stop review", exact: true }),
   ).toHaveCount(0);
-  const reviewHistory = page.waitForResponse((response) =>
-    response.url().endsWith(`/reviews/${value.waiting_review}/attempts`),
-  );
-  await page
-    .locator('[data-kind="review"] details.activity-entry > summary')
-    .click();
-  expect((await reviewHistory).ok()).toBe(true);
+  // The scripted waiting review has no retained activity; its question owns the response.
+  await expect(page.locator('[data-kind="review"]')).toBeVisible();
+  await expect(page.locator('[data-kind="review"] summary')).toHaveCount(0);
   await page.goto(`${base}/requests/question/${value.waiting_question}`);
   await footer
     .getByRole("textbox", { name: "Your answer", exact: true })

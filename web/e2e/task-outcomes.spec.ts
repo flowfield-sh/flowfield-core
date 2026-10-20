@@ -140,13 +140,17 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await expect(
     detail.getByRole("img", { name: "launch-preview.png", exact: true }),
   ).not.toBeVisible();
-  await detail
-    .locator("summary")
-    .filter({ hasText: /^Supporting files$/ })
-    .click();
+  const resultEvent = detail.locator('[data-kind="result"]');
+  await expect(resultEvent).not.toContainText("Supporting files");
+  await expect(resultEvent).not.toContainText("Reviewer:");
   await expect(
-    detail.getByRole("img", { name: "launch-preview.png", exact: true }),
+    resultEvent.getByRole("link", { name: "Access results" }),
   ).toBeVisible();
+  const assemblyEvent = detail
+    .locator('[data-kind="attempt"]')
+    .filter({ hasText: "Task assembled" });
+  await expect(assemblyEvent).toHaveCount(1);
+  await expect(assemblyEvent.locator("summary")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("assembled-ready.png") });
   const waiting = await (
     await request.get(`/api${base}/tasks/${value.dependent}`)
@@ -271,7 +275,7 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await detail
     .locator('[data-kind="result"] details.activity-entry > summary')
     .click();
-  await detail.getByRole("link", { name: "View result" }).click();
+  await detail.getByRole("link", { name: "Access results" }).click();
   await expect(
     page
       .getByRole("region", { name: "Proposed result", exact: true })

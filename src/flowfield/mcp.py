@@ -25,6 +25,7 @@ from flowfield.application import (
 from flowfield.attention import AttentionColumn, RequestKind
 from flowfield.conversation_api import add_conversation_tools
 from flowfield.coordinator_settings import CoordinatorSettings
+from flowfield.document_usage import DocumentUsage, DocumentUsageEdit
 from flowfield.documents import DocumentCreate, DocumentEdit, DocumentRestore, Documents
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import QueueEdit, SettingsEdit
@@ -515,6 +516,50 @@ def create_mcp(
         return await mutate(
             lambda: (
                 Documents(workspace())
+                .edit(workspace_id, document_id, attributed(changes))
+                .model_dump()
+            )
+        )
+
+    @mcp.tool(annotations=read)
+    async def get_document_usage(
+        workspace_id: Identifier,
+        document_id: Identifier,
+        after: Identifier | None = None,
+        limit: PageLimit = 20,
+    ) -> CallToolResult:
+        """Read projectless defaults and a bounded page of project purposes/revision guards."""
+
+        def read_usage() -> dict[str, Any]:
+            from flowfield.reads import page
+
+            usage = DocumentUsage(workspace()).get(workspace_id, document_id)
+            projects = page(
+                [
+                    project.model_dump()
+                    for project in usage.projects
+                    if after is None or project.id > after
+                ],
+                limit,
+                "id",
+            )
+            return {
+                "revision": usage.revision,
+                "projectless": usage.projectless,
+                "projects": projects["items"],
+                "next_cursor": projects["next_cursor"],
+            }
+
+        return await invoke(read_usage)
+
+    @mcp.tool(annotations=write)
+    async def edit_document_usage(
+        workspace_id: Identifier, document_id: Identifier, changes: DocumentUsageEdit
+    ) -> CallToolResult:
+        """Select future task audiences; null excludes a default. Frozen tasks stay unchanged."""
+        return await mutate(
+            lambda: (
+                DocumentUsage(workspace())
                 .edit(workspace_id, document_id, attributed(changes))
                 .model_dump()
             )

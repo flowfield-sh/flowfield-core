@@ -4,7 +4,6 @@ import { AgentModelFields } from "./AgentSettings";
 import { ContentStack } from "./DetailLayout";
 import {
   HarnessModelSource,
-  RefreshModels,
   modelSupports,
   useHarnessModels,
 } from "./HarnessModels";
@@ -66,9 +65,6 @@ export function AgentChoiceFields({
               });
           }}
         />
-        <div className="actions">
-          <RefreshModels source={source} />
-        </div>
       </ContentStack>
     </fieldset>
   );

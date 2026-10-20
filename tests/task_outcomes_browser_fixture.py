@@ -30,6 +30,7 @@ from flowfield.replies import Replies
 from flowfield.reply_models import ReplyBinding, ReplyCreate
 from flowfield.results import Results
 from flowfield.reviewer_settings import ReviewerEdit, Reviewers
+from flowfield.run_activity import ActivityUpdate
 from flowfield.subtasks import SubtaskCreate, Subtasks
 from flowfield.task_assembly import TaskAssembly
 from flowfield.task_reviews import ReviewVerdict, TaskReviews
@@ -106,6 +107,11 @@ def seed(state: Path, assets: Path, agents=None):
                 "Scripted review of exact PDF/PNG bytes and the combined candidate; "
                 "no live model was used."
             ),
+        )
+        reviews.write(
+            owner,
+            review.attempt_id,
+            [ActivityUpdate(key="review-evidence", kind="agent", text=decision.evidence)],
         )
         reviews.save_decision(owner, review.id, review.attempt_id, decision.model_dump())
         reviews.finish_attempt(owner, review.id, review.attempt_id, cleanup_confirmed=True)

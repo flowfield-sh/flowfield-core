@@ -1245,7 +1245,7 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     .locator('[data-kind="result"] details.activity-entry > summary')
     .click();
   await expect(
-    page.getByRole("link", { name: "View result", exact: true }),
+    page.getByRole("link", { name: "Access results", exact: true }),
   ).toHaveAttribute(
     "href",
     `/workspaces/${await projectWorkspace(request, "outcome-report")}/results/${(await result("report")).id}`,

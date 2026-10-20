@@ -27,7 +27,7 @@ export function ProjectCheckPermission({
       <SettingsCheckbox
         checked={pending ?? resource.data?.enabled ?? false}
         disabled={disabled || busy || resource.loading || !resource.data}
-        hint="Runs these commands on worker-edited code with Flowfield’s machine access, outside the worker’s sandbox. Saves immediately; changes to integration settings require permission again. Turning this off blocks new runs."
+        hint="Lets a worker ask Flowfield to run the saved validation commands when its sandbox cannot run them. Commands use this machine’s access on worker-edited code. Ordinary sandboxed tests need no permission here. Saves immediately; changing integration settings revokes permission."
         onChange={async (event) => {
           if (!resource.data) return;
           setBusy(true);
@@ -49,7 +49,7 @@ export function ProjectCheckPermission({
           }
         }}
       >
-        Let workers run checks through Flowfield
+        Allow saved checks outside the worker sandbox
       </SettingsCheckbox>
       <ResourceRetry resources={[resource]} />
     </DetailSection>

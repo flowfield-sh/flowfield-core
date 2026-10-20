@@ -35,7 +35,7 @@ test("saved check authority invalidates on settings changes", async ({
   await page.screenshot({ path: info.outputPath("workers-dark.png") });
   await page.goto(`/projects/${value.project}/edit/integration`);
   const grant = page.getByRole("checkbox", {
-    name: "Let workers run checks through Flowfield",
+    name: "Allow saved checks outside the worker sandbox",
     exact: true,
   });
   await grant.check();

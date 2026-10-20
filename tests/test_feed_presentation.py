@@ -35,7 +35,7 @@ def test_only_current_question_revision_needs_attention():
     assert event_state("question", "open", "question:q:1", current).tone == "complete"
     assert event_state("answer", "answered", "answer:q:2", current).tone == "complete"
     attempt = event_state("attempt", "waiting_for_input", "attempt:a", current)
-    assert attempt.label == "Asked a question" and attempt.tone == "idle"
+    assert attempt.label == "Asked a question" and attempt.tone == "waiting"
 
 
 def test_question_prompt_is_body_content_not_event_title(tmp_path):
@@ -84,7 +84,7 @@ def test_historical_result_cannot_inherit_new_check_cycle():
     current = WorkState(label="Checking changes", tone="active", href="/results/new").for_event(
         "result:new"
     )
-    assert event_state("result", "preparing", "result:old", current).tone == "idle"
+    assert event_state("result", "preparing", "result:old", current).tone == "complete"
     assert event_state("result", "preparing", "result:new", current).tone == "active"
     assert event_state("approval", "delivering", "approval:new", current).tone == "complete"
 
@@ -94,7 +94,7 @@ def test_uncertain_worker_needs_attention_without_animation():
         "attempt:a"
     )
     assert event_state("attempt", "uncertain", "attempt:a", current).tone == "attention"
-    assert event_state("state", "in_progress", "definition:2", current).tone == "complete"
+    assert event_state("state", "in_progress", "definition:2", current).tone == "idle"
 
 
 def test_recorded_withdrawals_and_handoff_warnings_remain_visible():
@@ -107,3 +107,41 @@ def test_recorded_withdrawals_and_handoff_warnings_remain_visible():
         ).label
         == "Task changed · Recheck before continuing"
     )
+
+
+@pytest.mark.parametrize("kind", ["review", "activity"])
+@pytest.mark.parametrize("decision", ["request_changes", "ask_human", "ask_worker"])
+def test_review_followup_is_amber_not_success(kind, decision):
+    state = event_state(kind, "decided", "historical", WorkState(label="Done"), decision=decision)
+    assert state.tone == "waiting"
+
+
+def test_completed_contributions_are_green_and_failures_are_red():
+    current = WorkState(label="Done")
+    assert event_state("attempt", "contributed", "old", current).tone == "complete"
+    assert event_state("attempt", "failed", "old", current).tone == "attention"
+
+
+def test_finished_attempt_without_activity_has_no_empty_disclosure(tmp_path):
+    from flowfield.run_activity import ActivityUpdate, RunActivity
+
+    execution = fixture(tmp_path)
+    run = execution.claim("harbor", BASE, {BASE: set()})
+    thread = ThreadView(execution.workspace)
+    assert thread.item_view("harbor", run.task_id, "attempt:" + run.id).has_activity
+    execution.finish("harbor", run.id, "stopped")
+    assert not thread.item_view("harbor", run.task_id, "attempt:" + run.id).has_activity
+    stopped = execution.get("harbor", run.id)
+    execution.retry("harbor", run.id, RunAction(expected_revision=stopped.revision))
+    next_run = execution.claim("harbor", BASE, {BASE: set()})
+    RunActivity(execution.workspace).write(
+        "harbor",
+        next_run.id,
+        [
+            ActivityUpdate(
+                key="retained", kind="agent", text="Inspected the existing implementation."
+            )
+        ],
+    )
+    execution.finish("harbor", next_run.id, "stopped")
+    assert thread.item_view("harbor", run.task_id, "attempt:" + next_run.id).has_activity

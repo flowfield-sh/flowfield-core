@@ -50,10 +50,11 @@ export function MessageBody({
 }
 
 export function hasBody(message: Message) {
-  if (message.kind === "review") return true;
+  if (["attempt", "review"].includes(message.kind))
+    return !!(message.body || message.has_activity);
   return !!(
     message.body ||
     message.question_id ||
-    ["attempt", "result", "question", "definition"].includes(message.kind)
+    ["result", "question", "definition"].includes(message.kind)
   );
 }

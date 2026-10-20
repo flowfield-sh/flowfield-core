@@ -101,6 +101,7 @@ test("service recovery cancels pending review pagination with an unchanged revie
           {
             id: "review:review",
             kind: "review",
+            has_activity: true,
             source_id: "review",
             revision: 1,
             created_at: "2026-10-16T12:00:00Z",

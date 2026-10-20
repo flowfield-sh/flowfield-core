@@ -6,7 +6,6 @@ import { SettingsCheckbox } from "./SettingsCheckbox";
 import { AgentModelFields } from "./AgentSettings";
 import {
   HarnessModelSource,
-  RefreshModels,
   modelSupports,
   useHarnessModels,
 } from "./HarnessModels";
@@ -159,7 +158,6 @@ export function ReviewerSettings({
                   Reset
                 </Button>
               )}
-              {enabled && <RefreshModels source={source} />}
             </div>
           </fieldset>
         </form>
