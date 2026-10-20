@@ -226,6 +226,60 @@ def test_parallel_contributions_exact_inputs_and_single_delivery(tmp_path):
     assert len(Results(store).page(owner, task.id).items) == 1
 
 
+def test_assembled_review_receives_frozen_document_content(tmp_path):
+    from flowfield.documents import DocumentCreate, DocumentEdit, Documents
+    from flowfield.task_reviews import TaskReviews
+
+    store, owner, execution = workspace(tmp_path, review=True)
+    docs = Documents(store)
+    contract = docs.create(
+        owner, DocumentCreate(title="Product contract", body="Required rule\n" * 800)
+    )
+    unrelated = docs.create(owner, DocumentCreate(title="Other work", body="Not selected"))
+    task = store.create_task(
+        owner,
+        TaskCreate(
+            title="Apply the contract",
+            body="Verify the selected product rules",
+            documents=[{"id": contract.id, "revision": 1}],
+        ),
+    )
+    child = Subtasks(store).create(
+        owner,
+        task.id,
+        SubtaskCreate(title="Research", body="Read the contract", completion="report"),
+    )
+    task = store.task(owner, task.id)
+    task = store.publish_task(
+        owner, task.id, TaskPublish(expected_revision=task.revision, completion="report")
+    )
+    task = store.prioritize_task(
+        owner, task.id, TaskPriority(expected_revision=task.revision, status="up_next")
+    )
+    assemblies = TaskAssembly(store)
+    assembly = assemblies.ensure(task, "", [])
+    run = execution.claim(
+        owner, "", {}, task_id=task.id, subtask_id=child.id, assembly_id=assembly.id
+    )
+    assert run
+    contribute(store, execution, owner, run)
+    docs.edit(owner, contract.id, DocumentEdit(expected_revision=1, body="New, unselected rules"))
+    assert assemblies.assemble(owner, task.id)
+    Results(store).process(owner)
+    result = Results(store).page(owner, task.id).items[0]
+    reviews = TaskReviews(store)
+    review = reviews.prepare(owner, result.id)
+    assert reviews.read_context(review, f"document:{contract.id}") == contract.body
+    manifest = json.loads(reviews.read_context(review, "documentation"))
+    selected = next(item for item in manifest["items"] if item["id"] == contract.id)
+    assert selected["revision"] == 1 and selected["section"] == f"document:{contract.id}"
+    with pytest.raises(ApplicationError, match="section"):
+        reviews.read_context(review, f"document:{unrelated.id}")
+    # Restarted reads still use captured content, not the latest document revision.
+    restarted = TaskReviews(Workspace(store.directory))
+    assert restarted.read_context(review, f"document:{contract.id}") == contract.body
+
+
 def test_correction_preserves_independent_contribution(tmp_path):
     store, owner, execution = workspace(tmp_path, review=True)
     task, a, b, c = decomposed(store, owner)

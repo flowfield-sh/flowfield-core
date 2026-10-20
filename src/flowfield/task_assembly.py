@@ -394,25 +394,19 @@ class TaskAssembly:
                     )[:8000],
                 ),
             )
-            assignment = {
-                "title": f"{task.key}: {task.title}",
-                "description": task.body,
-                "criteria": task.acceptance_criteria,
-                "prerequisites": json.dumps(value.prerequisites),
-                "contributions": json.dumps(
-                    [
-                        {
-                            "subtask": child.model_dump(),
-                            "run_id": worker.id,
-                            "commit": worker.result_commit,
-                        }
-                        for child, worker in zip(children, runs, strict=True)
-                    ]
-                ),
-                "agreement": json.dumps(
-                    {"agreement_revision": task.agreement_revision, "completion": run.completion}
-                ),
-            }
+            assignment = Execution(self.store)._assignment(
+                db, task, run, None, value.prerequisites, {}, resume=False
+            )
+            assignment["contributions"] = json.dumps(
+                [
+                    {
+                        "subtask": child.model_dump(),
+                        "run_id": worker.id,
+                        "commit": worker.result_commit,
+                    }
+                    for child, worker in zip(children, runs, strict=True)
+                ]
+            )
             db.execute(
                 "INSERT INTO runs(id,workspace_id,task_id,status,data,assignment) "
                 "VALUES (?,?,?,?,?,?)",
