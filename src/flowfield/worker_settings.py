@@ -34,9 +34,7 @@ def save_workspace(db: sqlite3.Connection, settings: WorkspaceWorkerSettings) ->
 
 
 def configure(settings: WorkspaceWorkerSettings, request: SettingsEdit) -> None:
-    if request.selection.fast:
-        raise ApplicationError("worker_speed_override", "Set Fast mode on the task override.", 409)
-    settings.selection = request.selection.model_copy(update={"fast": False}, deep=True)
+    settings.selection = request.selection.model_copy(deep=True)
     settings.max_parallel = request.max_parallel
 
 

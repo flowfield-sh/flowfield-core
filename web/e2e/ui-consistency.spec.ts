@@ -26,6 +26,7 @@ const choice = {
 
 test("workspace setup keeps three explicit role choices in a consistent pane", async ({
   page,
+  request,
 }, testInfo) => {
   await page.route("**/api/worker-models*", (route) =>
     route.fulfill({ json: [model] }),
@@ -41,6 +42,9 @@ test("workspace setup keeps three explicit role choices in a consistent pane", a
   });
   await page.getByRole("link", { name: "New workspace", exact: true }).click();
   const form = page.getByRole("region", { name: "New workspace form" });
+  await expect(
+    page.getByRole("link", { name: "Open in work tab" }),
+  ).toHaveCount(0);
   await form.getByLabel("Name", { exact: true }).fill("Release workspace");
   for (const role of ["Coordinator", "Worker", "Reviewer"]) {
     const fields = form.getByRole("group", { name: role, exact: true });
@@ -66,6 +70,15 @@ test("workspace setup keeps three explicit role choices in a consistent pane", a
       fields.getByRole("combobox", { name: "Access mode", exact: true }),
       "agent",
     );
+    const fast = fields.getByRole("checkbox", {
+      name: "Fast mode",
+      exact: true,
+    });
+    if (role === "Coordinator") await expect(fast).toHaveCount(0);
+    else {
+      await expect(fast).not.toBeChecked();
+      await fast.check();
+    }
   }
   await expect(
     form.getByRole("button", { name: "Create workspace" }),
@@ -97,6 +110,66 @@ test("workspace setup keeps three explicit role choices in a consistent pane", a
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
+  }
+  await form.getByRole("button", { name: "Create workspace" }).click();
+  await expect(page).toHaveURL(/workspaces\/[^/]+\/inbox$/);
+  const workspace = new URL(page.url()).pathname.split("/")[2];
+  await page.route(`**/api/workspaces/${workspace}/models*`, (route) =>
+    route.fulfill({ json: [model] }),
+  );
+  for (const [tab, endpoint, region] of [
+    ["workers", "workers", "Worker settings"],
+    ["reviewers", "reviewer", "Reviewer settings"],
+  ]) {
+    let saved = await (
+      await request.get(`/api/workspaces/${workspace}/${endpoint}`)
+    ).json();
+    expect(saved.selection.fast).toBe(true);
+    await page.route(
+      `**/api/workspaces/${workspace}/${endpoint}{,?*}`,
+      async (route) => {
+        if (route.request().method() === "PUT") {
+          const body = route.request().postDataJSON();
+          saved = { ...saved, ...body, revision: saved.revision + 1 };
+        }
+        await route.fulfill({ json: saved });
+      },
+    );
+    await page.goto(`/workspaces/${workspace}/edit/${tab}`);
+    const settings = page.getByRole("region", { name: region, exact: true });
+    const fast = settings.getByRole("checkbox", {
+      name: "Fast mode",
+      exact: true,
+    });
+    await expect(fast).toBeChecked();
+    await fast.uncheck();
+    await settings
+      .getByRole("button", {
+        name: tab === "workers" ? "Save worker settings" : "Save",
+        exact: true,
+      })
+      .click();
+    await expect(
+      settings.getByRole("button", {
+        name: tab === "workers" ? "Save worker settings" : "Save",
+        exact: true,
+      }),
+    ).toBeDisabled();
+    await page.reload();
+    await expect(fast).not.toBeChecked();
+    expect(saved.selection.fast).toBe(false);
+    for (const [width, theme] of [
+      [1440, "light"],
+      [390, "dark"],
+    ] as const) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.emulateMedia({ colorScheme: theme });
+      await fast.scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: testInfo.outputPath(`workspace-${tab}-${width}.png`),
+        animations: "disabled",
+      });
+    }
   }
 });
 

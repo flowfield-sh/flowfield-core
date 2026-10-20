@@ -65,6 +65,13 @@ test("individual requests retain answers and drafts across Inbox and reused tabs
   await card
     .getByRole("textbox", { name: "Your answer", exact: true })
     .fill("Name, rate, currency");
+  const popup = page.context().waitForEvent("page");
+  await card
+    .getByRole("link", { name: "Open request in work tab", exact: true })
+    .click({ modifiers: ["ControlOrMeta"] });
+  const nativeTab = await popup;
+  await expect(nativeTab).toHaveURL(href);
+  await nativeTab.close();
   await card
     .getByRole("link", { name: "Open request in work tab", exact: true })
     .click();
@@ -77,9 +84,9 @@ test("individual requests retain answers and drafts across Inbox and reused tabs
   await expect(tabs.getByRole("tab", { selected: true })).toContainText(
     "T-1 Question",
   );
-  await detail
-    .getByRole("link", { name: "Open in work tab", exact: true })
-    .click();
+  await expect(
+    detail.getByRole("link", { name: "Open in work tab", exact: true }),
+  ).toHaveCount(0);
   await expect(tabs.getByRole("tab", { name: /T-1 Question/ })).toHaveCount(1);
   await detail
     .getByRole("textbox", { name: "Your answer", exact: true })

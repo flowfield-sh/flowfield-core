@@ -106,6 +106,10 @@ export function Composer({
     focused &&
     !dismissed &&
     /^\/[a-z]*$/i.test(text);
+  const { loaded, loading, error, load } = nativeCommands ?? {};
+  useEffect(() => {
+    if (menu && !loaded && !loading && !error) load?.();
+  }, [menu, loaded, loading, error, load]);
   const nativeQuery = text.slice(1).toLowerCase();
   const agentCommands = (nativeCommands?.items ?? []).filter((item) =>
     item.name.startsWith(nativeQuery),
@@ -356,24 +360,12 @@ export function Composer({
               <Command.List aria-label="Composer commands">
                 {nativeCommands && (
                   <>
-                    {nativeCommands.loading ? (
+                    {nativeCommands.loading ||
+                    (!nativeCommands.loaded && !nativeCommands.error) ? (
                       <p className="detail-metadata" role="status">
                         Loading commands…
                       </p>
-                    ) : nativeCommands.error ? null : !nativeCommands.loaded ? (
-                      <>
-                        <p className="detail-metadata">
-                          Native startup hooks can run; no model prompt is sent.
-                        </p>
-                        <Command.Item
-                          value="load-native-commands"
-                          onMouseDown={(event) => event.preventDefault()}
-                          onSelect={() => nativeCommands.load()}
-                        >
-                          Load commands
-                        </Command.Item>
-                      </>
-                    ) : !agentCommands.length ? (
+                    ) : nativeCommands.error ? null : !agentCommands.length ? (
                       <p className="detail-metadata">
                         No matching commands. Esc to keep writing.
                       </p>

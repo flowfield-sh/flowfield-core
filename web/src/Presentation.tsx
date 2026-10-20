@@ -14,7 +14,7 @@ import { label, type TaskRevision } from "./workspace";
 import { usePaneClose, PaneHeading } from "./EntityPane";
 import { Timestamp } from "./Timestamp";
 import { ContentStack } from "./DetailLayout";
-import { OpenInWorkTab, ResourceBackAvailable } from "./WorkspaceTabs";
+import { ResourceBackAvailable } from "./WorkspaceTabs";
 
 export function CloseControl({
   label,
@@ -81,11 +81,8 @@ export function DetailHeader({
           <h2>{title}</h2>
           {metadata && <p className="detail-metadata">{metadata}</p>}
         </ContentStack>
-        {(actions || closeLabel.startsWith("Back")) && (
-          <div className="editor-heading-actions actions">
-            {actions}
-            {closeLabel.startsWith("Back") && <OpenInWorkTab />}
-          </div>
+        {actions && (
+          <div className="editor-heading-actions actions">{actions}</div>
         )}
         {!closeLabel.startsWith("Back") && (
           <CloseControl label={closeLabel} close={close} />

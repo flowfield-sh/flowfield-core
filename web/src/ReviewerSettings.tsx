@@ -120,7 +120,7 @@ export function ReviewerSettings({
                   effort={choice?.effort ?? ""}
                   mode={choice?.mode ?? ""}
                   fast={choice?.fast ?? false}
-                  showFast={!!entity}
+                  showFast
                   models={source.models}
                   loading={source.loading}
                   change={setChoice}

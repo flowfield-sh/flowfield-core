@@ -85,14 +85,14 @@ def test_worker_defaults_preserve_harness_optional_effort_and_override_provenanc
     execution = fixture(tmp_path, count=2, cap=2)
     choices = AgentSettings(execution.workspace)
     before = execution.settings("harbor")
-    native = AgentChoice(harness="claude-code", model="native-no-effort", mode="default")
+    native = AgentChoice(harness="claude-code", model="native-no-effort", mode="default", fast=True)
     saved = execution.configure(
         "harbor", SettingsEdit(expected_revision=before.revision, selection=native, max_parallel=2)
     )
-    assert saved.selection == native.model_copy(update={"fast": False})
+    assert saved.selection == native
     effective = choices.get("harbor", "worker").effective
     assert effective.choice == saved.selection and effective.default_revision == saved.revision
-    override = AgentChoice(model="codex-other", effort="high", mode="read-only", fast=True)
+    override = AgentChoice(model="codex-other", effort="high", mode="read-only", fast=False)
     choices.edit(
         "harbor", "worker", AgentSettingsEdit(expected_revision=1, selection=override), "task-1"
     )
@@ -112,10 +112,13 @@ def test_worker_defaults_preserve_harness_optional_effort_and_override_provenanc
         ),
     )
     assert execution.get("harbor", run.id).agent_settings == run.agent_settings
-    with pytest.raises(ApplicationError, match="task override"):
-        execution.configure(
-            "harbor", SettingsEdit(expected_revision=saved.revision + 1, selection=override)
-        )
+    updated = execution.configure(
+        "harbor", SettingsEdit(expected_revision=saved.revision + 1, selection=native)
+    )
+    assert updated.selection.fast
+    assert choices.get("harbor", "worker").effective.choice.fast
+    assert not choices.get("harbor", "worker", "task-1").effective.choice.fast
+    assert execution.get("harbor", other.id).agent_settings == other.agent_settings
 
 
 def test_absent_effort_is_valid_only_when_catalog_offers_no_efforts(tmp_path, monkeypatch):

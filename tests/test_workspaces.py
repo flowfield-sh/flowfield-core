@@ -12,6 +12,8 @@ from flowfield import storage
 from flowfield.agent_models import AgentChoice
 from flowfield.application import ProjectSetup, Workspace
 from flowfield.errors import ApplicationError
+from flowfield.execution import Execution
+from flowfield.reviewer_settings import Reviewers
 from flowfield.workspaces import WorkspaceCreate, WorkspaceEdit, Workspaces
 
 
@@ -21,7 +23,12 @@ def test_explicit_creation_and_revision_guard(tmp_path):
     assert workspaces.all() == []
     assert store.projects() == []
     first = workspaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product", author="human"))
-    second = workspaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
+    fast_agents = {
+        role: choice.model_copy(update={"fast": True}) for role, choice in TEST_AGENTS.items()
+    }
+    second = workspaces.create(WorkspaceCreate(**fast_agents, name="Product"))
+    assert Execution(store).settings(second.id).selection.fast
+    assert Reviewers(store).get(second.id).effective.agent.choice.fast
     assert first.id != second.id
     assert workspaces.projects(first.id) == []
     updated = workspaces.edit(

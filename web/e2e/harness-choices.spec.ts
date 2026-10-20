@@ -276,9 +276,9 @@ test("Claude-only coordinator saves native choices independently of worker defau
   await picker.getByRole("button", { name: "Cancel", exact: true }).click();
   await input.click();
   await input.fill("/");
-  await page
-    .getByRole("option", { name: "Load commands", exact: true })
-    .click();
+  await expect(
+    page.getByRole("option", { name: "Load commands", exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByText("Save a harness and its supported model settings first.", {
       exact: true,

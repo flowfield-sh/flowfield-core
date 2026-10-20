@@ -452,13 +452,14 @@ export function useWorkspaceTabs(
 }
 export type WorkspaceTabsController = ReturnType<typeof useWorkspaceTabs>;
 export function OpenInWorkTab({
-  href: target,
-  label = "Open in work tab",
-}: { href?: string; label?: string } = {}) {
-  const location = useLocation();
+  href,
+  label,
+}: {
+  href: string;
+  label: string;
+}) {
   const open = useContext(ResourceNavigation);
   if (!open) return null;
-  const href = target ?? location.pathname + location.search + location.hash;
   return (
     <ActionTooltip label={label}>
       <Button size="icon-sm" variant="ghost" asChild>

@@ -47,7 +47,7 @@ Changing integration settings or replacing the registered repository directory i
 
 Workspace defaults apply across member projects. Task **Settings → Worker** can override them; each attempt retains the harness, model and host registration it started with. Changes affect subsequent attempts, and unavailable choices fail explicitly rather than substituting a model.
 
-The Coordinator's choice is independent. Supported Fast mode can be enabled per task for subsequent attempts; it starts off and has no workspace-wide default. [Agent setup](/agents/overview) covers native accounts, discovery and permissions; [documents](/documents#supply-worker-context) covers the sources selected for workers.
+The Coordinator's choice is independent. Supported Fast mode starts off. Enable it with the checkbox in workspace Worker or Reviewer settings, or override it for a task. Running attempts keep their saved choices. [Agent setup](/agents/overview) covers native accounts, discovery and permissions; [documents](/documents#supply-worker-context) covers the sources selected for workers.
 
 Workers use separate Git worktrees and scoped Flowfield connections. Git isolation separates repository edits, not the whole host: use separate ports, databases and other mutable resources for concurrent tasks, or serialize them. Native access modes govern agent tools; configured setup and validation commands run directly on the service host.
 

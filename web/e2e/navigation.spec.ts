@@ -669,10 +669,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
     (await heading.boundingBox())!.x,
   );
   const comparison = detail.getByRole("link", { name: "Open in work tab" });
-  const titleBox = (await heading.boundingBox())!;
-  expect((await comparison.boundingBox())!.x).toBeGreaterThanOrEqual(
-    titleBox.x + titleBox.width,
-  );
+  await expect(comparison).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath("task-navigation-desktop.png"),
   });

@@ -176,6 +176,7 @@ export function WorkerSettings({
     model: string;
     effort: string;
     mode: string;
+    fast: boolean;
     cap: number;
     revision: number;
   } | null>(null);
@@ -190,6 +191,7 @@ export function WorkerSettings({
   const model = draft?.model ?? resource.data?.selection?.model ?? "";
   const effort = draft?.effort ?? resource.data?.selection?.effort ?? "";
   const mode = draft?.mode ?? resource.data?.selection?.mode ?? "";
+  const fast = draft?.fast ?? resource.data?.selection?.fast ?? false;
   const cap = draft?.cap ?? resource.data?.max_parallel ?? 1;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -200,6 +202,7 @@ export function WorkerSettings({
       model !== (resource.data.selection?.model ?? "") ||
       effort !== (resource.data.selection?.effort ?? "") ||
       mode !== (resource.data.selection?.mode ?? "") ||
+      fast !== (resource.data.selection?.fast ?? false) ||
       cap !== resource.data.max_parallel);
   useEffect(() => {
     onDirty(dirty);
@@ -237,7 +240,7 @@ export function WorkerSettings({
                   model,
                   effort: effort || null,
                   mode: mode || null,
-                  fast: false,
+                  fast,
                 },
                 max_parallel: cap,
               },
@@ -269,6 +272,7 @@ export function WorkerSettings({
                 model: "",
                 effort: "",
                 mode: "",
+                fast: false,
                 cap,
                 revision: draft?.revision ?? resource.data!.revision,
               })
@@ -278,15 +282,17 @@ export function WorkerSettings({
             model={model}
             effort={effort}
             mode={mode}
-            fast={false}
+            fast={fast}
+            showFast
             models={models}
             loading={source.loading || !resource.data}
-            change={(model, effort, mode) =>
+            change={(model, effort, mode, fast) =>
               setDraft({
                 harness: harness!,
                 model,
                 effort,
                 mode,
+                fast,
                 cap,
                 revision: draft?.revision ?? resource.data!.revision,
               })
@@ -305,6 +311,7 @@ export function WorkerSettings({
                   model,
                   effort,
                   mode,
+                  fast,
                   cap: Number(event.target.value),
                   revision: draft?.revision ?? resource.data!.revision,
                 })
@@ -327,7 +334,7 @@ export function WorkerSettings({
                     model,
                     effort: effort || null,
                     mode: mode || null,
-                    fast: false,
+                    fast,
                   },
                   models,
                 )

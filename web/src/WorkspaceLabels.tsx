@@ -70,7 +70,9 @@ export function WorkspaceLabels({
                         {label.name}
                       </Badge>
                     </div>
-                    {label.guidance && <p>{label.guidance}</p>}
+                    {label.guidance && (
+                      <p className="detail-metadata">{label.guidance}</p>
+                    )}
                   </div>
                   <Button
                     type="button"

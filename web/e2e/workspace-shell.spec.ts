@@ -225,27 +225,9 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
   await taskTab.click();
   await expect(page).toHaveURL(/T-2$/);
   await expect(taskTab).toHaveCount(1);
-  const comparison = page.getByRole("link", { name: "Open in work tab" });
-  const popup = page.context().waitForEvent("page", { timeout: 5000 });
-  await comparison.click({
-    modifiers: ["ControlOrMeta"],
-  });
-  const nativeTab = await popup;
-  await expect(nativeTab).toHaveURL(/T-2$/);
-  await nativeTab.close();
-  const original = await page.evaluate((id) => {
-    const state = JSON.parse(localStorage.getItem("flowfield:tabs:" + id)!);
-    return state.tabs.find((tab: { id: string }) => tab.id === state.active);
-  }, workspace);
-  await comparison.click();
-  await expect(taskTab).toHaveCount(1);
-  const focused = await page.evaluate(
-    (id) => JSON.parse(localStorage.getItem("flowfield:tabs:" + id)!),
-    workspace,
-  );
-  expect(
-    focused.tabs.find((tab: { id: string }) => tab.id === focused.active),
-  ).toEqual(original);
+  await expect(
+    page.getByRole("link", { name: "Open in work tab" }),
+  ).toHaveCount(0);
   await page.reload();
   await expect(taskTab).toHaveCount(1);
   const copied = taskTab.last();

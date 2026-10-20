@@ -93,10 +93,6 @@ export function NewWorkspace({
   return (
     <section className="editor" aria-label="New workspace form">
       <ContentStack space="section" className="pane-form">
-        <p>
-          A workspace brings projects together around one Coordinator, shared
-          tasks and a board. You can add projects after creating it.
-        </p>
         <form
           onSubmit={async (event) => {
             event.preventDefault();
@@ -134,6 +130,7 @@ export function NewWorkspace({
             <Separator />
             <AgentChoiceFields
               label="Coordinator"
+              description="Plan work, answer questions and coordinate delivery across your projects."
               value={coordinator}
               change={setCoordinator}
               onReady={setCoordinatorReady}
@@ -141,6 +138,8 @@ export function NewWorkspace({
             <Separator />
             <AgentChoiceFields
               label="Worker"
+              description="Workers carry out tasks and submit results. Tasks inherit this choice unless overridden."
+              showFast
               value={worker}
               change={setWorker}
               onReady={setWorkerReady}
@@ -148,6 +147,8 @@ export function NewWorkspace({
             <Separator />
             <AgentChoiceFields
               label="Reviewer"
+              description="Reviewers independently check task results before delivery. Tasks inherit this choice unless overridden."
+              showFast
               value={reviewer}
               change={setReviewer}
               onReady={setReviewerReady}

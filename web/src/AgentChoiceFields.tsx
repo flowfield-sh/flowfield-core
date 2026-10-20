@@ -14,11 +14,15 @@ type Choice = components["schemas"]["AgentChoice-Output"];
 /** Unsaved role selection for workspace setup, sharing the settings controls. */
 export function AgentChoiceFields({
   label,
+  description,
+  showFast = false,
   value,
   change,
   onReady,
 }: {
   label: string;
+  description: string;
+  showFast?: boolean;
   value: Choice | null;
   change: (choice: Choice) => void;
   onReady: (ready: boolean) => void;
@@ -30,6 +34,7 @@ export function AgentChoiceFields({
     <fieldset aria-label={label} className="content-stack">
       <legend className="detail-title mb-2">{label}</legend>
       <ContentStack space="section">
+        <p>{description}</p>
         <HarnessModelSource
           source={source}
           change={(harness) =>
@@ -46,17 +51,18 @@ export function AgentChoiceFields({
           model={value?.model ?? ""}
           effort={value?.effort ?? ""}
           mode={value?.mode ?? ""}
-          fast={false}
+          fast={value?.fast ?? false}
+          showFast={showFast}
           models={source.models}
           loading={source.loading}
-          change={(model, effort, mode) => {
+          change={(model, effort, mode, fast) => {
             if (source.kind)
               change({
                 harness: source.kind,
                 model,
                 effort: effort || null,
                 mode: mode || null,
-                fast: false,
+                fast,
               });
           }}
         />

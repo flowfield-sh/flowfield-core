@@ -270,9 +270,9 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   const input = page.getByRole("textbox", { name: "Message coordinator" });
   expect(discoveries).toBe(0);
   await input.fill("/");
-  await page
-    .getByRole("option", { name: "Load commands", exact: true })
-    .click();
+  await expect(
+    page.getByRole("option", { name: "Load commands", exact: true }),
+  ).toHaveCount(0);
   await expect.poll(() => discoveries).toBe(1);
   await expect(page.getByRole("option", { name: /\/compact/ })).toBeVisible();
   await expect(page.locator("[cmdk-item]")).toHaveCount(2);
