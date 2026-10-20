@@ -1187,22 +1187,33 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   ).toPass();
   // Stagger independently loaded records, including content taller than the viewport.
   let resultDelay = 0;
+  let pendingReads = 0;
   await page.route(`**/api/workspaces/*/results/*`, async (route) => {
-    const response = await route.fetch().catch(() => null);
-    if (!response) return;
-    const body = await response.json();
-    body.report.summary += "\n\n" + "A detailed finding.\n\n".repeat(35);
-    await new Promise((resolve) => setTimeout(resolve, resultDelay));
-    await route.fulfill({ response, json: body });
+    pendingReads++;
+    try {
+      const response = await route.fetch().catch(() => null);
+      if (!response) return;
+      const body = await response.json();
+      body.report.summary += "\n\n" + "A detailed finding.\n\n".repeat(35);
+      await new Promise((resolve) => setTimeout(resolve, resultDelay));
+      await route.fulfill({ response, json: body });
+    } finally {
+      pendingReads--;
+    }
   });
   await page.route(
     (url) =>
       decodeURIComponent(url.pathname).includes(`/tasks/work/thread/result:`),
     async (route) => {
-      await new Promise((resolve) =>
-        setTimeout(resolve, resultDelay ? 0 : 500),
-      );
-      await route.continue();
+      pendingReads++;
+      try {
+        await new Promise((resolve) =>
+          setTimeout(resolve, resultDelay ? 0 : 500),
+        );
+        await route.continue();
+      } finally {
+        pendingReads--;
+      }
     },
   );
   const reportPane = page.locator(".entity-pane-body");
@@ -1355,6 +1366,9 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   releaseRun();
   await actions.getByRole("link", { name: "Fix project setup" }).click();
   await expect(page).toHaveURL(/edit\/integration/);
-  // Drain staggered result reads before Playwright disposes their response bodies.
+  // Stop polling and drain handlers before removing interception. Removing routes
+  // while a delayed response is pending can continue it before fulfill runs.
+  await page.goto("about:blank");
+  await expect.poll(() => pendingReads).toBe(0);
   await page.unrouteAll({ behavior: "wait" });
 });
