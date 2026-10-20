@@ -61,7 +61,7 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
         ),
         (
             "Verify your complete assigned contribution with meaningful checks. Report what "
-            "it provides and what remains owned by other contributions; do not claim the "
+            "it provides; do not claim the "
             "whole parent task is complete. Keep the result summary to a few "
             if contribution
             else "Verify the complete outcome with meaningful checks. "
@@ -79,7 +79,8 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
             "Use outcome=complete when your assigned contribution is implemented and verified. "
             "Pending sibling work, assembly, parent review or human delivery alone do not make "
             "this contribution partial. Describe implemented behavior and actual limitations; "
-            "leave current workflow status to Flowfield."
+            "leave current workflow status to Flowfield. Do not list sibling ownership, assembly, "
+            "review or human approval as limitations; those routine steps are tracked separately."
         )
     rules.append(
         "Selected input_files are exact copies in this attempt; their names and paths are in "

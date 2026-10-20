@@ -1,14 +1,12 @@
-"""Workspace identity/adoption and upgrades preserve independent repository histories."""
+"""Workspace identity and adoption preserve independent repository histories."""
 
 import sqlite3
-from contextlib import closing
 
 import pytest
 from project_fixtures import existing_directory
 from pydantic import ValidationError
 from workspace_fixtures import TEST_AGENTS
 
-from flowfield import storage
 from flowfield.agent_models import AgentChoice
 from flowfield.application import ProjectSetup, Workspace
 from flowfield.errors import ApplicationError
@@ -99,25 +97,3 @@ def test_failed_project_configuration_rolls_back_membership(tmp_path):
     assert store.projects() == []
     assert not (root / ".flowfield").exists()
     assert workspaces.get(space.id) == space
-
-
-def preserved_rows(store):
-    with closing(storage.connect(store.database)) as db:
-        return {
-            table: db.execute(
-                "SELECT id,name,path,description,revision,created_at,updated_at,updated_by,"
-                "task_prefix FROM projects"
-                if table == "projects"
-                else f"SELECT * FROM {table}"
-            ).fetchall()
-            for table in (
-                "projects",
-                "tasks",
-                "task_revisions",
-                "activity",
-                "worker_settings",
-                "coordinator_conversations",
-                "coordinator_turns",
-                "coordinator_sessions",
-            )
-        }
