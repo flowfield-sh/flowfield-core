@@ -74,10 +74,11 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
     name: "Workspace resources",
   });
   await expect(resources.getByRole("link")).toHaveText([
-    "Projects",
+    "Inbox1",
     "Tasks Board",
     "Documents",
     "Files",
+    "Projects",
     "Archive",
     "Settings",
   ]);
