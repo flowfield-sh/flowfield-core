@@ -5387,7 +5387,7 @@ export interface components {
       selection: components["schemas"]["AgentChoice-Input"];
       /**
        * Max Parallel
-       * @default 1
+       * @default 5
        */
       max_parallel: number;
     };
@@ -6371,7 +6371,7 @@ export interface components {
       selection: components["schemas"]["AgentChoice-Output"] | null;
       /**
        * Max Parallel
-       * @default 1
+       * @default 5
        */
       max_parallel: number;
       /**

@@ -33,7 +33,7 @@ class WorkspaceWorkerSettings(Record):
     workspace_id: str
     revision: int = 1
     selection: AgentChoice | None = None
-    max_parallel: int = 1
+    max_parallel: int = 5
     auto_start_queue: bool = False
     enabled: bool = False
     problem: str | None = None
@@ -47,7 +47,7 @@ class WorkerOccupancy(Record):
 class SettingsEdit(Record):
     expected_revision: int = Field(ge=1)
     selection: AgentChoice
-    max_parallel: int = Field(default=1, ge=1, le=16)
+    max_parallel: int = Field(default=5, ge=1, le=16)
 
 
 class QueueEdit(Record):

@@ -213,12 +213,14 @@ export function TaskDetail({
         </ContentStack>
       )}
       {!settings && (
-        <TaskConversation
-          projectId={workspaceId}
-          task={task}
-          board={board}
-          refresh={board}
-        />
+        <DetailSection title="Task feed">
+          <TaskConversation
+            projectId={workspaceId}
+            task={task}
+            board={board}
+            refresh={board}
+          />
+        </DetailSection>
       )}
     </section>
   );

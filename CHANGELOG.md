@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0
 
 ### Features
 
@@ -15,7 +15,7 @@
 - Create a workspace with one agent choice, or customize Coordinator, Worker and Reviewer roles. Workspace and task settings retain independent choices, including supported Fast mode.
 - Configure document usage from its editor or through the Coordinator, including defaults for tasks without a project. Prepared assignments keep their selected revisions. Maintain the shared label catalogue in workspace settings.
 - Try exact code results through a directly visible launcher, inspect their diffs and approve delivery to the configured local branch. Project settings can explicitly permit workers to run saved validation commands through Flowfield.
-- Save queue auto-start as a workspace preference independently of the sidebar’s current Run/Pause state.
+- Save queue auto-start as a workspace preference independently of the sidebar’s current Run/Pause state. New workspaces default to five parallel workers.
 
 ### Bug fixes
 

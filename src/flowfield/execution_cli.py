@@ -224,7 +224,7 @@ def register(workspace_app: typer.Typer, task_app: typer.Typer) -> None:
             None,
             help="Access mode from `workers models`; choose explicitly for a new harness.",
         ),
-        max_parallel: int = typer.Option(1, min=1, max=16),
+        max_parallel: int = typer.Option(5, min=1, max=16),
         json_output: Json = False,
     ) -> None:
         def perform() -> Any:

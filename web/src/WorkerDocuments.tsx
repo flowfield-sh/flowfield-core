@@ -71,11 +71,8 @@ export function WorkerDocumentPicker({
                 {document.title}
               </SettingsCheckbox>
               {selected && document.id !== "guidance" && (
-                <label
-                  className="settings-checkbox-content content-stack"
-                  data-space="tight"
-                >
-                  <span className="detail-metadata">Use as</span>
+                <label className="settings-checkbox-content flex items-center gap-2">
+                  <span>Use as</span>
                   <NativeSelect
                     size="sm"
                     aria-label={`Use ${document.title} as`}

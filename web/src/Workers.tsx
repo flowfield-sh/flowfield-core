@@ -190,7 +190,7 @@ export function WorkerSettings({
   const effort = draft?.effort ?? resource.data?.selection?.effort ?? "";
   const mode = draft?.mode ?? resource.data?.selection?.mode ?? "";
   const fast = draft?.fast ?? resource.data?.selection?.fast ?? false;
-  const cap = draft?.cap ?? resource.data?.max_parallel ?? 1;
+  const cap = draft?.cap ?? resource.data?.max_parallel ?? 5;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const dirty =

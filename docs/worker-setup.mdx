@@ -18,7 +18,7 @@ Enter one shell command per line for setup and validation. Choose commands appro
 
 1. Commit setup scripts, manifests and relevant repository guidance to the destination branch. Commit or ignore adoption metadata under your repository's rules; untracked files can block delivery.
 2. Save Integration settings and choose **Validate setup**. Flowfield checks the saved branch in a fresh worktree, runs setup and validation and reports readiness. It starts no model and enables no queue.
-3. Choose a worker harness and model in **Workspace settings → Workers**, with supported effort/access controls. Start with one worker slot; increase capacity when independent tasks can run safely together.
+3. Choose a worker harness and model in **Workspace settings → Workers**, with supported effort/access controls. Capacity defaults to five parallel workers; adjust it to suit your projects.
 4. Have the Coordinator prepare a task, move it to **Up next** and choose **Run queue**.
 
 Setup and checks run in the worktree directory and must leave source files unchanged. Keep dependency outputs ignored; use `FLOWFIELD_RUNTIME_DIR` for temporary files and `FLOWFIELD_WORKSPACE` for the checkout path. Checks must finish and return a failing exit code on failure. A development server belongs in Run command, not validation.

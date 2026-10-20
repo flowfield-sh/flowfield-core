@@ -47,7 +47,7 @@ Completed tasks retain their delivered results and captured inputs when prerequi
 
 A task can run directly or contain one level of subtasks. Ask the Coordinator to split work when independent contributions or a concrete dependency make execution clearer. Subtasks appear directly in the task’s **Subtasks** section; the board and sidebar continue to show the task.
 
-Subtask dependencies belong only to that parent task. Independent contributions may run in parallel within workspace capacity. A dependent contribution receives its prerequisites’ code and retained files. Each contribution gets its own managed worker session. Native subagents, when supported and enabled by the harness, remain inside that session; Flowfield does not schedule them as separate tasks or count them as separate worker slots. External dependencies belong on the parent task.
+Subtask dependencies belong only to that parent task. Independent contributions may run in parallel within workspace capacity, which defaults to five workers. A dependent contribution receives its prerequisites’ code and retained files. Each contribution gets its own managed worker session. Native subagents, when supported and enabled by the harness, remain inside that session; Flowfield does not schedule them as separate tasks or count them as separate worker slots. External dependencies belong on the parent task.
 
 When every contribution is ready, Flowfield assembles one task result and checks the combined code. The task reviewer assesses that whole outcome. There is one final code approval for delivery to the project’s configured destination. Reports, screenshots and PDFs follow the same task review flow without requiring Git.
 

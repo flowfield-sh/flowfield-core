@@ -28,7 +28,7 @@ def test_no_implicit_model_or_queue_and_stale_settings(tmp_path: Path) -> None:
     adopt(workspace, ProjectSetup(path=str(tmp_path / "harbor")))
     execution = Execution(workspace)
     settings = execution.settings("harbor")
-    assert settings.selection.model == "test-model" and settings.max_parallel == 1
+    assert settings.selection.model == "test-model" and settings.max_parallel == 5
     assert not settings.enabled
     execution.configure(
         "harbor",
