@@ -1,6 +1,8 @@
 import {
   useState,
   useEffect,
+  useLayoutEffect,
+  useRef,
   useSyncExternalStore,
   type CSSProperties,
   type ReactNode,
@@ -21,6 +23,7 @@ import {
 } from "@/components/ui/resizable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Home } from "lucide-react";
+import { usePanelRef } from "react-resizable-panels";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import "./workspace-frame.css";
@@ -171,6 +174,14 @@ export function WorkspaceFrame({
       return 440;
     }
   });
+  const coordinatorPanel = usePanelRef();
+  const desktopWidth = useRef(initialWidth);
+  const wasCompact = useRef(compact);
+  useLayoutEffect(() => {
+    if (wasCompact.current && !compact)
+      coordinatorPanel.current?.resize(desktopWidth.current);
+    wasCompact.current = compact;
+  }, [compact, coordinatorPanel]);
   const [surface, setSurface] = useState("work");
   useEffect(() => {
     const show = () => setSurface("coordinator");
@@ -237,9 +248,11 @@ export function WorkspaceFrame({
             >
               <ResizablePanel
                 id="coordinator"
+                panelRef={coordinatorPanel}
                 defaultSize={`${initialWidth}px`}
                 onResize={(size) => {
-                  if (!compact) {
+                  if (!compact && !wasCompact.current) {
+                    desktopWidth.current = size.inPixels;
                     try {
                       localStorage.setItem(
                         "flowfield:coordinator-width",

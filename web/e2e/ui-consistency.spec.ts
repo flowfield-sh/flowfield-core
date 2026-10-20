@@ -261,3 +261,63 @@ test("task reviewer uses an inline Fast checkbox and Reset with retained choices
   await expect(fast).not.toBeChecked();
   expect(settings.selection).toBeNull();
 });
+
+test("desktop pane width and drafts survive both mobile surfaces", async ({
+  page,
+  request,
+}, testInfo) => {
+  await fixtureProject(request, {
+    data: { path: existingDirectory(join(state, "pane-width")) },
+  });
+  const workspace = await projectWorkspace(request, "pane-width");
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`/workspaces/${workspace}/tasks`);
+  const divider = page.getByRole("separator", {
+    name: "Resize coordinator and work",
+  });
+  await divider.press("Home");
+  await divider.press("ArrowRight");
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+  const width = await page.evaluate(() =>
+    Number(localStorage.getItem("flowfield:coordinator-width")),
+  );
+  const input = page.getByRole("textbox", {
+    name: "Message coordinator",
+    exact: true,
+  });
+  await input.fill("Keep this draft while resizing");
+  for (const surface of ["Work", "Coordinator"]) {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByRole("tab", { name: surface, exact: true }).click();
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await expect
+      .poll(async () =>
+        Math.abs(
+          (await page.evaluate(() =>
+            Number(localStorage.getItem("flowfield:coordinator-width")),
+          )) - width,
+        ),
+      )
+      .toBeLessThan(2);
+    await expect(input).toHaveValue("Keep this draft while resizing");
+    await page.screenshot({
+      path: testInfo.outputPath(`desktop-after-${surface}.png`),
+      animations: "disabled",
+    });
+  }
+  await page.reload();
+  await expect
+    .poll(async () =>
+      Math.abs(
+        (await page.evaluate(() =>
+          Number(localStorage.getItem("flowfield:coordinator-width")),
+        )) - width,
+      ),
+    )
+    .toBeLessThan(2);
+});
