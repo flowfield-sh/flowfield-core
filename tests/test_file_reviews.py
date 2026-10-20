@@ -29,11 +29,18 @@ class FileReviewer(FakeWorker):
     async def run(self, model, effort, prompt, tools):
         brief = json.loads(prompt)
         assert not (self.cwd / ".git").exists()
-        assert len(brief["input_files"]) == 1
-        file = brief["input_files"][0]
-        assert Path(file["path"]).read_text() == "Agreed report"
+        original = json.loads(await self.on_tool("read_context", {"section": "files"}))
+        sources = json.loads(original["text"])
+        copied = {file["id"]: file for file in brief["input_files"]}
+        assert len(copied) == 1 + len(sources)
+        for source in sources:
+            path = Path(copied[source["id"]]["path"])
+            assert path.read_text() == "Agreed source evidence"
+            assert hashlib.sha256(path.read_bytes()).hexdigest() == source["sha256"]
         context = json.loads(await self.on_tool("read_context", {"section": "result"}))
         output = json.loads(context["text"])["files"][0]
+        file = copied[output["id"]]
+        assert Path(file["path"]).read_text() == "Agreed report"
         assert output["id"] == file["id"]
         assert output["name"] == file["name"]
         assert output["sha256"] == hashlib.sha256(Path(file["path"]).read_bytes()).hexdigest()
@@ -138,6 +145,22 @@ def test_report_review_gates_completion_and_preserves_files(tmp_path, monkeypatc
         delivery = next(item for item in messages if item.kind == "delivery")
         assert reviewing.created_at < signoff.created_at < delivery.created_at
     assert store.projects() == []
+
+
+def test_file_reviewer_receives_frozen_source_bytes_and_submitted_outputs(tmp_path, monkeypatch):
+    store, owner, scope = setup(tmp_path / "state")
+    source = task(store, scope, title="Source material")
+    delivered = deliver(store, scope, source.id, {"source.txt": "Agreed source evidence"})
+    configure(store, owner)
+    current = task(store, scope, input_files=[delivered.files[0].id])
+    result = deliver(store, scope, current.id, {"report.txt": "Agreed report"})
+    install(monkeypatch)
+    queue(store, owner)
+    asyncio.run(step(Supervisor(store)))
+    review = TaskReviews(store).latest(scope, current.id)
+    assert review.status == "decided", review.problem
+    assert Results(store).get(scope, result.id).status == "delivered"
+    assert Outputs(store).content(delivered.files[0]).read_text() == "Agreed source evidence"
 
 
 def test_partial_file_review_requests_followup_without_approving(tmp_path, monkeypatch):

@@ -1,6 +1,7 @@
 """Task review discovery and scoped assignment on the shared native lifecycle."""
 
 import asyncio
+import json
 from typing import TYPE_CHECKING
 
 from flowfield.agent_models import EffectiveAgent
@@ -174,9 +175,15 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
             )
         with service.workspace.connection() as db:
             files = Outputs.selected(db, review.workspace_id, review.binding.output_ids)
+        inputs = [FileInput.model_validate(file) for file in json.loads(sections["files"])]
+        inputs.extend(
+            FileInput(id=f.id, kind="output", name=f.name, size=f.size, sha256=f.sha256)
+            for f in files
+        )
         brief["instructions"] += (
             " The files context section records the worker’s original inputs. The result "
-            "section lists retained outputs, copied into this review as input_files. "
+            "section lists retained outputs. Both sets are copied into this review as "
+            "input_files; match their IDs to distinguish sources from submitted outputs. "
             "Inspect those exact submitted outputs. Use read-only "
             "inspection tools as needed for images or documents; do not alter these files."
             " An incomplete outcome cannot be approved. Request a bounded follow-up for "
@@ -188,8 +195,5 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
             ReviewBridge(self.reviews, review, attempt, review.recipient).scope(),
             brief,
             project_id=service.workspace.task(review.workspace_id, review.task_id).project_id,
-            files=[
-                FileInput(id=f.id, kind="output", name=f.name, size=f.size, sha256=f.sha256)
-                for f in files
-            ],
+            files=list({file.id: file for file in inputs}.values()),
         )
