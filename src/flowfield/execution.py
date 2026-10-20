@@ -370,8 +370,12 @@ class Execution:
                 json.loads(row[0])
                 for row in db.execute(
                     "SELECT data FROM questions WHERE workspace_id=? AND task_id=? "
-                    "AND status IN ('open','answered') ORDER BY number",
-                    (workspace_id, task.id),
+                    "AND (status IN ('open','answered') OR (status='applied' AND "
+                    "json_extract(data,'$.origin_review_id') IN ("
+                    "SELECT r.id FROM task_reviews r WHERE "
+                    "r.workspace_id=questions.workspace_id AND r.task_id=questions.task_id "
+                    "AND json_extract(r.data,'$.binding.agreement_revision')=?))) ORDER BY number",
+                    (workspace_id, task.id, run.agreement_revision),
                 )
             ]
         )

@@ -1,6 +1,7 @@
 """Native lifecycle contract using model-free peers, real MCP and real candidate Git."""
 
 import asyncio
+import json
 
 import pytest
 from result_fixtures import current
@@ -220,7 +221,8 @@ def test_clarification_serializes_roles_and_preserves_code(tmp_path, monkeypatch
     ]
 
 
-def test_human_answer_is_canonical_and_consumed_once(tmp_path, monkeypatch):
+@pytest.mark.parametrize("decision", ["approve", "request_changes", "new_agreement"])
+def test_human_answer_is_canonical_and_consumed_once(tmp_path, monkeypatch, decision):
     service, _, run, _, reviews = configured(tmp_path)
     install(monkeypatch, "ask_human")
     asyncio.run(round_trip(service))
@@ -233,7 +235,7 @@ def test_human_answer_is_canonical_and_consumed_once(tmp_path, monkeypatch):
         expected_revision=question.revision, answer="Use the existing requirement."
     )
     questions.answer("harbor", question.id, answer)
-    Reviewer.decision = "approve"
+    Reviewer.decision = "request_changes" if decision == "new_agreement" else decision
     asyncio.run(round_trip(service))
     saved = questions.get("harbor", question.id)
     assert saved.consumed_answer_revision and saved.status == "applied"
@@ -248,6 +250,31 @@ def test_human_answer_is_canonical_and_consumed_once(tmp_path, monkeypatch):
             QuestionAnswer(expected_revision=saved.revision, answer="Changed scope"),
         )
     assert reviews.latest("harbor", run.task_id).status == "decided"
+    if decision != "approve":
+        if decision == "new_agreement":
+            from flowfield.application import TaskEdit, TaskPublish
+
+            task = service.workspace.task("harbor", run.task_id)
+            changed = service.workspace.edit_task(
+                "harbor",
+                task.id,
+                TaskEdit(expected_revision=task.revision, body="Follow the newly agreed scope."),
+            )
+            service.workspace.publish_task(
+                "harbor",
+                task.id,
+                TaskPublish(expected_revision=changed.revision, completion="code"),
+            )
+        retry = service.execution.claim("harbor", run.base_commit, {}, task_id=run.task_id)
+        assert retry
+        frozen = json.loads(service.execution.assignment("harbor", retry.id)["questions"])
+        retained = any(
+            item["id"] == question.id
+            and item["answer"] == answer.answer
+            and item["origin_review_id"] == review.id
+            for item in frozen
+        )
+        assert retained == (decision == "request_changes")
 
 
 def test_correction_reuses_result_owner_and_never_integrates(tmp_path, monkeypatch):

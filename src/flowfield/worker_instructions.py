@@ -164,6 +164,12 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
                 else "rechecking the whole agreed outcome and retaining unfinished requirements."
             )
         )
+    if present("questions"):
+        rules.append(
+            "Read the frozen questions and answers relevant to this follow-up. Applied reviewer "
+            "answers retain human evidence about their original results; preserve its attribution "
+            "and do not claim that successor code was tested or approved."
+        )
     if present("human_testing"):
         rules.append(
             "Human testing observations apply only to their exact result, not successor code. "
