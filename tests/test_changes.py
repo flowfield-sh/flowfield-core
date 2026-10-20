@@ -6,9 +6,11 @@ import pytest
 from project_fixtures import existing_directory, task_request
 from workspace_fixtures import TEST_AGENTS
 
+from flowfield.agent_tools import workspace_scope
 from flowfield.application import ProjectSetup, TaskEdit, Workspace
 from flowfield.changes import Changes
 from flowfield.errors import ApplicationError
+from flowfield.supervisor import Supervisor
 from flowfield.workspaces import WorkspaceCreate, Workspaces
 
 
@@ -92,5 +94,30 @@ def test_coordinator_updates_do_not_impersonate_project_activity():
         await asyncio.sleep(0)
         assert json.loads((await anext(events))["data"]) == {"workspaces": None}
         await events.aclose()
+
+    asyncio.run(check())
+
+
+def test_coordinator_task_creation_publishes_change_during_activity(tmp_path):
+    async def check():
+        changes = Changes()
+        workspace = Workspace(tmp_path / "state", on_change=changes.publish)
+        space = Workspaces(workspace).create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
+        grant = await workspace_scope(Supervisor(workspace), space.id)
+        await asyncio.sleep(0)
+        events = changes.events()
+        await anext(events)
+        changes.publish_coordinator_activity(space.id, "turn")
+        result = await grant.call("create_task", {"task": {"title": "Created in chat"}})
+        assert not result.isError, result
+        changes.publish_coordinator_activity(space.id, "turn")
+        await asyncio.sleep(0)
+        async with asyncio.timeout(2):
+            event = await anext(events)
+        assert event["event"] == "change"
+        assert json.loads(event["data"]) == {"workspaces": [space.id]}
+        assert workspace.task(space.id, "T-1").title == "Created in chat"
+        await events.aclose()
+        assert not changes.subscribers
 
     asyncio.run(check())
