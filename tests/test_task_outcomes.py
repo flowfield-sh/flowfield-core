@@ -349,7 +349,7 @@ def test_correction_preserves_independent_contribution(tmp_path):
 
 
 @pytest.mark.parametrize("dependent_contribution", [False, True])
-@pytest.mark.parametrize("correction_source", ["reply", "plan", "stopped", "failed"])
+@pytest.mark.parametrize("correction_source", ["reply", "plan", "stopped", "failed", "partial"])
 def test_code_assembly_review_exact_approval_and_delivered_dependency(
     tmp_path, dependent_contribution, correction_source
 ):
@@ -542,14 +542,28 @@ def test_code_assembly_review_exact_approval_and_delivered_dependency(
         assert execution.assignment(owner, retry.id)["description"] == "Version the API response"
     execution.started(owner, retry.id)
     environment = LocalHost(os.environ).prepare(store.directory, repo, retry.id, correction_base)
-    if correction_source in ("stopped", "failed"):
+    if correction_source in ("stopped", "failed", "partial"):
         import asyncio
 
         from flowfield.supervisor import Supervisor
 
         (environment.checkout / "recovery.txt").write_text("Retained unfinished work")
-        asyncio.run(Supervisor(store)._checkpoint(retry, environment))
-        execution.finish(owner, retry.id, correction_source)
+        if correction_source == "partial":
+            partial_commit, _ = environment.snapshot(correction_base)
+            partial = WorkerResult(
+                summary="Source changes preserved",
+                checks="Checked partial work",
+                outcome="partial",
+                remaining_work="Finish the source provenance",
+            )
+            execution.report_result(owner, retry.id, partial)
+            saved = execution.finish(
+                owner, retry.id, "in_review", result=partial, commit=partial_commit
+            )
+            assert saved.status == "failed" and saved.checkpoint_commit is None
+        else:
+            asyncio.run(Supervisor(store)._checkpoint(retry, environment))
+            execution.finish(owner, retry.id, correction_source)
         previous = children.get(owner, task.id, a.id)
         children.edit(
             owner,

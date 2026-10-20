@@ -257,7 +257,7 @@ class TaskAssembly:
         corrected = []
         if prior and prior.assembly_id == value.id and prior.completion == child.completion:
             commit = (
-                prior.checkpoint_commit
+                (prior.checkpoint_commit or prior.result_commit)
                 if prior.status in ("failed", "stopped")
                 else prior.result_commit
                 if prior.status in ("contributed", "changes_requested")

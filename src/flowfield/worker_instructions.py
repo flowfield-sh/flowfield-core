@@ -52,7 +52,10 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
             "Install project dependencies in this checkout/runtime when needed; keep manifests and "
             "setup reproducible. Ask about missing machine-wide tools or access. Keep this "
             "detached "
-            "checkout; do not switch branches or change shared refs. Local commits are allowed."
+            "checkout; do not switch branches or change shared refs. Local commits are allowed. "
+            "Normal Git commands may access this checkout's shared Git metadata outside the "
+            "worktree; request native permission when that access is blocked. This does not "
+            "authorize editing another checkout or project."
             if repository
             else "This task belongs to the workspace and has no repository. Work in the supplied "
             "isolated directory; do not initialize Git or create a project. Use native tools "
