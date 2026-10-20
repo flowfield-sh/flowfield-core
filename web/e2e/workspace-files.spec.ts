@@ -53,6 +53,21 @@ test("workspace files organize retained task outputs without a project", async (
   expect(failedReads).toEqual([]);
   await page.goto(`${base}/files`);
   const files = page.getByRole("region", { name: "Files", exact: true });
+  const taskFilter = files.getByRole("combobox", {
+    name: "Filter files by task",
+  });
+  await taskFilter.click();
+  await page
+    .getByRole("option", { name: new RegExp(`^${value.task} ·`) })
+    .click();
+  await expect(
+    files.getByText("launch-report.txt", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    files.getByText("checklist-draft.txt", { exact: true }),
+  ).toHaveCount(0);
+  await taskFilter.click();
+  await page.getByRole("option", { name: "All files", exact: true }).click();
   await files.getByRole("button", { name: "evidence", exact: true }).click();
   const firstPage = await (
     await request.get(`/api${base}/files/browse?path=evidence&sort=newest`)
@@ -79,14 +94,15 @@ test("workspace files organize retained task outputs without a project", async (
       .getByRole("region", { name: "File details", exact: true })
       .getByRole("heading"),
   ).toBeInViewport();
+  await expect(taskFilter).toBeInViewport();
   await expect(
-    files.getByRole("navigation", { name: "Files by work" }),
+    files.getByRole("combobox", { name: "Sort files" }),
   ).toBeInViewport();
   await lastFile.hover();
   await page.mouse.wheel(0, -10000);
   await expect(contents.getByRole("button").first()).toBeInViewport();
   await files
-    .getByRole("navigation", { name: "Files by work" })
+    .getByRole("navigation", { name: "File location" })
     .getByRole("button", { name: "All files", exact: true })
     .click();
   await expect(
