@@ -120,7 +120,7 @@ test("long definitions collapse with a fade and history loads only when expanded
     .toContain("A short replacement.");
 });
 
-test("workspace worker defaults have no speed setting even when the model supports Fast", async ({
+test("workspace workers reject flattened role fields and show the shared Fast checkbox", async ({
   page,
   request,
 }) => {
@@ -164,7 +164,10 @@ test("workspace worker defaults have no speed setting even when the model suppor
   const form = page.getByRole("region", { name: "Worker settings" });
   await choose(form.getByLabel("Harness", { exact: true }), "codex");
   await choose(form.getByLabel("Model", { exact: true }), "test");
-  await expect(form.getByRole("button", { name: "Fast mode" })).toHaveCount(0);
+  await expect(form.getByRole("checkbox", { name: "Fast mode" })).toBeVisible();
+  await expect(
+    form.getByRole("checkbox", { name: "Fast mode" }),
+  ).not.toBeChecked();
 });
 
 test("definition revisions show focused word diffs and compact field values", async ({
