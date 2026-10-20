@@ -34,7 +34,9 @@ def save_workspace(db: sqlite3.Connection, settings: WorkspaceWorkerSettings) ->
 
 
 def configure(settings: WorkspaceWorkerSettings, request: SettingsEdit) -> None:
-    settings.selection = request.selection.model_copy(deep=True)
+    settings.selection = request.selection.model_copy(
+        update={"fast": request.selection.fast is True}, deep=True
+    )
     settings.max_parallel = request.max_parallel
 
 

@@ -130,7 +130,7 @@ class Workspaces:
             )
             workers = WorkspaceWorkerSettings(
                 workspace_id=record.id,
-                selection=request.worker,
+                selection=request.worker.model_copy(update={"fast": request.worker.fast is True}),
             )
             db.execute(
                 "INSERT INTO workspace_worker_settings VALUES (?,?)",

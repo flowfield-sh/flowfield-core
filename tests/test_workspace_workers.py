@@ -25,11 +25,15 @@ def test_empty_workspace_has_explicit_paused_default_and_guarded_edits(tmp_path)
     space = spaces.create(WorkspaceCreate(**TEST_AGENTS, name="Product"))
     assert spaces.workers(space.id).selection == TEST_AGENTS["worker"]
     assert not spaces.workers(space.id).enabled
-    with pytest.raises(ApplicationError, match="task override"):
+    saved = spaces.configure_workers(
+        space.id, SettingsEdit(expected_revision=1, selection=AgentChoice(model="x", fast=True))
+    )
+    assert saved.revision == 2 and saved.selection.fast is True
+    with pytest.raises(ApplicationError, match="stale"):
         spaces.configure_workers(
-            space.id, SettingsEdit(expected_revision=1, selection=AgentChoice(model="x", fast=True))
+            space.id, SettingsEdit(expected_revision=1, selection=AgentChoice(model="other"))
         )
-    assert spaces.workers(space.id).revision == 1
+    assert spaces.workers(space.id) == saved
     with pytest.raises(ApplicationError, match="Workspace not found"):
         spaces.workers("missing")
     assert spaces.occupancy(space.id).active == 0
