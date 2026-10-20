@@ -144,9 +144,7 @@ test("task keys link to persistent selections with history and draft protection"
       .getByRole("heading", { name: /Download the export$/ }),
   ).toBeVisible();
   await closeOverlay(page);
-  await page
-    .getByLabel("Workspace", { exact: true })
-    .selectOption(otherWorkspace);
+  await choose(page.getByLabel("Workspace", { exact: true }), otherWorkspace);
   await expect(page).toHaveURL(`/workspaces/${otherWorkspace}/inbox`);
   await page.goBack();
   await expect(page).toHaveURL(`/workspaces/${workspace}/tasks`);
@@ -338,7 +336,7 @@ test("entity identity and drafts persist across task and workspace tabs", async 
 
   await expect(logo).toHaveAttribute("href", "/");
 
-  await projectLink.selectOption(workspace);
+  await choose(projectLink, workspace);
   await expect(page).toHaveURL(`/workspaces/${workspace}/inbox`);
   await openResource(page, "Tasks Board");
   await page
@@ -516,17 +514,33 @@ test("workspace selector names remain accessible and idle input opens deliberate
   await expect(settings).not.toBeVisible();
   await expect(settings).not.toBeVisible();
   const selector = page.getByLabel("Workspace", { exact: true });
-  await expect(selector.locator("option:checked")).toContainText(name);
-  await selector.selectOption(shortWorkspace);
-  await expect(selector.locator("option:checked")).toHaveText("Short");
+  await expect(selector).toContainText(name);
+  await selector.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("listbox")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(selector).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    page.getByRole("option", { name: name + " (1)", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.type("Short");
+  await expect(
+    page.getByRole("option", { name: "Short", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(selector).toHaveText("Short");
   await page.setViewportSize({ width: 650, height: 844 });
   await page
     .getByRole("button", { name: "Open workspaces", exact: true })
     .click();
-  await expect(
-    selector.locator('option[value="' + workspace + '"]'),
-  ).toHaveText(name + " (1)");
-  await selector.selectOption(workspace);
+  await selector.click();
+  const workspaceOption = page.getByRole("option", {
+    name: name + " (1)",
+    exact: true,
+  });
+  await expect(workspaceOption).toBeVisible();
+  await workspaceOption.click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("tab", { name: /^Inbox 1$/ })).toBeVisible();
   await page
@@ -700,7 +714,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
     .click();
   await page.getByRole("tab", { name: "Appearance", exact: true }).click();
   await choose(page.getByLabel("Theme", { exact: true }), "light");
-  await page.getByLabel("Workspace", { exact: true }).selectOption(workspace);
+  await choose(page.getByLabel("Workspace", { exact: true }), workspace);
   await openResource(page, "Tasks Board");
   await expect(page.locator("html")).not.toHaveClass("dark");
   expect(
@@ -724,7 +738,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
     .click();
   await page.getByRole("tab", { name: "Appearance", exact: true }).click();
   await choose(page.getByLabel("Theme", { exact: true }), "system");
-  await page.getByLabel("Workspace", { exact: true }).selectOption(workspace);
+  await choose(page.getByLabel("Workspace", { exact: true }), workspace);
   await openResource(page, "Tasks Board");
   await expect(page.locator("html")).toHaveClass("dark");
   await page.emulateMedia({ colorScheme: "light" });
@@ -747,7 +761,7 @@ test("workspace navigation, mobile board and appearance work beside the coordina
   await page
     .getByRole("button", { name: "Open workspaces", exact: true })
     .click();
-  await page.getByLabel("Workspace", { exact: true }).selectOption(workspace);
+  await choose(page.getByLabel("Workspace", { exact: true }), workspace);
   await openResource(page, "Tasks Board");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const board = page.locator(".board");

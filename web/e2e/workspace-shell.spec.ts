@@ -2,6 +2,7 @@ import { expect } from "@playwright/test";
 import { join } from "node:path";
 import {
   test,
+  choose,
   fixtureProject,
   existingDirectory,
   state,
@@ -184,9 +185,9 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
   await expect(
     page.getByRole("textbox", { name: "Content", exact: true }),
   ).toHaveValue("Retain this exact document draft.");
-  await page.getByLabel("Workspace", { exact: true }).selectOption(other.id);
+  await choose(page.getByLabel("Workspace", { exact: true }), other.id);
   await expect(page.getByRole("tab", { name: /T-2 / })).toHaveCount(0);
-  await page.getByLabel("Workspace", { exact: true }).selectOption(workspace);
+  await choose(page.getByLabel("Workspace", { exact: true }), workspace);
   await page
     .getByRole("tab", { name: "Workspace guidance · Edit", exact: true })
     .click();

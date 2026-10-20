@@ -25,7 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Home } from "lucide-react";
 import { usePanelRef } from "react-resizable-panels";
 import { Button } from "@/components/ui/button";
-import { NativeSelect } from "@/components/ui/native-select";
+import { ChoiceSelect } from "@/components/ui/choice-select";
 import "./workspace-frame.css";
 import { followLink } from "./navigation";
 import { SettingsLink } from "./FlowfieldSettings";
@@ -86,31 +86,27 @@ function WorkspaceNavigation({
           <SettingsLink active={!!settingsActive} />
           {isMobile && <SidebarTrigger aria-label="Close navigation" />}
         </div>
-        <NativeSelect
-          size="sm"
-          aria-label="Workspace"
-          className="bg-background dark:bg-background"
+        <ChoiceSelect
+          compact
+          label="Workspace"
+          placeholder="Workspaces"
           displayValue={
             workspaces.find((workspace) => workspace.id === activeWorkspaceId)
               ?.name ?? "Workspaces"
           }
           value={activeWorkspaceId}
-          onChange={(event) => {
-            const workspace = workspaces.find(
-              (w) => w.id === event.target.value,
-            );
+          options={workspaces.map((workspace) => ({
+            value: workspace.id,
+            label:
+              workspace.name +
+              (workspace.inboxCount ? ` (${workspace.inboxCount})` : ""),
+          }))}
+          onChange={(value) => {
+            const workspace = workspaces.find((w) => w.id === value);
             if (workspace) onWorkspaceSelect(workspace);
             setOpenMobile(false);
           }}
-        >
-          {!activeWorkspaceId && <option value="">Workspaces</option>}
-          {workspaces.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name}
-              {w.inboxCount ? " (" + w.inboxCount + ")" : ""}
-            </option>
-          ))}
-        </NativeSelect>
+        />
       </SidebarHeader>
       <SidebarContent
         className="workspace-sidebar-content"

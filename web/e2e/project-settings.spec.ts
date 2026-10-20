@@ -28,9 +28,8 @@ test("CLI adoption updates the browser, task creation and initial connection rec
   const adopted = fixtureCliProject([
     existingDirectory(join(state, "browser")),
   ]);
-  await page
-    .getByLabel("Workspace", { exact: true })
-    .selectOption({ label: adopted.name });
+  await page.getByLabel("Workspace", { exact: true }).click();
+  await page.getByRole("option", { name: adopted.name, exact: true }).click();
   const workspace = await projectWorkspace(page.request, adopted.id);
   await expect(page).toHaveURL(`/workspaces/${workspace}/inbox`);
   await page.getByRole("link", { name: "Tasks Board", exact: true }).click();

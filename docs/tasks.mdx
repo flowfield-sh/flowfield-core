@@ -59,11 +59,9 @@ Tool permission requests remain pending while the native session is waiting. Sto
 
 Open an **In progress** task to follow the worker's activity. The worker should finish by submitting an outcome with its checks and limitations, or asking a blocking question. A final chat summary alone does not create a reviewable result.
 
-If a worker ends normally without either, Flowfield immediately gives it one reminder in the same session and checkout. The reminder appears in activity and asks it to report the work already performed, including partial progress or a blocking question when appropriate. The worker keeps its existing tools and permissions; submitted code still requires your exact approval.
+If a worker ends normally without a submission or question, Flowfield gives it one reminder in the same session and checkout. This uses another model turn and retains the slot until cleanup completes. If it still does not report, work is preserved for inspection and explicit retry. Stopped or interrupted attempts are never restarted by this reminder.
 
-Normal submissions need no extra model turn. When the reminder is needed, it uses additional model tokens; its cost depends on the session context, model and caching, not just the reminder's length. It keeps the worker slot occupied until the attempt ends and cleanup is confirmed. If the worker still finishes without a submission or question, work is preserved and the attempt needs inspection and explicit retry.
-
-Ask the Coordinator to stop active task workers; unfinished work is preserved. **Retry worker** queues a fresh attempt; it respects pause, dependencies and capacity. Follow the displayed recovery action if native cleanup is uncertain. The reporting reminder does not restart stopped or interrupted attempts.
+Ask the Coordinator to stop active task workers; unfinished work is preserved. **Retry worker** queues a fresh attempt; it respects pause, dependencies and capacity. Follow the displayed recovery action if native cleanup is uncertain.
 
 ## Read the task story
 

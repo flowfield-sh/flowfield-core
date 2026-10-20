@@ -11,6 +11,7 @@ import { workspaceHref } from "./navigation";
 import { request, type WorkspaceRecord } from "./workspace";
 import { reportError } from "./requestFeedback";
 import { AgentChoiceFields } from "./AgentChoiceFields";
+import { SettingsCheckbox } from "./SettingsCheckbox";
 import type { components } from "./api-schema";
 
 export function WorkspaceList({
@@ -73,6 +74,11 @@ export function NewWorkspace({
   onDirty: (dirty: boolean) => void;
 }) {
   const [name, setName] = useState("");
+  const [shared, setShared] = useState<
+    components["schemas"]["AgentChoice-Output"] | null
+  >(null);
+  const [customize, setCustomize] = useState(false);
+  const [sharedReady, setSharedReady] = useState(false);
   const [coordinator, setCoordinator] = useState<
     components["schemas"]["AgentChoice-Output"] | null
   >(null);
@@ -85,11 +91,13 @@ export function NewWorkspace({
   const [coordinatorReady, setCoordinatorReady] = useState(false);
   const [workerReady, setWorkerReady] = useState(false);
   const [reviewerReady, setReviewerReady] = useState(false);
-  const ready = coordinatorReady && workerReady && reviewerReady;
+  const ready = customize
+    ? coordinatorReady && workerReady && reviewerReady
+    : sharedReady;
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    onDirty(!!name || !!coordinator || !!worker || !!reviewer);
-  }, [name, coordinator, worker, reviewer, onDirty]);
+    onDirty(!!name || !!shared || !!coordinator || !!worker || !!reviewer);
+  }, [name, shared, coordinator, worker, reviewer, onDirty]);
   return (
     <section className="editor" aria-label="New workspace form">
       <ContentStack space="section" className="pane-form">
@@ -102,7 +110,12 @@ export function NewWorkspace({
               const workspace = await request<WorkspaceRecord>(
                 "workspaces",
                 "POST",
-                { name: name.trim(), coordinator, worker, reviewer },
+                {
+                  name: name.trim(),
+                  coordinator: customize ? coordinator : shared,
+                  worker: customize ? worker : shared,
+                  reviewer: customize ? reviewer : shared,
+                },
               );
               onDirty(false);
               created(workspace);
@@ -128,31 +141,58 @@ export function NewWorkspace({
               />
             </Label>
             <Separator />
-            <AgentChoiceFields
-              label="Coordinator"
-              description="Plan work, answer questions and coordinate delivery across your projects."
-              value={coordinator}
-              change={setCoordinator}
-              onReady={setCoordinatorReady}
-            />
-            <Separator />
-            <AgentChoiceFields
-              label="Worker"
-              description="Workers carry out tasks and submit results. Tasks inherit this choice unless overridden."
-              showFast
-              value={worker}
-              change={setWorker}
-              onReady={setWorkerReady}
-            />
-            <Separator />
-            <AgentChoiceFields
-              label="Reviewer"
-              description="Reviewers independently check task results before delivery. Tasks inherit this choice unless overridden."
-              showFast
-              value={reviewer}
-              change={setReviewer}
-              onReady={setReviewerReady}
-            />
+            <SettingsCheckbox
+              checked={customize}
+              onChange={(event) => {
+                if (event.target.checked) {
+                  setCoordinator((value) => value ?? shared);
+                  setWorker((value) => value ?? shared);
+                  setReviewer((value) => value ?? shared);
+                }
+                setCustomize(event.target.checked);
+              }}
+            >
+              Customize roles
+            </SettingsCheckbox>
+            {!customize ? (
+              <AgentChoiceFields
+                label="Agents"
+                description="Use this choice for the Coordinator that plans work, Workers that carry it out and Reviewer that checks results."
+                showFast
+                value={shared}
+                change={setShared}
+                onReady={setSharedReady}
+              />
+            ) : (
+              <>
+                <AgentChoiceFields
+                  label="Coordinator"
+                  showFast
+                  description="Plan work, answer questions and coordinate delivery across your projects."
+                  value={coordinator}
+                  change={setCoordinator}
+                  onReady={setCoordinatorReady}
+                />
+                <Separator />
+                <AgentChoiceFields
+                  label="Worker"
+                  description="Workers carry out tasks and submit results. Tasks inherit this choice unless overridden."
+                  showFast
+                  value={worker}
+                  change={setWorker}
+                  onReady={setWorkerReady}
+                />
+                <Separator />
+                <AgentChoiceFields
+                  label="Reviewer"
+                  description="Reviewers independently check task results before delivery. Tasks inherit this choice unless overridden."
+                  showFast
+                  value={reviewer}
+                  change={setReviewer}
+                  onReady={setReviewerReady}
+                />
+              </>
+            )}
             <div className="actions">
               <Button type="submit" disabled={!name.trim() || !ready}>
                 {busy ? "Creating workspace…" : "Create workspace"}

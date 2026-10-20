@@ -27,19 +27,37 @@ test("explicit workspace creation, project adoption and shared draft navigation"
   ).toBeDisabled();
   await page.route("**/api/worker-models*", (route) =>
     route.fulfill({
-      json: [{ id: "test-model", name: "Test model", efforts: [] }],
+      json: [
+        { id: "test-model", name: "Test model", efforts: [] },
+        { id: "other-model", name: "Other model", efforts: [] },
+      ],
     }),
   );
+  const agents = page.getByRole("group", { name: "Agents", exact: true });
+  await choose(agents.getByLabel("Harness", { exact: true }), "codex");
+  await choose(agents.getByLabel("Model", { exact: true }), "test-model");
+  const customize = page.getByRole("checkbox", { name: "Customize roles" });
+  await customize.check();
   for (const role of ["Coordinator", "Worker", "Reviewer"]) {
-    const fields = page.getByRole("group", { name: role, exact: true });
-    await choose(fields.getByLabel("Harness", { exact: true }), "codex");
-    await choose(fields.getByLabel("Model", { exact: true }), "test-model");
+    await expect(
+      page
+        .getByRole("group", { name: role, exact: true })
+        .getByLabel("Model", { exact: true }),
+    ).toHaveAttribute("data-value", "test-model");
   }
+  const workerModel = page
+    .getByRole("group", { name: "Worker", exact: true })
+    .getByLabel("Model", { exact: true });
+  await choose(workerModel, "other-model");
+  await customize.uncheck();
+  await customize.check();
+  await expect(workerModel).toHaveAttribute("data-value", "other-model");
+  await customize.uncheck();
   await page
     .getByRole("button", { name: "Create workspace", exact: true })
     .click();
   await expect(
-    page.locator('select[aria-label="Workspace"] option:checked'),
+    page.getByRole("combobox", { name: "Workspace", exact: true }),
   ).toHaveText("Product development");
   await expect(
     page.getByRole("region", { name: "Coordinator conversation", exact: true }),
@@ -53,6 +71,12 @@ test("explicit workspace creation, project adoption and shared draft navigation"
   const workspace = spaces.find(
     (item: { name: string }) => item.name === "Product development",
   );
+  for (const endpoint of ["coordinator-settings", "reviewer", "workers"]) {
+    const settings = await (
+      await request.get(`/api/workspaces/${workspace.id}/${endpoint}`)
+    ).json();
+    expect(settings.selection.model).toBe("test-model");
+  }
   expect(
     await (
       await request.get(`/api/workspaces/${workspace.id}/projects`)

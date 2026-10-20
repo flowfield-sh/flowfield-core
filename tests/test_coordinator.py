@@ -628,3 +628,20 @@ def test_welcome_is_durable_model_free_and_in_first_turn_context(tmp_path, monke
     prompt = json.loads(service.coordinator._prompt(turn, "test_server"))
     assert prompt["welcome"] == WELCOME
     assert prompt["human_message"] == "It is a garden planner"
+
+
+def test_builtin_coordinator_receives_the_installed_role_rules(tmp_path, monkeypatch):
+    from flowfield.guidance import Guidance
+
+    service, conversation = setup(tmp_path, monkeypatch)
+    turn, _ = service.coordinator.store.reserve(
+        "harbor", conversation.id, message("Plan the next feature")
+    )
+    instructions = json.loads(service.coordinator._prompt(turn, "scoped-tools"))["instructions"]
+    installed = Guidance(service.workspace).get("harbor").skill.split("---", 2)[2].strip()
+    assert installed in instructions
+    assert "list_labels" in instructions
+    assert "future audience" in instructions
+    assert "paused queue" in instructions
+    assert "scoped-tools" in instructions
+    assert "private service/database files" in instructions

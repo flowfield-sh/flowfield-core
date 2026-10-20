@@ -7,6 +7,7 @@ export function ChoiceSelect({
   value,
   label,
   placeholder,
+  displayValue,
   options,
   onChange,
   disabled = false,
@@ -16,6 +17,7 @@ export function ChoiceSelect({
   value: string;
   label: string;
   placeholder?: string;
+  displayValue?: ReactNode;
   options: { value: string; label: ReactNode; disabled?: boolean }[];
   onChange: (value: string) => void;
   disabled?: boolean;
@@ -50,7 +52,7 @@ export function ChoiceSelect({
         data-value={value}
         aria-label={label}
       >
-        <Select.Value placeholder={placeholder} />
+        <Select.Value placeholder={placeholder}>{displayValue}</Select.Value>
         <Select.Icon>
           <ChevronDown size={14} />
         </Select.Icon>

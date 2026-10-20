@@ -25,10 +25,6 @@
 .workspace-global-actions a[aria-current="page"] {
   background: var(--accent);
 }
-.workspace-sidebar-header [data-slot="native-select-wrapper"] {
-  min-width: 0;
-  width: 100%;
-}
 .project-badge {
   display: inline-flex;
   width: 32px;

@@ -1,17 +1,17 @@
 ---
 title: Workspaces and projects
-description: Organize related repositories around one conversation, roadmap and Inbox.
+description: Bring related repositories and file tasks together around one conversation.
 ---
 
-Create a workspace for work you want to plan together: research files, an API, its application and its documentation, for example. It owns one Coordinator and shared work records. File and report tasks need no repository; each registered project keeps its repository and code-delivery destination.
+Create a workspace for work you want to plan together: an API, its application and research files, for example. It owns the Coordinator, shared documents, tasks, Inbox and worker queue. Each project identifies an existing repository and its code-delivery destination; file and report tasks need no project.
 
 ## Create and adopt
 
-Choose **New workspace** from Home and select its Coordinator, Worker and Reviewer settings. Inside it, open **Projects → Add project → Choose directory**, select an existing repository and review the prefilled name and ID. Tasks use workspace-local keys such as `T-1` across all projects.
+Choose **New workspace** from Home, name it and choose a harness/model for its agents. Enable **Customize roles** for separate Coordinator, Worker and Reviewer choices. You can change each role later in workspace settings.
 
-The CLI uses the same registration:
+Open **Projects → Add project → Choose directory**, select an existing repository and review its name and ID. Registration preserves repository instructions and starts neither a model nor the queue. Before code work, establish a committed baseline and [validate integration settings](/worker-setup).
 
-`agents.json` contains `coordinator`, `worker` and `reviewer` choices, each with a `harness`, `model` and any required `effort` and `mode` returned by that harness.
+For CLI registration, `agents.json` supplies `coordinator`, `worker` and `reviewer` choices, each with `harness`, `model` and any required `effort`/`mode` returned by that harness:
 
 ```sh
 flowfield workspace create "Harbor" --agents agents.json
@@ -19,51 +19,45 @@ flowfield project init /absolute/path/catalog-api --workspace WORKSPACE_ID
 flowfield project init /absolute/path/reader-app --workspace WORKSPACE_ID
 ```
 
-Replace `WORKSPACE_ID` with the returned workspace ID. Registration writes project identity to `.flowfield/config.toml`; it starts neither a model nor the queue. Before managed implementation, establish a committed repository baseline and [validate its integration settings](/worker-setup).
-
-Existing registrations stay in their current workspace. Moving projects between workspaces and merging conversations are not available. Older database schemas require [starting with a fresh data directory](/storage#starting-fresh).
+Use the returned workspace ID. Adoption writes `.flowfield/config.toml`; commit or ignore this metadata under repository rules. Existing projects cannot move between workspaces, and conversations cannot be merged. Older database schemas require [a fresh data directory](/storage#starting-fresh).
 
 ## Find the work
 
-A new workspace opens in **Inbox**. When you return in the same browser, Flowfield restores the selected work tab. The sidebar provides **Projects**, **Tasks Board**, **Documents**, **Files**, **Archive** and **Settings**, plus a compact recent-work list. Tasks, requests and results open beside the persistent Coordinator. The recent-work list scrolls independently, with queue controls below it. Use the top sidebar icons for Home and Global settings, and the workspace selector to switch conversations. Drag the content pane border to resize the Coordinator.
-
-| View | Use it to |
+| View | Purpose |
 | --- | --- |
-| Tasks Board | Follow task state and execution priorities. |
-| Inbox | Answer questions, review results and resolve interventions. |
-| Projects | Add repositories, view a project's tasks and reach its settings. |
+| Tasks Board | Follow task state, priorities and dependencies; filter by project or label. |
+| Inbox | Answer requests, review results and revisit deliveries. |
+| Projects | Add repositories and reach project settings. |
 | Documents | Maintain shared guidance and references. |
-| Files | Browse retained task outputs and their exact source results. |
+| Files | Browse retained outputs and their exact source results. |
 | Archive | Revisit work you set aside. |
 
-**Recent Work** lists **Needs attention**, **Delivered**, then **In progress**. Each group keeps up to five recent items within reach. Attention and progress use recent activity; Delivered uses delivery time. Open Inbox for all requests and deliveries, or Tasks Board for all tasks. Planned tasks remain on Tasks Board, and archived tasks remain in Archive. Home shows each workspace’s actionable Inbox count.
+**Recent Work** keeps up to five items in each group: Needs attention opens exact requests, Delivered opens exact results, and In progress opens tasks. Inbox and Tasks Board hold the full collections. The workspace selector switches conversations; its menu and Home show actionable Inbox counts.
 
-Task cards and **In progress** links open the task itself, with its purpose and chronological feed. **Needs attention** opens the exact request; **Delivered** opens the exact result. Task badges inside requests and results open their task. Filter Tasks Board and Archive by project or label. The URL preserves filters for reload, sharing and browser history. On phones, switch between **Work** and **Coordinator**.
+Links from the sidebar, Coordinator and Inbox open or focus a work tab showing that exact view. Links inside other work tabs navigate within the tab. Inbox stays pinned. Use **Back** beside a view's title, drag tabs to reorder them, or press Alt+Left/Right on a focused tab. Cmd/Ctrl-click opens a browser tab. Browser Back/Forward restores the corresponding work tab and page.
 
-Links from the sidebar, Coordinator and Inbox open a work tab, or focus a tab already showing that exact view. Task settings, document revisions and collection filters remain distinct views. Links inside other work tabs navigate within that tab. Inbox stays pinned and retains its own view. Open in work tab follows the same exact-view rule. Use Back beside the title to return through that tab’s history; it is disabled at the first page. Drag tabs to reorder them, or focus a tab and press Alt+Left/Right; Inbox stays first. Selecting a tab restores its current page and reading position. Cmd/Ctrl-click opens a native browser tab. Browser Back and Forward restore the tab and page from that navigation entry. Setup and settings open beside the Coordinator.
+Tabs, filters, reading positions and navigation history survive reopening in the same browser. Answers and document drafts survive tab/workspace switching during the current session; they stay bound to their original records and are not stored in browser storage. Reloading or leaving warns about unsaved input.
 
-Workspace tabs retain their order, selected view and navigation history when you reopen Flowfield in the same browser. Explicit resource links still open their requested view. Tabs for missing resources close after a successful existence check; temporary connection failures keep them. Archived tasks and deleted documents with retained history remain accessible.
-
-Answers, review notes and document drafts stay bound to their original records when you switch or close resource tabs during the current browser session. Reloading or leaving the app warns about unsaved drafts. Only resource locations and layout preferences are stored in browser storage; draft contents stay in memory.
+Resize Work and Coordinator by dragging their shared edge. On phones, switch between **Work** and **Coordinator**.
 
 ## Plan work together
 
-Use one task for an outcome such as implementing a feature, generating screenshots or producing a PDF. Tasks can depend on other tasks across the workspace. Larger tasks may contain a local graph of subtasks, shown in its Subtasks section. The whole task owns review and delivery.
+Ask the Coordinator to maintain task definitions, priorities, dependencies and labels. One task owns an outcome, whether a feature, screenshot or report. Larger tasks may contain local subtasks; the whole task owns review and delivery. See [Tasks and execution](/tasks).
 
-Keep durable plans in workspace documents. The Coordinator maintains task definitions, priorities and dependencies as those plans become actionable.
-
-Labels are optional and shared across the workspace. View and edit their names, colors and usage guidance in **Settings → General → Labels**, or ask the Coordinator. Task assignments stay in the Coordinator conversation. A task can have several labels. Deleting a label removes current assignments while retaining its references in history.
+Edit label names, colors and usage guidance in **Settings → General → Labels**, or ask the Coordinator. It assigns useful existing labels to tasks; a task can have several. Deleting a label removes current assignments while preserving history.
 
 ## Configure at the right level
 
-- **Workspace settings** owns the name, queue, worker defaults, shared capacity and task reviewer defaults. Task settings can override worker and reviewer choices. The Coordinator reads these defaults while planning; changing settings does not authorize starting a paused queue.
-- **Project settings** owns repository identity, description, worker-document defaults and Integration: branch, setup, checks and local result previews.
-- **Workspace settings → Coordinator** and the **Coordinator input** edit the same saved harness/model choice. Task **Settings → Worker** and **Reviewer** override defaults for subsequent attempts.
+| Location | Settings |
+| --- | --- |
+| Workspace | Name, queue, shared capacity and Coordinator/Worker/Reviewer defaults. |
+| Project | Repository identity, worker-document defaults, destination branch, setup/checks and result launcher. |
+| Task | Worker and Reviewer overrides for subsequent attempts. |
 
-To open Project settings, select the project from **Projects**, then **Settings**. Its overview summarizes the directory, branch, validation, runtime and time limits; **View tasks** opens the filtered board. One project's setup blocker does not prevent ready work in other projects. See [worker setup](/worker-setup) and [workspace documents](/documents).
+The Coordinator input and **Workspace settings → Coordinator** edit the same saved choice. Settings changes never authorize starting a paused queue. A project’s setup blocker does not prevent ready work elsewhere. See [worker setup](/worker-setup) and [document defaults](/documents#supply-worker-context).
 
 ## Connection recovery
 
-If Flowfield cannot reach the service, one **Connection lost** dialog pauses interaction while it reconnects automatically. Open views and drafts stay in place. Start the service again or use **Try reconnecting** to check immediately. Recovery refreshes the views; interrupted actions are never sent again automatically. Check whether an interrupted save or action completed before trying it again.
+**Connection lost** preserves views and drafts while retrying automatically. Restart the service or choose **Try reconnecting**. Interrupted actions are never replayed: check whether a save completed before retrying it.
 
-A disconnected live-update stream shows **Reconnecting…** while the service remains reachable. Individual load failures keep their local retry controls; validation errors, changed revisions and worker or reviewer recovery stay with the affected operation.
+**Reconnecting…** indicates only a lost update stream while the service remains reachable. Individual load failures and worker/reviewer recovery keep their own contextual actions.

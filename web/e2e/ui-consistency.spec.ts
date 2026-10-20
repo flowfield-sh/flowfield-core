@@ -24,7 +24,7 @@ const choice = {
   fast: false,
 };
 
-test("workspace setup keeps three explicit role choices in a consistent pane", async ({
+test("workspace setup customizes independent roles in a consistent pane", async ({
   page,
   request,
 }, testInfo) => {
@@ -46,6 +46,7 @@ test("workspace setup keeps three explicit role choices in a consistent pane", a
     page.getByRole("link", { name: "Open in work tab" }),
   ).toHaveCount(0);
   await form.getByLabel("Name", { exact: true }).fill("Release workspace");
+  await form.getByRole("checkbox", { name: "Customize roles" }).check();
   for (const role of ["Coordinator", "Worker", "Reviewer"]) {
     const fields = form.getByRole("group", { name: role, exact: true });
     await expect(
@@ -74,7 +75,7 @@ test("workspace setup keeps three explicit role choices in a consistent pane", a
       name: "Fast mode",
       exact: true,
     });
-    if (role === "Coordinator") await expect(fast).toHaveCount(0);
+    if (role === "Coordinator") await expect(fast).not.toBeChecked();
     else {
       await expect(fast).not.toBeChecked();
       await fast.check();

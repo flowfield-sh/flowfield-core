@@ -1,4 +1,6 @@
 .choice-select {
+  cursor: pointer;
+  user-select: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -29,6 +31,7 @@
   outline-offset: 2px;
 }
 .choice-select:disabled {
+  cursor: not-allowed;
   opacity: 0.5;
 }
 .choice-select-menu {
@@ -45,6 +48,8 @@
   box-shadow: 0 4px 12px #0002;
 }
 .choice-select-option {
+  cursor: pointer;
+  user-select: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -58,5 +63,6 @@
   background: var(--accent);
 }
 .choice-select-option[data-disabled] {
+  cursor: not-allowed;
   opacity: 0.5;
 }

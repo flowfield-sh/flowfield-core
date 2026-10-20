@@ -326,12 +326,10 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     page.getByRole("button", { name: "Send", exact: true }),
   ).toBeEnabled();
   await input.fill("Keep my project draft");
-  await page
-    .getByLabel("Workspace", { exact: true })
-    .selectOption({ label: "Chat Other" });
-  await page
-    .getByLabel("Workspace", { exact: true })
-    .selectOption({ label: "Chat Browser" });
+  await page.getByLabel("Workspace", { exact: true }).click();
+  await page.getByRole("option", { name: "Chat Other", exact: true }).click();
+  await page.getByLabel("Workspace", { exact: true }).click();
+  await page.getByRole("option", { name: "Chat Browser", exact: true }).click();
   await expect(input).toHaveValue("Keep my project draft");
   await expect(
     page.getByRole("button", { name: "Remove notes.txt" }),

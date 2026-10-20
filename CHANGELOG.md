@@ -12,7 +12,7 @@
 ### Improvements
 
 - Keep task purpose, local contributions, questions, corrections and reviewer sign-offs in one chronological feed. Exact requests and results own response actions, while task Settings holds Worker and Reviewer overrides.
-- Choose Worker and Reviewer defaults, including supported Fast mode, when creating a workspace or in workspace settings. Tasks can override these choices.
+- Create a workspace with one agent choice, or customize Coordinator, Worker and Reviewer roles. Workspace and task settings retain independent choices, including supported Fast mode.
 - Configure document usage from its editor, including defaults for tasks without a project. Prepared assignments keep their selected revisions. Maintain the shared label catalogue in workspace settings.
 - Try exact code results through a directly visible launcher, inspect their diffs and approve delivery to the configured local branch. Project settings can explicitly permit workers to run saved validation commands through Flowfield.
 

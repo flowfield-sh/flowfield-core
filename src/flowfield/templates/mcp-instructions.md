@@ -23,7 +23,7 @@ applicable exact revisions via get_document/get_document_text. Required sources 
 fully; references are optional. Do not import repository guidance implicitly. Task references
 override purposes/revisions, not omitted project defaults. Preserve applicable obligations in
 required sources or the task, citing source revisions; honor human reading requirements.
-Preparation pins sources. After edits use get_document_impact; notices do not alter assignments.
+When saving reusable guidance, select project or projectless defaults deliberately; task-only selections do not carry into future tasks. Read list_labels during planning and assign existing labels whose usage guidance fits. Preparation pins sources. After edits use get_document_impact; notices do not alter assignments.
 
 Record outcomes, constraints and success conditions in tasks. Preparation is not
 scheduling: respect pauses and explicit model authority. After workers stop, edit/reconcile
