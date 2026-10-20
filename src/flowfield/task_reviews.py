@@ -16,6 +16,7 @@ from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.execution_models import Record
 from flowfield.integration import Integrations
+from flowfield.outputs import Outputs
 from flowfield.results import Results
 from flowfield.review_records import ReviewRecord, ReviewRecords
 from flowfield.reviewer_settings import EffectiveReviewer, Reviewers
@@ -399,7 +400,15 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 .model_dump_json()
             )
         with self.store.connection() as db:
-            return Results(self.store)._get(db, project, review.result_id).report.model_dump_json()
+            report = Results(self.store)._get(db, project, review.result_id).report
+            context = report.model_dump(exclude={"files"})
+            context["files"] = [
+                file.model_dump(
+                    include={"id", "name", "description", "media_type", "size", "sha256"}
+                )
+                for file in Outputs.selected(db, project, review.binding.output_ids)
+            ]
+            return json.dumps(context, ensure_ascii=False)
 
     def latest(self, project: str, task: str) -> TaskReview | None:
         with self.store.connection() as db:

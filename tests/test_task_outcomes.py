@@ -226,7 +226,7 @@ def test_parallel_contributions_exact_inputs_and_single_delivery(tmp_path):
     assert len(Results(store).page(owner, task.id).items) == 1
 
 
-def test_assembled_review_receives_frozen_document_content(tmp_path):
+def test_assembled_review_receives_frozen_sources_and_output_manifest(tmp_path):
     from flowfield.documents import DocumentCreate, DocumentEdit, Documents
     from flowfield.task_reviews import TaskReviews
 
@@ -262,7 +262,7 @@ def test_assembled_review_receives_frozen_document_content(tmp_path):
         owner, "", {}, task_id=task.id, subtask_id=child.id, assembly_id=assembly.id
     )
     assert run
-    contribute(store, execution, owner, run)
+    contribute(store, execution, owner, run, output="contract.pdf")
     docs.edit(owner, contract.id, DocumentEdit(expected_revision=1, body="New, unselected rules"))
     assert assemblies.assemble(owner, task.id)
     Results(store).process(owner)
@@ -270,6 +270,13 @@ def test_assembled_review_receives_frozen_document_content(tmp_path):
     reviews = TaskReviews(store)
     review = reviews.prepare(owner, result.id)
     assert reviews.read_context(review, f"document:{contract.id}") == contract.body
+    assert json.loads(reviews.read_context(review, "files")) == []
+    assert result.report.files == []
+    output = json.loads(reviews.read_context(review, "result"))["files"][0]
+    assert output["id"] == result.files[0].id
+    assert output["name"] == "contract.pdf"
+    assert output["sha256"] == result.files[0].sha256
+    assert output["size"] == result.files[0].size
     manifest = json.loads(reviews.read_context(review, "documentation"))
     selected = next(item for item in manifest["items"] if item["id"] == contract.id)
     assert selected["revision"] == 1 and selected["section"] == f"document:{contract.id}"
@@ -278,6 +285,7 @@ def test_assembled_review_receives_frozen_document_content(tmp_path):
     # Restarted reads still use captured content, not the latest document revision.
     restarted = TaskReviews(Workspace(store.directory))
     assert restarted.read_context(review, f"document:{contract.id}") == contract.body
+    assert json.loads(restarted.read_context(review, "result"))["files"][0] == output
 
 
 def test_correction_preserves_independent_contribution(tmp_path):

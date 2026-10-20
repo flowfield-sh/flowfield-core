@@ -173,9 +173,11 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
                 "Inspect the submitted report and retained files. ",
             )
         with service.workspace.connection() as db:
-            files = Outputs.for_run(db, review.binding.run_id)
+            files = Outputs.selected(db, review.workspace_id, review.binding.output_ids)
         brief["instructions"] += (
-            " Inspect the supplied input_files as exact submitted outputs. Use read-only "
+            " The files context section records the worker’s original inputs. The result "
+            "section lists retained outputs, copied into this review as input_files. "
+            "Inspect those exact submitted outputs. Use read-only "
             "inspection tools as needed for images or documents; do not alter these files."
             " An incomplete outcome cannot be approved. Request a bounded follow-up for "
             "unfinished agreed work, or ask_human for a concrete missing decision or input."

@@ -1,6 +1,7 @@
 """File assessment uses the same scoped native review owner without verifier tasks or Git."""
 
 import asyncio
+import hashlib
 import json
 from pathlib import Path
 
@@ -31,6 +32,12 @@ class FileReviewer(FakeWorker):
         assert len(brief["input_files"]) == 1
         file = brief["input_files"][0]
         assert Path(file["path"]).read_text() == "Agreed report"
+        context = json.loads(await self.on_tool("read_context", {"section": "result"}))
+        output = json.loads(context["text"])["files"][0]
+        assert output["id"] == file["id"]
+        assert output["name"] == file["name"]
+        assert output["sha256"] == hashlib.sha256(Path(file["path"]).read_bytes()).hexdigest()
+        assert output["size"] == Path(file["path"]).stat().st_size
         if self.mutate:
             Path(file["path"]).chmod(0o600)
             Path(file["path"]).write_text("Changed inspection copy")
