@@ -332,6 +332,20 @@ def test_correction_preserves_independent_contribution(tmp_path):
     )
     assert retry and retry.feedback == "Correct the source citation"
     assert Results(store).get(owner, result.id).status == "changes_requested"
+    contribute(store, execution, owner, retry)
+    _, inputs = assemblies.baseline(assembly, children.get(owner, task.id, c.id))
+    rebuilt = execution.claim(
+        owner,
+        "",
+        {},
+        task_id=task.id,
+        subtask_id=c.id,
+        assembly_id=assembly.id,
+        contributions=inputs,
+    )
+    assert rebuilt and rebuilt.predecessor_id == runs[2].id
+    assert "Correct the source citation" in execution.assignment(owner, rebuilt.id)["feedback"]
+    assert execution.get(owner, runs[1].id).feedback == ""
 
 
 @pytest.mark.parametrize("dependent_contribution", [False, True])

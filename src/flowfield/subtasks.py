@@ -206,7 +206,8 @@ class Subtasks:
                 run.feedback = (
                     note
                     if item.id in roots
-                    else "A prerequisite changed. Rebuild this contribution."
+                    else "A prerequisite changed. Rebuild this contribution within its "
+                    "assigned scope. The request that triggered this rebuild was:\n\n" + note
                 )
                 run.status = "changes_requested"
                 run.revision += 1
