@@ -6,6 +6,7 @@ import { defineConfig } from "@playwright/test";
 const suppliedState = process.env.FLOWFIELD_SMOKE_STATE;
 const state = suppliedState ?? mkdtempSync(join(tmpdir(), "flowfield-smoke-"));
 process.env.FLOWFIELD_SMOKE_STATE = state;
+const port = process.env.FLOWFIELD_SMOKE_PORT ?? "8766";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -25,7 +26,7 @@ export default defineConfig({
     },
   ],
   use: {
-    baseURL: "http://127.0.0.1:8766",
+    baseURL: `http://127.0.0.1:${port}`,
     browserName: "chromium",
     // Exercise native tabs in the full browser's headless mode, not headless shell.
     channel: "chromium",
@@ -37,8 +38,9 @@ export default defineConfig({
       FLOWFIELD_DATA_DIR: state,
       FLOWFIELD_UPDATE_CHECKS: "0",
       FLOWFIELD_SMOKE_CLEANUP: suppliedState ? "false" : "true",
+      FLOWFIELD_SMOKE_PORT: port,
     },
-    url: "http://127.0.0.1:8766/api/health",
+    url: `http://127.0.0.1:${port}/api/health`,
     reuseExistingServer: false,
     timeout: 30000,
     gracefulShutdown: { signal: "SIGTERM", timeout: 10000 },

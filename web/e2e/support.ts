@@ -122,7 +122,7 @@ export function cli(args: string[], cwd?: string) {
         "--data-dir",
         state,
         "--port",
-        "8766",
+        process.env.FLOWFIELD_SMOKE_PORT ?? "8766",
         ...args,
         "--json",
       ],
