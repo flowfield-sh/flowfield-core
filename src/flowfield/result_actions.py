@@ -238,7 +238,11 @@ def result_action(
             reason="Update the failed setup command, then return here to retry checks.",
             settings="integration",
         )
-    if revised_assignment or value.problem_code in ("integration_conflict", "checks_failed"):
+    if revised_assignment or value.problem_code in (
+        "integration_conflict",
+        "checks_failed",
+        "correction_no_progress",
+    ):
         if not settings.selection:
             return ResultAction(
                 owner="human",

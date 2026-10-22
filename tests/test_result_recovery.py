@@ -138,11 +138,11 @@ def test_cancel_during_validation_retains_evidence_and_ignores_late_ready(tmp_pa
     entered, release = Event(), Event()
     actual = gitops.run_checks
 
-    def check(env, commands, timeout=60):
+    def check(env, commands, timeout=60, **kwargs):
         if commands:
             entered.set()
             assert release.wait(10)
-        return actual(env, commands, timeout)
+        return actual(env, commands, timeout, **kwargs)
 
     monkeypatch.setattr(gitops, "run_checks", check)
     with ThreadPoolExecutor() as pool:

@@ -378,10 +378,16 @@ class Results:
             version.approved_by or "flowfield",
         )
 
-    def reprepare(self, workspace_id: str, identity: str, request: RunAction) -> ResultVersion:
+    def reprepare(
+        self, workspace_id: str, identity: str, request: RunAction, *, automatic: bool = False
+    ) -> ResultVersion:
         with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
             version = self._get(db, workspace_id, identity)
             self.workspace._current(version.revision, request.expected_revision)
+            if automatic:
+                from flowfield.result_continuation import guard
+
+                guard(self, db, version)
             run = self._current(db, version)
             task = self.workspace._task(db, workspace_id, run.task_id)
             self.execution._current_assignment(db, run, task)
@@ -486,7 +492,9 @@ class Results:
             self._save(db, current)
             return self._present(db, current)
 
-    def correct(self, workspace_id: str, identity: str, request: RunAction) -> ResultVersion:
+    def correct(
+        self, workspace_id: str, identity: str, request: RunAction, *, automatic: bool = False
+    ) -> ResultVersion:
         """One explicit, capacity-bound worker continuation. Never transfers approval."""
         version = self.get(workspace_id, identity)
         self.workspace._current(version.revision, request.expected_revision)
@@ -551,6 +559,10 @@ class Results:
             with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
                 current = self._get(db, workspace_id, identity)
                 self.workspace._current(current.revision, request.expected_revision)
+                if automatic:
+                    from flowfield.result_continuation import guard
+
+                    guard(self, db, current)
                 run = self._current(db, current)
                 latest_task = self.workspace._task(db, workspace_id, run.task_id)
                 self.workspace._current(latest_task.revision, task.revision)

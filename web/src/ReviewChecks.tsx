@@ -1,11 +1,11 @@
 import { ContentStack, Disclosure } from "./DetailLayout";
-import type { components } from "./api-schema";
-import { CheckEvidence } from "./Integration";
+import { ValidationProgress, type IntegrationRead } from "./ValidationProgress";
+import { CheckEvidence } from "./CheckEvidence";
 import { Markdown } from "./Markdown";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { label } from "./workspace";
 
-type Integration = components["schemas"]["Integration"];
+type Integration = IntegrationRead;
 
 export function ReviewChecks({
   preparation,
@@ -24,6 +24,8 @@ export function ReviewChecks({
 }) {
   return (
     <ContentStack className="review-checks">
+      {preparation?.progress && <ValidationProgress record={preparation} />}
+      {availability?.progress && <ValidationProgress record={availability} />}
       {availability && (
         <Disclosure
           role="region"
@@ -55,7 +57,7 @@ export function ReviewChecks({
           </WorkspaceLink>
         </Disclosure>
       )}
-      {preparation ? (
+      {preparation && !preparation.progress ? (
         <Disclosure
           summary={
             <>
@@ -81,6 +83,7 @@ export function ReviewChecks({
           <CheckEvidence checks={preparation.checks} title="Project commands" />
         </Disclosure>
       ) : (
+        !preparation &&
         completion === "code" && (
           <p className="muted">
             Flowfield has not prepared branch checks for these changes yet.

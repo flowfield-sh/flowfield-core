@@ -380,6 +380,9 @@ class Supervisor:
         # Candidate/destination changes remain observable while the worker queue is paused.
         for project in Workspaces(self.workspace).projects(workspace_id):
             self.integrations.refresh_availability(project.id)
+        from flowfield.result_continuation import continue_available
+
+        continue_available(self.results, workspace_id)
         self.results.process(workspace_id)
 
     def _delivery_finished(self, identity: str, task: asyncio.Task[None]) -> None:

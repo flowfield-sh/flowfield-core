@@ -88,9 +88,15 @@ function ExecutionDetail({
     item.kind === "worker" ? `${path}/runs/${item.run_id}` : null,
     refresh,
   );
-  const integration = useResource<components["schemas"]["Integration"]>(
+  const integration = useResource<IntegrationRead>(
     item.integration_id ? `${path}/integrations/${item.integration_id}` : null,
     refresh,
+    10000,
+    {
+      workspaceId: projectId,
+      attemptId: item.run_id ?? undefined,
+      isActive: checking,
+    },
   );
   const result = useResource<components["schemas"]["ResultVersion"]>(
     item.result_id ? `${path}/results/${item.result_id}` : null,
@@ -311,3 +317,4 @@ function WorkerEvidence({
     </ContentStack>
   );
 }
+import { checking, type IntegrationRead } from "./ValidationProgress";

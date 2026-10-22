@@ -17,6 +17,7 @@ class ThreadMessage(Record):
     source_id: str
     revision: int | None = None
     created_at: str
+    order_key: str
     author: str
     actor: Actor
     state: WorkState
@@ -177,6 +178,8 @@ class ThreadView(Conversation):
                 else "Task assembled"
                 if data.get("purpose") == "assembly"
                 else "Work started"
+                if data.get("started_at")
+                else "Worker reserved"
             )
             body = data.get("problem") or ""
         elif kind == "result":
@@ -233,6 +236,7 @@ class ThreadView(Conversation):
             source_id=item.source_id,
             revision=item.revision,
             created_at=item.created_at,
+            order_key=item.order_key,
             author=item.author,
             actor=actor(item.author),
             state=WorkState(label="Contributions assembled", tone="complete")

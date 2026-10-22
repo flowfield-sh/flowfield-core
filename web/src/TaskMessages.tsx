@@ -11,7 +11,9 @@ export function merge(old: Message[], next: Message[]) {
     ...new Map([...old, ...next].map((item) => [item.id, item])).values(),
   ].sort(
     (a, b) =>
-      a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id),
+      a.created_at.localeCompare(b.created_at) ||
+      (a.order_key ?? "").localeCompare(b.order_key ?? "") ||
+      a.id.localeCompare(b.id),
   );
 }
 export function MessageBody({

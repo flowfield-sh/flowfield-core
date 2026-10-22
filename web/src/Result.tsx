@@ -20,6 +20,7 @@ import { label, request, type WorkspaceBoard } from "./workspace";
 import { taskHref } from "./navigation";
 import { FailureEvidence } from "./Integration";
 import { ReviewChecks } from "./ReviewChecks";
+import { checking, type IntegrationRead } from "./ValidationProgress";
 import { Inspection } from "./Inspection";
 import { ResultActions, TaskActionContext } from "./TaskActions";
 import { ResultFiles } from "./Files";
@@ -74,21 +75,25 @@ export function Result({
   const [views, setViews] = useState<Record<string, DiffViewState>>({});
   const [diffOpen, setDiffOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const evidence = useResource<components["schemas"]["Integration"]>(
+  const evidence = useResource<IntegrationRead>(
     version?.integration_id
       ? `${path}/integrations/${version.integration_id}`
       : null,
     refresh,
+    10000,
+    { workspaceId: projectId, attemptId: version?.run_id, isActive: checking },
   );
   const worker = useResource<components["schemas"]["Run"]>(
     version?.run_id ? `${path}/runs/${version.run_id}` : null,
     refresh,
   );
-  const availability = useResource<components["schemas"]["Integration"]>(
+  const availability = useResource<IntegrationRead>(
     version?.availability_id
       ? `${path}/integrations/${version.availability_id}`
       : null,
     refresh,
+    10000,
+    { workspaceId: projectId, attemptId: version?.run_id, isActive: checking },
   );
   const successor = useResource<components["schemas"]["Run"]>(
     page.data?.current_run_id && page.data.current_run_id !== version?.run_id
@@ -99,6 +104,9 @@ export function Result({
   const current =
     version?.id === page.data?.current_id &&
     version?.run_id === page.data?.current_run_id;
+  const latestResult = page.data?.items.find(
+    (item) => item.id === page.data?.current_id,
+  );
   const settingsHref =
     version?.next_action?.settings === "reviewer"
       ? `${taskHref(projectId, { key: taskKey })}/settings`
@@ -188,7 +196,9 @@ export function Result({
             <p className="detail-metadata">
               {page.data.current_id && page.data.current_id !== version.id ? (
                 <>
-                  A newer result is available.{" "}
+                  {latestResult
+                    ? `Result #${latestResult.version} is ${label(latestResult.status).toLowerCase()}. `
+                    : "A newer result is available. "}
                   <WorkspaceLink to={`${href}/${page.data.current_id}`}>
                     View current result
                   </WorkspaceLink>

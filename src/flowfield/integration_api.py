@@ -9,9 +9,9 @@ from fastapi import APIRouter, Query
 from flowfield.adapters.git_review import changed_files, file_patch
 from flowfield.errors import ApplicationError
 from flowfield.integration_models import (
-    Integration,
     IntegrationConfig,
     IntegrationPage,
+    IntegrationRead,
     IntegrationSettings,
 )
 from flowfield.review_models import ChangedFiles, FilePatch
@@ -48,8 +48,8 @@ def integration_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
         return supervisor().integrations.page(workspace_id, run_id, before, limit)
 
     @router.get("/workspaces/{workspace_id}/integrations/{identity}")
-    def detail(workspace_id: str, identity: str) -> Integration:
-        return supervisor().integrations.get(workspace_id, identity)
+    def detail(workspace_id: str, identity: str) -> IntegrationRead:
+        return supervisor().integrations.read(workspace_id, identity)
 
     def comparison(workspace_id: str, identity: str) -> tuple[Path, str, str]:
         record = supervisor().integrations.get(workspace_id, identity)

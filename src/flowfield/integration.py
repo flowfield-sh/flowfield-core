@@ -3,6 +3,7 @@
 import json
 import sqlite3
 from pathlib import Path
+from time import monotonic
 from uuid import uuid4
 
 from flowfield.adapters import git_checkout
@@ -19,8 +20,10 @@ from flowfield.integration_models import (
     IntegrationConfig,
     IntegrationPage,
     IntegrationPrepare,
+    IntegrationRead,
     IntegrationSettings,
     IntegrationSummary,
+    ValidationProgress,
 )
 from flowfield.workspaces import Workspaces
 
@@ -137,6 +140,17 @@ class Integrations:
         if not row:
             raise ApplicationError("not_found", "Integration not found in this workspace.", 404)
         return Integration.model_validate_json(row[0])
+
+    def read(self, workspace_id: str, identity: str) -> IntegrationRead:
+        record = self.get(workspace_id, identity)
+        return IntegrationRead(
+            **record.model_dump(),
+            progress=(
+                self.workspace.validation_progress.get(record.id)
+                if record.status == "preparing"
+                else None
+            ),
+        )
 
     def page(
         self,
@@ -328,6 +342,22 @@ class Integrations:
                 else:
                     current_version.integration_id = record.id
                     results._save(db, current_version)
+            last_notification = 0.0
+
+            def progress(value: ValidationProgress) -> None:
+                nonlocal last_notification
+                self.workspace.validation_progress[record.id] = value
+                stamp = monotonic()
+                if stamp - last_notification >= 0.5 and self.workspace.on_activity:
+                    last_notification = stamp
+                    self.workspace.on_activity(workspace_id, run.id)
+
+            def cancelled() -> bool:
+                with self.workspace.connection() as db:
+                    current = results._get(db, workspace_id, version.id)
+                    return current.status == "cancelled"
+
+            progress(ValidationProgress(phase="preparing"))
             try:
                 record.candidate_commit = gitops.candidate(
                     repository, before, record.result_commit, record.id
@@ -340,6 +370,8 @@ class Integrations:
                     record.id,
                     record.candidate_commit,
                     settings,
+                    on_progress=progress,
+                    cancelled=cancelled,
                 )
                 record.workspace = evidence.workspace
                 record.setup_checks, record.checks = evidence.setup_checks, evidence.checks
@@ -356,6 +388,11 @@ class Integrations:
                         "stale",
                         "Target or settings changed during validation. Prepare again.",
                     )
+                    record.problem_code = (
+                        "settings_changed"
+                        if self.settings(run.project_id).revision != settings.revision
+                        else "target_changed"
+                    )
                 else:
                     record.status = "integrated" if availability_result else "ready"
                     if availability_result:
@@ -365,6 +402,8 @@ class Integrations:
                 record.problem_code = (
                     error.code if isinstance(error, ApplicationError) else "local_io_failed"
                 )
+            finally:
+                self.workspace.validation_progress.pop(record.id, None)
             record.completed_at = record.validated_at = now()
             return self._save(record)
 
@@ -559,6 +598,11 @@ class Integrations:
                     record.status, record.problem = (
                         "stale",
                         "Target or settings moved. Prepare and validate again.",
+                    )
+                    record.problem_code = (
+                        "settings_changed"
+                        if record.settings_revision != settings.revision
+                        else "target_changed"
                     )
                     record.revision += 1
                     db.execute(

@@ -1,4 +1,7 @@
+import { CheckEvidence } from "./CheckEvidence";
+export { CheckEvidence } from "./CheckEvidence";
 import { ConfirmButton } from "./ConfirmButton";
+import { ValidationProgress, type IntegrationRead } from "./ValidationProgress";
 import { ProjectCheckPermission } from "./ProjectCheckPermission";
 import { StatusNotice } from "./StatusNotice";
 import { ResourceRetry } from "./ResourceRetry";
@@ -18,7 +21,7 @@ import type { components } from "./api-schema";
 import type { DiffViewState } from "./CodeDiff";
 const CodeDiff = lazy(() => import("./CodeDiff"));
 type Settings = components["schemas"]["IntegrationSettings"];
-type Record = components["schemas"]["Integration"];
+type Record = IntegrationRead;
 const lines = (text: string) =>
   text
     .split("\n")
@@ -270,10 +273,7 @@ export function IntegrationSettings({
           <Button
             size="sm"
             disabled={
-              (!dirty && !inspection.dirty) ||
-              !target ||
-              !checks.trim() ||
-              !inspection.loaded
+              (!dirty && !inspection.dirty) || !target || !inspection.loaded
             }
           >
             Save integration settings
@@ -444,6 +444,7 @@ export function IntegrationEvidence({
   const [diff, setDiff] = useState(false);
   return (
     <ContentStack space="section" className="integration-evidence">
+      <ValidationProgress record={record} />
       <DetailSection title="Branch">
         <p>
           {record.status === "ready"
@@ -489,42 +490,6 @@ export function IntegrationEvidence({
           <code>{record.workspace}</code>
         </Disclosure>
       )}
-    </ContentStack>
-  );
-}
-
-export function CheckEvidence({
-  checks,
-  title,
-}: {
-  checks: components["schemas"]["CheckResult"][];
-  title: string;
-}) {
-  if (!checks.length) return null;
-  return (
-    <ContentStack>
-      <strong>{title}</strong>
-      <ContentStack>
-        {checks.map((check, index) => (
-          <Disclosure
-            summary={
-              <>
-                {check.exit_code === 0
-                  ? "Passed"
-                  : `Failed (${check.exit_code})`}{" "}
-                · <code>{check.command}</code>
-              </>
-            }
-            key={index}
-            open={check.exit_code !== 0}
-          >
-            <pre className="evidence-output">
-              {check.output.replace(/^(?:[ \t]*\r?\n)+/, "") || "No output."}
-              {check.truncated && "\nOutput truncated."}
-            </pre>
-          </Disclosure>
-        ))}
-      </ContentStack>
     </ContentStack>
   );
 }

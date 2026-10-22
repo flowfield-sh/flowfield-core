@@ -25,6 +25,7 @@ class ConversationItem(Record):
         "reply",
     ]
     created_at: str
+    order_key: str
     author: str
     source_id: str
     revision: int | None = None
@@ -75,7 +76,7 @@ WITH definitions AS (
     FROM question_revisions r JOIN questions q
         ON q.workspace_id=r.workspace_id AND q.id=r.question_id
     WHERE q.workspace_id=:project AND q.task_id=:task
-), conversation AS (
+), evidence AS (
     SELECT 'reply:'||id AS id, 'reply' AS kind, created_at,
         json_extract(data,'$.author') AS author, id AS source_id, NULL AS revision, data
     FROM task_replies WHERE workspace_id=:project AND task_id=:task
@@ -108,7 +109,8 @@ WITH definitions AS (
           'superseded_by',(SELECT id FROM activity b WHERE b.supersedes=a.id))
     FROM activity a WHERE workspace_id=:project AND task_id=:task AND kind!='event'
     UNION ALL
-    SELECT 'attempt:'||id, 'attempt', json_extract(data,'$.created_at'),
+    SELECT 'attempt:'||id, 'attempt',
+        coalesce(json_extract(data,'$.started_at'),json_extract(data,'$.created_at')),
         CASE WHEN json_extract(data,'$.purpose')='assembly' THEN 'flowfield' ELSE 'worker' END, id,
         json_extract(data,'$.revision'), data
     FROM runs WHERE workspace_id=:project AND task_id=:task
@@ -131,10 +133,28 @@ WITH definitions AS (
         'service', id, json_extract(data,'$.revision'), data
     FROM result_versions WHERE workspace_id=:project AND task_id=:task
         AND status='delivered' AND json_extract(data,'$.completed_at') IS NOT NULL
+), conversation AS (
+    SELECT *, printf('%02d:%012d', CASE
+        WHEN kind='definition' THEN CASE json_extract(data,'$.status')
+            WHEN 'done' THEN 90 WHEN 'in_review' THEN 60 ELSE 10 END
+        WHEN kind='attempt' THEN 20
+        WHEN kind='result' THEN 40
+        WHEN kind='review' THEN 50
+        WHEN kind='approval' THEN 70
+        WHEN kind='delivery' THEN 80
+        ELSE 30 END, CASE kind
+        WHEN 'attempt' THEN (SELECT number FROM runs WHERE id=source_id)
+        WHEN 'review' THEN (SELECT number FROM task_reviews WHERE id=source_id)
+        WHEN 'result' THEN json_extract(data,'$.version')
+        WHEN 'approval' THEN json_extract(data,'$.version')
+        WHEN 'delivery' THEN json_extract(data,'$.version')
+        WHEN 'activity' THEN (SELECT sequence FROM activity WHERE id=source_id)
+        ELSE coalesce(revision,0) END) AS order_key
+    FROM evidence
 )
 """
 COLUMNS = (
-    "id,kind,created_at,author,source_id,revision,"
+    "id,kind,created_at,order_key,author,source_id,revision,"
     "substr(data,1,400) AS excerpt,length(data) AS total_chars"
 )
 
@@ -164,30 +184,40 @@ class Conversation:
     ) -> ConversationPage:
         if not 1 <= limit <= 30:
             raise ApplicationError("invalid_limit", "Choose 1–30 conversation items.")
-        stamp, identity = "", ""
+        stamp, identity, order = "", "", ""
+        args = self._args(db, workspace_id, task_id)
         if cursor:
             try:
                 value = json.loads(cursor)
                 if (
                     not isinstance(value, list)
-                    or len(value) != 2
+                    or len(value) not in (2, 3)
                     or not all(isinstance(s, str) for s in value)
                 ):
                     raise ValueError
-                stamp, identity = value
+                stamp, identity = value[:2]
+                if len(value) == 3:
+                    order = value[2]
+                else:
+                    boundary = db.execute(
+                        PROJECTION + "SELECT order_key FROM conversation WHERE id=:id",
+                        {**args, "id": identity},
+                    ).fetchone()
+                    if not boundary:
+                        raise ValueError
+                    order = boundary[0]
             except (ValueError, TypeError):
                 raise ApplicationError("invalid_cursor", "Invalid conversation cursor.") from None
-        args = self._args(db, workspace_id, task_id)
         rows = db.execute(
             PROJECTION + f"SELECT {COLUMNS} FROM conversation "
-            "WHERE :stamp='' OR (created_at,id)<(:stamp,:identity) "
-            "ORDER BY created_at DESC,id DESC LIMIT :limit",
-            {**args, "stamp": stamp, "identity": identity, "limit": limit + 1},
+            "WHERE :stamp='' OR (created_at,order_key,id)<(:stamp,:order,:identity) "
+            "ORDER BY created_at DESC,order_key DESC,id DESC LIMIT :limit",
+            {**args, "stamp": stamp, "identity": identity, "order": order, "limit": limit + 1},
         ).fetchall()
         items = [ConversationItem.model_validate(dict(row)) for row in rows[:limit]]
         return ConversationPage(
             items=items,
-            next_cursor=json.dumps([items[-1].created_at, items[-1].id])
+            next_cursor=json.dumps([items[-1].created_at, items[-1].id, items[-1].order_key])
             if len(rows) > limit
             else None,
         )

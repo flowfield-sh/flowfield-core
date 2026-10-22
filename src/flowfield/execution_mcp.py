@@ -308,4 +308,4 @@ def add_execution_tools(
     @mcp.tool(annotations=read)
     def get_integration(workspace_id: str, integration_id: str) -> dict[str, Any]:
         """Inspect one candidate, target-before/after, validation output and preserved checkout."""
-        return supervisor().integrations.get(workspace_id, integration_id).model_dump()
+        return supervisor().integrations.read(workspace_id, integration_id).model_dump()

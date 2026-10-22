@@ -25,6 +25,9 @@ def main() -> None:
     parser.add_argument("directory", type=Path)
     parser.add_argument("--state", type=Path, help="Use an existing service's disposable state.")
     parser.add_argument(
+        "--project-id", help="Use a distinct project ID in shared disposable state."
+    )
+    parser.add_argument(
         "--conflict", action="store_true", help="Seed a blocked result for recovery."
     )
     args = parser.parse_args()
@@ -47,7 +50,7 @@ def main() -> None:
     )
     project = spaces.adopt(
         space.id,
-        ProjectSetup(path=str(repo), name="Harbor · Integration trial"),
+        ProjectSetup(id=args.project_id, path=str(repo), name="Harbor · Integration trial"),
     )
     git(repo, "init", "-b", "main")
     (repo / "README.md").write_text("# Harbor\n\nOffline integration fixture; no model calls.\n")

@@ -2985,6 +2985,33 @@ export interface components {
       /** Git Inode */
       git_inode: number;
     };
+    /** CommandProgress */
+    CommandProgress: {
+      /** Command */
+      command: string;
+      /** Index */
+      index: number;
+      /** Total */
+      total: number;
+      /** Started At */
+      started_at: string;
+      /** Elapsed Seconds */
+      elapsed_seconds: number;
+      /** Timeout Seconds */
+      timeout_seconds: number;
+      /**
+       * Output
+       * @default
+       */
+      output: string;
+      /**
+       * Truncated
+       * @default false
+       */
+      truncated: boolean;
+      /** Last Output At */
+      last_output_at: string | null;
+    };
     /** ContextUsage */
     ContextUsage: {
       /** Used */
@@ -3013,6 +3040,8 @@ export interface components {
         | "reply";
       /** Created At */
       created_at: string;
+      /** Order Key */
+      order_key: string;
       /** Author */
       author: string;
       /** Source Id */
@@ -3980,8 +4009,43 @@ export interface components {
        */
       run_command: string;
     };
-    /** Integration */
-    Integration: {
+    /** IntegrationConfig */
+    IntegrationConfig: {
+      /** Expected Revision */
+      expected_revision: number;
+      /** Runtime */
+      runtime?: "local" | null;
+      /** Target Branch */
+      target_branch: string;
+      /** Create From */
+      create_from?: string | null;
+      /** Checks */
+      checks?: string[];
+      /** Setup Commands */
+      setup_commands?: string[];
+      /**
+       * Setup Timeout Seconds
+       * @default 120
+       */
+      setup_timeout_seconds: number;
+      /**
+       * Check Timeout Seconds
+       * @default 60
+       */
+      check_timeout_seconds: number;
+    };
+    /** IntegrationPage */
+    IntegrationPage: {
+      /** Items */
+      items: components["schemas"]["IntegrationSummary"][];
+      /** Next Before */
+      next_before: number | null;
+    };
+    /**
+     * IntegrationRead
+     * @description Transient progress belongs to the running validation, never persisted records.
+     */
+    IntegrationRead: {
       /** Workspace Id */
       workspace_id: string;
       /** Task Id */
@@ -4049,38 +4113,7 @@ export interface components {
       checks: components["schemas"]["CheckResult"][];
       /** Setup Checks */
       setup_checks: components["schemas"]["CheckResult"][];
-    };
-    /** IntegrationConfig */
-    IntegrationConfig: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Runtime */
-      runtime?: "local" | null;
-      /** Target Branch */
-      target_branch: string;
-      /** Create From */
-      create_from?: string | null;
-      /** Checks */
-      checks?: string[];
-      /** Setup Commands */
-      setup_commands?: string[];
-      /**
-       * Setup Timeout Seconds
-       * @default 120
-       */
-      setup_timeout_seconds: number;
-      /**
-       * Check Timeout Seconds
-       * @default 60
-       */
-      check_timeout_seconds: number;
-    };
-    /** IntegrationPage */
-    IntegrationPage: {
-      /** Items */
-      items: components["schemas"]["IntegrationSummary"][];
-      /** Next Before */
-      next_before: number | null;
+      progress: components["schemas"]["ValidationProgress"] | null;
     };
     /** IntegrationSettings */
     IntegrationSettings: {
@@ -6057,6 +6090,8 @@ export interface components {
       revision: number | null;
       /** Created At */
       created_at: string;
+      /** Order Key */
+      order_key: string;
       /** Author */
       author: string;
       actor: components["schemas"]["Actor"];
@@ -6204,6 +6239,19 @@ export interface components {
       input?: unknown;
       /** Context */
       ctx?: Record<string, never>;
+    };
+    /** ValidationProgress */
+    ValidationProgress: {
+      /**
+       * Phase
+       * @enum {string}
+       */
+      phase: "preparing" | "setup" | "checks" | "verifying";
+      current: components["schemas"]["CommandProgress"] | null;
+      /** Setup Checks */
+      setup_checks: components["schemas"]["CheckResult"][];
+      /** Checks */
+      checks: components["schemas"]["CheckResult"][];
     };
     /** WorkState */
     WorkState: {
@@ -11257,7 +11305,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["Integration"];
+          "application/json": components["schemas"]["IntegrationRead"];
         };
       };
       /** @description Validation Error */

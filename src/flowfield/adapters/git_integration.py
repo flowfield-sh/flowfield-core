@@ -2,7 +2,7 @@
 
 import asyncio
 import fcntl
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
@@ -12,7 +12,7 @@ from flowfield.adapters.git_workspace import contains, git
 from flowfield.adapters.local_execution import LocalAttempt
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import CheckResult
-from flowfield.integration_models import CheckoutBinding
+from flowfield.integration_models import CheckoutBinding, CommandProgress
 
 
 @lru_cache(maxsize=256)
@@ -150,9 +150,18 @@ def correction_seed(repository: Path, before: str, source: str, identity: str) -
 
 
 def run_checks(
-    environment: LocalAttempt, commands: list[str], timeout: int = 60
+    environment: LocalAttempt,
+    commands: list[str],
+    timeout: int = 60,
+    *,
+    on_progress: Callable[[CommandProgress, list[CheckResult]], None] | None = None,
+    cancelled: Callable[[], bool] | None = None,
 ) -> list[CheckResult]:
-    return asyncio.run(local_checks.run_checks(environment, commands, timeout))
+    return asyncio.run(
+        local_checks.run_checks(
+            environment, commands, timeout, on_progress=on_progress, cancelled=cancelled
+        )
+    )
 
 
 def unchanged(environment: LocalAttempt, commit: str) -> bool:

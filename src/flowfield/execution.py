@@ -631,6 +631,12 @@ class Execution:
                 )
                 assert effective
                 effective = AgentSettings(self.workspace).freeze(db, effective)
+                self._task_state(
+                    db,
+                    task,
+                    "in_progress",
+                    "Worker reserved for this task.",
+                )
                 run = Run(
                     id=uuid4().hex,
                     workspace_id=workspace_id,
@@ -752,12 +758,6 @@ class Execution:
                         run.model_dump_json(),
                         json.dumps(assignment),
                     ),
-                )
-                self._task_state(
-                    db,
-                    task,
-                    "in_progress",
-                    f"Attempt {run.id[:8]} reserved at {run.base_commit[:12]}.",
                 )
                 return run
             if waiting_for_code:

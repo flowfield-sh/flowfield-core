@@ -94,6 +94,31 @@ class Integration(IntegrationSummary):
     setup_checks: list[CheckResult] = Field(default_factory=list)
 
 
+class CommandProgress(Record):
+    command: str
+    index: int
+    total: int
+    started_at: str
+    elapsed_seconds: float
+    timeout_seconds: int
+    output: str = ""
+    truncated: bool = False
+    last_output_at: str | None = None
+
+
+class ValidationProgress(Record):
+    phase: Literal["preparing", "setup", "checks", "verifying"]
+    current: CommandProgress | None = None
+    setup_checks: list[CheckResult] = Field(default_factory=list)
+    checks: list[CheckResult] = Field(default_factory=list)
+
+
+class IntegrationRead(Integration):
+    """Transient progress belongs to the running validation, never persisted records."""
+
+    progress: ValidationProgress | None = None
+
+
 class IntegrationPage(Record):
     items: list[IntegrationSummary]
     next_before: int | None = None

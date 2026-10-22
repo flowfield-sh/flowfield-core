@@ -23,6 +23,8 @@ An independent approval recommends the candidate. Code delivery still needs your
 
 Read the worker report, limitations and checks against the task's success criteria. Project checks and worker-authored tests are useful evidence; try representative inputs or ask the Coordinator to investigate gaps before deciding what ships.
 
+While Flowfield checks a candidate, the result shows the active setup or validation command, elapsed time and timeout, recent output, and completed commands. Output updates without moving your reading position. **Stop checks** stops the command and preserves captured output. Projects with no saved validation commands say so explicitly.
+
 **Access results** opens the selected code result with its copyable launch command directly visible. **Code changes** shows the candidate's changed files and diff. Supporting files remain available below the outcome. See [worker setup](/worker-setup#try-a-result). Trying or inspecting a result grants no approval.
 
 ![Code changes and exact-result review beside the Coordinator](/images/code-review.png)
@@ -38,6 +40,8 @@ Flowfield checks and delivers the approved candidate to the configured project c
 Delivery updates the configured local branch and registered checkout. It does not push, deploy or publish your project. Tasks in different repositories have separate results and approvals; Flowfield does not deliver them as one atomic change.
 
 ## Earlier results and follow-ups
+
+When another delivery advances the destination, Flowfield prepares and checks the existing work against that destination automatically while the queue is enabled. Merge conflicts or failed checks caused by that change can queue a scoped worker correction with both code inputs and the failure evidence. The new candidate receives its configured review and needs fresh delivery approval. Pausing the queue prevents new automatic continuations. Changed requirements, settings, access problems or repeated unchanged corrections need attention rather than another automatic attempt.
 
 Completed tasks keep their delivered snapshots when prerequisites change later. Earlier results remain available through the task feed and exact result links. New work does not update a preview you already opened.
 
