@@ -243,6 +243,7 @@ function ReviewControls<R extends { revision: number; status: string }>({
         <ConfirmButton
           size="sm"
           disabled={busy}
+          binding={`${path}:${review.revision}`}
           title="Confirm all review processes stopped?"
           description="Inspect the retained process evidence first. Confirm only after the reviewer and its commands have stopped. This releases its reserved capacity without applying its conclusion."
           action={() => void act("confirm-stopped")}

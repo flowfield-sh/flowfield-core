@@ -1,6 +1,7 @@
+import { ConfirmButton } from "./ConfirmButton";
 import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
 import { request } from "./workspace";
@@ -197,6 +198,11 @@ function useAgentSettingsContent({
   showFast = false,
 }: AgentSettingsProps) {
   const resource = useResource<Settings>(path, refresh);
+  const reloadController = useRef<AbortController | null>(null);
+  useEffect(
+    () => () => reloadController.current?.abort(),
+    [path, open, active],
+  );
   const [draft, setDraft] = useState<{
     revision: number;
     selection: Choice | null;
@@ -396,33 +402,51 @@ function useAgentSettingsContent({
             )}
             {compact && <RefreshModels source={source} />}
             {(stale || error || resource.error) && (
-              <Button
+              <ConfirmButton
                 type="button"
                 variant="outline"
                 size="sm"
                 disabled={busy}
-                onClick={async () => {
-                  if (
-                    draft &&
-                    !window.confirm(
-                      "Discard your edits and load the saved settings?",
-                    )
-                  )
-                    return;
+                requiresConfirmation={!!draft}
+                binding={JSON.stringify([
+                  path,
+                  data?.revision,
+                  draft,
+                  open,
+                  active,
+                ])}
+                title="Discard your model setting edits?"
+                description="Load the saved model and access settings in place of your edits."
+                action={async () => {
+                  if (busy) return;
+                  const pending = new AbortController();
+                  reloadController.current?.abort();
+                  reloadController.current = pending;
+                  setBusy(true);
                   try {
                     resource.invalidate();
-                    resource.setData(await request<Settings>(path));
+                    const latest = await request<Settings>(
+                      path,
+                      "GET",
+                      undefined,
+                      pending.signal,
+                    );
+                    if (pending.signal.aborted) return;
+                    resource.setData(latest);
                     resource.setError("");
                     setDraft(null);
                     setError("");
                   } catch (error) {
+                    if (pending.signal.aborted) return;
                     setError((error as Error).message);
                     reportError(error, "Could not reload model settings");
+                  } finally {
+                    setBusy(false);
                   }
                 }}
               >
                 Reload
-              </Button>
+              </ConfirmButton>
             )}
             {compact && (
               <Button

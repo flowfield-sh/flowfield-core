@@ -1,3 +1,4 @@
+import { dialogViews } from "./dialog-evidence";
 import { resultRequest } from "./support";
 import {
   projectWorkspace,
@@ -691,7 +692,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
 test("Inbox preserves conflicting drafts and follows up on the same canonical question", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const call = await connectMcp(request);
   const project_id = "inbox-conflict";
   await fixtureMcpProject(call, {
@@ -743,13 +744,55 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
   await expect(
     detail.getByRole("button", { name: "Send answer", exact: true }),
   ).toBeDisabled();
-  page.once("dialog", (d) => d.accept());
   await detail
+    .getByRole("button", { name: "Load latest", exact: true })
+    .click();
+  const latestDialog = page.getByRole("alertdialog");
+  await expect(
+    latestDialog.getByRole("button", { name: "Cancel", exact: true }),
+  ).toBeFocused();
+  await dialogViews(page, testInfo, "inbox-load-latest");
+  await page.keyboard.press("Escape");
+  await expect(detail.getByLabel("Your answer", { exact: true })).toHaveValue(
+    "My unsaved custom answer",
+  );
+  await expect(
+    detail.getByRole("button", { name: "Load latest", exact: true }),
+  ).toBeFocused();
+  await detail
+    .getByRole("button", { name: "Load latest", exact: true })
+    .click();
+  await page
+    .getByRole("alertdialog")
     .getByRole("button", { name: "Load latest", exact: true })
     .click();
   await expect(
     detail.getByText("Cap it at 10,000.", { exact: true }),
   ).toBeVisible();
+  await detail
+    .getByRole("button", { name: "Edit answer", exact: true })
+    .click();
+  await detail
+    .getByLabel("Your answer", { exact: true })
+    .fill("A replacement answer that is still a draft.");
+  await detail.getByRole("button", { name: "Cancel", exact: true }).click();
+  const discardAnswer = page.getByRole("alertdialog");
+  await expect(
+    discardAnswer.getByRole("button", { name: "Cancel", exact: true }),
+  ).toBeFocused();
+  await discardAnswer
+    .getByRole("button", { name: "Cancel", exact: true })
+    .click();
+  await expect(detail.getByLabel("Your answer", { exact: true })).toHaveValue(
+    "A replacement answer that is still a draft.",
+  );
+  await detail.getByRole("button", { name: "Cancel", exact: true }).click();
+  await discardAnswer
+    .getByRole("button", { name: "Discard answer", exact: true })
+    .click();
+  await expect(detail.getByLabel("Your answer", { exact: true })).toHaveCount(
+    0,
+  );
   await call("follow_up_question", {
     workspace_id: await projectWorkspace(request, project_id),
     question_id: q.id,
@@ -1011,7 +1054,7 @@ test("project questions link affected tasks and reconcile through CLI and MCP", 
   expect(result.applied_workspace_revision).toBe(2);
   expect(result.applied_task_revisions.second).toBe(1);
   await expect(
-    detail.getByRole("img", { name: "Answered", exact: true }),
+    detail.getByRole("img", { name: "Applied", exact: true }),
   ).toBeVisible();
   const task = await call("get_task", {
     workspace_id: await projectWorkspace(request, project_id),

@@ -125,7 +125,7 @@ export function ProjectEditor({
                 variant="outline"
                 type="button"
                 disabled={!dirty}
-                onClick={cancel}
+                onClick={() => cancel()}
               >
                 Cancel
               </Button>

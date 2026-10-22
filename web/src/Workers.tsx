@@ -1,3 +1,4 @@
+import { ConfirmButton } from "./ConfirmButton";
 import { ContentStack } from "./DetailLayout";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
@@ -9,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Pause, Play, Settings2 } from "lucide-react";
 import { ActionTooltip } from "./ActionTooltip";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { WorkspaceLink as Link } from "./WorkspaceLink";
 import type { components } from "./api-schema";
 import { request } from "./workspace";
@@ -169,6 +170,8 @@ export function WorkerSettings({
 }) {
   const path = `workspaces/${workspaceId}/workers`;
   const resource = useResource<Settings>(path, refresh);
+  const reloadController = useRef<AbortController | null>(null);
+  useEffect(() => () => reloadController.current?.abort(), [path, active]);
   const [draft, setDraft] = useState<{
     harness: HarnessKind;
     model: string;
@@ -366,32 +369,44 @@ export function WorkerSettings({
               </AlertDescription>
             </Alert>
           )}
-          <Button
+          <ConfirmButton
             size="sm"
             variant="outline"
             className="quiet"
             disabled={busy}
-            onClick={async () => {
-              if (
-                dirty &&
-                !window.confirm(
-                  "Discard your worker setting edits and load the saved settings?",
-                )
-              )
-                return;
+            requiresConfirmation={dirty}
+            binding={JSON.stringify([path, resource.data?.revision, draft])}
+            title="Discard your worker setting edits?"
+            description="Load the saved worker settings in place of your edits."
+            action={async () => {
+              if (busy) return;
+              const pending = new AbortController();
+              reloadController.current?.abort();
+              reloadController.current = pending;
+              setBusy(true);
               try {
                 resource.invalidate();
-                resource.setData(await request<Settings>(path));
+                const latest = await request<Settings>(
+                  path,
+                  "GET",
+                  undefined,
+                  pending.signal,
+                );
+                if (pending.signal.aborted) return;
+                resource.setData(latest);
                 setDraft(null);
                 setError("");
               } catch (e) {
+                if (pending.signal.aborted) return;
                 setError((e as Error).message);
                 reportError(e, "Could not reload worker settings");
+              } finally {
+                setBusy(false);
               }
             }}
           >
             Load latest settings
-          </Button>
+          </ConfirmButton>
         </>
       )}
     </section>

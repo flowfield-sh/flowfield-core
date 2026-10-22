@@ -3,10 +3,12 @@ import {
   retainDirty,
   type DirtyCallback,
 } from "./retainedState";
+import { useDiscardChanges } from "./DiscardChangesDialog";
 import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useLocation } from "react-router";
 import { request, RequestError } from "./workspace";
 
 export function useRecordEditor<R extends { revision: number }, V>({
@@ -30,7 +32,7 @@ export function useRecordEditor<R extends { revision: number }, V>({
   retainedKey?: string;
   version?: (record: R) => string;
   otherDirty?: boolean;
-  read?: () => Promise<R>;
+  read?: (signal: AbortSignal) => Promise<R>;
 }) {
   const element = useRef<HTMLElement>(null);
   const mounted = useRef(true);
@@ -54,7 +56,24 @@ export function useRecordEditor<R extends { revision: number }, V>({
   );
   const [busy, setBusy] = useState(false);
   const [conflict, setConflict] = useState(false);
+  const location = useLocation();
+  const readController = useRef<AbortController | null>(null);
+  const resourcePath = path(incoming);
+  useEffect(
+    () => () => readController.current?.abort(),
+    [resourcePath, retainedKey, location.key],
+  );
   const dirty = JSON.stringify(values) !== JSON.stringify(fields(loaded));
+  const discard = useDiscardChanges(
+    JSON.stringify([
+      retainedKey,
+      path(loaded),
+      loaded?.revision,
+      incoming && version ? version(incoming) : incoming?.revision,
+      values,
+    ]),
+    busy,
+  );
   useEffect(() => {
     if (retainedKey) retainDirty(retainedKey, dirty);
     onDirty(dirty || otherDirty || busy, !!retainedKey && !otherDirty && !busy);
@@ -80,6 +99,12 @@ export function useRecordEditor<R extends { revision: number }, V>({
     );
   }
   async function run(method: string, payload?: unknown, suffix = "") {
+    if (busy) return;
+    const pending = method === "GET" ? new AbortController() : null;
+    if (pending) {
+      readController.current?.abort();
+      readController.current = pending;
+    }
     const action =
       suffix === "/restore"
         ? "restore"
@@ -94,9 +119,14 @@ export function useRecordEditor<R extends { revision: number }, V>({
     try {
       const result =
         method === "GET" && read
-          ? await read()
-          : await request<R>(path(loaded) + suffix, method, payload);
-      if (mounted.current) {
+          ? await read(pending!.signal)
+          : await request<R>(
+              path(loaded) + suffix,
+              method,
+              payload,
+              pending?.signal,
+            );
+      if (mounted.current && !pending?.signal.aborted) {
         adopt(result);
         if (method !== "GET") setEditing(false);
         await saved(result, method);
@@ -114,7 +144,7 @@ export function useRecordEditor<R extends { revision: number }, V>({
           );
       }
     } catch (error) {
-      if (mounted.current) {
+      if (mounted.current && !pending?.signal.aborted) {
         reportError(error, `Could not ${action} ${recordName}`);
         if (error instanceof RequestError && error.code === "revision_conflict")
           setConflict(true);
@@ -123,22 +153,25 @@ export function useRecordEditor<R extends { revision: number }, V>({
       if (mounted.current) setBusy(false);
     }
   }
-  function cancel() {
-    if (!dirty || window.confirm("Discard your unsaved edits?")) {
+  function cancel(after?: () => void) {
+    if (busy) return;
+    const apply = () => {
       setValues(fields(loaded));
       setEditing(false);
-      return true;
-    }
-    return false;
+      if (retainedKey) retainDirty(retainedKey, false);
+      onDirty(otherDirty);
+      after?.();
+    };
+    if (dirty) discard.request(apply);
+    else apply();
   }
   function reload() {
-    if (
-      !dirty ||
-      window.confirm("Discard unsaved edits and load the latest revision?")
-    )
-      void run("GET");
+    if (busy) return;
+    if (dirty) discard.request(() => void run("GET"), true);
+    else void run("GET");
   }
   return {
+    confirmation: discard.dialog,
     element,
     loaded,
     values,
@@ -163,10 +196,12 @@ export function EditorFeedback({
     conflict: boolean;
     busy: boolean;
     reload: () => void;
+    confirmation: ReactNode;
   };
 }) {
   return (
     <>
+      {state.confirmation}
       {(state.newer || state.conflict) && (
         <div className="notice content-stack">
           <p role="status">

@@ -1,3 +1,4 @@
+import { dialogViews } from "./dialog-evidence";
 import { resultRequest } from "./support";
 import { projectWorkspace } from "./support";
 import {
@@ -866,7 +867,7 @@ test("managed answers show durable pause, safe edits and immutable correction in
 test("inspection preserves exact versions, preview edits and direct approval", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   // Two result generations and multiple Git copies need a bounded hosted-runner budget.
   test.setTimeout(60000);
   const project = "inspection-browser";
@@ -1126,8 +1127,19 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await expect(
     page.getByRole("button", { name: "Load current run command" }),
   ).toBeVisible();
-  page.once("dialog", (dialog) => void dialog.accept());
   await page.getByRole("button", { name: "Load current run command" }).click();
+  const runDialog = page.getByRole("alertdialog");
+  await expect(
+    runDialog.getByRole("button", { name: "Cancel", exact: true }),
+  ).toBeFocused();
+  await dialogViews(page, testInfo, "integration-run-reload");
+  await page.keyboard.press("Escape");
+  await expect(runCommand).toHaveValue("python app.py --draft");
+  await page.getByRole("button", { name: "Load current run command" }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Load current run command", exact: true })
+    .click();
   await expect(runCommand).toHaveValue("python app.py --elsewhere");
   await runCommand.fill("python app.py");
   const runSaved = page.waitForResponse(

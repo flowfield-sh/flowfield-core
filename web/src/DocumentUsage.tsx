@@ -163,7 +163,7 @@ export function DocumentUsage({
                       size="sm"
                       variant="outline"
                       disabled={!state.dirty}
-                      onClick={state.cancel}
+                      onClick={() => state.cancel()}
                     >
                       Cancel
                     </Button>

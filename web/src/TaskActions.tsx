@@ -114,6 +114,7 @@ export function WorkerActions({
           size="sm"
           variant="outline"
           disabled={busy}
+          binding={`${projectId}:${task.id}:${task.revision}:${run.id}:${run.revision}`}
           title={
             run.status === "uncertain"
               ? "Reconcile the worker process?"

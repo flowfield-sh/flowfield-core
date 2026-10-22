@@ -314,8 +314,11 @@ test("host configuration conflicts preserve drafts until explicit reload", async
     page.locator("[data-sonner-toast][data-type=error]"),
   ).toContainText("Host settings changed elsewhere.");
   await expect(executable).toHaveValue("/service/my-draft/codex");
-  page.once("dialog", (dialog) => dialog.accept());
   await entry.getByRole("button", { name: "Load latest", exact: true }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Load latest", exact: true })
+    .click();
   await expect(executable).toHaveValue("/service/external/codex");
   await expect(
     entry.getByRole("button", { name: "Save paths", exact: true }),

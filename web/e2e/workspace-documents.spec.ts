@@ -85,8 +85,11 @@ test("workspace documents preserve drafts, exact history and restore as a new re
     path: testInfo.outputPath("documents-conflict-desktop-light.png"),
     animations: "disabled",
   });
-  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Load latest", exact: true }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Load latest", exact: true })
+    .click();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.getByRole("link", { name: "Revision #2", exact: true }).click();
   await expect(

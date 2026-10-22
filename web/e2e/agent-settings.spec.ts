@@ -275,8 +275,11 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   await expect(
     picker.getByRole("button", { name: "Reset", exact: true }),
   ).toBeDisabled();
-  page.once("dialog", (dialog) => dialog.accept());
   await picker.getByRole("button", { name: "Reload", exact: true }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Reload", exact: true })
+    .click();
   await expect(picker.getByLabel("Model", { exact: true })).toHaveAttribute(
     "data-value",
     "second",

@@ -203,9 +203,18 @@ test("home, welcome and editable settings form a complete project journey", asyn
     (await (await request.get(`/api/workspaces/${workspace}`)).json())
       .auto_start_queue,
   ).toBe(false);
+  // Disabled also means a write is pending. Wait for its receipt before reloading.
+  const workspaceSaved = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/workspaces/${workspace}`) &&
+      response.request().method() === "PUT",
+  );
   await shared
     .getByRole("button", { name: "Save changes", exact: true })
     .click();
+  const receipt = await workspaceSaved;
+  expect(receipt.ok(), await receipt.text()).toBeTruthy();
+  await expect(savedToast).toBeVisible();
   await expect(
     shared.getByRole("button", { name: "Save changes", exact: true }),
   ).toBeDisabled();

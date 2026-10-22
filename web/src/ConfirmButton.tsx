@@ -1,4 +1,5 @@
 import { useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,22 +14,48 @@ export function ConfirmButton({
   description,
   action,
   children,
+  actionLabel,
+  requiresConfirmation = true,
+  binding,
   ...props
 }: Omit<ComponentProps<typeof Button>, "onClick"> & {
   title: string;
   description: ReactNode;
   action: () => void;
+  actionLabel?: ReactNode;
+  requiresConfirmation?: boolean;
+  binding?: string;
 }) {
-  const [pending, setPending] = useState<{ action: () => void } | null>(null);
+  const location = useLocation();
+  const scope = JSON.stringify([location.key, binding]);
+  const [pending, setPending] = useState<{
+    action: () => void;
+    scope: string;
+    title: string;
+    description: ReactNode;
+    label: ReactNode;
+  } | null>(null);
+  if (pending && pending.scope !== scope) setPending(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
+  const focusScope = useRef(scope);
   return (
     <>
       <Button
         {...props}
         ref={trigger}
         type="button"
-        onClick={() => setPending({ action })}
+        onClick={() => {
+          if (!requiresConfirmation) action();
+          else
+            setPending({
+              action,
+              scope,
+              title,
+              description,
+              label: actionLabel ?? children,
+            });
+        }}
       >
         {children}
       </Button>
@@ -43,15 +70,19 @@ export function ConfirmButton({
           showCloseButton={false}
           onOpenAutoFocus={(event) => {
             event.preventDefault();
+            focusScope.current = scope;
             cancel.current?.focus();
           }}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
-            trigger.current?.focus({ preventScroll: true });
+            if (focusScope.current === scope && trigger.current?.isConnected)
+              trigger.current.focus({ preventScroll: true });
           }}
         >
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <DialogTitle>{pending?.title ?? title}</DialogTitle>
+          <DialogDescription>
+            {pending?.description ?? description}
+          </DialogDescription>
           <div className="actions">
             <Button
               type="button"
@@ -59,10 +90,11 @@ export function ConfirmButton({
               onClick={() => {
                 const selected = pending;
                 setPending(null);
-                selected?.action();
+                if (selected?.scope === scope && !props.disabled)
+                  selected.action();
               }}
             >
-              {children}
+              {pending?.label ?? children}
             </Button>
             <Button
               ref={cancel}
