@@ -14,7 +14,7 @@ const service = spawn(
     "serve",
     "--no-open",
     "--port",
-    "8766",
+    process.env.FLOWFIELD_SMOKE_PORT ?? "8766",
   ],
   {
     stdio: "inherit",

@@ -139,9 +139,13 @@
   }
 }
 .workspace-work-content {
+  /* Keep absolute accessibility nodes (including cmdk's hidden labels) in
+     this scroll owner's coordinate space, not the document's. */
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 20px;
   display: flex;
   flex-direction: column;
