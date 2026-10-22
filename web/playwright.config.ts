@@ -15,10 +15,19 @@ export default defineConfig({
   projects: [
     {
       name: "journeys",
+      use: { channel: "chromium" },
       testIgnore: ["notifications.spec.ts", "workspace-events.spec.ts"],
     },
     {
+      name: "firefox-recovery",
+      testMatch: ["stream-recovery.spec.ts"],
+      use: { browserName: "firefox" },
+      dependencies: ["notifications"],
+      workers: 1,
+    },
+    {
       name: "notifications",
+      use: { channel: "chromium" },
       testMatch: ["notifications.spec.ts", "workspace-events.spec.ts"],
       workers: 1,
       // Service-wide preferences, delivery claims and event counts need isolated fixtures.
@@ -28,8 +37,6 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${port}`,
     browserName: "chromium",
-    // Exercise native tabs in the full browser's headless mode, not headless shell.
-    channel: "chromium",
     trace: "retain-on-failure",
   },
   webServer: {

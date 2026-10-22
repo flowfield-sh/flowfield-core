@@ -12,7 +12,7 @@ import { taskHref } from "./navigation";
 import { WorkIdentity } from "./WorkIdentity";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { followLink, resultHref } from "./navigation";
-import { usePage } from "./useResource";
+import { usePage, type useResource } from "./useResource";
 import {
   Tooltip,
   TooltipContent,
@@ -103,19 +103,15 @@ export function Delivered({
 
 export function DeliveredNavigation({
   workspaceId,
-  refresh,
+  page,
   current,
   open,
 }: {
   workspaceId: string;
-  refresh: unknown;
+  page: ReturnType<typeof useResource<Page>>;
   current?: string;
   open?: (url: string) => void;
 }) {
-  const page = usePage<Page>(
-    `workspaces/${workspaceId}/view/delivered?limit=5`,
-    refresh,
-  );
   if (!page.data?.items.length && !page.error) return null;
   return (
     <section aria-label="Delivered">

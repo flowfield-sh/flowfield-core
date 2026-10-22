@@ -122,7 +122,7 @@ test("project defaults prepare exact task documents and preserve revision links"
     `/workspaces/${await projectWorkspace(request, project.id)}/tasks/${task.key}`,
   );
   await expect(
-    page.getByText("Newer source revision available", { exact: true }),
+    page.getByText("Updated guidance available", { exact: true }),
   ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "2 documents", exact: true }),
@@ -148,7 +148,7 @@ test("project defaults prepare exact task documents and preserve revision links"
   ).toBeVisible();
   await page.goto(`/workspaces/${workspace.id}/tasks`);
   await expect(
-    page.getByText("Newer source revision available", { exact: true }),
+    page.getByText("Updated guidance available", { exact: true }),
   ).toBeVisible();
   await page
     .getByTestId("work")

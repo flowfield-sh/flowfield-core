@@ -33,7 +33,9 @@ export function ReviewChecks({
             <>
               Current branch:{" "}
               {availability.status === "integrated"
-                ? "Passed"
+                ? availability.checks.length
+                  ? "Passed"
+                  : "No validation commands configured"
                 : label(availability.status)}
             </>
           }
@@ -60,7 +62,9 @@ export function ReviewChecks({
               Flowfield:{" "}
               {preparation.checks.length
                 ? `${preparation.checks.filter((check) => check.exit_code === 0).length} of ${preparation.checks.length} project checks passed`
-                : "project checks not run yet"}
+                : ["ready", "integrated"].includes(preparation.status)
+                  ? "No validation commands configured"
+                  : "project checks not run yet"}
             </>
           }
           className="review-disclosure check-source"

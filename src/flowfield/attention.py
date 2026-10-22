@@ -110,7 +110,8 @@ WITH scope_workspaces AS (SELECT id FROM workspaces WHERE id=:workspace), run_it
         CASE WHEN json_extract(v.data,'$.completion')='code'
              THEN (SELECT json_extract(data,'$.code_available') FROM runs WHERE id=v.run_id)
              ELSE NULL END,
-        CASE WHEN EXISTS (SELECT 1 FROM result_versions n WHERE n.workspace_id=v.workspace_id
+        CASE WHEN json_extract(t.data,'$.archived') THEN 'history'
+             WHEN EXISTS (SELECT 1 FROM result_versions n WHERE n.workspace_id=v.workspace_id
                           AND n.task_id=v.task_id AND n.version>v.version) THEN 'history'
              WHEN EXISTS (
                  SELECT 1 FROM runs n WHERE n.workspace_id=v.workspace_id AND n.task_id=v.task_id
@@ -137,7 +138,8 @@ WITH scope_workspaces AS (SELECT id FROM workspaces WHERE id=:workspace), run_it
         i.status, coalesce(json_extract(i.data,'$.completed_at'),
                            json_extract(i.data,'$.created_at')),
         NULL,
-        CASE WHEN EXISTS (SELECT 1 FROM integrations newer WHERE newer.workspace_id=i.workspace_id
+        CASE WHEN json_extract(t.data,'$.archived') THEN 'history'
+             WHEN EXISTS (SELECT 1 FROM integrations newer WHERE newer.workspace_id=i.workspace_id
                           AND newer.run_id=i.run_id AND newer.number>i.number) THEN 'history'
              WHEN i.status IN ('failed','stale') THEN 'action'
              WHEN i.status IN ('preparing','ready','applying') THEN 'waiting'

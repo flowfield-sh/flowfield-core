@@ -19,7 +19,10 @@ from flowfield.work_state import WorkState, event_state
         ("worker:abc", "worker", "Worker"),
         ("service", "flowfield", "Flowfield"),
         ("flowfield", "flowfield", "Flowfield"),
-        ("Custom reviewer", "other", "Custom reviewer"),
+        ("reviewer:abc", "reviewer", "Reviewer"),
+        ("coordinator:abc", "coordinator", "Coordinator"),
+        ("service:abc", "flowfield", "Flowfield"),
+        ("Custom reviewer", "other", "Other"),
     ],
 )
 def test_actor_preserves_identity(identity, role, label):

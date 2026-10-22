@@ -4061,7 +4061,7 @@ export interface components {
       /** Create From */
       create_from?: string | null;
       /** Checks */
-      checks: string[];
+      checks?: string[];
       /** Setup Commands */
       setup_commands?: string[];
       /**
@@ -12444,4 +12444,5 @@ export const actorLabels = {
   worker: "Worker",
   reviewer: "Reviewer",
   flowfield: "Flowfield",
+  other: "Other",
 } as const;

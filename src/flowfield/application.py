@@ -1089,6 +1089,28 @@ class Workspace:
                 issue = self.archive_issue(db, current)
                 if issue:
                     raise issue
+                questions = Questions(self)
+                for reference in pending_questions(db, workspace_id, task_id):
+                    if reference.task_id != task_id:
+                        continue
+                    question = questions._get(db, workspace_id, reference.id)
+                    questions._save(
+                        db,
+                        questions._change(
+                            question,
+                            question.revision,
+                            request.author,
+                            status="withdrawn",
+                            decision="Task archived.",
+                        ),
+                        "Question withdrawn because the task was archived.",
+                    )
+                db.execute(
+                    "UPDATE task_replies SET data=json_set(data,'$.status','cancelled') "
+                    "WHERE workspace_id=? AND task_id=? "
+                    "AND json_extract(data,'$.status')='pending'",
+                    (workspace_id, task_id),
+                )
             if task.revision != current.revision:
                 self._apply_task(db, task)
                 if current.archived and not task.archived:
@@ -1115,7 +1137,7 @@ class Workspace:
         """One archive policy for mutation and browser availability; recheck on write."""
         if task.archived:
             return None
-        if pending_questions(db, task.workspace_id, task.id):
+        if any(q.task_id != task.id for q in pending_questions(db, task.workspace_id, task.id)):
             return ApplicationError(
                 "pending_questions", "Resolve pending questions before archiving.", 409
             )
@@ -1126,18 +1148,22 @@ class Workspace:
             return ApplicationError(
                 "worker_owns_work", "Finish or stop the worker before archiving.", 409
             )
-        if db.execute(
-            "SELECT 1 FROM task_replies WHERE workspace_id=? AND task_id=? "
-            "AND json_extract(data,'$.status')='pending'",
-            (task.workspace_id, task.id),
-        ).fetchone():
-            return ApplicationError(
-                "reply_pending", "Wait for the pending reply or cancel it before archiving.", 409
-            )
-        if task.status in ("in_progress", "in_review"):
-            return ApplicationError(
-                "active_task", "Finish the task or return it to Backlog before archiving.", 409
-            )
+        for table, statuses in (
+            ("task_reviews", "'preparing','running','uncertain'"),
+            ("result_versions", "'preparing','delivering'"),
+            ("integrations", "'preparing','applying'"),
+        ):
+            task_column = "json_extract(data,'$.task_id')" if table == "integrations" else "task_id"
+            if db.execute(
+                f"SELECT 1 FROM {table} WHERE workspace_id=? AND {task_column}=? "
+                f"AND status IN ({statuses}) LIMIT 1",
+                (task.workspace_id, task.id),
+            ).fetchone():
+                return ApplicationError(
+                    "result_owns_work",
+                    "Stop active checks or review, or wait for integration before archiving.",
+                    409,
+                )
         return None
 
     def publish_task(self, workspace_id: str, task_id: str, request: TaskPublish) -> Task:

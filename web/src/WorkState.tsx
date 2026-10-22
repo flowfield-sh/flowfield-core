@@ -13,12 +13,14 @@ export function WorkState({
   linked = false,
   indicatorOnly = false,
   decorative = false,
+  showIndicator = true,
   children,
 }: {
   state: State | null | undefined;
   linked?: boolean;
   indicatorOnly?: boolean;
   decorative?: boolean;
+  showIndicator?: boolean;
   children?: ReactNode;
 }) {
   if (!state) return null;
@@ -32,7 +34,7 @@ export function WorkState({
       aria-hidden={decorative || undefined}
       tabIndex={indicatorOnly && !decorative ? 0 : undefined}
     >
-      <span className="work-state-dot" aria-hidden="true" />
+      {showIndicator && <span className="work-state-dot" aria-hidden="true" />}
       {!indicatorOnly && (children ?? state.label)}
     </span>
   );

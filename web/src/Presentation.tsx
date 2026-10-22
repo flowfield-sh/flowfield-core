@@ -1,4 +1,5 @@
 import { TaskLabels } from "./TaskLabels";
+import { WorkState } from "./WorkState";
 import { authorLabel } from "./workspace";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +11,7 @@ import {
 import { ArrowLeft, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useContext, type ReactNode } from "react";
-import { label, type TaskRevision } from "./workspace";
+import { label, type TaskRevision, type TaskCard } from "./workspace";
 import { usePaneClose, PaneHeading } from "./EntityPane";
 import { Timestamp } from "./Timestamp";
 import { ContentStack } from "./DetailLayout";
@@ -104,17 +105,20 @@ export function TaskIdentity({
   task: Pick<TaskRevision, "key" | "title" | "labels"> & {
     status?: string;
     publication_status?: string;
+    state?: TaskCard["state"];
   };
 }) {
   return (
     <span className="task-identity">
-      <span className="task-labels">
+      <span className="task-identity-heading">
+        <WorkState state={task.state} indicatorOnly decorative />
         <Badge variant="outline">{task.key}</Badge>
+        <strong>{title ?? task.title}</strong>
         {metadata}
       </span>
-      <strong>{title ?? task.title}</strong>
-      {task.labels.length > 0 && (
+      {(task.labels.length > 0 || task.publication_status === "draft") && (
         <span className="task-labels">
+          <DraftBadge publicationStatus={task.publication_status} />
           <TaskLabels ids={task.labels} />
         </span>
       )}

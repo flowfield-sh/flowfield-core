@@ -167,7 +167,6 @@ export function IntegrationSettings({
                 <Textarea
                   aria-label="Validation commands"
                   aria-describedby={`${id}-validation-help`}
-                  required
                   rows={3}
                   value={checks}
                   placeholder="Your project’s repeatable check command"
@@ -177,7 +176,7 @@ export function IntegrationSettings({
                 />
               </Label>
               <p id={`${id}-validation-help`} className="detail-metadata">
-                Required before approval. One shell command per line.
+                Optional. One shell command per line.
               </p>
             </ContentStack>
           </DetailSection>
@@ -374,7 +373,9 @@ function SetupValidation({
                 : value.stale
                   ? "Validation is out of date"
                   : value.status === "passed"
-                    ? "Setup and validation commands passed"
+                    ? value.checks.length
+                      ? "Setup and validation commands passed"
+                      : "Setup validated · no validation commands configured"
                     : value.status === "failed"
                       ? "Project setup validation failed"
                       : "Project setup validation needs attention"
@@ -446,7 +447,9 @@ export function IntegrationEvidence({
       <DetailSection title="Branch">
         <p>
           {record.status === "ready"
-            ? "Checks passed · candidate prepared"
+            ? record.checks.length
+              ? "Checks passed · candidate prepared"
+              : "Candidate prepared · no validation commands configured"
             : label(record.status)}{" "}
           · <strong>{record.target_branch}</strong>
         </p>

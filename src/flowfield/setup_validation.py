@@ -135,10 +135,8 @@ class SetupValidation:
                     )
                 settings = Integrations(self.workspace).settings(project_id)
                 self.workspace._current(settings.revision, request.expected_revision)
-                if not settings.target_branch or not settings.checks:
-                    raise ApplicationError(
-                        "setup_missing", "Choose a destination and validation commands first.", 409
-                    )
+                if not settings.target_branch:
+                    raise ApplicationError("setup_missing", "Choose a destination first.", 409)
                 repo = Path(self.workspace.project(project_id).path)
                 commit = gitops.target(repo, settings.target_branch)
                 value = SetupCheck(

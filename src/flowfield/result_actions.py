@@ -16,6 +16,11 @@ if TYPE_CHECKING:
 def result_action(
     workspace: "Workspace", db: sqlite3.Connection, value: ResultVersion
 ) -> ResultAction:
+    if db.execute(
+        "SELECT json_extract(data,'$.archived') FROM tasks WHERE workspace_id=? AND id=?",
+        (value.workspace_id, value.task_id),
+    ).fetchone()[0]:
+        return ResultAction(owner="none", action="none", label="Archived task")
     execution = Execution(workspace)
     latest = db.execute(
         "SELECT id,status FROM runs WHERE workspace_id=? AND task_id=? ORDER "

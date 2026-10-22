@@ -73,17 +73,17 @@ test("cross-project prerequisites link to their owner and refresh dependent view
   ).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(/\/tasks\/T-2$/);
-  await expect(
-    task.getByRole("heading", { name: "Waiting on", exact: true }),
-  ).toBeVisible();
+  await expect(task.getByLabel("Related work")).toContainText(
+    "Prerequisites: T-1",
+  );
   await page.screenshot({
     path: testInfo.outputPath("dependency-desktop.png"),
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ colorScheme: "dark" });
-  await expect(
-    task.getByRole("heading", { name: "Waiting on", exact: true }),
-  ).toBeVisible();
+  await expect(task.getByLabel("Related work")).toContainText(
+    "Prerequisites: T-1",
+  );
   await page.screenshot({ path: testInfo.outputPath("dependency-mobile.png") });
   const refreshed = page.waitForResponse(
     (response) =>

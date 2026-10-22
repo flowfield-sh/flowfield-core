@@ -375,9 +375,15 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   expect(
     await longChoice.evaluate(
       (button) =>
-        button.scrollWidth <= button.clientWidth && button.clientHeight > 32,
+        button.scrollWidth <= button.clientWidth && button.clientHeight <= 36,
     ),
   ).toBe(true);
+  await longChoice.focus();
+  await expect(page.getByRole("tooltip")).toHaveText(longPermissionLabel);
+  await permissionDetail
+    .getByRole("button", { name: "Allow once", exact: true })
+    .focus();
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,

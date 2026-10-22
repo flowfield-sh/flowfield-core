@@ -596,6 +596,15 @@
     min-width: 0;
     width: 100%;
   }
+  .task-identity-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+  }
+  .task-identity-heading > strong {
+    min-width: 0;
+  }
   .question-detail > .detail-heading-block > h2 a {
     color: inherit;
     text-decoration: underline;
@@ -840,6 +849,9 @@
       border-left: 0;
     }
   }
+}
+.planning-card .task-identity-heading {
+  padding-right: 24px;
 }
 
 @layer components {

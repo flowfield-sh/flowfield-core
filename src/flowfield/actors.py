@@ -20,6 +20,7 @@ ACTOR_LABELS = {
     "worker": "Worker",
     "reviewer": "Reviewer",
     "flowfield": "Flowfield",
+    "other": "Other",
 }
 
 
@@ -32,9 +33,5 @@ class Actor(Record):
 def actor(identity: str) -> Actor:
     # Coordinator tools use agent as their author identity. Managed attempts use worker
     # or worker:<attempt>; keep the original identity rather than rewriting evidence.
-    role = ACTOR_ROLES.get(identity, "other")
-    if identity.startswith("worker:"):
-        role = "worker"
-    elif identity.startswith("coordinator:"):
-        role = "coordinator"
-    return Actor(role=role, label=ACTOR_LABELS.get(role, identity), identity=identity)
+    role = ACTOR_ROLES.get(identity.split(":", 1)[0], "other")
+    return Actor(role=role, label=ACTOR_LABELS[role], identity=identity)

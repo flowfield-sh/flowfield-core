@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ContentStack } from "./DetailLayout";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { useResource } from "./useResource";
-import { request } from "./workspace";
+import { request, RequestError } from "./workspace";
 import type { components } from "./api-schema";
 
 type Copy = components["schemas"]["Inspection"];
@@ -34,6 +34,19 @@ export function Inspection({
   const [saved, setSaved] = useState<Copy | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
+  const [waiting, setWaiting] = useState(false);
+  const [retryTick, setRetryTick] = useState(0);
+  const handledRetry = useRef(0);
+  const retryCopy = useRef(false);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (retryTimer.current) clearTimeout(retryTimer.current);
+    };
+  }, []);
   const preparing = useRef(false);
   const resource = useResource<Copy>(
     identity ? `${path}/inspections/${identity}` : null,
@@ -45,6 +58,7 @@ export function Inspection({
     (newCopy = false) => {
       if (preparing.current) return;
       preparing.current = true;
+      retryCopy.current = newCopy;
       // Reopening a result reads its saved copy. Approval/status updates must
       // not recreate it or silently adopt newer project launch settings.
       return (
@@ -64,17 +78,28 @@ export function Inspection({
             }),
         )
         .then((next) => {
+          if (!mounted.current) return;
+          setWaiting(false);
           setSaved(next);
           setIdentity(next.id);
           invalidate();
         })
         .catch((e) => {
+          if (!mounted.current) return;
+          if (e instanceof RequestError && e.code === "integration_busy") {
+            setWaiting(true);
+            retryTimer.current = setTimeout(() => {
+              if (mounted.current) setRetryTick((tick) => tick + 1);
+            }, 2000);
+            return;
+          }
+          setWaiting(false);
           setError((e as Error).message);
           reportError(e, "Could not prepare inspection");
         })
         .finally(() => {
           preparing.current = false;
-          setBusy(false);
+          if (mounted.current) setBusy(false);
         });
     },
     [path, result.id, result.revision, invalidate],
@@ -82,6 +107,12 @@ export function Inspection({
   useEffect(() => {
     if (!value && !error) void prepare();
   }, [prepare, value, error]);
+  useEffect(() => {
+    if (retryTick > handledRetry.current) {
+      handledRetry.current = retryTick;
+      void prepare(retryCopy.current);
+    }
+  }, [prepare, retryTick]);
   function retry(newCopy = false) {
     setBusy(true);
     setError("");
@@ -89,7 +120,13 @@ export function Inspection({
   }
   return (
     <ContentStack role="region" aria-label="Run command">
-      {busy && <p role="status">Preparing inspection…</p>}
+      {waiting ? (
+        <p role="status">
+          Waiting to prepare this preview while repository work finishes…
+        </p>
+      ) : (
+        busy && <p role="status">Preparing preview…</p>
+      )}
       <ResourceRetry resources={[resource]} />
       {error && !value && (
         <Button
@@ -104,9 +141,7 @@ export function Inspection({
       {value && (
         <ContentStack>
           {value.source_changed && (
-            <p>
-              The source has changed. This copy contains the selected review.
-            </p>
+            <p>This preview belongs to this earlier result.</p>
           )}
           {value.locally_changed && (
             <p>Approval uses the saved result, excluding edits in this copy.</p>
@@ -173,7 +208,6 @@ export function Inspection({
               </p>
             ))}
           {(value.locally_changed ||
-            value.source_changed ||
             value.instructions_changed ||
             value.problem ||
             value.status !== "ready" ||
@@ -181,7 +215,7 @@ export function Inspection({
             <Button
               size="sm"
               variant="outline"
-              disabled={busy}
+              disabled={busy || waiting}
               onClick={() => retry(true)}
             >
               Prepare another copy

@@ -9,7 +9,7 @@ Open a task to read its purpose, related work, optional **Subtasks** and chronol
 
 ## Define useful work
 
-Describe the outcome and how you will judge it. The Coordinator can clarify the scope, select [worker documents](/documents#supply-worker-context) and prepare the assignment. Tasks, labels and priorities are maintained through that conversation.
+Describe the outcome and how you will judge it. The Coordinator can clarify the scope, select [worker documents](/documents#supply-worker-context) and prepare the assignment. The Coordinator maintains task definitions and labels; priorities are also available directly on the board.
 
 For reports, datasets, images and other files, ask for a workspace task. All tasks use workspace-local keys such as `T-1` and `T-2`, whether or not they have a project. It uses the same queue, questions and result history as project work. No project or Git setup is needed. [Files](/files) explains durable delivery, selected inputs and retained results.
 
@@ -29,7 +29,7 @@ If completed work needs correction, ask the Coordinator to reopen the same task.
 | In review | A result needs a decision. |
 | Done | The agreed outcome is complete, including required code delivery. |
 
-Ask the Coordinator to order Backlog and Up next or move work between them. The shared scheduler follows Up next order and skips work whose project, input or prerequisites are not ready. Read the card's status for the specific next action.
+Drag a card’s move handle to order Backlog and Up next or move work between them. With the handle focused, use Alt+Up/Down to reorder and Alt+Left/Right to change columns. You can also ask the Coordinator. The shared scheduler follows Up next order and skips work whose project, input or prerequisites are not ready. Read the card's status for the specific next action.
 
 New workspaces start paused with capacity for five parallel workers. **Run queue** enables eligible starts; **Pause queue** prevents new starts while active workers continue. **Workspace settings → General → Auto-start worker queue** controls whether the queue runs when Flowfield starts. Save changes to apply this preference. Sidebar Run/Pause changes only the current queue. Missing role settings or unavailable harness/model choices block a task before a worker starts. Update the relevant settings, then eligible work resumes through the queue. Workspace changes apply to inheriting tasks on their next attempt; running attempts keep their captured settings. Adjust **Maximum parallel workers** in **Workspace settings → Workers** to suit your projects. Waiting for review frees a worker slot.
 
@@ -69,4 +69,4 @@ The feed keeps definition changes, captured sources, questions, answers, worker 
 
 The task page stays at your reading position. Open worker or reviewer output to follow new entries inside that panel; scroll up to read earlier output and return to the bottom to follow again. Manual disclosure choices survive work-tab navigation. Numeric context occupancy and reported consumed tokens are separate measurements.
 
-The task is a record of the work. Follow its request or result link to answer, request changes, retry a failed review or approve code. Ask the Coordinator to archive work you set aside after reconciling active attempts and questions; restoring retains its earlier state. Archive is not completion.
+The task is a record of the work. Follow its request or result link to answer, request changes, retry a failed review or approve code. Use the Archive icon beside the task title to set work aside. Stop active execution and checks, or wait for integration first. Task-only questions and pending replies are withdrawn or cancelled; shared questions must be resolved first. Restoring retains the task’s earlier state and history. Archive is not completion.

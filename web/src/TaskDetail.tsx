@@ -1,4 +1,9 @@
 import { Separator } from "@/components/ui/separator";
+import { Archive, ArchiveRestore } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ActionTooltip } from "./ActionTooltip";
+import { reportError } from "./requestFeedback";
+import { request } from "./workspace";
 import { useLocation } from "react-router";
 import { useContext } from "react";
 import { WorkspaceLink } from "./WorkspaceLink";
@@ -37,6 +42,8 @@ export function TaskDetail({
   const settings = useLocation().pathname.endsWith("/settings");
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [reviewerDirty, setReviewerDirty] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const archiveLabel = task.archived ? "Restore task" : "Archive task";
   useEffect(() => {
     setUnsaved(settingsDirty || reviewerDirty);
     return () => setUnsaved(false);
@@ -53,6 +60,49 @@ export function TaskDetail({
         }
         close={close}
         closeLabel="Back"
+        actions={
+          <ActionTooltip
+            label={task.archive_blocker || archiveLabel}
+            disabled={!!task.archive_blocker || archiving}
+          >
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label={archiveLabel}
+              disabled={!!task.archive_blocker || archiving}
+              onClick={async () => {
+                setArchiving(true);
+                try {
+                  await request(
+                    `workspaces/${workspaceId}/view/tasks/${task.id}`,
+                    "PUT",
+                    {
+                      expected_revision: task.revision,
+                      archived: !task.archived,
+                      author: "human",
+                    },
+                  );
+                  close();
+                } catch (error) {
+                  reportError(
+                    error,
+                    task.archived
+                      ? "Could not restore task"
+                      : "Could not archive task",
+                  );
+                } finally {
+                  setArchiving(false);
+                }
+              }}
+            >
+              {task.archived ? (
+                <ArchiveRestore size={16} aria-hidden="true" />
+              ) : (
+                <Archive size={16} aria-hidden="true" />
+              )}
+            </Button>
+          </ActionTooltip>
+        }
       />
       <ContentStack space="section" className="task-view-navigation">
         <div className="task-header-badges" aria-label="Task labels">
@@ -83,44 +133,26 @@ export function TaskDetail({
               {task.body}
             </ExpandableMarkdown>
           </div>
-          {task.project_id && (
-            <p>
-              Project:{" "}
-              <WorkspaceLink to={`/projects/${task.project_id}/overview`}>
-                {board.projects.find(
-                  (project) => project.id === task.project_id,
-                )?.name ?? task.project_id}
-              </WorkspaceLink>
-            </p>
-          )}
-          {hasTaskNeeds(task, board.pending_code[task.key], false, true) && (
-            <DetailSection title="Waiting on">
-              <TaskNeeds
-                task={task}
-                projectId={workspaceId}
-                pendingCode={board.pending_code[task.key]}
-                open={openTask}
-                detailed
-                includeDependencies
-                showQuestions={false}
-              />
-            </DetailSection>
-          )}
-          {(task.dependents.length > 0 ||
-            task.prerequisites.some(
-              (p) => !task.blocked_by.some((b) => b.key === p.key),
-            )) && (
+          {(task.project_id ||
+            task.prerequisites.length > 0 ||
+            task.dependents.length > 0) && (
             <ContentStack aria-label="Related work">
-              {task.prerequisites.some(
-                (p) => !task.blocked_by.some((b) => b.key === p.key),
-              ) && (
+              {task.project_id && (
+                <p>
+                  Project:{" "}
+                  <WorkspaceLink to={`/projects/${task.project_id}/overview`}>
+                    {board.projects.find(
+                      (project) => project.id === task.project_id,
+                    )?.name ?? task.project_id}
+                  </WorkspaceLink>
+                </p>
+              )}
+              {!!task.prerequisites.length && (
                 <p>
                   <BlockedBy
                     prefix="Prerequisites:"
                     projectId={workspaceId}
-                    tasks={task.prerequisites.filter(
-                      (p) => !task.blocked_by.some((b) => b.key === p.key),
-                    )}
+                    tasks={task.prerequisites}
                     open={openTask}
                   />
                 </p>
@@ -136,6 +168,25 @@ export function TaskDetail({
                 </p>
               )}
             </ContentStack>
+          )}
+          {hasTaskNeeds(
+            task,
+            board.pending_code[task.key],
+            false,
+            false,
+            true,
+          ) && (
+            <DetailSection title="Waiting on">
+              <TaskNeeds
+                task={task}
+                projectId={workspaceId}
+                pendingCode={board.pending_code[task.key]}
+                open={openTask}
+                detailed
+                showQuestions={false}
+                hideDependencies
+              />
+            </DetailSection>
           )}
           {task.state?.reason === "scheduling" && (
             <StatusNotice

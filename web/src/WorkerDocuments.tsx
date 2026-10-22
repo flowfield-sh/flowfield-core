@@ -140,7 +140,7 @@ export function WorkerDocumentEvidence({
     <ContentStack space="content">
       {!!updates.length && (
         <p>
-          Newer source revisions are available. Discuss their relevance with the
+          Updated guidance is available. Discuss its relevance with the
           coordinator before preparing affected work again. Active attempts keep
           their saved sources.
         </p>

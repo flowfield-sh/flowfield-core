@@ -79,6 +79,10 @@ export function WorkNavigation({
     `workspaces/${board.workspace.id}/view/attention?column=action&limit=5`,
     board,
   );
+  const delivered = useResource<components["schemas"]["DeliveredPage"]>(
+    `workspaces/${board.workspace.id}/view/delivered?limit=5`,
+    board,
+  );
   const attentionKeys = new Set(board.attention_work_keys);
   const progress = board.tasks
     .filter(
@@ -136,55 +140,67 @@ export function WorkNavigation({
           <Settings size={16} /> Settings
         </a>
       </nav>
-      <div className="work-navigation-heading">
-        <span>Recent Work</span>
-      </div>
-      <nav className="work-navigation-scroll" aria-label="Recent Work">
-        <div className="work-navigation-list">
-          {(!!attention.data?.items.length || attention.error) && (
-            <section aria-label="Needs attention">
-              <h3 className="work-group-label">Needs attention</h3>
-              <ResourceRetry resources={[attention]} />
-              {attention.data?.items.map(
-                (item) =>
-                  item.request_href && (
-                    <RecentLink
-                      key={item.kind + ":" + item.id}
-                      href={item.request_href}
-                      current={current}
-                      open={open}
-                      itemKey={item.task_key}
-                      title={item.title}
-                      state={item.state ?? null}
-                    />
-                  ),
-              )}
-            </section>
-          )}
-          <DeliveredNavigation
-            workspaceId={board.workspace.id}
-            refresh={board}
-            current={current}
-            open={open}
-          />
-          {!!progress.length && (
-            <section aria-label="In progress">
-              <h3 className="work-group-label">In progress</h3>
-              {progress.map((task) => (
-                <RecentLink
-                  key={task.id}
-                  href={taskHref(task.workspace_id, task)}
-                  current={current}
-                  open={open}
-                  itemKey={task.key}
-                  title={task.title}
-                  state={task.state ?? null}
-                />
-              ))}
-            </section>
-          )}
+      {(!!attention.data?.items.length ||
+        !!delivered.data?.items.length ||
+        !!progress.length) && (
+        <div className="work-navigation-heading">
+          <span>Recent Work</span>
         </div>
-      </nav>
+      )}
+      {(!!attention.data?.items.length ||
+        !!delivered.data?.items.length ||
+        !!progress.length ||
+        attention.loading ||
+        delivered.loading ||
+        attention.error ||
+        delivered.error) && (
+        <nav className="work-navigation-scroll" aria-label="Recent Work">
+          <div className="work-navigation-list">
+            {(!!attention.data?.items.length || attention.error) && (
+              <section aria-label="Needs attention">
+                <h3 className="work-group-label">Needs attention</h3>
+                <ResourceRetry resources={[attention]} />
+                {attention.data?.items.map(
+                  (item) =>
+                    item.request_href && (
+                      <RecentLink
+                        key={item.kind + ":" + item.id}
+                        href={item.request_href}
+                        current={current}
+                        open={open}
+                        itemKey={item.task_key}
+                        title={item.title}
+                        state={item.state ?? null}
+                      />
+                    ),
+                )}
+              </section>
+            )}
+            <DeliveredNavigation
+              workspaceId={board.workspace.id}
+              page={delivered}
+              current={current}
+              open={open}
+            />
+            {!!progress.length && (
+              <section aria-label="In progress">
+                <h3 className="work-group-label">In progress</h3>
+                {progress.map((task) => (
+                  <RecentLink
+                    key={task.id}
+                    href={taskHref(task.workspace_id, task)}
+                    current={current}
+                    open={open}
+                    itemKey={task.key}
+                    title={task.title}
+                    state={task.state ?? null}
+                  />
+                ))}
+              </section>
+            )}
+          </div>
+        </nav>
+      )}
     </>
   );
 }

@@ -149,13 +149,9 @@ def test_followup_retains_answers_and_scope_without_duplicate_requests(tmp_path:
             original.id,
             QuestionApply(expected_revision=3, expected_task_revision=1, decision="Not answered"),
         )
-    with pytest.raises(ApplicationError, match="pending questions"):
-        workspace.edit_task("harbor", "T-2", TaskEdit(expected_revision=1, archived=True))
-    questions.withdraw(
-        "harbor",
-        original.id,
-        QuestionWithdraw(expected_revision=3, reason="Export no longer planned."),
-    )
+    workspace.edit_task("harbor", "T-2", TaskEdit(expected_revision=1, archived=True))
+    assert questions.get("harbor", original.id).status == "withdrawn"
+    assert questions.get("harbor", original.id, 2).answer == "Cap it."
     with pytest.raises(ApplicationError, match="resolved"):
         questions.answer(
             "harbor", original.id, QuestionAnswer(expected_revision=4, answer="Too late")

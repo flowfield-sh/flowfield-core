@@ -24,6 +24,7 @@ export function TaskState({
     <>
       {task.state?.tone !== "idle" && (
         <WorkState
+          showIndicator={false}
           state={
             task.state && { ...task.state, href: taskHref(projectId, task) }
           }
@@ -40,7 +41,7 @@ export function TaskState({
         </WorkState>
       )}
       {!!task.document_updates?.length && (
-        <p className="detail-metadata">{"Newer source revision available"}</p>
+        <p className="detail-metadata">{"Updated guidance available"}</p>
       )}
     </>
   );
@@ -51,12 +52,14 @@ export function hasTaskNeeds(
   pendingCode: TaskReference[] = [],
   showQuestions = true,
   includeDependencies = false,
+  hideDependencies = false,
 ) {
   return !!(
     (task.preparation_issue &&
       (!task.blocking_questions.length ||
         task.readiness === "needs_reconciliation")) ||
-    ((includeDependencies || !combinedDependencies(task)) &&
+    (!hideDependencies &&
+      (includeDependencies || !combinedDependencies(task)) &&
       task.blocked_by.length) ||
     task.blocking_questions.some((q) => showQuestions || !q.task_id) ||
     pendingCode.length
@@ -71,6 +74,7 @@ export function TaskNeeds({
   detailed = false,
   showQuestions = true,
   includeDependencies = false,
+  hideDependencies = false,
 }: {
   task: TaskCard;
   projectId: string;
@@ -79,6 +83,7 @@ export function TaskNeeds({
   detailed?: boolean;
   showQuestions?: boolean;
   includeDependencies?: boolean;
+  hideDependencies?: boolean;
 }) {
   return (
     <ul className="task-needs">
@@ -87,7 +92,8 @@ export function TaskNeeds({
           task.readiness === "needs_reconciliation") && (
           <li>{task.preparation_issue}</li>
         )}
-      {(includeDependencies || !combinedDependencies(task)) &&
+      {!hideDependencies &&
+        (includeDependencies || !combinedDependencies(task)) &&
         !!task.blocked_by.length && (
           <li>
             <BlockedBy

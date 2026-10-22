@@ -159,6 +159,11 @@ for (const width of [1440, 390]) {
     });
     await expect(page.getByRole("article")).toHaveCount(2);
     await expect(approve).toBeEnabled();
+    // Preview preparation replaces a short pending row with its launcher.
+    // Establish the completed initial layout before measuring wheel endpoints.
+    await expect(
+      result.getByRole("textbox", { name: "Terminal commands", exact: true }),
+    ).toBeVisible();
     // Assert before focus/click can scroll the document back and conceal overflow.
     await bounded(page);
     await reveal(page, pane, answer);

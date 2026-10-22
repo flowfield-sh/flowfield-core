@@ -1,4 +1,5 @@
 import { Board as ScrollableBoard } from "./Board";
+import { TaskPlanning, PlanningColumn, PlanningCard } from "./TaskPlanning";
 import { ConnectionRecovery } from "./ConnectionRecovery";
 import {
   checkServiceConnection,
@@ -234,10 +235,14 @@ export function App() {
     let opened = false;
     let streaming = false;
     let streamNeedsRefresh = false;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let retryDelay = 1000;
+    let offlineState = !navigator.onLine;
     // Health recovery already refreshes reads and catalogs. A later stream-open
     // signal for the same outage must not discover the model catalogs again.
     const recovered = () => {
       streamNeedsRefresh = false;
+      if (!offlineState && !streaming) connect();
     };
     const disconnected = () => {
       if (streaming) streamNeedsRefresh = true;
@@ -265,9 +270,13 @@ export function App() {
       changed({ workspaces: project ? [decodeURIComponent(project)] : null });
     }
     function connect() {
+      clearTimeout(retry);
+      if (offlineState) return;
       events?.close();
       events = new EventSource("/api/events");
       events.onopen = () => {
+        clearTimeout(retry);
+        retryDelay = 1000;
         streaming = true;
         setLive(true);
         if (opened && streamNeedsRefresh && !serviceIsUnavailable())
@@ -278,6 +287,11 @@ export function App() {
       events.onerror = () => {
         disconnected();
         void checkServiceConnection();
+        // EventSource can enter CLOSED after an invalid response and will never
+        // retry itself. Also bound CONNECTING stalls; replace only this stream.
+        clearTimeout(retry);
+        retry = setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 15000);
       };
       events.addEventListener("change", (event) => {
         changed(JSON.parse(event.data) as { workspaces: string[] | null });
@@ -291,17 +305,25 @@ export function App() {
       );
     }
     function offline() {
+      offlineState = true;
+      clearTimeout(retry);
       events?.close();
       disconnected();
     }
+    function online() {
+      offlineState = false;
+      retryDelay = 1000;
+      connect();
+    }
     if (navigator.onLine) connect();
-    window.addEventListener("online", connect);
+    window.addEventListener("online", online);
     window.addEventListener("offline", offline);
     window.addEventListener("flowfield:service-recovered", recovered);
     window.addEventListener("flowfield:mutation", saved);
     return () => {
+      clearTimeout(retry);
       events?.close();
-      window.removeEventListener("online", connect);
+      window.removeEventListener("online", online);
       window.removeEventListener("offline", offline);
       window.removeEventListener("flowfield:service-recovered", recovered);
       window.removeEventListener("flowfield:mutation", saved);
@@ -388,6 +410,8 @@ export function App() {
           <Toaster theme={appearance.theme} />
           <ConnectionRecovery />
           <WorkspaceFrame
+            workspacesLoaded={connected}
+            onNewWorkspace={() => rawChangeLocation("/new-workspace")}
             workLocation={workLocation}
             workspaces={workspaces.map((workspace) => ({
               id: workspace.id,
@@ -1031,93 +1055,96 @@ function WorkspaceResource({
                       choose={choose}
                     />
                   ) : (
-                    <ScrollableBoard aria-label="Task board">
-                      {columns.map((column) => {
-                        const tasks = visible
-                          .filter((t) => t.status === column)
-                          .sort(compareTasks);
-                        return (
-                          <section
-                            className={`column ${column}`}
-                            aria-label={label(column)}
-                            key={column}
-                          >
-                            <h2>
-                              {label(column)}
-                              <span className="count">{tasks.length}</span>
-                            </h2>
-                            <div
-                              className="column-cards"
-                              tabIndex={0}
-                              role="region"
-                              aria-label={`${label(column)} tasks`}
+                    <TaskPlanning tasks={[...visible].sort(compareTasks)}>
+                      <ScrollableBoard aria-label="Task board">
+                        {columns.map((column) => {
+                          const tasks = visible
+                            .filter((t) => t.status === column)
+                            .sort(compareTasks);
+                          return (
+                            <section
+                              className={`column ${column}`}
+                              aria-label={label(column)}
+                              key={column}
                             >
-                              {tasks.map((task) => (
-                                <div className="card-shell" key={task.key}>
-                                  <WorkCard>
-                                    <TaskIdentity
-                                      task={task}
-                                      title={
-                                        <ScopedAnchor
-                                          className="task-card-link"
-                                          aria-label={`${task.key} ${task.title}`}
-                                          href={taskHref(
-                                            task.workspace_id,
-                                            task,
-                                          )}
-                                          draggable={false}
-                                          onClick={(event) =>
-                                            followLink(event, () =>
-                                              choose({
-                                                kind: "task",
-                                                id: task.key,
-                                              }),
-                                            )
-                                          }
-                                        >
-                                          {task.title}
-                                        </ScopedAnchor>
-                                      }
-                                    />
-                                    {task.state?.tone !== "complete" && (
-                                      <TaskState
+                              <h2>
+                                {label(column)}
+                                <span className="count">{tasks.length}</span>
+                              </h2>
+                              <PlanningColumn
+                                status={column}
+                                className="column-cards"
+                                tabIndex={0}
+                                role="region"
+                                aria-label={`${label(column)} tasks`}
+                              >
+                                {tasks.map((task) => (
+                                  <PlanningCard task={task} key={task.key}>
+                                    <WorkCard>
+                                      <TaskIdentity
                                         task={task}
-                                        projectId={task.workspace_id}
-                                        open={(id) =>
-                                          choose({
-                                            kind: "task",
-                                            id:
-                                              board.tasks.find(
-                                                (item) =>
-                                                  item.project_id ===
-                                                    task.project_id &&
-                                                  (item.id === id ||
-                                                    item.key === id),
-                                              )?.key ?? id,
-                                          })
+                                        title={
+                                          <ScopedAnchor
+                                            className="task-card-link"
+                                            aria-label={`${task.key} ${task.title}`}
+                                            href={taskHref(
+                                              task.workspace_id,
+                                              task,
+                                            )}
+                                            draggable={false}
+                                            onClick={(event) =>
+                                              followLink(event, () =>
+                                                choose({
+                                                  kind: "task",
+                                                  id: task.key,
+                                                }),
+                                              )
+                                            }
+                                          >
+                                            {task.title}
+                                          </ScopedAnchor>
                                         }
-                                        linked
                                       />
-                                    )}
-                                  </WorkCard>
-                                </div>
-                              ))}
-                              {!tasks.length && (
-                                <p className="empty-column">
-                                  {column === "backlog"
-                                    ? "Ideas and future work"
-                                    : column === "up_next"
-                                      ? "Choose what matters next"
-                                      : column === "done"
-                                        ? "Finished outcomes"
-                                        : "No work here yet"}
-                                </p>
-                              )}
-                            </div>
-                          </section>
-                        );
-                      })}
-                    </ScrollableBoard>
+                                      {task.state?.tone !== "complete" && (
+                                        <TaskState
+                                          task={task}
+                                          projectId={task.workspace_id}
+                                          open={(id) =>
+                                            choose({
+                                              kind: "task",
+                                              id:
+                                                board.tasks.find(
+                                                  (item) =>
+                                                    item.project_id ===
+                                                      task.project_id &&
+                                                    (item.id === id ||
+                                                      item.key === id),
+                                                )?.key ?? id,
+                                            })
+                                          }
+                                          linked
+                                        />
+                                      )}
+                                    </WorkCard>
+                                  </PlanningCard>
+                                ))}
+                                {!tasks.length && (
+                                  <p className="empty-column">
+                                    {column === "backlog"
+                                      ? "Ideas and future work"
+                                      : column === "up_next"
+                                        ? "Choose what matters next"
+                                        : column === "done"
+                                          ? "Finished outcomes"
+                                          : "No work here yet"}
+                                  </p>
+                                )}
+                              </PlanningColumn>
+                            </section>
+                          );
+                        })}
+                      </ScrollableBoard>
+                    </TaskPlanning>
                   )}
                 </div>
               </ContentStack>

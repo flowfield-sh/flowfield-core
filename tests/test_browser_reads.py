@@ -242,3 +242,39 @@ def test_archive_availability_shares_write_policy_and_rechecks_races(tmp_path: P
         )
         assert edited.status_code == 200
         assert edited.json()["archive_blocker"] == reads.task(project.id, active.id).archive_blocker
+
+
+def test_stopped_task_can_archive_without_completion_and_retains_history(tmp_path):
+    from execution_fixtures import BASE, fixture
+
+    from flowfield.questions import QuestionCreate, Questions
+
+    execution = fixture(tmp_path)
+    store = execution.workspace
+    run = execution.claim("harbor", BASE, {BASE: set()})
+    execution.started("harbor", run.id)
+    execution.finish("harbor", run.id, "stopped")
+    task = store.task("harbor", run.task_id)
+    question = Questions(store).ask(
+        "harbor",
+        QuestionCreate(
+            task_id=task.id,
+            question="Continue?",
+            context="Abandoned work",
+            recommendation="Archive",
+        ),
+    )
+    task = store.task("harbor", task.id)
+    assert BrowserReads(store).task("harbor", task.id).archive_blocker is None
+    archived = store.edit_task(
+        "harbor", task.id, TaskEdit(expected_revision=task.revision, archived=True)
+    )
+    assert archived.status == "in_progress" and archived.archived
+    assert ("harbor", task.id) not in execution.scheduling_candidates()
+    assert Questions(store).get("harbor", question.id).status == "withdrawn"
+    assert execution.get("harbor", run.id).status == "stopped"
+    restored = store.edit_task(
+        "harbor", task.id, TaskEdit(expected_revision=archived.revision, archived=False)
+    )
+    assert not restored.archived and restored.status == "in_progress"
+    assert Questions(store).get("harbor", question.id).status == "withdrawn"

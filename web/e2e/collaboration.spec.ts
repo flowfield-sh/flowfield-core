@@ -72,9 +72,9 @@ test("coordinator dependencies update blockers, links and reconciliation without
     name: "Task details",
     exact: true,
   });
-  const dependencyState = detail.locator(".task-needs");
+  const dependencyState = detail.getByLabel("Related work");
   await expect(dependencyState).toContainText(
-    /Blocked by T-1, T-3|Blocked by T-3, T-1/,
+    /Prerequisites: T-1, T-3|Prerequisites: T-3, T-1/,
   );
   await expect(
     detail.getByRole("img", { name: "Waiting on prerequisites", exact: true }),
@@ -99,10 +99,13 @@ test("coordinator dependencies update blockers, links and reconciliation without
   await expect(
     detail.getByText("Needs code from T-1", { exact: true }),
   ).toHaveCount(0);
-  await expect(dependencyState).toContainText("Blocked by T-3");
+  await expect(dependencyState).toContainText("Prerequisites: T-1, T-3");
+  await expect(detail.locator(".task-needs")).toHaveCount(0);
   await openResource(page, "Tasks Board");
   const card = page.locator(".task-card").filter({ hasText: "Download CSV" });
-  await expect(card.locator(".work-state")).toHaveText("Waiting on T-3");
+  await expect(
+    card.locator(".work-state:not([data-indicator-only])"),
+  ).toHaveText("Waiting on T-3");
   await expect(
     card.getByRole("link", { name: "T-3", exact: true }),
   ).toHaveCount(1);
@@ -141,7 +144,9 @@ test("coordinator dependencies update blockers, links and reconciliation without
       .getByRole("region", { name: "Done tasks", exact: true })
       .getByRole("link", { name: "T-2 Download CSV", exact: true }),
   ).toBeVisible();
-  await expect(card.locator(".work-state")).toHaveCount(0);
+  await expect(
+    card.locator(".work-state:not([data-indicator-only])"),
+  ).toHaveCount(0);
   await page.goto(`/workspaces/${workspace}/tasks/T-2`);
   await expect(
     detail
@@ -1795,9 +1800,10 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     .getByRole("link", { name: "Open request in work tab" })
     .click();
   await expect(page).toHaveURL(/results\/first$/);
-  const runs = page
-    .getByRole("region", { name: "Proposed result", exact: true })
-    .filter({ has: page.getByText("Ready for review", { exact: true }) });
+  const runs = page.getByRole("region", {
+    name: "Proposed result",
+    exact: true,
+  });
   const checks = runs.getByRole("region", { name: "Checks", exact: true });
   await checks.getByText("Worker’s test report", { exact: true }).click();
   await expect(checks).toContainText("12 deterministic checks passed.");
@@ -1821,7 +1827,7 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   await page.keyboard.press("Escape");
   await expect(checks).toBeVisible();
   await expect(runs.getByText("Ready for review", { exact: true })).toHaveCount(
-    1,
+    0,
   );
   await expect(
     runs.getByRole("button", { name: "Withdraw review", exact: true }),
@@ -1931,19 +1937,14 @@ test("review journey preserves feedback, navigates complete files and reviews a 
     .getByRole("button", { name: "Send feedback", exact: true })
     .click();
   await page
-    .getByRole("link", { name: "Open current changes", exact: true })
+    .getByRole("link", { name: "View current result", exact: true })
     .click();
   await expect(page).toHaveURL(/results\/successor$/);
   await page.reload();
   await expect(page.locator(".task-result")).toBeVisible();
-  await runs
-    .getByText("Requested in the previous review", { exact: true })
-    .click();
   await expect(
-    runs.getByText("Include the source path in validation errors.", {
-      exact: true,
-    }),
-  ).toBeVisible();
+    runs.getByText("Requested in the previous review", { exact: true }),
+  ).toHaveCount(0);
   await runs.getByText("Code changes", { exact: true }).click();
   await runs.getByRole("button", { name: "Unified", exact: true }).click();
 

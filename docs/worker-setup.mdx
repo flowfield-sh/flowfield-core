@@ -14,6 +14,8 @@ Before running tasks, configure each project's **Project settings → Integratio
 
 Enter one shell command per line for setup and validation. Choose commands appropriate to your repository; the service host must already provide the language tools and credentials.
 
+Validation commands are optional and can be cleared. With no commands configured, Flowfield still prepares the exact candidate and requires delivery approval, but reports that no validation commands were configured rather than claiming checks passed.
+
 ## Validate before running workers
 
 1. Commit setup scripts, manifests and relevant repository guidance to the destination branch. Commit or ignore adoption metadata under your repository's rules; untracked files can block delivery.

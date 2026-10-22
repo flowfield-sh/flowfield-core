@@ -375,6 +375,7 @@ export function TaskResponse({
             projects={projects}
             taskId={task.id}
             taskKey={task.key}
+            taskTitle={task.title}
             versionId={requestTarget.id}
             refresh={tick}
             onReply={requestChanges}

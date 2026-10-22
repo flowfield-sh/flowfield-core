@@ -16,12 +16,8 @@ export const label = (value: string) =>
 
 export const authorLabel = (author: string | null) => {
   if (!author) return author;
-  const role = author.startsWith("worker:")
-    ? "worker"
-    : author.startsWith("coordinator:")
-      ? "coordinator"
-      : actorRoles[author as keyof typeof actorRoles];
-  return actorLabels[role as keyof typeof actorLabels] ?? author;
+  const role = actorRoles[author.split(":", 1)[0] as keyof typeof actorRoles];
+  return actorLabels[role as keyof typeof actorLabels] ?? actorLabels.other;
 };
 export type WorkspaceRecord = components["schemas"]["WorkspaceRecord"];
 export type Project = components["schemas"]["Project"];
@@ -48,10 +44,10 @@ export async function request<T>(
   const uncertain =
     method !== "GET"
       ? " Reload to check whether the action completed before trying again."
-      : " Try again once the service is available.";
-  const failed = (message: string, code: string) => {
+      : " Try this request again.";
+  const failed = (message: string, code: string, status?: number) => {
     void checkServiceConnection();
-    return new RequestError(message, code, path, method);
+    return new RequestError(message, code, path, method, status);
   };
   const saved = () => {
     requestRecovered(path, startedAt);
@@ -100,6 +96,7 @@ export async function request<T>(
         ? "Flowfield returned an unreadable response." + uncertain
         : "Flowfield returned an error (" + response.status + ")." + uncertain,
       "invalid_response",
+      response.status,
     );
   }
   if (!response.ok)

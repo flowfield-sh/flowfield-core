@@ -118,7 +118,6 @@ export function RequestCard({
   const href = itemHref(item, workspaceId);
   const content = (
     <>
-      {item.kind === "result" && <h3 className="detail-title">{item.title}</h3>}
       {item.kind === "permission" ? (
         <PermissionCard
           workspaceId={workspaceId}

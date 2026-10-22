@@ -43,7 +43,7 @@ class IntegrationConfig(Record):
     runtime: Literal["local"] | None = None
     target_branch: str = Field(min_length=1, max_length=200)
     create_from: str | None = Field(default=None, min_length=1, max_length=200)
-    checks: list[str] = Field(min_length=1, max_length=10)
+    checks: list[str] = Field(default_factory=list, max_length=10)
     setup_commands: list[str] = Field(default_factory=list, max_length=10)
     setup_timeout_seconds: int = Field(default=120, ge=1, le=900)
     check_timeout_seconds: int = Field(default=60, ge=1, le=900)

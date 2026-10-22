@@ -49,7 +49,10 @@ function showError(error: unknown, title: string, background: boolean) {
   if (failures.size > 128) failures.delete(failures.keys().next().value!);
   toast.error(title, {
     id: `request:${key}`,
-    description: message,
+    description:
+      failure && (failure.status ?? 0) >= 500
+        ? `${message} (${failure.method} /api/${failure.path})`
+        : message,
     duration: 8000,
   });
 }

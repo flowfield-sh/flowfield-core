@@ -464,7 +464,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   expect(
     await longChoice.evaluate(
       (button) =>
-        button.scrollWidth <= button.clientWidth && button.clientHeight > 32,
+        button.scrollWidth <= button.clientWidth && button.clientHeight <= 36,
     ),
   ).toBe(true);
   expect(

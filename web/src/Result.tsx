@@ -2,7 +2,12 @@ import { useLocation } from "react-router";
 import { TaskReview } from "./TaskReview";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
-import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
+import {
+  ContentStack,
+  DetailHeading,
+  DetailSection,
+  Disclosure,
+} from "./DetailLayout";
 import { lazy, Suspense, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -27,6 +32,7 @@ export function Result({
   projects,
   taskId,
   taskKey,
+  taskTitle,
   refresh,
   versionId,
   onReply,
@@ -38,6 +44,7 @@ export function Result({
   projects: WorkspaceBoard["projects"];
   taskId: string;
   taskKey: string;
+  taskTitle: string;
   refresh: unknown;
   versionId: string;
   onReply: (version: Version) => void;
@@ -154,27 +161,58 @@ export function Result({
       )}
       {version && version.task_id === taskId && (
         <>
-          {version.completion === "code" && version.candidate_commit && (
-            <DetailSection title="Run result">
-              <p>
-                {version.status === "delivered"
-                  ? "Integrated into "
-                  : "Destination: "}
-                <strong>{version.target_branch}</strong>
-                {worker.data?.project_id && (
-                  <>
-                    {" "}
-                    ·{" "}
+          <DetailHeading
+            title={taskTitle}
+            metadata={
+              version.completion === "code" && version.target_branch ? (
+                <>
+                  Destination:{" "}
+                  {worker.data?.project_id ? (
                     <WorkspaceLink
+                      className="text-inherit"
                       to={`/projects/${worker.data.project_id}/overview`}
                     >
                       {projects.find(
                         (project) => project.id === worker.data?.project_id,
-                      )?.name ?? "Project"}
+                      )?.name ?? worker.data.project_id}
                     </WorkspaceLink>
-                  </>
-                )}
-              </p>
+                  ) : (
+                    "…"
+                  )}
+                  /{version.target_branch}
+                </>
+              ) : undefined
+            }
+          />
+          {page.data && !current && (
+            <p className="detail-metadata">
+              {page.data.current_id && page.data.current_id !== version.id ? (
+                <>
+                  A newer result is available.{" "}
+                  <WorkspaceLink to={`${href}/${page.data.current_id}`}>
+                    View current result
+                  </WorkspaceLink>
+                </>
+              ) : (
+                <>
+                  A newer worker attempt is{" "}
+                  {label(successor.data?.status ?? "pending")}.
+                </>
+              )}
+            </p>
+          )}
+          {current && ["preparing", "delivering"].includes(version.status) && (
+            <p role="status">
+              {version.status === "preparing"
+                ? "Preparing and checking changes…"
+                : "Integrating changes…"}
+            </p>
+          )}
+          {current && version.status === "changes_requested" && (
+            <p role="status">{version.next_action?.reason}</p>
+          )}
+          {version.completion === "code" && version.candidate_commit && (
+            <DetailSection title="Run result">
               <Inspection
                 key={version.id}
                 projectId={projectId}
@@ -200,14 +238,6 @@ export function Result({
               <DetailSection title="Review request">
                 <Markdown>{version.feedback}</Markdown>
               </DetailSection>
-            )}
-            {worker.data?.feedback && !version.feedback && (
-              <Disclosure
-                summary={<>Requested in the previous review</>}
-                className="review-disclosure"
-              >
-                <Markdown>{worker.data.feedback}</Markdown>
-              </Disclosure>
             )}
           </DetailSection>
           <ResultFiles
@@ -238,100 +268,27 @@ export function Result({
               </Disclosure>
             </DetailSection>
           )}
-          {version.status !== "delivered" &&
-            !(
-              current &&
-              version.completion === "report" &&
-              version.status === "ready"
-            ) && (
-              <DetailSection
-                title={version.completion === "code" ? "Delivery" : "Report"}
+          {current && version.status === "preparing" && (
+            <ResultActions version={version.version}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() => void recover("cancel")}
               >
-                {
-                  <p>
-                    <strong>
-                      {!current
-                        ? "Earlier result"
-                        : {
-                            ready: "Ready for review",
-                            preparing: "Checking result",
-                            delivering:
-                              version.completion === "code"
-                                ? "Integrating changes"
-                                : "Delivering findings",
-                            delivered:
-                              version.completion === "code"
-                                ? "Integrated"
-                                : "Findings delivered",
-                            blocked: "Needs attention",
-                            stale: "Needs attention",
-                            cancelled: "Review stopped",
-                            changes_requested: "Changes requested",
-                          }[version.status]}
-                    </strong>
-                  </p>
-                }
-                {version.completion === "code" && !version.candidate_commit && (
-                  <p>
-                    Destination: <strong>{version.target_branch}</strong>
-                  </p>
-                )}
-                {version.recheck_of != null && (
-                  <p className="muted">
-                    Updated checks for review #{version.recheck_of}; the worker
-                    submission is unchanged.
-                  </p>
-                )}
-                {!current && (
-                  <Alert>
-                    <AlertDescription>
-                      Earlier checked revision.{" "}
-                      {page.data?.current_id !== version.id ? (
-                        <WorkspaceLink to={`${href}/${page.data?.current_id}`}>
-                          Open current changes
-                        </WorkspaceLink>
-                      ) : (
-                        <>
-                          A newer worker attempt is{" "}
-                          {label(successor.data?.status ?? "pending")}. Its
-                          result will appear here when submitted.
-                        </>
-                      )}
-                    </AlertDescription>
-                  </Alert>
-                )}
-                {current && version.status === "preparing" && (
-                  <>
-                    <p>
-                      {version.completion === "code"
-                        ? "Combining changes and running checks. Stopping keeps code and output."
-                        : "Retaining and checking submitted outputs."}
-                    </p>
-                    <ResultActions version={version.version}>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() => void recover("cancel")}
-                      >
-                        Stop checks
-                      </Button>
-                    </ResultActions>
-                  </>
-                )}
-                {version.status === "changes_requested" && current && (
-                  <p>{version.next_action?.reason || "Changes requested."}</p>
-                )}
-                {version.status === "cancelled" ? (
-                  <p>Code and check output were kept.</p>
-                ) : (
-                  version.problem &&
-                  version.problem_code !== "partial_outcome" && (
-                    <FailureEvidence problem={version.problem} />
-                  )
-                )}
-              </DetailSection>
+                Stop checks
+              </Button>
+            </ResultActions>
+          )}
+          {current && version.status === "cancelled" && (
+            <p>Checks stopped. Code and output were kept.</p>
+          )}
+          {current &&
+            version.problem &&
+            version.problem_code !== "partial_outcome" &&
+            version.status !== "cancelled" && (
+              <FailureEvidence problem={version.problem} />
             )}
           {current &&
             version.next_action &&

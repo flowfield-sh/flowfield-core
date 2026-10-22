@@ -95,7 +95,7 @@ def seed(tmp_path: Path, checks: list[str] | None = None):
             expected_revision=1,
             target_branch="integration",
             create_from="main",
-            checks=checks or [CHECK],
+            checks=[CHECK] if checks is None else checks,
         ),
     )
     git(repo, "switch", "integration")
@@ -133,6 +133,27 @@ def prepare(service, run):
     results.process("harbor")
     version = results.page("harbor", run.task_id).items[0]
     return service.get("harbor", version.integration_id)
+
+
+def test_empty_checks_prepare_and_can_be_cleared_and_restored(tmp_path):
+    service, execution, repo, run = seed(tmp_path, checks=[])
+    candidate = prepare(service, run)
+    assert candidate.status == "ready", candidate.problem
+    assert candidate.checks == []
+    assert candidate.candidate_commit
+    for commands in ([CHECK], [], [CHECK]):
+        settings = service.settings("harbor")
+        saved = service.configure(
+            "harbor",
+            IntegrationConfig(
+                expected_revision=settings.revision,
+                target_branch="integration",
+                checks=commands,
+            ),
+        )
+        assert saved.checks == commands
+        service.refresh_availability("harbor")
+        assert service.get("harbor", candidate.id).status == "stale"
 
 
 def authorize(service, candidate):

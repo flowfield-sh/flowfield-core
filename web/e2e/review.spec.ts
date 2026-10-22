@@ -53,7 +53,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
       checks: "10 fixture checks passed",
       limitations: "",
     },
-    feedback: "",
+    feedback: "Preserve both inputs while resolving the previous conflict.",
     problem: null,
     code_available: false,
     usage: { total_tokens: 100, cached_input_tokens: 50, complete: true },
@@ -83,6 +83,8 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
     feedback: run.status === "changes_requested" ? run.feedback : "",
     problem: run.problem,
   });
+  let previewAttempts = 0;
+  let previewReady = false;
   let rejectOnce = true;
   let cancellations = 0;
   let moreFiles = true;
@@ -94,7 +96,23 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
   await page.route("**/api/workspaces/*/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
-    if (path.endsWith("/inspection") || path.includes("/inspections/"))
+    if (path.endsWith("/inspection") || path.includes("/inspections/")) {
+      if (path.endsWith("/inspection") && !previewReady) {
+        if (route.request().method() === "GET")
+          return route.fulfill({ json: null });
+        previewAttempts++;
+        if (previewAttempts === 1)
+          return route.fulfill({
+            status: 409,
+            json: {
+              error: {
+                code: "integration_busy",
+                message: "Another integration owns this repository.",
+              },
+            },
+          });
+        previewReady = true;
+      }
       return route.fulfill({
         json: {
           id: "preview-one",
@@ -108,10 +126,11 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
           command: "echo preview",
           workspace: "/fixture/worktree",
           locally_changed: false,
-          source_changed: false,
+          source_changed: true,
           instructions_changed: false,
         },
       });
+    }
     if (path.includes("/requests/result/"))
       return route.fulfill({
         json: resultRequest(version(), url.pathname.split("/")[3]),
@@ -253,7 +272,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
     ).toHaveCount(0);
     await footer.getByRole("button", { name: action, exact: true }).click();
     await expect(
-      page.getByText("Code and check output were kept.", { exact: false }),
+      page.getByText("Code and output were kept.", { exact: false }),
     ).toBeVisible();
   }
   expect(cancellations).toBe(1);
@@ -262,7 +281,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
     `/workspaces/${await projectWorkspace(page.request, "run-ui")}/results/attempt-one`,
   );
   await expect(
-    page.getByText("Integrating changes", { exact: true }),
+    page.getByText("Integrating changes…", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Cancel delivery" }),
@@ -277,9 +296,34 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
     exact: true,
   });
   await expect(runs).toContainText("Implemented the loader");
+  await expect(runs).toContainText("Destination: run-ui/integration");
+  await expect(
+    runs.getByRole("heading", { name: "Delivery", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    runs.getByText("Requested in the previous review", { exact: true }),
+  ).toHaveCount(0);
+  await expect.poll(() => previewAttempts).toBe(2);
+  await expect(
+    runs.getByRole("button", { name: "Prepare another copy" }),
+  ).toHaveCount(0);
+  await expect(
+    page.locator("[data-sonner-toast][data-type=error]"),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Save changes", exact: true }),
   ).toBeHidden();
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.screenshot({
+        path: testInfo.outputPath(`result-summary-${colorScheme}-${width}.png`),
+      });
+    }
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.setViewportSize({ width: 1280, height: 900 });
   await runs.getByText("Code changes", { exact: true }).click();
   await expect(runs.locator(".diff-code-insert")).toContainText(
     "implemented code",
@@ -503,7 +547,9 @@ test("validated result approval delivers real Git code with the worker queue pau
   const result = page.getByRole("region", { name: "Proposed result" });
   await expect(result).toContainText("project checks passed");
   await expect(result).toContainText("Passed");
-  await expect(result).toContainText("Destination: integration");
+  await expect(result).toContainText(
+    "Destination: Harbor · Integration trial/integration",
+  );
   await expect(result.locator(".diff-code-insert")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Ask worker", exact: true }),
@@ -1098,7 +1144,9 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     preview().getByText("excluding edits in this copy.", { exact: false }),
   ).toBeVisible();
   await expect(
-    preview().getByText("The source has changed.", { exact: false }),
+    preview().getByText("This preview belongs to this earlier result.", {
+      exact: false,
+    }),
   ).toBeVisible();
   await preview().getByRole("button", { name: "Prepare another copy" }).click();
   await expect(

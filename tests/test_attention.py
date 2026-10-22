@@ -4,11 +4,26 @@ from pathlib import Path
 
 from execution_fixtures import BASE, RESULT, fixture, result, validate_report
 
+from flowfield.application import TaskEdit
 from flowfield.attention import attention_page
 from flowfield.execution_models import RunAction, WorkerResult
 from flowfield.questions import QuestionAnswer, QuestionCreate, Questions, QuestionWithdraw
 from flowfield.result_models import ResultReview
 from flowfield.results import Results
+
+
+def test_archived_result_leaves_inbox_without_fabricating_delivery(tmp_path):
+    execution = fixture(tmp_path)
+    workspace = execution.workspace
+    run = result(execution, partial=True)
+    version = Results(workspace).page("harbor", run.task_id).items[0]
+    task = workspace.task("harbor", run.task_id)
+    workspace.edit_task("harbor", task.id, TaskEdit(expected_revision=task.revision, archived=True))
+    assert attention_page(workspace, "harbor", "action").total == 0
+    assert version.id in {item.id for item in attention_page(workspace, "harbor", "history").items}
+    saved = Results(workspace).get("harbor", version.id)
+    assert saved.status == version.status and saved.approved_at is None
+    assert saved.next_action.action == "none"
 
 
 def test_mixed_attention_lifecycle_and_bounded_history(tmp_path: Path) -> None:

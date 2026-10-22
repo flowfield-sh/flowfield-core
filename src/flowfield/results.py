@@ -184,6 +184,8 @@ class Results:
         return self._present(db, version)
 
     def _current(self, db: sqlite3.Connection, version: ResultVersion) -> Run:
+        if self.workspace._task(db, version.workspace_id, version.task_id).archived:
+            raise ApplicationError("archived_task", "Restore the task before continuing it.", 409)
         latest = db.execute(
             "SELECT id FROM result_versions WHERE workspace_id=? AND task_id=? "
             "ORDER BY version DESC LIMIT 1",

@@ -610,7 +610,7 @@ function ResourceTab({
           >
             <span ref={label}>{name}</span>{" "}
             {index === 0 && !!board?.needs_you_count && (
-              <span className="nav-count needs-attention">
+              <span className="nav-count needs-attention border">
                 {Math.min(99, board.needs_you_count)}
                 {board.needs_you_count > 99 ? "+" : ""}
               </span>

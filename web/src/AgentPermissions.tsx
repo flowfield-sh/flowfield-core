@@ -5,6 +5,7 @@ import type { components } from "./api-schema";
 import { useResource } from "./useResource";
 import { request } from "./workspace";
 import { Button } from "@/components/ui/button";
+import { OverflowButton } from "./OverflowButton";
 import { ContentStack, DetailSection } from "./DetailLayout";
 import { Timestamp } from "./Timestamp";
 
@@ -41,11 +42,11 @@ export function PermissionControl({
         <PaneFooter inline={!inRequest}>
           <div className={inRequest ? "task-input actions" : "actions"}>
             {record.options.map((option) => (
-              <Button
+              <OverflowButton
                 key={option.id}
+                label={option.label}
                 size="sm"
                 variant="outline"
-                className="h-auto min-h-8 max-w-full whitespace-normal wrap-anywhere py-1.5 text-left"
                 disabled={busy}
                 onClick={async () => {
                   setBusy(true);
@@ -66,9 +67,7 @@ export function PermissionControl({
                     setBusy(false);
                   }
                 }}
-              >
-                {option.label}
-              </Button>
+              />
             ))}
           </div>
         </PaneFooter>

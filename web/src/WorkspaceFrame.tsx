@@ -47,6 +47,8 @@ function subscribeCompact(callback: () => void) {
 function WorkspaceNavigation({
   workspaces,
   activeWorkspaceId,
+  workspacesLoaded,
+  onNewWorkspace,
   onWorkspaceSelect,
   footer,
   onHome,
@@ -56,6 +58,8 @@ function WorkspaceNavigation({
 }: {
   workspaces: WorkspaceEntry[];
   activeWorkspaceId: string;
+  workspacesLoaded: boolean;
+  onNewWorkspace: () => void;
   onWorkspaceSelect: (workspace: WorkspaceEntry) => void;
   footer?: ReactNode;
   onHome?: () => void;
@@ -86,27 +90,40 @@ function WorkspaceNavigation({
           <SettingsLink active={!!settingsActive} />
           {isMobile && <SidebarTrigger aria-label="Close navigation" />}
         </div>
-        <ChoiceSelect
-          compact
-          label="Workspace"
-          placeholder="Workspaces"
-          displayValue={
-            workspaces.find((workspace) => workspace.id === activeWorkspaceId)
-              ?.name ?? "Workspaces"
-          }
-          value={activeWorkspaceId}
-          options={workspaces.map((workspace) => ({
-            value: workspace.id,
-            label:
-              workspace.name +
-              (workspace.inboxCount ? ` (${workspace.inboxCount})` : ""),
-          }))}
-          onChange={(value) => {
-            const workspace = workspaces.find((w) => w.id === value);
-            if (workspace) onWorkspaceSelect(workspace);
-            setOpenMobile(false);
-          }}
-        />
+        {workspacesLoaded && !workspaces.length ? (
+          <Button
+            variant="outline"
+            className="justify-start"
+            onClick={() => {
+              onNewWorkspace();
+              setOpenMobile(false);
+            }}
+          >
+            New workspace
+          </Button>
+        ) : (
+          <ChoiceSelect
+            compact
+            label="Workspace"
+            placeholder="Workspaces"
+            displayValue={
+              workspaces.find((workspace) => workspace.id === activeWorkspaceId)
+                ?.name ?? "Workspaces"
+            }
+            value={activeWorkspaceId}
+            options={workspaces.map((workspace) => ({
+              value: workspace.id,
+              label:
+                workspace.name +
+                (workspace.inboxCount ? ` (${workspace.inboxCount})` : ""),
+            }))}
+            onChange={(value) => {
+              const workspace = workspaces.find((w) => w.id === value);
+              if (workspace) onWorkspaceSelect(workspace);
+              setOpenMobile(false);
+            }}
+          />
+        )}
       </SidebarHeader>
       <SidebarContent
         className="workspace-sidebar-content"
@@ -128,6 +145,8 @@ function WorkspaceNavigation({
 export function WorkspaceFrame({
   workspaces,
   activeWorkspaceId,
+  workspacesLoaded,
+  onNewWorkspace,
   onWorkspaceSelect,
   coordinator,
   work,
@@ -140,6 +159,8 @@ export function WorkspaceFrame({
 }: {
   workspaces: WorkspaceEntry[];
   activeWorkspaceId: string;
+  workspacesLoaded: boolean;
+  onNewWorkspace: () => void;
   onWorkspaceSelect: (workspace: WorkspaceEntry) => void;
   workLocation?: string;
   navigation?: ReactNode;
@@ -202,6 +223,8 @@ export function WorkspaceFrame({
     >
       <WorkspaceNavigation
         workspaces={workspaces}
+        workspacesLoaded={workspacesLoaded}
+        onNewWorkspace={onNewWorkspace}
         activeWorkspaceId={activeWorkspaceId}
         onWorkspaceSelect={onWorkspaceSelect}
         footer={footer}
