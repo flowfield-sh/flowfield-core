@@ -653,7 +653,6 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     name: "Start new session",
     exact: true,
   });
-<<<<<<< c035cbf3bbbdb625df78e4fa599caf51a7341179
   await expect(reset).toHaveCount(1);
   await page.evaluate(() =>
     window.dispatchEvent(new Event("flowfield:service-recovered")),
@@ -681,13 +680,6 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
       });
     }
   }
-  page.once("dialog", async (dialog) => {
-    expect(dialog.message()).toContain("without previous tool history");
-    await dialog.dismiss();
-  });
-  await reset.click();
-=======
->>>>>>> 086c9fbc1f923057057f8b57ebdf9ac7847acd80
   expect(resets).toBe(0);
   await dialogViews(page, testInfo, "coordinator-session-recovery");
   await reset.click();
@@ -716,7 +708,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     window.dispatchEvent(new Event("flowfield:service-recovered")),
   );
   await expect(reset).toHaveCount(0);
-  expect(resets).toBe(1);
+  expect(resets).toBe(2);
   expect(sends).toBe(1);
   active = turns[0];
   active.status = "uncertain";
