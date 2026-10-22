@@ -57,6 +57,17 @@ export function hostStatus(
 // Ordinary browser checks never discover or start an installed agent.
 export const test = base.extend({
   context: async ({ context }, provide, testInfo) => {
+    const unexpectedDialogs: string[] = [];
+    context.on("page", (page) => {
+      page.on("dialog", async (dialog) => {
+        // Unload protection belongs to the browser; app-authored generic dialogs fail every journey.
+        if (dialog.type() === "beforeunload") await dialog.accept();
+        else {
+          unexpectedDialogs.push(`${dialog.type()}: ${dialog.message()}`);
+          await dialog.dismiss();
+        }
+      });
+    });
     // Contextual delivery is exercised with real competing clients in its dedicated suite.
     // Other journeys choose quiet preferences so unrelated shared-state events do not cover controls.
     if (testInfo.project.name === "journeys")
@@ -75,6 +86,9 @@ export const test = base.extend({
       }),
     );
     await provide(context);
+    expect(unexpectedDialogs, "Unexpected application browser dialogs").toEqual(
+      [],
+    );
   },
 });
 

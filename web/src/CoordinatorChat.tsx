@@ -1,3 +1,4 @@
+import { ConfirmButton } from "./ConfirmButton";
 import { useScrollPresentation } from "./useScrollPresentation";
 import { ResourceRetry } from "./ResourceRetry";
 import { LoadMore } from "./LoadMore";
@@ -249,20 +250,7 @@ export function CoordinatorChat({
     turn: Pick<Turn, "id">,
     operation: "stop" | "confirm-stopped" | "reset-session",
   ) {
-    if (
-      operation === "reset-session" &&
-      !window.confirm(
-        "Start a new agent session? Your chat stays here. The agent receives recent messages, without previous tool history.",
-      )
-    )
-      return;
-    if (
-      operation === "confirm-stopped" &&
-      !window.confirm(
-        "Confirm you have stopped any remaining coordinator process on the host. This does not stop it for you.",
-      )
-    )
-      return;
+    if (busy) return;
     setBusy(true);
     try {
       await request(`${base}/turns/${turn.id}/${operation}`, "POST");
@@ -379,14 +367,17 @@ export function CoordinatorChat({
           <Alert>
             <AlertDescription>
               {active.notice}{" "}
-              <Button
+              <ConfirmButton
                 variant="outline"
                 size="sm"
                 disabled={busy}
-                onClick={() => void action(active, "confirm-stopped")}
+                binding={`${base}:${active.id}:${active.status}`}
+                title="Confirm coordinator stopped?"
+                description="Confirm you have stopped any remaining coordinator process on the host. This does not stop it for you."
+                action={() => void action(active, "confirm-stopped")}
               >
                 Confirm coordinator stopped
-              </Button>
+              </ConfirmButton>
             </AlertDescription>
           </Alert>
         )}
@@ -394,7 +385,8 @@ export function CoordinatorChat({
           <Alert>
             <AlertDescription>
               The saved agent session is unavailable. You can retry after fixing
-              the host, or start a new session with recent chat.
+              the host, or start a new session with recent chat. Previous tool
+              history is not included; attach files again if needed.
               <Button
                 variant="outline"
                 size="sm"

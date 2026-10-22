@@ -1,3 +1,4 @@
+import { dialogViews } from "./dialog-evidence";
 import { fixtureProject, projectWorkspace, choose, test } from "./support";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -625,6 +626,19 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   let resets = 0;
   await page.route(`**${historyPath}/turns/*/reset-session`, async (route) => {
     resets++;
+    expect(route.request().url()).toContain(
+      `/turns/${turns[0].id}/reset-session`,
+    );
+    if (resets === 1)
+      return route.fulfill({
+        status: 409,
+        json: {
+          error: {
+            code: "fixture_reset_failed",
+            message: "Session recovery could not be completed.",
+          },
+        },
+      });
     recovery = null;
     await route.fulfill({ status: 204 });
   });
@@ -639,24 +653,47 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     name: "Start new session",
     exact: true,
   });
-  page.once("dialog", async (dialog) => {
-    expect(dialog.message()).toContain("without previous tool history");
-    await dialog.dismiss();
-  });
-  await reset.click();
   expect(resets).toBe(0);
-  page.once("dialog", (dialog) => dialog.accept());
+  await dialogViews(page, testInfo, "coordinator-session-recovery");
   await reset.click();
+  const resetError = page.locator("[data-sonner-toast][data-type=error]");
+  await expect(resetError).toHaveCount(1);
+  await expect(resetError).toContainText(
+    "Could not update coordinator session",
+  );
+  await expect(reset).toBeEnabled();
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  await resetError.getByRole("button", { name: "Close toast" }).click();
+  await reset.click();
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await expect(reset).toHaveCount(0);
   await expect(
     page.locator("[data-sonner-toast][data-type=error]"),
   ).toHaveCount(0);
-  expect(resets).toBe(1);
+  expect(resets).toBe(2);
+  await expect(
+    page.locator("[data-sonner-toast][data-type=success]"),
+  ).toHaveCount(0);
   expect(sends).toBe(1);
   active = turns[0];
   active.status = "uncertain";
   active.notice = "Native cleanup needs confirmation.";
+  let confirmations = 0;
   await page.route(`**${historyPath}/turns/*/confirm-stopped`, (route) => {
+    confirmations++;
+    expect(route.request().url()).toContain(
+      `/turns/${turns[0].id}/confirm-stopped`,
+    );
+    if (confirmations === 1)
+      return route.fulfill({
+        status: 409,
+        json: {
+          error: {
+            code: "fixture_stop_failed",
+            message: "Cleanup is still uncertain.",
+          },
+        },
+      });
     active!.status = "interrupted";
     active = null;
     return route.fulfill({ status: 204 });
@@ -671,10 +708,39 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     .click();
   await expect(page.getByLabel("Harness", { exact: true })).toBeDisabled();
   await page.keyboard.press("Escape");
-  page.once("dialog", (dialog) => dialog.accept());
   await page
     .getByRole("button", { name: "Confirm coordinator stopped", exact: true })
     .click();
+  const stopDialog = page.getByRole("alertdialog");
+  await expect(
+    stopDialog.getByRole("button", { name: "Cancel", exact: true }),
+  ).toBeFocused();
+  await dialogViews(page, testInfo, "coordinator-confirm-stopped");
+  await page.keyboard.press("Escape");
+  expect(confirmations).toBe(0);
+  await expect(stopDialog).toHaveCount(0);
+  await expect(
+    page.getByRole("button", {
+      name: "Confirm coordinator stopped",
+      exact: true,
+    }),
+  ).toBeFocused();
+  await page
+    .getByRole("button", { name: "Confirm coordinator stopped", exact: true })
+    .click();
+  await stopDialog
+    .getByRole("button", { name: "Confirm coordinator stopped", exact: true })
+    .click();
+  await expect(resetError).toHaveCount(1);
+  await expect(resetError).toContainText("Cleanup is still uncertain.");
+  await resetError.getByRole("button", { name: "Close toast" }).click();
+  await page
+    .getByRole("button", { name: "Confirm coordinator stopped", exact: true })
+    .click();
+  await stopDialog
+    .getByRole("button", { name: "Confirm coordinator stopped", exact: true })
+    .click();
+  await expect.poll(() => confirmations).toBe(2);
   await page
     .getByRole("button", {
       name: "Codex · test-model-with-a-very-long-model-identifier · low",

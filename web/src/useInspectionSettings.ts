@@ -16,6 +16,7 @@ export function useInspectionSettings(projectId: string, refresh: unknown) {
     revision: number;
   } | null>(null);
   return {
+    binding: JSON.stringify([path, resource.data?.revision, draft]),
     command: draft?.command ?? resource.data?.run_command ?? "",
     dirty: draft !== null,
     loaded: !!resource.data,

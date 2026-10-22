@@ -120,8 +120,15 @@ export function Documents({
           close={close}
           editing={pathname.endsWith("/edit")}
           viewDocument={() => navigate(`${base}/${identity}`, true)}
-          read={async () => {
-            const fresh = await request<Document>(`${path}/${identity}`);
+          read={async (signal) => {
+            const fresh = await request<Document>(
+              `${path}/${identity}`,
+              "GET",
+              undefined,
+              signal,
+            );
+            if (signal.aborted)
+              throw new DOMException("Read cancelled", "AbortError");
             latest.invalidate();
             latest.setData(fresh);
             return revision ? document : fresh;
@@ -279,7 +286,7 @@ function DocumentEditor({
   base: string;
   onDirty: DirtyCallback;
   saved: (record: Document, method: string) => void;
-  read: () => Promise<Document>;
+  read: (signal: AbortSignal) => Promise<Document>;
   close: () => void;
   editing: boolean;
   viewDocument: () => void;
@@ -434,7 +441,9 @@ function DocumentEditor({
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      if (cancel() && !usageDirty) viewDocument();
+                      cancel(() => {
+                        if (!usageDirty) viewDocument();
+                      });
                     }}
                   >
                     Cancel

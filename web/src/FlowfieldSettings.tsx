@@ -100,8 +100,9 @@ function HarnessEntry({
     (value: boolean) => onDirty(kind, value),
     [kind, onDirty],
   );
-  const read = async () => {
-    const latest = await request<Status>(path);
+  const read = async (signal?: AbortSignal) => {
+    const latest = await request<Status>(path, "GET", undefined, signal);
+    if (signal?.aborted) throw new DOMException("Read cancelled", "AbortError");
     resource.invalidate();
     resource.setData(latest);
     resource.setError("");
@@ -247,7 +248,7 @@ function HarnessEntry({
                         size="sm"
                         variant="outline"
                         type="button"
-                        onClick={editor.cancel}
+                        onClick={() => editor.cancel()}
                       >
                         Cancel
                       </Button>
@@ -372,6 +373,7 @@ function HarnessEntry({
                         size="sm"
                         variant="outline"
                         disabled={busy}
+                        binding={`${kind}:${status.catalog_ownership.id}`}
                         title={`Confirm ${names[kind]} discovery stopped?`}
                         description="Confirm only after stopping remaining work from this interrupted discovery on the service host. This clears its hold and permits a new discovery."
                         action={() =>

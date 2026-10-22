@@ -139,7 +139,7 @@ export function WorkspaceEditor({
                   type="button"
                   variant="outline"
                   disabled={!dirty}
-                  onClick={cancel}
+                  onClick={() => cancel()}
                 >
                   Cancel
                 </Button>

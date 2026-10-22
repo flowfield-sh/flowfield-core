@@ -144,8 +144,13 @@ function LabelEditor({
     recordName: "label",
     onDirty,
     saved,
-    read: async () => {
-      const values = await request<WorkspaceLabel[]>(path);
+    read: async (signal) => {
+      const values = await request<WorkspaceLabel[]>(
+        path,
+        "GET",
+        undefined,
+        signal,
+      );
       const value = values.find((item) => item.id === incoming?.id);
       if (!value) throw new Error("This label is no longer available.");
       return value;
@@ -224,7 +229,7 @@ function LabelEditor({
             variant="outline"
             disabled={busy}
             onClick={() => {
-              if (state.cancel()) close();
+              state.cancel(close);
             }}
           >
             Cancel
@@ -234,6 +239,7 @@ function LabelEditor({
               size="sm"
               variant="outline"
               disabled={busy || !!incoming?.deleted_at}
+              binding={`${path}:${loaded.id}:${incoming?.revision}`}
               title={`Delete ${loaded.name}?`}
               description="Remove this label from current tasks. Historical assignments are kept."
               action={() =>

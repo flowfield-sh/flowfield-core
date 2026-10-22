@@ -395,7 +395,6 @@ test("entity identity and drafts persist across task and workspace tabs", async 
   // Switch to mobile, then deliberately discard the drafts on refresh.
   await page.setViewportSize({ width: 390, height: 844 });
 
-  page.on("dialog", (dialog) => dialog.accept());
   await page.reload();
   await expect(
     page.getByRole("tab", { name: "General", exact: true }),

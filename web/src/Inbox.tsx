@@ -1,3 +1,4 @@
+import { ConfirmButton } from "./ConfirmButton";
 import { LoadMore } from "./LoadMore";
 import { useRetainedState, retainDirty } from "./retainedState";
 import type { DirtyCallback } from "./retainedState";
@@ -298,24 +299,27 @@ export function QuestionDetail({
           {newer && (
             <div className="notice content-stack">
               <p>This question changed while you were answering.</p>
-              <Button
+              <ConfirmButton
                 size="sm"
-                onClick={() => {
-                  if (
-                    !dirty ||
-                    window.confirm(
-                      "Discard your draft and load the latest question?",
-                    )
-                  ) {
-                    setLoaded(incoming);
-                    setDraft("");
-                    setEditing(false);
-                    setError("");
-                  }
+                disabled={busy || uploading}
+                requiresConfirmation={dirty}
+                binding={JSON.stringify([
+                  path,
+                  loaded.revision,
+                  incoming?.revision,
+                  draft,
+                ])}
+                title="Discard your draft and load the latest question?"
+                description="The latest question will replace your unsaved answer."
+                action={() => {
+                  setLoaded(incoming);
+                  setDraft("");
+                  setEditing(false);
+                  setError("");
                 }}
               >
                 Load latest
-              </Button>
+              </ConfirmButton>
             </div>
           )}
           {correctionLink && (
@@ -449,25 +453,29 @@ export function QuestionDetail({
                     />
                     <div className="actions">
                       {editing && (
-                        <Button
+                        <ConfirmButton
                           size="sm"
                           variant="outline"
-                          type="button"
                           className="quiet"
-                          disabled={busy}
-                          onClick={() => {
-                            if (
-                              !dirty ||
-                              window.confirm("Discard your unsaved answer?")
-                            ) {
-                              setEditing(false);
-                              setCorrecting(false);
-                              setDraft("");
-                            }
+                          disabled={busy || uploading}
+                          requiresConfirmation={dirty}
+                          binding={JSON.stringify([
+                            path,
+                            loaded.revision,
+                            draft,
+                            correcting,
+                          ])}
+                          actionLabel="Discard answer"
+                          title="Discard your unsaved answer?"
+                          description="Your answer has not been saved."
+                          action={() => {
+                            setEditing(false);
+                            setCorrecting(false);
+                            setDraft("");
                           }}
                         >
                           Cancel
-                        </Button>
+                        </ConfirmButton>
                       )}
                     </div>
                   </form>

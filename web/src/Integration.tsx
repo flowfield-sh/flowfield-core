@@ -1,3 +1,4 @@
+import { ConfirmButton } from "./ConfirmButton";
 import { ProjectCheckPermission } from "./ProjectCheckPermission";
 import { StatusNotice } from "./StatusNotice";
 import { ResourceRetry } from "./ResourceRetry";
@@ -219,22 +220,17 @@ export function IntegrationSettings({
             {inspection.stale && (
               <p>
                 Run settings changed. Your draft is preserved.{" "}
-                <Button
-                  type="button"
+                <ConfirmButton
                   size="sm"
                   variant="outline"
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        "Discard your run command draft and load current settings?",
-                      )
-                    ) {
-                      inspection.loadCurrent();
-                    }
-                  }}
+                  disabled={busy}
+                  binding={inspection.binding}
+                  title="Discard your run command draft?"
+                  description="Load the current saved run command in place of your draft."
+                  action={() => inspection.loadCurrent()}
                 >
                   Load current run command
-                </Button>
+                </ConfirmButton>
               </p>
             )}
           </ContentStack>

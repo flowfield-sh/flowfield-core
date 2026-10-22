@@ -90,7 +90,7 @@
 }
 .composer-command-menu,
 .composer-settings {
-  z-index: 60;
+  z-index: 50;
   background: var(--popover);
   color: var(--popover-foreground);
   border: 1px solid var(--border);

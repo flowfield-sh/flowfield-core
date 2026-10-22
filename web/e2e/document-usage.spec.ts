@@ -108,8 +108,11 @@ test("Documents shares project defaults and opts projectless tasks into exact so
     path: testInfo.outputPath("document-usage-conflict-narrow-dark.png"),
     animations: "disabled",
   });
-  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Load latest", exact: true }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Load latest", exact: true })
+    .click();
   await expect(projectless).not.toBeChecked();
   const preserved = await (
     await request.get(`/api/workspaces/${workspace}/tasks/${task.id}`)
