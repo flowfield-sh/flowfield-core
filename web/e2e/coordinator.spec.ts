@@ -639,6 +639,33 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     name: "Start new session",
     exact: true,
   });
+  await expect(reset).toHaveCount(1);
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("flowfield:service-recovered")),
+  );
+  await expect(reset).toBeVisible();
+  expect(sends).toBe(1);
+  expect(resets).toBe(0);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      await expect(reset).toBeVisible();
+      await reset.focus();
+      await expect(reset).toBeFocused();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({
+        path: testInfo.outputPath(
+          `coordinator-recovery-${width}-${colorScheme}.png`,
+        ),
+        animations: "disabled",
+      });
+    }
+  }
   page.once("dialog", async (dialog) => {
     expect(dialog.message()).toContain("without previous tool history");
     await dialog.dismiss();
@@ -651,6 +678,14 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
   await expect(
     page.locator("[data-sonner-toast][data-type=error]"),
   ).toHaveCount(0);
+  expect(resets).toBe(1);
+  expect(sends).toBe(1);
+  await page.reload();
+  await page.getByRole("tab", { name: "Coordinator", exact: true }).click();
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("flowfield:service-recovered")),
+  );
+  await expect(reset).toHaveCount(0);
   expect(resets).toBe(1);
   expect(sends).toBe(1);
   active = turns[0];

@@ -379,6 +379,16 @@ async def main():
     while line := await asyncio.to_thread(sys.stdin.readline):
         request = json.loads(line)
         method, params = request.get("method"), request.get("params", {})
+        # Opt-in durable peer for service restart tests. Record only protocol
+        # methods, never scoped endpoint credentials. Native history is modeled,
+        # not evidence about an installed Codex version.
+        native_state = os.environ.get("FLOWFIELD_TEST_NATIVE_STATE")
+        retained = Path(native_state) / "session" if native_state else None
+        if native_state and method:
+            with (Path(native_state) / "requests.jsonl").open("a") as log:
+                log.write(json.dumps({"method": method}) + "\n")
+        if retained and method == "turn/start":
+            retained.write_text("test-session")
         if method == "initialize":
             if "slow-start" in sys.argv:
                 await asyncio.Event().wait()
@@ -423,10 +433,17 @@ async def main():
             reply(request, {"config": {"mcp_servers": {"ambient": {"enabled": True}}}})
         elif method in {"thread/start", "thread/resume"}:
             if method == "thread/resume" and (
-                "no-resume" in sys.argv or "resume-missing" in sys.argv
+                "no-resume" in sys.argv
+                or "resume-missing" in sys.argv
+                or (
+                    retained
+                    and (not retained.exists() or retained.read_text() != params["threadId"])
+                )
             ):
                 send({"id": request["id"], "error": {"code": -32000}})
                 continue
+            if retained and method == "thread/start":
+                assert params["ephemeral"] is False
             loaded = True
             resumed = method == "thread/resume"
             CONFIG[2]["currentValue"] = (

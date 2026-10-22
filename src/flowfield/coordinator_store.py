@@ -43,10 +43,14 @@ class CoordinatorStore:
 
     @staticmethod
     def _recovery(db: sqlite3.Connection, project: str) -> str | None:
+        # An accepted retry may stop before checking the native binding (including
+        # on service restart). It cannot resolve a previous resume failure. Keep
+        # that recovery until a later session outcome or explicit fresh selection.
         row = db.execute(
             "SELECT t.id FROM coordinator_turns t JOIN coordinator_sessions s "
             "ON s.workspace_id=t.workspace_id WHERE t.workspace_id=? "
-            "AND t.number=(SELECT MAX(number) FROM coordinator_turns WHERE workspace_id=?) "
+            "AND t.number=(SELECT MAX(number) FROM coordinator_turns WHERE workspace_id=? "
+            "AND json_extract(data,'$.session') IS NOT NULL) "
             "AND json_extract(t.data,'$.session')='unavailable' "
             "AND s.generation_id IS NOT NULL AND s.fresh=0",
             (project, project),

@@ -52,6 +52,10 @@ The service saves your messages, public output and turn settings. Saved final re
 
 Switching harness, adding a project or changing a member repository path starts a fresh native session on the next message. Other settings changes follow the harness's continuation rules. Saved Flowfield conversation stays available; fresh sessions receive recent exchanges and can retrieve older history. Native tool history stays with its original session.
 
-If a session cannot resume, follow its recovery message or choose **Start new session**. Interrupted prompts are never replayed automatically. When cleanup is uncertain, inspect and stop remaining native work on the host before **Confirm coordinator stopped**. Reattach earlier files when a new session needs their contents.
+Reloading or reconnecting the browser only refreshes saved messages; it does not resend them or select a new native session. Restarting the service also keeps the retained session binding. Its next message resumes when the harness, history location and settings remain compatible.
+
+If a session cannot resume, follow its recovery message or choose **Start new session**. A retry interrupted before checking the session keeps that recovery available. Selecting a new session survives another restart, preserves your saved conversation and takes effect on your next message. Restoring the host's original session and successfully resuming also clears recovery.
+
+Interrupted prompts are never replayed automatically. When cleanup is uncertain, inspect and stop remaining native work on the host before **Confirm coordinator stopped**. Reattach earlier files when a new session needs their contents; saved chat does not reconstruct missing native tool history or attachment contents.
 
 Resize Coordinator and Work on wide screens. Switching between their phone views preserves the current draft.
