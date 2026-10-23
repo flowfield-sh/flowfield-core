@@ -13,13 +13,14 @@ test("reopened browser restores tabs and history, prunes missing resources and k
   context,
   request,
 }, testInfo) => {
+  const projectId = `saved-tabs-${testInfo.repeatEachIndex}`;
   await fixtureProject(request, {
     data: {
-      id: "saved-tabs",
-      path: existingDirectory(join(state, "saved-tabs")),
+      id: projectId,
+      path: existingDirectory(join(state, projectId)),
     },
   });
-  const workspace = await projectWorkspace(request, "saved-tabs");
+  const workspace = await projectWorkspace(request, projectId);
   const base = `/workspaces/${workspace}`;
   await request.post(`/api${base}/tasks`, {
     data: { title: "Persistent navigation" },
@@ -76,14 +77,29 @@ test("reopened browser restores tabs and history, prunes missing resources and k
   const final = await context.newPage();
   let absent = false;
   let outage = true;
+  const locations = new URLSearchParams();
+  for (const path of [
+    "inbox",
+    "tasks",
+    "tasks/T-1",
+    "tasks/T-404",
+    "documents",
+  ])
+    locations.append("location", `${base}/${path}`);
+  const presenceResponse = await request.get(
+    `/api${base}/view/resource-presence?${locations}`,
+  );
+  expect(presenceResponse.ok()).toBe(true);
+  const presence = await presenceResponse.json();
+  // Keep the real presence response fixed while simulating outage/removal.
+  // Proxy fetches can outlive route removal during the final redirect cleanup.
   await final.route("**/view/resource-presence?*", async (route) => {
     if (outage)
       return route.fulfill({
         status: 503,
         json: { detail: "Temporary failure" },
       });
-    const response = await route.fetch();
-    const data = await response.json();
+    const data = { ...presence };
     if (absent) data[`${base}/tasks/T-1`] = false;
     await route.fulfill({ json: data });
   });
