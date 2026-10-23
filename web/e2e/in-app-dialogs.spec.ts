@@ -270,6 +270,9 @@ test("worker and model reload decisions preserve access drafts and recover from 
   });
   await choose(picker.getByLabel("Access mode"), "read-only");
   // A background read may finish while the reload confirmation is open.
+  const savedSettings = await request.get(base + "/coordinator-settings");
+  expect(savedSettings.ok(), await savedSettings.text()).toBeTruthy();
+  const settings = await savedSettings.json();
   let releaseRead!: () => void;
   let readStarted!: () => void;
   const heldRead = new Promise<void>((resolve) => {
@@ -282,10 +285,9 @@ test("worker and model reload decisions preserve access drafts and recover from 
   await page.route(`**${base}/coordinator-settings`, async (route) => {
     if (route.request().method() === "GET" && holdRead) {
       holdRead = false;
-      const response = await route.fetch();
       readStarted();
       await heldRead;
-      return route.fulfill({ response });
+      return route.fulfill({ json: settings });
     }
     return route.request().method() === "PUT" || fail
       ? route.fulfill({

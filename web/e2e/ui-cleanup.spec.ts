@@ -90,7 +90,8 @@ test("a service outage blocks once, preserves drafts, and recovers without repla
       down = true;
     }
     if (req.url().endsWith("/api/health")) probes++;
-    return down ? route.abort() : route.continue();
+    // Keep the shared model-catalog fixtures active before and after the outage.
+    return down ? route.abort() : route.fallback();
   });
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Connection lost" });
