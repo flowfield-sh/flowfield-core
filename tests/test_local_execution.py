@@ -28,6 +28,26 @@ def repository(tmp_path):
     return repo, baseline(repo)
 
 
+def test_cancelled_checks_do_not_launch_a_process(tmp_path, monkeypatch):
+    from flowfield.adapters.local_checks import run_checks
+
+    repo, base = repository(tmp_path)
+    env = LocalHost(os.environ).prepare(tmp_path / "state", repo, "cancelled-check", base)
+
+    async def unexpected_launch(*args, **kwargs):
+        pytest.fail("A cancelled check must not launch a process")
+
+    monkeypatch.setattr(LocalProcess, "start", unexpected_launch)
+    reports = asyncio.run(
+        run_checks(env, ["touch first", "touch second"], 60, cancelled=lambda: True)
+    )
+    assert len(reports) == 1
+    assert reports[0].command == "touch first" and reports[0].exit_code == 130
+    assert reports[0].output == ""
+    assert not (env.checkout / "first").exists()
+    assert not (env.checkout / "second").exists()
+
+
 def test_host_tools_and_settings_are_available_without_registration(tmp_path):
     repo, base = repository(tmp_path)
     tools = tmp_path / "installed-tools"

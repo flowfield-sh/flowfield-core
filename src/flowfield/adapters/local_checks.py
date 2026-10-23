@@ -55,6 +55,8 @@ async def _run_check(
     on_progress: Callable[[CommandProgress, list[CheckResult]], None] | None,
     cancelled: Callable[[], bool] | None,
 ) -> CheckResult:
+    if cancelled and cancelled():
+        return CheckResult(command=command, exit_code=130, output="")
     owner = None
     readers: list[asyncio.Task[None]] = []
     output = bytearray()
