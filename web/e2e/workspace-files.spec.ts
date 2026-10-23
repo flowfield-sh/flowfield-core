@@ -38,6 +38,12 @@ test("workspace files organize retained task outputs without a project", async (
   await footer
     .getByRole("button", { name: "Send answer", exact: true })
     .click();
+  await expect(
+    footer.getByRole("textbox", { name: "Your answer", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("region", { name: "Request", exact: true }),
+  ).toContainText("Use a 1024 pixel viewport.");
   await page.goto(`${base}/tasks/${value.waiting_task}`);
   await expect(page.getByLabel("Task feed")).toContainText(
     "Use a 1024 pixel viewport.",

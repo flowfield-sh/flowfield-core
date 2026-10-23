@@ -56,6 +56,16 @@ export function hostStatus(
 
 // Ordinary browser checks never discover or start an installed agent.
 export const test = base.extend({
+  request: async ({ playwright, baseURL }, provide) => {
+    // Fixture reads may follow long browser interactions. Avoid reusing a
+    // socket at the service's idle-close boundary; never replay mutations.
+    const request = await playwright.request.newContext({
+      baseURL,
+      extraHTTPHeaders: { Connection: "close" },
+    });
+    await provide(request);
+    await request.dispose();
+  },
   context: async ({ context }, provide, testInfo) => {
     const unexpectedDialogs: string[] = [];
     context.on("page", (page) => {
