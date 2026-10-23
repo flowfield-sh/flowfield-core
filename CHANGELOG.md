@@ -18,7 +18,7 @@
 
 - Insert dragged tasks at the chosen position between cards, including across columns, without drop animations.
 - Preserve Coordinator fresh-session recovery through restart and failed retry without discarding saved conversation history.
-- Recover closed update streams automatically, including in Firefox, and preserve views and drafts while reconnecting.
+- Recover closed update streams automatically, including in Firefox, and pace connection checks while preserving views and drafts.
 - Wait and retry when result preview preparation encounters an active integration instead of reporting an immediate failure.
 - Keep task events in causal order, use canonical role labels across records, and constrain long permission-button labels with full-text tooltips.
 - Adopt saved label revisions before reopening their editor and preserve expanded Inbox lists when a background refresh interrupts pagination.

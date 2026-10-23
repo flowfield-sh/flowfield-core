@@ -48,7 +48,7 @@ export function ConnectionRecovery() {
             onClick={async () => {
               setChecking(true);
               try {
-                await checkServiceConnection();
+                await checkServiceConnection({ immediate: true });
               } finally {
                 setChecking(false);
               }

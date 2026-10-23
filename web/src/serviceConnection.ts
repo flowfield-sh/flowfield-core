@@ -9,9 +9,14 @@ let controller: AbortController | null = null;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((listener) => listener());
 
-export function checkServiceConnection(): Promise<boolean> {
+export function checkServiceConnection({
+  immediate = false,
+} = {}): Promise<boolean> {
   if (probe) return probe;
+  // Failed reads and stream signals share the scheduled retry after an outage.
+  if (timer !== undefined && !immediate) return Promise.resolve(!unavailable);
   clearTimeout(timer);
+  timer = undefined;
   const pending = new AbortController();
   controller = pending;
   probe = (async () => {
@@ -38,7 +43,10 @@ export function checkServiceConnection(): Promise<boolean> {
     probe = null;
     controller = null;
     if (unavailable && listeners.size)
-      timer = setTimeout(() => void checkServiceConnection(), 2000);
+      timer = setTimeout(() => {
+        timer = undefined;
+        void checkServiceConnection();
+      }, 2000);
   });
   return probe;
 }
@@ -53,6 +61,7 @@ function subscribe(listener: () => void) {
     listeners.delete(listener);
     if (!listeners.size) {
       clearTimeout(timer);
+      timer = undefined;
       controller?.abort();
       controller = null;
       probe = null;

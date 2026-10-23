@@ -102,6 +102,13 @@ test("a service outage blocks once, preserves drafts, and recovers without repla
   await page.keyboard.press("Escape");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("button")).toHaveCount(1);
+  // Separate failure signals must not replace the shared scheduled retry.
+  await page.evaluate(async () => {
+    for (let signal = 0; signal < 6; signal++) {
+      window.dispatchEvent(new Event("offline"));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  });
   await expect.poll(() => probes).toBeGreaterThanOrEqual(2);
   expect(probes).toBeLessThan(5);
   await page.screenshot({ path: testInfo.outputPath("connection-lost.png") });
