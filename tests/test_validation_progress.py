@@ -94,6 +94,7 @@ def test_validation_timeout_bounds_recent_output_and_restart_read(tmp_path):
     from flowfield.application import Workspace
     from flowfield.integration import Integrations
     from flowfield.integration_models import IntegrationConfig
+    from flowfield.storage import acquire_lock
 
     service, _, _ = fixture(
         tmp_path, checks=["head -c 25000 /dev/zero | tr '\\0' x; printf tail; sleep 30"]
@@ -108,7 +109,12 @@ def test_validation_timeout_bounds_recent_output_and_restart_read(tmp_path):
             check_timeout_seconds=2,
         ),
     )
-    with ThreadPoolExecutor() as executor:
+    # Match a running service: independent readers share initialization while
+    # its execution lease prevents them from becoming a second initializer.
+    with (
+        acquire_lock(service.workspace.directory, ".execution.lock"),
+        ThreadPoolExecutor() as executor,
+    ):
         pending = executor.submit(service.results.process, "harbor")
         record = wait_for(
             lambda: (
