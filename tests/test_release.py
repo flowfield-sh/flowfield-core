@@ -42,7 +42,7 @@ def repository(tmp_path, monkeypatch, release):
     (root / "pyproject.toml").write_text('[project]\nname="flowfield-core"\nversion="0.1.0"\n')
     (root / "uv.lock").write_text('[[package]]\nname="flowfield-core"\nversion="0.1.0"\n')
     (root / "CHANGELOG.md").write_text("## 0.1.0\n\nReviewed first release.\n")
-    (root / ".gitignore").write_text("release-notes.md\n")
+    (root / ".gitignore").write_text("release-notes.md\n.work/\n")
     git("add", ".")
     git("commit", "-m", "Reviewed source")
     git("push", "origin", "main")
@@ -133,6 +133,8 @@ def test_local_release_publication_and_failures(repository, release, monkeypatch
 
     def run(*args, capture=False, timeout=120):
         calls.append(args)
+        if args[-1] == "--version" or args[:2] == ("uv", "publish"):
+            return "fixture-tool-version"
         if args[:3] == ("git", "remote", "get-url"):
             return f"git@github.com:{release.REPOSITORY}.git"
         if args[:2] == ("uv", "version"):
@@ -501,3 +503,119 @@ def test_expired_candidate_never_tags_or_rebuilds(repository, release, monkeypat
         release.publish("0.1.0", False, candidate_run=7)
     assert not git("tag", "--list")
     assert not any(call[0] in {"make", "uv"} or call[:2] == ("git", "push") for call in calls)
+
+
+def test_local_stages_resume_and_invalidate_only_relevant_success(repository, release, monkeypatch):
+    root, _, git = repository
+    for name in ("web/e2e/example.spec.ts", "src/app.py", "tests/test_app.py"):
+        file = root / name
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text("original\n")
+    git("add", ".")
+    git("commit", "-m", "Stage inputs")
+    original = release.run
+    calls = []
+    fail = True
+
+    def run(*args, **kwargs):
+        nonlocal fail
+        if args[0] == "git":
+            return original(*args, **kwargs)
+        if args[-1] == "--version":
+            return "fixed-tool"
+        calls.append(args)
+        if args == ("make", "smoke") and fail:
+            fail = False
+            raise subprocess.CalledProcessError(1, args)
+        if args == ("make", "build"):
+            (root / "dist").mkdir(exist_ok=True)
+            for name in release.distributions("0.1.0"):
+                (root / "dist" / name).write_text("original artifact")
+        return ""
+
+    monkeypatch.setattr(release, "run", run)
+    monkeypatch.delenv("FLOWFIELD_BUILD_BUN", raising=False)
+    with pytest.raises(subprocess.CalledProcessError):
+        release.preparation_stages("0.1.0")
+    calls.clear()
+    release.preparation_stages("0.1.0")
+    assert ("make", "setup") in calls
+    assert ("make", "quality") not in calls and ("make", "test") not in calls
+    assert ("make", "smoke") in calls and ("make", "build") in calls
+    calls.clear()
+    release.preparation_stages("0.1.0")
+    assert calls == [("make", "setup")]
+    (root / "web/e2e/example.spec.ts").write_text("fixed assertion\n")
+    calls.clear()
+    release.preparation_stages("0.1.0")
+    assert ("make", "test") not in calls
+    assert ("make", "smoke") in calls and ("make", "build") in calls
+    # Generated package deletion/tampering invalidates build and installed evidence.
+    next((root / "dist").glob("*.whl")).unlink()
+    calls.clear()
+    release.preparation_stages("0.1.0")
+    assert ("make", "build") in calls
+    (root / "src/app.py").write_text("changed behavior\n")
+    calls.clear()
+    release.preparation_stages("0.1.0")
+    assert ("make", "test") in calls and ("make", "smoke") in calls
+
+
+def test_stage_success_is_not_recorded_when_source_changes(repository, release, monkeypatch):
+    root, _, _ = repository
+    original = release.run
+
+    def run(*args, **kwargs):
+        if args[0] == "git":
+            return original(*args, **kwargs)
+        if args == ("make", "quality"):
+            (root / "CHANGELOG.md").write_text("concurrent edit")
+        return "tool"
+
+    monkeypatch.setattr(release, "run", run)
+    monkeypatch.delenv("FLOWFIELD_BUILD_BUN", raising=False)
+    with pytest.raises(ValueError, match="Inputs changed"):
+        release.preparation_stages("0.1.0")
+    assert not json.loads((root / ".work/release/preparation.json").read_text())["stages"]
+
+
+def test_public_verification_retries_reads_but_rejects_changed_bytes(monkeypatch):
+    verifier = load("verify_public")
+    calls = []
+
+    def read(url, wait=120):
+        calls.append(url)
+        return b"old" if len(calls) == 1 else b"published"
+
+    monkeypatch.setattr(verifier, "read", read)
+    monkeypatch.setattr(verifier.time, "sleep", lambda _: None)
+    verifier.matching("https://fixture.invalid/asset", verifier.digest(b"published"), wait=1)
+    assert len(calls) == 2
+    with pytest.raises(ValueError, match="Public content differs"):
+        verifier.matching("https://fixture.invalid/asset", verifier.digest(b"different"), wait=0)
+    assert verifier.normalized("Use [Codex](/agents/codex).") == verifier.normalized(
+        "Use [Codex](https://docs.flowfield.sh/agents/codex.md)."
+    )
+
+
+def test_public_verification_bounds_transient_registry_wait(monkeypatch):
+    verifier = load("verify_public")
+    from io import BytesIO
+    from urllib.error import HTTPError
+
+    calls = []
+
+    def open_url(request, timeout):
+        calls.append(request.full_url)
+        if len(calls) == 1:
+            raise HTTPError(request.full_url, 404, "Propagating", {}, None)
+        return BytesIO(b"published")
+
+    monkeypatch.setattr(verifier, "urlopen", open_url)
+    monkeypatch.setattr(verifier.time, "sleep", lambda _: None)
+    assert verifier.read("https://fixture.invalid/index", wait=1) == b"published"
+    assert len(calls) == 2
+    calls.clear()
+    with pytest.raises(HTTPError):
+        verifier.read("https://fixture.invalid/index", wait=0)
+    assert len(calls) == 1

@@ -1,3 +1,4 @@
+import { state } from "./support";
 import {
   fixtureProject,
   projectWorkspace,
@@ -13,7 +14,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   page,
   request,
 }) => {
-  const path = join(process.env.FLOWFIELD_SMOKE_STATE!, "agent-settings");
+  const path = join(state, "agent-settings");
   mkdirSync(path, { recursive: true });
   expect(
     (
@@ -546,7 +547,7 @@ test("Integration uses Local automatically and preserves drafts across project t
   page,
   request,
 }) => {
-  const path = join(process.env.FLOWFIELD_SMOKE_STATE!, "local-adoption");
+  const path = join(state, "local-adoption");
   mkdirSync(path, { recursive: true });
   expect(
     (

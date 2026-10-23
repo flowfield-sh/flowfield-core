@@ -1,12 +1,9 @@
 # Browser verification
 
-Run `make smoke` from the repository root after `make setup` and `pnpm --dir web exec playwright install chromium`.
-Playwright uses `server.mjs` to start an owned service with a temporary store, check readiness, and shut it down before removing the store.
-Set `FLOWFIELD_SMOKE_PORT` to an unused local port when another checkout is running the suite; the browser, service and fixture clients share that port (default `8766`).
-Set `FLOWFIELD_SMOKE_STATE` only when intentionally retaining an isolated fixture store for inspection; do not use a live user store.
+Run `make smoke` after `make setup` and `pnpm --dir web exec playwright install chromium firefox`.
 
-For the Inbox scrolling regression, build with `pnpm --dir web build`, then run `pnpm --dir web exec playwright test e2e/inbox-scroll.spec.ts --project=journeys`.
-The fixture combines a real code result with a question, expands response forms and evidence, and measures document/pane geometry while using wheel, keyboard and Chromium touch input.
-It also checks drafts, scroll restoration, resizing, compact surface switching, stale/pending responses, empty/single/multiple requests, and Delivered/History.
-Screenshots are written to Playwright's test output directory for visual inspection; failures retain traces.
-The shared layout still requires the full smoke suite, including Board's independent horizontal/column scrolling and the existing navigation and response journeys.
+Every test using `support.ts` owns a fresh service and temporary store. `server.py` binds an OS-allocated loopback port and retains the socket through startup; browser/API/CLI fixture clients use that same service. Tests and repeated cases never reuse another test's database, preferences, repository IDs or notification claims. The fixture stops its process group before removing successful state; failed tests and uncertain cleanup retain their store path and service log in Playwright output. `FLOWFIELD_SMOKE_RETAIN=1` also retains successful stores. The old shared `FLOWFIELD_SMOKE_STATE` and `FLOWFIELD_SMOKE_PORT` overrides are rejected.
+
+The suite runs Chromium journeys and a focused Firefox recovery project with two workers. Tests are independently schedulable, including notifications and workspace events. CI uses two shards, each with separate service state and output. Locally use `pnpm --dir web exec playwright test --shard=1/2 --output=test-results/shard-1` and a separate invocation for shard 2; give simultaneous invocations distinct output directories. Repetitions use `--repeat-each=N`, without retry-on-failure settings. State/files needed by a test belong in its test body and use the live `state` export from `support.ts`, never module-level snapshots or another case's setup.
+
+Shared layout changes require the full suite. Test real clicks/page events, keyboard behavior, drafts, scrolling, resizing, compact surfaces and stale/pending responses. Screenshots and traces complement complete-view visual inspection. Fixture readiness awaits actual saved/terminal state; never retry a mutation to mask a race. Ordinary checks do not discover or run installed model agents.

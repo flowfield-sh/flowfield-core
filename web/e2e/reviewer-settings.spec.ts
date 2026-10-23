@@ -1,3 +1,4 @@
+import { state } from "./support";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "@playwright/test";
@@ -7,7 +8,7 @@ test("review defaults and task reset preserve explicit inheritance and missing s
   page,
   request,
 }) => {
-  const path = join(process.env.FLOWFIELD_SMOKE_STATE!, "review-settings");
+  const path = join(state, "review-settings");
   mkdirSync(path, { recursive: true });
   expect((await fixtureProject(request, { data: { path } })).ok()).toBe(true);
   const workspace = await projectWorkspace(request, "review-settings");

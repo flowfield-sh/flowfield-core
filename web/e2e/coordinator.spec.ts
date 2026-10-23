@@ -1,3 +1,4 @@
+import { state } from "./support";
 import { dialogViews } from "./dialog-evidence";
 import { fixtureProject, projectWorkspace, choose, test } from "./support";
 import { mkdirSync } from "node:fs";
@@ -6,7 +7,6 @@ import { expect } from "@playwright/test";
 import type { components } from "../src/api-schema";
 
 type Turn = components["schemas"]["CoordinatorTurn"];
-const state = process.env.FLOWFIELD_SMOKE_STATE!;
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/coordinator/commands/discover*", (route) =>

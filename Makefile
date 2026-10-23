@@ -1,4 +1,4 @@
-.PHONY: setup check format smoke build check-dist release-check docs docs-serve api-types
+.PHONY: setup check quality test format smoke build check-dist release-check docs docs-serve api-types
 
 setup:
 	uv sync --locked
@@ -7,16 +7,20 @@ setup:
 	pnpm --dir runtimes/claude-sdk install --frozen-lockfile --ignore-scripts
 	node runtimes/claude-sdk/build.mjs --host
 
-check:
+check: quality test
+	pnpm --dir web build
+
+quality:
 	uv run ruff format --check .
 	uv run ruff check .
 	uv run mypy
-	uv run pytest
-	node --test runtimes/claude-sdk/cleanup.test.mjs
 	uv run scripts/generate-api-types.py --check
 	pnpm --dir web check
-	pnpm --dir web build
 	$(MAKE) docs
+
+test:
+	uv run pytest
+	node --test runtimes/claude-sdk/cleanup.test.mjs
 
 format:
 	uv run ruff format .

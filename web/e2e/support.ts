@@ -1,3 +1,4 @@
+import { startService } from "./service";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { basename, resolve, join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -55,7 +56,29 @@ export function hostStatus(
 }
 
 // Ordinary browser checks never discover or start an installed agent.
-export const test = base.extend({
+export let state: string;
+let port: number;
+export const test = base.extend<{
+  service: Awaited<ReturnType<typeof startService>>;
+}>({
+  service: [
+    // Playwright requires an object pattern for fixture dependencies.
+    // eslint-disable-next-line no-empty-pattern
+    async ({}, provide, info) => {
+      const service = await startService(info);
+      state = service.state;
+      port = service.port;
+      try {
+        await provide(service);
+      } finally {
+        await service.stop();
+      }
+    },
+    { auto: true, timeout: 45000 },
+  ],
+  baseURL: async ({ service }, provide) => {
+    await provide(service.baseURL);
+  },
   request: async ({ playwright, baseURL }, provide) => {
     // Fixture reads may follow long browser interactions. Avoid reusing a
     // socket at the service's idle-close boundary; never replay mutations.
@@ -79,7 +102,7 @@ export const test = base.extend({
       });
     });
     // Contextual delivery is exercised with real competing clients in its dedicated suite.
-    // Other journeys choose quiet preferences so unrelated shared-state events do not cover controls.
+    // Other journeys choose quiet preferences so background events do not cover controls.
     if (testInfo.project.name === "journeys")
       await context.request.patch("/api/announcements/settings", {
         data: {
@@ -130,8 +153,6 @@ export function existingDirectory(path: string) {
   return path;
 }
 
-export const state = process.env.FLOWFIELD_SMOKE_STATE!;
-
 export const checkout = resolve("..");
 
 export function cli(args: string[], cwd?: string) {
@@ -146,7 +167,7 @@ export function cli(args: string[], cwd?: string) {
         "--data-dir",
         state,
         "--port",
-        process.env.FLOWFIELD_SMOKE_PORT ?? "8766",
+        String(port),
         ...args,
         "--json",
       ],

@@ -1,3 +1,4 @@
+import { state } from "./support";
 import { fixtureProject, projectWorkspace, choose, test } from "./support";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -7,7 +8,7 @@ test("long definitions collapse with a fade and history loads only when expanded
   page,
   request,
 }, testInfo) => {
-  const path = join(process.env.FLOWFIELD_SMOKE_STATE!, "definition-preview");
+  const path = join(state, "definition-preview");
   mkdirSync(path, { recursive: true });
   await fixtureProject(request, {
     data: { path },
@@ -123,7 +124,7 @@ test("workspace workers reject flattened role fields and show the shared Fast ch
   page,
   request,
 }) => {
-  const path = join(process.env.FLOWFIELD_SMOKE_STATE!, "task-speed");
+  const path = join(state, "task-speed");
   mkdirSync(path, { recursive: true });
   await fixtureProject(request, {
     data: { path },
@@ -174,12 +175,12 @@ test("definition revisions show focused word diffs and compact field values", as
   request,
 }, testInfo) => {
   const project = "definition-diffs";
-  mkdirSync(join(process.env.FLOWFIELD_SMOKE_STATE!, project), {
+  mkdirSync(join(state, project), {
     recursive: true,
   });
   await fixtureProject(request, {
     data: {
-      path: join(process.env.FLOWFIELD_SMOKE_STATE!, project),
+      path: join(state, project),
     },
   });
   const task = await (

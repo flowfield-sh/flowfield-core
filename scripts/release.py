@@ -211,26 +211,56 @@ def fetch_candidate(run_id: int, destination: Path, pin: dict | None = None) -> 
     }
     if pin is not None and pin != identity:
         raise ValueError("Candidate artifact differs from the annotated tag's pinned identity.")
-    destination.mkdir(parents=True, exist_ok=False)
-    with tempfile.TemporaryDirectory(prefix="flowfield-candidate-") as scratch:
-        archive = Path(scratch) / "candidate.zip"
-        with archive.open("wb") as output:
-            subprocess.run(
-                [
-                    "gh",
-                    "api",
-                    "--allow-escape-sequences",
-                    f"repos/{REPOSITORY}/actions/artifacts/{artifact['id']}/zip",
-                ],
-                cwd=ROOT,
-                stdout=output,
-                check=True,
-                timeout=180,
-            )
-        if f"sha256:{digest(archive)}" != artifact["digest"]:
-            raise ValueError("Downloaded candidate archive digest mismatch.")
-        extract_candidate(archive, destination)
+    cache = ROOT / ".work" / "release" / "archives"
+    cache.mkdir(parents=True, exist_ok=True)
+    archive = cache / f"{artifact['id']}.zip"
+    if not archive.exists():
+        # Interrupted downloads never become reusable artifacts.
+        with tempfile.TemporaryDirectory(prefix="download-", dir=cache) as scratch:
+            temporary = Path(scratch) / "candidate.zip"
+            with temporary.open("wb") as output:
+                subprocess.run(
+                    [
+                        "gh",
+                        "api",
+                        "--allow-escape-sequences",
+                        f"repos/{REPOSITORY}/actions/artifacts/{artifact['id']}/zip",
+                    ],
+                    cwd=ROOT,
+                    stdout=output,
+                    check=True,
+                    timeout=180,
+                )
+            if f"sha256:{digest(temporary)}" != artifact["digest"]:
+                raise ValueError("Downloaded candidate archive digest mismatch.")
+            temporary.replace(archive)
+    if f"sha256:{digest(archive)}" != artifact["digest"]:
+        raise ValueError("Cached candidate archive digest mismatch; remove the corrupt cache.")
+    if not destination.exists():
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="extract-", dir=destination.parent) as scratch:
+            extracted = Path(scratch) / "candidate"
+            extract_candidate(archive, extracted)
+            verify_payload(extracted, commit, run_id, attempt)
+            extracted.rename(destination)
     verify_payload(destination, commit, run_id, attempt)
+    # These are reproducible downloads, not workspace evidence. Bound local disk use.
+    for directory, current, suffix in [
+        (cache, archive, ".zip"),
+        (ROOT / ".work" / "release" / "candidates", destination, ""),
+    ]:
+        entries = sorted(
+            (
+                path
+                for path in directory.glob("*")
+                if not path.is_symlink() and path.name.removesuffix(suffix).isdigit()
+            ),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        others = [path for path in entries if path != current]
+        for path in others[2:]:
+            shutil.rmtree(path) if path.is_dir() else path.unlink()
     return identity
 
 
@@ -411,6 +441,103 @@ def wait_run(workflow: str, commit: str, branch: str) -> int:
     )
 
 
+def stage_fingerprint(stage: str, command: tuple[str, ...], environment: dict) -> str:
+    """Exclude only inputs that the named check cannot consume; packages include all source."""
+    files = run("git", "ls-files", "-z", capture=True).split("\0")
+    hashes = {}
+    for name in filter(None, files):
+        if stage == "backend" and name.startswith(("web/", "docs/", ".github/")):
+            continue
+        if stage == "browser" and name.startswith("tests/test_"):
+            continue
+        hashes[name] = digest(ROOT / name)
+    value = {"files": hashes, "command": command, "environment": environment}
+    return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
+
+
+def preparation_stages(version: str) -> None:
+    """Resume successful local stages, without replacing exact-source hosted verification."""
+    directory = ROOT / ".work" / "release"
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / "preparation.json"
+    receipt = json.loads(path.read_text()) if path.exists() else {"schema": 1, "stages": {}}
+    if receipt.get("schema") != 1:
+        raise ValueError("Unknown local preparation receipt; inspect it before retrying.")
+
+    def save() -> None:
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(receipt, indent=2) + "\n")
+        temporary.replace(path)
+
+    environment = {
+        "checkout": str(ROOT),
+        "python": sys.version,
+        "executable": sys.executable,
+        "platform": sys.platform,
+        "path": os.environ.get("PATH", ""),
+        "bun": os.environ.get("FLOWFIELD_BUILD_BUN", ""),
+        "tools": {tool: run(tool, "--version", capture=True) for tool in ("uv", "node", "pnpm")},
+    }
+    if environment["bun"]:
+        environment["bun_digest"] = digest(Path(environment["bun"]))
+    # Locked dependencies and host runtime must exist even after local cache cleanup.
+    run("make", "setup", timeout=900)
+    stages = [
+        ("quality", ("make", "quality")),
+        ("backend", ("make", "test")),
+        ("browser", ("make", "smoke")),
+        ("build", ("make", "build")),
+        ("installed", ("make", "check-dist")),
+        (
+            "metadata",
+            (
+                "uv",
+                "publish",
+                "--dry-run",
+                "--trusted-publishing",
+                "never",
+                *(str(ROOT / "dist" / name) for name in sorted(distributions(version))),
+            ),
+        ),
+    ]
+    for name, command in stages:
+        key = stage_fingerprint(name, command, environment)
+        saved = receipt["stages"].get(name, {})
+        packages = {
+            str(file.relative_to(ROOT)): digest(file)
+            for file in (ROOT / "dist").glob("*")
+            if file.is_file() and file.suffix in {".whl", ".gz"}
+        }
+        has_packages = name in {"build", "installed", "metadata"}
+        if saved.get("fingerprint") == key and (
+            not has_packages or (packages and saved.get("packages") == packages)
+        ):
+            print(f"Reuse local {name}: verified inputs unchanged ({saved['source']}).", flush=True)
+            continue
+        # A failed/restarted stage cannot leave an older success reusable.
+        receipt["stages"].pop(name, None)
+        save()
+        started = time.monotonic()
+        print(f"Run local {name}.", flush=True)
+        run(*command, timeout=1800)
+        if key != stage_fingerprint(name, command, environment):
+            raise ValueError(f"Inputs changed during {name}; no success recorded.")
+        receipt["stages"][name] = {
+            "fingerprint": key,
+            "source": run("git", "rev-parse", "HEAD", capture=True),
+            "command": command,
+            "seconds": round(time.monotonic() - started, 3),
+            "packages": {
+                str(file.relative_to(ROOT)): digest(file)
+                for file in (ROOT / "dist").glob("*")
+                if file.is_file() and file.suffix in {".whl", ".gz"}
+            }
+            if has_packages
+            else {},
+        }
+        save()
+
+
 def publish(
     version: str, dry_run: bool, prepare: bool = False, candidate_run: int | None = None
 ) -> None:
@@ -423,22 +550,19 @@ def publish(
         return
     run("gh", "auth", "status", "--hostname", "github.com")
     if candidate_run is None:
-        before = run("git", "rev-parse", "HEAD", capture=True)
         if version != current:
             run("uv", "version", version, "--no-sync")
-        run("make", "setup", timeout=900)
-        run("make", "release-check", timeout=1800)
+            run("git", "diff", "--check")
+            changed = run("git", "diff", "HEAD", "--name-only", capture=True).splitlines()
+            if not set(changed) <= {"pyproject.toml", "uv.lock"}:
+                raise ValueError("Unexpected changes while setting the version.")
+            run("git", "add", "--", "pyproject.toml", "uv.lock")
+            run("git", "commit", "-m", f"Prepare release {version}")
+        # Commit version metadata first: failures leave a clean, resumable source.
+        before = run("git", "rev-parse", "HEAD", capture=True)
+        preparation_stages(version)
         if run("git", "rev-parse", "HEAD", capture=True) != before:
             raise ValueError("HEAD changed during checks; inspect and rerun the release.")
-        run("git", "diff", "--check")
-        changed = run("git", "diff", "HEAD", "--name-only", capture=True).splitlines()
-        if not set(changed) <= {"pyproject.toml", "uv.lock"}:
-            raise ValueError("Unexpected changes during release checks; inspect the checkout.")
-        if changed:
-            run("git", "add", "--", *changed)
-            run("git", "diff", "--cached", "--check")
-            run("git", "diff", "--cached")
-            run("git", "commit", "-m", f"Prepare release {version}")
         preflight(version)
         run("git", "push", "origin", "HEAD:refs/heads/main")
         commit = run("git", "rev-parse", "HEAD", capture=True)
@@ -446,8 +570,9 @@ def publish(
     elif current != version:
         raise ValueError("Candidate promotion cannot change the version or source.")
     commit = run("git", "rev-parse", "HEAD", capture=True)
-    with tempfile.TemporaryDirectory(prefix="flowfield-promotion-") as scratch:
-        identity = fetch_candidate(candidate_run, Path(scratch) / "candidate")
+    identity = fetch_candidate(
+        candidate_run, ROOT / ".work" / "release" / "candidates" / str(candidate_run)
+    )
     if prepare:
         print(
             f"Verified candidate {candidate_run} for {version} at {commit}; no tag or publication."

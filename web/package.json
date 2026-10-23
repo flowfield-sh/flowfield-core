@@ -12,7 +12,8 @@
     "build": "tsc --noEmit && vite build",
     "check": "tsc --noEmit && eslint . && prettier --check .",
     "format": "prettier --write .",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:fixtures": "node --test e2e/service-lifecycle.test.mjs"
   },
   "dependencies": {
     "@dnd-kit/dom": "^0.5.0",
