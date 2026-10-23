@@ -174,7 +174,7 @@ export function Result({
             metadata={
               version.completion === "code" && version.target_branch ? (
                 <>
-                  Destination:{" "}
+                  Project:{" "}
                   {worker.data?.project_id ? (
                     <WorkspaceLink
                       className="text-inherit"
@@ -187,7 +187,8 @@ export function Result({
                   ) : (
                     "…"
                   )}
-                  /{version.target_branch}
+                  {" · Branch: "}
+                  {version.target_branch}
                 </>
               ) : undefined
             }
