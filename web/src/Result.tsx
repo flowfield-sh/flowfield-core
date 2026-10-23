@@ -371,6 +371,28 @@ export function Result({
             )}
           {
             <DetailSection title="Checks" role="region" aria-label="Checks">
+              {version.reuse_action && (
+                <div className="space-y-2">
+                  <p>
+                    {version.reuse_action.action === "revalidate"
+                      ? version.reuse_action.reason
+                      : version.reuse_action.label}
+                  </p>
+                  {version.reuse_action.action === "revalidate" && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy || !inputEnabled}
+                      onClick={() => void recover("revalidate")}
+                    >
+                      {busy
+                        ? "Checking destination…"
+                        : version.reuse_action.label}
+                    </Button>
+                  )}
+                </div>
+              )}
               {version.integration_id && !evidence.data ? (
                 <p>
                   {evidence.loading ? "Loading checks…" : "Checks unavailable."}
@@ -379,6 +401,7 @@ export function Result({
                 <ReviewChecks
                   preparation={evidence.data}
                   availability={availability.data}
+                  reusePending={version.reuse_action?.action === "revalidate"}
                   report={version.report.checks}
                   completion={version.completion}
                   branch={version.target_branch}

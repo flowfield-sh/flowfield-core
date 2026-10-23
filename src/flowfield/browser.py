@@ -25,6 +25,7 @@ from flowfield.document_models import DocumentUpdate
 from flowfield.document_updates import project_updates
 from flowfield.errors import ApplicationError
 from flowfield.labels import Labels, WorkspaceLabel
+from flowfield.prerequisite_reads import PendingCode, pending_code
 from flowfield.publication import (
     Publication,
     PublicationStatus,
@@ -86,7 +87,7 @@ class BrowserWorkspaceBoard(BaseModel):
     attention_work_keys: list[str] = Field(default_factory=list)
     attention_requests: dict[str, str] = Field(default_factory=dict)
     awaiting_application_count: int
-    pending_code: dict[str, list[TaskReference]]
+    pending_code: dict[str, list[PendingCode]]
 
 
 def task_timeline(
@@ -211,25 +212,13 @@ class BrowserReads:
         records: dict[str, TaskRevision],
         positions: dict[str, int],
         completed: set[str],
-    ) -> tuple[list[TaskCard], dict[str, list[TaskReference]]]:
+    ) -> tuple[list[TaskCard], dict[str, list[PendingCode]]]:
         timeline = task_timeline(db, workspace_id)
         batch = CardReadBatch(
             facts=read_task_facts(self.workspace, db, workspace_id),
             questions=project_blocking_questions(db, workspace_id),
             documents=(project_updates(db, workspace_id)),
         )
-        available = {
-            row[0]
-            for row in db.execute(
-                "SELECT task_id FROM runs r WHERE workspace_id=? AND status='accepted' "
-                "AND (json_extract(data,'$.code_available')=1 "
-                "OR json_extract(data,'$.completion')='report') AND NOT EXISTS "
-                "(SELECT 1 FROM runs newer WHERE newer.workspace_id=r.workspace_id "
-                "AND newer.task_id=r.task_id AND newer.status='accepted' "
-                "AND newer.number>r.number)",
-                (workspace_id,),
-            )
-        }
         return (
             [
                 self._card(
@@ -244,17 +233,7 @@ class BrowserReads:
                 for item in records.values()
                 if item.workspace_id == workspace_id
             ],
-            {
-                task.key: [
-                    TaskReference(**records[key].model_dump())
-                    for key in task.dependencies
-                    if key in completed
-                    and records[key].workspace_id == workspace_id
-                    and records[key].id not in available
-                ]
-                for task in records.values()
-                if task.workspace_id == workspace_id and task.status in ("backlog", "up_next")
-            },
+            pending_code(self.workspace, db, workspace_id, records, completed),
         )
 
     def workspace_board(self, workspace_id: str) -> BrowserWorkspaceBoard:

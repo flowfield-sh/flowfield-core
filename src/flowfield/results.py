@@ -36,10 +36,11 @@ class Results:
 
     def _present(self, db: sqlite3.Connection, value: ResultVersion) -> ResultVersion:
         from flowfield.outputs import Outputs
-        from flowfield.result_actions import result_action
+        from flowfield.result_actions import result_action, reuse_action
 
         value.files = Outputs.selected(db, value.workspace_id, value.output_ids)
         value.next_action = result_action(self.workspace, db, value)
+        value.reuse_action = reuse_action(self.workspace, db, value)
         value.recheck_of = db.execute(
             "SELECT min(version) FROM result_versions WHERE run_id=? AND version<?",
             (value.run_id, value.version),

@@ -1,8 +1,9 @@
-import { BlockedBy } from "./TaskLinks";
+import type { components } from "./api-schema";
+import { TaskLink, BlockedBy } from "./TaskLinks";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { taskHref } from "./navigation";
 import { QuestionLink } from "./QuestionLink";
-import type { TaskCard, TaskReference } from "./workspace";
+import type { TaskCard } from "./workspace";
 import { WorkState } from "./WorkState";
 
 function combinedDependencies(task: TaskCard) {
@@ -48,7 +49,7 @@ export function TaskState({
 
 export function hasTaskNeeds(
   task: TaskCard,
-  pendingCode: TaskReference[] = [],
+  pendingCode: components["schemas"]["PendingCode"][] = [],
   showQuestions = true,
   includeDependencies = false,
   hideDependencies = false,
@@ -77,7 +78,7 @@ export function TaskNeeds({
 }: {
   task: TaskCard;
   projectId: string;
-  pendingCode?: TaskReference[];
+  pendingCode?: components["schemas"]["PendingCode"][];
   open: (id: string) => void;
   detailed?: boolean;
   showQuestions?: boolean;
@@ -135,16 +136,24 @@ export function TaskNeeds({
             )}
           </li>
         ))}
-      {!!pendingCode.length && (
-        <li>
-          <BlockedBy
-            prefix="Needs code from"
-            projectId={projectId}
-            tasks={pendingCode}
-            open={open}
-          />
+      {pendingCode.map((prerequisite) => (
+        <li key={prerequisite.key}>
+          <TaskLink projectId={projectId} task={prerequisite} open={open} />
+          {prerequisite.reuse_action?.action === "revalidate" ? (
+            <>
+              {": "}
+              {prerequisite.reuse_action.reason}{" "}
+              {prerequisite.result_href && (
+                <WorkspaceLink to={prerequisite.result_href}>
+                  {prerequisite.reuse_action.label} for {prerequisite.key}
+                </WorkspaceLink>
+              )}
+            </>
+          ) : (
+            " — prerequisite code is unavailable. Open the task for details."
+          )}
         </li>
-      )}
+      ))}
     </ul>
   );
 }

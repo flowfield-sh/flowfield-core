@@ -656,6 +656,13 @@ class ContextReads:
                 }
                 for q in blocking_questions(db, workspace_id, identity)[:5]
             ]
+            from flowfield.prerequisite_reads import pending_code
+
+            pending = pending_code(self.workspace, db, workspace_id, records, completed).get(
+                item.key, []
+            )
+            result["pending_code"] = [reference.model_dump() for reference in pending[:5]]
+            result["pending_code_count"] = len(pending)
             result["dependencies"] = item.dependencies[:5]
             latest = self.workspace._latest_update(db, workspace_id, item.id)
             result["latest_update"] = excerpt(latest.model_dump(), 1000) if latest else None

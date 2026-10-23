@@ -173,7 +173,7 @@ def task_state(
             elif action.label == "Check reviewer state":
                 tone = "attention"
             elif result.status == "delivered":
-                tone = "complete" if action.action == "none" else "attention"
+                tone = "complete"
             elif result.status in ("blocked", "stale"):
                 tone = "attention"
             return WorkState(

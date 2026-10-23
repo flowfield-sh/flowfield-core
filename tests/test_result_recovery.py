@@ -193,9 +193,9 @@ def test_historical_done_revalidates_external_advance_without_moving_git(tmp_pat
     assert not service.execution.get("harbor", run.id).code_available
     assert service.workspace.task("harbor", "work").status == "done"
     version = current(service)
-    assert any(
-        i.id == version.id for i in attention_page(service.workspace, "harbor", "action").items
-    )
+    assert not attention_page(service.workspace, "harbor", "action").items
+    assert version.next_action.action == "none"
+    assert version.reuse_action.action == "revalidate"
     checked = service.results.revalidate("harbor", version.id, action(version))
     assert checked.approved_at == version.approved_at
     assert checked.integration_id == version.integration_id

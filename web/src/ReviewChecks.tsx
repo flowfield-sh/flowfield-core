@@ -9,6 +9,7 @@ type Integration = IntegrationRead;
 
 export function ReviewChecks({
   preparation,
+  reusePending,
   availability,
   report,
   completion,
@@ -16,6 +17,7 @@ export function ReviewChecks({
   historyHref,
 }: {
   preparation: Integration | null;
+  reusePending?: boolean;
   availability: Integration | null;
   report: string;
   completion: string;
@@ -33,16 +35,18 @@ export function ReviewChecks({
           open={availability.status !== "integrated"}
           summary={
             <>
-              Current branch:{" "}
+              Destination checks:{" "}
               {availability.status === "integrated"
-                ? availability.checks.length
-                  ? "Passed"
-                  : "No validation commands configured"
+                ? reusePending
+                  ? "Previously passed; current validation needed"
+                  : availability.checks.length
+                    ? "Passed"
+                    : "No validation commands configured"
                 : label(availability.status)}
             </>
           }
         >
-          <p>Checks on {branch} after delivery.</p>
+          <p>Recorded checks on {branch} after delivery.</p>
           {availability.problem && <p>{availability.problem}</p>}
           <CheckEvidence
             checks={availability.setup_checks ?? []}
@@ -61,7 +65,9 @@ export function ReviewChecks({
         <Disclosure
           summary={
             <>
-              Flowfield:{" "}
+              {preparation.status === "integrated"
+                ? "Delivery checks: "
+                : "Flowfield: "}
               {preparation.checks.length
                 ? `${preparation.checks.filter((check) => check.exit_code === 0).length} of ${preparation.checks.length} project checks passed`
                 : ["ready", "integrated"].includes(preparation.status)
@@ -70,7 +76,11 @@ export function ReviewChecks({
             </>
           }
           className="review-disclosure check-source"
-          help={`Independent checks of the code combined with ${branch}. Expand a command for its output.`}
+          help={
+            preparation.status === "integrated"
+              ? "Checks recorded for the successful delivery. Current reuse validation is separate. Expand a command for its output."
+              : `Independent checks of the code combined with ${branch}. Expand a command for its output.`
+          }
           open={[
             ...(preparation.setup_checks ?? []),
             ...preparation.checks,

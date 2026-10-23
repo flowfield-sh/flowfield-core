@@ -125,9 +125,6 @@ WITH scope_workspaces AS (SELECT id FROM workspaces WHERE id=:workspace), run_it
                  AND review.task_id=v.task_id
                  AND review.status IN ('queued','preparing','running','waiting')) THEN 'waiting'
              WHEN v.status IN ('ready','blocked','stale','cancelled') THEN 'action'
-             WHEN v.status='delivered' AND json_extract(v.data,'$.completion')='code'
-                AND NOT (SELECT json_extract(data,'$.code_available') FROM runs WHERE id=v.run_id)
-                THEN 'action'
              WHEN v.status IN ('preparing','delivering','changes_requested') THEN 'waiting'
              ELSE 'history' END, v.run_id, v.version
     FROM result_versions v JOIN tasks t ON t.workspace_id=v.workspace_id AND t.id=v.task_id

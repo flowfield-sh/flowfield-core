@@ -74,6 +74,7 @@ class ResultVersion(Record):
     correction: Correction | None = None
     availability_id: str | None = None
     next_action: ResultAction | None = None
+    reuse_action: ResultAction | None = None
     recheck_of: int | None = None
     review_requested: bool = False
     independent_review: IndependentAssessment | None = None

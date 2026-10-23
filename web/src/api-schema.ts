@@ -2855,7 +2855,7 @@ export interface components {
       awaiting_application_count: number;
       /** Pending Code */
       pending_code: {
-        [key: string]: components["schemas"]["TaskReference"][];
+        [key: string]: components["schemas"]["PendingCode"][];
       };
     };
     /** CatalogConfirmation */
@@ -4387,6 +4387,31 @@ export interface components {
       /** Truncated */
       truncated: boolean;
     };
+    /** PendingCode */
+    PendingCode: {
+      /** Workspace Id */
+      workspace_id: string;
+      /** Project Id */
+      project_id?: string | null;
+      /** Id */
+      id: string;
+      /** Key */
+      key: string;
+      /** Title */
+      title: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "backlog" | "up_next" | "in_progress" | "in_review" | "done";
+      /** Archived */
+      archived: boolean;
+      /** Reconciliation Reason */
+      reconciliation_reason: string | null;
+      /** Result Href */
+      result_href?: string | null;
+      reuse_action?: components["schemas"]["ResultAction"] | null;
+    };
     /** PermissionAnswer */
     PermissionAnswer: {
       /** Expected Revision */
@@ -5053,6 +5078,7 @@ export interface components {
       /** Availability Id */
       availability_id: string | null;
       next_action: components["schemas"]["ResultAction"] | null;
+      reuse_action: components["schemas"]["ResultAction"] | null;
       /** Recheck Of */
       recheck_of: number | null;
       /**

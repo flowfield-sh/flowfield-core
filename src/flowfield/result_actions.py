@@ -79,16 +79,6 @@ def result_action(
         ).fetchone()[0]
         if agreement != run.agreement_revision:
             return ResultAction(owner="none", action="none", label="Earlier result")
-        if value.completion == "code" and not run.code_available:
-            return ResultAction(
-                owner="human",
-                action="revalidate",
-                label="Check destination",
-                reason=(
-                    "Previously integrated code needs current checks before dependent "
-                    "work can use it. This does not change the branch."
-                ),
-            )
         return ResultAction(owner="none", action="none", label="Delivered")
     task = workspace._task(db, value.workspace_id, value.task_id)
     revised_assignment = False
@@ -282,5 +272,27 @@ def result_action(
         label="Inspect blocker",
         reason=(
             "Resume the coordinator with this task and the recorded failure before restarting work."
+        ),
+    )
+
+
+def reuse_action(
+    workspace: "Workspace", db: sqlite3.Connection, value: ResultVersion
+) -> ResultAction | None:
+    """Current reuse readiness is separate from the immutable delivery outcome."""
+    if value.completion != "code" or value.status != "delivered":
+        return None
+    if result_action(workspace, db, value).label != "Delivered":
+        return None
+    run = Execution(workspace)._run(db, value.workspace_id, value.run_id)
+    if run.code_available:
+        return ResultAction(owner="none", action="none", label="Validated for reuse")
+    return ResultAction(
+        owner="human",
+        action="revalidate",
+        label="Check destination",
+        reason=(
+            "Delivery succeeded. Current destination validation is needed before dependent "
+            "work can use this code. Checking does not change the branch or delivery approval."
         ),
     )

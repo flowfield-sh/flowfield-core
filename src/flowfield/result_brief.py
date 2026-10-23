@@ -3,7 +3,7 @@
 import sqlite3
 from typing import TYPE_CHECKING, Any
 
-from flowfield.result_actions import result_action
+from flowfield.result_actions import result_action, reuse_action
 from flowfield.result_models import ResultVersion
 
 if TYPE_CHECKING:
@@ -39,8 +39,6 @@ def result_brief(
         "AND NOT EXISTS (SELECT 1 FROM result_versions n WHERE n.workspace_id=v.workspace_id "
         "AND n.task_id=v.task_id AND n.version>v.version) "
         "ORDER BY CASE WHEN v.status IN ('blocked','stale') THEN 0 "
-        "WHEN v.status='delivered' AND json_extract(v.data,'$.completion')='code' "
-        "AND NOT json_extract(r.data,'$.code_available') THEN 0 "
         "WHEN v.status='ready' THEN 1 WHEN v.status='delivered' THEN 3 ELSE 2 END,"
         "v.number DESC LIMIT ?",
         (workspace_id, task_id, task_id, limit),
@@ -51,7 +49,10 @@ def result_brief(
         item.pop("total")
         item["current"] = item["run_id"] == item["current_run_id"]
         saved = db.execute("SELECT data FROM result_versions WHERE id=?", (item["id"],)).fetchone()
-        action = result_action(workspace, db, ResultVersion.model_validate_json(saved[0]))
+        version = ResultVersion.model_validate_json(saved[0])
+        action = result_action(workspace, db, version)
+        reuse = reuse_action(workspace, db, version)
+        item["reuse_action"] = reuse.model_dump() if reuse else None
         item["owner"], item["next_action"] = action.owner, action.action
         item["action_label"], item["action_reason"] = action.label, action.reason
         item["outcome_excerpt"] = item.pop("outcome")

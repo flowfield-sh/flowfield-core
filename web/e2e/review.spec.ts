@@ -504,7 +504,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   request,
 }, testInfo) => {
   // Several real scheduler/delivery transitions each have bounded waits below.
-  test.setTimeout(60_000);
+  test.setTimeout(120_000);
   const seed = JSON.parse(
     execFileSync(
       join(checkout, ".venv/bin/python"),
@@ -637,6 +637,9 @@ test("validated result approval delivers real Git code with the worker queue pau
     },
   });
   expect(replay.status).toBe("delivered");
+  const deliveredEvidence = await (
+    await request.get(`${base}/results/${seed.result}`)
+  ).json();
   const git = (...args: string[]) =>
     execFileSync("git", ["-C", seed.repository, ...args], {
       encoding: "utf8",
@@ -650,7 +653,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   await expect(
     page.getByRole("button", { name: "Approve and integrate" }),
   ).toHaveCount(0);
-  await result.getByText(/^Flowfield: .*project checks passed$/).click();
+  await result.getByText(/^Delivery checks: .*project checks passed$/).click();
   await expect(
     result.getByText("Project commands", { exact: true }),
   ).toBeVisible();
@@ -706,7 +709,8 @@ test("validated result approval delivers real Git code with the worker queue pau
         const observed = await (
           await request.get(`${base}/results/${seed.result}`)
         ).json();
-        return observed.next_action?.action;
+        expect(observed.next_action?.action).toBe("none");
+        return observed.reuse_action?.action;
       },
       { timeout: 15000 },
     )
@@ -719,7 +723,100 @@ test("validated result approval delivers real Git code with the worker queue pau
     page.getByRole("button", { name: "Check destination" }),
   ).toBeVisible();
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
-  await page.getByRole("button", { name: "Check destination" }).click();
+  const workspacePath = base.replace("/api", "");
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto(`${workspacePath}/tasks`);
+      const card = page.locator(".task-card").filter({ hasText: "T-1" });
+      await expect(
+        card.locator('.work-state[data-tone="complete"]'),
+      ).toContainText("Delivered");
+      await expect(card).not.toContainText("Check destination");
+      await card.scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: testInfo.outputPath(
+          `delivered-board-${colorScheme}-${width}.png`,
+        ),
+        fullPage: true,
+      });
+      const recent = page.getByRole("navigation", {
+        name: "Recent Work",
+        exact: true,
+      });
+      if (!(await recent.isVisible()))
+        await page
+          .getByRole("button", { name: "Open workspaces", exact: true })
+          .click();
+      await expect(recent).toBeVisible();
+      await expect(
+        recent.getByText("Needs attention", { exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        recent
+          .locator("a")
+          .filter({ hasText: "T-1" })
+          .locator('[data-tone="complete"]'),
+      ).toHaveCount(1);
+      await page.screenshot({
+        path: testInfo.outputPath(
+          `delivered-sidebar-${colorScheme}-${width}.png`,
+        ),
+        fullPage: true,
+      });
+      await recent.locator("a").filter({ hasText: "T-1" }).click();
+      await expect(page).toHaveURL(`${workspacePath}/results/${seed.result}`);
+      await page.goto(`${workspacePath}/tasks/T-1`);
+      await expect(
+        page.locator('.entity-pane-title [data-tone="complete"]'),
+      ).toHaveCount(1);
+      await page.screenshot({
+        path: testInfo.outputPath(`delivered-task-${colorScheme}-${width}.png`),
+        fullPage: true,
+      });
+      await page.goto(`${workspacePath}/results/${seed.result}`);
+      await expect(
+        page.locator('.entity-pane-title [data-tone="complete"]'),
+      ).toHaveCount(1);
+      await expect(
+        result.getByRole("region", { name: "Checks", exact: true }),
+      ).toContainText("Delivery succeeded");
+      await expect(
+        result.getByRole("region", { name: "Result recovery" }),
+      ).toHaveCount(0);
+      await page.screenshot({
+        path: testInfo.outputPath(
+          `delivered-result-top-${colorScheme}-${width}.png`,
+        ),
+        fullPage: true,
+      });
+      await page
+        .getByRole("button", { name: "Check destination" })
+        .scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: testInfo.outputPath(
+          `delivered-result-${colorScheme}-${width}.png`,
+        ),
+        fullPage: true,
+      });
+    }
+  }
+  await page.goto(`${workspacePath}/tasks/T-2`);
+  const checkLink = page.getByRole("link", {
+    name: "Check destination for T-1",
+    exact: true,
+  });
+  await expect(checkLink).toBeVisible();
+  await expect(page.locator(".task-needs")).toContainText("Delivery succeeded");
+  await page.screenshot({
+    path: testInfo.outputPath("dependent-validation-needed.png"),
+    fullPage: true,
+  });
+  await checkLink.click();
+  await expect(page).toHaveURL(`${workspacePath}/results/${seed.result}`);
+  await page.getByRole("button", { name: "Check destination" }).focus();
+  await page.keyboard.press("Enter");
   await expect(
     result.getByRole("region", { name: "Current branch checks" }),
   ).toContainText("Passed");
@@ -735,6 +832,77 @@ test("validated result approval delivers real Git code with the worker queue pau
   await result.getByRole("link", { name: "Open branch check details" }).click();
   await expect(
     history.getByRole("heading", { name: "Review 1 branch checks" }),
+  ).toBeVisible();
+  await page.goto(`${workspacePath}/tasks/T-2`);
+  await expect(
+    page.getByRole("link", { name: "Check destination for T-1", exact: true }),
+  ).toHaveCount(0);
+  const settings = await (
+    await request.get(`/api/projects/${seed.project}/integration`)
+  ).json();
+  const changed = await request.put(
+    `/api/projects/${seed.project}/integration`,
+    {
+      data: {
+        expected_revision: settings.revision,
+        runtime: settings.runtime,
+        target_branch: settings.target_branch,
+        setup_commands: settings.setup_commands,
+        checks: ["exit 9"],
+      },
+    },
+  );
+  expect(changed.ok()).toBe(true);
+  await page.goto(`${workspacePath}/tasks/T-2`);
+  await page
+    .getByRole("link", { name: "Check destination for T-1", exact: true })
+    .click();
+  await expect(
+    result.getByRole("region", { name: "Current branch checks" }),
+  ).toContainText("Previously passed; current validation needed");
+  await page
+    .getByRole("button", { name: "Check destination", exact: true })
+    .click();
+  await expect(
+    result.getByRole("region", { name: "Current branch checks" }),
+  ).toContainText("Failed");
+  await expect(
+    page.locator('.entity-pane-title [aria-label="Delivered"]'),
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: "Approve and integrate" }),
+  ).toHaveCount(0);
+  const failedRefresh = await (
+    await request.get(`${base}/results/${seed.result}`)
+  ).json();
+  for (const field of [
+    "approved_at",
+    "approved_by",
+    "approval_note",
+    "completed_at",
+    "integration_id",
+    "candidate_commit",
+  ])
+    expect(failedRefresh[field]).toBe(deliveredEvidence[field]);
+  expect(failedRefresh.status).toBe("delivered");
+  expect(failedRefresh.reuse_action.action).toBe("revalidate");
+  expect(git("rev-parse", "integration")).toBe(advanced);
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await result
+        .getByRole("region", { name: "Current branch checks" })
+        .scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: testInfo.outputPath(`failed-reuse-${colorScheme}-${width}.png`),
+        fullPage: true,
+      });
+    }
+  }
+  await page.goto(`${workspacePath}/tasks/T-2`);
+  await expect(
+    page.getByRole("link", { name: "Check destination for T-1", exact: true }),
   ).toBeVisible();
 });
 
@@ -1232,7 +1400,7 @@ test("inspection preserves exact versions, preview edits and direct approval", a
 test("outcomes finish reports, preserve partial work and offer one contextual remedy", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   test.setTimeout(90000);
   execFileSync("uv", [
     "run",
@@ -1328,6 +1496,40 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     page.getByRole("button", { name: "Approve and integrate" }),
   ).toHaveCount(0);
   expect((await result("report")).approved_at).toBeNull();
+  await expect(
+    page.getByRole("region", { name: "Proposed result", exact: true }),
+  ).toContainText("A detailed finding.");
+  await expect(
+    page.getByRole("button", { name: "Check destination" }),
+  ).toHaveCount(0);
+  await expect(
+    page.locator('.entity-pane-title [aria-label="Delivered"]'),
+  ).toHaveCount(1);
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.screenshot({
+        path: testInfo.outputPath(
+          `report-delivered-${colorScheme}-${width}.png`,
+        ),
+        fullPage: true,
+      });
+      await reportPane.hover();
+      await page.mouse.wheel(0, 5000);
+      await expect(
+        page.getByRole("region", { name: "Checks", exact: true }),
+      ).toBeInViewport();
+      await page.screenshot({
+        path: testInfo.outputPath(`report-checks-${colorScheme}-${width}.png`),
+        fullPage: true,
+      });
+      await page.mouse.wheel(0, -5000);
+      await expect(
+        page.getByRole("heading", { name: "Report outcome", exact: true }),
+      ).toBeInViewport();
+    }
+  }
   await expect(async () =>
     expect((await result("partial"))?.problem_code).toBe("partial_outcome"),
   ).toPass();
@@ -1379,6 +1581,22 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     actions.getByRole("button", { name: "Archive", exact: true }),
   ).toHaveCount(0);
   await expect(recovery.getByRole("link")).toHaveCount(0);
+  await expect(
+    page.locator('.entity-pane-title [data-tone="attention"]'),
+  ).toHaveCount(1);
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await actions
+        .getByRole("button", { name: "Request correction" })
+        .scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: testInfo.outputPath(`blocked-result-${colorScheme}-${width}.png`),
+        fullPage: true,
+      });
+    }
+  }
   const taskPath = `/api/workspaces/${await projectWorkspace(page.request, "outcome-checks")}/tasks/work`;
   const originalTask = await (await request.get(taskPath)).json();
   expect(
