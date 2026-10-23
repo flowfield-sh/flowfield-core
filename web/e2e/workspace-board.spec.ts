@@ -114,7 +114,6 @@ test("shared workspace board, project filters, Inbox and settings", async ({
     "Documents",
     "Files",
     "Projects",
-    "Archive",
     "Settings",
   ]);
   await expect(

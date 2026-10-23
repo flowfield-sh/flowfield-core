@@ -69,7 +69,7 @@ test("board columns scroll independently with fixed headings and reachable cards
   await expect(page.locator(".queue-controls")).toContainText(
     "1 of 2 workers active",
   );
-  await expect(backlog.getByRole("link")).toHaveCount(14);
+  await expect(backlog.locator(".task-card-link")).toHaveCount(14);
   // Force scrollbars that consume layout space, even on an overlay-scrollbar host.
   await page.addStyleTag({
     content: `* { scrollbar-width: auto; }
@@ -248,11 +248,11 @@ test("Inbox response lists paginate and wrap long cards without horizontal scrol
     `/workspaces/${await projectWorkspace(page.request, project)}/inbox`,
   );
   const action = page.getByRole("tabpanel", { name: "Needs me", exact: true });
-  await expect(action.locator(".request-card")).toHaveCount(14);
+  await expect(action.locator(".inbox-history-row")).toHaveCount(14);
   await action.getByRole("button", { name: "Load more", exact: true }).click();
-  await expect(action.locator(".request-card")).toHaveCount(15);
-  await action.locator(".request-card").last().scrollIntoViewIfNeeded();
-  await expect(action.locator(".request-card").last()).toBeInViewport();
+  await expect(action.locator(".inbox-history-row")).toHaveCount(15);
+  await action.locator(".inbox-history-row").last().scrollIntoViewIfNeeded();
+  await expect(action.locator(".inbox-history-row").last()).toBeInViewport();
   await page.getByRole("tab", { name: "History", exact: true }).click();
   await expect(
     page.getByRole("tabpanel", { name: "History", exact: true }),
@@ -260,7 +260,7 @@ test("Inbox response lists paginate and wrap long cards without horizontal scrol
   await page.getByRole("tab", { name: "Needs me", exact: true }).click();
   await expect(
     action.getByRole("button", { name: "Allow_".repeat(80), exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   for (const width of [1800, 390]) {
     await page.setViewportSize({ width, height: 800 });
     expect(
@@ -278,7 +278,7 @@ test("Inbox response lists paginate and wrap long cards without horizontal scrol
   await page.getByRole("tab", { name: "Needs me", exact: true }).click();
   await expect(
     page.getByRole("group", { name: "Suggested answers" }).first(),
-  ).toBeVisible();
+  ).toHaveCount(0);
   expect(
     await action.evaluate((node) => node.scrollWidth <= node.clientWidth),
   ).toBe(true);

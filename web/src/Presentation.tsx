@@ -1,5 +1,5 @@
 import { TaskLabels } from "./TaskLabels";
-import { WorkState } from "./WorkState";
+import { HeaderAction } from "./HeaderAction";
 import { authorLabel } from "./workspace";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,6 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { ArrowLeft, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useContext, type ReactNode } from "react";
 import { label, type TaskRevision, type TaskCard } from "./workspace";
 import { usePaneClose, PaneHeading } from "./EntityPane";
@@ -28,18 +27,15 @@ export function CloseControl({
   const backAvailable = useContext(ResourceBackAvailable);
   const dismiss = paneClose ?? close;
   return (
-    <Button
-      size="icon-sm"
-      variant="ghost"
+    <HeaderAction
+      label={label}
       type="button"
-      className={`close-control ${label.startsWith("Back") ? "-ms-2" : "-me-2"}`}
-      aria-label={label}
-      title={label}
+      className="close-control"
       disabled={label.startsWith("Back") && !backAvailable}
       onClick={dismiss}
     >
       {label.startsWith("Back") ? <ArrowLeft /> : <X />}
-    </Button>
+    </HeaderAction>
   );
 }
 
@@ -111,8 +107,7 @@ export function TaskIdentity({
   return (
     <span className="task-identity">
       <span className="task-identity-heading">
-        <WorkState state={task.state} indicatorOnly decorative />
-        <Badge variant="outline">{task.key}</Badge>
+        <Badge variant="outline">{task.key}</Badge>{" "}
         <strong>{title ?? task.title}</strong>
         {metadata}
       </span>

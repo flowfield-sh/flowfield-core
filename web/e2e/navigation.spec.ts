@@ -242,9 +242,7 @@ test("closing entity panes returns through history without duplicate collections
   const inbox = `/workspaces/${workspace}/inbox`;
   await page.goto(board);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
-  await page
-    .getByRole("link", { name: "Open request in work tab", exact: true })
-    .click();
+  await page.locator(".inbox-list .inbox-history-row").click();
   await expect(
     page.getByRole("button", { name: "Back", exact: true }),
   ).toBeDisabled();

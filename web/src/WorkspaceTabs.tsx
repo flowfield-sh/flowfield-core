@@ -2,7 +2,6 @@ import { ResourceScroll } from "./ResourceScroll";
 import {
   createContext,
   useCallback,
-  useContext,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -10,25 +9,19 @@ import {
   type ReactNode,
 } from "react";
 import { useLocation } from "react-router";
-import { ExternalLink, X } from "lucide-react";
+import { X } from "lucide-react";
 import { DragDropProvider, PointerSensor } from "@dnd-kit/react";
 import { Accessibility, PointerActivationConstraints } from "@dnd-kit/dom";
 import { useSortable, isSortable } from "@dnd-kit/react/sortable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { ActionTooltip } from "./ActionTooltip";
 import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
   TooltipProvider,
 } from "@/components/ui/tooltip";
-import {
-  canonicalHref,
-  followLink,
-  workspaceHref,
-  workspacePaths,
-} from "./navigation";
+import { canonicalHref, workspaceHref, workspacePaths } from "./navigation";
 import { matchPath } from "react-router";
 import { request, type WorkspaceBoard } from "./workspace";
 
@@ -451,29 +444,6 @@ export function useWorkspaceTabs(
   };
 }
 export type WorkspaceTabsController = ReturnType<typeof useWorkspaceTabs>;
-export function OpenInWorkTab({
-  href,
-  label,
-}: {
-  href: string;
-  label: string;
-}) {
-  const open = useContext(ResourceNavigation);
-  if (!open) return null;
-  return (
-    <ActionTooltip label={label}>
-      <Button size="icon-sm" variant="ghost" asChild>
-        <a
-          href={href}
-          aria-label={label}
-          onClick={(event) => followLink(event, () => open(href, "open"))}
-        >
-          <ExternalLink />
-        </a>
-      </Button>
-    </ActionTooltip>
-  );
-}
 function title(
   url: string,
   board: WorkspaceBoard | null,

@@ -1,3 +1,5 @@
+import { Plus, Pencil } from "lucide-react";
+import { HeaderAction } from "./HeaderAction";
 import { useId, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,15 +38,14 @@ export function WorkspaceLabels({
     <DetailSection
       title="Labels"
       actions={
-        <Button
+        <HeaderAction
+          label="Add label"
           type="button"
-          size="sm"
-          variant="outline"
           disabled={editing !== null}
           onClick={() => setEditing("new")}
         >
-          Add label
-        </Button>
+          <Plus />
+        </HeaderAction>
       }
     >
       <ResourceRetry resources={[labels]} />
@@ -104,16 +105,14 @@ export function WorkspaceLabels({
                       <p className="detail-metadata">{label.guidance}</p>
                     )}
                   </div>
-                  <Button
+                  <HeaderAction
                     type="button"
-                    size="sm"
-                    variant="outline"
                     disabled={editing !== null}
                     onClick={() => setEditing(label.id)}
-                    aria-label={`Edit ${label.name}`}
+                    label={`Edit ${label.name}`}
                   >
-                    Edit
-                  </Button>
+                    <Pencil />
+                  </HeaderAction>
                 </div>
               )}
             </li>

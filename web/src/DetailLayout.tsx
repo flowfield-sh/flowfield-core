@@ -37,7 +37,6 @@ export function DetailHeading({
   children,
   entry = false,
   titleAs = entry ? "div" : "h3",
-  inlineMetadata = false,
 }: {
   title: ReactNode;
   status?: ReactNode;
@@ -45,7 +44,6 @@ export function DetailHeading({
   children?: ReactNode;
   entry?: boolean;
   titleAs?: "div" | "h2" | "h3";
-  inlineMetadata?: boolean;
 }) {
   const Title = titleAs;
   return (
@@ -57,13 +55,8 @@ export function DetailHeading({
           {title}
         </Title>
         {status && <span className="detail-metadata">{status}</span>}
-        {inlineMetadata && metadata && (
-          <div className="detail-metadata">{metadata}</div>
-        )}
       </div>
-      {!inlineMetadata && metadata && (
-        <p className="detail-metadata">{metadata}</p>
-      )}
+      {metadata && <p className="detail-metadata">{metadata}</p>}
       {children}
     </header>
   );

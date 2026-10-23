@@ -96,13 +96,9 @@ test("outer navigation reuses exact views and project overview explains its envi
     ).ok(),
   ).toBe(true);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
-  await page
-    .getByRole("link", { name: "Open request in work tab", exact: true })
-    .click();
+  await page.locator(".inbox-list .inbox-history-row").click();
   const opened = await tabs();
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
-  await page
-    .getByRole("link", { name: "Open request in work tab", exact: true })
-    .click();
+  await page.locator(".inbox-list .inbox-history-row").click();
   expect(await tabs()).toEqual(opened);
 });

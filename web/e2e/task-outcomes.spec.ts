@@ -52,13 +52,11 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
     name: "Delivered tasks",
     exact: true,
   });
-  await expect(deliveries.locator("article")).toHaveCount(1);
+  await expect(deliveries.locator(".inbox-history-row")).toHaveCount(1);
   await expect(
     deliveries.getByRole("img", { name: "launch-preview.png", exact: true }),
-  ).toBeVisible();
-  await deliveries
-    .getByRole("link", { name: "Open result in work tab" })
-    .click();
+  ).toHaveCount(0);
+  await deliveries.locator(".inbox-history-row").click();
   await expect(page).toHaveURL(new RegExp(`${base}/results/`));
   await expect(page.locator(".task-result")).toBeVisible();
   await page.goto(`${base}/tasks/T-1`);
@@ -67,7 +65,7 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
     page.locator('[aria-label="Task feed"] .task-result'),
   ).not.toBeVisible();
   await page.goto(`${base}?inbox=delivered`);
-  await expect(deliveries.locator("article")).toHaveCount(1);
+  await expect(deliveries.locator(".inbox-history-row")).toHaveCount(1);
   await page.goto(`${base}/tasks`);
   await expect(page.locator(".task-card")).toHaveCount(3);
   await expect(
@@ -238,24 +236,18 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
     path: testInfo.outputPath("assembled-delivered.png"),
   });
   await page.goto(`${base}?inbox=delivered`);
-  await expect(deliveries.locator("article")).toHaveCount(2);
-  await expect(deliveries.locator("article").first()).toContainText("T-2");
-  await expect(deliveries.locator("article").first()).toContainText(
-    "Integrated into main",
-  );
-  await expect(
-    deliveries
-      .locator("article")
-      .first()
-      .getByRole("link", { name: "Access results", exact: true }),
-  ).toBeVisible();
-  await expect(
-    deliveries.locator("article").first().getByRole("img"),
-  ).toHaveCount(0);
-  const recent = page.getByRole("region", { name: "Delivered", exact: true });
-  await expect(recent.locator(".work-navigation-row").first()).toContainText(
+  await expect(deliveries.locator(".inbox-history-row")).toHaveCount(2);
+  await expect(deliveries.locator(".inbox-history-row").first()).toContainText(
     "T-2",
   );
+  await expect(deliveries.locator(".inbox-history-row").first()).toContainText(
+    "Delivered",
+  );
+  await expect(
+    page
+      .getByRole("navigation", { name: "Recent Work" })
+      .getByRole("region", { name: "Delivered", exact: true }),
+  ).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("delivered-desktop.png") });
   await page.setViewportSize({ width: 390, height: 900 });
   await page.emulateMedia({ colorScheme: "dark" });
@@ -330,6 +322,6 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await page.goto(`${base}/archive`);
   await expect(page.getByTestId("work")).toContainText("T-1");
   await page.goto(`${base}?inbox=delivered`);
-  await expect(deliveries.locator("article")).toHaveCount(1);
-  await expect(deliveries.locator("article")).toContainText("T-2");
+  await expect(deliveries.locator(".inbox-history-row")).toHaveCount(1);
+  await expect(deliveries.locator(".inbox-history-row")).toContainText("T-2");
 });

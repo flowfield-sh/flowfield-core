@@ -1,7 +1,6 @@
 import { Separator } from "@/components/ui/separator";
 import { Archive, ArchiveRestore } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ActionTooltip } from "./ActionTooltip";
+import { HeaderAction } from "./HeaderAction";
 import { reportError } from "./requestFeedback";
 import { request } from "./workspace";
 import { useLocation } from "react-router";
@@ -61,47 +60,41 @@ export function TaskDetail({
         close={close}
         closeLabel="Back"
         actions={
-          <ActionTooltip
-            label={task.archive_blocker || archiveLabel}
+          <HeaderAction
+            label={archiveLabel}
+            tooltip={task.archive_blocker || archiveLabel}
             disabled={!!task.archive_blocker || archiving}
+            onClick={async () => {
+              setArchiving(true);
+              try {
+                await request(
+                  `workspaces/${workspaceId}/view/tasks/${task.id}`,
+                  "PUT",
+                  {
+                    expected_revision: task.revision,
+                    archived: !task.archived,
+                    author: "human",
+                  },
+                );
+                close();
+              } catch (error) {
+                reportError(
+                  error,
+                  task.archived
+                    ? "Could not restore task"
+                    : "Could not archive task",
+                );
+              } finally {
+                setArchiving(false);
+              }
+            }}
           >
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label={archiveLabel}
-              disabled={!!task.archive_blocker || archiving}
-              onClick={async () => {
-                setArchiving(true);
-                try {
-                  await request(
-                    `workspaces/${workspaceId}/view/tasks/${task.id}`,
-                    "PUT",
-                    {
-                      expected_revision: task.revision,
-                      archived: !task.archived,
-                      author: "human",
-                    },
-                  );
-                  close();
-                } catch (error) {
-                  reportError(
-                    error,
-                    task.archived
-                      ? "Could not restore task"
-                      : "Could not archive task",
-                  );
-                } finally {
-                  setArchiving(false);
-                }
-              }}
-            >
-              {task.archived ? (
-                <ArchiveRestore size={16} aria-hidden="true" />
-              ) : (
-                <Archive size={16} aria-hidden="true" />
-              )}
-            </Button>
-          </ActionTooltip>
+            {task.archived ? (
+              <ArchiveRestore size={16} aria-hidden="true" />
+            ) : (
+              <Archive size={16} aria-hidden="true" />
+            )}
+          </HeaderAction>
         }
       />
       <ContentStack space="section" className="task-view-navigation">

@@ -537,7 +537,11 @@ test("validated result approval delivers real Git code with the worker queue pau
   await page.goto(
     `/workspaces/${await projectWorkspace(page.request, seed.project)}/inbox`,
   );
-  await page.getByRole("link", { name: /T-1:/ }).click();
+  await page.locator(".inbox-history-row").filter({ hasText: "T-1" }).click();
+  await page
+    .locator(".entity-pane-title")
+    .getByRole("link", { name: /T-1:/ })
+    .click();
   await expect(page).toHaveURL(
     `/workspaces/${await projectWorkspace(page.request, seed.project)}/tasks/T-1`,
   );

@@ -146,7 +146,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
   ).toBeVisible();
   await expect(
     card.locator(".work-state:not([data-indicator-only])"),
-  ).toHaveCount(0);
+  ).toHaveText("Delivered");
   await page.goto(`/workspaces/${workspace}/tasks/T-2`);
   await expect(
     detail
@@ -430,10 +430,9 @@ test("cards keep one state while project questions remain in Inbox", async ({
   await expect(card.locator(".task-needs")).toHaveCount(0);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(
-    page.getByRole("heading", {
-      name: "Which project constraint?",
-      exact: true,
-    }),
+    page
+      .locator(".inbox-history-row")
+      .filter({ hasText: "Which project constraint?" }),
   ).toBeVisible();
 });
 
@@ -558,10 +557,8 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   ).not.toBeFocused();
   await closeOverlay(page);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
-  await expect(page.locator(".request-card")).toHaveCount(1);
-  await page
-    .getByRole("link", { name: "Open request in work tab", exact: true })
-    .click();
+  await expect(page.locator(".inbox-list .inbox-history-row")).toHaveCount(1);
+  await page.locator(".inbox-list .inbox-history-row").click();
   await expect(
     page.getByRole("tab", {
       name: "Waiting",
@@ -691,7 +688,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
     `/workspaces/${await projectWorkspace(request, project_id)}/requests/question/export-scope`,
   );
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
-  await expect(page.locator(".request-card")).toHaveCount(0);
+  await expect(page.locator(".inbox-list .inbox-history-row")).toHaveCount(0);
 });
 
 test("Inbox preserves conflicting drafts and follows up on the same canonical question", async ({
@@ -818,7 +815,7 @@ test("Inbox preserves conflicting drafts and follows up on the same canonical qu
   await expect(detail.locator(".answer-history")).toContainText(
     "Cap it at 10,000.",
   );
-  await expect(page.locator(".request-card")).toHaveCount(0);
+  await expect(page.locator(".inbox-list .inbox-history-row")).toHaveCount(0);
   await detail
     .getByLabel("Your answer", { exact: true })
     .fill("Reject, explain the cap, and suggest narrowing filters.");
@@ -910,7 +907,7 @@ test("retracting answers reopens questions and preserves earlier responses", asy
         exact: true,
         includeHidden: true,
       })
-      .locator(".request-card"),
+      .locator(".inbox-history-row"),
   ).toHaveCount(0);
   await detail.getByText("Earlier responses", { exact: true }).click();
   await expect(detail).toContainText("Visible page");
@@ -1782,22 +1779,24 @@ test("review journey preserves feedback, navigates complete files and reviews a 
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   const boot = await page.evaluate(() => performance.timeOrigin);
   await expect(
-    page.getByRole("link", {
-      name: /T-1: Validate CSV records/,
-    }),
+    page
+      .locator(".inbox-history-row")
+      .filter({ hasText: "Validate CSV records" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", {
-      name: /T-2: Document import options/,
-    }),
+    page
+      .locator(".inbox-history-row")
+      .filter({ hasText: "Document import options" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: /T-2: Which import options/ }),
+    page
+      .locator(".inbox-history-row")
+      .filter({ hasText: "Which import options" }),
   ).toBeVisible();
 
   await page
-    .getByRole("article", { name: "Result: Validate CSV records", exact: true })
-    .getByRole("link", { name: "Open request in work tab" })
+    .locator(".inbox-list .inbox-history-row")
+    .filter({ hasText: "Validate CSV records" })
     .click();
   await expect(page).toHaveURL(/results\/first$/);
   const runs = page.getByRole("region", {

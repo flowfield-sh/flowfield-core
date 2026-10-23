@@ -511,21 +511,24 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
     name: "Needs me",
     exact: true,
   });
-  await expect(
-    action.getByRole("link", {
-      name: `${task.key}: Run the project checks`,
-      exact: true,
-    }),
-  ).toBeVisible();
-  await expect(
-    action.getByRole("button", { name: "Allow once" }),
-  ).toBeVisible();
-  await page.screenshot({ path: "/tmp/flowfield-slice2-attention.png" });
-  await action.getByRole("button", { name: "Allow once" }).click();
+  const row = action
+    .locator(".inbox-history-row")
+    .filter({ hasText: "Run the project checks" });
+  await expect(row).toContainText(task.key);
   await expect(action.getByRole("button", { name: "Allow once" })).toHaveCount(
     0,
   );
-  await expect(action.getByRole("article")).toHaveCount(0);
+  await row.click();
+  await expect(
+    permissionDetail.getByRole("button", { name: "Allow once" }),
+  ).toBeVisible();
+  await page.screenshot({ path: "/tmp/flowfield-slice2-attention.png" });
+  await permissionDetail.getByRole("button", { name: "Allow once" }).click();
+  await expect(
+    permissionDetail.getByRole("button", { name: "Allow once" }),
+  ).toHaveCount(0);
+  await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
+  await expect(action.locator(".inbox-history-row")).toHaveCount(0);
   await page.getByRole("tab", { name: "History", exact: true }).click();
   const history = page.getByRole("tabpanel", { name: "History", exact: true });
   await expect(

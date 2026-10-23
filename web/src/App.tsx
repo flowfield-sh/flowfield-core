@@ -1,3 +1,5 @@
+import { Archive } from "lucide-react";
+import { WorkspaceLink } from "./WorkspaceLink";
 import { Board as ScrollableBoard } from "./Board";
 import { TaskPlanning, PlanningColumn, PlanningCard } from "./TaskPlanning";
 import { ConnectionRecovery } from "./ConnectionRecovery";
@@ -985,6 +987,13 @@ function WorkspaceResource({
                 }
 
                 <div className="actions">
+                  {!showInbox && !archive && (
+                    <Button size="sm" variant="outline" asChild>
+                      <WorkspaceLink to={base + "/archive" + location.search}>
+                        <Archive aria-hidden="true" /> Archive
+                      </WorkspaceLink>
+                    </Button>
+                  )}
                   {projectFilter && (
                     <Button
                       size="sm"
@@ -1024,7 +1033,6 @@ function WorkspaceResource({
             ) : showInbox ? (
               <AttentionBoard
                 board={board}
-                onDirty={setUnsaved}
                 workspaceId={workspaceId}
                 projectId={projectFilter || undefined}
                 refresh={refresh}
@@ -1105,26 +1113,24 @@ function WorkspaceResource({
                                           </ScopedAnchor>
                                         }
                                       />
-                                      {task.state?.tone !== "complete" && (
-                                        <TaskState
-                                          task={task}
-                                          projectId={task.workspace_id}
-                                          open={(id) =>
-                                            choose({
-                                              kind: "task",
-                                              id:
-                                                board.tasks.find(
-                                                  (item) =>
-                                                    item.project_id ===
-                                                      task.project_id &&
-                                                    (item.id === id ||
-                                                      item.key === id),
-                                                )?.key ?? id,
-                                            })
-                                          }
-                                          linked
-                                        />
-                                      )}
+                                      <TaskState
+                                        task={task}
+                                        projectId={task.workspace_id}
+                                        open={(id) =>
+                                          choose({
+                                            kind: "task",
+                                            id:
+                                              board.tasks.find(
+                                                (item) =>
+                                                  item.project_id ===
+                                                    task.project_id &&
+                                                  (item.id === id ||
+                                                    item.key === id),
+                                              )?.key ?? id,
+                                          })
+                                        }
+                                        linked
+                                      />
                                     </WorkCard>
                                   </PlanningCard>
                                 ))}

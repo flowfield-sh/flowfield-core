@@ -1,4 +1,5 @@
-import { Button } from "@/components/ui/button";
+import { Columns3, Settings } from "lucide-react";
+import { HeaderAction } from "./HeaderAction";
 import { ContentStack, DetailSection } from "./DetailLayout";
 import { DetailHeader } from "./Presentation";
 import { Markdown } from "./Markdown";
@@ -29,18 +30,18 @@ export function ProjectOverview({
         close={close}
         actions={
           <div className="actions">
-            <Button size="sm" variant="outline" asChild>
+            <HeaderAction label="View tasks" asChild>
               <WorkspaceLink
                 to={boardHref(board.workspace.id, { project: project.id })}
               >
-                View tasks
+                <Columns3 />
               </WorkspaceLink>
-            </Button>
-            <Button size="sm" variant="outline" asChild>
+            </HeaderAction>
+            <HeaderAction label="Settings" tooltip="Project settings" asChild>
               <WorkspaceLink to={`${projectHref(project.id)}/edit`}>
-                Settings
+                <Settings />
               </WorkspaceLink>
-            </Button>
+            </HeaderAction>
           </div>
         }
       />

@@ -1,6 +1,14 @@
 import { expect, type Page } from "@playwright/test";
 
 export async function openResource(page: Page, name: string) {
+  if (name === "Archive") {
+    await openResource(page, "Tasks Board");
+    await page
+      .locator(".board-toolbar")
+      .getByRole("link", { name, exact: true })
+      .click();
+    return;
+  }
   const resources = page.getByRole("navigation", {
     name: "Workspace resources",
   });

@@ -3,7 +3,7 @@ import { useCallback, useContext, useEffect, useState } from "react";
 import { DocumentUsage } from "./DocumentUsage";
 import { useDirtyItems } from "./useDirtyItems";
 import { ResourceTitles } from "./WorkspaceTabs";
-import { FileText } from "lucide-react";
+import { FileText, Pencil, Eye, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import type { components } from "./api-schema";
 import type { AdjacentSnapshot } from "./AdjacentView";
 import { ContentStack } from "./DetailLayout";
 import { EntityPane } from "./EntityPane";
+import { HeaderAction } from "./HeaderAction";
 import { DetailHeader } from "./Presentation";
 import { Markdown, MarkdownField } from "./Markdown";
 import { RevisionHistory } from "./RevisionHistory";
@@ -343,13 +344,14 @@ function DocumentEditor({
           <div className="actions">
             {historical || selected.deleted_at ? (
               <>
-                <Button size="sm" variant="outline" asChild>
+                <HeaderAction label="Current document" asChild>
                   <WorkspaceLink to={`${base}/${selected.id}`}>
-                    Current document
+                    <FileText />
                   </WorkspaceLink>
-                </Button>
-                <Button
-                  size="sm"
+                </HeaderAction>
+                <HeaderAction
+                  label="Restore"
+                  tooltip="Restore this document revision"
                   disabled={
                     busy ||
                     (!selected.deleted_at &&
@@ -367,17 +369,21 @@ function DocumentEditor({
                     )
                   }
                 >
-                  Restore
-                </Button>
+                  <RotateCcw />
+                </HeaderAction>
               </>
             ) : (
-              <Button size="sm" variant="outline" asChild>
+              <HeaderAction
+                label={editing ? "View document" : "Edit"}
+                tooltip={editing ? "View document" : "Edit document"}
+                asChild
+              >
                 <WorkspaceLink
                   to={`${base}/${selected.id}${editing ? "" : "/edit"}`}
                 >
-                  {editing ? "View document" : "Edit"}
+                  {editing ? <Eye /> : <Pencil />}
                 </WorkspaceLink>
-              </Button>
+              </HeaderAction>
             )}
           </div>
         }

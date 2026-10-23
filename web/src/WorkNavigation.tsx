@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import {
-  Archive,
   Columns3,
   FileText,
   Files,
@@ -16,7 +15,6 @@ import {
 import { WorkIdentity } from "./WorkIdentity";
 import { followLink, taskHref, workspaceHref } from "./navigation";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { DeliveredNavigation } from "./Delivered";
 import { ResourceRetry } from "./ResourceRetry";
 import { useResource } from "./useResource";
 import type { WorkspaceBoard } from "./workspace";
@@ -79,10 +77,6 @@ export function WorkNavigation({
     `workspaces/${board.workspace.id}/view/attention?column=action&limit=5`,
     board,
   );
-  const delivered = useResource<components["schemas"]["DeliveredPage"]>(
-    `workspaces/${board.workspace.id}/view/delivered?limit=5`,
-    board,
-  );
   const attentionKeys = new Set(board.attention_work_keys);
   const progress = board.tasks
     .filter(
@@ -103,7 +97,6 @@ export function WorkNavigation({
     { name: "Documents", href: base + "/documents", Icon: FileText },
     { name: "Files", href: base + "/files", Icon: Files },
     { name: "Projects", href: base + "/projects", Icon: Folder },
-    { name: "Archive", href: base + "/archive", Icon: Archive },
   ];
   return (
     <>
@@ -140,20 +133,15 @@ export function WorkNavigation({
           <Settings size={16} /> Settings
         </a>
       </nav>
-      {(!!attention.data?.items.length ||
-        !!delivered.data?.items.length ||
-        !!progress.length) && (
+      {(!!attention.data?.items.length || !!progress.length) && (
         <div className="work-navigation-heading">
           <span>Recent Work</span>
         </div>
       )}
       {(!!attention.data?.items.length ||
-        !!delivered.data?.items.length ||
         !!progress.length ||
         attention.loading ||
-        delivered.loading ||
-        attention.error ||
-        delivered.error) && (
+        attention.error) && (
         <nav className="work-navigation-scroll" aria-label="Recent Work">
           <div className="work-navigation-list">
             {(!!attention.data?.items.length || attention.error) && (
@@ -176,12 +164,6 @@ export function WorkNavigation({
                 )}
               </section>
             )}
-            <DeliveredNavigation
-              workspaceId={board.workspace.id}
-              page={delivered}
-              current={current}
-              open={open}
-            />
             {!!progress.length && (
               <section aria-label="In progress">
                 <h3 className="work-group-label">In progress</h3>

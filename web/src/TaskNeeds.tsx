@@ -22,9 +22,8 @@ export function TaskState({
 }) {
   return (
     <>
-      {task.state?.tone !== "idle" && (
+      {task.state && (
         <WorkState
-          showIndicator={false}
           state={
             task.state && { ...task.state, href: taskHref(projectId, task) }
           }

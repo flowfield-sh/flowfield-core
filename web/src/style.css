@@ -330,7 +330,7 @@
   }
 
   .task-card-link {
-    display: block;
+    display: inline;
     color: inherit;
     text-decoration: none;
     width: 100%;
@@ -597,13 +597,13 @@
     width: 100%;
   }
   .task-identity-heading {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
+    display: block;
+    line-height: 1.65;
     min-width: 0;
   }
-  .task-identity-heading > strong {
-    min-width: 0;
+  .task-identity-heading > [data-slot="badge"] {
+    vertical-align: baseline;
+    margin-right: 2px;
   }
   .question-detail > .detail-heading-block > h2 a {
     color: inherit;

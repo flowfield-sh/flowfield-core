@@ -144,194 +144,129 @@ test("mixed Inbox history opens exact permission records without response contro
   await page.screenshot({ path: info.outputPath("history-narrow-dark.png") });
 });
 
-test("task and project questions accept suggested or free answers inside Inbox", async ({
+test("compact Inbox opens independent question tabs and preserves their drafts", async ({
   page,
   request,
-}, testInfo) => {
-  const project = "inline-questions";
-  expect(
-    (
-      await fixtureProject(request, {
-        data: {
-          path: existingDirectory(join(state, project)),
-        },
-      })
-    ).ok(),
-  ).toBe(true);
-  const workspace = await projectWorkspace(page.request, project);
-  expect(
-    (
-      await request.post(
-        `/api/workspaces/${await projectWorkspace(page.request, project)}/tasks`,
-        {
-          data: {
-            id: "export",
-            title: "Export records",
-
-            status: "up_next",
-          },
-        },
-      )
-    ).ok(),
-  ).toBe(true);
-  for (const [id, task] of [
-    ["task", "T-1"],
-    ["project", null],
+}, info) => {
+  const project = "compact-questions";
+  await fixtureProject(request, {
+    data: { path: existingDirectory(join(state, project)) },
+  });
+  const workspace = await projectWorkspace(request, project),
+    base = `/workspaces/${workspace}`;
+  await request.post(`/api${base}/tasks`, {
+    data: { id: "export", title: "Export records", status: "up_next" },
+  });
+  for (const [id, task_id, question] of [
+    ["task", "T-1", "Which records should be exported?"],
+    ["project", null, "Which format should we prioritize?"],
   ]) {
-    const response = await request.post(
-      `/api/workspaces/${await projectWorkspace(page.request, project)}/questions`,
-      {
-        data: {
-          id,
-          task_id: task,
-          question: task
-            ? "Which records should be exported?"
-            : "Which format should we prioritize?",
-          context: "Choose the scope for the export.",
-          recommendation: "Start with all records.",
-          choices: ["All records", "Visible records"],
-        },
+    const response = await request.post(`/api${base}/questions`, {
+      data: {
+        id,
+        task_id,
+        question,
+        context: "Choose the scope for the export.",
+        recommendation: "Start with all records.",
+        choices: ["All records", "Visible records"],
       },
-    );
+    });
     expect(response.ok(), await response.text()).toBe(true);
   }
-  await page.goto(`/workspaces/${workspace}/inbox`);
-  const card = page.getByRole("article", {
-    name: "Question: Which records should be exported?",
-  });
-  const other = page.getByRole("article", {
-    name: "Question: Which format should we prioritize?",
-  });
-  await other
+  await page.goto(base + "/inbox");
+  const inbox = page.getByRole("tabpanel", { name: "Needs me", exact: true });
+  const tabs = page.getByRole("tablist", { name: "Open resources" });
+  const back = () => tabs.getByRole("tab", { name: /^Inbox/ }).click();
+  await expect(inbox.locator(".inbox-history-row")).toHaveCount(2);
+  await expect(inbox.getByRole("textbox")).toHaveCount(0);
+  await inbox.getByRole("link", { name: /Which format/ }).click();
+  await page
     .getByRole("textbox", { name: "Your answer", exact: true })
     .fill("CSV first.");
+  await back();
+  await inbox.getByRole("link", { name: /Which records/ }).click();
+  const detail = page.getByRole("region", { name: "Request", exact: true });
   await expect(
-    card.getByRole("heading", {
-      name: "Which records should be exported?",
-      exact: true,
-    }),
-  ).toHaveCount(1);
-  await expect(
-    card.getByText("Choose the scope for the export.", { exact: true }),
+    detail.getByText("Choose the scope for the export.", { exact: true }),
   ).toBeVisible();
-  await expect(card.locator(":scope > header").getByRole("img")).toHaveCount(1);
-  await page.screenshot({
-    path: testInfo.outputPath("questions-inbox.png"),
-    animations: "disabled",
-  });
-  await card.getByRole("button", { name: "All records", exact: true }).click();
+  await detail
+    .getByRole("button", { name: "All records", exact: true })
+    .click();
   await expect(
-    card
-      .getByLabel("Response")
-      .getByRole("textbox", { name: "Your answer", exact: true }),
+    detail.getByRole("textbox", { name: "Your answer", exact: true }),
   ).toHaveValue("All records");
-  await card
+  await detail
     .getByRole("textbox", { name: "Your answer", exact: true })
     .fill("All records, excluding archived entries.");
-  await card.getByRole("button", { name: "Send answer", exact: true }).click();
+  await detail
+    .getByRole("button", { name: "Send answer", exact: true })
+    .click();
   await expect
     .poll(
       async () =>
-        (
-          await (
-            await request.get(
-              `/api/workspaces/${await projectWorkspace(page.request, project)}/questions/task`,
-            )
-          ).json()
-        ).answer,
+        (await (await request.get(`/api${base}/questions/task`)).json()).answer,
     )
     .toBe("All records, excluding archived entries.");
-  await expect(page).toHaveURL(new RegExp(`/workspaces/${workspace}/inbox$`));
-  await expect(card).toHaveCount(0);
+  await back();
+  await expect(inbox.locator(".inbox-history-row")).toHaveCount(1);
+  await inbox.getByRole("link", { name: /Which format/ }).click();
   await expect(
-    other.getByRole("textbox", { name: "Your answer", exact: true }),
+    detail.getByRole("textbox", { name: "Your answer", exact: true }),
   ).toHaveValue("CSV first.");
-  await expect(
-    other.getByRole("heading", {
-      name: "Which format should we prioritize?",
-      exact: true,
-    }),
-  ).toHaveCount(1);
-  await expect(
-    other.getByText("Choose the scope for the export.", { exact: true }),
-  ).toBeVisible();
-  await other
-    .getByLabel("Response")
-    .getByRole("textbox", { name: "Your answer", exact: true })
-    .fill("CSV first.");
-  await other.getByRole("button", { name: "Send answer", exact: true }).click();
+  await detail
+    .getByRole("button", { name: "Send answer", exact: true })
+    .click();
   await expect
     .poll(
       async () =>
-        (
-          await (
-            await request.get(
-              `/api/workspaces/${await projectWorkspace(page.request, project)}/questions/project`,
-            )
-          ).json()
-        ).answer,
+        (await (await request.get(`/api${base}/questions/project`)).json())
+          .answer,
     )
     .toBe("CSV first.");
-  await expect(other).toHaveCount(0);
-  await expect(page.getByText("Nothing needs your attention.")).toBeVisible();
+  await back();
+  await expect(inbox.getByText("Nothing needs your attention.")).toBeVisible();
   await page.getByRole("tab", { name: "History", exact: true }).click();
-  await expect(
-    page.getByRole("link", { name: /Which format should we prioritize/ }),
-  ).toBeVisible();
+  await expect(page.locator(".inbox-history-row")).toHaveCount(2);
+  await page.screenshot({ path: info.outputPath("compact-history.png") });
   await page.reload();
-  await expect(
-    page.getByRole("link", { name: /Which format should we prioritize/ }),
-  ).toBeVisible();
-  await page.goto("/workspaces/" + workspace + "/tasks/T-1");
+  await expect(page.locator(".inbox-history-row")).toHaveCount(2);
+  await page.goto(base + "/tasks/T-1");
   await page.locator('[data-kind="answer"] summary').click();
-  await expect(
-    page.getByText("All records, excluding archived entries.", { exact: true }),
-  ).toBeVisible();
-  await page.reload();
-  await page.locator('[data-kind="answer"] summary').click();
-  await expect(
-    page.getByText("All records, excluding archived entries.", { exact: true }),
-  ).toBeVisible();
-  await page.goto("/workspaces/" + workspace + "/requests/question/task");
   await expect(
     page.getByText("All records, excluding archived entries.", { exact: true }),
   ).toBeVisible();
 });
 
-test("code review in Inbox approves the exact result and delivers without navigation", async ({
+test("compact result row opens exact approval and preserves saving through an early delivery event", async ({
   page,
   request,
-}, testInfo) => {
-  const project = "inline-code";
+}, info) => {
+  const project = "compact-code";
   execFileSync(resolve("../.venv/bin/python"), [
     resolve("../tests/inspection_browser_fixture.py"),
     state,
     "create",
     project,
-    "INC",
+    "CPC",
   ]);
-  const workspace = await projectWorkspace(page.request, project);
-  await page.goto(`/workspaces/${workspace}/inbox`);
+  const workspace = await projectWorkspace(request, project),
+    base = `/workspaces/${workspace}`;
+  await page.goto(base + "/inbox");
+  const inbox = page.getByRole("tabpanel", { name: "Needs me", exact: true });
+  await expect(inbox.locator(".inbox-history-row")).toHaveCount(1);
   await expect(
-    page.getByRole("button", { name: "Approve and integrate", exact: true }),
+    inbox.getByRole("button", { name: "Approve and integrate" }),
+  ).toHaveCount(0);
+  await inbox.locator(".inbox-history-row").click();
+  const result = page.getByRole("region", { name: "Result", exact: true });
+  await expect(
+    result.getByRole("button", { name: "Approve and integrate", exact: true }),
   ).toBeEnabled({ timeout: 15000 });
-  await expect(page.getByText("Destination:")).toContainText("delivery");
-  const reviewCard = page.getByRole("article", { name: /^Result:/ });
-  await expect(
-    reviewCard.locator(":scope > header").getByRole("img"),
-  ).toHaveCount(1);
-  await expect(
-    reviewCard.getByRole("heading", { name: "Checks", exact: true }),
-  ).toBeVisible();
-  await expect(reviewCard.locator(".detail-group")).toHaveCount(0);
-  await page.screenshot({
-    path: testInfo.outputPath("code-inbox.png"),
-    animations: "disabled",
-  });
-  await page
+  await expect(result.getByText("Destination:")).toContainText("delivery");
+  await result
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();
-  await page
+  await result
     .getByRole("textbox", {
       name: "Testing notes or approval comment (optional)",
     })
@@ -350,155 +285,106 @@ test("code review in Inbox approves the exact result and delivers without naviga
       await route.fulfill({ response });
     },
   );
-  await page.evaluate(() => {
-    const glitches: string[] = [];
-    Object.assign(window, { approvalGlitches: glitches });
-    new MutationObserver(() => {
-      for (const text of [
-        "Cancel delivery",
-        "Unsent responses to resolved requests",
-      ])
-        if (document.body.innerText.includes(text)) glitches.push(text);
-    }).observe(document.body, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-    });
-  });
-  await page
+  await result
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();
   await expect
     .poll(
       async () =>
-        (
-          await (
-            await request.get(
-              `/api/workspaces/${await projectWorkspace(page.request, project)}/view/tasks/T-1`,
-            )
-          ).json()
-        ).status,
+        (await (await request.get(`/api${base}/view/tasks/T-1`)).json()).status,
       { timeout: 15000 },
     )
     .toBe("done");
   await expect.poll(() => received).toBe(true);
-  // SSE can resolve the request before its delayed POST receipt reaches the composer.
   await expect(
-    reviewCard.getByRole("button", {
-      name: "Approve and integrate",
-      exact: true,
-    }),
+    result.getByRole("button", { name: "Approve and integrate", exact: true }),
   ).toHaveText("Saving…");
   releaseReceipt();
-  await expect(page).toHaveURL(new RegExp(`/workspaces/${workspace}/inbox$`));
-  await expect(page.getByRole("article", { name: /^Result:/ })).toHaveCount(0);
-  expect(
-    await page.evaluate(
-      () =>
-        (window as unknown as { approvalGlitches: string[] }).approvalGlitches,
-    ),
-  ).toEqual([]);
-  await page.screenshot({
-    path: testInfo.outputPath("code-inbox-resolved.png"),
-  });
-  await page.goto(
-    `/workspaces/${await projectWorkspace(page.request, project)}/tasks/T-1`,
-  );
   await expect(
-    page
-      .locator(".editor-heading")
+    result.getByRole("textbox", {
+      name: "Testing notes or approval comment (optional)",
+    }),
+  ).toHaveCount(0);
+  await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
+  await expect(inbox.getByText("Nothing needs your attention.")).toBeVisible();
+  await page.getByRole("tab", { name: "Delivered", exact: true }).click();
+  const delivered = page.getByRole("region", {
+    name: "Delivered tasks",
+    exact: true,
+  });
+  await expect(delivered.locator(".inbox-history-row")).toHaveCount(1);
+  await expect(delivered.getByRole("button")).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath("compact-delivered.png") });
+  await delivered.locator(".inbox-history-row").click();
+  await expect(
+    result
+      .locator(".entity-pane-title")
       .getByRole("img", { name: "Delivered", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".entity-pane-footer")).toHaveCount(0);
-  await expect(page.locator(".entity-pane-footer .task-result")).toHaveCount(0);
-  await expect(page.locator(".entity-pane-footer textarea")).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Approve and integrate", exact: true }),
-  ).toHaveCount(0);
+  await expect(page.locator(".entity-pane-footer")).not.toBeVisible();
 });
 
-test("resolved requests disappear without losing later-page drafts or failed answers", async ({
+test("paged compact Inbox keeps independent failed-answer drafts in resource tabs", async ({
   page,
   request,
 }) => {
-  const project = "inbox-paged";
+  const project = "compact-paged";
   await fixtureProject(request, {
     data: { path: existingDirectory(join(state, project)) },
   });
-  const workspace = await projectWorkspace(page.request, project);
+  const workspace = await projectWorkspace(request, project),
+    base = `/workspaces/${workspace}`;
   for (let index = 0; index < 23; index++) {
-    const response = await request.post(
-      `/api/workspaces/${await projectWorkspace(page.request, project)}/questions`,
-      {
-        data: {
-          id: `q-${index}`,
-          question: `Paged decision ${index}`,
-          context: "Choose a format.",
-          recommendation: "CSV",
+    const r = await request.post(`/api${base}/questions`, {
+      data: {
+        id: `q-${index}`,
+        question: `Paged decision ${index}`,
+        context: "Choose a format.",
+        recommendation: "CSV",
+      },
+    });
+    expect(r.ok(), await r.text()).toBe(true);
+  }
+  await page.goto(base + "/inbox");
+  const inbox = page.getByRole("tabpanel", { name: "Needs me", exact: true });
+  const back = () =>
+    page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
+  await inbox.getByRole("button", { name: "Load more", exact: true }).click();
+  await expect(inbox.locator(".inbox-history-row")).toHaveCount(23);
+  await inbox.getByRole("link", { name: /Paged decision 0 / }).click();
+  const answer = page.getByRole("textbox", {
+    name: "Your answer",
+    exact: true,
+  });
+  await answer.fill("Keep this later-page draft.");
+  await back();
+  await inbox.getByRole("link", { name: /Paged decision 22 / }).click();
+  await answer.fill("CSV first.");
+  await page.route(`**/api/workspaces/*/questions/q-22/answer`, (route) =>
+    route.fulfill({
+      status: 409,
+      json: {
+        error: {
+          code: "revision_conflict",
+          message: "Question changed; review it again.",
         },
       },
-    );
-    expect(response.ok(), await response.text()).toBe(true);
-  }
-  await page.goto(`/workspaces/${workspace}/inbox`);
-  await page.getByRole("button", { name: "Load more", exact: true }).click();
-  await expect(
-    page
-      .getByRole("tabpanel", { name: "Needs me", exact: true })
-      .getByRole("article"),
-  ).toHaveCount(23);
-  const later = page.getByRole("article", {
-    name: "Question: Paged decision 0",
-    exact: true,
-  });
-  await later
-    .getByRole("textbox", { name: "Your answer", exact: true })
-    .fill("Keep this later-page draft.");
-  const first = page.getByRole("article", {
-    name: "Question: Paged decision 22",
-    exact: true,
-  });
-  await first
-    .getByRole("textbox", { name: "Your answer", exact: true })
-    .fill("CSV first.");
-  await page.route(
-    `**/api/workspaces/*/questions/q-22/answer`,
-    async (route) => {
-      await route.fulfill({
-        status: 409,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: {
-            code: "revision_conflict",
-            message: "Question changed; review it again.",
-          },
-        }),
-      });
-    },
+    }),
   );
-  await first.getByRole("button", { name: "Send answer", exact: true }).click();
+  await page.getByRole("button", { name: "Send answer", exact: true }).click();
   await expect(
     page.getByText("Question changed; review it again.").first(),
   ).toBeVisible();
-  await expect(
-    first.getByRole("textbox", { name: "Your answer", exact: true }),
-  ).toHaveValue("CSV first.");
+  await expect(answer).toHaveValue("CSV first.");
   await page.unroute(`**/api/workspaces/*/questions/q-22/answer`);
-  await first.getByRole("button", { name: "Send answer", exact: true }).click();
-  await expect(first).toHaveCount(0);
-  await expect(
-    page
-      .getByRole("tabpanel", { name: "Needs me", exact: true })
-      .getByRole("article"),
-  ).toHaveCount(22);
-  await expect(
-    later.getByRole("textbox", { name: "Your answer", exact: true }),
-  ).toHaveValue("Keep this later-page draft.");
-  await later.getByRole("button", { name: "Send answer", exact: true }).click();
-  await expect(later).toHaveCount(0);
-  await expect(
-    page
-      .getByRole("tabpanel", { name: "Needs me", exact: true })
-      .getByRole("article"),
-  ).toHaveCount(21);
+  await page.getByRole("button", { name: "Send answer", exact: true }).click();
+  await expect(answer).toHaveCount(0);
+  await back();
+  await expect(inbox.locator(".inbox-history-row")).toHaveCount(22);
+  await inbox.getByRole("link", { name: /Paged decision 0 / }).click();
+  await expect(answer).toHaveValue("Keep this later-page draft.");
+  await page.getByRole("button", { name: "Send answer", exact: true }).click();
+  await expect(answer).toHaveCount(0);
+  await back();
+  await expect(inbox.locator(".inbox-history-row")).toHaveCount(21);
 });

@@ -13,7 +13,7 @@ const PaneClose = createContext<(() => void) | null>(null);
 export const usePaneClose = () => useContext(PaneClose);
 const PaneTitleHost = createContext<HTMLElement | null>(null);
 const PaneBody = createContext<HTMLElement | null>(null);
-export const ResponseFooterHost = createContext<HTMLElement | null>(null);
+const ResponseFooterHost = createContext<HTMLElement | null>(null);
 export const usePaneBody = () => useContext(PaneBody);
 export function PaneFooter({
   children,

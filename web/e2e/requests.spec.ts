@@ -53,33 +53,26 @@ test("individual requests retain answers and drafts across Inbox and reused tabs
   ).json();
   const href = `${base}/requests/question/${question.id}`;
   await page.goto(base + "/inbox");
-  const card = page.getByRole("article", { name: "Question: Which columns?" });
-  const source = card
-    .locator(":scope > header")
-    .getByRole("link", { name: `${task.key}: Which columns?` });
-  await expect(source).toHaveText(task.key);
-  await expect(source).toHaveAttribute(
-    "href",
-    `/workspaces/${await projectWorkspace(request, project)}/tasks/${task.key}`,
-  );
-  await card
-    .getByRole("textbox", { name: "Your answer", exact: true })
-    .fill("Name, rate, currency");
+  const row = page
+    .locator(".inbox-history-row")
+    .filter({ hasText: "Which columns?" });
+  await expect(row).toContainText(task.key);
+  await expect(row).toHaveAttribute("href", href);
   const popup = page.context().waitForEvent("page");
-  await card
-    .getByRole("link", { name: "Open request in work tab", exact: true })
-    .click({ modifiers: ["ControlOrMeta"] });
+  await row.click({ modifiers: ["ControlOrMeta"] });
   const nativeTab = await popup;
   await expect(nativeTab).toHaveURL(href);
   await nativeTab.close();
-  await card
-    .getByRole("link", { name: "Open request in work tab", exact: true })
-    .click();
+  await row.click();
   await expect(page).toHaveURL(href);
   const detail = page.getByRole("region", { name: "Request", exact: true });
-  await expect(
-    detail.getByRole("textbox", { name: "Your answer", exact: true }),
-  ).toHaveValue("Name, rate, currency");
+  const source = detail
+    .locator(".entity-pane-title")
+    .getByRole("link", { name: task.key + ": Which columns?" });
+  await expect(source).toHaveAttribute("href", base + "/tasks/" + task.key);
+  await detail
+    .getByRole("textbox", { name: "Your answer", exact: true })
+    .fill("Name, rate, currency");
   const tabs = page.getByRole("tablist", { name: "Open resources" });
   await expect(tabs.getByRole("tab", { selected: true })).toContainText(
     "T-1 Question",
@@ -93,11 +86,14 @@ test("individual requests retain answers and drafts across Inbox and reused tabs
     .fill("Name and rate");
   await tabs.getByRole("tab", { name: /^Inbox/ }).click();
   await expect(
-    card.getByRole("textbox", { name: "Your answer", exact: true }),
+    page
+      .getByRole("tabpanel", { name: "Needs me", exact: true })
+      .getByRole("textbox"),
+  ).toHaveCount(0);
+  await row.click();
+  await expect(
+    detail.getByRole("textbox", { name: "Your answer", exact: true }),
   ).toHaveValue("Name and rate");
-  await card
-    .getByRole("link", { name: "Open request in work tab", exact: true })
-    .click();
   await detail
     .getByRole("button", { name: "Send answer", exact: true })
     .click();

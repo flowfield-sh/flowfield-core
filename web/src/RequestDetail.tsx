@@ -1,7 +1,7 @@
 import { useLocation } from "react-router";
 import type { AdjacentSnapshot } from "./AdjacentView";
 import { useCallback, useContext, useEffect } from "react";
-import { RequestCard, RequestSource, requestTitle } from "./AttentionBoard";
+import { RequestContent, RequestSource, requestTitle } from "./AttentionBoard";
 import { ContentStack } from "./DetailLayout";
 import { DetailHeader } from "./Presentation";
 import { ResourceTitles } from "./WorkspaceTabs";
@@ -98,13 +98,12 @@ export function RequestDetail({
           {resource.loading && !item && <p>Loading request…</p>}
           {resource.error && !item && <p>{resource.error}</p>}
           {item && (
-            <RequestCard
+            <RequestContent
               item={item}
               workspaceId={workspaceId}
               board={board}
               refresh={refresh}
               markDirty={mark}
-              standalone
             />
           )}
         </ContentStack>

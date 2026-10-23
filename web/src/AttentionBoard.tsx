@@ -2,36 +2,26 @@ import { requestHref } from "./requestLinks";
 import { taskHref } from "./navigation";
 import { Badge } from "@/components/ui/badge";
 import { LoadMore } from "./LoadMore";
-import { useRetainedState } from "./retainedState";
 import { ResourceNavigation } from "./WorkspaceTabs";
 import type { DirtyCallback } from "./retainedState";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
-import {
-  useCallback,
-  useContext,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useContext } from "react";
 import { Button } from "@/components/ui/button";
 import type { components } from "./api-schema";
 import { usePage, useResource } from "./useResource";
 import { QuestionDetail } from "./Inbox";
 import { label, type Task, type WorkspaceBoard } from "./workspace";
 import { WorkState } from "./WorkState";
-import { WorkIdentity } from "./WorkIdentity";
 import { PermissionCard } from "./AgentPermissions";
-import { ContentStack, Disclosure } from "./DetailLayout";
+import { ContentStack } from "./DetailLayout";
 import { DetailTabs } from "./Presentation";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { TaskResponse } from "./TaskResponse";
 import { useDirtyItems } from "./useDirtyItems";
 import { ResourceRetry } from "./ResourceRetry";
-import { RequestFrame } from "./RequestFrame";
-import { Timestamp } from "./Timestamp";
 import { PaneFooter } from "./EntityPane";
 import { Delivered } from "./Delivered";
+import { InboxRow } from "./InboxRow";
 
 type Item = components["schemas"]["AttentionItem"];
 type Page = components["schemas"]["AttentionPage"];
@@ -48,13 +38,11 @@ function TaskRequest({
   board,
   refresh,
   onDirty,
-  onResolved,
 }: {
   item: Item;
   board: WorkspaceBoard;
   refresh: unknown;
   onDirty: DirtyCallback;
-  onResolved?: () => void;
 }) {
   const task = useResource<Task>(
     `workspaces/${item.workspace_id}/view/tasks/${item.task_key}`,
@@ -78,7 +66,6 @@ function TaskRequest({
           task={task.data}
           refresh={refresh}
           onDirty={response}
-          onResolved={onResolved}
           requestTarget={{
             kind: item.kind as
               "question" | "result" | "intervention" | "review" | "integration",
@@ -90,22 +77,18 @@ function TaskRequest({
   );
 }
 
-export function RequestCard({
+export function RequestContent({
   item,
   workspaceId,
   board,
   refresh,
   markDirty,
-  standalone = false,
-  onResolved,
 }: {
   item: Item;
   workspaceId: string;
   board: WorkspaceBoard;
   refresh: unknown;
   markDirty: (id: string, dirty: boolean, retained?: boolean) => void;
-  standalone?: boolean;
-  onResolved?: () => void;
 }) {
   const navigate = useNavigate();
   const resourceNavigate = useContext(ResourceNavigation);
@@ -114,9 +97,8 @@ export function RequestCard({
     (value: boolean, retained?: boolean) => markDirty(id, value, retained),
     [id, markDirty],
   );
-  const kind = requestTitle(item);
   const href = itemHref(item, workspaceId);
-  const content = (
+  return (
     <>
       {item.kind === "permission" ? (
         <PermissionCard
@@ -147,7 +129,6 @@ export function RequestCard({
           board={board}
           refresh={refresh}
           onDirty={dirty}
-          onResolved={onResolved}
         />
       ) : (
         <>
@@ -165,19 +146,6 @@ export function RequestCard({
         </>
       )}
     </>
-  );
-  return standalone ? (
-    content
-  ) : (
-    <RequestFrame
-      kind={kind}
-      state={item.state}
-      label={`${kind}: ${item.title}`}
-      href={href}
-      source={<RequestSource item={item} board={board} />}
-    >
-      {content}
-    </RequestFrame>
   );
 }
 
@@ -217,123 +185,21 @@ export function RequestSource({
 function InboxList({
   workspaceId,
   projectId,
-  board,
   refresh,
   tab,
-  onDirty,
 }: {
   workspaceId: string;
   projectId?: string;
-  board: WorkspaceBoard;
   refresh: unknown;
   tab: Tab;
-  onDirty: DirtyCallback;
 }) {
   const page = usePage<Page>(
     `workspaces/${workspaceId}/view/attention?column=${columns[tab]}${tab === "history" ? "&include_answered=true" : ""}${projectId ? `&project_id=${encodeURIComponent(projectId)}` : ""}`,
     refresh,
     tab === "needs_me",
   );
-  const mark = useDirtyItems(onDirty);
-  const [drafts, setDrafts] = useRetainedState<Record<string, boolean>>(
-    `inbox:${workspaceId}:${projectId}:drafts`,
-    {},
-  );
-  const [pending, setPending] = useState<Record<string, boolean>>({});
-  const markDirty = useCallback(
-    (id: string, dirty: boolean, retained?: boolean) => {
-      mark(id, dirty, retained);
-      // Cleanup clears mounted navigation guards, not the retained response.
-      if (retained === undefined) return;
-      setPending((previous) =>
-        previous[id] === (dirty && !retained)
-          ? previous
-          : { ...previous, [id]: dirty && !retained },
-      );
-      setDrafts((previous) =>
-        previous[id] === dirty ? previous : { ...previous, [id]: dirty },
-      );
-    },
-    [mark, setDrafts],
-  );
-  const [resolved, setResolved] = useState<Record<string, string>>({});
-  const [seen, setSeen] = useState<Page | null>(null);
-  const [retained, setRetained] = useRetainedState<Item[]>(
-    `inbox:${workspaceId}:${projectId}:items`,
-    [],
-  );
-  const [currentIds, setCurrentIds] = useRetainedState<string[]>(
-    `inbox:${workspaceId}:${projectId}:current`,
-    [],
-  );
-  // Keep independent drafts while canonical resolution
-  // removes answered requests. Resolved drafts remain reachable in History.
-  if (tab === "needs_me" && page.data && page.data !== seen) {
-    setSeen(page.data);
-    setCurrentIds(page.data.items.map(identityOf));
-    setRetained((previous) => {
-      const incoming = new Map(
-        page.data!.items.map((item) => [identityOf(item), item]),
-      );
-      return [
-        ...previous
-          .filter(
-            (item) =>
-              incoming.has(identityOf(item)) || drafts[identityOf(item)],
-          )
-          .map((item) => incoming.get(identityOf(item)) ?? item),
-        ...page.data!.items.filter(
-          (item) =>
-            !previous.some((old) => identityOf(old) === identityOf(item)),
-        ),
-      ];
-    });
-  }
-  const items = useMemo(() => {
-    const current = new Set(page.data?.items.map(identityOf));
-    return (
-      tab === "needs_me"
-        ? retained.filter(
-            (item) =>
-              (current.has(identityOf(item)) || pending[identityOf(item)]) &&
-              resolved[identityOf(item)] !== item.updated_at,
-          )
-        : [
-            ...retained.filter(
-              (item) =>
-                drafts[identityOf(item)] &&
-                !currentIds.includes(identityOf(item)) &&
-                !current.has(identityOf(item)),
-            ),
-            ...(page.data?.items ?? []),
-          ]
-    ).sort(
-      (a, b) =>
-        b.updated_at.localeCompare(a.updated_at) ||
-        identityOf(a).localeCompare(identityOf(b)),
-    );
-  }, [page.data, tab, retained, drafts, currentIds, resolved, pending]);
-  const list = useRef<HTMLDivElement>(null);
-  const focused = useRef<{ id: string; index: number } | null>(null);
-  useLayoutEffect(() => {
-    const previous = focused.current;
-    if (!previous || items.some((item) => identityOf(item) === previous.id))
-      return;
-    focused.current = null;
-    // Removing the submitted card must not strand keyboard focus on the page
-    // body or steal it from another request the person has already moved to.
-    if (document.activeElement !== document.body) return;
-    const remaining =
-      list.current?.querySelectorAll<HTMLElement>(".request-list > li");
-    const next = remaining?.[Math.min(previous.index, remaining.length - 1)];
-    (
-      next?.querySelector<HTMLElement>("header a, button, a") ?? list.current
-    )?.focus({ preventScroll: true });
-  }, [items]);
   return (
     <ContentStack
-      ref={list}
-      tabIndex={-1}
       space="section"
       role="tabpanel"
       id={`inbox-${tab}`}
@@ -342,101 +208,27 @@ function InboxList({
     >
       <ResourceRetry resources={[page]} />
       {page.loading && !page.data && <p>Loading requests…</p>}
-      {page.data && !items.length && (
+      {page.data && !page.data.items.length && (
         <p className="collection-empty">
           {tab === "needs_me"
             ? "Nothing needs your attention."
             : "No past items yet."}
         </p>
       )}
-      {tab === "needs_me" &&
-        retained.some(
-          (item) =>
-            drafts[identityOf(item)] &&
-            !pending[identityOf(item)] &&
-            !currentIds.includes(identityOf(item)),
-        ) && (
-          <p>
-            Unsent responses to resolved requests are saved in{" "}
-            <WorkspaceLink to="?inbox=history">History</WorkspaceLink>.
-          </p>
-        )}
-      {items.length > 0 && (
-        <ol
-          className={
-            tab === "needs_me"
-              ? "request-list"
-              : "request-list inbox-history work-resource-list"
-          }
-        >
-          {items.map((item, index) => (
-            <li
+      {!!page.data?.items.length && (
+        <ol className="request-list inbox-history work-resource-list">
+          {page.data.items.map((item) => (
+            <InboxRow
               key={identityOf(item)}
-              onFocusCapture={() => {
-                focused.current = { id: identityOf(item), index };
-              }}
-            >
-              {tab === "needs_me" ? (
-                <RequestCard
-                  item={item}
-                  workspaceId={workspaceId}
-                  board={board}
-                  refresh={refresh}
-                  markDirty={markDirty}
-                  onResolved={() => {
-                    const id = identityOf(item);
-                    // Clear the draft marker in the same render that removes the card.
-                    // A newer actionable receipt (e.g. delivery failure) may return.
-                    setDrafts((previous) => ({ ...previous, [id]: false }));
-                    setPending((previous) => ({ ...previous, [id]: false }));
-                    setResolved((previous) => ({
-                      ...previous,
-                      [id]: item.updated_at,
-                    }));
-                    page.retry();
-                  }}
-                />
-              ) : (
-                <ContentStack>
-                  <WorkspaceLink
-                    className="work-navigation-row inbox-history-row"
-                    to={item.request_href ?? itemHref(item, workspaceId)}
-                  >
-                    <WorkIdentity
-                      state={
-                        item.state ?? {
-                          label: label(item.status),
-                          tone: "idle",
-                        }
-                      }
-                      itemKey={item.source_key ?? item.task_key}
-                      title={item.title}
-                    />
-                    <span className="inbox-history-metadata">
-                      <span className="inbox-history-outcome">
-                        {item.next_action ??
-                          item.state?.label ??
-                          label(item.status)}
-                      </span>
-                      <span className="detail-metadata">
-                        <Timestamp date={item.updated_at} />
-                      </span>
-                    </span>
-                  </WorkspaceLink>
-                  {drafts[identityOf(item)] && (
-                    <Disclosure summary="Unsent response" open>
-                      <RequestCard
-                        item={item}
-                        workspaceId={workspaceId}
-                        board={board}
-                        refresh={refresh}
-                        markDirty={markDirty}
-                      />
-                    </Disclosure>
-                  )}
-                </ContentStack>
-              )}
-            </li>
+              href={itemHref(item, workspaceId)}
+              state={item.state ?? { label: label(item.status), tone: "idle" }}
+              itemKey={item.source_key ?? item.task_key}
+              title={item.title}
+              outcome={
+                item.next_action ?? item.state?.label ?? label(item.status)
+              }
+              date={item.updated_at}
+            />
           ))}
         </ol>
       )}
@@ -458,7 +250,6 @@ export function AttentionBoard(props: {
   projectId?: string;
   refresh: unknown;
   board: WorkspaceBoard;
-  onDirty: DirtyCallback;
 }) {
   const location = useLocation();
   const [params, setParams] = useSearchParams();

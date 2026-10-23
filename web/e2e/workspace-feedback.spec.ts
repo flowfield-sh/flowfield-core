@@ -79,7 +79,6 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
     "Documents",
     "Files",
     "Projects",
-    "Archive",
     "Settings",
   ]);
   await page
@@ -160,16 +159,19 @@ test("failed intervention offers recovery and leaves Needs me immediately after 
   );
   const workspace = await projectWorkspace(request, seed.project);
   await page.goto(`/workspaces/${workspace}/inbox`);
-  const card = page.getByRole("article", {
-    name: "Intervention: Recover the import",
-    exact: true,
-  });
+  await page
+    .locator(".inbox-history-row")
+    .filter({ hasText: "Recover the import" })
+    .click();
+  const card = page.getByRole("region", { name: "Request", exact: true });
   await expect(card).toBeVisible();
   await expect(card).not.toContainText("no longer awaiting a response");
   await expect(
     card.getByRole("button", { name: "Retry worker", exact: true }),
   ).toBeVisible();
-  await expect(card.locator(":scope > header").getByRole("img")).toHaveCount(1);
+  await expect(card.locator(".entity-pane-title").getByRole("img")).toHaveCount(
+    1,
+  );
   await page.screenshot({
     path: testInfo.outputPath("intervention-inbox.png"),
     animations: "disabled",
@@ -187,7 +189,7 @@ test("failed intervention offers recovery and leaves Needs me immediately after 
   });
   expect(Math.abs(padding.above - padding.below)).toBeLessThan(1);
   await card.getByRole("button", { name: "Retry worker", exact: true }).click();
-  await expect(card).toHaveCount(0);
+  await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(page.getByText("Nothing needs your attention.")).toBeVisible();
   const action = await (
     await request.get(

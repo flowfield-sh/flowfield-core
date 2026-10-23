@@ -44,10 +44,7 @@ test("overflowing tabs scroll by wheel with directional fades and even gutters",
   await page.goto(`/workspaces/${workspace}/tasks`);
   for (let i = 0; i < 9; i++) {
     await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
-    await page
-      .getByRole("link", { name: "Open request in work tab", exact: true })
-      .nth(i)
-      .click();
+    await page.locator(".inbox-list .inbox-history-row").nth(i).click();
   }
   const strip = page.locator(".workspace-tab-strip");
   const inbox = strip.getByRole("tab", { name: /^Inbox(?: \d+)?$/ });
