@@ -36,7 +36,7 @@ Upgrading from an earlier database schema requires a fresh data directory. Exist
 
 ## How does Flowfield work?
 
-Ask the Coordinator to organize work and maintain shared context. Each task owns a useful outcome, its history and delivery. Follow Tasks Board, edit documents and respond through Inbox while the same conversation stays beside the work.
+Ask the Coordinator to organize work and maintain shared context. Each task owns a useful outcome, its history and delivery. Follow Task Board, edit documents and respond through Inbox while the same conversation stays beside the work.
 
 **💬 Shape the idea**<br>Talk through the problem with the Coordinator. It turns agreed decisions into tasks while the work continues beside the conversation.
 
