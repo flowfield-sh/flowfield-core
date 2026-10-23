@@ -213,9 +213,6 @@
 }
 
 @layer components {
-  .task-view-navigation {
-    margin-bottom: 16px;
-  }
   .task-context {
     margin-bottom: 16px;
   }
@@ -646,6 +643,9 @@
   gap: 8px;
   align-items: center;
 }
+.task-header-badges:not(:empty) {
+  margin-bottom: 16px;
+}
 .task-header-badges:empty {
   display: none;
 }
@@ -664,9 +664,16 @@
   gap: 8px;
   min-width: 0;
 }
-.work-identity > .work-state,
-.work-identity > [data-slot="badge"] {
+.work-identity > .work-state {
   flex-shrink: 0;
+}
+.editor-heading .work-identity {
+  display: block;
+}
+.editor-heading .work-identity > .work-state,
+.editor-heading .work-identity > .work-key {
+  vertical-align: baseline;
+  margin-right: 8px;
 }
 .work-identity-title {
   min-width: 0;

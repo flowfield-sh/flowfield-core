@@ -30,7 +30,7 @@ export function SetupInstructions({
   return (
     <section className="editor" aria-label="Project setup instructions">
       <ContentStack space="section" className="pane-form">
-        <DetailHeader title="Add a project" close={close} />
+        <DetailHeader title="Add project" close={close} />
         <p>
           Choose an existing project for this workspace. Discuss its existing
           instructions with the Coordinator to decide what belongs in workspace

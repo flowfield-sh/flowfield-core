@@ -74,7 +74,7 @@ test("outer navigation reuses exact views and project overview explains its envi
   const filtered = page.url().replace(new URL(page.url()).origin, "");
   await page.setViewportSize({ width: 1440, height: 1000 });
   await resources
-    .getByRole("link", { name: "Tasks Board", exact: true })
+    .getByRole("link", { name: "Task Board", exact: true })
     .click();
   await expect.poll(tabs).toContain(filtered);
   await expect.poll(tabs).toContain(`${base}/tasks`);

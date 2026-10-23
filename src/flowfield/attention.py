@@ -268,6 +268,12 @@ def attention_page(
         selection = (
             "(bucket=:column OR (:include_answered AND kind='question' AND status='answered'))"
         )
+        if column == "history":
+            # Delivered outcomes have their own collection. Keep earlier decisions,
+            # questions and interventions here; filter before counting/pagination.
+            selection += " AND NOT (kind='result' AND status='delivered')"
+            selection += " AND NOT (kind='review' AND status='accepted')"
+            selection += " AND NOT (kind='integration' AND status='applied')"
         if requests_only:
             selection += " AND kind!='document'"
         if project_id:

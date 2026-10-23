@@ -229,12 +229,11 @@ test("Feed disclosures preserve message drafts while coordinator revisions updat
     .getByRole("link", { name: /Tabbed task/ })
     .click();
   await expect(
-    page.getByRole("tab", { name: "Task", exact: true }),
+    page.getByRole("button", { name: "Task settings", exact: true }),
   ).toBeVisible();
   await page
     .getByLabel("Message coordinator", { exact: true })
     .fill("Unsaved draft");
-  await page.getByRole("tab", { name: "Task", exact: true }).click();
   const history = page.getByRole("list", { name: "Task feed" });
   expect(revisionReads).toHaveLength(0);
   await history.locator('[data-message-id="definition:1"] summary').focus();
@@ -264,7 +263,6 @@ test("Feed disclosures preserve message drafts while coordinator revisions updat
   await expect(
     page.getByLabel("Message coordinator", { exact: true }),
   ).toHaveValue("Unsaved draft");
-  await page.getByRole("tab", { name: "Task", exact: true }).click();
   await expect(page.locator(".task-definition")).toContainText(
     "New saved context",
   );
@@ -382,7 +380,7 @@ test("archive preserves dated records and supports restore and mobile archiving"
     ).status,
   ).toBe("up_next");
   await closeOverlay(page);
-  await openResource(page, "Tasks Board");
+  await openResource(page, "Task Board");
   await page
     .getByTestId("work")
     .getByRole("link", { name: /older task/ })
@@ -585,7 +583,6 @@ test("conversation capture prepares atomically while task defaults show only use
     },
   });
   expect(updated.publication_status).toBe("published");
-  await page.getByRole("tab", { name: "Task", exact: true }).click();
   await expect(
     editor
       .getByLabel("Current task definition")
@@ -615,7 +612,6 @@ test("conversation capture prepares atomically while task defaults show only use
   await expect(editor.getByText("Related work", { exact: true })).toHaveCount(
     0,
   );
-  await page.getByRole("tab", { name: "Task", exact: true }).click();
   await expect(editor.getByText("Needed by:", { exact: false })).toBeVisible();
   await expect(
     editor.getByRole("link", { name: related.key, exact: true }),
@@ -630,7 +626,6 @@ test("conversation capture prepares atomically while task defaults show only use
       })
     ).enabled,
   ).toBe(false);
-  await page.getByRole("tab", { name: "Task", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   await expect(
@@ -861,7 +856,7 @@ test("attempt activity updates without reloading the board and replays on reload
     page.getByRole("button", { name: "Retry worker", exact: true }),
   ).toHaveCount(0);
   await closeOverlay(page);
-  await openResource(page, "Tasks Board");
+  await openResource(page, "Task Board");
   await expect(page.locator(".up_next")).toContainText("Observe live output");
   await expect(page.locator(".up_next")).toContainText("Queue paused");
 });

@@ -66,7 +66,7 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   await page
     .getByRole("textbox", { name: "Content", exact: true })
     .fill("My unsaved guidance");
-  await page.getByRole("tab", { name: "Tasks Board", exact: true }).click();
+  await page.getByRole("tab", { name: "Task Board", exact: true }).click();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
   await page
     .getByRole("tab", { name: "Workspace guidance · Edit", exact: true })

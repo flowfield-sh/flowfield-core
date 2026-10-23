@@ -78,6 +78,7 @@ export function Toaster(props: ToasterProps) {
       position="top-right"
       richColors
       closeButton
+      hotkey={[]}
       duration={5000}
       visibleToasts={3}
       style={

@@ -80,7 +80,7 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
     .poll(() => work.evaluate((node) => node.scrollTop))
     .toBeGreaterThan(0);
   await resources
-    .getByRole("link", { name: "Tasks Board", exact: true })
+    .getByRole("link", { name: "Task Board", exact: true })
     .click();
   await page
     .getByTestId("work")
@@ -92,22 +92,21 @@ test("resource tabs preserve exact history, shared drafts and workspace isolatio
   const taskTab = page.getByRole("tab", { name: /T-2 / });
   await expect(taskTab).toHaveAttribute("aria-selected", "true");
   await resources
-    .getByRole("link", { name: "Tasks Board", exact: true })
+    .getByRole("link", { name: "Task Board", exact: true })
     .click();
   await expect(page).toHaveURL(`${base}/tasks`);
   await expect(taskTab).toHaveCount(1);
   await expect(
-    page.getByRole("tab", { name: "Tasks Board", exact: true }),
+    page.getByRole("tab", { name: "Task Board", exact: true }),
   ).toHaveCount(1);
   await resources
-    .getByRole("link", { name: "Tasks Board", exact: true })
+    .getByRole("link", { name: "Task Board", exact: true })
     .click();
   await expect(
-    page.getByRole("tab", { name: "Tasks Board", exact: true }),
+    page.getByRole("tab", { name: "Task Board", exact: true }),
   ).toHaveCount(1);
   await taskTab.click();
   await expect(page).toHaveURL(/T-2$/);
-  await page.getByRole("tab", { name: "Task", exact: true }).click();
   await expect(page.getByRole("list", { name: "Task feed" })).toBeVisible();
   await work.hover();
   await page.mouse.wheel(0, 300);

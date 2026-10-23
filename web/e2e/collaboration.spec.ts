@@ -101,7 +101,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
   ).toHaveCount(0);
   await expect(dependencyState).toContainText("Prerequisites: T-1, T-3");
   await expect(detail.locator(".task-needs")).toHaveCount(0);
-  await openResource(page, "Tasks Board");
+  await openResource(page, "Task Board");
   const card = page.locator(".task-card").filter({ hasText: "Download CSV" });
   await expect(
     card.locator(".work-state:not([data-indicator-only])"),
@@ -202,7 +202,6 @@ test("task activity, Markdown and independently retrievable handoffs preserve th
   await expect(
     page.locator(".task-definition").getByRole("checkbox"),
   ).toHaveCount(2);
-  await page.getByRole("tab", { name: "Task", exact: true }).click();
   await expect(
     editor.getByRole("button", { name: "Add note", exact: true }),
   ).toHaveCount(0);
@@ -512,8 +511,8 @@ test("Inbox carries a free-text answer from browser to coordinator application",
     `/workspaces/${await projectWorkspace(request, project_id)}/tasks/T-2`,
   );
   await expect(
-    page.getByRole("tab", { name: "Task", exact: true }),
-  ).toHaveAttribute("aria-selected", "true");
+    page.getByRole("button", { name: "Task settings", exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("list", { name: "Task feed" })).toBeVisible();
   const questionEntry = page.locator(
     '.task-activity-item[data-kind="question"]',
@@ -552,9 +551,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   await expect(
     page.getByRole("region", { name: "Request", exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByLabel("Your answer", { exact: true }),
-  ).not.toBeFocused();
+  await expect(page.getByLabel("Your answer", { exact: true })).toBeFocused();
   await closeOverlay(page);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(page.locator(".inbox-list .inbox-history-row")).toHaveCount(1);
@@ -1331,7 +1328,7 @@ test("related questions preserve the page, drafts, focus and router history", as
     animations: "disabled",
   });
 
-  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page).toHaveURL(origin);
   await page.goto(
     `/workspaces/${await projectWorkspace(request, project_id)}/requests/question/${question.id}`,

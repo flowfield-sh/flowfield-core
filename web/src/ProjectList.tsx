@@ -20,7 +20,7 @@ export function ProjectList({
       <ContentStack space="section" className="collection-layout">
         <div className="actions justify-end">
           <h2 className="sr-only">Projects</h2>
-          <Button size="sm" asChild>
+          <Button size="sm" variant="outline" asChild>
             <WorkspaceLink to={`${workspaceHref(workspaceId)}/projects/new`}>
               <Plus />
               Add project

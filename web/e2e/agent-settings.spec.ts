@@ -329,7 +329,7 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   ).toBeVisible();
   await expect(picker).toBeVisible();
   expect(settings.selection).toBeNull();
-  await detail.getByRole("tab", { name: "Task", exact: true }).click();
+  await detail.getByRole("button", { name: "View task", exact: true }).click();
   await expect(detail.locator(".entity-pane-footer")).toHaveCount(0);
   await page.route(
     "**/api/workspaces/*/requests/permission/request-1*",
@@ -532,15 +532,13 @@ test("task settings cancel dismissed edits, reject stale saves and reset; tool a
   await page.getByRole("tab", { name: "History", exact: true }).click();
   const history = page.getByRole("tabpanel", { name: "History", exact: true });
   await expect(
-    history.getByRole("link", { name: /Run the project checks.*Answered/ }),
+    history.getByRole("link", { name: /Run the project checks/ }),
   ).toBeVisible();
   await page.reload();
   await expect(
-    history.getByRole("link", { name: /Run the project checks.*Answered/ }),
+    history.getByRole("link", { name: /Run the project checks/ }),
   ).toBeVisible();
-  await history
-    .getByRole("link", { name: /Run the project checks.*Answered/ })
-    .click();
+  await history.getByRole("link", { name: /Run the project checks/ }).click();
   await expect(page.getByText(/Allow once · Answer recorded/)).toBeVisible();
 });
 

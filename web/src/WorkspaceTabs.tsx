@@ -476,7 +476,7 @@ function title(
     (
       {
         inbox: "Inbox",
-        tasks: "Tasks Board",
+        tasks: "Task Board",
         documents: "Documents",
         files: "Files",
         projects: "Projects",
@@ -493,7 +493,7 @@ function title(
       ? "Document"
       : root.includes("/tasks/")
         ? key
-        : "Tasks Board")
+        : "Task Board")
   );
 }
 function ResourceTab({
@@ -557,25 +557,6 @@ function ResourceTab({
                 !isInboxView(tab.history[tab.index], tab.root)
               )
                 controller.go(tab.root, "open");
-            }}
-            onKeyDown={(event) => {
-              if (
-                index > 0 &&
-                event.altKey &&
-                ["ArrowLeft", "ArrowRight"].includes(event.key)
-              ) {
-                event.preventDefault();
-                event.stopPropagation();
-                controller.reorder(
-                  index,
-                  index + (event.key === "ArrowLeft" ? -1 : 1),
-                );
-              }
-              if (index > 0 && event.key === "Delete") {
-                event.preventDefault();
-                controller.close(tab.id);
-                restoreFocus();
-              }
             }}
           >
             <span ref={label}>{name}</span>{" "}
@@ -703,8 +684,7 @@ export function WorkspaceTabs({
                 plugin === Accessibility
                   ? Accessibility.configure({
                       screenReaderInstructions: {
-                        draggable:
-                          "Use Enter to select, Alt+Left or Alt+Right to reorder, and Delete to close this tab.",
+                        draggable: "",
                       },
                     })
                   : plugin,

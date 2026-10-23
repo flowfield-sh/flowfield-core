@@ -1,7 +1,6 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -12,9 +11,7 @@ import { createPortal } from "react-dom";
 const PaneClose = createContext<(() => void) | null>(null);
 export const usePaneClose = () => useContext(PaneClose);
 const PaneTitleHost = createContext<HTMLElement | null>(null);
-const PaneBody = createContext<HTMLElement | null>(null);
 const ResponseFooterHost = createContext<HTMLElement | null>(null);
-export const usePaneBody = () => useContext(PaneBody);
 export function PaneFooter({
   children,
   inline = false,
@@ -50,26 +47,6 @@ export function EntityPane({
   const [body, setBody] = useState<HTMLDivElement | null>(null);
   const [footer, setFooter] = useState<HTMLDivElement | null>(null);
   const opener = useRef(document.activeElement as HTMLElement | null);
-  useEffect(() => {
-    const escape = (event: KeyboardEvent) => {
-      // Saving can remove a focused control. Preserve Escape when focus falls
-      // back to the document, without intercepting the Coordinator's keys.
-      if (
-        event.key === "Escape" &&
-        !event.defaultPrevented &&
-        (event.target === document.body ||
-          (event.target instanceof HTMLElement &&
-            event.target.matches(".workspace-resource-content") &&
-            !!body &&
-            event.target.contains(body)))
-      ) {
-        event.preventDefault();
-        close();
-      }
-    };
-    document.addEventListener("keydown", escape);
-    return () => document.removeEventListener("keydown", escape);
-  }, [close, body]);
   useLayoutEffect(() => {
     body?.scrollTo({ top: 0 });
     body?.focus({ preventScroll: true });
@@ -113,28 +90,17 @@ export function EntityPane({
   return (
     <PaneClose.Provider value={close}>
       <PaneTitleHost.Provider value={title}>
-        <PaneBody.Provider value={body}>
-          <ResponseFooterHost.Provider value={footer}>
-            <section
-              className="entity-pane"
-              aria-label={label}
-              onKeyDown={(event) => {
-                if (event.key === "Escape" && !event.defaultPrevented) {
-                  event.preventDefault();
-                  close();
-                }
-              }}
-            >
-              <div className="entity-pane-title" ref={setTitle} />
-              <div className="entity-pane-body" ref={setBody} tabIndex={-1}>
-                {children}
-              </div>
-              {responseFooter && (
-                <div className="entity-pane-footer" ref={setFooter} />
-              )}
-            </section>
-          </ResponseFooterHost.Provider>
-        </PaneBody.Provider>
+        <ResponseFooterHost.Provider value={footer}>
+          <section className="entity-pane" aria-label={label}>
+            <div className="entity-pane-title" ref={setTitle} />
+            <div className="entity-pane-body" ref={setBody} tabIndex={-1}>
+              {children}
+            </div>
+            {responseFooter && (
+              <div className="entity-pane-footer" ref={setFooter} />
+            )}
+          </section>
+        </ResponseFooterHost.Provider>
       </PaneTitleHost.Provider>
     </PaneClose.Provider>
   );

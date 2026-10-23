@@ -39,7 +39,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   ).toBeVisible();
   await page
     .getByRole("navigation", { name: "Workspace resources" })
-    .getByRole("link", { name: "Tasks Board", exact: true })
+    .getByRole("link", { name: "Task Board", exact: true })
     .click();
   await expect(page).toHaveURL(base + "/tasks");
   // Saved filtered links retain their collection semantics after the landing change.
@@ -75,7 +75,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   });
   await expect(resources.getByRole("link")).toHaveText([
     "Inbox1",
-    "Tasks Board",
+    "Task Board",
     "Documents",
     "Files",
     "Projects",
@@ -96,11 +96,6 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
       .evaluateAll((nodes) => nodes.map((n) => n.getAttribute("aria-label")));
   const before = await titles();
   const files = tabs.getByRole("tab", { name: "Files", exact: true });
-  await files.focus();
-  await page.keyboard.press("Alt+ArrowLeft");
-  await expect
-    .poll(titles)
-    .toEqual([...before.slice(0, -2), before.at(-1), before.at(-2)]);
   const projects = tabs.getByRole("tab", { name: "Projects", exact: true });
   const target = await files.boundingBox(),
     source = await projects.boundingBox();
@@ -117,11 +112,11 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
   await page.mouse.up();
   await expect
     .poll(titles)
-    .toEqual([...before.slice(0, -3), "Files", "Projects", before.at(-2)]);
+    .toEqual([...before.slice(0, -3), "Documents", "Files", "Projects"]);
   await page.reload();
   await expect
     .poll(titles)
-    .toEqual([...before.slice(0, -3), "Files", "Projects", before.at(-2)]);
+    .toEqual([...before.slice(0, -3), "Documents", "Files", "Projects"]);
   await expect(tabs.getByRole("tab").first()).toHaveAccessibleName("Inbox 1");
   await resources.getByRole("link", { name: "Settings", exact: true }).click();
   await expect(

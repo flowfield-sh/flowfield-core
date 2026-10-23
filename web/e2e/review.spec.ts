@@ -1046,7 +1046,9 @@ test("inspection preserves exact versions, preview edits and direct approval", a
     (await (await request.get(`${path}/results/${first!.id}`)).json())
       .approved_at,
   ).toBeNull();
-  await approvalComment.press("Escape");
+  await page
+    .getByRole("button", { name: "Cancel approval", exact: true })
+    .click();
   await expect(
     page.getByRole("region", { name: "Result", exact: true }),
   ).toBeVisible();
@@ -1059,7 +1061,9 @@ test("inspection preserves exact versions, preview edits and direct approval", a
   await feedback.fill("A bound result change request");
   await feedback.fill("");
   await expect(feedback).toBeVisible();
-  await feedback.press("Escape");
+  await page
+    .getByRole("button", { name: "Cancel feedback", exact: true })
+    .click();
   await expect(
     page.getByRole("region", { name: "Result", exact: true }),
   ).toBeVisible();
@@ -1284,11 +1288,11 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
   for (const delay of [0, 250]) {
     resultDelay = delay;
     await page.goto(
-      `/workspaces/${await projectWorkspace(request, "outcome-report")}/inbox?inbox=history`,
+      `/workspaces/${await projectWorkspace(request, "outcome-report")}/inbox?inbox=delivered`,
     );
-    // Use the real history card and its versioned result URL.
+    // Completed reports live in Delivered, with exact versioned result links.
     await page
-      .getByRole("tabpanel", { name: "History", exact: true })
+      .getByRole("tabpanel", { name: "Delivered", exact: true })
       .getByRole("link", { name: /Report outcome/ })
       .click();
     await expect(

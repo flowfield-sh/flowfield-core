@@ -126,6 +126,16 @@ test("coordinator labels update read-only task headers and preserve deletion his
   await edit
     .getByLabel("Guidance", { exact: true })
     .fill("Requested product improvements.");
+  // Hold refreshes after a save: reopening must use its mutation receipt,
+  // never a stale catalogue revision that later invalidates the confirmation.
+  let releaseLabels!: () => void;
+  const refreshed = new Promise<void>((resolve) => {
+    releaseLabels = resolve;
+  });
+  await page.route("**/api/workspaces/*/labels", async (route) => {
+    if (route.request().method() === "GET") await refreshed;
+    await route.continue();
+  });
   await edit.getByRole("button", { name: "Save label", exact: true }).click();
   await expect(
     page.getByRole("list", { name: "Workspace labels" }),
@@ -136,7 +146,19 @@ test("coordinator labels update read-only task headers and preserve deletion his
   await page
     .getByRole("button", { name: "Edit Customer request", exact: true })
     .click();
+  await expect(edit.getByLabel("Guidance", { exact: true })).toHaveValue(
+    "Requested product improvements.",
+  );
   await edit.getByRole("button", { name: "Delete label", exact: true }).click();
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+  const refreshedLabels = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/labels") &&
+      response.request().method() === "GET",
+  );
+  releaseLabels();
+  await refreshedLabels;
+  await expect(page.getByRole("alertdialog")).toBeVisible();
   await page
     .getByRole("alertdialog")
     .getByRole("button", { name: "Delete label", exact: true })

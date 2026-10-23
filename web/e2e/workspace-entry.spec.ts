@@ -85,7 +85,7 @@ test("explicit workspace creation, project adoption and shared draft navigation"
   await page.screenshot({
     path: testInfo.outputPath("workspace-empty-desktop-light.png"),
   });
-  await openResource(page, "Tasks Board");
+  await openResource(page, "Task Board");
   await expect(
     page.getByRole("dialog", { name: "Coordinator model settings" }),
   ).toHaveCount(0);
@@ -104,7 +104,7 @@ test("explicit workspace creation, project adoption and shared draft navigation"
   await page.screenshot({ path: testInfo.outputPath("projects-empty.png") });
   await page.getByRole("link", { name: "Add project", exact: true }).click();
   await expect(
-    page.getByRole("region", { name: "Add a project", exact: true }),
+    page.getByRole("region", { name: "Add project", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await openResource(page, "Projects");

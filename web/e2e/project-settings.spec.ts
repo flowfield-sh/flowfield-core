@@ -32,7 +32,7 @@ test("CLI adoption updates the browser, task creation and initial connection rec
   await page.getByRole("option", { name: adopted.name, exact: true }).click();
   const workspace = await projectWorkspace(page.request, adopted.id);
   await expect(page).toHaveURL(`/workspaces/${workspace}/inbox`);
-  await page.getByRole("link", { name: "Tasks Board", exact: true }).click();
+  await page.getByRole("link", { name: "Task Board", exact: true }).click();
   expect(
     (
       await request.post(

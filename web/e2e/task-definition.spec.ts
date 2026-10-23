@@ -78,7 +78,6 @@ test("long definitions collapse with a fade and history loads only when expanded
   );
   await expect(definition).toContainText("A short replacement.");
   await expect(expand).toHaveCount(0);
-  await page.getByRole("tab", { name: "Task", exact: true }).click();
   const initial = page.locator('[data-message-id="definition:1"]');
   await expect(initial.locator(".markdown")).toHaveCount(0);
   await initial.locator(".activity-entry > summary").click();

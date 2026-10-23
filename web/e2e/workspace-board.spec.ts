@@ -110,7 +110,7 @@ test("shared workspace board, project filters, Inbox and settings", async ({
   });
   await expect(resources.getByRole("link")).toHaveText([
     "Inbox2",
-    "Tasks Board",
+    "Task Board",
     "Documents",
     "Files",
     "Projects",
@@ -214,8 +214,8 @@ test("shared workspace board, project filters, Inbox and settings", async ({
   });
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await openResource(page, "Tasks Board");
-  await expect(page.getByRole("tab", { name: /^Tasks/ })).toHaveAttribute(
+  await openResource(page, "Task Board");
+  await expect(page.getByRole("tab", { name: /^Task Board/ })).toHaveAttribute(
     "aria-selected",
     "true",
   );

@@ -34,6 +34,17 @@ export function WorkspaceLabels({
   const path = `workspaces/${workspaceId}/labels`;
   const labels = useResource<WorkspaceLabel[]>(path, refresh);
   const [editing, setEditing] = useState<string | null>(null);
+  function saved(record: WorkspaceLabel) {
+    labels.invalidate();
+    labels.setData((current) =>
+      current?.some((item) => item.id === record.id)
+        ? current.map((item) => (item.id === record.id ? record : item))
+        : [...(current ?? []), record],
+    );
+    labels.retry();
+    setEditing(null);
+    onDirty(false);
+  }
   return (
     <DetailSection
       title="Labels"
@@ -60,11 +71,7 @@ export function WorkspaceLabels({
                 setEditing(null);
                 onDirty(false);
               }}
-              saved={() => {
-                labels.retry();
-                setEditing(null);
-                onDirty(false);
-              }}
+              saved={saved}
             />
           </li>
         )}
@@ -81,11 +88,7 @@ export function WorkspaceLabels({
                     setEditing(null);
                     onDirty(false);
                   }}
-                  saved={() => {
-                    labels.retry();
-                    setEditing(null);
-                    onDirty(false);
-                  }}
+                  saved={saved}
                 />
               ) : (
                 <div className="flex items-center gap-3">
@@ -133,7 +136,7 @@ function LabelEditor({
   path: string;
   onDirty: (dirty: boolean) => void;
   close: () => void;
-  saved: () => void;
+  saved: (record: WorkspaceLabel) => void;
 }) {
   const fieldId = useId();
   const state = useRecordEditor<WorkspaceLabel, ReturnType<typeof fields>>({

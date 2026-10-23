@@ -92,11 +92,15 @@ def test_mixed_attention_lifecycle_and_bounded_history(tmp_path: Path) -> None:
         QuestionWithdraw(expected_revision=answered.revision, reason="No longer needed"),
     )
     history = page("history", limit=1)
-    assert history.total == 3 and history.next_offset == 1
+    assert history.total == 2 and history.next_offset == 1
     all_items = history.items + page("history", offset=1, limit=2).items
-    assert len({item.id for item in all_items}) == 3
-    accepted = next(item for item in all_items if item.status == "delivered")
-    assert accepted.kind == "result"
+    assert {item.id for item in all_items} == {first_version.id, question.id}
+    assert all(item.status != "delivered" for item in all_items)
+    # Exact result links and the delivery collection retain the completed outcome.
+    exact = attention_page(
+        workspace, "harbor", "history", request_kind="result", request_id=successor_version.id
+    )
+    assert exact.items[0].id == successor_version.id
     assert page("action").total == page("waiting").total == 0
     # A fresh initial worker stays on the board, not in the human attention queue.
     initial = execution.claim("harbor", BASE, {BASE: set()})

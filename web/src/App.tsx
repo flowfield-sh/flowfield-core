@@ -1181,7 +1181,7 @@ function WorkspaceResource({
       )}
       {addingProject && (
         <EntityPane
-          label="Add a project"
+          label="Add project"
           identity="new-project"
           returnFocusHref={base + "/projects"}
           close={() => closeEntity(base + "/projects")}

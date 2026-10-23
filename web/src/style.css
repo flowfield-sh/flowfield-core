@@ -710,7 +710,7 @@
     padding: 8px 24px;
     border-bottom: 1px solid var(--border);
   }
-  .entity-pane .card-tabs:not(.task-view-navigation .card-tabs) {
+  .entity-pane .card-tabs {
     margin-bottom: 16px;
   }
   @media (max-width: 700px) {

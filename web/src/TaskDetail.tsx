@@ -1,5 +1,5 @@
 import { Separator } from "@/components/ui/separator";
-import { Archive, ArchiveRestore } from "lucide-react";
+import { Archive, ArchiveRestore, Settings, FileText } from "lucide-react";
 import { HeaderAction } from "./HeaderAction";
 import { reportError } from "./requestFeedback";
 import { request } from "./workspace";
@@ -14,7 +14,7 @@ import type { DirtyCallback } from "./retainedState";
 import { useEffect, useState } from "react";
 import { ContentStack, DetailSection } from "./DetailLayout";
 import { TaskLabels } from "./TaskLabels";
-import { DetailHeader, DetailTabs, DraftBadge } from "./Presentation";
+import { DetailHeader, DraftBadge } from "./Presentation";
 import { WorkIdentity } from "./WorkIdentity";
 import { taskHref } from "./navigation";
 import { ExpandableMarkdown } from "./ExpandableMarkdown";
@@ -54,68 +54,73 @@ export function TaskDetail({
           <WorkIdentity
             state={task.state}
             itemKey={task.key}
+            keyBadge={
+              <DraftBadge publicationStatus={task.publication_status} />
+            }
             title={task.title}
           />
         }
         close={close}
         closeLabel="Back"
         actions={
-          <HeaderAction
-            label={archiveLabel}
-            tooltip={task.archive_blocker || archiveLabel}
-            disabled={!!task.archive_blocker || archiving}
-            onClick={async () => {
-              setArchiving(true);
-              try {
-                await request(
-                  `workspaces/${workspaceId}/view/tasks/${task.id}`,
-                  "PUT",
-                  {
-                    expected_revision: task.revision,
-                    archived: !task.archived,
-                    author: "human",
-                  },
-                );
-                close();
-              } catch (error) {
-                reportError(
-                  error,
-                  task.archived
-                    ? "Could not restore task"
-                    : "Could not archive task",
-                );
-              } finally {
-                setArchiving(false);
+          <>
+            <HeaderAction
+              label={settings ? "View task" : "Task settings"}
+              onClick={() =>
+                navigate?.(
+                  settings
+                    ? taskHref(workspaceId, task, "task")
+                    : `${taskHref(workspaceId, task)}/settings`,
+                )
               }
-            }}
-          >
-            {task.archived ? (
-              <ArchiveRestore size={16} aria-hidden="true" />
-            ) : (
-              <Archive size={16} aria-hidden="true" />
-            )}
-          </HeaderAction>
+            >
+              {settings ? (
+                <FileText aria-hidden="true" />
+              ) : (
+                <Settings aria-hidden="true" />
+              )}
+            </HeaderAction>
+            <HeaderAction
+              label={archiveLabel}
+              tooltip={task.archive_blocker || archiveLabel}
+              disabled={!!task.archive_blocker || archiving}
+              onClick={async () => {
+                setArchiving(true);
+                try {
+                  await request(
+                    `workspaces/${workspaceId}/view/tasks/${task.id}`,
+                    "PUT",
+                    {
+                      expected_revision: task.revision,
+                      archived: !task.archived,
+                      author: "human",
+                    },
+                  );
+                  close();
+                } catch (error) {
+                  reportError(
+                    error,
+                    task.archived
+                      ? "Could not restore task"
+                      : "Could not archive task",
+                  );
+                } finally {
+                  setArchiving(false);
+                }
+              }}
+            >
+              {task.archived ? (
+                <ArchiveRestore size={16} aria-hidden="true" />
+              ) : (
+                <Archive size={16} aria-hidden="true" />
+              )}
+            </HeaderAction>
+          </>
         }
       />
-      <ContentStack space="section" className="task-view-navigation">
-        <div className="task-header-badges" aria-label="Task labels">
-          <DraftBadge publicationStatus={task.publication_status} />
-          <TaskLabels ids={task.labels} />
-        </div>
-        <DetailTabs
-          id="task"
-          title="Task views"
-          tabs={["task", "settings"] as const}
-          active={settings ? "settings" : "task"}
-          change={(tab) =>
-            navigate?.(
-              tab === "settings"
-                ? `${taskHref(workspaceId, task)}/settings`
-                : taskHref(workspaceId, task, "task"),
-            )
-          }
-        />
-      </ContentStack>
+      <div className="task-header-badges" aria-label="Task labels">
+        <TaskLabels ids={task.labels} />
+      </div>
       {!settings && (
         <ContentStack space="section" className="task-context">
           <div

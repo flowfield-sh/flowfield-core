@@ -315,6 +315,6 @@ test("Needs attention opens exact requests and collection navigation stays disti
   await expect(
     page
       .getByRole("navigation", { name: "Workspace resources" })
-      .getByRole("link", { name: "Tasks Board", exact: true }),
+      .getByRole("link", { name: "Task Board", exact: true }),
   ).toBeVisible();
 });

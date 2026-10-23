@@ -13,7 +13,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { WorkIdentity } from "./WorkIdentity";
-import { followLink, taskHref, workspaceHref } from "./navigation";
+import { followLink, resultHref, taskHref, workspaceHref } from "./navigation";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { ResourceRetry } from "./ResourceRetry";
 import { useResource } from "./useResource";
@@ -77,6 +77,10 @@ export function WorkNavigation({
     `workspaces/${board.workspace.id}/view/attention?column=action&limit=5`,
     board,
   );
+  const delivered = useResource<components["schemas"]["DeliveredPage"]>(
+    `workspaces/${board.workspace.id}/view/delivered?limit=5`,
+    board,
+  );
   const attentionKeys = new Set(board.attention_work_keys);
   const progress = board.tasks
     .filter(
@@ -93,7 +97,7 @@ export function WorkNavigation({
     .slice(0, 5);
   const resources = [
     { name: "Inbox", href: base + "/inbox", Icon: Inbox },
-    { name: "Tasks Board", href: base + "/tasks", Icon: Columns3 },
+    { name: "Task Board", href: base + "/tasks", Icon: Columns3 },
     { name: "Documents", href: base + "/documents", Icon: FileText },
     { name: "Files", href: base + "/files", Icon: Files },
     { name: "Projects", href: base + "/projects", Icon: Folder },
@@ -133,15 +137,20 @@ export function WorkNavigation({
           <Settings size={16} /> Settings
         </a>
       </nav>
-      {(!!attention.data?.items.length || !!progress.length) && (
+      {(!!attention.data?.items.length ||
+        !!delivered.data?.items.length ||
+        !!progress.length) && (
         <div className="work-navigation-heading">
           <span>Recent Work</span>
         </div>
       )}
       {(!!attention.data?.items.length ||
+        !!delivered.data?.items.length ||
         !!progress.length ||
         attention.loading ||
-        attention.error) && (
+        attention.error ||
+        delivered.loading ||
+        delivered.error) && (
         <nav className="work-navigation-scroll" aria-label="Recent Work">
           <div className="work-navigation-list">
             {(!!attention.data?.items.length || attention.error) && (
@@ -162,6 +171,23 @@ export function WorkNavigation({
                       />
                     ),
                 )}
+              </section>
+            )}
+            {(!!delivered.data?.items.length || delivered.error) && (
+              <section aria-label="Delivered">
+                <h3 className="work-group-label">Delivered</h3>
+                <ResourceRetry resources={[delivered]} />
+                {delivered.data?.items.map((item) => (
+                  <RecentLink
+                    key={item.id}
+                    href={resultHref(board.workspace.id, item.id)}
+                    current={current}
+                    open={open}
+                    itemKey={item.task_key}
+                    title={item.title}
+                    state={{ label: "Delivered", tone: "complete" }}
+                  />
+                ))}
               </section>
             )}
             {!!progress.length && (

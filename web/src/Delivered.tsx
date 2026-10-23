@@ -38,7 +38,6 @@ export function Delivered({
               state={state}
               itemKey={item.task_key}
               title={item.title}
-              outcome="Delivered"
               date={item.delivered_at}
             />
           ))}

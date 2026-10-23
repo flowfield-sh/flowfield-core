@@ -349,8 +349,35 @@ test("paged compact Inbox keeps independent failed-answer drafts in resource tab
   const inbox = page.getByRole("tabpanel", { name: "Needs me", exact: true });
   const back = () =>
     page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
+  let releasePage!: () => void;
+  let pageRequested!: () => void;
+  const heldPage = new Promise<void>((resolve) => {
+    releasePage = resolve;
+  });
+  const requestedPage = new Promise<void>((resolve) => {
+    pageRequested = resolve;
+  });
+  let holdNext = true;
+  await page.route(
+    "**/view/attention?column=action&offset=20",
+    async (route) => {
+      if (holdNext) {
+        holdNext = false;
+        pageRequested();
+        await heldPage;
+      }
+      await route.continue().catch(() => {});
+    },
+  );
   await inbox.getByRole("button", { name: "Load more", exact: true }).click();
+  await requestedPage;
+  // Recovery cancels the pagination request and finishes its window through
+  // the base read. That window must also survive unmounting the Inbox tab.
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("flowfield:service-recovered")),
+  );
   await expect(inbox.locator(".inbox-history-row")).toHaveCount(23);
+  releasePage();
   await inbox.getByRole("link", { name: /Paged decision 0 / }).click();
   const answer = page.getByRole("textbox", {
     name: "Your answer",
@@ -358,6 +385,7 @@ test("paged compact Inbox keeps independent failed-answer drafts in resource tab
   });
   await answer.fill("Keep this later-page draft.");
   await back();
+  await expect(inbox.locator(".inbox-history-row")).toHaveCount(23);
   await inbox.getByRole("link", { name: /Paged decision 22 / }).click();
   await answer.fill("CSV first.");
   await page.route(`**/api/workspaces/*/questions/q-22/answer`, (route) =>

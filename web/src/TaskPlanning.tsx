@@ -12,10 +12,9 @@ import {
   useDraggable,
   useDroppable,
 } from "@dnd-kit/react";
+import { Accessibility } from "@dnd-kit/dom";
 import { PointerActivationConstraints } from "@dnd-kit/dom";
 import { GripVertical } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ActionTooltip } from "./ActionTooltip";
 import { reportError } from "./requestFeedback";
 import { request, type TaskCard } from "./workspace";
 
@@ -24,12 +23,8 @@ const planning = (status: string): status is PlanningStatus =>
   status === "backlog" || status === "up_next";
 const Context = createContext<{
   busy: boolean;
-  tasks: TaskCard[];
-  move: (task: TaskCard, status: PlanningStatus, before: string | null) => void;
 }>({
   busy: false,
-  tasks: [] as TaskCard[],
-  move: () => {},
 });
 
 export function TaskPlanning({
@@ -68,7 +63,7 @@ export function TaskPlanning({
     }
   }
   return (
-    <Context.Provider value={{ busy, tasks, move }}>
+    <Context.Provider value={{ busy }}>
       <DragDropProvider
         sensors={[
           PointerSensor.configure({
@@ -77,6 +72,15 @@ export function TaskPlanning({
             ],
           }),
         ]}
+        plugins={(defaults) =>
+          defaults.map((plugin) =>
+            plugin === Accessibility
+              ? Accessibility.configure({
+                  screenReaderInstructions: { draggable: "" },
+                })
+              : plugin,
+          )
+        }
         onDragEnd={(event) => {
           if (event.canceled) return;
           const { source, target } = event.operation;
@@ -124,7 +128,7 @@ function MovableCard({
   task: TaskCard;
   children: ReactNode;
 }) {
-  const { busy, tasks, move } = useContext(Context);
+  const { busy } = useContext(Context);
   const disabled = busy || !planning(task.status);
   const {
     ref: dragRef,
@@ -147,43 +151,15 @@ function MovableCard({
     >
       {children}
       {planning(task.status) && (
-        <ActionTooltip label="Drag to move. Alt+Up/Down reorders; Alt+Left/Right moves between Backlog and Up next.">
-          <Button
-            ref={handleRef}
-            className="absolute right-1 top-1 z-10 cursor-grab"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Move ${task.key}`}
-            disabled={busy}
-            onKeyDown={(event) => {
-              if (
-                !event.altKey ||
-                !planning(task.status) ||
-                !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
-                  event.key,
-                )
-              )
-                return;
-              event.preventDefault();
-              if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-                const status =
-                  event.key === "ArrowLeft" ? "backlog" : "up_next";
-                if (status !== task.status) move(task, status, null);
-              } else {
-                const peers = tasks.filter(
-                  (item) => item.status === task.status,
-                );
-                const index = peers.findIndex((item) => item.id === task.id);
-                if (event.key === "ArrowUp" && index > 0)
-                  move(task, task.status, peers[index - 1].id);
-                if (event.key === "ArrowDown" && index < peers.length - 1)
-                  move(task, task.status, peers[index + 2]?.id ?? null);
-              }
-            }}
-          >
-            <GripVertical size={14} aria-hidden="true" />
-          </Button>
-        </ActionTooltip>
+        <button
+          type="button"
+          ref={handleRef}
+          className="absolute right-1 top-1 z-10 flex size-8 cursor-grab items-center justify-center rounded-md text-muted-foreground active:cursor-grabbing disabled:pointer-events-none disabled:opacity-50"
+          aria-label={`Move ${task.key}`}
+          disabled={busy}
+        >
+          <GripVertical size={14} aria-hidden="true" />
+        </button>
       )}
     </div>
   );

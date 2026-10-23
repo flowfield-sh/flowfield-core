@@ -8,6 +8,7 @@ export function WorkIdentity({
   itemKey,
   title,
   decorative = false,
+  keyBadge,
   detail,
 }: {
   state?: ComponentProps<typeof WorkState>["state"];
@@ -15,11 +16,17 @@ export function WorkIdentity({
   title: string;
   decorative?: boolean;
   detail?: ReactNode;
+  keyBadge?: ReactNode;
 }) {
   return (
     <span className="work-identity">
       <WorkState state={state} indicatorOnly decorative={decorative} />
-      {itemKey && <Badge variant="outline">{itemKey}</Badge>}
+      {itemKey && (
+        <span className="work-key inline-flex shrink-0 items-center gap-2">
+          <Badge variant="outline">{itemKey}</Badge>
+          {keyBadge}
+        </span>
+      )}
       {detail ? (
         <span className="min-w-0">
           <span className="work-identity-title">{title}</span>

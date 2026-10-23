@@ -6,7 +6,7 @@ import { QuestionChoices } from "./QuestionChoices";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PaneFooter, usePaneBody } from "./EntityPane";
+import { PaneFooter } from "./EntityPane";
 import { Button } from "@/components/ui/button";
 import { Composer } from "./Composer";
 import { ArrowUp } from "lucide-react";
@@ -165,7 +165,6 @@ export function TaskResponse({
   const [busy, setBusy] = useState(false);
   const [savedResult, setSavedResult] = useState<Version | null>(null);
   const [uploading, setUploading] = useState(false);
-  const paneBody = usePaneBody();
   const input = useRef<HTMLTextAreaElement>(null);
   const [actionHost, setActionHost] = useState<HTMLDivElement | null>(null);
   const [actionContext, setActionContext] = useState<HTMLDivElement | null>(
@@ -431,21 +430,6 @@ export function TaskResponse({
               <form
                 className="content-stack"
                 aria-label="Task input"
-                onKeyDown={(event) => {
-                  if (
-                    event.key !== "Escape" ||
-                    event.defaultPrevented ||
-                    !showComposer
-                  )
-                    return;
-                  event.preventDefault();
-                  event.stopPropagation();
-                  if (busy || uploading) return;
-                  discardDraft();
-                  requestAnimationFrame(() =>
-                    paneBody?.focus({ preventScroll: true }),
-                  );
-                }}
                 onSubmit={(event) => {
                   event.preventDefault();
                   void send();

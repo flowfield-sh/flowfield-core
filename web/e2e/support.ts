@@ -163,7 +163,7 @@ export async function closeOverlay(page: Page) {
       const close = dialog.locator(".close-control").first();
       if (await close.isDisabled()) {
         if (new URL(page.url()).pathname.includes("/tasks/"))
-          await openResource(page, "Tasks Board");
+          await openResource(page, "Task Board");
         else if (new URL(page.url()).pathname.includes("/documents/"))
           await openResource(page, "Documents");
         else await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();

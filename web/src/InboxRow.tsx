@@ -12,14 +12,12 @@ export function InboxRow({
   state,
   itemKey,
   title,
-  outcome,
   date,
 }: {
   href: string;
   state: components["schemas"]["WorkState"];
   itemKey?: string | null;
   title: string;
-  outcome: string;
   date: string;
 }) {
   const open = useContext(ResourceNavigation);
@@ -36,7 +34,6 @@ export function InboxRow({
       >
         <WorkIdentity state={state} itemKey={itemKey} title={title} />
         <span className="inbox-history-metadata">
-          <span className="inbox-history-outcome">{outcome}</span>
           <span className="detail-metadata">
             <Timestamp date={date} />
           </span>

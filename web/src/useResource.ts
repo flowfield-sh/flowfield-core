@@ -4,6 +4,12 @@ import { RequestError, request } from "./workspace";
 import { nextPage, pageCursor, pageWindow, type Page } from "./pagination";
 
 const loadedWindows = new Map<string, number>();
+function rememberWindow(path: string, count: number) {
+  loadedWindows.delete(path);
+  loadedWindows.set(path, count);
+  while (loadedWindows.size > 100)
+    loadedWindows.delete(loadedWindows.keys().next().value!);
+}
 
 // Every read owns an abort signal. Navigation, refresh and a successful local
 // mutation invalidate stale replies; writes are never silently cancelled.
@@ -198,6 +204,9 @@ export function usePage<P extends Page>(
     // refresh completes the user's pagination instead of discarding the click.
     if (refreshLoaded) {
       loaded.current = { path, count: (data?.items.length ?? 0) + 1 };
+      // A refresh may finish this window after cancelling older(). Retain the
+      // requested depth now, so leaving and reopening does not lose that page.
+      rememberWindow(path, loaded.current.count);
     }
     try {
       const page = await nextPage(path, data, (url) =>
@@ -213,10 +222,7 @@ export function usePage<P extends Page>(
           count: (data?.items.length ?? 0) + page.items.length,
         };
         if (refreshLoaded) {
-          loadedWindows.delete(path);
-          loadedWindows.set(path, loaded.current.count);
-          while (loadedWindows.size > 100)
-            loadedWindows.delete(loadedWindows.keys().next().value!);
+          rememberWindow(path, loaded.current.count);
         }
         setError("");
       }

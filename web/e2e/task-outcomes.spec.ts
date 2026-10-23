@@ -240,14 +240,18 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await expect(deliveries.locator(".inbox-history-row").first()).toContainText(
     "T-2",
   );
-  await expect(deliveries.locator(".inbox-history-row").first()).toContainText(
-    "Delivered",
-  );
+  await expect(
+    deliveries
+      .locator(".inbox-history-row")
+      .first()
+      .getByRole("img", { name: "Delivered", exact: true }),
+  ).toBeVisible();
   await expect(
     page
       .getByRole("navigation", { name: "Recent Work" })
-      .getByRole("region", { name: "Delivered", exact: true }),
-  ).toHaveCount(0);
+      .getByRole("region", { name: "Delivered", exact: true })
+      .getByRole("link"),
+  ).toHaveCount(2);
   await page.screenshot({ path: testInfo.outputPath("delivered-desktop.png") });
   await page.setViewportSize({ width: 390, height: 900 });
   await page.emulateMedia({ colorScheme: "dark" });

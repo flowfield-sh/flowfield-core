@@ -107,13 +107,15 @@ export function TaskIdentity({
   return (
     <span className="task-identity">
       <span className="task-identity-heading">
-        <Badge variant="outline">{task.key}</Badge>{" "}
+        <span className="inline-flex items-center gap-2 align-baseline">
+          <Badge variant="outline">{task.key}</Badge>
+          <DraftBadge publicationStatus={task.publication_status} />
+        </span>{" "}
         <strong>{title ?? task.title}</strong>
         {metadata}
       </span>
-      {(task.labels.length > 0 || task.publication_status === "draft") && (
+      {task.labels.length > 0 && (
         <span className="task-labels">
-          <DraftBadge publicationStatus={task.publication_status} />
           <TaskLabels ids={task.labels} />
         </span>
       )}

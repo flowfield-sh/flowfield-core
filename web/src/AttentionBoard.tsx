@@ -224,9 +224,6 @@ function InboxList({
               state={item.state ?? { label: label(item.status), tone: "idle" }}
               itemKey={item.source_key ?? item.task_key}
               title={item.title}
-              outcome={
-                item.next_action ?? item.state?.label ?? label(item.status)
-              }
               date={item.updated_at}
             />
           ))}

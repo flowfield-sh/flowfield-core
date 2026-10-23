@@ -283,11 +283,7 @@ test("settings toasts preserve drafts, support keyboard dismissal and expire acr
     "data-sonner-theme",
     "dark",
   );
-  await page.keyboard.press("Alt+t");
-  await expect(page.locator("[data-sonner-toaster]")).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(failure).toBeFocused();
-  await page.keyboard.press("Tab");
+  await failure.getByRole("button", { name: "Close toast" }).focus();
   await expect(
     failure.getByRole("button", { name: "Close toast" }),
   ).toBeFocused();

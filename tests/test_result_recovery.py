@@ -103,7 +103,7 @@ def test_conflict_correction_retains_both_inputs_and_requires_new_approval(tmp_p
     assert service.workspace.board("harbor").needs_you_count == 0
     assert {
         item.result_version for item in attention_page(service.workspace, "harbor", "history").items
-    } == {1, 2}
+    } == {1}
     assert service.workspace.task("harbor", "work").status == "done"
     assert (tmp_path / "preserved-readme").read_text() == "human dirty work"
     history = ExecutionHistory(service.workspace).page("harbor", "work")

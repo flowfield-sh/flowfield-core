@@ -39,7 +39,9 @@ test("review defaults and task reset preserve explicit inheritance and missing s
   await page.goto(
     `/workspaces/${await projectWorkspace(page.request, "review-settings")}/tasks/${task.key}`,
   );
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Task settings", exact: true })
+    .click();
   const override = page.getByRole("region", { name: "Reviewer settings" });
   await expect(
     override.getByLabel("Automatically assess task outcomes"),
@@ -64,7 +66,6 @@ test("review defaults and task reset preserve explicit inheritance and missing s
   expect(reset.selection).toBeNull();
   expect(reset.effective.enabled_source).toBe("workspace");
   await page.reload();
-  await page.getByRole("tab", { name: "Settings", exact: true }).click();
   await expect(
     page
       .getByRole("region", { name: "Reviewer settings" })

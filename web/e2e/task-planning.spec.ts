@@ -34,20 +34,25 @@ test("humans reorder, move, archive and restore tasks directly", async ({
   const next = page.getByRole("region", { name: "Up next tasks", exact: true });
   const move = (index: number) =>
     page.getByRole("button", { name: `Move ${tasks[index].key}`, exact: true });
-  await move(1).focus();
-  await page.keyboard.press("Alt+ArrowUp");
+  const second = (await move(1).boundingBox())!;
+  const first = (await backlog.locator(".card-shell").first().boundingBox())!;
+  await page.mouse.move(
+    second.x + second.width / 2,
+    second.y + second.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    second.x + second.width / 2 + 12,
+    second.y + second.height / 2,
+  );
+  await page.mouse.move(first.x + first.width / 2, first.y + 12, { steps: 15 });
+  await expect(backlog.locator(".card-shell").first()).toHaveClass(
+    /border-t-2/,
+  );
+  await page.mouse.up();
   await expect(backlog.locator(".task-card-link")).toHaveText([
     "Second idea",
     "First idea",
-  ]);
-  await move(1).focus();
-  await page.keyboard.press("Alt+ArrowRight");
-  await expect(next.getByRole("link", { name: /Second idea/ })).toBeVisible();
-  await move(1).focus();
-  await page.keyboard.press("Alt+ArrowLeft");
-  await expect(backlog.locator(".task-card-link")).toHaveText([
-    "First idea",
-    "Second idea",
   ]);
   await expect(move(0)).toBeEnabled();
   const start = (await move(0).boundingBox())!;
