@@ -49,7 +49,7 @@ def test_incompatible_state_is_rejected_without_changes(tmp_path, version):
         db.execute("INSERT INTO old_work VALUES ('Do not silently delete data')")
         db.execute(f"PRAGMA user_version={version}")
     before = database.read_bytes()
-    with pytest.raises(ApplicationError, match="fresh --data-dir"):
+    with pytest.raises(ApplicationError, match="Preserve this data directory"):
         Workspace(tmp_path)
     assert database.read_bytes() == before
     assert not (tmp_path / "artifacts").exists()
@@ -125,7 +125,7 @@ def test_active_execution_owner_allows_current_readers_only(tmp_path):
             storage.acquire_lock(tmp_path, ".execution.lock")
         with raw(tmp_path) as db:
             db.execute("PRAGMA user_version=81")
-        with pytest.raises(ApplicationError, match="fresh --data-dir"):
+        with pytest.raises(ApplicationError, match="Preserve this data directory"):
             Workspace(tmp_path)
     with pytest.raises(ApplicationError, match="schema is 81"):
         store.projects()
@@ -174,5 +174,5 @@ def test_offline_status_never_initializes_and_retired_commands_are_removed(tmp_p
     before = (directory / storage.DATABASE).read_bytes()
     result = runner.invoke(app, [*args, "status"])
     assert result.exit_code == 0
-    assert "fresh --data-dir" in result.stdout
+    assert "preserve this directory" in result.stdout
     assert (directory / storage.DATABASE).read_bytes() == before

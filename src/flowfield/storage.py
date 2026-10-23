@@ -51,7 +51,7 @@ def require_supported(value: int) -> None:
         raise ApplicationError(
             "unsupported_schema",
             f"Unsupported database version {value}; this build requires {SCHEMA_VERSION}. "
-            "Start with a fresh --data-dir. Existing state is not upgraded or deleted.",
+            "Preserve this data directory and use a Flowfield version compatible with its schema.",
             409,
         )
 
@@ -62,7 +62,7 @@ def require_current(db: sqlite3.Connection, expected: int) -> None:
         raise ApplicationError(
             "schema_changed",
             f"Database schema is {actual}; this workspace opened schema {expected}. "
-            "Stop the service and use a fresh --data-dir.",
+            "Stop the service and use a Flowfield version compatible with this saved store.",
             409,
         )
 
@@ -111,8 +111,8 @@ def initialize(directory: Path, schema: str) -> None:
             if db.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchone():
                 raise ApplicationError(
                     "unsupported_schema",
-                    "Unversioned nonempty database. Start with a fresh --data-dir. "
-                    "Existing state is not upgraded or deleted.",
+                    "Unversioned nonempty database. Preserve this data directory. "
+                    "Use a Flowfield version compatible with its schema to inspect it.",
                     409,
                 )
             try:

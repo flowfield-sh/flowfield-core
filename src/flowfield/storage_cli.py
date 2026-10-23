@@ -35,6 +35,9 @@ def register(app: typer.Typer) -> None:
             if value["schema_version"] is not None and (
                 value["schema_version"] != value["supported_version"]
             ):
-                typer.echo("Incompatible schema; start with a fresh --data-dir.")
+                typer.echo(
+                    "Incompatible schema; preserve this directory "
+                    "and use a compatible Flowfield version."
+                )
 
         output(inspect, json_output, show)

@@ -11,8 +11,9 @@ import {
   PointerSensor,
   useDraggable,
   useDroppable,
+  type DragMoveEvent,
 } from "@dnd-kit/react";
-import { Accessibility } from "@dnd-kit/dom";
+import { Accessibility, Feedback } from "@dnd-kit/dom";
 import { PointerActivationConstraints } from "@dnd-kit/dom";
 import { GripVertical } from "lucide-react";
 import { reportError } from "./requestFeedback";
@@ -23,8 +24,10 @@ const planning = (status: string): status is PlanningStatus =>
   status === "backlog" || status === "up_next";
 const Context = createContext<{
   busy: boolean;
+  before: string | null;
 }>({
   busy: false,
+  before: null,
 });
 
 export function TaskPlanning({
@@ -36,6 +39,29 @@ export function TaskPlanning({
 }) {
   const [busy, setBusy] = useState(false);
   const saving = useRef(false);
+  const [before, setBefore] = useState<string | null>(null);
+  function placement(operation: DragMoveEvent["operation"]) {
+    const { target, source, position } = operation;
+    const status = target?.data.status;
+    const element = target?.element;
+    if (!element || !planning(status)) return null;
+    const bounds = element.getBoundingClientRect();
+    const { x, y } = position.current;
+    if (
+      x < bounds.left ||
+      x > bounds.right ||
+      y < bounds.top ||
+      y > bounds.bottom
+    )
+      return null;
+    const cards = element.querySelectorAll<HTMLElement>("[data-planning-id]");
+    const next = Array.from(cards).find((card) => {
+      if (card.dataset.planningId === source?.id) return false;
+      const rect = card.getBoundingClientRect();
+      return y < rect.top + rect.height / 2;
+    });
+    return { status, before: next?.dataset.planningId ?? null };
+  }
   async function move(
     task: TaskCard,
     status: PlanningStatus,
@@ -63,7 +89,7 @@ export function TaskPlanning({
     }
   }
   return (
-    <Context.Provider value={{ busy }}>
+    <Context.Provider value={{ busy, before }}>
       <DragDropProvider
         sensors={[
           PointerSensor.configure({
@@ -78,16 +104,26 @@ export function TaskPlanning({
               ? Accessibility.configure({
                   screenReaderInstructions: { draggable: "" },
                 })
-              : plugin,
+              : plugin === Feedback
+                ? Feedback.configure({ dropAnimation: null })
+                : plugin,
           )
         }
+        onDragMove={({ operation }) =>
+          setBefore(placement(operation)?.before ?? null)
+        }
+        onDragOver={({ operation }) =>
+          setBefore(placement(operation)?.before ?? null)
+        }
         onDragEnd={(event) => {
+          setBefore(null);
           if (event.canceled) return;
-          const { source, target } = event.operation;
-          const task = tasks.find((item) => item.id === source?.id);
-          const status = target?.data.status;
-          if (task && typeof status === "string" && planning(status))
-            void move(task, status, target?.data.before ?? null);
+          const task = tasks.find(
+            (item) => item.id === event.operation.source?.id,
+          );
+          const destination = placement(event.operation);
+          if (task && destination)
+            void move(task, destination.status, destination.before);
         }}
       >
         {children}
@@ -104,7 +140,7 @@ export function PlanningColumn({
   const { ref, isDropTarget } = useDroppable({
     id: `column:${status}`,
     disabled: busy || !planning(status),
-    data: { status, before: null },
+    data: { status },
   });
   return <div ref={ref} data-drop-target={isDropTarget} {...props} />;
 }
@@ -128,25 +164,18 @@ function MovableCard({
   task: TaskCard;
   children: ReactNode;
 }) {
-  const { busy } = useContext(Context);
+  const { busy, before } = useContext(Context);
   const disabled = busy || !planning(task.status);
   const {
     ref: dragRef,
     handleRef,
     isDragging,
   } = useDraggable({ id: task.id, disabled });
-  const { ref: dropRef, isDropTarget } = useDroppable({
-    id: `before:${task.id}`,
-    disabled,
-    data: { status: task.status, before: task.id },
-  });
   return (
     <div
-      ref={(node) => {
-        dragRef(node);
-        dropRef(node);
-      }}
-      className={`card-shell relative${planning(task.status) ? " planning-card" : ""}${isDropTarget && !isDragging ? " border-t-2 border-primary" : ""}`}
+      ref={dragRef}
+      data-planning-id={task.id}
+      className={`card-shell relative${planning(task.status) ? " planning-card" : ""}${before === task.id && !isDragging ? " border-t-2 border-primary" : ""}`}
       data-dragging={isDragging}
     >
       {children}

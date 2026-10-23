@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://pypi.org/project/flowfield-core/"><img src="https://img.shields.io/pypi/v/flowfield-core?logo=pypi&amp;logoColor=white&amp;color=2563eb" alt="PyPI version"></a>
   <a href="https://github.com/flowfield-sh/flowfield-core/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/flowfield-sh/flowfield-core/tests.yml?branch=main&amp;label=tests" alt="Tests"></a>
-  <a href="https://github.com/flowfield-sh/flowfield-core/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-2563eb" alt="Apache 2.0 license"></a>
+  <a href="https://github.com/flowfield-sh/flowfield-core/actions/workflows/docs.yml"><img src="https://img.shields.io/github/actions/workflow/status/flowfield-sh/flowfield-core/docs.yml?branch=main&amp;label=docs" alt="Documentation"></a>
 </p>
 
 ![The Coordinator beside task priorities, review and delivered outcomes](docs/images/board-hero.png)
@@ -32,11 +32,9 @@ flowfield serve
 
 Open [localhost:8765](http://127.0.0.1:8765), create a workspace and choose its agents. Add existing repositories for code work, or start with a report or file task. See [Getting started](https://docs.flowfield.sh/getting-started) for the walkthrough or [Installation](https://docs.flowfield.sh/installation) for requirements and alternatives.
 
-Upgrading from an earlier database schema requires a fresh data directory. Existing state is preserved but not migrated; read [Local storage](https://docs.flowfield.sh/storage#starting-fresh) before updating.
-
 ## How does Flowfield work?
 
-Ask the Coordinator to organize work and maintain shared context. Each task owns a useful outcome, its history and delivery. Follow Task Board, edit documents and respond through Inbox while the same conversation stays beside the work.
+Ask the Coordinator to organize work and maintain shared context. Each task owns a useful outcome, its history and delivery. Order Backlog and Up next on Task Board, edit documents and respond through Inbox while the same conversation stays beside the work.
 
 **💬 Shape the idea**<br>Talk through the problem with the Coordinator. It turns agreed decisions into tasks while the work continues beside the conversation.
 
@@ -44,11 +42,11 @@ Ask the Coordinator to organize work and maintain shared context. Each task owns
 
 **📚 Give workers the right context**<br>The Coordinator maintains shared documents and selects the sources each task needs. Prepared tasks keep their exact document revisions, and newer revisions stay visible for review.
 
-**⚡ Build in parallel**<br>Workers carry out independent tasks in separate checkouts using your tools and checks. Larger tasks can use local subtasks that assemble into one result. Dependent work waits for delivered prerequisites.
+**⚡ Build in parallel**<br>Workers carry out independent tasks in separate checkouts using your tools and checks. Larger tasks can use local subtasks that assemble into one result. When another delivery changes the destination, Flowfield prepares the remaining work against it and queues corrections when needed. Dependent work waits for delivered prerequisites.
 
 **📥 Know what needs you**<br>Inbox separates decisions in Needs me, completed outcomes in Delivered and earlier responses in History. Answer a question once and managed work continues when eligible. Task feeds preserve the story.
 
-**🔎 Own the finish**<br>The Reviewer assesses the whole task and can request corrections. Inspect or run the result, then approve exact code for delivery to your local branch. Complete reports and files finish after configured review and remain available in Files. Pushing and deployment stay yours.
+**🔎 Own the finish**<br>The Reviewer assesses the whole task and can request corrections. Inspect or run the result, then approve exact code for delivery to your local branch. Complete reports and files finish after configured review and remain available in Files. Ask the Coordinator to run, push or publish a result when you want those actions.
 
 ## Screenshots
 

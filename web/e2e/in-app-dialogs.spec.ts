@@ -269,8 +269,25 @@ test("worker and model reload decisions preserve access drafts and recover from 
     name: "Coordinator model settings",
   });
   await choose(picker.getByLabel("Access mode"), "read-only");
-  await page.route(`**${base}/coordinator-settings`, (route) =>
-    route.request().method() === "PUT" || fail
+  // A background read may finish while the reload confirmation is open.
+  let releaseRead!: () => void;
+  let readStarted!: () => void;
+  const heldRead = new Promise<void>((resolve) => {
+    releaseRead = resolve;
+  });
+  const reading = new Promise<void>((resolve) => {
+    readStarted = resolve;
+  });
+  let holdRead = true;
+  await page.route(`**${base}/coordinator-settings`, async (route) => {
+    if (route.request().method() === "GET" && holdRead) {
+      holdRead = false;
+      const response = await route.fetch();
+      readStarted();
+      await heldRead;
+      return route.fulfill({ response });
+    }
+    return route.request().method() === "PUT" || fail
       ? route.fulfill({
           status: 409,
           json: {
@@ -280,13 +297,18 @@ test("worker and model reload decisions preserve access drafts and recover from 
             },
           },
         })
-      : route.continue(),
+      : route.continue();
+  });
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("flowfield:service-recovered")),
   );
+  await reading;
   await picker.getByRole("button", { name: "Save", exact: true }).click();
   await expect(errors).toHaveCount(1);
   const reload = picker.getByRole("button", { name: "Reload", exact: true });
   await reload.click();
   await expect(dialog).toBeVisible();
+  releaseRead();
   await dialogViews(page, info, "model-settings-reload");
   await page.keyboard.press("Escape");
   await expect(reload).toBeFocused();

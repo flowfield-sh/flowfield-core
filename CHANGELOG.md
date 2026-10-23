@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.7.0
+
+### Features
+
+- Continue unfinished code results automatically when another delivery advances the destination. Flowfield prepares and validates the existing work, queues scoped corrections for merge or check failures, and obtains a fresh review. Changed candidates still need exact delivery approval; queue pause prevents new continuations.
+- Reorder tasks within Backlog and Up next or move them between those columns directly. Archive stopped or abandoned tasks from their title and restore them with their history intact.
+
+### Improvements
+
+- Follow candidate preparation and validation through the active command, elapsed time, timeout and incremental output. Stop checks when needed, and configure projects without validation commands when appropriate.
+- Review results with a concise outcome, destination and supporting evidence. Earlier results retain their history and link to newer work; obsolete preview and delivery controls no longer compete with the current action.
+- Scan compact Inbox lists, open exact requests and results in work tabs, and find completed outcomes in Delivered. History focuses on earlier decisions. Sidebar groups keep needs-attention, delivered and active work within reach.
+- Use consistent title actions for task settings, archive and document editing. Task cards keep their key and Draft label together, wrap titles naturally and show status once. Custom application keyboard shortcuts are removed.
+
+### Bug fixes
+
+- Insert dragged tasks at the chosen position between cards, including across columns, without drop animations.
+- Preserve Coordinator fresh-session recovery through restart and failed retry without discarding saved conversation history.
+- Recover closed update streams automatically, including in Firefox, and preserve views and drafts while reconnecting.
+- Wait and retry when result preview preparation encounters an active integration instead of reporting an immediate failure.
+- Keep task events in causal order, use canonical role labels across records, and constrain long permission-button labels with full-text tooltips.
+- Adopt saved label revisions before reopening their editor and preserve expanded Inbox lists when a background refresh interrupts pagination.
+
 ## 0.6.0
 
 ### Features

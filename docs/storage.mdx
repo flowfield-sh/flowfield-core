@@ -1,6 +1,6 @@
 ---
 title: Local storage
-description: Locate your data, inspect storage and start with a fresh store.
+description: Locate and back up your workspace data.
 ---
 
 One service data directory stores all your Flowfield workspaces. The default is `~/.flowfield` on macOS/Linux and `%USERPROFILE%\.flowfield` on Windows. Project repositories and installed native harness configuration remain separate.
@@ -17,19 +17,19 @@ One service data directory stores all your Flowfield workspaces. The default is 
 
 Choose another data directory with `FLOWFIELD_DATA_DIR` or `flowfield --data-dir /absolute/path serve`. This changes the service's store, not an individual workspace's repository locations.
 
-## Starting fresh
+## Updating and recovery
 
-This build requires a fresh data directory when your existing database has a different schema version. It does not upgrade older databases. Stop the old service, choose a new directory and create a workspace:
+Updating from 0.6.0 to 0.7.0 uses the existing store without a schema change. Stop the service before upgrading and keep a full backup. Tasks, documents, results, files and saved settings remain available.
 
-```sh
-flowfield --data-dir /absolute/path/to/new-flowfield-data serve
-```
+Queues start paused unless **Auto-start worker queue** is saved in workspace General settings. Sidebar Run/Pause changes only the current queue. Interrupted workers still need recovery.
 
-To reuse the default location, stop every Flowfield service and preserve the complete old directory and your repositories first. Rename the old directory to an unused backup name, such as `.flowfield-before-0.6.0` beside the original. Restart Flowfield to create a fresh `~/.flowfield` directory, then create your workspace and adopt the repositories again. If you used `FLOWFIELD_DATA_DIR` or `--data-dir`, apply these steps to that configured directory.
+Startup rejects unsupported database versions without modifying or deleting them. Use a build compatible with the saved store to inspect it; do not delete state to resolve a startup error.
 
-After verifying your backup and deciding you no longer need the old work history, you can delete the old Flowfield directory. Keep the adopted repositories, native harness configuration and credentials.
+<span id="starting-fresh" />
 
-Existing repositories and native harness configuration remain separate. Startup rejects incompatible databases without modifying or deleting them. Reopening the current schema preserves saved work. Queues start paused unless **Auto-start worker queue** is saved in workspace General settings; sidebar Run/Pause does not change that startup preference. Interrupted workers still need recovery.
+### Stores from before 0.6.0
+
+The task-model change in 0.6.0 did not migrate earlier stores. Keep the entire old data directory and use its matching Flowfield version to retrieve records or outputs. To start a separate workspace, choose a new, unused location with `flowfield --data-dir /absolute/path/to/new-flowfield-data serve`, then adopt your existing repositories. Repository files and native credentials stay separate.
 
 ## Inspect storage
 

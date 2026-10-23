@@ -47,7 +47,7 @@ Changing integration settings or replacing the registered repository directory i
 
 ## Choose workers
 
-Workspace defaults apply across member projects. Task **Settings → Worker** can override them; each attempt retains the harness, model and host registration it started with. Changes affect subsequent attempts, and unavailable choices fail explicitly rather than substituting a model.
+Workspace defaults apply across member projects. The **Task settings** icon opens **Worker** overrides; each attempt retains the harness, model and host registration it started with. Changes affect subsequent attempts, and unavailable choices fail explicitly rather than substituting a model.
 
 The Coordinator's choice is independent. Supported Fast mode starts off. Enable it with the checkbox in workspace Worker or Reviewer settings, or override it for a task. Running attempts keep their saved choices. [Agent setup](/agents/overview) covers native accounts, discovery and permissions; [documents](/documents#supply-worker-context) covers the sources selected for workers.
 
@@ -55,7 +55,7 @@ Workers use separate Git worktrees and scoped Flowfield connections. Git isolati
 
 ## Try a result
 
-Opening an exact code result prepares an independent copy of that candidate. Its **Run result** section shows a complete, copyable launcher. Run it in your terminal to execute setup followed by the saved Run command. Opening or copying the command starts no application process; running it grants no approval.
+Opening an exact code result prepares an independent copy of that candidate. Its **Run result** section shows a complete, copyable launcher. Run it in your terminal, or ask the Coordinator to run it, to execute setup followed by the saved Run command. Opening or copying the command starts no application process; running it grants no approval.
 
 Make the Run command useful on its own. For an app with an API or database, use a repository-owned launcher that prepares the required components at their intended versions, uses isolated ports and data, waits for readiness, prints the browser URL and explains how to stop them. Verify that complete journey before submitting the task. Flowfield does not automatically compose services from other projects; a frontend-only command does not establish that the whole feature works.
 
