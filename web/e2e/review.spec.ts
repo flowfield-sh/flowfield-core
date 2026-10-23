@@ -296,7 +296,7 @@ test("managed review keeps its URL, binds the result, and preserves feedback on 
     exact: true,
   });
   await expect(runs).toContainText("Implemented the loader");
-  await expect(runs).toContainText("Destination: run-ui/integration");
+  await expect(runs).toContainText("Project: run-ui · Branch: integration");
   await expect(
     runs.getByRole("heading", { name: "Delivery", exact: true }),
   ).toHaveCount(0);
@@ -552,7 +552,7 @@ test("validated result approval delivers real Git code with the worker queue pau
   await expect(result).toContainText("project checks passed");
   await expect(result).toContainText("Passed");
   await expect(result).toContainText(
-    "Destination: Harbor · Integration trial/integration",
+    "Project: Harbor · Integration trial · Branch: integration",
   );
   await expect(result.locator(".diff-code-insert")).toHaveCount(0);
   await expect(
@@ -1370,6 +1370,11 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     actions.getByRole("button", { name: "Request correction" }),
   ).toBeVisible();
   await expect(recovery).toBeVisible();
+  // The result opens its preview automatically. Let that repository operation
+  // finish before this journey requests a correction against the same checkout.
+  await expect(
+    page.getByRole("region", { name: "Run command", exact: true }),
+  ).toContainText("Set the project run command");
   await expect(
     actions.getByRole("button", { name: "Archive", exact: true }),
   ).toHaveCount(0);

@@ -262,7 +262,7 @@ test("compact result row opens exact approval and preserves saving through an ea
   await expect(
     result.getByRole("button", { name: "Approve and integrate", exact: true }),
   ).toBeEnabled({ timeout: 15000 });
-  await expect(result.getByText("Destination:")).toContainText("delivery");
+  await expect(result.getByText("Project:")).toContainText("Branch: delivery");
   await result
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();
