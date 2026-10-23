@@ -1,6 +1,14 @@
 .harness-settings-content {
   width: 100%;
 }
+.harness-settings-content .card-tabs {
+  height: auto;
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+.harness-settings-content .card-tabs [data-slot="tabs-trigger"] {
+  height: 32px;
+}
 .harness-logo {
   width: 18px;
   height: 18px;

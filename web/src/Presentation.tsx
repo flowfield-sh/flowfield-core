@@ -129,12 +129,14 @@ export function DetailTabs<T extends string>({
   tabs,
   active,
   change,
+  indicators,
 }: {
   id: string;
   title: string;
   tabs: readonly T[];
   active: T;
   change: (tab: T) => void;
+  indicators?: Partial<Record<T, string>>;
 }) {
   return (
     <Tabs
@@ -154,8 +156,20 @@ export function DetailTabs<T extends string>({
             value={tab}
             id={`${id}-${tab}-tab`}
             aria-controls={`${id}-${tab}`}
+            aria-label={indicators?.[tab] ? label(tab) : undefined}
+            aria-describedby={
+              indicators?.[tab] ? `${id}-${tab}-indicator` : undefined
+            }
           >
             {label(tab)}
+            {indicators?.[tab] && (
+              <span
+                id={`${id}-${tab}-indicator`}
+                className="h-2 w-2 shrink-0 rounded-full bg-primary"
+                role="status"
+                aria-label={indicators[tab]}
+              />
+            )}
           </TabsTrigger>
         ))}
       </TabsList>

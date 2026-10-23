@@ -1,5 +1,6 @@
 import {
   fixtureProject,
+  hostStatus,
   projectWorkspace,
   test,
   existingDirectory,
@@ -484,6 +485,22 @@ test("alert navigation preserves an unsaved settings draft", async ({
   await expect(name).toHaveValue("Keep this draft");
 });
 
+async function expectUpdateIndicators(page: Page, available: boolean) {
+  const tab = page.getByRole("tab", { name: "Updates", exact: true });
+  const gear = page.getByRole("link", {
+    name: "Flowfield settings",
+    exact: true,
+  });
+  for (const control of [tab, gear]) {
+    await expect(control).toHaveAccessibleDescription(
+      available ? "Update available" : "",
+    );
+    await expect(
+      control.getByRole("status", { name: "Update available", exact: true }),
+    ).toHaveCount(available ? 1 : 0);
+  }
+}
+
 const observe = (version: string) =>
   execFileSync("uv", [
     "run",
@@ -503,12 +520,22 @@ test("updates live in Settings after their announcement closes, with mobile layo
     data: { updates_enabled: true },
   });
   await ready(page, "/settings/notifications");
+  await expectUpdateIndicators(page, false);
   observe("9.9.1");
   const announcement = alertFor(page, "Flowfield 9.9.1 is available");
   await expect(announcement).toBeVisible({ timeout: 10000 });
   await announcement.getByRole("button", { name: "Close toast" }).click();
   await expect(announcement).toHaveCount(0);
+  await expectUpdateIndicators(page, true);
   await page.getByRole("tab", { name: "Updates", exact: true }).click();
+  await expectUpdateIndicators(page, true);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/settings\/notifications$/);
+  await expectUpdateIndicators(page, true);
+  await page.goForward();
+  await expect(page).toHaveURL(/\/settings\/updates$/);
+  await expectUpdateIndicators(page, true);
+  await expect(announcement).toHaveCount(0);
   await expect(
     page.getByRole("tab", { name: "Updates", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
@@ -544,6 +571,9 @@ test("updates live in Settings after their announcement closes, with mobile layo
   });
   await page.reload();
   await page.waitForResponse("**/api/announcements/poll");
+  await expect(
+    page.getByRole("tab", { name: "Updates", exact: true }),
+  ).toHaveAccessibleDescription("Update available");
   await expect(announcement).toHaveCount(0);
 });
 
@@ -1052,6 +1082,7 @@ for (const scenario of [
     await expect(
       status.getByRole("heading", { name: scenario.title, exact: true }),
     ).toBeVisible();
+    await expectUpdateIndicators(page, false);
     const check = status.getByRole("button", {
       name: scenario.checking ? "Checking…" : "Check for updates",
       exact: true,
@@ -1134,3 +1165,196 @@ test("notification settings group delivery permission and controls without repea
     });
   }
 });
+
+test("update indicators follow authoritative availability through loading, checks and recovery", async ({
+  page,
+  request,
+}, testInfo) => {
+  async function captureState(name: string) {
+    if (!process.env.FLOWFIELD_VISUAL_EVIDENCE) return;
+    for (const colorScheme of ["light", "dark"] as const) {
+      for (const width of [1280, 390]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.emulateMedia({ colorScheme });
+        await page.screenshot({
+          animations: "disabled",
+          path: testInfo.outputPath(`${name}-${width}-${colorScheme}.png`),
+        });
+      }
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ colorScheme: "light" });
+  }
+  test.setTimeout(60000);
+  const original = await (await request.get("/api/updates")).json();
+  let status = {
+    ...original,
+    available_version: null,
+    checking: false,
+    error: null,
+  };
+  let release!: () => void;
+  const loaded = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/updates", async (route) => {
+    await loaded;
+    await route.fulfill({ json: status });
+  });
+  let checks = 0;
+  await page.route("**/api/updates/check", (route) => {
+    if (route.request().postDataJSON().reason === "manual") {
+      checks++;
+      status = { ...status, checking: true };
+    }
+    return route.fulfill({ json: status });
+  });
+  await page.goto("/settings/updates");
+  await expect(
+    page.getByText("Loading update status…", { exact: true }),
+  ).toBeVisible();
+  await expectUpdateIndicators(page, false);
+  await captureState("loading");
+  release();
+  await expect(
+    page.getByRole("button", { name: "Check for updates", exact: true }),
+  ).toBeVisible();
+  await expectUpdateIndicators(page, false);
+  status = { ...status, available_version: "9.9.3" };
+  await expectUpdateIndicators(page, true);
+  await page
+    .getByRole("button", { name: "Check for updates", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Checking…", exact: true }),
+  ).toBeDisabled();
+  await expectUpdateIndicators(page, true);
+  await captureState("checking-known-update");
+  status = { ...status, checking: false, error: "Controlled check failure" };
+  await expect(
+    page.getByText("Previously found: Flowfield 9.9.3"),
+  ).toBeVisible();
+  await expectUpdateIndicators(page, true);
+  await captureState("failed-known-update");
+  await page.getByRole("tab", { name: "Appearance", exact: true }).click();
+  await expectUpdateIndicators(page, true);
+  await page.goBack();
+  await expect(
+    page.getByText("Previously found: Flowfield 9.9.3"),
+  ).toBeVisible();
+  await expectUpdateIndicators(page, true);
+  status = {
+    ...status,
+    available_version: null,
+    error: null,
+    last_success: "2026-10-11T12:00:00Z",
+  };
+  await expect(
+    page.getByRole("heading", { name: "Flowfield is up to date" }),
+  ).toBeVisible();
+  await expectUpdateIndicators(page, false);
+  await expect(
+    page.getByRole("heading", { name: "Install update", exact: true }),
+  ).toHaveCount(0);
+  expect(checks).toBe(1);
+});
+
+for (const colorScheme of ["light", "dark"] as const) {
+  for (const width of [1280, 390]) {
+    test(`available update navigation at ${width}px in ${colorScheme}`, async ({
+      page,
+      request,
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+      const original = await (await request.get("/api/updates")).json();
+      const status = {
+        ...original,
+        available_version: "9.9.4",
+        checking: false,
+        error: null,
+      };
+      await page.route("**/api/updates", (route) =>
+        route.fulfill({ json: status }),
+      );
+      await page.route("**/api/updates/check", (route) =>
+        route.fulfill({ json: status }),
+      );
+      await page.route("**/api/harnesses/*", (route) =>
+        route.fulfill({ json: hostStatus("codex") }),
+      );
+      await page.goto("/settings/appearance");
+      if (width < 768)
+        await page.getByRole("button", { name: "Open workspaces" }).click();
+      const gear = page.getByRole("link", {
+        name: "Flowfield settings",
+        exact: true,
+      });
+      await expect(gear).toHaveAccessibleDescription("Update available");
+      if (process.env.FLOWFIELD_VISUAL_EVIDENCE)
+        await page.screenshot({
+          animations: "disabled",
+          path: testInfo.outputPath("settings-gear.png"),
+        });
+      await gear.click();
+      for (const name of [
+        "Harnesses",
+        "Appearance",
+        "Notifications",
+        "Updates",
+      ]) {
+        await page.getByRole("tab", { name, exact: true }).click();
+        const updates = page.getByRole("tab", { name: "Updates", exact: true });
+        await expect(
+          updates.getByRole("status", { name: "Update available" }),
+        ).toBeVisible();
+        await expect(updates).toHaveAccessibleDescription("Update available");
+        const panel = page.getByRole("tabpanel", { name, exact: true });
+        await expect(panel).toBeVisible();
+        if (name === "Harnesses")
+          await expect(
+            panel.getByText("Installation detected").first(),
+          ).toBeVisible();
+        if (name === "Notifications")
+          await expect(
+            panel.getByRole("heading", { name: "Announcements", exact: true }),
+          ).toBeVisible();
+        if (name === "Updates")
+          await expect(
+            panel.getByRole("heading", { name: "Install update", exact: true }),
+          ).toBeVisible();
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth,
+          ),
+        ).toBe(true);
+        const box = await updates.boundingBox();
+        expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+        if (process.env.FLOWFIELD_VISUAL_EVIDENCE)
+          await page.screenshot({
+            animations: "disabled",
+            path: testInfo.outputPath(`settings-${name.toLowerCase()}.png`),
+          });
+      }
+      const updates = page.getByRole("tab", { name: "Updates", exact: true });
+      await updates.focus();
+      await page.keyboard.press("ArrowLeft");
+      await expect(
+        page.getByRole("tab", { name: "Notifications", exact: true }),
+      ).toBeFocused();
+      await expect(updates).toHaveAttribute("aria-selected", "true");
+      await page.keyboard.press("Enter");
+      await expect(page).toHaveURL(/\/settings\/notifications$/);
+      await page.keyboard.press("ArrowRight");
+      await expect(updates).toBeFocused();
+      if (process.env.FLOWFIELD_VISUAL_EVIDENCE)
+        await page.screenshot({
+          animations: "disabled",
+          path: testInfo.outputPath("settings-keyboard-focus.png"),
+        });
+      await page.keyboard.press("Enter");
+      await expect(page).toHaveURL(/\/settings\/updates$/);
+      await expect(updates).toHaveAttribute("aria-selected", "true");
+    });
+  }
+}

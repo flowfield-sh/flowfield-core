@@ -5,7 +5,7 @@ import { UpdateSettings } from "./UpdateSettings";
 import { useAnnouncements } from "./Announcements";
 import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
-import { useCallback, useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useId, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { ResourceNavigation } from "./WorkspaceTabs";
 import { DetailTabs } from "./Presentation";
@@ -33,6 +33,7 @@ type Kind = Registration["harness"];
 
 export function SettingsLink({ active }: { active: boolean }) {
   const { updates } = useAnnouncements();
+  const indicatorId = useId();
   const { setOpenMobile } = useSidebar();
   return (
     <ActionTooltip label="Global settings">
@@ -41,12 +42,16 @@ export function SettingsLink({ active }: { active: boolean }) {
           to="/settings/harnesses"
           className="workspace-settings-link"
           aria-label="Flowfield settings"
+          aria-describedby={
+            updates?.available_version ? indicatorId : undefined
+          }
           aria-current={active ? "page" : undefined}
           onClick={() => setOpenMobile(false)}
         >
           <Settings />
           {updates?.available_version && (
             <span
+              id={indicatorId}
               className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary"
               role="status"
               aria-label="Update available"
@@ -472,6 +477,7 @@ export function FlowfieldSettings({
   appearance: ReturnType<typeof useTheme>;
   tab: "harnesses" | "appearance" | "notifications" | "updates";
 }) {
+  const { updates } = useAnnouncements();
   const navigate = useNavigate();
   const location = useLocation();
   const resourceNavigate = useContext(ResourceNavigation);
@@ -497,6 +503,11 @@ export function FlowfieldSettings({
             ["harnesses", "appearance", "notifications", "updates"] as const
           }
           active={tab}
+          indicators={
+            updates?.available_version
+              ? { updates: "Update available" }
+              : undefined
+          }
           change={(value) =>
             resourceNavigate
               ? resourceNavigate(`/settings/${value}`)
