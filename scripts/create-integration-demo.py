@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -177,6 +178,13 @@ def main() -> None:
         ],
     )
     commit, _ = env.snapshot(head)
+    if args.conflict:
+        target_env = LocalHost(os.environ).prepare(workspace.directory, repo, "target-input", head)
+        (target_env.checkout / "catalog.py").write_text(
+            "def load_catalog(path):\n    return {'books': []}\n"
+        )
+        target_commit, _ = target_env.snapshot(head)
+        git(repo, "merge", "--ff-only", target_commit)
     run = execution.finish(
         space.id,
         run.id,
@@ -189,15 +197,18 @@ def main() -> None:
         ),
     )
     results = Results(workspace)
-    if args.conflict:
-        target_env = LocalHost(os.environ).prepare(workspace.directory, repo, "target-input", head)
-        (target_env.checkout / "catalog.py").write_text(
-            "def load_catalog(path):\n    return {'books': []}\n"
-        )
-        target_commit, _ = target_env.snapshot(head)
-        git(repo, "merge", "--ff-only", target_commit)
+    # An existing service may own preparation. Follow its saved result after
+    # this attempt, which also prepares the fixture when no service is running.
     results.process(space.id)
-    version = results.page(space.id, run.task_id).items[0]
+    deadline = time.monotonic() + 15
+    while True:
+        version = results.page(space.id, run.task_id).items[0]
+        if version.status != "preparing":
+            break
+        if time.monotonic() >= deadline:
+            raise RuntimeError("Timed out waiting for the fixture result to finish preparation.")
+        time.sleep(0.05)
+    assert version.integration_id, version.problem
     candidate = integration.get(space.id, version.integration_id)
     assert candidate.status == ("failed" if args.conflict else "ready"), candidate.problem
     # A dirty human checkout makes preservation easy to verify in this trial.
