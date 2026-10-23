@@ -638,6 +638,9 @@ test("conversation capture prepares atomically while task defaults show only use
 test("attempt activity updates without reloading the board and replays on reload", async ({
   page,
 }, testInfo) => {
+  // Live output, scroll/reload behavior and stopped-worker recovery each have
+  // their own bounded assertions; allow enough time for the complete journey.
+  test.setTimeout(60_000);
   const fixture = async (op: string) => {
     const value = JSON.parse(
       execFileSync(
