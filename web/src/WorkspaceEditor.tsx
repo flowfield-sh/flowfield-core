@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +68,37 @@ export function WorkspaceEditor({
     run,
     loaded,
   } = state;
+  function save(event: FormEvent) {
+    event.preventDefault();
+    // Both tabs share the workspace revision/draft owner. Omit unchanged fields
+    // so a General save cannot write a stale, hidden startup preference.
+    const original = fields(loaded);
+    void run("PUT", {
+      ...Object.fromEntries(
+        Object.entries(values).filter(
+          ([key, value]) => value !== original[key as keyof typeof original],
+        ),
+      ),
+      expected_revision: loaded!.revision,
+      author: "human",
+    });
+  }
+  const actions = (
+    <div className="actions">
+      <Button size="sm" disabled={!dirty}>
+        Save changes
+      </Button>
+      <Button
+        size="sm"
+        type="button"
+        variant="outline"
+        disabled={!dirty}
+        onClick={() => cancel()}
+      >
+        Cancel
+      </Button>
+    </div>
+  );
   return (
     <section ref={editor} className="editor" aria-label="Edit workspace">
       <DetailHeader title={incoming.name} close={close} />
@@ -91,16 +122,7 @@ export function WorkspaceEditor({
         hidden={tab !== "general"}
       >
         <ContentStack space="section">
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void run("PUT", {
-                ...values,
-                expected_revision: loaded!.revision,
-                author: "human",
-              });
-            }}
-          >
+          <form onSubmit={save}>
             <fieldset
               disabled={busy}
               className="content-stack"
@@ -121,29 +143,7 @@ export function WorkspaceEditor({
                 onChange={(value) => change("description", value)}
                 previewEnabled={false}
               />
-              <SettingsCheckbox
-                checked={values.auto_start_queue}
-                onChange={(event) =>
-                  change("auto_start_queue", event.target.checked)
-                }
-                hint="Start eligible work when Flowfield starts. Run or pause the current queue from the sidebar; that does not change this preference."
-              >
-                Auto-start worker queue
-              </SettingsCheckbox>
-              <div className="actions">
-                <Button size="sm" disabled={!dirty}>
-                  Save changes
-                </Button>
-                <Button
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                  disabled={!dirty}
-                  onClick={() => cancel()}
-                >
-                  Cancel
-                </Button>
-              </div>
+              {actions}
             </fieldset>
           </form>
           <Separator />
@@ -175,12 +175,33 @@ export function WorkspaceEditor({
         aria-labelledby={`${id}-workers-tab`}
         hidden={tab !== "workers"}
       >
-        <WorkerSettings
-          workspaceId={incoming.id}
-          refresh={incoming}
-          onDirty={setWorkerDirty}
-          active={tab === "workers"}
-        />
+        <ContentStack space="section">
+          <form onSubmit={save} aria-label="Queue startup preference">
+            <fieldset
+              disabled={busy}
+              className="content-stack"
+              data-space="section"
+            >
+              <SettingsCheckbox
+                checked={values.auto_start_queue}
+                onChange={(event) =>
+                  change("auto_start_queue", event.target.checked)
+                }
+                hint="Start eligible work when Flowfield starts. Run or pause the current queue from the sidebar; that does not change this preference."
+              >
+                Auto-start worker queue
+              </SettingsCheckbox>
+              {actions}
+            </fieldset>
+          </form>
+          <Separator />
+          <WorkerSettings
+            workspaceId={incoming.id}
+            refresh={incoming}
+            onDirty={setWorkerDirty}
+            active={tab === "workers"}
+          />
+        </ContentStack>
       </div>
       <div
         role="tabpanel"

@@ -193,6 +193,10 @@ test("home, welcome and editable settings form a complete project journey", asyn
     exact: true,
   });
   await expect(shared.locator('[data-slot="separator"]').first()).toBeVisible();
+  await expect(
+    shared.getByRole("checkbox", { name: "Auto-start worker queue" }),
+  ).toHaveCount(0);
+  await shared.getByRole("tab", { name: "Workers", exact: true }).click();
   await shared.getByLabel("Auto-start worker queue", { exact: true }).click();
   await expect(
     shared.getByLabel("Auto-start worker queue", { exact: true }),
