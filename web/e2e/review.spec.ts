@@ -769,7 +769,7 @@ test("validated result approval delivers real Git code with the worker queue pau
       await expect(page).toHaveURL(`${workspacePath}/results/${seed.result}`);
       await page.goto(`${workspacePath}/tasks/T-1`);
       await expect(
-        page.locator('.entity-pane-title [data-tone="complete"]'),
+        page.locator('.task-summary [data-tone="complete"]'),
       ).toHaveCount(1);
       await page.screenshot({
         path: testInfo.outputPath(`delivered-task-${colorScheme}-${width}.png`),

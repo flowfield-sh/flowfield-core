@@ -79,7 +79,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
   await expect(
     detail.getByRole("img", { name: "Waiting on prerequisites", exact: true }),
   ).toHaveCount(1);
-  await expect(detail.locator(".entity-pane-title .work-state")).toHaveCount(1);
+  await expect(detail.locator(".task-summary .work-state")).toHaveCount(1);
   await detail.getByRole("link", { name: "T-3", exact: true }).hover();
   await expect(page.getByRole("tooltip")).toHaveText("Prepare export settings");
   await expect(detail.getByLabel("Add prerequisite")).toHaveCount(0);
@@ -150,7 +150,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
   await page.goto(`/workspaces/${workspace}/tasks/T-2`);
   await expect(
     detail
-      .locator(".entity-pane-title")
+      .locator(".task-summary")
       .getByRole("img", { name: "Done", exact: true }),
   ).toHaveCount(1);
   await expect(
@@ -168,7 +168,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
   await page.reload();
   await expect(
     detail
-      .locator(".entity-pane-title")
+      .locator(".task-summary")
       .getByRole("img", { name: "Done", exact: true }),
   ).toHaveCount(1);
 });
