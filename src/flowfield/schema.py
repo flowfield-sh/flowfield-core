@@ -1,6 +1,14 @@
-"""Current fresh-state schema. Older databases are not upgraded."""
+"""Current schema and additive migration definitions for published stores."""
 
-SCHEMA_VERSION = 86
+SCHEMA_VERSION = 87
+
+TASK_DELETIONS = """
+CREATE TABLE task_deletions (
+ workspace_id TEXT NOT NULL REFERENCES workspaces(id), task_id TEXT NOT NULL,
+ key TEXT NOT NULL, number INTEGER NOT NULL, data TEXT NOT NULL,
+ PRIMARY KEY(workspace_id,task_id), UNIQUE(workspace_id,key), UNIQUE(workspace_id,number)
+)
+"""
 
 SCHEMA = """
 CREATE TABLE activity (
@@ -397,5 +405,7 @@ INSERT INTO storage_metadata VALUES (1, lower(hex(randomblob(16))), 0);
 INSERT INTO harness_settings VALUES ('codex', 1, NULL, NULL), ('claude-code', 1, NULL,
     NULL), ('pi', 1, NULL, NULL);
 
-PRAGMA user_version = 86;
+PRAGMA user_version = 87;
 """
+
+SCHEMA += TASK_DELETIONS + ";"

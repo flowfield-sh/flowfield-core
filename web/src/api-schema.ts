@@ -224,7 +224,8 @@ export interface paths {
     /** Edit Task */
     put: operations["edit_task_api_workspaces__workspace_id__tasks__task_id__put"];
     post?: never;
-    delete?: never;
+    /** Delete Task */
+    delete: operations["delete_task_api_workspaces__workspace_id__tasks__task_id__delete"];
     options?: never;
     head?: never;
     patch?: never;
@@ -5768,6 +5769,24 @@ export interface components {
       /** Documents */
       documents?: components["schemas"]["DocumentReference-Input"][];
     };
+    /** TaskDeletion */
+    TaskDeletion: {
+      /** Workspace Id */
+      workspace_id: string;
+      /** Task Id */
+      task_id: string;
+      /** Key */
+      key: string;
+      /** Deleted At */
+      deleted_at: string;
+      /**
+       * Cleanup Pending
+       * @default true
+       */
+      cleanup_pending: boolean;
+      /** Problem */
+      problem?: string | null;
+    };
     /** TaskDetail */
     TaskDetail: {
       /** Workspace Id */
@@ -5859,6 +5878,8 @@ export interface components {
       subtasks: components["schemas"]["Subtask"][];
       /** Archive Blocker */
       archive_blocker: string | null;
+      /** Delete Blocker */
+      delete_blocker: string | null;
       /** Prerequisites */
       prerequisites: components["schemas"]["TaskReference"][];
       /** Dependents */
@@ -7005,6 +7026,42 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Task"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_task_api_workspaces__workspace_id__tasks__task_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        task_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Edit"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaskDeletion"];
         };
       };
       /** @description Validation Error */

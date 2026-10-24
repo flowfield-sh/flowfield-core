@@ -422,7 +422,4 @@ class TaskAssembly:
             Results(self.store).capture(db, run, output_ids=output_ids)
             value.completed_run_id, value.contribution_ids = run.id, ids
             self.save(db, value)
-            Execution(self.store)._task_state(
-                db, task, "in_progress", "All contributions assembled for task review."
-            )
             return True

@@ -67,3 +67,45 @@ def test_read_connections_reject_accidental_mutation(tmp_path):
     with service.workspace.connection() as db:
         with pytest.raises(sqlite3.OperationalError, match="readonly"):
             db.execute("UPDATE storage_metadata SET revision=revision+1")
+
+
+def test_review_policy_changes_and_review_completion_persist_task_phases(tmp_path):
+    from flowfield.reviewer_settings import ReviewerEdit
+
+    service, _, _, reviewers, reviews = configured(tmp_path)
+    # The fixture enabled review after an unreviewed candidate was already in review.
+    assert service.workspace.task("harbor", "work").status == "in_review"
+    result = current(service)
+    review = reviews.prepare("harbor", result.id)
+    assert service.workspace.task("harbor", "work").status == "in_progress"
+    claimed = reviews.claim("harbor", review.id, review.revision)
+    running = reviews.started("harbor", review.id, claimed.revision)
+    reviews.conclude("harbor", review.id, running.revision, verdict(), cleanup_confirmed=True)
+    assert service.workspace.task("harbor", "work").status == "in_review"
+    assert current(service).next_action.action == "review_result"
+    # Policy changes have the same phase owner as initial preparation and rechecking.
+    settings = reviewers.get("harbor")
+    reviewers.configure("harbor", ReviewerEdit(expected_revision=settings.revision, enabled=False))
+    service.results.synchronize_readiness("harbor", result.id)
+    assert service.workspace.task("harbor", "work").status == "in_review"
+
+
+def test_partial_result_without_reviewer_waits_for_human_in_review(tmp_path):
+    from result_fixtures import fixture
+
+    service, _, _ = fixture(tmp_path, outcome="partial", remaining_work="Finish error handling.")
+    service.results.process("harbor")
+    assert current(service).next_action.action == "request_changes"
+    assert service.workspace.task("harbor", "work").status == "in_review"
+
+
+@pytest.mark.parametrize("phase", ["backlog", "up_next", "done"])
+def test_readiness_does_not_reopen_or_start_a_task_from_retained_evidence(tmp_path, phase):
+    service, *_ = configured(tmp_path)
+    result = current(service)
+    with service.workspace.connection(write=True) as db:
+        task = service.workspace._task(db, "harbor", "work")
+        service.execution._task_state(db, task, phase, "Human changed the task lifecycle.")
+    before = service.workspace.task("harbor", "work")
+    service.results.synchronize_readiness("harbor", result.id)
+    assert service.workspace.task("harbor", "work") == before

@@ -110,17 +110,26 @@ class Results:
         )
 
     def ready(self, db: sqlite3.Connection, version: ResultVersion) -> None:
-        """A prepared code candidate waits for one review or explicit delivery approval."""
-        from flowfield.reviewer_settings import Reviewers
+        """Persist the task phase from the same owner used by Inbox and result actions."""
+        from flowfield.result_actions import result_action
 
-        if version.status != "ready" or version.completion != "code":
+        if version.status != "ready" and version.problem_code != "partial_outcome":
             return
-        if not Reviewers.resolved(db, version.workspace_id, version.task_id).effective.enabled:
-            task = self.workspace._task(db, version.workspace_id, version.task_id)
-            if task.status != "in_review":
-                self.execution._task_state(
-                    db, task, "in_review", "Ready for your delivery approval."
-                )
+        action = result_action(self.workspace, db, version)
+        if action.action == "none":
+            return  # Historical or archived results cannot move current work.
+        task = self.workspace._task(db, version.workspace_id, version.task_id)
+        if task.status not in ("in_progress", "in_review"):
+            return  # Readiness cannot reopen done work or start a revised planning task.
+        phase = (
+            "in_review" if action.action in ("review_result", "request_changes") else "in_progress"
+        )
+        if task.status != phase:
+            self.execution._task_state(db, task, phase, action.label + ".")
+
+    def synchronize_readiness(self, workspace_id: str, identity: str) -> None:
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            self.ready(db, self._get(db, workspace_id, identity))
 
     def capture(
         self, db: sqlite3.Connection, run: Run, *, output_ids: list[str] | None = None
@@ -182,6 +191,11 @@ class Results:
                 version.model_dump_json(exclude={"next_action", "recheck_of"}),
             ),
         )
+        task = self.workspace._task(db, run.workspace_id, run.task_id)
+        if task.status != "in_progress":
+            self.execution._task_state(
+                db, task, "in_progress", "Preparing the proposed result for review."
+            )
         return self._present(db, version)
 
     def _current(self, db: sqlite3.Connection, version: ResultVersion) -> Run:
@@ -404,9 +418,6 @@ class Results:
                 )
             run.status = "in_review"
             self.execution._save(db, run)
-            self.execution._task_state(
-                db, task, "in_progress", "Checking the result against the current destination."
-            )
             return self.capture(db, run)
 
     def retry_delivery(self, workspace_id: str, identity: str, request: RunAction) -> ResultVersion:
@@ -724,6 +735,7 @@ class Results:
                                     self._finish_report(db, current)
                                     return
                             self._save(db, current)
+                            self.ready(db, current)
                     return
                 integration = service.prepare(
                     workspace_id, run.id, IntegrationPrepare(expected_revision=run.revision)

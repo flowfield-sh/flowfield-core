@@ -1,0 +1,9 @@
+{
+  "release": "v0.7.0",
+  "schema": 86,
+  "source_commit": "4031cd8",
+  "also_supported": "v0.6.0 (identical schema)",
+  "output_id": "43ddb558a38a4965b853ba6a78129808",
+  "output_text": "Published fixture output.\n",
+  "sha256": "a055ad4a45e1345ce71102c622047e5bc095a5a413fc26c82062806361e17668"
+}

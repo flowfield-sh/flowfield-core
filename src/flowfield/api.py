@@ -21,6 +21,7 @@ from flowfield.activity import (
 from flowfield.adapters.directory_picker import DirectorySelection, select_directory
 from flowfield.application import (
     Board,
+    Edit,
     Health,
     Project,
     ProjectEdit,
@@ -214,6 +215,14 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
     @task_router.put("/{workspace_id}/tasks/{task_id}")
     def edit_task(workspace_id: str, task_id: str, request: TaskEdit, service: Service) -> Task:
         return service.edit_task(workspace_id, task_id, request)
+
+    from flowfield.task_deletion import TaskDeletion, TaskDeletionService
+
+    @task_router.delete("/{workspace_id}/tasks/{task_id}")
+    def delete_task(
+        workspace_id: str, task_id: str, request: Edit, service: Service
+    ) -> TaskDeletion:
+        return TaskDeletionService(service).delete(workspace_id, task_id, request)
 
     @task_router.post("/{workspace_id}/tasks/{task_id}/prioritize")
     def prioritize_task(

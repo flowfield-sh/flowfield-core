@@ -116,7 +116,11 @@ def test_standalone_review_is_idempotent_and_grants_no_delivery(tmp_path):
     )
     assert presented.independent_review.summary == verdict().summary
     assert presented.approved_at is None
-    assert service.workspace.task("harbor", run.task_id) == task_before
+    task_after = service.workspace.task("harbor", run.task_id)
+    assert task_after.status == "in_review"
+    assert task_after.agreement_revision == task_before.agreement_revision
+    assert task_after.publication == task_before.publication
+    assert task_after.body == task_before.body
     assert git(repo, "rev-parse", "HEAD") == before
     with service.workspace.connection() as db:
         assert occupancy(db, workspace="harbor").active == 0

@@ -1013,8 +1013,10 @@ class Workspace:
 
             Labels.validate(db, workspace_id, request.labels)
             number = db.execute(
-                "SELECT COALESCE(MAX(number), 0) + 1 FROM tasks WHERE workspace_id=?",
-                (workspace_id,),
+                "SELECT COALESCE(MAX(number), 0) + 1 FROM ("
+                "SELECT number FROM tasks WHERE workspace_id=? UNION ALL "
+                "SELECT number FROM task_deletions WHERE workspace_id=?)",
+                (workspace_id, workspace_id),
             ).fetchone()[0]
             task = TaskRevision(
                 **request.model_dump(exclude={"id", "author", "dependencies", "preparation"}),
@@ -1027,6 +1029,13 @@ class Workspace:
                 updated_at=now(),
                 updated_by=request.author,
             )
+            if db.execute(
+                "SELECT 1 FROM task_deletions WHERE workspace_id=? AND task_id=?",
+                (workspace_id, task.id),
+            ).fetchone():
+                raise ApplicationError(
+                    "task_deleted", "This task ID was deleted; choose a new ID.", 409
+                )
             try:
                 db.execute(
                     "INSERT INTO tasks(workspace_id,id,position,data,number,key,project_id) "

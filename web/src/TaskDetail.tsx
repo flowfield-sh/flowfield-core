@@ -1,6 +1,7 @@
 import { Separator } from "@/components/ui/separator";
 import { Archive, ArchiveRestore, Settings, FileText } from "lucide-react";
 import { HeaderAction } from "./HeaderAction";
+import { TaskDeleteAction } from "./TaskDeleteAction";
 import { reportError } from "./requestFeedback";
 import { request } from "./workspace";
 import { useLocation } from "react-router";
@@ -60,24 +61,6 @@ export function TaskDetail({
             title={task.title}
           />
         }
-        metadata={
-          task.project_id && (
-            <>
-              Project:{" "}
-              <WorkspaceLink
-                className="text-inherit"
-                to={`/projects/${task.project_id}/overview`}
-              >
-                {board.projects.find(
-                  (project) => project.id === task.project_id,
-                )?.name ?? task.project_id}
-              </WorkspaceLink>
-              {task.publication?.target_branch && (
-                <> · Branch: {task.publication.target_branch}</>
-              )}
-            </>
-          )
-        }
         close={close}
         closeLabel="Back"
         actions={
@@ -133,12 +116,42 @@ export function TaskDetail({
                 <Archive size={16} aria-hidden="true" />
               )}
             </HeaderAction>
+            <TaskDeleteAction
+              task={task}
+              workspaceId={workspaceId}
+              busy={archiving}
+              setBusy={setArchiving}
+              dirty={settingsDirty || reviewerDirty}
+              close={close}
+            />
           </>
         }
       />
-      <div className="task-header-badges" aria-label="Task labels">
-        <TaskLabels ids={task.labels} />
-      </div>
+      {(task.project_id || task.labels.length > 0) && (
+        <ContentStack space="tight" className="task-summary">
+          {task.project_id && (
+            <p className="detail-metadata">
+              <>
+                Project:{" "}
+                <WorkspaceLink
+                  className="text-inherit"
+                  to={`/projects/${task.project_id}/overview`}
+                >
+                  {board.projects.find(
+                    (project) => project.id === task.project_id,
+                  )?.name ?? task.project_id}
+                </WorkspaceLink>
+                {task.publication?.target_branch && (
+                  <> · Branch: {task.publication.target_branch}</>
+                )}
+              </>
+            </p>
+          )}
+          <div className="task-header-badges" aria-label="Task labels">
+            <TaskLabels ids={task.labels} />
+          </div>
+        </ContentStack>
+      )}
       {!settings && (
         <ContentStack space="section" className="task-context">
           <div

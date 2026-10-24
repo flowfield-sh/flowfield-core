@@ -17,11 +17,11 @@ One service data directory stores all your Flowfield workspaces. The default is 
 
 Choose another data directory with `FLOWFIELD_DATA_DIR` or `flowfield --data-dir /absolute/path serve`. This changes the service's store, not an individual workspace's repository locations.
 
-Inspection copies remain available after a task finishes. Flowfield does not automatically delete them: a copy may contain local edits, preview data or a running process. Stop any processes and preserve useful changes before removing an inspection directory. Retained result files and delivery evidence are stored separately.
+Inspection copies remain available after completion or archiving. Permanently deleting a task removes its copies, local edits, preview data and retained result files. Stop manually launched previews and preserve useful changes before confirming deletion. Flowfield retries interrupted file cleanup; adopted repositories and delivered code remain intact.
 
 ## Updating and recovery
 
-Updating from 0.6.0 to 0.7.0 uses the existing store without a schema change. Stop the service before upgrading and keep a full backup. Tasks, documents, results, files and saved settings remain available.
+Stop the service before upgrading and keep a full backup. Stores from 0.6.0 and 0.7.0 upgrade in place, preserving tasks, documents, results, files and saved settings. Before adding task-deletion records, Flowfield verifies a database recovery copy in `backups/schema-86-*.sqlite3` and applies the database change atomically. This copy covers that database-only migration; it does not replace a full backup of retained files. Older builds cannot open the upgraded database: recovery to an older build requires restoring its matching database and files.
 
 Queues start paused unless **Auto-start worker queue** is saved in workspace Workers settings. Sidebar Run/Pause changes only the current queue. Interrupted workers still need recovery.
 

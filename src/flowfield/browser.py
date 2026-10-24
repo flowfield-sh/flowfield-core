@@ -73,6 +73,7 @@ class TaskCard(TaskReference):
 class TaskDetail(TaskRevision, TaskCard):
     subtasks: list[Subtask] = Field(default_factory=list)
     archive_blocker: str | None = None
+    delete_blocker: str | None = None
     prerequisites: list[TaskReference]
     dependents: list[TaskReference]
 
@@ -287,10 +288,13 @@ class BrowserReads:
                 task_timeline(db, workspace_id, current.id)[current.id],
             )
             archive_issue = self.workspace.archive_issue(db, current)
+            from flowfield.task_deletion import TaskDeletionService
+
             return TaskDetail(
                 **card.model_dump(),
                 subtasks=Subtasks.read_all(db, workspace_id, current.id),
                 archive_blocker=archive_issue.message if archive_issue else None,
+                delete_blocker=TaskDeletionService(self.workspace).blocker(db, current),
                 body=current.body,
                 change_note=current.change_note,
                 prerequisites=[

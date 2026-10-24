@@ -37,6 +37,14 @@ New workspaces start paused with capacity for five parallel workers. **Run queue
 
 Each board column scrolls independently. On narrow screens, scroll sideways to reach the other columns.
 
+## Archive or delete
+
+Use **Archive task** beside the task title to hide abandoned work while retaining its history and inspection copies. Restore returns it to its previous column. Stop active work before archiving.
+
+**Delete task**, beside Archive, permanently removes the task, its history, results, submitted files and owned work folders, including inspection edits and preview data. Confirm the deletion after stopping any manually launched previews and saving anything you want to keep. Delivered code in your project stays. Active or uncertain managed work, dependent tasks and frozen file/evidence consumers block deletion. Archive instead when those references should remain.
+
+Deletion removes the task from Board, Inbox, Files and search; open task/result tabs close after refresh. Its task number is never reused. Interrupted file cleanup is retained for retry by the service. From the CLI, use `flowfield task delete T-1 --workspace WORKSPACE`; `--yes` skips the confirmation prompt.
+
 ## Dependencies
 
 A task can depend on tasks in other projects within the same workspace. Prerequisites must finish before dependent work starts; cycles and cross-workspace dependencies are rejected. A dependency is satisfied by the task’s delivered result. A review recommendation or completed subtask alone does not release dependent tasks. Foreign prerequisite code is not merged into that repository's Git history.
@@ -71,4 +79,4 @@ The feed keeps definition changes, captured sources, questions, answers, worker 
 
 The task page stays at your reading position. Open worker or reviewer output to follow new entries inside that panel; scroll up to read earlier output and return to the bottom to follow again. Manual disclosure choices survive work-tab navigation. Numeric context occupancy and reported consumed tokens are separate measurements.
 
-The task is a record of the work. Follow its request or result link to answer, request changes, retry a failed review or approve code. Use the Archive icon beside the task title to set work aside. Stop active execution and checks, or wait for integration first. Task-only questions and pending replies are withdrawn or cancelled; shared questions must be resolved first. Restoring retains the task’s earlier state and history. Archive is not completion.
+The task is a record of the work. Follow its request or result link to answer, request changes, retry a failed review or approve code. Archive sets work aside without completing it: task-only questions and pending replies are withdrawn or cancelled; resolve shared questions first.

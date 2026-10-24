@@ -245,6 +245,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
                     return TaskReview.model_validate_json(receipt[0])
                 raise ApplicationError("review_not_ready", "This result is already delivered.", 409)
             owner, task, binding = self._binding(db, project, result_id)
+            Results(self.store).ready(db, result)
             digest = hashlib.sha256(binding.model_dump_json().encode()).hexdigest()
             existing = db.execute(
                 "SELECT data FROM task_reviews WHERE result_id=? AND binding=?", (result_id, digest)
@@ -387,6 +388,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 return review
             review.status, review.verdict, review.completed_at = "decided", verdict, now()
             self._save(db, review)
+            Results(self.store).ready(db, Results(self.store)._get(db, project, review.result_id))
             return review
 
     def context(

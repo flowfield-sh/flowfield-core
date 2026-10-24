@@ -45,6 +45,7 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
         self.cursor = rows[-1][0] if rows else 0
         for _, project, identity in rows:
             try:
+                await asyncio.to_thread(service.results.synchronize_readiness, project, identity)
                 with service.workspace.connection() as db:
                     previous = db.execute(
                         "SELECT id FROM task_reviews WHERE result_id=? "

@@ -1106,6 +1106,44 @@ def task_restore(
     archive_task(ctx, task, workspace, expected_revision, author, json_output, False)
 
 
+@task_app.command("delete")
+def task_delete(
+    ctx: typer.Context,
+    task: str,
+    workspace: str = typer.Option(..., "--workspace"),
+    expected_revision: Expected = None,
+    yes: bool = typer.Option(False, "--yes", help="Confirm permanent removal without prompting."),
+    json_output: Json = False,
+) -> None:
+    """Permanently remove a task, its history, files and inspection copies."""
+    if not yes:
+        typer.confirm(
+            f"Delete {task}, its history, files and inspection copies, including local edits? "
+            "Stop previews first. Delivered code stays. This cannot be undone.",
+            abort=True,
+        )
+
+    def remove() -> Any:
+        path = workspace_item_path(workspace, "tasks", task)
+        revision = expected_revision
+        if revision is None:
+            revision = ctx.obj.request("GET", path)["revision"]
+        return ctx.obj.request("DELETE", path, {"expected_revision": revision, "author": "human"})
+
+    output(
+        remove,
+        json_output,
+        lambda value: typer.echo(
+            f"{value['key']} deleted."
+            + (
+                " File cleanup is pending; Flowfield will retry."
+                if value["cleanup_pending"]
+                else ""
+            )
+        ),
+    )
+
+
 def read_activity(
     ctx: typer.Context,
     workspace: str,

@@ -84,7 +84,10 @@ class Execution:
         self, workspace_id: str, task_id: str, problem: str | None, *, details: str | None = None
     ) -> None:
         with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
-            self.workspace._task(db, workspace_id, task_id)
+            if not db.execute(
+                "SELECT 1 FROM tasks WHERE workspace_id=? AND id=?", (workspace_id, task_id)
+            ).fetchone():
+                return  # A queued discovery may have raced a confirmed task deletion.
             changed = db.execute(
                 "UPDATE tasks SET scheduling_problem=? WHERE workspace_id=? AND id=? "
                 "AND scheduling_problem IS NOT ?",
@@ -921,13 +924,6 @@ class Execution:
                 from flowfield.results import Results
 
                 Results(self.workspace).capture(db, run)
-                self._task_state(
-                    db,
-                    task,
-                    "in_progress",
-                    f"Attempt {run.id[:8]} submitted its result. "
-                    "Preparing the proposed result for review.",
-                )
             return run
 
     def stop_requested(self, workspace_id: str, run_id: str, request: RunAction) -> Run:

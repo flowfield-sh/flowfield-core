@@ -173,3 +173,26 @@ def test_managed_question_cli_displays_reservation_without_application_step(monk
     assert result.exit_code == 0, result.stdout
     assert "Resuming" in result.stdout and "Favourites" in result.stdout
     assert "Awaiting application" not in result.stdout
+
+
+def test_task_delete_confirms_then_sends_exact_revision(monkeypatch):
+    from flowfield.client import Client
+
+    calls = []
+
+    def request(self, method, path, payload=None, **kwargs):
+        calls.append((method, path, payload))
+        return {"revision": 7} if method == "GET" else {"key": "T-9", "cleanup_pending": False}
+
+    monkeypatch.setattr(Client, "request", request)
+    args = ["task", "delete", "T-9", "--workspace", "harbor"]
+    cancelled = runner.invoke(app, args, input="n\n")
+    assert cancelled.exit_code != 0 and calls == []
+    deleted = runner.invoke(app, args, input="y\n")
+    assert deleted.exit_code == 0, deleted.output
+    assert "T-9 deleted." in deleted.output
+    assert calls[-1] == (
+        "DELETE",
+        "workspaces/harbor/tasks/T-9",
+        {"expected_revision": 7, "author": "human"},
+    )

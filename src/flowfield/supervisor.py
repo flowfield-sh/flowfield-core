@@ -70,6 +70,7 @@ class Supervisor:
 
         self.check_jobs: dict[str, WorkerChecks] = {}
         self.delivery_jobs: dict[str, asyncio.Task[None]] = {}
+        self.cleanup_job: asyncio.Task[None] | None = None
         self.clients: dict[str, Agent] = {}
         self.permissions = Permissions(workspace)
         self.harness_checks = HarnessChecks(workspace.directory)
@@ -241,6 +242,14 @@ class Supervisor:
             raise
 
     async def _schedule_once(self) -> None:
+        from flowfield.task_deletion import TaskDeletionService
+
+        if self.cleanup_job is None or self.cleanup_job.done():
+            if self.cleanup_job is not None:
+                self.cleanup_job.result()
+            self.cleanup_job = asyncio.create_task(
+                asyncio.to_thread(TaskDeletionService(self.workspace).retry_cleanup)
+            )
         await self.review_execution.schedule()
         enabled: set[str] = set()
         for owner in Workspaces(self.workspace).all():
@@ -917,6 +926,8 @@ class Supervisor:
             await asyncio.gather(*list(self.jobs.values()), return_exceptions=True)
         if self.delivery_jobs:
             await asyncio.gather(*list(self.delivery_jobs.values()), return_exceptions=True)
+        if self.cleanup_job:
+            await asyncio.gather(self.cleanup_job, return_exceptions=True)
         if self.lock:
             self.lock.close()
             self.lock = None

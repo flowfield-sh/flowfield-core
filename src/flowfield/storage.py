@@ -1,13 +1,15 @@
-"""Exclusive fresh-state initialization and current-schema validation."""
+"""Exclusive initialization, verified upgrades and current-schema validation."""
 
 import fcntl
+import os
 import sqlite3
 from contextlib import closing
 from pathlib import Path
 from typing import Any, BinaryIO
+from uuid import uuid4
 
 from flowfield.errors import ApplicationError
-from flowfield.schema import SCHEMA_VERSION
+from flowfield.schema import SCHEMA_VERSION, TASK_DELETIONS
 
 DATABASE = "workspace.sqlite3"
 
@@ -81,6 +83,42 @@ def identity(db: sqlite3.Connection) -> tuple[str, int]:
     return str(row[0]), int(row[1])
 
 
+def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
+    """Schema 86 shipped in 0.6/0.7; this migration changes only the database."""
+    if current != 86:
+        require_supported(current)
+        return
+    integrity(db)
+    identity(db)
+    backups = directory / "backups"
+    if backups.is_symlink():
+        raise ApplicationError("invalid_backup", "Recovery directory must not be a symlink.")
+    backups.mkdir(mode=0o700, exist_ok=True)
+    backup = backups / f"schema-86-{uuid4().hex}.sqlite3"
+    backup.touch(mode=0o600, exist_ok=False)
+    with closing(sqlite3.connect(backup)) as saved:
+        db.backup(saved)
+        integrity(saved)
+        if version(saved) != current or identity(saved) != identity(db):
+            raise ApplicationError("backup_failed", "Database recovery copy could not be verified.")
+    with backup.open("rb") as stream:
+        os.fsync(stream.fileno())
+    descriptor = os.open(backups, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    try:
+        db.execute("BEGIN IMMEDIATE")
+        db.execute(TASK_DELETIONS)
+        db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
+        integrity(db)
+        db.commit()
+    except BaseException:
+        db.rollback()
+        raise
+
+
 def initialize(directory: Path, schema: str) -> None:
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     database = directory / DATABASE
@@ -105,7 +143,8 @@ def initialize(directory: Path, schema: str) -> None:
         with closing(connect(database)) as db:
             current = version(db)
             if current:
-                require_supported(current)
+                upgrade(directory, db, current)
+                require_supported(version(db))
                 identity(db)
                 return
             if db.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchone():

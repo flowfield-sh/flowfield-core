@@ -44,7 +44,7 @@ def test_partial_work_cannot_complete_or_approve_but_continues_on_same_task(tmp_
     partial = current(service)
     assert partial.status == "blocked" and partial.problem_code == "partial_outcome"
     assert partial.next_action.action == "request_changes"
-    assert service.workspace.task("harbor", "work").status == "in_progress"
+    assert service.workspace.task("harbor", "work").status == "in_review"
     assert service.integrations.head("harbor", "work") == old_run.base_commit
     with pytest.raises(ApplicationError, match="Finish the agreed outcome"):
         approve(service, partial)
