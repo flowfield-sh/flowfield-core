@@ -74,7 +74,7 @@ export function DetailHeader({
         {closeLabel.startsWith("Back") && (
           <CloseControl label={closeLabel} close={close} />
         )}
-        <ContentStack space="tight" className="min-w-0 flex-1 basis-44">
+        <ContentStack space="tight" className="min-w-0 flex-1 basis-auto">
           <h2>{title}</h2>
           {metadata && <p className="detail-metadata">{metadata}</p>}
         </ContentStack>

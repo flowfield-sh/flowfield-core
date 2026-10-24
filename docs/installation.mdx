@@ -69,7 +69,7 @@ share one saved result across browsers and the CLI. Stable installs receive stab
 release notices; prerelease installs can also discover prereleases. Releases must match
 your Python version and have a compatible distribution.
 
-An available-update announcement opens **Settings → Updates**, with release notes, upgrade commands and the latest check status. Closing it leaves the update there. Failed checks preserve the last successful result; package installation is always manual.
+An available-update announcement opens **Settings → Updates**, with release notes, upgrade commands and the latest check status. Indicators on Settings and its Updates tab keep the update discoverable after closing the announcement. Failed checks preserve the last successful result; package installation is always manual.
 
 Turn off automatic checks in **Settings → Updates**, or start the service with
 `FLOWFIELD_UPDATE_CHECKS=0`. Manual checks remain available. No project content or usage
@@ -89,7 +89,7 @@ For the pip environment:
 ~/.local/share/flowfield-venv/bin/flowfield serve
 ```
 
-Updating from 0.6.0 retains your existing workspaces. Pause queues before shutdown if you want to review work before it resumes; interrupted workers still require recovery.
+Supported stores upgrade in place, preserving existing workspaces. Keep a full backup before updating; [storage and recovery](/storage#updating-and-recovery) describes supported versions and recovery copies. Disable **Auto-start worker queue** before shutdown if you want to review work before new attempts start; interrupted workers still require recovery.
 
 Read the [release notes](https://github.com/flowfield-sh/flowfield-core/releases) and
 [storage guidance](/storage) before changing builds. Restart your coding conversation

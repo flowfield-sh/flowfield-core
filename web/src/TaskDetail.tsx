@@ -20,7 +20,7 @@ import { ReviewerSettings } from "./ReviewerSettings";
 import { AgentSettingsForm } from "./AgentSettings";
 import type { DirtyCallback } from "./retainedState";
 import { useEffect, useState } from "react";
-import { ContentStack, DetailSection } from "./DetailLayout";
+import { ContentStack, DetailHeading, DetailSection } from "./DetailLayout";
 import { TaskLabels } from "./TaskLabels";
 import { DetailHeader, DraftBadge } from "./Presentation";
 import { WorkIdentity } from "./WorkIdentity";
@@ -58,16 +58,7 @@ export function TaskDetail({
   return (
     <section className="editor task-detail">
       <DetailHeader
-        title={
-          <WorkIdentity
-            state={task.state}
-            itemKey={task.key}
-            keyBadge={
-              <DraftBadge publicationStatus={task.publication_status} />
-            }
-            title={task.title}
-          />
-        }
+        title="Task"
         close={close}
         closeLabel="Back"
         actions={
@@ -134,10 +125,20 @@ export function TaskDetail({
           </>
         }
       />
-      {(task.project_id || task.labels.length > 0) && (
-        <ContentStack className="task-summary">
-          {task.project_id && (
-            <p className="detail-metadata">
+      <ContentStack className="task-summary">
+        <DetailHeading
+          title={
+            <WorkIdentity
+              state={task.state}
+              itemKey={task.key}
+              keyBadge={
+                <DraftBadge publicationStatus={task.publication_status} />
+              }
+              title={task.title}
+            />
+          }
+          metadata={
+            task.project_id && (
               <>
                 Project:{" "}
                 <WorkspaceLink
@@ -152,13 +153,15 @@ export function TaskDetail({
                   <> · Branch: {task.publication.target_branch}</>
                 )}
               </>
-            </p>
-          )}
+            )
+          }
+        />
+        {task.labels.length > 0 && (
           <div className="task-header-badges" aria-label="Task labels">
             <TaskLabels ids={task.labels} />
           </div>
-        </ContentStack>
-      )}
+        )}
+      </ContentStack>
       {!settings && (
         <ContentStack space="section" className="task-context">
           {task.latest_result_id && (

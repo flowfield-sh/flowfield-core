@@ -34,7 +34,7 @@ Open [localhost:8765](http://127.0.0.1:8765), create a workspace and choose its 
 
 ## How does Flowfield work?
 
-Ask the Coordinator to organize work and maintain shared context. Each task owns a useful outcome, its history and delivery. Order Backlog and Up next on Task Board, edit documents and respond through Inbox while the same conversation stays beside the work.
+Ask the Coordinator to organize work and maintain shared context. Each task owns a useful outcome, its history and delivery. Order Backlog and Up next on Task Board, edit documents and respond through Inbox while the same conversation stays beside the work. Archive work to retain its history, or permanently delete an unneeded task and its retained files.
 
 **💬 Shape the idea**<br>Talk through the problem with the Coordinator. It turns agreed decisions into tasks while the work continues beside the conversation.
 

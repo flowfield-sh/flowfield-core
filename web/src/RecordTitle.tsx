@@ -9,7 +9,10 @@ export function RecordTitle({ children }: { children: string }) {
       return match ? (
         <span key={index} className="whitespace-nowrap">
           {match[1]}{" "}
-          <Badge variant="outline" className="align-middle font-normal">
+          <Badge
+            variant="outline"
+            className="px-1 py-0 align-middle font-normal"
+          >
             <span className="sr-only">#</span>
             {match[2]}
           </Badge>
