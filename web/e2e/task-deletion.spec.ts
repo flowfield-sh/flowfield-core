@@ -26,10 +26,15 @@ test("permanent deletion confirms exact task and removes it from the board", asy
   expect(response.ok()).toBe(true);
   const task = await response.json();
   await page.goto(`${base}/tasks/${task.key}`);
-  await expect(page.locator(".editor-heading h2")).toHaveText("Task");
-  await expect(page.locator(".editor-heading .work-state")).toHaveCount(0);
-  await expect(page.locator(".task-summary .work-state")).toHaveCount(1);
-  await expect(page.locator(".task-summary h3")).toContainText(task.title);
+  await expect(page.locator(".editor-heading .work-key")).toContainText(
+    task.key,
+  );
+  await expect(page.locator(".editor-heading .work-identity-title")).toHaveText(
+    "Task",
+  );
+  await expect(page.locator(".editor-heading .work-state")).toHaveCount(1);
+  await expect(page.locator(".task-summary .work-state")).toHaveCount(0);
+  await expect(page.locator(".task-summary h3")).toHaveText(task.title);
   await expect(page.locator(".editor-heading .detail-metadata")).toHaveCount(0);
   await expect(page.locator(".task-summary .detail-metadata")).toContainText(
     "Project:",

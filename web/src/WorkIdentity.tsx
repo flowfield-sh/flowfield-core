@@ -22,7 +22,7 @@ export function WorkIdentity({
     <span className="work-identity">
       <WorkState state={state} indicatorOnly decorative={decorative} />
       {itemKey && (
-        <span className="work-key inline-flex shrink-0 items-center gap-2">
+        <span className="work-key inline-flex shrink-0 items-center gap-1">
           <Badge variant="outline">{itemKey}</Badge>
           {keyBadge}
         </span>

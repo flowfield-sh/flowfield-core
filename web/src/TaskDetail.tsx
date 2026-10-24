@@ -58,7 +58,16 @@ export function TaskDetail({
   return (
     <section className="editor task-detail">
       <DetailHeader
-        title="Task"
+        title={
+          <WorkIdentity
+            state={task.state}
+            itemKey={task.key}
+            keyBadge={
+              <DraftBadge publicationStatus={task.publication_status} />
+            }
+            title="Task"
+          />
+        }
         close={close}
         closeLabel="Back"
         actions={
@@ -127,16 +136,7 @@ export function TaskDetail({
       />
       <ContentStack className="task-summary">
         <DetailHeading
-          title={
-            <WorkIdentity
-              state={task.state}
-              itemKey={task.key}
-              keyBadge={
-                <DraftBadge publicationStatus={task.publication_status} />
-              }
-              title={task.title}
-            />
-          }
+          title={task.title}
           metadata={
             task.project_id && (
               <>

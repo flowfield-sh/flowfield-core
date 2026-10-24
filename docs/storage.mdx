@@ -21,11 +21,13 @@ Inspection copies remain available after completion or archiving. Permanently de
 
 ## Updating and recovery
 
-Stop the service before upgrading and keep a full backup. Stores from 0.6.0 and 0.7.0 upgrade in place, preserving tasks, documents, results, files and saved settings. Before adding task-deletion records, Flowfield verifies a database recovery copy in `backups/schema-86-*.sqlite3` and applies the database change atomically. This copy covers that database-only migration; it does not replace a full backup of retained files. Older builds cannot open the upgraded database: recovery to an older build requires restoring its matching database and files.
+Stop Flowfield, run `uv tool upgrade flowfield-core`, then run `flowfield serve`. Stores from 0.6.0 onward upgrade in place. See [installation](/installation#update) for pip commands.
 
 Queues start paused unless **Auto-start worker queue** is saved in workspace Workers settings. Sidebar Run/Pause changes only the current queue. Interrupted workers still need recovery.
 
-Startup rejects unsupported database versions without modifying or deleting them. Use a build compatible with the saved store to inspect it; do not delete state to resolve a startup error.
+### Recovery
+
+If startup reports an unsupported database version, use a Flowfield build compatible with the reported schema. Automatic database recovery copies are stored under `backups/` in the data directory. For a manual restore, stop the service and restore the saved data directory using its matching Flowfield version.
 
 <span id="starting-fresh" />
 

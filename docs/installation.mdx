@@ -89,8 +89,6 @@ For the pip environment:
 ~/.local/share/flowfield-venv/bin/flowfield serve
 ```
 
-Supported stores upgrade in place, preserving existing workspaces. Keep a full backup before updating; [storage and recovery](/storage#updating-and-recovery) describes supported versions and recovery copies. Disable **Auto-start worker queue** before shutdown if you want to review work before new attempts start; interrupted workers still require recovery.
+Your workspaces and settings are preserved. See the [release notes](https://github.com/flowfield-sh/flowfield-core/releases) for changes.
 
-Read the [release notes](https://github.com/flowfield-sh/flowfield-core/releases) and
-[storage guidance](/storage) before changing builds. Restart your coding conversation
-after updating installed project guidance.
+To review work before the queue starts again, turn off **Auto-start worker queue** in workspace Workers settings before stopping the service.

@@ -4,24 +4,24 @@
 
 ### Features
 
-- Permanently delete unneeded tasks from the task header or CLI, with confirmation. Deletion removes their history, results, retained files and inspection copies while preserving delivered repository code. Active work and referenced evidence block deletion; interrupted cleanup resumes automatically.
+- Permanently delete tasks from the task header or CLI, including their history, files and inspection copies. Delivered code stays in the repository.
 
 ### Improvements
 
-- Open the latest saved result directly from a task. Task and result pages share a consistent title and destination layout; feedback names its exact result, and numbered feed references are easier to scan.
-- Review supporting files, review evidence and code changes together under Details, with fewer competing disclosures and clearer next actions.
-- Save worker model, capacity and startup preferences together. Available updates remain visible through indicators on Settings and its Updates tab.
+- Open the latest result directly from a task. Task and result pages share a consistent layout, and feedback identifies its result.
+- Find supporting files, review evidence and code changes together under Details.
+- Save worker model, capacity and startup preferences in one form. Settings indicators keep available updates visible.
 
 ### Bug fixes
 
-- Keep Board and Inbox available during approval and review updates instead of failing with a database-lock error.
-- Keep preparation, validation and independent assessment in In progress, and reserve In review for human decisions and pending delivery. Show completed tasks consistently as Done.
-- Withdraw obsolete result actions while a correction is running, and prevent older review activity from moving the task back into review.
-- Preserve completed deliveries when the destination or settings change, without misleading destination warnings. Unfinished dependent work still checks whether the delivered code can be reused.
+- Keep Board and Inbox available during approval and review updates.
+- Keep automated checks in In progress and human decisions in In review. Show completed tasks consistently as Done.
+- Remove obsolete result actions during corrections and prevent older reviews from changing the current task state.
+- Remove misleading destination warnings from completed deliveries.
 
 ### Upgrade
 
-Stop Flowfield and back up its data directory before updating. Existing 0.6.0 and 0.7.0 stores upgrade in place with a verified database recovery copy. The upgraded database requires this release or newer; returning to an older build requires its matching backup. See [storage and recovery](https://docs.flowfield.sh/storage#updating-and-recovery).
+Stop Flowfield, run `uv tool upgrade flowfield-core`, then start it with `flowfield serve`. See [updating Flowfield](https://docs.flowfield.sh/installation#update) for other installation methods.
 
 ## 0.7.0
 

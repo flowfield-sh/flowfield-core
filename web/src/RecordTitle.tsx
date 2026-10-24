@@ -11,7 +11,7 @@ export function RecordTitle({ children }: { children: string }) {
           {match[1]}{" "}
           <Badge
             variant="outline"
-            className="px-1 py-0 align-middle font-normal"
+            className="h-4 overflow-visible px-1 py-0 align-baseline text-[11px] leading-none font-normal"
           >
             <span className="sr-only">#</span>
             {match[2]}

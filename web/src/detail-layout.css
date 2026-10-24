@@ -640,7 +640,7 @@
 .task-header-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
   align-items: center;
 }
 .task-summary {
@@ -667,14 +667,11 @@
 .work-identity > .work-state {
   flex-shrink: 0;
 }
-.editor-heading .work-identity,
-.detail-title .work-identity {
+.editor-heading .work-identity {
   display: block;
 }
 .editor-heading .work-identity > .work-state,
-.editor-heading .work-identity > .work-key,
-.detail-title .work-identity > .work-state,
-.detail-title .work-identity > .work-key {
+.editor-heading .work-identity > .work-key {
   vertical-align: baseline;
   margin-right: 8px;
 }

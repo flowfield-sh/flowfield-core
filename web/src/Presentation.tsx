@@ -107,7 +107,7 @@ export function TaskIdentity({
   return (
     <span className="task-identity">
       <span className="task-identity-heading">
-        <span className="inline-flex items-center gap-2 align-baseline">
+        <span className="inline-flex items-center gap-1 align-baseline">
           <Badge variant="outline">{task.key}</Badge>
           <DraftBadge publicationStatus={task.publication_status} />
         </span>{" "}
