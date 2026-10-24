@@ -34,10 +34,16 @@ def save_workspace(db: sqlite3.Connection, settings: WorkspaceWorkerSettings) ->
 
 
 def configure(settings: WorkspaceWorkerSettings, request: SettingsEdit) -> None:
-    settings.selection = request.selection.model_copy(
-        update={"fast": request.selection.fast is True}, deep=True
-    )
-    settings.max_parallel = request.max_parallel
+    if "selection" in request.model_fields_set:
+        settings.selection = (
+            request.selection.model_copy(update={"fast": request.selection.fast is True}, deep=True)
+            if request.selection
+            else None
+        )
+    if request.max_parallel is not None:
+        settings.max_parallel = request.max_parallel
+    if request.auto_start_queue is not None:
+        settings.auto_start_queue = request.auto_start_queue
 
 
 def queue(settings: WorkspaceWorkerSettings, request: QueueEdit) -> None:

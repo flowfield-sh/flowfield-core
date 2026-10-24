@@ -39,6 +39,8 @@ Task dependencies may cross projects within the workspace; they wait for deliver
 
 For files/reports without repository changes, omit `project_id` and prepare `completion=report`. Task tools use workspace binding and workspace-local T-1 identities. Select sent attachments or retained output IDs in `input_files`; workers receive exact copies. Browse them with `list_workspace_files`/`get_workspace_file`. Workers submit paths within `FLOWFIELD_OUTPUT_DIR`; retained files survive scratch cleanup and successor results. In human handoffs, link to the exact result or workspace Files view; local file paths are for agent access, not browser links. Even a Markdown change in a repository is code-changing work, regardless of labels.
 
+Keep task descriptions focused on the human outcome and observable criteria. Distinguish human constraints from suggested implementation details; do not turn current component boundaries or save handlers into requirements. Include correction feedback verbatim and revise conflicting suggestions when the intended interaction changes within scope.
+
 ## Adopt a usable project
 
 Flowfield adopts existing projects; it does not initialize Git or scaffold applications. Explicitly requested initial project/environment setup may use your ordinary tools before adoption. Establish a usable committed baseline under repository rules, then route ongoing outcomes through tasks. Never edit worker checkouts or launch workers outside the scheduler.

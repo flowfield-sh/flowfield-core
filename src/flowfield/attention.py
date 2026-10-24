@@ -119,8 +119,7 @@ WITH scope_workspaces AS (SELECT id FROM workspaces WHERE id=:workspace), run_it
              WHEN EXISTS (SELECT 1 FROM task_replies q WHERE q.workspace_id=v.workspace_id
                  AND q.task_id=v.task_id AND json_extract(q.data,'$.status')='pending')
                  THEN 'waiting'
-             WHEN (v.status='ready' OR
-                 json_extract(v.data,'$.problem_code')='partial_outcome') AND EXISTS (
+             WHEN v.status NOT IN ('delivered','changes_requested') AND EXISTS (
                  SELECT 1 FROM task_reviews review WHERE review.workspace_id=v.workspace_id
                  AND review.task_id=v.task_id
                  AND review.status IN ('queued','preparing','running','waiting')) THEN 'waiting'

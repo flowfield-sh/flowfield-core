@@ -13,13 +13,11 @@ import { ReviewerSettings } from "./ReviewerSettings";
 import { WorkerSettings } from "./Workers";
 import { workspaceHref } from "./navigation";
 import type { WorkspaceRecord } from "./workspace";
-import { SettingsCheckbox } from "./SettingsCheckbox";
 import { WorkspaceLabels } from "./WorkspaceLabels";
 
 const fields = (record?: WorkspaceRecord) => ({
   name: record?.name ?? "",
   description: record?.description ?? "",
-  auto_start_queue: record?.auto_start_queue ?? false,
 });
 export function WorkspaceEditor({
   incoming,
@@ -180,26 +178,7 @@ export function WorkspaceEditor({
           refresh={incoming}
           onDirty={setWorkerDirty}
           active={tab === "workers"}
-        >
-          <form onSubmit={save} aria-label="Queue startup preference">
-            <fieldset
-              disabled={busy}
-              className="content-stack"
-              data-space="section"
-            >
-              <SettingsCheckbox
-                checked={values.auto_start_queue}
-                onChange={(event) =>
-                  change("auto_start_queue", event.target.checked)
-                }
-                hint="Start eligible work when Flowfield starts. Run or pause the current queue from the sidebar; that does not change this preference."
-              >
-                Auto-start worker queue
-              </SettingsCheckbox>
-              {actions}
-            </fieldset>
-          </form>
-        </WorkerSettings>
+        />
       </div>
       <div
         role="tabpanel"

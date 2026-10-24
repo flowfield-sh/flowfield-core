@@ -732,7 +732,7 @@ test("validated result approval delivers real Git code with the worker queue pau
       const card = page.locator(".task-card").filter({ hasText: "T-1" });
       await expect(
         card.locator('.work-state[data-tone="complete"]'),
-      ).toContainText("Delivered");
+      ).toContainText("Done");
       await expect(card).not.toContainText("Check destination");
       await card.scrollIntoViewIfNeeded();
       await page.screenshot({

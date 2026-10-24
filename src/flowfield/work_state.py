@@ -35,6 +35,8 @@ def event_state(
             tone="waiting",
         )
     target = current._event_id
+    if kind == "result" and status == "delivered":
+        return WorkState(label="Delivered", tone="complete")
     if (
         kind == "result"
         and target == identity
@@ -177,7 +179,11 @@ def task_state(
             elif result.status in ("blocked", "stale"):
                 tone = "attention"
             return WorkState(
-                label="Integration blocked" if action.action == "retry-delivery" else action.label,
+                label="Done"
+                if result.status == "delivered" and action.action == "none"
+                else "Integration blocked"
+                if action.action == "retry-delivery"
+                else action.label,
                 tone=tone,
                 href=f"{workspace_href(project)}/results/{result.id}",
             ).for_event("result:" + result.id)

@@ -38,7 +38,7 @@ def assert_delivered(service, original, *, available=False):
     board = BrowserReads(service.workspace).workspace_board("harbor")
     card = next(t for t in board.tasks if t.id == "work")
     assert card.status == "done"
-    assert (card.state.label, card.state.tone) == ("Delivered", "complete")
+    assert (card.state.label, card.state.tone) == ("Done", "complete")
     assert "T-1" not in board.attention_work_keys
     assert not attention_page(service.workspace, "harbor", "action").items
     feed = ThreadView(service.workspace).item_view("harbor", "work", "result:" + version.id)

@@ -404,6 +404,9 @@ class Results:
                 )
             run.status = "in_review"
             self.execution._save(db, run)
+            self.execution._task_state(
+                db, task, "in_progress", "Checking the result against the current destination."
+            )
             return self.capture(db, run)
 
     def retry_delivery(self, workspace_id: str, identity: str, request: RunAction) -> ResultVersion:

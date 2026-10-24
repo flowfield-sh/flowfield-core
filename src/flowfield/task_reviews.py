@@ -282,7 +282,8 @@ class TaskReviews(ReviewRecords[TaskReview]):
             )
             return review
 
-    def _fresh(self, db: sqlite3.Connection, review: TaskReview) -> bool:
+    def freshness_problem(self, db: sqlite3.Connection, review: TaskReview) -> str | None:
+        """Inspect the exact binding without changing review or question records."""
         try:
             result = Results(self.store)._get(db, review.workspace_id, review.result_id)
             if (
@@ -297,7 +298,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 # Delivery consumed the exact assessment. Preserve that historical
                 # sign-off when delivery advances its destination and result revision.
                 # This receipt cannot authorize a different result or another delivery.
-                return True
+                return None
             owner, task, current = self._binding(db, review.workspace_id, review.result_id)
             if (
                 current.completion == "report"
@@ -311,10 +312,16 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 and task == review.task_id
                 and current == review.binding
             ):
-                return True
-            problem = "Review settings or candidate evidence changed. Prepare a fresh review."
+                return None
+            return "Review settings or candidate evidence changed. Prepare a fresh review."
         except ApplicationError as error:
-            problem = error.message
+            return error.message
+
+    def _fresh(self, db: sqlite3.Connection, review: TaskReview) -> bool:
+        """Invalidate stale evidence only inside the caller's write transaction."""
+        problem = self.freshness_problem(db, review)
+        if problem is None:
+            return True
         review.status, review.problem, review.completed_at = "stale", problem, now()
         self._retire_question(db, review, "The review inputs changed; this question is outdated.")
         self._save(db, review)

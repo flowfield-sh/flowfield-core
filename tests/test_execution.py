@@ -379,3 +379,39 @@ def test_startup_edit_preserves_worker_owner_and_active_assignment(tmp_path, con
             "harbor", WorkspaceEdit(expected_revision=workspace.revision, name="Renamed")
         )
         assert execution.settings("harbor").model_dump() == before
+
+
+def test_worker_settings_update_queue_preferences_atomically_without_model(tmp_path):
+    from workspace_fixtures import TEST_AGENTS
+
+    from flowfield.application import Workspace
+    from flowfield.errors import ApplicationError
+    from flowfield.execution import Execution
+    from flowfield.execution_models import SettingsEdit
+    from flowfield.workspaces import WorkspaceCreate, Workspaces
+
+    workspace = Workspace(tmp_path / "state")
+    space = Workspaces(workspace).create(WorkspaceCreate(name="Settings", **TEST_AGENTS))
+    execution = Execution(workspace)
+    initial = execution.settings(space.id)
+    empty = execution.configure(
+        space.id, SettingsEdit(expected_revision=initial.revision, selection=None)
+    )
+    saved = execution.configure(
+        space.id,
+        SettingsEdit(
+            expected_revision=empty.revision,
+            auto_start_queue=True,
+            max_parallel=3,
+        ),
+    )
+    assert saved.selection is None
+    assert saved.auto_start_queue and saved.max_parallel == 3
+    assert not saved.enabled
+    assert Workspaces(workspace).get(space.id).auto_start_queue
+    with pytest.raises(ApplicationError, match="stale"):
+        execution.configure(
+            space.id,
+            SettingsEdit(expected_revision=empty.revision, auto_start_queue=False, max_parallel=7),
+        )
+    assert execution.settings(space.id) == saved

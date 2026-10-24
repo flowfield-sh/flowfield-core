@@ -17,6 +17,8 @@ One service data directory stores all your Flowfield workspaces. The default is 
 
 Choose another data directory with `FLOWFIELD_DATA_DIR` or `flowfield --data-dir /absolute/path serve`. This changes the service's store, not an individual workspace's repository locations.
 
+Inspection copies remain available after a task finishes. Flowfield does not automatically delete them: a copy may contain local edits, preview data or a running process. Stop any processes and preserve useful changes before removing an inspection directory. Retained result files and delivery evidence are stored separately.
+
 ## Updating and recovery
 
 Updating from 0.6.0 to 0.7.0 uses the existing store without a schema change. Stop the service before upgrading and keep a full backup. Tasks, documents, results, files and saved settings remain available.

@@ -251,10 +251,9 @@ export function Result({
               </DetailSection>
             )}
           </DetailSection>
-          <ResultFiles
-            files={version.files}
-            supporting={version.completion === "code"}
-          />
+          {version.completion !== "code" && (
+            <ResultFiles files={version.files} />
+          )}
           {current && (
             <TaskActionContext>
               <TaskReview
@@ -274,9 +273,6 @@ export function Result({
                 </p>
               )}
               <p>{version.independent_review.summary}</p>
-              <Disclosure summary="Review evidence">
-                <Markdown>{version.independent_review.evidence}</Markdown>
-              </Disclosure>
             </DetailSection>
           )}
           {current && version.status === "preparing" && (
@@ -298,7 +294,8 @@ export function Result({
           {current &&
             version.problem &&
             version.problem_code !== "partial_outcome" &&
-            version.status !== "cancelled" && (
+            version.status !== "cancelled" &&
+            version.next_action?.action !== "wait" && (
               <FailureEvidence problem={version.problem} />
             )}
           {current &&
@@ -410,8 +407,18 @@ export function Result({
               )}
             </DetailSection>
           }
-          {version.completion === "code" && version.candidate_commit && (
+          {((version.completion === "code" && version.files.length > 0) ||
+            version.independent_review?.evidence ||
+            version.candidate_commit) && (
             <DetailSection title="Details">
+              {version.completion === "code" && (
+                <ResultFiles files={version.files} supporting />
+              )}
+              {version.independent_review?.evidence && (
+                <Disclosure summary="Review evidence">
+                  <Markdown>{version.independent_review.evidence}</Markdown>
+                </Disclosure>
+              )}
               {version.integration_id && version.candidate_commit && (
                 <Disclosure
                   summary={<>Code changes</>}

@@ -75,7 +75,10 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
         "earlier work when correcting or reopening a task. Do not describe only the latest patch. "
         "Put command output, paths, hashes and detailed evidence "
         "in checks, with unresolved constraints in limitations. "
-        "Partial progress is not completion.",
+        "Partial progress is not completion. Latest human correction feedback refines the "
+        "requested outcome within this assignment. Implement its intended interaction, not "
+        "just literal element placement. Preserve behavior and authority, not an obsolete "
+        "component boundary. Ask only when scope or a consequential requirement conflicts.",
     ]
     if contribution:
         rules.append(

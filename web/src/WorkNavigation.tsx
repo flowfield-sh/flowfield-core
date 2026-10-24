@@ -45,6 +45,7 @@ function RecentLink({
           className="work-navigation-row"
           aria-label={`${itemKey ? itemKey + " " : ""}${title}`}
           aria-current={current === href ? "page" : undefined}
+          title=""
           onClick={(e) => followLink(e, () => open(href))}
         >
           <WorkIdentity
@@ -56,7 +57,7 @@ function RecentLink({
         </WorkspaceLink>
       </TooltipTrigger>
       <TooltipContent side="right">
-        {itemKey} {title}
+        {title}
         {detail ?? (state ? ` · ${state.label}` : "")}
       </TooltipContent>
     </Tooltip>

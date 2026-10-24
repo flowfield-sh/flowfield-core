@@ -46,8 +46,9 @@ class WorkerOccupancy(Record):
 
 class SettingsEdit(Record):
     expected_revision: int = Field(ge=1)
-    selection: AgentChoice
-    max_parallel: int = Field(default=5, ge=1, le=16)
+    selection: AgentChoice | None = None
+    max_parallel: int | None = Field(default=None, ge=1, le=16)
+    auto_start_queue: bool | None = None
 
 
 class QueueEdit(Record):

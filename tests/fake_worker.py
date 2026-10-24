@@ -83,4 +83,5 @@ class FakeWorker:
         return True
 
     async def close(self):
-        await self.stack.aclose()
+        if hasattr(self, "stack"):
+            await self.stack.aclose()

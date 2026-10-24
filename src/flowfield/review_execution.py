@@ -135,7 +135,11 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
             "older_exchanges_before": exchanges["next_before"],
             "instructions": (
                 "Assess this whole task result against its frozen agreement and "
-                "sources. For assembled work, select the responsible subtask_id "
+                "sources and the latest human correction feedback. First compare the requested "
+                "user interaction with the actual outcome; passing checks and extensive evidence "
+                "do not compensate for a mismatched experience. Clarifications of layout or "
+                "interaction within the task are not automatically scope changes. "
+                "For assembled work, select the responsible subtask_id "
                 "when requesting changes or asking a worker. "
                 "For direct work, omit subtask_id; the task key is never a subtask ID. "
                 "Read relevant context and recent exchange sections with read_context. "

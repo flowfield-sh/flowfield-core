@@ -335,7 +335,7 @@ def test_result_feedback_keeps_consumed_answers_within_the_same_agreement(tmp_pa
         result=WorkerResult(summary="Findings delivered", checks="Checked", outcome="complete"),
     )
     validate_report(execution)
-    assert state().label == "Delivered" and state().tone == "complete"
+    assert state().label == "Done" and state().tone == "complete"
     assert Questions(execution.workspace).get("harbor", q.id).status == "assigned"
 
 

@@ -74,10 +74,11 @@ for (const enabled of [false, true]) {
     await expect(checkbox).toHaveAccessibleDescription(
       "Start eligible work when Flowfield starts. Run or pause the current queue from the sidebar; that does not change this preference.",
     );
-    const startup = editor.getByRole("form", {
-      name: "Queue startup preference",
+    const startup = editor.getByRole("region", {
+      name: "Worker settings",
+      exact: true,
     });
-    const save = startup.getByRole("button", { name: "Save changes" });
+    const save = startup.getByRole("button", { name: "Save worker settings" });
     await checkbox.focus();
     await page.keyboard.press("Space");
     await page.keyboard.press("Tab");
@@ -85,9 +86,6 @@ for (const enabled of [false, true]) {
     expect((await read(request, path)).auto_start_queue).toBe(false);
     expect(await read(request, `${path}/workers`)).toEqual(workers);
     await startup.getByRole("button", { name: "Cancel", exact: true }).click();
-    await page
-      .getByRole("button", { name: "Discard changes", exact: true })
-      .click();
     await expect(checkbox).not.toBeChecked();
     expect(writes).toEqual([]);
 
@@ -116,7 +114,7 @@ for (const enabled of [false, true]) {
       await checkbox.setChecked(value);
       const saved = page.waitForResponse(
         (response) =>
-          response.url().endsWith(path) &&
+          response.url().endsWith(`${path}/workers`) &&
           response.request().method() === "PUT",
       );
       await save.click();
@@ -141,11 +139,11 @@ for (const enabled of [false, true]) {
     }
     expect(writes).toEqual(
       [true, false].map((auto_start_queue, index) => ({
-        url: `${new URL(page.url()).origin}${path}`,
+        url: `${new URL(page.url()).origin}${path}/workers`,
         body: {
           auto_start_queue,
-          expected_revision: before.revision + index,
-          author: "human",
+          expected_revision: workers.revision + index,
+          max_parallel: workers.max_parallel,
         },
       })),
     );
@@ -168,22 +166,22 @@ for (const enabled of [false, true]) {
   });
 }
 
-test("startup retains drafts through pending, failure and revision recovery without saving worker edits", async ({
+test("one worker form preserves drafts on failure and reloads all fields on conflict", async ({
   page,
   request,
-}, testInfo) => {
+}) => {
   const id = await workspace(request);
-  const path = `/api/workspaces/${id}`;
+  const path = `/api/workspaces/${id}/workers`;
   await page.goto(`/workspaces/${id}/edit/workers`);
-  const editor = page.getByRole("region", { name: "Edit workspace" });
+  const editor = page.getByRole("region", {
+    name: "Worker settings",
+    exact: true,
+  });
   const checkbox = editor.getByRole("checkbox", {
     name: "Auto-start worker queue",
   });
-  const startup = editor.getByRole("form", {
-    name: "Queue startup preference",
-  });
-  const save = startup.getByRole("button", { name: "Save changes" });
   const cap = editor.getByLabel("Maximum parallel workers");
+  const save = editor.getByRole("button", { name: "Save worker settings" });
   await cap.fill("3");
   await checkbox.check();
   let release!: () => void;
@@ -195,60 +193,31 @@ test("startup retains drafts through pending, failure and revision recovery with
     await gate;
     await route.fulfill({
       status: 503,
-      json: {
-        error: { message: "Startup preference temporarily unavailable" },
-      },
+      json: { error: { message: "Settings temporarily unavailable" } },
     });
   });
   await save.click();
-  await expect(save).toBeDisabled();
   await expect(checkbox).toBeDisabled();
-  await expect(startup.getByRole("button", { name: "Cancel" })).toBeDisabled();
-  await page.screenshot({ path: testInfo.outputPath("startup-pending.png") });
+  await expect(cap).toBeDisabled();
   release();
   await expect(
     page.locator("[data-sonner-toast][data-type=error]"),
-  ).toContainText("Startup preference temporarily unavailable");
+  ).toContainText("Settings temporarily unavailable");
   await expect(checkbox).toBeChecked();
-  await expect(save).toBeEnabled();
-  await page.screenshot({ path: testInfo.outputPath("startup-error.png") });
+  await expect(cap).toHaveValue("3");
   await page.unroute(`**${path}`);
   const old = await read(request, path);
   const competing = await request.put(path, {
-    data: { expected_revision: old.revision, name: "Changed elsewhere" },
+    data: { expected_revision: old.revision, max_parallel: 4 },
   });
   expect(competing.ok()).toBeTruthy();
-  const startupConflict = page.waitForResponse(
-    (response) =>
-      response.url().endsWith(path) && response.request().method() === "PUT",
-  );
-  await save.click();
-  expect((await startupConflict).status()).toBe(409);
-  await expect(checkbox).toBeChecked();
-  await editor
-    .getByRole("button", { name: "Load latest", exact: true })
-    .click();
-  await page
-    .getByRole("alertdialog")
-    .getByRole("button", { name: "Load latest", exact: true })
-    .click();
-  await expect(checkbox).not.toBeChecked();
-  await expect(cap).toHaveValue("3");
-  await checkbox.check();
-  const saved = page.waitForResponse(
-    (response) =>
-      response.url().endsWith(path) && response.request().method() === "PUT",
-  );
-  await save.click();
-  expect((await saved).ok()).toBeTruthy();
-  await expect(save).toBeDisabled();
-  await expect(cap).toHaveValue("3");
+  // A background receipt makes the shared draft stale rather than partly saving it.
   await expect(
     editor.getByText(
       "Settings changed elsewhere. Load the latest settings before saving.",
     ),
   ).toBeVisible();
-  expect((await read(request, `${path}/workers`)).max_parallel).toBe(5);
+  await expect(save).toBeDisabled();
   await editor
     .getByRole("button", { name: "Load latest settings", exact: true })
     .click();
@@ -256,71 +225,36 @@ test("startup retains drafts through pending, failure and revision recovery with
     .getByRole("alertdialog")
     .getByRole("button", { name: "Load latest settings", exact: true })
     .click();
-  await expect(cap).toHaveValue("5");
-
-  // Another client changes the workspace while General has an unsaved name.
-  await editor.getByRole("tab", { name: "General", exact: true }).click();
-  await editor.getByLabel("Name", { exact: true }).fill("My unsaved name");
-  const current = await read(request, path);
-  const external = await request.put(path, {
-    data: {
-      expected_revision: current.revision,
-      auto_start_queue: false,
-      description: "Other client description",
-    },
-  });
-  expect(external.ok()).toBeTruthy();
-  const conflict = page.waitForResponse(
-    (response) =>
-      response.url().endsWith(path) && response.request().method() === "PUT",
-  );
-  await editor
-    .getByRole("button", { name: "Save changes", exact: true })
-    .click();
-  const response = await conflict;
-  expect(response.status()).toBe(409);
-  expect(response.request().postDataJSON()).toEqual({
-    expected_revision: current.revision,
-    name: "My unsaved name",
-    author: "human",
-  });
-  await expect(editor.getByLabel("Name", { exact: true })).toHaveValue(
-    "My unsaved name",
-  );
-  await expect(editor.getByRole("status")).toContainText(
-    "Your unsaved edits are preserved",
-  );
-  await page.screenshot({ path: testInfo.outputPath("general-conflict.png") });
-  await editor
-    .getByRole("button", { name: "Load latest", exact: true })
-    .click();
-  await page
-    .getByRole("alertdialog")
-    .getByRole("button", { name: "Load latest", exact: true })
-    .click();
-  await expect(editor.getByLabel("Description", { exact: true })).toHaveValue(
-    "Other client description",
-  );
-  await editor.getByLabel("Name", { exact: true }).fill("Recovered name");
-  const recovered = page.waitForResponse(
-    (response) =>
-      response.url().endsWith(path) && response.request().method() === "PUT",
-  );
-  await editor
-    .getByRole("button", { name: "Save changes", exact: true })
-    .click();
-  expect((await recovered).ok()).toBeTruthy();
-  await page.reload();
-  await expect(editor.getByLabel("Name", { exact: true })).toHaveValue(
-    "Recovered name",
-  );
-  await editor.getByRole("tab", { name: "Workers", exact: true }).click();
+  await expect(cap).toHaveValue("4");
   await expect(checkbox).not.toBeChecked();
-  expect(await read(request, `${path}/workers`)).toMatchObject({
+  await cap.fill("3");
+  await checkbox.check();
+  await save.click();
+  await expect(save).toBeDisabled();
+  expect(await read(request, path)).toMatchObject({
+    max_parallel: 3,
+    auto_start_queue: true,
     enabled: false,
-    max_parallel: 5,
-    selection: { harness: "codex", model: "test-model" },
+    selection: old.selection,
   });
+  await page.reload();
+  await expect(cap).toHaveValue("3");
+  await expect(checkbox).toBeChecked();
+  // General owns only its fields and cannot revert a separately changed startup flag.
+  const workspaceEditor = page.getByRole("region", { name: "Edit workspace" });
+  await workspaceEditor
+    .getByRole("tab", { name: "General", exact: true })
+    .click();
+  await workspaceEditor
+    .getByLabel("Name", { exact: true })
+    .fill("Renamed workspace");
+  await workspaceEditor
+    .getByRole("button", { name: "Save changes", exact: true })
+    .click();
+  await expect(
+    workspaceEditor.getByRole("button", { name: "Save changes", exact: true }),
+  ).toBeDisabled();
+  expect((await read(request, path)).auto_start_queue).toBe(true);
 });
 
 for (const theme of ["light", "dark"]) {
@@ -382,15 +316,18 @@ for (const theme of ["light", "dark"]) {
         const fast = section.querySelector('input[type="checkbox"]')!;
         const divider = section.querySelector('[data-slot="separator"]')!;
         const capacity = section.querySelector('input[type="number"]')!;
-        const startup = section.querySelector(
-          'form[aria-label="Queue startup preference"]',
+        const startup = section.querySelectorAll('input[type="checkbox"]')[1]!;
+        const save = section.querySelector(
+          'button[aria-label="Save worker settings"]',
         )!;
         const follows = (a: Element, b: Element) =>
           !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
         return (
           follows(fast, divider) &&
           follows(divider, capacity) &&
-          follows(capacity, startup)
+          follows(capacity, startup) &&
+          follows(startup, save) &&
+          section.querySelectorAll("form").length === 1
         );
       });
       expect(order).toBe(true);
@@ -398,8 +335,8 @@ for (const theme of ["light", "dark"]) {
       await page.keyboard.press("Space");
       await page.keyboard.press("Tab");
       const startupSave = editor
-        .getByRole("form", { name: "Queue startup preference" })
-        .getByRole("button", { name: "Save changes" });
+        .getByRole("region", { name: "Worker settings", exact: true })
+        .getByRole("button", { name: "Save worker settings" });
       await expect(startupSave).toBeFocused();
       await expect(startupSave).toBeInViewport();
       await expect(editor.getByLabel("Maximum parallel workers")).toBeVisible();

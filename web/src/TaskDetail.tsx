@@ -60,6 +60,24 @@ export function TaskDetail({
             title={task.title}
           />
         }
+        metadata={
+          task.project_id && (
+            <>
+              Project:{" "}
+              <WorkspaceLink
+                className="text-inherit"
+                to={`/projects/${task.project_id}/overview`}
+              >
+                {board.projects.find(
+                  (project) => project.id === task.project_id,
+                )?.name ?? task.project_id}
+              </WorkspaceLink>
+              {task.publication?.target_branch && (
+                <> · Branch: {task.publication.target_branch}</>
+              )}
+            </>
+          )
+        }
         close={close}
         closeLabel="Back"
         actions={
@@ -131,20 +149,8 @@ export function TaskDetail({
               {task.body}
             </ExpandableMarkdown>
           </div>
-          {(task.project_id ||
-            task.prerequisites.length > 0 ||
-            task.dependents.length > 0) && (
+          {(task.prerequisites.length > 0 || task.dependents.length > 0) && (
             <ContentStack aria-label="Related work">
-              {task.project_id && (
-                <p>
-                  Project:{" "}
-                  <WorkspaceLink to={`/projects/${task.project_id}/overview`}>
-                    {board.projects.find(
-                      (project) => project.id === task.project_id,
-                    )?.name ?? task.project_id}
-                  </WorkspaceLink>
-                </p>
-              )}
               {!!task.prerequisites.length && (
                 <p>
                   <BlockedBy

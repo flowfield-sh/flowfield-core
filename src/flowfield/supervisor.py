@@ -131,7 +131,8 @@ class Supervisor:
         )
 
     async def configure(self, project_id: str, request: SettingsEdit) -> WorkspaceWorkerSettings:
-        await self.validate_agent_choice(request.selection, project_id)
+        if request.selection:
+            await self.validate_agent_choice(request.selection, project_id)
         return self.execution.configure(project_id, request)
 
     async def workspace_models(
@@ -145,9 +146,10 @@ class Supervisor:
     ) -> WorkspaceWorkerSettings:
         spaces = Workspaces(self.workspace)
         self.workspace._current(spaces.workers(identity).revision, request.expected_revision)
-        await self.validate_agent_choice(
-            request.selection, project_path=str(coordinator_directory(self.workspace, identity))
-        )
+        if request.selection:
+            await self.validate_agent_choice(
+                request.selection, project_path=str(coordinator_directory(self.workspace, identity))
+            )
         return spaces.configure_workers(identity, request)
 
     async def configure_workspace_coordinator(

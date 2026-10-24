@@ -111,7 +111,7 @@ def test_completed_deliveries_survive_upstream_reopening_without_cascades(tmp_pa
         assert retained.status_changed_at == saved[key].status_changed_at
         assert retained.publication == saved[key].publication
         state = BrowserReads(service).task("harbor", key).state
-        assert state.label == "Delivered" and state.tone == "complete"
+        assert state.label == "Done" and state.tone == "complete"
         assert state.reason is None
         card = next(t for t in BrowserReads(service).workspace_board("harbor").tasks if t.id == key)
         assert not card.blocked_by and card.readiness == "ready"

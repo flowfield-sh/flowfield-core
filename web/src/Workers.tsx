@@ -1,3 +1,4 @@
+import { SettingsCheckbox } from "./SettingsCheckbox";
 import { ConfirmButton } from "./ConfirmButton";
 import { ContentStack } from "./DetailLayout";
 import { ResourceRetry } from "./ResourceRetry";
@@ -11,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Pause, Play, Settings2 } from "lucide-react";
 import { ActionTooltip } from "./ActionTooltip";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { WorkspaceLink as Link } from "./WorkspaceLink";
 import type { components } from "./api-schema";
 import { request } from "./workspace";
@@ -163,13 +164,11 @@ export function WorkerSettings({
   onDirty,
   refresh,
   active = true,
-  children,
 }: {
   refresh: unknown;
   workspaceId: string;
   onDirty: (value: boolean) => void;
   active?: boolean;
-  children?: ReactNode;
 }) {
   const path = `workspaces/${workspaceId}/workers`;
   const resource = useResource<Settings>(path, refresh);
@@ -182,6 +181,7 @@ export function WorkerSettings({
     mode: string;
     fast: boolean;
     cap: number;
+    startup: boolean;
     revision: number;
   } | null>(null);
   const source = useHarnessModels(
@@ -197,6 +197,14 @@ export function WorkerSettings({
   const mode = draft?.mode ?? resource.data?.selection?.mode ?? "";
   const fast = draft?.fast ?? resource.data?.selection?.fast ?? false;
   const cap = draft?.cap ?? resource.data?.max_parallel ?? 5;
+  const startup = draft?.startup ?? resource.data?.auto_start_queue ?? false;
+  const modelDirty =
+    !!draft &&
+    (harness !== (resource.data?.selection?.harness ?? source.kind) ||
+      model !== (resource.data?.selection?.model ?? "") ||
+      effort !== (resource.data?.selection?.effort ?? "") ||
+      mode !== (resource.data?.selection?.mode ?? "") ||
+      fast !== (resource.data?.selection?.fast ?? false));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const dirty =
@@ -207,7 +215,8 @@ export function WorkerSettings({
       effort !== (resource.data.selection?.effort ?? "") ||
       mode !== (resource.data.selection?.mode ?? "") ||
       fast !== (resource.data.selection?.fast ?? false) ||
-      cap !== resource.data.max_parallel);
+      cap !== resource.data.max_parallel ||
+      startup !== resource.data.auto_start_queue);
   useEffect(() => {
     onDirty(dirty);
     return () => onDirty(false);
@@ -230,7 +239,7 @@ export function WorkerSettings({
       <form
         onSubmit={async (event) => {
           event.preventDefault();
-          if (!resource.data || !harness) return;
+          if (!resource.data) return;
           setBusy(true);
           setError("");
           try {
@@ -239,14 +248,19 @@ export function WorkerSettings({
               "PUT",
               {
                 expected_revision: draft?.revision ?? resource.data.revision,
-                selection: {
-                  harness,
-                  model,
-                  effort: effort || null,
-                  mode: mode || null,
-                  fast,
-                },
+                ...(modelDirty
+                  ? {
+                      selection: {
+                        harness: harness!,
+                        model,
+                        effort: effort || null,
+                        mode: mode || null,
+                        fast,
+                      },
+                    }
+                  : {}),
                 max_parallel: cap,
+                auto_start_queue: startup,
               },
               undefined,
               180000,
@@ -278,6 +292,7 @@ export function WorkerSettings({
                 mode: "",
                 fast: false,
                 cap,
+                startup,
                 revision: draft?.revision ?? resource.data!.revision,
               })
             }
@@ -298,6 +313,7 @@ export function WorkerSettings({
                 mode,
                 fast,
                 cap,
+                startup,
                 revision: draft?.revision ?? resource.data!.revision,
               })
             }
@@ -318,31 +334,51 @@ export function WorkerSettings({
                   mode,
                   fast,
                   cap: Number(event.target.value),
+                  startup,
                   revision: draft?.revision ?? resource.data!.revision,
                 })
               }
             />
           </Label>
+          <SettingsCheckbox
+            checked={startup}
+            onChange={(event) =>
+              setDraft({
+                harness: harness!,
+                model,
+                effort,
+                mode,
+                fast,
+                cap,
+                startup: event.target.checked,
+                revision: draft?.revision ?? resource.data!.revision,
+              })
+            }
+            hint="Start eligible work when Flowfield starts. Run or pause the current queue from the sidebar; that does not change this preference."
+          >
+            Auto-start worker queue
+          </SettingsCheckbox>
           <div className="actions editor-actions">
             <Button
               size="sm"
               aria-label="Save worker settings"
               disabled={
                 !dirty ||
-                catalog.loading ||
                 stale ||
-                !harness ||
-                !source.host?.selectable ||
-                !modelSupports(
-                  {
-                    harness: harness!,
-                    model,
-                    effort: effort || null,
-                    mode: mode || null,
-                    fast,
-                  },
-                  models,
-                )
+                (modelDirty &&
+                  (catalog.loading ||
+                    !harness ||
+                    !source.host?.selectable ||
+                    !modelSupports(
+                      {
+                        harness: harness!,
+                        model,
+                        effort: effort || null,
+                        mode: mode || null,
+                        fast,
+                      },
+                      models,
+                    )))
               }
             >
               Save
@@ -363,7 +399,6 @@ export function WorkerSettings({
           </div>
         </fieldset>
       </form>
-      {children}
       {(error || resource.error || stale) && (
         <>
           {stale && (

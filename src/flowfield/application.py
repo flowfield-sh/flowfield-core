@@ -373,6 +373,8 @@ class Workspace:
             db = sqlite3.connect(self.database.as_uri() + "?mode=rw", uri=True, timeout=10)
             db.row_factory = sqlite3.Row
             db.execute("PRAGMA foreign_keys = ON")
+            if not write:
+                db.execute("PRAGMA query_only = ON")
             try:
                 db.execute("BEGIN IMMEDIATE" if write else "BEGIN")
                 require_current(db, self.schema_version)

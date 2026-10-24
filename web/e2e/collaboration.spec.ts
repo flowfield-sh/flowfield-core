@@ -146,12 +146,12 @@ test("coordinator dependencies update blockers, links and reconciliation without
   ).toBeVisible();
   await expect(
     card.locator(".work-state:not([data-indicator-only])"),
-  ).toHaveText("Delivered");
+  ).toHaveText("Done");
   await page.goto(`/workspaces/${workspace}/tasks/T-2`);
   await expect(
     detail
       .locator(".entity-pane-title")
-      .getByRole("img", { name: "Delivered", exact: true }),
+      .getByRole("img", { name: "Done", exact: true }),
   ).toHaveCount(1);
   await expect(
     detail.getByRole("heading", { name: "Waiting on", exact: true }),
@@ -169,7 +169,7 @@ test("coordinator dependencies update blockers, links and reconciliation without
   await expect(
     detail
       .locator(".entity-pane-title")
-      .getByRole("img", { name: "Delivered", exact: true }),
+      .getByRole("img", { name: "Done", exact: true }),
   ).toHaveCount(1);
 });
 

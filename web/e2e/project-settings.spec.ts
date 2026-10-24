@@ -156,6 +156,7 @@ test("worker models load automatically and retry without replacing setting draft
     .poll(() => captured)
     .toEqual({
       expected_revision: 1,
+      auto_start_queue: false,
       max_parallel: 3,
       selection: {
         harness: "codex",

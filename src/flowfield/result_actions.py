@@ -114,14 +114,19 @@ def result_action(
                     "coordinator with this task link before requesting revised work."
                 ),
             )
-    if value.status == "ready" or value.problem_code == "partial_outcome":
+    if value.status not in ("delivered", "changes_requested"):
         review = db.execute(
             "SELECT status FROM task_reviews WHERE workspace_id=? AND task_id=? "
             "AND (result_id=? OR status IN ('preparing','running','uncertain')) "
             "AND status IN ('queued','preparing','running','waiting','uncertain',"
-            "'failed','stopped') "
+            "'failed','stopped') AND (status NOT IN ('failed','stopped') OR ?) "
             "ORDER BY number DESC LIMIT 1",
-            (value.workspace_id, value.task_id, value.id),
+            (
+                value.workspace_id,
+                value.task_id,
+                value.id,
+                value.status == "ready" or value.problem_code == "partial_outcome",
+            ),
         ).fetchone()
         if review:
             return ResultAction(
@@ -162,7 +167,7 @@ def result_action(
                     or assessment.status != "decided"
                     or not assessment.verdict
                     or assessment.verdict.action != "approve"
-                    or not TaskReviews(workspace)._fresh(db, assessment)
+                    or TaskReviews(workspace).freshness_problem(db, assessment) is not None
                 ):
                     return ResultAction(
                         owner="reviewer",

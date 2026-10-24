@@ -71,34 +71,6 @@ test("home, welcome and editable settings form a complete project journey", asyn
     path: testInfo.outputPath("coordinator-welcome.png"),
   });
 
-  // Exercise the queue UI without permitting a native worker launch.
-  let workers = {
-    workspace_id: workspace,
-    revision: 1,
-    enabled: false,
-    selection: {
-      harness: "codex",
-      model: "test-model",
-      effort: "low",
-      mode: null,
-      fast: false,
-    },
-    max_parallel: 1,
-    problem: null,
-  };
-  await page.route(`**/api/workspaces/${workspace}/workers`, (route) =>
-    route.fulfill({ json: workers }),
-  );
-  await page.route(`**/api/workspaces/${workspace}/queue`, (route) => {
-    const body = route.request().postDataJSON();
-    expect(body.expected_revision).toBe(workers.revision);
-    workers = {
-      ...workers,
-      enabled: body.enabled,
-      revision: workers.revision + 1,
-    };
-    return route.fulfill({ json: workers });
-  });
   await page.getByLabel("Filter by project").selectOption(project);
   await page
     .getByRole("button", { name: "Project settings", exact: true })
@@ -208,22 +180,30 @@ test("home, welcome and editable settings form a complete project journey", asyn
   // Disabled also means a write is pending. Wait for its receipt before reloading.
   const workspaceSaved = page.waitForResponse(
     (response) =>
-      response.url().endsWith(`/api/workspaces/${workspace}`) &&
+      response.url().endsWith(`/api/workspaces/${workspace}/workers`) &&
       response.request().method() === "PUT",
   );
   await shared
-    .getByRole("button", { name: "Save changes", exact: true })
+    .getByRole("button", { name: "Save worker settings", exact: true })
     .click();
   const receipt = await workspaceSaved;
   expect(receipt.ok(), await receipt.text()).toBeTruthy();
-  await expect(savedToast).toBeVisible();
   await expect(
-    shared.getByRole("button", { name: "Save changes", exact: true }),
+    page
+      .locator("[data-sonner-toast][data-type=success]")
+      .filter({ hasText: "Worker settings saved." }),
+  ).toBeVisible();
+  await expect(
+    shared.getByRole("button", { name: "Save worker settings", exact: true }),
   ).toBeDisabled();
   expect(
     (await (await request.get(`/api/workspaces/${workspace}/workers`)).json())
       .enabled,
   ).toBe(false);
+  expect(
+    (await (await request.get(`/api/workspaces/${workspace}`)).json())
+      .auto_start_queue,
+  ).toBe(true);
   await page.reload();
   await expect(
     shared.getByLabel("Auto-start worker queue", { exact: true }),

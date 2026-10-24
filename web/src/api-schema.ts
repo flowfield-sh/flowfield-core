@@ -5443,12 +5443,11 @@ export interface components {
     SettingsEdit: {
       /** Expected Revision */
       expected_revision: number;
-      selection: components["schemas"]["AgentChoice-Input"];
-      /**
-       * Max Parallel
-       * @default 5
-       */
-      max_parallel: number;
+      selection?: components["schemas"]["AgentChoice-Input"] | null;
+      /** Max Parallel */
+      max_parallel?: number | null;
+      /** Auto Start Queue */
+      auto_start_queue?: boolean | null;
     };
     /** SetupCheck */
     SetupCheck: {
