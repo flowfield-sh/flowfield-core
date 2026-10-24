@@ -4,13 +4,14 @@ import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { AgentModelFields } from "./AgentSettings";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Pause, Play, Settings2 } from "lucide-react";
 import { ActionTooltip } from "./ActionTooltip";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { WorkspaceLink as Link } from "./WorkspaceLink";
 import type { components } from "./api-schema";
 import { request } from "./workspace";
@@ -162,11 +163,13 @@ export function WorkerSettings({
   onDirty,
   refresh,
   active = true,
+  children,
 }: {
   refresh: unknown;
   workspaceId: string;
   onDirty: (value: boolean) => void;
   active?: boolean;
+  children?: ReactNode;
 }) {
   const path = `workspaces/${workspaceId}/workers`;
   const resource = useResource<Settings>(path, refresh);
@@ -299,6 +302,7 @@ export function WorkerSettings({
               })
             }
           />
+          <Separator />
           <Label className="field block">
             Maximum parallel workers
             <Input
@@ -359,6 +363,7 @@ export function WorkerSettings({
           </div>
         </fieldset>
       </form>
+      {children}
       {(error || resource.error || stale) && (
         <>
           {stale && (

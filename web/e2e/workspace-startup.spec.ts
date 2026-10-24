@@ -334,6 +334,19 @@ for (const theme of ["light", "dark"]) {
         (theme) => localStorage.setItem("flowfield.theme", theme),
         theme,
       );
+      await page.route("**/api/workspaces/*/models*", (route) =>
+        route.fulfill({
+          json: [
+            {
+              id: "test-model",
+              name: "Test model",
+              efforts: [],
+              modes: [],
+              fast: true,
+            },
+          ],
+        }),
+      );
       await page.setViewportSize({ width, height: 900 });
       await page.goto(`/workspaces/${id}/edit`);
       const editor = page.getByRole("region", { name: "Edit workspace" });
@@ -353,6 +366,34 @@ for (const theme of ["light", "dark"]) {
       const checkbox = editor.getByRole("checkbox", {
         name: "Auto-start worker queue",
       });
+      const workerSettings = editor.getByRole("region", {
+        name: "Worker settings",
+        exact: true,
+      });
+      await expect(
+        workerSettings.getByRole("checkbox", {
+          name: "Auto-start worker queue",
+        }),
+      ).toHaveCount(1);
+      const fast = workerSettings.getByRole("checkbox", { name: "Fast mode" });
+      await expect(fast).toBeVisible();
+      // The queue controls belong below the shared divider after model options.
+      const order = await workerSettings.evaluate((section) => {
+        const fast = section.querySelector('input[type="checkbox"]')!;
+        const divider = section.querySelector('[data-slot="separator"]')!;
+        const capacity = section.querySelector('input[type="number"]')!;
+        const startup = section.querySelector(
+          'form[aria-label="Queue startup preference"]',
+        )!;
+        const follows = (a: Element, b: Element) =>
+          !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+        return (
+          follows(fast, divider) &&
+          follows(divider, capacity) &&
+          follows(capacity, startup)
+        );
+      });
+      expect(order).toBe(true);
       await checkbox.focus();
       await page.keyboard.press("Space");
       await page.keyboard.press("Tab");

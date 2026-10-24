@@ -175,7 +175,12 @@ export function WorkspaceEditor({
         aria-labelledby={`${id}-workers-tab`}
         hidden={tab !== "workers"}
       >
-        <ContentStack space="section">
+        <WorkerSettings
+          workspaceId={incoming.id}
+          refresh={incoming}
+          onDirty={setWorkerDirty}
+          active={tab === "workers"}
+        >
           <form onSubmit={save} aria-label="Queue startup preference">
             <fieldset
               disabled={busy}
@@ -194,14 +199,7 @@ export function WorkspaceEditor({
               {actions}
             </fieldset>
           </form>
-          <Separator />
-          <WorkerSettings
-            workspaceId={incoming.id}
-            refresh={incoming}
-            onDirty={setWorkerDirty}
-            active={tab === "workers"}
-          />
-        </ContentStack>
+        </WorkerSettings>
       </div>
       <div
         role="tabpanel"
