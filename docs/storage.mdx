@@ -21,7 +21,7 @@ Choose another data directory with `FLOWFIELD_DATA_DIR` or `flowfield --data-dir
 
 Updating from 0.6.0 to 0.7.0 uses the existing store without a schema change. Stop the service before upgrading and keep a full backup. Tasks, documents, results, files and saved settings remain available.
 
-Queues start paused unless **Auto-start worker queue** is saved in workspace General settings. Sidebar Run/Pause changes only the current queue. Interrupted workers still need recovery.
+Queues start paused unless **Auto-start worker queue** is saved in workspace Workers settings. Sidebar Run/Pause changes only the current queue. Interrupted workers still need recovery.
 
 Startup rejects unsupported database versions without modifying or deleting them. Use a build compatible with the saved store to inspect it; do not delete state to resolve a startup error.
 

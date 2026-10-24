@@ -339,3 +339,43 @@ def test_queue_startup_preference_is_independent_of_runtime(tmp_path, enabled, a
     assert restarted.settings("harbor").enabled is auto_start
     assert Workspaces(restarted.workspace).get("harbor") == saved
     assert bool(restarted.claim("harbor", BASE, {BASE: set()})) is auto_start
+
+
+@pytest.mark.parametrize("configured", [True, False])
+def test_startup_edit_preserves_worker_owner_and_active_assignment(tmp_path, configured):
+    from flowfield import worker_settings
+    from flowfield.workspaces import WorkspaceEdit, Workspaces
+
+    execution = fixture(tmp_path, cap=3)
+    run = execution.claim("harbor", BASE, {BASE: set()})
+    assert run
+    spaces = Workspaces(execution.workspace)
+    workspace = spaces.get("harbor")
+    # Simulate a concurrent worker-settings change, including legacy workspaces
+    # without a model. Startup editing must not require or replace that selection.
+    with execution.workspace.connection(write=True) as db:
+        settings = worker_settings.read_workspace(db, "harbor")
+        settings.selection = AgentChoice(model="other-model", effort="high") if configured else None
+        settings.max_parallel = 7
+        worker_settings.save_workspace(db, settings)
+    before = execution.settings("harbor").model_dump()
+    active = execution.active()
+    for auto_start in (True, False):
+        workspace = spaces.edit(
+            "harbor",
+            WorkspaceEdit(expected_revision=workspace.revision, auto_start_queue=auto_start),
+        )
+        before.update(auto_start_queue=auto_start, revision=before["revision"] + 1)
+        assert execution.settings("harbor").model_dump() == before
+        assert execution.active() == active
+        with pytest.raises(ApplicationError, match="stale"):
+            spaces.edit(
+                "harbor",
+                WorkspaceEdit(
+                    expected_revision=workspace.revision - 1, auto_start_queue=not auto_start
+                ),
+            )
+        workspace = spaces.edit(
+            "harbor", WorkspaceEdit(expected_revision=workspace.revision, name="Renamed")
+        )
+        assert execution.settings("harbor").model_dump() == before
