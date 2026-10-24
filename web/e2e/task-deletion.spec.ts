@@ -30,9 +30,15 @@ test("permanent deletion confirms exact task and removes it from the board", asy
   await expect(page.locator(".task-summary .detail-metadata")).toContainText(
     "Project:",
   );
-  await expect(page.locator(".task-summary")).toHaveCSS("gap", "4px");
+  await expect(page.locator(".task-summary")).toHaveCSS("gap", "8px");
   const remove = page.getByRole("button", { name: "Delete task", exact: true });
   await expect(remove).toBeEnabled();
+  await remove.hover();
+  await expect(page.getByRole("tooltip")).toHaveText("Delete task");
+  await page.keyboard.press("Escape");
+  await remove.focus();
+  await expect(page.getByRole("tooltip")).toHaveText("Delete task");
+  await page.keyboard.press("Escape");
   await remove.click();
   const dialog = page.getByRole("alertdialog");
   await expect(dialog.getByRole("button", { name: "Cancel" })).toBeFocused();

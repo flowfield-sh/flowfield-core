@@ -27,6 +27,10 @@ test("humans reorder, move, archive and restore tasks directly", async ({
   }
   await page.setViewportSize({ width: 1920, height: 1000 });
   await page.goto(`${base}/tasks`);
+  await expect(page.locator(".column h2 .section-label").first()).toHaveCSS(
+    "font-variant-caps",
+    "all-small-caps",
+  );
   const backlog = page.getByRole("region", {
     name: "Backlog tasks",
     exact: true,

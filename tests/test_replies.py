@@ -280,3 +280,15 @@ def test_new_worker_discussion_is_rejected_without_scheduling(tmp_path):
         assert db.execute("SELECT COUNT(*) FROM task_replies").fetchone()[0] == 0
     queue(execution, True)
     assert execution.claim("harbor", BASE, {}).purpose == "work"
+
+
+def test_feedback_event_names_its_exact_result(tmp_path):
+    service, _, _ = result_fixture(tmp_path)
+    service.results.process("harbor")
+    version = current(service)
+    request = message(
+        service.workspace, "work", action="changes", body="Keep labels below metadata"
+    )
+    reply = Replies(service.workspace).submit("harbor", "work", request)
+    entry = ThreadView(service.workspace).item_view("harbor", "work", "reply:" + reply.id)
+    assert entry.title == f"Result #{version.version} feedback"

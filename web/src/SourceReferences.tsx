@@ -1,3 +1,4 @@
+import { RecordTitle } from "./RecordTitle";
 import { DetailSection } from "./DetailLayout";
 import { WorkspaceLink } from "./WorkspaceLink";
 import type { components } from "./api-schema";
@@ -32,7 +33,7 @@ export function SourceReferences({
             </WorkspaceLink>
             <span className="detail-metadata">
               {" "}
-              · revision #{item.revision} ·{" "}
+              · <RecordTitle>{`revision #${item.revision}`}</RecordTitle> ·{" "}
               {item.purpose === "reference" ? "Reference" : "Required"}
             </span>
             {updates
@@ -48,7 +49,8 @@ export function SourceReferences({
                   <WorkspaceLink
                     to={`/workspaces/${item.workspace_id}/documents/${item.id}/revisions/${update.latest_revision}`}
                   >
-                    Revision #{update.latest_revision} available
+                    <RecordTitle>{`Revision #${update.latest_revision}`}</RecordTitle>{" "}
+                    available
                   </WorkspaceLink>
                 </span>
               ))}

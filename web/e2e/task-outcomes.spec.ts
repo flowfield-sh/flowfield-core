@@ -34,6 +34,9 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`${base}/tasks/T-3`);
   await expect(page.getByLabel("Current task definition")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "View latest result", exact: true }),
+  ).toHaveCount(0);
   await expect(page.locator(".entity-pane-footer")).toHaveCount(0);
   await page.goto(`${base}?inbox=delivered`);
   await expect(
@@ -83,7 +86,23 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
     name: "Task details",
     exact: true,
   });
+  const latest = detail.getByRole("link", {
+    name: "View latest result",
+    exact: true,
+  });
+  await expect(latest).toHaveAttribute(
+    "href",
+    base + "/results/" + value.result,
+  );
+  await latest.click();
+  await expect(page).toHaveURL(base + "/results/" + value.result);
+  await page.goto(base + "/tasks/T-2");
   await expect(detail.getByRole("list", { name: "Task feed" })).toBeVisible();
+  await expect(
+    detail.locator(
+      '[data-kind="result"] .activity-entry-title [data-slot="badge"]',
+    ),
+  ).toHaveText("#1");
   await expect(
     detail.getByRole("img", { name: "Observation recorded", exact: true }),
   ).toBeVisible();

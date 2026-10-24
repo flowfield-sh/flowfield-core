@@ -278,3 +278,22 @@ def test_stopped_task_can_archive_without_completion_and_retains_history(tmp_pat
     )
     assert not restored.archived and restored.status == "in_progress"
     assert Questions(store).get("harbor", question.id).status == "withdrawn"
+
+
+def test_latest_result_link_tracks_recorded_versions_independently_of_task_state(tmp_path):
+    from result_fixtures import current, fixture
+
+    from flowfield.execution_models import RunAction
+
+    service, _, _ = fixture(tmp_path)
+    reads = BrowserReads(service.workspace)
+    first = current(service)
+    assert reads.task("harbor", "work").latest_result_id == first.id
+    service.results.process("harbor")
+    first = current(service)
+    service.results.cancel("harbor", first.id, RunAction(expected_revision=first.revision))
+    cancelled = current(service)
+    replacement = service.results.reprepare(
+        "harbor", first.id, RunAction(expected_revision=cancelled.revision)
+    )
+    assert reads.task("harbor", "work").latest_result_id == replacement.id

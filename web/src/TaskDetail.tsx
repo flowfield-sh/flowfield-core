@@ -1,5 +1,12 @@
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Archive, ArchiveRestore, Settings, FileText } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  Settings,
+  FileText,
+  FileOutput,
+} from "lucide-react";
 import { HeaderAction } from "./HeaderAction";
 import { TaskDeleteAction } from "./TaskDeleteAction";
 import { reportError } from "./requestFeedback";
@@ -17,7 +24,7 @@ import { ContentStack, DetailSection } from "./DetailLayout";
 import { TaskLabels } from "./TaskLabels";
 import { DetailHeader, DraftBadge } from "./Presentation";
 import { WorkIdentity } from "./WorkIdentity";
-import { taskHref } from "./navigation";
+import { taskHref, resultHref } from "./navigation";
 import { ExpandableMarkdown } from "./ExpandableMarkdown";
 import { BlockedBy } from "./TaskLinks";
 import { TaskNeeds, hasTaskNeeds } from "./TaskNeeds";
@@ -128,7 +135,7 @@ export function TaskDetail({
         }
       />
       {(task.project_id || task.labels.length > 0) && (
-        <ContentStack space="tight" className="task-summary">
+        <ContentStack className="task-summary">
           {task.project_id && (
             <p className="detail-metadata">
               <>
@@ -154,6 +161,17 @@ export function TaskDetail({
       )}
       {!settings && (
         <ContentStack space="section" className="task-context">
+          {task.latest_result_id && (
+            <div className="actions">
+              <Button variant="outline" size="sm" asChild>
+                <WorkspaceLink
+                  to={resultHref(workspaceId, task.latest_result_id)}
+                >
+                  <FileOutput aria-hidden="true" /> View latest result
+                </WorkspaceLink>
+              </Button>
+            </div>
+          )}
           <div
             className="task-definition content-stack"
             aria-label="Current task definition"

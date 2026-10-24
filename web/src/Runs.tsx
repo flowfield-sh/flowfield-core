@@ -1,3 +1,4 @@
+import { RecordTitle } from "./RecordTitle";
 import { ResourceRetry } from "./ResourceRetry";
 import { authorLabel } from "./workspace";
 import { UsageSummary } from "./UsageSummary";
@@ -221,8 +222,8 @@ function WorkerEvidence({
       )}
       {record.correction && (
         <p>
-          Correction attempt #{record.correction.number} · both the worker’s
-          changes and current branch code are included.
+          <RecordTitle>{`Correction attempt #${record.correction.number}`}</RecordTitle>{" "}
+          · both the worker’s changes and current branch code are included.
         </p>
       )}
       <CheckEvidence checks={record.setup_checks ?? []} title="Runtime setup" />

@@ -1076,7 +1076,9 @@ function WorkspaceResource({
                               key={column}
                             >
                               <h2>
-                                {label(column)}
+                                <span className="section-label">
+                                  {label(column)}
+                                </span>
                                 <span className="count">{tasks.length}</span>
                               </h2>
                               <PlanningColumn

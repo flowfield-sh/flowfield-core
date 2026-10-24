@@ -1,3 +1,4 @@
+import { RecordTitle } from "./RecordTitle";
 import { SourceReferences } from "./SourceReferences";
 import { useLabels } from "./labelContext";
 import { ContentStack, DetailSection } from "./DetailLayout";
@@ -125,12 +126,20 @@ export function TaskChanges({
                 <div className="field-change">
                   <span>
                     <span className="sr-only">Before: </span>
-                    {value(before, key)}
+                    {key === "publication" || key === "documents" ? (
+                      <RecordTitle>{value(before, key)}</RecordTitle>
+                    ) : (
+                      value(before, key)
+                    )}
                   </span>
                   <ArrowRight size={14} aria-hidden="true" />
                   <span>
                     <span className="sr-only">After: </span>
-                    {value(after, key)}
+                    {key === "publication" || key === "documents" ? (
+                      <RecordTitle>{value(after, key)}</RecordTitle>
+                    ) : (
+                      value(after, key)
+                    )}
                   </span>
                 </div>
               )}

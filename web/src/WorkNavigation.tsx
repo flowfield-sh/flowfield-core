@@ -142,7 +142,7 @@ export function WorkNavigation({
         !!delivered.data?.items.length ||
         !!progress.length) && (
         <div className="work-navigation-heading">
-          <span>Recent Work</span>
+          <span className="section-label">Recent Work</span>
         </div>
       )}
       {(!!attention.data?.items.length ||

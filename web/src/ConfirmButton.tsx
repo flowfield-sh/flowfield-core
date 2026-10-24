@@ -1,4 +1,5 @@
 import { useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { ActionTooltip } from "./ActionTooltip";
 import { useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +18,7 @@ export function ConfirmButton({
   actionLabel,
   requiresConfirmation = true,
   binding,
+  tooltip,
   ...props
 }: Omit<ComponentProps<typeof Button>, "onClick"> & {
   title: string;
@@ -25,6 +27,7 @@ export function ConfirmButton({
   actionLabel?: ReactNode;
   requiresConfirmation?: boolean;
   binding?: string;
+  tooltip?: string;
 }) {
   const location = useLocation();
   const scope = JSON.stringify([location.key, binding]);
@@ -41,24 +44,26 @@ export function ConfirmButton({
   const focusScope = useRef(scope);
   return (
     <>
-      <Button
-        {...props}
-        ref={trigger}
-        type="button"
-        onClick={() => {
-          if (!requiresConfirmation) action();
-          else
-            setPending({
-              action,
-              scope,
-              title,
-              description,
-              label: actionLabel ?? children,
-            });
-        }}
-      >
-        {children}
-      </Button>
+      <ActionTooltip label={tooltip} disabled={props.disabled}>
+        <Button
+          {...props}
+          ref={trigger}
+          type="button"
+          onClick={() => {
+            if (!requiresConfirmation) action();
+            else
+              setPending({
+                action,
+                scope,
+                title,
+                description,
+                label: actionLabel ?? children,
+              });
+          }}
+        >
+          {children}
+        </Button>
+      </ActionTooltip>
       <Dialog
         open={!!pending}
         onOpenChange={(open) => {

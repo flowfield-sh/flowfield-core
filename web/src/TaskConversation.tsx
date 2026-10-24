@@ -1,3 +1,4 @@
+import { RecordTitle } from "./RecordTitle";
 import { useParams } from "react-router";
 import { ExecutionDetails } from "./Runs";
 import { ActivityEntry } from "./ActivityEntry";
@@ -99,7 +100,9 @@ export function TaskConversation({
             className="task-feed-cycle rounded-lg border"
             aria-label={group.title}
           >
-            <h3 className="task-feed-cycle-title">{group.title}</h3>
+            <h3 className="task-feed-cycle-title">
+              <RecordTitle>{group.title}</RecordTitle>
+            </h3>
             <ol
               className="conversation-messages"
               aria-label={group.title + " events"}
@@ -114,7 +117,7 @@ export function TaskConversation({
                   <ActivityEntry
                     identity={path + ":" + message.id}
                     selected={message.id === selected.data?.id}
-                    title={message.title}
+                    title={<RecordTitle>{message.title}</RecordTitle>}
                     state={message.state}
                     hasBody={
                       hasBody(message) ||

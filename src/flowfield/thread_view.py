@@ -156,12 +156,17 @@ class ThreadView(Conversation):
                 "observation": "Testing observation",
             }.get(data["action"], "Message")
             body = data["body"]
-            if data["action"] == "observation":
+            if data["action"] in ("changes", "observation") and data["binding"].get("result_id"):
                 version = db.execute(
                     "SELECT version FROM result_versions WHERE workspace_id=? AND id=?",
                     (workspace_id, data["binding"]["result_id"]),
                 ).fetchone()
-                title += f" · Result #{version[0]}"
+                if version:
+                    title = (
+                        f"Result #{version[0]} feedback"
+                        if data["action"] == "changes"
+                        else title + f" · Result #{version[0]}"
+                    )
         elif kind == "attempt":
             if data.get("correction"):
                 cycle_start = "correction"

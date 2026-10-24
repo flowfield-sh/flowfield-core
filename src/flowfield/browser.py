@@ -74,6 +74,7 @@ class TaskDetail(TaskRevision, TaskCard):
     subtasks: list[Subtask] = Field(default_factory=list)
     archive_blocker: str | None = None
     delete_blocker: str | None = None
+    latest_result_id: str | None = None
     prerequisites: list[TaskReference]
     dependents: list[TaskReference]
 
@@ -290,11 +291,17 @@ class BrowserReads:
             archive_issue = self.workspace.archive_issue(db, current)
             from flowfield.task_deletion import TaskDeletionService
 
+            latest_result = db.execute(
+                "SELECT id FROM result_versions WHERE workspace_id=? AND task_id=? "
+                "ORDER BY version DESC LIMIT 1",
+                (workspace_id, current.id),
+            ).fetchone()
             return TaskDetail(
                 **card.model_dump(),
                 subtasks=Subtasks.read_all(db, workspace_id, current.id),
                 archive_blocker=archive_issue.message if archive_issue else None,
                 delete_blocker=TaskDeletionService(self.workspace).blocker(db, current),
+                latest_result_id=latest_result[0] if latest_result else None,
                 body=current.body,
                 change_note=current.change_note,
                 prerequisites=[
