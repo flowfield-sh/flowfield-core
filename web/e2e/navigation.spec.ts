@@ -346,11 +346,17 @@ test("entity identity and drafts persist across task and workspace tabs", async 
     exact: true,
   });
   const title = editor.getByRole("heading", {
-    name: /T-1 Draft First task$/,
+    name: /T-1 Draft Task$/,
   });
 
   await editor.locator('[data-message-id="definition:1"] summary').click();
   await expect(title).toBeVisible();
+  await expect(
+    editor.locator(".task-summary").getByRole("heading", {
+      name: "First task",
+      exact: true,
+    }),
+  ).toBeVisible();
   await expect(
     editor.getByRole("button", { name: "Task settings", exact: true }),
   ).toBeVisible();

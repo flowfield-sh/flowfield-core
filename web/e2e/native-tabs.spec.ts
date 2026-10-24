@@ -70,7 +70,13 @@ test("task links open native tabs without losing the original selection or draft
       await expect(tab).toHaveURL(new RegExp(`/tasks/${first.key}$`));
       await expect(
         tab.getByRole("heading", {
-          name: new RegExp(`${first.key} Draft Prepare export$`),
+          name: new RegExp(`${first.key} Draft Task$`),
+        }),
+      ).toBeVisible();
+      await expect(
+        tab.locator(".task-summary").getByRole("heading", {
+          name: "Prepare export",
+          exact: true,
         }),
       ).toBeVisible();
       // Opening another tab must not start native discovery.
