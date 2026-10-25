@@ -245,7 +245,7 @@ test("closing entity panes returns through history without duplicate collections
   await page.locator(".inbox-list .inbox-history-row").click();
   await expect(
     page.getByRole("button", { name: "Back", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(page).toHaveURL(inbox);
   await page.goBack();
@@ -277,7 +277,7 @@ test("closing entity panes returns through history without duplicate collections
   await page.keyboard.press("Escape");
   await expect(
     page.getByRole("button", { name: "Back", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(page).toHaveURL(inbox);
   await openResource(page, "Task Board");
@@ -299,7 +299,7 @@ test("closing entity panes returns through history without duplicate collections
   );
   await expect(
     page.getByRole("button", { name: "Back", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await openResource(page, "Task Board");
   await expect(page).toHaveURL(board);
 });

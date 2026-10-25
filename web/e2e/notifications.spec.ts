@@ -729,7 +729,7 @@ test("resolved permission links open the exact request without permitting anythi
   );
   await expect(
     page.getByRole("button", { name: "Back", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(href);
   await page.getByRole("tab", { name: /^Inbox/ }).click();

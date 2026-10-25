@@ -1470,7 +1470,7 @@ test("outcomes finish reports, preserve partial work and offer one contextual re
     await expect.poll(() => reportPane.evaluate((el) => el.scrollTop)).toBe(0);
     await expect(
       page.getByRole("button", { name: "Back", exact: true }),
-    ).toBeDisabled();
+    ).toHaveCount(0);
     await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   }
   await page.goto(

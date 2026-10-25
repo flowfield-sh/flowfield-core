@@ -26,12 +26,12 @@ export function CloseControl({
   const paneClose = usePaneClose();
   const backAvailable = useContext(ResourceBackAvailable);
   const dismiss = paneClose ?? close;
+  if (label.startsWith("Back") && !backAvailable) return null;
   return (
     <HeaderAction
       label={label}
       type="button"
       className="close-control"
-      disabled={label.startsWith("Back") && !backAvailable}
       onClick={dismiss}
     >
       {label.startsWith("Back") ? <ArrowLeft /> : <X />}

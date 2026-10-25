@@ -594,7 +594,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
     );
   await expect(
     detail.getByRole("button", { name: "Back", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await page.goBack();
   await expect(detail.getByLabel("Your answer", { exact: true })).toHaveValue(
@@ -924,7 +924,7 @@ test("retracting answers reopens questions and preserves earlier responses", asy
   ).toBe(1);
   await expect(
     detail.getByRole("button", { name: "Back", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await page.getByRole("tab", { name: /^Inbox(?: \d+)?$/ }).click();
   await expect(page).toHaveURL(
     `/workspaces/${await projectWorkspace(request, project_id)}/inbox`,

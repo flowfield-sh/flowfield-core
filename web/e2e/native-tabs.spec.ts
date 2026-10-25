@@ -79,6 +79,9 @@ test("task links open native tabs without losing the original selection or draft
           exact: true,
         }),
       ).toBeVisible();
+      await expect(
+        tab.getByRole("button", { name: "Back", exact: true }),
+      ).toHaveCount(0);
       // Opening another tab must not start native discovery.
       expect(catalogs.filter((r) => r.frame().page() === tab)).toHaveLength(0);
       for (const response of catalogs.filter((r) => r.frame().page() === tab)) {
