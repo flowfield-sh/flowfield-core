@@ -17,7 +17,9 @@ owner = int(sys.argv[3])
 with socket.socket() as listener:
     listener.bind(("127.0.0.1", 0))
     listener.listen(128)
-    address.write_text(json.dumps({"port": listener.getsockname()[1], "pid": os.getpid()}))
+    pending_address = address.with_suffix(".tmp")
+    pending_address.write_text(json.dumps({"port": listener.getsockname()[1], "pid": os.getpid()}))
+    pending_address.replace(address)
     server = uvicorn.Server(
         uvicorn.Config(create_app(data_dir=state), host="127.0.0.1", log_level="warning")
     )
