@@ -947,11 +947,9 @@ test("task feed stays static on opening and updates and restores explicit tab po
     .toBe(bottomPosition);
   await expect.poll(atBottom).toBe(false);
   await expect(feed.getByRole("link", { name: /^Permalink:/ })).toHaveCount(0);
+  await expect(page.locator(".editor-heading")).toBeInViewport();
   await expect(
-    page.getByRole("button", {
-      name: /^(Close editor|Back)$/,
-      exact: true,
-    }),
-  ).toBeInViewport();
+    page.getByRole("button", { name: "Back", exact: true }),
+  ).toHaveCount(0);
   await expect(feed.locator(".detail-entry-title a")).toHaveCount(0);
 });
