@@ -1,7 +1,7 @@
 <h1 align="center">Flowfield</h1>
 
-<p align="center"><strong>Ship software. Not slop.</strong></p>
-<p align="center">A workspace for you and your coding agents.<br>Shape the plan, build across projects, and bring every outcome through review.</p>
+<p align="center"><strong>Stop juggling agent threads.</strong></p>
+<p align="center">A workspace for you and your coding agents.<br>One conversation to plan. Tasks that hold the work. One Inbox for decisions.</p>
 
 <p align="center">
   <a href="https://flowfield.sh">Website</a> · <a href="https://docs.flowfield.sh/getting-started">Get started</a> · <a href="https://docs.flowfield.sh">Documentation</a>
@@ -15,9 +15,9 @@
 
 ![The Coordinator beside task priorities, review and delivered outcomes](docs/images/board-hero.png)
 
-The idea is in one conversation. The implementation is in another. An agent needs an answer, a task is waiting on another task, and the reason you chose this approach is buried twenty messages back.
+Working with coding agents can mean bouncing between threads, repeating decisions and checking what needs you.
 
-**Flowfield gives that work a home.** Plan with the Coordinator while workers carry out focused tasks across your existing repositories. Keep shared knowledge in versioned documents, let a Reviewer assess each complete outcome, and answer questions in one Inbox. Code, reports and files stay connected to the work that produced them. You decide which code ships.
+**Flowfield organizes that work around tasks and an Inbox.** Plan through one coordinator conversation while tasks hold the context, worker activity and results. Questions and approvals come back to one place. You decide which code ships.
 
 Flowfield runs locally and works with **Codex, Claude Code and Pi**. Choose independently for the Coordinator, Workers and Reviewer.
 
@@ -34,19 +34,17 @@ Open [localhost:8765](http://127.0.0.1:8765), create a workspace and choose its 
 
 ## How does Flowfield work?
 
-Ask the Coordinator to organize work and maintain shared context. Each task owns a useful outcome, its history and delivery. Order Backlog and Up next on Task Board, edit documents and respond through Inbox while the same conversation stays beside the work. Archive work to retain its history, or permanently delete an unneeded task and its retained files.
+**💬 Plan through one conversation**<br>Bring a rough idea, a wall of feedback or a one-off request to the Coordinator. Group related changes into focused tasks, agree on what they should accomplish, and keep planning while workers carry them out.
 
-**💬 Shape the idea**<br>Talk through the problem with the Coordinator. It turns agreed decisions into tasks while the work continues beside the conversation.
+**🗂️ Follow tasks across projects**<br>Bring your API, application and documentation into one workspace. Each task keeps its scope, activity and results. Move cards on the board to set priorities and link tasks that depend on each other. Reports and files can have tasks without a repository.
 
-**🗂️ Connect your projects**<br>Bring your API, application and documentation into one workspace. Link dependent tasks across projects, or create reports and files without a repository.
+**📚 Keep decisions where workers can use them**<br>Maintain shared guidance with the Coordinator and select the documents each task needs. Prepared tasks keep their document revisions, so you can see which guidance informed a result.
 
-**📚 Give workers the right context**<br>The Coordinator maintains shared documents and selects the sources each task needs. Prepared tasks keep their exact document revisions, and newer revisions stay visible for review.
+**⚡ Build in parallel**<br>Workers carry out independent tasks in separate checkouts using your tools and checks. Dependent tasks wait for the work they need. Larger tasks can split into subtasks that come back as one result for review.
 
-**⚡ Build in parallel**<br>Workers carry out independent tasks in separate checkouts using your tools and checks. Larger tasks can use local subtasks that assemble into one result. When another delivery changes the destination, Flowfield prepares the remaining work against it and queues corrections when needed. Dependent work waits for delivered prerequisites.
+**📥 Handle decisions in one Inbox**<br>Answer questions, grant permissions and review code through Needs me. Eligible work continues after you respond. Find completed results in Delivered and earlier responses in History.
 
-**📥 Know what needs you**<br>Inbox separates decisions in Needs me, completed outcomes in Delivered and earlier responses in History. Answer a question once and managed work continues when eligible. Task feeds preserve the story.
-
-**🔎 Own the finish**<br>The Reviewer assesses the whole task and can request corrections. Inspect or run the result, then approve exact code for delivery to your local branch. Complete reports and files finish after configured review and remain available in Files. Ask the Coordinator to run, push or publish a result when you want those actions.
+**🔎 Review the result and decide what ships**<br>The Reviewer checks the result against the task and can request corrections. Inspect or run the code, then approve it for your local branch. Reports and files finish after configured review and remain available in Files. Ask the Coordinator to run, push or publish a result when you’re ready.
 
 ## Screenshots
 
