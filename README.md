@@ -1,6 +1,6 @@
 <h1 align="center">Flowfield</h1>
 
-<p align="center"><strong>Stop juggling agent threads.</strong></p>
+<p align="center"><strong>Stop being the glue between your agents.</strong></p>
 <p align="center">A workspace for you and your coding agents.<br>One conversation to plan. Tasks that hold the work. One Inbox for decisions.</p>
 
 <p align="center">
