@@ -11,16 +11,14 @@ Ask the Coordinator for the files you need and how they should be checked. A wor
 
 Open **Files** in the sidebar. Above the file list, choose **All files** or a task and sort by name, newest or type. Browse folders with breadcrumbs; the selected file previews beside the list, or below it on narrow screens. **Load more files** continues the list. Repeated filenames remain distinct by submission time and source result.
 
-Use **Source** to open the exact result that submitted a file. **Open** and **Download** remain available when its format has no inline preview.
-
-Images, CSV, UTF-8 text, Markdown and source code preview inline. Choose **Open** for browser-supported files or **Download** for the original. HTML and SVG display as escaped source and download without executing in Flowfield.
+Use **Source** to open the result that submitted a file, **Open** for browser-supported formats, or **Download** for the original. Images, CSV, UTF-8 text, Markdown and code preview inline. HTML and SVG display as source.
 
 | Preview | Limit |
 | --- | --- |
 | Text, Markdown and code | 64 KiB, with a truncation notice. |
 | CSV | 200 data rows and 50 columns; first row supplies headings. Formulas remain text; malformed CSV falls back to source. |
 
-Complete file/report tasks finish after their files are retained and any configured task reviewer signs off. Reviewers can request corrections or ask a focused question about missing input. Incomplete results stay unfinished. Open the exact result to request changes, or ask the Coordinator to reconcile missing input and prepare the follow-up. Completion records delivery; it does not endorse the report's conclusions.
+Complete file/report tasks finish after their files are retained and any configured task reviewer signs off. Reviewers can request corrections or ask a focused question about missing input. Incomplete results stay unfinished. Open the exact result to request changes, or ask the Coordinator to reconcile missing input and prepare the follow-up.
 
 ## Inputs and later versions
 
@@ -40,4 +38,4 @@ Use `list_workspace_files` for bounded browsing, optionally filtered by task key
 
 Submitted bytes live under `<data-root>/workspaces/<workspace-id>/outputs/`, separately from disposable attempt directories. Files survive task archiving, attempt cleanup and service restart. New versions have new identities. [Permanently deleting a task](/tasks#archive-or-delete) removes its retained outputs; deletion is blocked while another task's frozen inputs or evidence reference them.
 
-Back up the entire service data directory to retain both metadata and files. A database copy alone does not contain the file bytes. If a retained file is missing or changed, Flowfield preserves its metadata and reports the problem; restore the original bytes from backup. See [local storage](/storage#full-backups).
+See [local storage](/storage#full-backups) to preserve metadata and file bytes together. Missing or changed files retain their metadata and show a problem; restore the original bytes to recover them.

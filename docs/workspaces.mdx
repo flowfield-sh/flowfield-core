@@ -9,7 +9,7 @@ Create a workspace for work you want to plan together: an API, its application a
 
 Choose **New workspace** from Home, name it and choose a harness/model for its agents. Enable **Customize roles** for separate Coordinator, Worker and Reviewer choices. You can change each role later in workspace settings.
 
-Open **Projects → Add project → Choose directory**, select an existing repository and review its name and ID. Registration preserves repository instructions and starts neither a model nor the queue. Before code work, establish a committed baseline and [validate integration settings](/worker-setup).
+Open **Projects → Add project → Choose directory**, select an existing repository and review its name and ID. Registration preserves repository instructions. Before code work, establish a committed baseline and [validate integration settings](/worker-setup).
 
 For CLI registration, `agents.json` supplies `coordinator`, `worker` and `reviewer` choices, each with `harness`, `model` and any required `effort`/`mode` returned by that harness:
 
@@ -34,9 +34,9 @@ Use the returned workspace ID. Adoption writes `.flowfield/config.toml`; commit 
 
 **Recent Work** keeps up to five items in each group: Needs attention opens exact requests, Delivered opens exact results, and In progress opens tasks. Inbox and Task Board hold the full collections. The workspace selector switches conversations; its menu and Home show actionable Inbox counts.
 
-Links from the sidebar, Coordinator and Inbox open or focus a work tab showing that exact view. Links inside other work tabs navigate within the tab. Inbox stays pinned. Use **Back** beside a view's title and drag tabs to reorder them. Cmd/Ctrl-click opens a browser tab. Browser Back/Forward restores the corresponding work tab and page.
+Links from the sidebar, Coordinator and Inbox open or focus a work tab showing that exact view. Links inside other work tabs navigate within the tab. Inbox stays pinned. Use **Back** when the current view has earlier history, and drag tabs to reorder them. Cmd/Ctrl-click opens a browser tab. Browser Back/Forward restores the corresponding work tab and page.
 
-Tabs, filters, reading positions and navigation history survive reopening in the same browser. Answers and document drafts survive tab/workspace switching during the current session; they stay bound to their original records and are not stored in browser storage. Reloading or leaving warns about unsaved input.
+Tabs, filters and reading positions survive reopening in the same browser. Unsaved answers and document drafts survive tab/workspace switching during the current session. Reloading or leaving warns about unsaved input.
 
 Resize Work and Coordinator by dragging their shared edge. On phones, switch between **Work** and **Coordinator**.
 
@@ -54,7 +54,7 @@ Edit label names, colors and usage guidance in **Settings → General → Labels
 | Project | Repository identity, worker-document defaults, destination branch, setup/checks and result launcher. |
 | Task | Worker and Reviewer overrides for subsequent attempts. |
 
-The Coordinator input and **Workspace settings → Coordinator** edit the same saved choice. Settings changes never authorize starting a paused queue. A project’s setup blocker does not prevent ready work elsewhere. See [worker setup](/worker-setup) and [document defaults](/documents#supply-worker-context).
+The Coordinator input and **Workspace settings → Coordinator** edit the same saved choice. Run the queue separately when ready; setup blockers in one project leave ready work elsewhere eligible. See [worker setup](/worker-setup) and [document defaults](/documents#supply-worker-context).
 
 ## Connection recovery
 

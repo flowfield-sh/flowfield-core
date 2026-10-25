@@ -63,13 +63,7 @@ Flowfield runs locally on macOS and Linux and binds to loopback. Continue with
 
 ## Update
 
-Flowfield checks PyPI when the web app opens, hourly while the service runs, and when
-you choose **Check for updates** in **Settings → Updates**. Checks run in the background and
-share one saved result across browsers and the CLI. Stable installs receive stable
-release notices; prerelease installs can also discover prereleases. Releases must match
-your Python version and have a compatible distribution.
-
-An available-update announcement opens **Settings → Updates**, with release notes, upgrade commands and the latest check status. Indicators on Settings and its Updates tab keep the update discoverable after closing the announcement. Failed checks preserve the last successful result; package installation is always manual.
+Flowfield checks PyPI when the app opens and hourly while running. **Settings → Updates** shows compatible releases, notes and update commands, with **Check for updates** for a manual check. Stable installs receive stable releases; prerelease installs can also discover prereleases. Installation is manual.
 
 Turn off automatic checks in **Settings → Updates**, or start the service with
 `FLOWFIELD_UPDATE_CHECKS=0`. Manual checks remain available. No project content or usage

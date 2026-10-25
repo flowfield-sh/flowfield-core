@@ -3,7 +3,7 @@ title: Working with the Coordinator
 description: Explore the problem, maintain the plan and review work in one conversation.
 ---
 
-The Coordinator belongs to your workspace and stays with you across its projects. Work through an idea, challenge assumptions and refine the plan as implementation reveals new requirements. You can edit documents directly and ask it to maintain labels and tasks.
+The Coordinator stays with you across the workspace’s projects. Send a rough idea, a list of feedback or a one-off request. Ask it to group related changes into focused tasks, separate independent outcomes and clarify decisions that matter. Keep refining the plan as work progresses.
 
 ## Start a conversation
 
@@ -11,11 +11,11 @@ Create a [workspace](/workspaces) and send your message. Change its saved [harne
 
 The Coordinator uses a Flowfield-managed working directory and the service host's tools and credentials. Its Flowfield tools are scoped to the workspace; repository actions identify a member project. Its native access mode still governs filesystem and tool actions.
 
-It can help configure [project integration](/worker-setup) before workers start. Direct setup changes you request affect the project or host immediately; they do not become worker results for approval. Route agreed implementation through tasks. You can also ask the Coordinator to run a selected result, push delivered code or publish it; specify the result, destination and any checks that matter. Approval to integrate code does not authorize those separate actions.
+Ask it to configure [project integration](/worker-setup), organize implementation into tasks, or run, push or publish a selected result. Specify the destination and checks for those actions. Direct setup changes affect the project or host immediately; worker code follows the task review flow.
 
 ## Use the work beside the chat
 
-Open a task, document or filtered board beside the same conversation. Each message captures that view when sent: a task's identity and revision, an exact result, a document revision, or the selected project/label filters. Later navigation does not reinterpret an earlier message. If the intended project is ambiguous, the Coordinator asks.
+Open a task, document or filtered board beside the same conversation. Each message captures the selected task, result, document revision or board filters when sent. The Coordinator asks when the intended project is ambiguous.
 
 Ask it to sort Inbox, explain blockers, update guidance, adjust priorities, request another pass or help review a result. You can explicitly approve a specific code result here; Flowfield records that exact approval and delivers it without another browser confirmation. [Inbox actions](/inbox) follow the same records and approval rules.
 
@@ -46,16 +46,12 @@ Inventory commands send no model prompt. See the [agent pages](/agents/overview)
 
 One Coordinator turn runs per workspace, independently of worker slots. Replies and tool activity stream as it works; you can draft your next message while it runs. **Stop** ends that turn, preserving saved work changes. Task workers continue independently.
 
-Finished turns fold their activity into one expandable summary while leaving the final reply visible. Open the summary, then click an event to inspect its command, parameters, file changes or returned evidence. Long output scrolls inside the event; recorded failures and omissions remain visible.
-
-The service saves your messages, public output and turn settings. Saved final replies appear directly in the conversation. Older messages load on demand, and **Retained output** exposes longer tool details. A compatible session resumes native context across messages and service restarts.
+Finished turns leave their final reply visible and fold activity into an expandable summary. Open an event for commands, file changes or returned evidence; **Retained output** exposes longer details. Older messages load on demand. Compatible native sessions resume across messages and service restarts.
 
 Switching harness, adding a project or changing a member repository path starts a fresh native session on the next message. Other settings changes follow the harness's continuation rules. Saved Flowfield conversation stays available; fresh sessions receive recent exchanges and can retrieve older history. Native tool history stays with its original session.
 
-Reloading or reconnecting the browser only refreshes saved messages; it does not resend them or select a new native session. Restarting the service also keeps the retained session binding. Its next message resumes when the harness, history location and settings remain compatible.
+If a session cannot resume, restore its native history or choose **Start new session**. This preserves the saved conversation and takes effect on your next message. A fresh session receives recent chat; reattach files it needs from earlier messages. Reconnects and restarts do not replay interrupted prompts.
 
-If a session cannot resume, follow its recovery message or choose **Start new session** to perform that recovery immediately, without another confirmation. A retry interrupted before checking the session keeps that recovery available. Selecting a new session survives another restart, preserves your saved conversation and takes effect on your next message. Restoring the host's original session and successfully resuming also clears recovery.
-
-Flowfield does not replace unavailable sessions or replay interrupted prompts automatically. Recent chat is available to a fresh session; previous tool history and earlier attachment contents are not transferred. Reattach earlier files when needed. When cleanup is uncertain, inspect and stop remaining native work on the host before choosing **Confirm coordinator stopped**, then confirm that decision in the app dialog.
+When cleanup is uncertain, inspect and stop remaining native work on the host, then choose **Confirm coordinator stopped** and confirm in the dialog.
 
 Resize Coordinator and Work on wide screens. Switching between their phone views preserves the current draft.

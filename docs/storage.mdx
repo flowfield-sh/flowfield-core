@@ -3,7 +3,7 @@ title: Local storage
 description: Locate and back up your workspace data.
 ---
 
-One service data directory stores all your Flowfield workspaces. The default is `~/.flowfield` on macOS/Linux and `%USERPROFILE%\.flowfield` on Windows. Project repositories and installed native harness configuration remain separate.
+One service data directory stores all your Flowfield workspaces. The default is `~/.flowfield` on macOS and Linux. Project repositories and installed native harness configuration remain separate.
 
 | Location | Contents |
 | --- | --- |
@@ -21,7 +21,7 @@ Inspection copies remain available after completion or archiving. Permanently de
 
 ## Updating and recovery
 
-Stop Flowfield, run `uv tool upgrade flowfield-core`, then run `flowfield serve`. Stores from 0.6.0 onward upgrade in place. See [installation](/installation#update) for pip commands.
+Follow the [update commands](/installation#update). Stores from 0.6.0 onward upgrade in place.
 
 Queues start paused unless **Auto-start worker queue** is saved in workspace Workers settings. Sidebar Run/Pause changes only the current queue. Interrupted workers still need recovery.
 
@@ -47,4 +47,4 @@ Add `--json` for structured output. To inspect another store, place `--data-dir 
 
 ## Full backups
 
-For a full backup, stop the service and copy the entire data directory together with relevant project repositories. Preserve those files together when recovering from disk loss or corruption. A backup requires a build supporting its schema; it cannot be imported into an incompatible schema. Native accounts and session data stay with their harness; back them up separately if needed for native continuation.
+Stop the service and copy the entire data directory and relevant project repositories. A database copy alone omits submitted files. Restore using a compatible Flowfield version. Native accounts and session data belong to each harness and need separate backups for native continuation.

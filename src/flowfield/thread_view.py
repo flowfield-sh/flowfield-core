@@ -153,7 +153,7 @@ class ThreadView(Conversation):
                 cycle_start = "correction"
             title = {
                 "changes": "Feedback",
-                "observation": "Testing observation",
+                "observation": "Review observation",
             }.get(data["action"], "Message")
             body = data["body"]
             if data["action"] in ("changes", "observation") and data["binding"].get("result_id"):
@@ -165,7 +165,7 @@ class ThreadView(Conversation):
                     title = (
                         f"Result #{version[0]} feedback"
                         if data["action"] == "changes"
-                        else title + f" · Result #{version[0]}"
+                        else f"Reviewing result #{version[0]} observation"
                     )
         elif kind == "attempt":
             if data.get("correction"):
