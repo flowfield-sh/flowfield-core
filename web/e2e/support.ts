@@ -192,7 +192,7 @@ export async function closeOverlay(page: Page) {
       await toast.click();
     try {
       const close = dialog.locator(".close-control").first();
-      if (await close.isDisabled()) {
+      if (!(await close.count())) {
         if (new URL(page.url()).pathname.includes("/tasks/"))
           await openResource(page, "Task Board");
         else if (new URL(page.url()).pathname.includes("/documents/"))
