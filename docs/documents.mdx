@@ -7,7 +7,11 @@ description: Maintain shared guidance that stays current as tasks progress.
 
 ## Write and review
 
-Choose **Edit**, write Markdown, use **Preview**, then save. Each changed save records a revision, author and time. **View document** returns to saved content while retaining your draft. If another edit arrives, preserve your changes, choose **Load latest** and reconcile them; stale saves cannot overwrite newer content.
+Choose **Edit** to open the document form. Set its title, write Markdown under **Content**, and choose its audience under **Use this document**. **Preview** shows the formatted content. **Save document** saves the whole form and returns to reading; **Cancel** lets you discard unsaved changes. Content or title changes record a revision, author and time; changing usage alone leaves the document revision unchanged.
+
+If another edit arrives, your draft stays available. Choose **Load latest** and reconcile your changes before saving. A conflict in either the document or its usage prevents the whole save, so neither part is left half-updated.
+
+![Title, content and document usage in one edit form](/images/document-editor.png)
 
 Revisions show who made the change: **You**, **Coordinator**, **Worker**, **Reviewer**, **Flowfield**, or **Other** for older unrecognized identities.
 
@@ -19,7 +23,7 @@ Ask the Coordinator to delete a custom document after removing it from defaults 
 
 ## Supply worker context
 
-**Saving a custom document does not select it for workers.** Choose **Edit → Use this document** to select where it applies:
+Choose **Edit → Use this document** to select where a custom document applies, then **Save document**:
 
 | Selection | Applies to |
 | --- | --- |
@@ -31,15 +35,15 @@ Choose **Required source** for rules the worker must read fully, or **Reference 
 
 Use defaults for shared rules and task selections for specific context. Task selections can override a default’s purpose; omitting a document from that list does not exclude an inherited default. Split long mixed guidance into focused documents while preserving applicable rules and exceptions.
 
-Preparation selects the latest revisions of workspace guidance plus at most 20 custom documents and 1 MB of text. Workers receive a brief and access to those exact revisions; linked documents must be selected separately. Task definitions describe the intended outcome; source bindings track document IDs and revisions separately. Attempt evidence preserves the sources used for that attempt. Results list their reviewed sources under **Details → Guidance**, with links to exact revisions.
+Preparation selects the latest revisions of workspace guidance plus at most 20 custom documents and 1 MB of text. Workers receive a brief and access to those exact revisions; linked documents must be selected separately. Keep requirements in the task definition; Flowfield tracks source revisions separately. Inspect an attempt's sources in its evidence or a result's sources under **Details → Guidance**.
 
 ## Keep tasks current
 
 Before work starts or continues, Flowfield checks selected guidance against current revisions, defaults and purposes. If anything changed, a Reviewer compares it with the task and retained work, updates the definition, criteria or existing subtask instructions where needed, and continues automatically. Genuine conflicts or missing decisions become questions in Inbox.
 
-Flowfield repeats this check after work and while a result awaits approval. Implementation or dependency changes return to the worker. When retained work already satisfies the updated definition, Flowfield reuses it in a new result with fresh validation, assessment and approval. The task feed shows the definition and guidance changes together, with word diffs for text. Earlier results keep their original definition, guidance and approval history. Reviews respect the queue and share worker capacity, including when independent result assessment is disabled. A configured reviewer is required.
+Flowfield repeats this check after work and while a result awaits approval. Changes that require implementation return to the worker. If the existing work already meets the updated definition, Flowfield reuses it in a new result with fresh checks and review. Changed code results need fresh approval. The task feed shows definition and guidance changes together, with word diffs for text.
 
-Running attempts keep their original assignment until the next handoff. Each review uses one saved snapshot; further edits are checked before its conclusion applies. Completed tasks retain their delivered guidance without automatic reopening.
+Reconciliation requires a configured Reviewer, respects the queue and shares worker capacity, even when independent result assessment is disabled. Running attempts keep their assignment until the next handoff; further document edits are checked before a reconciliation applies. Earlier results preserve their definition, sources and approval history. Completed tasks are not reopened automatically.
 
 ## Work with the Coordinator
 

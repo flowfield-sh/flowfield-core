@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.9.0
+
+### Features
+
+- Keep unfinished tasks aligned with changing guidance automatically. Flowfield reviews updated documents and selections before work, after implementation and while awaiting approval, revising task definitions and existing subtask instructions where needed. Questions that need your decision arrive in Inbox; completed tasks keep their history.
+- Reuse existing work when it already satisfies updated guidance. Flowfield creates a fresh result with current sources, checks and review; changed code results still require exact approval. Inspect the document revisions behind a result under **Details → Guidance**.
+
+### Improvements
+
+- Edit a document's title, content and usage in one dedicated form with a single save. Conflicts preserve the complete draft without saving only part of your changes.
+- Bookmark and share Files views with their folder, selected file, task filter and sort order. Reload and browser Back/Forward preserve the view.
+
+### Bug fixes
+
+- Restore reliable Archive navigation and filtering.
+- Keep settings and Inbox tab spacing consistent, with selected tabs visible on narrow screens.
+- Show text changes in task success criteria alongside definition changes in the feed.
+
+### Upgrade
+
+Prepared tasks now adopt current document revisions through guidance review; task selections no longer pin older revisions. Existing attempts and results retain their exact historical sources.
+
+Stop Flowfield, run `uv tool upgrade flowfield-core`, then start it with `flowfield serve`. See [updating Flowfield](https://docs.flowfield.sh/installation#update) for other installation methods.
+
 ## 0.8.0
 
 ### Features
