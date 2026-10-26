@@ -1,4 +1,6 @@
-import { useRetainedState } from "./retainedState";
+import { useContext } from "react";
+import { useLocation, useNavigate } from "react-router";
+import { ResourceNavigation } from "./WorkspaceTabs";
 import {
   Tooltip,
   TooltipContent,
@@ -15,12 +17,10 @@ import { ResourceRetry } from "./ResourceRetry";
 import { Timestamp } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { resultHref, taskHref } from "./navigation";
-import { usePage } from "./useResource";
+import { usePage, useResource } from "./useResource";
 import { OutputPreview, outputHref as contentHref } from "./OutputPreview";
 
 type OutputFile = components["schemas"]["OutputFile"];
-type FileEntry = components["schemas"]["FileEntry"];
-type FileWork = components["schemas"]["FileWork"];
 
 function sizeLabel(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -68,11 +68,10 @@ export function OutputFiles({ files }: { files: OutputFile[] }) {
   );
 }
 
-function FileDetails({ entry }: { entry: FileEntry }) {
-  const file = entry.file!;
+function FileDetails({ file }: { file: OutputFile }) {
   return (
     <DetailSection
-      title={entry.name}
+      title={file.name.split("/").at(-1)}
       aria-label="File details"
       className="file-details min-h-0"
     >
@@ -114,19 +113,32 @@ export function Files({
   workspaceId: string;
   refresh: string;
 }) {
-  const [work, setWork] = useRetainedState<FileWork | null>(
-    `files:${workspaceId}:work`,
-    null,
-  );
-  const [path, setPath] = useRetainedState(`files:${workspaceId}:path`, "");
-  const [sort, setSort] = useRetainedState(
-    `files:${workspaceId}:sort`,
-    "newest",
-  );
-  const [selected, setSelected] = useRetainedState<string | null>(
-    `files:${workspaceId}:chosen`,
-    null,
-  );
+  const location = useLocation();
+  const routerNavigate = useNavigate();
+  const resourceNavigate = useContext(ResourceNavigation);
+  const query = new URLSearchParams(location.search);
+  const taskKey = query.get("task_key") ?? "";
+  const path = query.get("path") ?? "";
+  const requestedSort = query.get("sort");
+  const sort =
+    requestedSort === "name" || requestedSort === "type"
+      ? requestedSort
+      : "newest";
+  const selected = query.get("file");
+  function href(changes: Record<string, string | null>) {
+    const next = new URLSearchParams(location.search);
+    for (const [key, value] of Object.entries(changes)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
+    const search = next.toString();
+    return location.pathname + (search ? "?" + search : "");
+  }
+  function navigate(changes: Record<string, string | null>) {
+    const target = href(changes);
+    if (resourceNavigate) resourceNavigate(target);
+    else void routerNavigate(target);
+  }
   const base = `workspaces/${workspaceId}/files`;
   const groups = usePage<components["schemas"]["FileWorkPage"]>(
     `${base}/work`,
@@ -134,22 +146,24 @@ export function Files({
     true,
   );
   const params = new URLSearchParams({ path, sort });
-  if (work?.task_key) params.set("task_key", work.task_key);
+  if (taskKey) params.set("task_key", taskKey);
   const resource = usePage<components["schemas"]["FileDirectory"]>(
     `${base}/browse?${params}`,
     refresh,
     true,
   );
-  const entry = resource.data?.items.find((item) => item.id === selected);
+  // Read the selected record directly so a deep link also works beyond the
+  // first directory page, without loading every preceding page.
+  const chosen = useResource<OutputFile>(
+    selected ? base + "/" + encodeURIComponent(selected) : null,
+    refresh,
+  );
+  const file = chosen.data;
   const tasks = groups.data?.items ?? [];
   const choices =
-    work && !tasks.some((item) => item.id === work.id)
-      ? [work, ...tasks]
+    taskKey && !tasks.some((item) => item.task_key === taskKey)
+      ? [{ id: "task:" + taskKey, task_key: taskKey, title: taskKey }, ...tasks]
       : tasks;
-  function navigate(next: string) {
-    setPath(next);
-    setSelected(null);
-  }
   const parts = path.split("/").filter(Boolean);
   return (
     <section className="files-page @container p-5" aria-label="Files">
@@ -162,18 +176,24 @@ export function Files({
           <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-2">
             <ChoiceSelect
               compact
-              value={work?.id ?? "all"}
+              value={taskKey || "all"}
               label="Filter files by task"
               options={[
                 { value: "all", label: "All files" },
                 ...choices.map((item) => ({
-                  value: item.id,
-                  label: `${item.task_key} · ${item.title}`,
+                  value: item.task_key!,
+                  label:
+                    item.title === item.task_key
+                      ? item.title
+                      : `${item.task_key} · ${item.title}`,
                 })),
               ]}
               onChange={(value) => {
-                setWork(choices.find((item) => item.id === value) ?? null);
-                navigate("");
+                navigate({
+                  task_key: value === "all" ? null : value,
+                  path: null,
+                  file: null,
+                });
               }}
             />
             <ChoiceSelect
@@ -185,7 +205,9 @@ export function Files({
                 { value: "newest", label: "Newest" },
                 { value: "type", label: "Type" },
               ]}
-              onChange={setSort}
+              onChange={(value) =>
+                navigate({ sort: value === "newest" ? null : value })
+              }
             />
           </div>
           <ResourceRetry resources={[groups]}>Retry tasks</ResourceRetry>
@@ -207,38 +229,33 @@ export function Files({
                   aria-label="File location"
                   className="flex min-w-0 flex-1 flex-wrap items-center gap-1"
                 >
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => navigate("")}
+                  <WorkspaceLink
+                    className="file-path-link"
+                    to={href({ path: null, file: null })}
                   >
-                    {work ? (
-                      <Badge variant="outline">
-                        {work.task_key ?? work.title}
-                      </Badge>
-                    ) : (
-                      "All files"
-                    )}
-                  </Button>
+                    {taskKey || "All files"}
+                  </WorkspaceLink>
                   {parts.map((part, index) => (
                     <span
                       key={index}
-                      className="inline-flex min-w-0 items-center"
+                      className="inline-flex min-w-0 items-center gap-1"
                     >
                       <ChevronRight
                         className="size-3 shrink-0"
                         aria-hidden="true"
                       />
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-auto whitespace-normal break-all"
-                        onClick={() =>
-                          navigate(parts.slice(0, index + 1).join("/"))
+                      <WorkspaceLink
+                        className="file-path-link"
+                        to={href({
+                          path: parts.slice(0, index + 1).join("/"),
+                          file: null,
+                        })}
+                        aria-current={
+                          index === parts.length - 1 ? "location" : undefined
                         }
                       >
                         {part}
-                      </Button>
+                      </WorkspaceLink>
                     </span>
                   ))}
                 </nav>
@@ -259,8 +276,8 @@ export function Files({
                         aria-pressed={selected === item.id}
                         onClick={() =>
                           item.kind === "folder"
-                            ? navigate(item.path)
-                            : setSelected(item.id)
+                            ? navigate({ path: item.path, file: null })
+                            : navigate({ file: item.id })
                         }
                       >
                         {item.kind === "folder" ? (
@@ -274,7 +291,7 @@ export function Files({
                           </span>
                           {item.file && (
                             <span className="detail-metadata">
-                              {!work && (
+                              {!taskKey && (
                                 <>
                                   <Badge variant="outline">
                                     {item.file.task_key}
@@ -310,12 +327,16 @@ export function Files({
           </ContentStack>
         </ContentStack>
         <aside
-          key={entry?.id}
+          key={selected}
           aria-label="Selected file"
           className="files-scroll flex flex-col max-h-[40vh] min-h-0 min-w-0 overflow-y-auto border-t pt-4 @2xl:max-h-none @2xl:border-t-0 @2xl:border-l @2xl:pt-0 @2xl:pl-4"
         >
-          {entry?.file && <FileDetails key={entry.id} entry={entry} />}
-          {!entry?.file && (
+          <ResourceRetry resources={[chosen]}>
+            Retry selected file
+          </ResourceRetry>
+          {file && <FileDetails key={file.id} file={file} />}
+          {selected && !file && !chosen.error && <p>Loading file…</p>}
+          {!selected && (
             <p className="text-sm text-muted-foreground">
               Select a file to see its details.
             </p>

@@ -9,7 +9,6 @@ import {
   useServiceUnavailable,
 } from "./serviceConnection";
 import { WorkIdentity } from "./WorkIdentity";
-import { TaskLabels } from "./TaskLabels";
 import { hasRetainedDrafts, type DirtyCallback } from "./retainedState";
 import {
   ResourceNavigation,
@@ -54,7 +53,7 @@ import { WorkspaceEditor } from "./WorkspaceEditor";
 import { QueueControls } from "./Workers";
 import { RequestDetail } from "./RequestDetail";
 import { AttentionBoard } from "./AttentionBoard";
-import { ArchiveAttribution, TaskIdentity, DraftBadge } from "./Presentation";
+import { ArchiveAttribution, TaskIdentity } from "./Presentation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   WorkspaceBoard as SharedBoard,
@@ -1262,7 +1261,7 @@ function ArchiveList({
           {entries.map(({ task, archived }) => (
             <li key={task.key}>
               <ScopedAnchor
-                className="work-navigation-row task-card-link"
+                className="archive-row"
                 href={taskHref(task.workspace_id, task)}
                 aria-current={
                   selection?.kind === "task" && selection.id === task.key
@@ -1280,23 +1279,11 @@ function ArchiveList({
                   itemKey={task.key}
                   title={task.title}
                 />
-              </ScopedAnchor>
-              <div className="content-stack px-2 pb-2">
-                {(task.publication_status === "draft" ||
-                  task.labels.length > 0) && (
-                  <div className="task-labels">
-                    <DraftBadge publicationStatus={task.publication_status} />
-                    <TaskLabels ids={task.labels} />
-                  </div>
-                )}
-                {task.reconciliation_reason && (
-                  <span className="readiness blocked">Needs update</span>
-                )}
                 <ArchiveAttribution
                   author={archived.updated_by}
                   date={archived.updated_at}
                 />
-              </div>
+              </ScopedAnchor>
             </li>
           ))}
         </ul>

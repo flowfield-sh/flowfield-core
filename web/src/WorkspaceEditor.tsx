@@ -3,7 +3,6 @@ import { useLocation, useNavigate, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { ContentStack } from "./DetailLayout";
 import { DetailHeader, DetailTabs } from "./Presentation";
 import { MarkdownField } from "./Markdown";
@@ -119,7 +118,7 @@ export function WorkspaceEditor({
         aria-labelledby={`${id}-general-tab`}
         hidden={tab !== "general"}
       >
-        <ContentStack space="section">
+        <ContentStack space="settings">
           <form onSubmit={save}>
             <fieldset
               disabled={busy}
@@ -144,7 +143,6 @@ export function WorkspaceEditor({
               {actions}
             </fieldset>
           </form>
-          <Separator />
           <WorkspaceLabels
             workspaceId={incoming.id}
             refresh={incoming}
@@ -186,7 +184,7 @@ export function WorkspaceEditor({
         aria-labelledby={`${id}-reviewers-tab`}
         hidden={tab !== "reviewers"}
       >
-        <ContentStack space="section">
+        <ContentStack space="settings">
           <ReviewerSettings
             workspaceId={incoming.id}
             refresh={incoming}

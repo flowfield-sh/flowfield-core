@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { expect } from "@playwright/test";
-import { test, state } from "./support";
+import { test, state, stubModelCatalog } from "./support";
 import { openResource } from "./shell-navigation";
 
 test("workspace files organize retained task outputs without a project", async ({
@@ -91,6 +91,38 @@ test("workspace files organize retained task outputs without a project", async (
   await page.mouse.wheel(0, 10000);
   await expect(lastFile).toBeInViewport();
   await lastFile.click();
+  const selectedName = (await lastFile
+    .locator("[title]")
+    .getAttribute("title"))!;
+  await expect(page).toHaveURL(/path=evidence.*file=/);
+  const selectedUrl = page.url();
+  // A fresh browser has no remembered pagination window or retained state.
+  const deepLink = await page
+    .context()
+    .browser()!
+    .newContext({ baseURL: new URL(page.url()).origin });
+  await stubModelCatalog(deepLink);
+  const deepPage = await deepLink.newPage();
+  await deepPage.goto(selectedUrl);
+  await expect(
+    deepPage
+      .getByRole("region", { name: "File details", exact: true })
+      .getByRole("heading", { name: selectedName, exact: true }),
+  ).toBeVisible();
+  await deepLink.close();
+  await page.reload();
+  await expect(
+    files
+      .getByRole("region", { name: "File details", exact: true })
+      .getByRole("heading", { name: selectedName, exact: true }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/path=evidence$/);
+  await expect(
+    files.getByRole("region", { name: "File details", exact: true }),
+  ).toHaveCount(0);
+  await page.goForward();
+  await expect(page).toHaveURL(selectedUrl);
   await expect(
     files
       .getByRole("region", { name: "File details", exact: true })
@@ -105,7 +137,7 @@ test("workspace files organize retained task outputs without a project", async (
   await expect(contents.getByRole("button").first()).toBeInViewport();
   await files
     .getByRole("navigation", { name: "File location" })
-    .getByRole("button", { name: "All files", exact: true })
+    .getByRole("link", { name: "All files", exact: true })
     .click();
   await expect(
     files.getByText("launch-report.txt", { exact: true }),
@@ -223,10 +255,10 @@ test("workspace files organize retained task outputs without a project", async (
   await page.emulateMedia({ colorScheme: "light" });
   await details.getByRole("link", { name: "Source", exact: true }).click();
   await expect(page).toHaveURL(`${base}/results/${value.result}`);
-  await openResource(page, "Files");
+  await page.getByRole("button", { name: "Back", exact: true }).click();
   await details.getByRole("link", { name: "T-1", exact: true }).click();
   await expect(page).toHaveURL(`${base}/tasks/${value.task}`);
-  await openResource(page, "Files");
+  await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(
     details.getByRole("heading", { name: "launch-report.txt", exact: true }),
   ).toBeVisible();

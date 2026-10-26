@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ContentStack, DetailSection } from "./DetailLayout";
-import { Separator } from "@/components/ui/separator";
 import { SettingsCheckbox } from "./SettingsCheckbox";
 import { StatusNotice } from "./StatusNotice";
 import { useHost } from "./HostCapabilities";
@@ -106,7 +105,7 @@ export function NotificationSettings() {
     void act("Saving notification preferences…", () => save(change), change);
   }
   return (
-    <ContentStack space="section">
+    <ContentStack space="settings">
       {settings.error && (
         <Button
           size="sm"
@@ -128,9 +127,9 @@ export function NotificationSettings() {
           disabled={!!busy}
           aria-busy={!!busy}
           className="content-stack"
-          data-space="section"
+          data-space="settings"
         >
-          <DetailSection title="Announcements">
+          <DetailSection settings title="Announcements">
             <p>
               Choose which events to announce across this workspace. While
               Flowfield is active, announcements appear as toasts.
@@ -148,8 +147,7 @@ export function NotificationSettings() {
               Announce available updates
             </SettingsCheckbox>
           </DetailSection>
-          <Separator />
-          <DetailSection title="When inactive">
+          <DetailSection settings title="When inactive">
             <SettingsCheckbox
               hint={`Delivery requires permission on each ${environment}. Flowfield must remain running.`}
               checked={value.system_enabled}

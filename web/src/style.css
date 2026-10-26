@@ -307,6 +307,34 @@
   .card-shell .task-card {
     width: 100%;
   }
+  .file-path-link {
+    color: var(--muted-foreground);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+  }
+  .file-path-link:hover,
+  .file-path-link:focus-visible {
+    color: var(--foreground);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .archive-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 12px;
+    color: inherit;
+    text-decoration: none;
+    min-width: 0;
+  }
+  .archive-row:hover,
+  .archive-row:focus-visible {
+    background: var(--accent);
+  }
+  .archive-row .record-attribution {
+    margin-left: 15px;
+  }
   .archive-list {
     min-width: 0;
     width: 100%;

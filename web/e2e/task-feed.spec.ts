@@ -358,6 +358,17 @@ test("archive preserves dated records and supports restore and mobile archiving"
   await expect(
     archive.getByRole("listitem").first().locator(".record-attribution time"),
   ).toBeVisible();
+  await expect(archive.locator(".task-labels")).toHaveCount(0);
+  // Hit testing outside either row catches the board-card stretched-link regression.
+  const filter = page.getByRole("combobox", { name: "Filter by project" });
+  await expect(filter).toBeVisible();
+  await filter.click();
+  await page.keyboard.press("Escape");
+  await archive.getByRole("link", { name: /newer task/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "newer task", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
   await archive.getByRole("link", { name: /older task/ }).click();
   const info = page.getByRole("region", { name: "Task details", exact: true });
   await expect(

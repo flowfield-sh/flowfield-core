@@ -96,6 +96,14 @@
   .content-stack[data-space="section"] {
     gap: 16px;
   }
+  .content-stack[data-space="settings"] {
+    gap: 32px;
+  }
+  .settings-section > h4,
+  .settings-section > .detail-heading-row {
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
   .content-stack > * {
     margin-block: 0;
   }

@@ -21,7 +21,7 @@ export function ContentStack({
   className = "",
   ...props
 }: ComponentProps<"div"> & {
-  space?: "flush" | "tight" | "content" | "section";
+  space?: "flush" | "tight" | "content" | "section" | "settings";
 }) {
   return (
     <div {...props} className={`content-stack ${className}`} data-space={space}>
@@ -68,16 +68,18 @@ export function DetailSection({
   className = "",
   actions,
   panel = false,
+  settings = false,
   ...props
 }: Omit<ComponentProps<"section">, "title"> & {
   title: ReactNode;
   actions?: ReactNode;
   panel?: boolean;
+  settings?: boolean;
 }) {
   return (
     <section
       {...props}
-      className={`detail-section ${panel ? "detail-panel" : ""} ${className}`}
+      className={`detail-section ${settings ? "settings-section" : ""} ${panel ? "detail-panel" : ""} ${className}`}
     >
       {actions ? (
         <div className="detail-heading-row">

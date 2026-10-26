@@ -125,7 +125,7 @@ export function UpdateSettings() {
             </StatusNotice>
           </ContentStack>
           {updates.available_version && (
-            <DetailSection title="Install update">
+            <DetailSection settings title="Install update">
               {updates.error && (
                 <p>Previously found: Flowfield {updates.available_version}</p>
               )}

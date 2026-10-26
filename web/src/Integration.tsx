@@ -92,7 +92,7 @@ export function IntegrationSettings({
     <section
       aria-label="Integration settings"
       className="worker-settings content-stack"
-      data-space="section"
+      data-space="settings"
     >
       <p>Worker setup, checks and local code delivery.</p>
       <ResourceRetry resources={[resource, inspection]} />
@@ -141,9 +141,9 @@ export function IntegrationSettings({
         <fieldset
           disabled={busy || !resource.data}
           className="content-stack"
-          data-space="section"
+          data-space="settings"
         >
-          <DetailSection title="Destination">
+          <DetailSection settings title="Destination">
             <ContentStack space="tight">
               <Label className="field block">
                 Destination branch
@@ -163,7 +163,7 @@ export function IntegrationSettings({
               </p>
             </ContentStack>
           </DetailSection>
-          <DetailSection title="Validation">
+          <DetailSection settings title="Validation">
             <ContentStack space="tight">
               <Label className="field block">
                 Validation commands
@@ -183,7 +183,7 @@ export function IntegrationSettings({
               </p>
             </ContentStack>
           </DetailSection>
-          <DetailSection title="Runtime setup">
+          <DetailSection settings title="Runtime setup">
             <ContentStack space="tight">
               <Label className="field block">
                 Setup commands
@@ -236,7 +236,7 @@ export function IntegrationSettings({
               </p>
             )}
           </ContentStack>
-          <DetailSection title="Time limits">
+          <DetailSection settings title="Time limits">
             <ContentStack space="section">
               <Label className="field block">
                 Seconds per setup command
@@ -356,7 +356,7 @@ function SetupValidation({
     </Button>
   );
   return (
-    <DetailSection title="Validate setup">
+    <DetailSection settings title="Validate setup">
       <p>
         Test saved setup and checks in a managed copy. No model call; the queue
         stays unchanged.

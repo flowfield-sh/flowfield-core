@@ -23,8 +23,11 @@
   filter: invert(1);
 }
 .harness-entry {
-  border-top: 1px solid var(--border);
-  padding-top: 24px;
+  padding-top: 16px;
+}
+.harness-entry .detail-heading-block {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
 }
 .harness-facts {
   display: grid;

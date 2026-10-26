@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import {
   Archive,
   ArchiveRestore,
@@ -66,7 +65,7 @@ export function TaskDetail({
             keyBadge={
               <DraftBadge publicationStatus={task.publication_status} />
             }
-            title="Task"
+            title={settings ? "Task settings" : "Task"}
           />
         }
         close={close}
@@ -288,8 +287,8 @@ export function TaskDetail({
         </ContentStack>
       )}
       {settings && (
-        <ContentStack space="section">
-          <DetailSection title="Worker" aria-label="Worker">
+        <ContentStack space="settings">
+          <DetailSection settings title="Worker" aria-label="Worker">
             <AgentSettingsForm
               showFast
               workspaceId={workspaceId}
@@ -298,8 +297,7 @@ export function TaskDetail({
               onDirty={setSettingsDirty}
             />
           </DetailSection>
-          <Separator />
-          <DetailSection title="Reviewer">
+          <DetailSection settings title="Reviewer">
             <ReviewerSettings
               workspaceId={workspaceId}
               entity={task.id}

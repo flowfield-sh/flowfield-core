@@ -514,7 +514,6 @@ function ResourceTab({
     index,
     disabled: index === 0,
   });
-  const currentRoot = canonicalResourceRoot(tab.history[tab.index], board);
   const name =
     index === 0
       ? "Inbox"
@@ -565,9 +564,6 @@ function ResourceTab({
                 {Math.min(99, board.needs_you_count)}
                 {board.needs_you_count > 99 ? "+" : ""}
               </span>
-            )}
-            {currentRoot.endsWith("/documents") && board && (
-              <span className="nav-count">{board.document_count}</span>
             )}
           </TabsTrigger>
         </TooltipTrigger>

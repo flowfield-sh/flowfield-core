@@ -47,6 +47,7 @@ export function WorkspaceLabels({
   }
   return (
     <DetailSection
+      settings
       title="Labels"
       actions={
         <HeaderAction

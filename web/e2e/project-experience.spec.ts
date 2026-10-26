@@ -164,7 +164,12 @@ test("home, welcome and editable settings form a complete project journey", asyn
     name: "Edit workspace",
     exact: true,
   });
-  await expect(shared.locator('[data-slot="separator"]').first()).toBeVisible();
+  await expect(shared.locator('[data-slot="separator"]:visible')).toHaveCount(
+    0,
+  );
+  await expect(
+    shared.getByRole("heading", { name: "Labels", exact: true }),
+  ).toBeVisible();
   await expect(
     shared.getByRole("checkbox", { name: "Auto-start worker queue" }),
   ).toHaveCount(0);
