@@ -1,4 +1,4 @@
-"""Upgrade the published 0.6/0.7 schema without changing authored or delivered evidence."""
+"""Upgrade published schemas without changing authored or delivered evidence."""
 
 import hashlib
 import json
@@ -24,22 +24,8 @@ def published(tmp_path, version=86):
     )
     with sqlite3.connect(directory / storage.DATABASE) as db:
         db.executescript(sql)
-        if version in (87, 88):
+        if version == 87:
             db.execute(storage.TASK_DELETIONS)
-        if version == 88:
-            sequences = db.execute("SELECT name,seq FROM sqlite_sequence").fetchall()
-            db.execute(
-                storage.TASK_REVIEWS.replace("CREATE TABLE task_reviews", "CREATE TABLE reviews_88")
-            )
-            db.execute("INSERT INTO reviews_88 SELECT * FROM task_reviews")
-            db.execute("DROP TABLE task_reviews")
-            db.execute("ALTER TABLE reviews_88 RENAME TO task_reviews")
-            db.execute(
-                "CREATE INDEX task_reviews_task ON task_reviews(workspace_id,task_id,number)"
-            )
-            db.execute("DELETE FROM sqlite_sequence")
-            db.executemany("INSERT INTO sqlite_sequence(name,seq) VALUES (?,?)", sequences)
-        if version in (87, 88):
             db.execute(f"PRAGMA user_version={version}")
     info = json.loads((fixtures / "published-schema-86.json").read_text())
     output = directory / "workspaces" / "harbor" / "outputs" / info["output_id"]
@@ -60,7 +46,7 @@ def rows(database):
         return {name: db.execute(f'SELECT * FROM "{name}"').fetchall() for name in names}
 
 
-@pytest.mark.parametrize("version", [86, 87, 88])
+@pytest.mark.parametrize("version", [86, 87])
 def test_published_upgrade_preserves_every_row_and_file_with_verified_recovery(tmp_path, version):
     directory, output, info = published(tmp_path, version)
     before = rows(directory / storage.DATABASE)

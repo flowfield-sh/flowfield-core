@@ -17,12 +17,18 @@ const info = (directory) => ({
 
 test("simultaneous owners have distinct stores/ports and clean up only their own store", async () => {
   const output = mkdtempSync(join(tmpdir(), "flowfield-isolation-proof-"));
-  let first, second;
+  let services = [];
   try {
-    [first, second] = await Promise.all([
+    const started = await Promise.allSettled([
       startService(info(join(output, "a"))),
       startService(info(join(output, "b"))),
     ]);
+    services = started
+      .filter((result) => result.status === "fulfilled")
+      .map((result) => result.value);
+    for (const result of started)
+      if (result.status === "rejected") throw result.reason;
+    const [first, second] = services;
     assert.notEqual(first.port, second.port);
     assert.notEqual(first.state, second.state);
     await first.stop();
@@ -31,8 +37,7 @@ test("simultaneous owners have distinct stores/ports and clean up only their own
     await second.stop();
     assert.equal(existsSync(second.state), false);
   } finally {
-    await first?.stop();
-    await second?.stop();
+    await Promise.all(services.map((service) => service.stop()));
     rmSync(output, { recursive: true, force: true });
   }
 });
@@ -43,23 +48,34 @@ test("service stops when its worker is killed and retains the interrupted store"
     const directory = process.argv[1];
     const s = await startService({ outputDir: directory, outputPath: n => directory + '/' + n,
       status: 'passed', expectedStatus: 'passed', attach: async () => {} });
-    console.log(JSON.stringify({state:s.state,url:s.baseURL})); setInterval(()=>{},1000);`;
-  const worker = spawn(process.execPath, [
-    "--input-type=module",
-    "-e",
-    script,
-    output,
-  ]);
+    process.send({state:s.state,url:s.baseURL}); setInterval(()=>{},1000);`;
+  const worker = spawn(
+    process.execPath,
+    ["--input-type=module", "-e", script, output],
+    { stdio: ["ignore", "ignore", "pipe", "ipc"] },
+  );
+  const exited = once(worker, "exit");
+  let diagnostics = "";
+  worker.stderr.on("data", (chunk) => {
+    diagnostics = (diagnostics + chunk.toString()).slice(-8000);
+  });
   let state;
   let stopped = false;
   try {
-    const [chunk] = await once(worker.stdout, "data");
-    const result = JSON.parse(chunk.toString());
+    const result = await Promise.race([
+      once(worker, "message", { signal: AbortSignal.timeout(35000) }).then(
+        ([message]) => message,
+      ),
+      exited.then(([code, signal]) => {
+        throw new Error(
+          `Worker exited before readiness (${code ?? signal}): ${diagnostics}`,
+        );
+      }),
+    ]);
     state = result.state;
     const { pid } = JSON.parse(
       readFileSync(join(state, "address.json"), "utf8"),
     );
-    const exited = once(worker, "exit");
     worker.kill("SIGKILL");
     await exited;
     const deadline = Date.now() + 10000;
@@ -77,6 +93,7 @@ test("service stops when its worker is killed and retains the interrupted store"
     assert.ok(existsSync(state), "interrupted evidence must remain");
   } finally {
     worker.kill("SIGKILL");
+    await exited.catch(() => {});
     if (state && stopped) rmSync(state, { recursive: true, force: true });
     rmSync(output, { recursive: true, force: true });
   }

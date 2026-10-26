@@ -16,7 +16,6 @@ class ThreadMessage(Record):
     kind: str
     source_id: str
     revision: int | None = None
-    previous_revision: int | None = None
     created_at: str
     order_key: str
     author: str
@@ -62,15 +61,10 @@ class ThreadView(Conversation):
         body, title = "", ""
         review_decision = None
         cycle_start: Literal["correction", "follow_up"] | None = None
-        previous_revision = None
         if kind == "definition":
-            previous_revision = (
-                legacy_reconciliation_start(db, workspace_id, task_id, item.revision or 1)
-                or (item.revision or 1) - 1
-            )
             before = db.execute(
                 "SELECT data FROM task_revisions WHERE workspace_id=? AND task_id=? AND revision=?",
-                (workspace_id, task_id, previous_revision),
+                (workspace_id, task_id, (item.revision or 1) - 1),
             ).fetchone()
             previous = json.loads(before[0]) if before else None
             if previous and previous["status"] == "done" and data["status"] != "done":
@@ -251,7 +245,6 @@ class ThreadView(Conversation):
             kind=kind,
             source_id=item.source_id,
             revision=item.revision,
-            previous_revision=previous_revision,
             created_at=item.created_at,
             order_key=item.order_key,
             author=item.author,
@@ -292,14 +285,6 @@ class ThreadView(Conversation):
                 items=[
                     self.message(db, workspace_id, args["task"], i, current_state=state)
                     for i in page.items
-                    if not (
-                        i.kind == "definition"
-                        and i.revision
-                        and legacy_reconciliation_start(
-                            db, workspace_id, args["task"], i.revision + 1
-                        )
-                        == i.revision - 1
-                    )
                 ],
                 next_cursor=page.next_cursor,
             )
@@ -327,30 +312,6 @@ class ThreadView(Conversation):
             return self.message(
                 db, workspace_id, args["task"], ConversationItem.model_validate(dict(row)), full
             )
-
-
-def legacy_reconciliation_start(
-    db: sqlite3.Connection, workspace: str, task: str, revision: int
-) -> int | None:
-    """Fold the old two-save reconciliation in the feed; retain all source revisions."""
-    if revision < 3:
-        return None
-    receipt = db.execute(
-        "SELECT 1 FROM task_reviews r JOIN task_revisions a "
-        "ON a.workspace_id=r.workspace_id AND a.task_id=r.task_id AND a.revision=? "
-        "JOIN task_revisions b ON b.workspace_id=a.workspace_id AND b.task_id=a.task_id "
-        "AND b.revision=a.revision-1 WHERE r.workspace_id=? AND r.task_id=? "
-        "AND json_extract(r.data,'$.guidance.task_revision')=? "
-        "AND json_extract(r.data,'$.applied_at') IS NOT NULL "
-        "AND json_extract(r.data,'$.applied_agreement_revision')="
-        "json_extract(a.data,'$.agreement_revision') "
-        "AND json_extract(a.data,'$.publication.task_revision')=a.revision "
-        "AND json_extract(b.data,'$.publication.task_revision')<b.revision "
-        "AND json_extract(a.data,'$.updated_by')='reviewer' "
-        "AND json_extract(b.data,'$.updated_by')='reviewer' LIMIT 1",
-        (revision, workspace, task, revision - 2),
-    ).fetchone()
-    return revision - 2 if receipt else None
 
 
 def subtask_changes(

@@ -6186,8 +6186,6 @@ export interface components {
       source_id: string;
       /** Revision */
       revision: number | null;
-      /** Previous Revision */
-      previous_revision: number | null;
       /** Created At */
       created_at: string;
       /** Order Key */

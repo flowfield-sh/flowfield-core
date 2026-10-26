@@ -63,4 +63,4 @@ files = ["src/flowfield"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+addopts = "-ra --durations=15"

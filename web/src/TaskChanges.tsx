@@ -34,12 +34,10 @@ const fields: [Field, string][] = [
 ];
 export function TaskChanges({
   revision,
-  previousRevision,
   path,
   tasks,
 }: {
   revision: number;
-  previousRevision?: number | null;
   path: string;
   tasks: TaskReference[];
 }) {
@@ -47,9 +45,7 @@ export function TaskChanges({
   const open = useContext(ActivityBodyVisible);
   const [retry, setRetry] = useState(0);
   const beforeRead = useResource<TaskRevision>(
-    open && revision > 1
-      ? `${path}/revisions/${previousRevision ?? revision - 1}`
-      : null,
+    open && revision > 1 ? `${path}/revisions/${revision - 1}` : null,
     retry,
   );
   const afterRead = useResource<TaskRevision>(

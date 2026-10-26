@@ -186,7 +186,6 @@ export function TaskConversation({
                       )}
                       {message.kind === "definition" && (
                         <TaskChanges
-                          previousRevision={message.previous_revision}
                           revision={message.revision!}
                           path={`workspaces/${projectId}/view/tasks/${task.id}`}
                           tasks={board.tasks}

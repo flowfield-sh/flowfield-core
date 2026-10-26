@@ -7,14 +7,14 @@ import {
   connectMcp,
 } from "./support";
 import { join } from "node:path";
-import { expect, type Response } from "@playwright/test";
+import { expect } from "@playwright/test";
 
 test("task links open native tabs without losing the original selection or draft", async ({
   page,
   context,
   request,
 }, testInfo) => {
-  // Independent records make --repeat-each useful for the native-tab regression.
+  // Each repetition owns its service/store through the shared fixture.
   const projectId = `native-tabs-${testInfo.repeatEachIndex}`;
   const call = await connectMcp(request);
   await fixtureMcpProject(call, {
@@ -51,16 +51,17 @@ test("task links open native tabs without losing the original selection or draft
     "href",
     `/workspaces/${await projectWorkspace(request, projectId)}/tasks/${first.key}`,
   );
-  const catalogs: Response[] = [];
-  context.on("response", (response) => {
-    if (new URL(response.url()).pathname === "/api/worker-models")
-      catalogs.push(response);
-  });
-
   for (const gesture of ["middle", "modifier"] as const) {
     await test.step(gesture, async () => {
-      const [tab] = await Promise.all([
+      const [tab, catalog] = await Promise.all([
         context.waitForEvent("page", { timeout: 5000 }),
+        context.waitForEvent("response", {
+          timeout: 5000,
+          predicate: (response) =>
+            /^\/api\/workspaces\/[^/]+\/models$/.test(
+              new URL(response.url()).pathname,
+            ) && response.frame().page() !== page,
+        }),
         link.click(
           gesture === "middle"
             ? { button: "middle" }
@@ -82,12 +83,11 @@ test("task links open native tabs without losing the original selection or draft
       await expect(
         tab.getByRole("button", { name: "Back", exact: true }),
       ).toHaveCount(0);
-      // Opening another tab must not start native discovery.
-      expect(catalogs.filter((r) => r.frame().page() === tab)).toHaveLength(0);
-      for (const response of catalogs.filter((r) => r.frame().page() === tab)) {
-        expect(response.status()).toBe(200);
-        expect(await response.json()).toEqual([]);
-      }
+      // Configured Coordinator views preload models. New tabs must use the
+      // context-wide stub, never invoke an installed harness during this test.
+      expect(catalog.frame().page()).toBe(tab);
+      expect(catalog.status()).toBe(200);
+      expect(await catalog.json()).toEqual([]);
       await tab.close();
       await expect(page).toHaveURL(new URL(originalPath, page.url()).href);
       await expect(draft).toHaveValue(
