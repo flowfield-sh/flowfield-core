@@ -12,9 +12,11 @@ from pydantic import Field, model_validator
 from flowfield.adapters import git_integration as gitops
 from flowfield.agent_models import AgentChoice
 from flowfield.application import now
+from flowfield.document_models import DocumentSnapshot
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.execution_models import Record
+from flowfield.guidance_models import GuidanceBinding, GuidanceDecision
 from flowfield.integration import Integrations
 from flowfield.outputs import Outputs
 from flowfield.results import Results
@@ -61,14 +63,18 @@ class ReviewBinding(Record):
     completion: Literal["code", "report"] = "code"
     output_ids: list[str] = Field(default_factory=list)
     outcome: Literal["complete", "partial"] = "complete"
+    guidance_digest: str = ""
+    documents: list[DocumentSnapshot] | None = None
 
 
 class TaskReview(ReviewRecord):
     task_id: str
-    result_id: str
-    binding: ReviewBinding
+    result_id: str | None = None
+    binding: ReviewBinding | None = None
+    guidance: GuidanceBinding | None = None
     verdict: ReviewVerdict | None = None
     applied_at: str | None = None
+    applied_agreement_revision: int | None = None
     responding_subtask_id: str | None = None
 
 
@@ -104,6 +110,14 @@ class TaskReviews(ReviewRecords[TaskReview]):
         result = results._get(db, project, result_id)
         run = results._current(db, result)
         task = self.store._task(db, project, result.task_id)
+        from flowfield.guidance_reconciliation import require_current, result_documents
+
+        require_current(self.store, db, task, result)
+        guidance_digest = hashlib.sha256(
+            json.dumps(
+                [doc.model_dump() for doc in result_documents(db, result)], sort_keys=True
+            ).encode()
+        ).hexdigest()
         Execution(self.store)._current_assignment(db, run, task)
         partial = result.status == "blocked" and result.problem_code == "partial_outcome"
         if not partial and (
@@ -143,6 +157,8 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 owner,
                 task.id,
                 ReviewBinding(
+                    guidance_digest=guidance_digest,
+                    documents=result_documents(db, result),
                     result_revision=result.revision,
                     run_id=run.id,
                     agreement_revision=run.agreement_revision,
@@ -190,6 +206,8 @@ class TaskReviews(ReviewRecords[TaskReview]):
             owner,
             task.id,
             ReviewBinding(
+                guidance_digest=guidance_digest,
+                documents=result_documents(db, result),
                 result_revision=result.revision,
                 run_id=run.id,
                 agreement_revision=run.agreement_revision,
@@ -212,6 +230,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
         )
 
     def validate_decision(self, review: TaskReview, decision: ReviewVerdict) -> None:
+        assert review.binding
         if decision.action not in ("request_changes", "ask_worker"):
             return
         with self.store.connection() as db:
@@ -286,6 +305,11 @@ class TaskReviews(ReviewRecords[TaskReview]):
     def freshness_problem(self, db: sqlite3.Connection, review: TaskReview) -> str | None:
         """Inspect the exact binding without changing review or question records."""
         try:
+            if review.guidance:
+                from flowfield.guidance_reconciliation import freshness_problem
+
+                return freshness_problem(self, db, review)
+            assert review.binding and review.result_id
             result = Results(self.store)._get(db, review.workspace_id, review.result_id)
             if (
                 review.status == "decided"
@@ -370,6 +394,11 @@ class TaskReviews(ReviewRecords[TaskReview]):
         """Persist a structured assessment only; downstream application must revalidate it."""
         with self.store.connection(write=True, workspace_id=project) as db:
             review = self._get(db, project, identity)
+            if review.guidance:
+                raise ApplicationError(
+                    "guidance_review", "Submit the scoped guidance decision.", 409
+                )
+            assert review.result_id
             if review.status == "decided" and review.verdict == verdict:
                 return review  # An exact replay cannot create another decision or delivery.
             self.store._current(review.revision, expected_revision)
@@ -396,10 +425,13 @@ class TaskReviews(ReviewRecords[TaskReview]):
     ) -> str:
         """Retained source evidence; the transport owner pages this before exposing it."""
         review = self.get(project, identity)
+        if review.guidance:
+            from flowfield.guidance_reconciliation import context as guidance_context
+
+            return guidance_context(self, review, section)
+        assert review.binding and review.result_id
         if section == "assignment":
-            return json.dumps(
-                Execution(self.store).assignment(project, review.binding.run_id), ensure_ascii=False
-            )
+            return json.dumps(self.assignment(review), ensure_ascii=False)
         if section == "validation":
             if review.binding.completion == "report":
                 return "No Git validation. Inspect the submitted report and exact input_files."
@@ -418,6 +450,19 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 for file in Outputs.selected(db, project, review.binding.output_ids)
             ]
             return json.dumps(context, ensure_ascii=False)
+
+    def assignment(self, review: TaskReview) -> dict[str, str]:
+        assert review.binding
+        from flowfield.worker_documents import sections
+
+        assignment = Execution(self.store).assignment(review.workspace_id, review.binding.run_id)
+        if review.binding.documents is not None:
+            assignment = {
+                key: value for key, value in assignment.items() if not key.startswith("document:")
+            }
+            with self.store.connection() as db:
+                assignment.update(sections(db, review.binding.documents))
+        return assignment
 
     def latest(self, project: str, task: str) -> TaskReview | None:
         with self.store.connection() as db:
@@ -507,7 +552,21 @@ class TaskReviews(ReviewRecords[TaskReview]):
                         decision.get("subtask_id") if action == "ask_worker" else None
                     )
                     review.status = "queued"
+                elif review.guidance:
+                    from flowfield.guidance_reconciliation import apply
+
+                    db.execute("SAVEPOINT guidance_proposal")
+                    try:
+                        apply(self, db, review, GuidanceDecision.model_validate(decision))
+                    except (ApplicationError, ValueError) as error:
+                        db.execute("ROLLBACK TO guidance_proposal")
+                        review.status, review.problem = "failed", str(error)
+                    else:
+                        review.status, review.completed_at = "decided", now()
+                    finally:
+                        db.execute("RELEASE guidance_proposal")
                 else:
+                    assert review.binding and review.result_id
                     review.verdict = ReviewVerdict.model_validate(decision)
                     review.status, review.completed_at = "decided", now()
                     self._save(db, review)
@@ -543,6 +602,20 @@ class TaskReviews(ReviewRecords[TaskReview]):
             return review
 
     def read_context(self, review: TaskReview, section: str) -> str:
+        if review.guidance and (
+            section.startswith(("document:", "previous:document:"))
+            or section
+            in (
+                "task",
+                "previous_guidance",
+                "current_guidance",
+                "retained_work",
+                "earlier_answers",
+            )
+        ):
+            from flowfield.guidance_reconciliation import context as guidance_context
+
+            return guidance_context(self, review, section)
         if section.startswith("exchanges:"):
             try:
                 before = int(section.removeprefix("exchanges:")) or None
@@ -586,6 +659,18 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 question = Questions(self.store).get(review.workspace_id, review.question_id)
                 return question.model_dump_json()
             return "No human answer."
+        assert review.binding
+        from flowfield.worker_documents import sections
+
+        with self.store.connection() as db:
+            if review.binding.documents is not None:
+                documents = sections(db, review.binding.documents)
+                if section in documents:
+                    return documents[section]
+                if section.startswith("document:"):
+                    raise ApplicationError(
+                        "not_found", "This document section is not selected for the review.", 404
+                    )
         return Execution(self.store).context_section(
             review.workspace_id, review.binding.run_id, section
         )

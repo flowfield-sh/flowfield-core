@@ -10,7 +10,12 @@ from flowfield.project_config import Identifier, Title
 class DocumentReference(BaseModel):
     model_config = ConfigDict(extra="forbid", json_schema_serialization_defaults_required=True)
     id: Identifier
-    revision: int | None = Field(default=None, ge=1)
+    revision: int | None = Field(
+        default=None,
+        ge=1,
+        description="Legacy selection revision. Preparation and reconciliation use the latest "
+        "revision; saved execution and review evidence retain their exact revisions.",
+    )
     purpose: Literal["required", "reference"] = "required"
 
     @model_validator(mode="after")

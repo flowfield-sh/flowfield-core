@@ -1270,17 +1270,9 @@ class Workspace:
     def _prepare_sources(
         self, db: sqlite3.Connection, current: Task, author: str
     ) -> list[DocumentSnapshot]:
-        from flowfield.document_usage import DocumentUsage
-        from flowfield.worker_documents import select
+        from flowfield.guidance_reconciliation import latest_documents
 
-        documents = select(
-            db,
-            current.workspace_id,
-            self._project(db, current.project_id).worker_documents
-            if current.project_id
-            else DocumentUsage.projectless_defaults(db, current.workspace_id),
-            current.documents,
-        )
+        documents = latest_documents(self, db, current)
         # A newly adopted revision is a scope change, even if the prose description
         # stayed the same. Old runs/results can never satisfy this newer agreement.
         if (

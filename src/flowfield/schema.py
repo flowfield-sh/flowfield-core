@@ -1,6 +1,14 @@
 """Current schema and additive migration definitions for published stores."""
 
-SCHEMA_VERSION = 87
+SCHEMA_VERSION = 88
+
+TASK_REVIEWS = """
+CREATE TABLE task_reviews (number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL
+    UNIQUE, workspace_id TEXT NOT NULL REFERENCES workspaces(id), task_id TEXT NOT
+    NULL, result_id TEXT REFERENCES result_versions(id), binding TEXT NOT
+    NULL, status TEXT NOT NULL, data TEXT NOT NULL, UNIQUE(result_id, binding), FOREIGN
+    KEY(workspace_id, task_id) REFERENCES tasks(workspace_id, id))
+"""
 
 TASK_DELETIONS = """
 CREATE TABLE task_deletions (
@@ -184,7 +192,7 @@ CREATE TABLE task_replies (
 
 CREATE TABLE task_reviews (number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL
     UNIQUE, workspace_id TEXT NOT NULL REFERENCES workspaces(id), task_id TEXT NOT
-    NULL, result_id TEXT NOT NULL REFERENCES result_versions(id), binding TEXT NOT
+    NULL, result_id TEXT REFERENCES result_versions(id), binding TEXT NOT
     NULL, status TEXT NOT NULL, data TEXT NOT NULL, UNIQUE(result_id, binding), FOREIGN
     KEY(workspace_id, task_id) REFERENCES tasks(workspace_id, id));
 
@@ -405,7 +413,7 @@ INSERT INTO storage_metadata VALUES (1, lower(hex(randomblob(16))), 0);
 INSERT INTO harness_settings VALUES ('codex', 1, NULL, NULL), ('claude-code', 1, NULL,
     NULL), ('pi', 1, NULL, NULL);
 
-PRAGMA user_version = 87;
+PRAGMA user_version = 88;
 """
 
 SCHEMA += TASK_DELETIONS + ";"

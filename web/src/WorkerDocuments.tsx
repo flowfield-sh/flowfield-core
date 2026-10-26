@@ -30,9 +30,9 @@ export function WorkerDocumentPicker({
     <Disclosure summary={`Worker documents · ${value.length} selected`}>
       <ContentStack space="content">
         <p>
-          Defaults for this project’s tasks. Revisions are fixed when the
-          coordinator prepares each assignment. Required documents must be read;
-          references provide optional supporting material.
+          Defaults for this project’s tasks. Guidance changes are reviewed
+          automatically before work and result review. Required documents must
+          be read; references provide optional supporting material.
         </p>
         <ResourceRetry resources={[page]} />
         {page.loading && <p>Loading documents…</p>}
@@ -131,28 +131,36 @@ export function WorkerDocumentPicker({
 export function WorkerDocumentEvidence({
   documents,
   updates = [],
+  summary = "Worker documents",
+  showSize = true,
 }: {
   documents: Snapshot[];
   updates?: components["schemas"]["DocumentUpdate"][];
+  summary?: string;
+  showSize?: boolean;
 }) {
   if (!documents.length) return null;
   const content = (
     <ContentStack space="content">
       {!!updates.length && (
         <p>
-          Updated guidance is available. Discuss its relevance with the
-          coordinator before preparing affected work again. Active attempts keep
-          their saved sources.
+          Updated guidance will be reviewed automatically at the next handoff.
+          Active attempts keep their saved sources.
         </p>
       )}
-      <p className="detail-metadata">
-        {documents
-          .reduce((sum, item) => sum + item.characters, 0)
-          .toLocaleString()}{" "}
-        characters ·{" "}
-        {documents.reduce((sum, item) => sum + item.bytes, 0).toLocaleString()}{" "}
-        bytes of source text. Token usage is reported separately by the harness.
-      </p>
+      {showSize && (
+        <p className="detail-metadata">
+          {documents
+            .reduce((sum, item) => sum + item.characters, 0)
+            .toLocaleString()}{" "}
+          characters ·{" "}
+          {documents
+            .reduce((sum, item) => sum + item.bytes, 0)
+            .toLocaleString()}{" "}
+          bytes of source text. Token usage is reported separately by the
+          harness.
+        </p>
+      )}
       <ul>
         {documents.map((item) => (
           <li key={item.id}>
@@ -179,5 +187,5 @@ export function WorkerDocumentEvidence({
       </ul>
     </ContentStack>
   );
-  return <Disclosure summary="Worker documents">{content}</Disclosure>;
+  return <Disclosure summary={summary}>{content}</Disclosure>;
 }

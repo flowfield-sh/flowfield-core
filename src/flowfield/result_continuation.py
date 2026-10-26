@@ -20,6 +20,9 @@ def guard(results: "Results", db: sqlite3.Connection, version: ResultVersion) ->
         raise ApplicationError("queue_paused", "The worker queue is paused.", 409)
     run = results._current(db, version)
     task = results.workspace._task(db, version.workspace_id, version.task_id)
+    from flowfield.guidance_reconciliation import require_current
+
+    require_current(results.workspace, db, task, version)
     results.execution._current_assignment(db, run, task)
     if db.execute(
         "SELECT 1 FROM task_reviews WHERE workspace_id=? AND task_id=? "

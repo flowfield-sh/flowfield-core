@@ -29,6 +29,7 @@ import { ExpandableMarkdown } from "./ExpandableMarkdown";
 import { BlockedBy } from "./TaskLinks";
 import { TaskNeeds, hasTaskNeeds } from "./TaskNeeds";
 import { TaskConversation } from "./TaskConversation";
+import { TaskReview } from "./TaskReview";
 import { type WorkspaceBoard, type Task } from "./workspace";
 export function TaskDetail({
   task,
@@ -207,6 +208,13 @@ export function TaskDetail({
               )}
             </ContentStack>
           )}
+          <TaskReview
+            projectId={workspaceId}
+            taskId={task.id}
+            taskKey={task.key}
+            refresh={board}
+            guidanceOnly
+          />
           {hasTaskNeeds(
             task,
             board.pending_code[task.key],

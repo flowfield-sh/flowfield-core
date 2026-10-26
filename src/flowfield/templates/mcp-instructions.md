@@ -21,9 +21,9 @@ Batch up to eight independent reads; serialize writes. Follow pagination/text re
 Reread stale writes; inspect uncertain effects. Read guidance and
 applicable exact revisions via get_document/get_document_text. Required sources must be read
 fully; references are optional. Do not import repository guidance implicitly. Task references
-override purposes/revisions, not omitted project defaults. Preserve applicable obligations in
+override purposes, not omitted project defaults. Preserve applicable obligations in
 required sources or the task, citing source revisions; honor human reading requirements.
-When saving reusable guidance, select project or projectless defaults deliberately; task-only selections do not carry into future tasks. Read list_labels during planning and assign existing labels whose usage guidance fits. Preparation pins sources. After edits use get_document_impact; notices do not alter assignments.
+When saving reusable guidance, select project or projectless defaults deliberately; task-only selections do not carry into future tasks. Read list_labels during planning and assign existing labels whose usage guidance fits. Preparation selects current sources. Guidance changes trigger automatic Reviewer reconciliation before work, after implementation and while awaiting approval. Let the service continue safe in-scope work; resolve genuine intent conflicts with the human. Active attempts and completed tasks retain their saved evidence.
 
 Record outcomes, constraints and success conditions in tasks. Preparation is not
 scheduling: respect pauses and explicit model authority. After workers stop, edit/reconcile

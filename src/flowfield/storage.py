@@ -9,7 +9,7 @@ from typing import Any, BinaryIO
 from uuid import uuid4
 
 from flowfield.errors import ApplicationError
-from flowfield.schema import SCHEMA_VERSION, TASK_DELETIONS
+from flowfield.schema import SCHEMA_VERSION, TASK_DELETIONS, TASK_REVIEWS
 
 DATABASE = "workspace.sqlite3"
 
@@ -85,7 +85,7 @@ def identity(db: sqlite3.Connection) -> tuple[str, int]:
 
 def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
     """Schema 86 shipped in 0.6/0.7; this migration changes only the database."""
-    if current != 86:
+    if current not in (86, 87):
         require_supported(current)
         return
     integrity(db)
@@ -94,7 +94,7 @@ def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
     if backups.is_symlink():
         raise ApplicationError("invalid_backup", "Recovery directory must not be a symlink.")
     backups.mkdir(mode=0o700, exist_ok=True)
-    backup = backups / f"schema-86-{uuid4().hex}.sqlite3"
+    backup = backups / f"schema-{current}-{uuid4().hex}.sqlite3"
     backup.touch(mode=0o600, exist_ok=False)
     with closing(sqlite3.connect(backup)) as saved:
         db.backup(saved)
@@ -109,14 +109,28 @@ def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
     finally:
         os.close(descriptor)
     try:
+        db.execute("PRAGMA foreign_keys=OFF")
         db.execute("BEGIN IMMEDIATE")
-        db.execute(TASK_DELETIONS)
+        if current == 86:
+            db.execute(TASK_DELETIONS)
+        sequences = db.execute("SELECT name,seq FROM sqlite_sequence").fetchall()
+        db.execute(
+            TASK_REVIEWS.replace("CREATE TABLE task_reviews", "CREATE TABLE updated_task_reviews")
+        )
+        db.execute("INSERT INTO updated_task_reviews SELECT * FROM task_reviews")
+        db.execute("DROP TABLE task_reviews")
+        db.execute("ALTER TABLE updated_task_reviews RENAME TO task_reviews")
+        db.execute("CREATE INDEX task_reviews_task ON task_reviews(workspace_id, task_id, number)")
+        db.execute("DELETE FROM sqlite_sequence")
+        db.executemany("INSERT INTO sqlite_sequence(name,seq) VALUES (?,?)", sequences)
         db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
         integrity(db)
         db.commit()
     except BaseException:
         db.rollback()
         raise
+    finally:
+        db.execute("PRAGMA foreign_keys=ON")
 
 
 def initialize(directory: Path, schema: str) -> None:

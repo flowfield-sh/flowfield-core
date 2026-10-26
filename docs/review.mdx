@@ -13,7 +13,7 @@ Configure the default **Task reviewer** in **Workspace settings → Reviewers**.
 
 Complete code and file outcomes receive an independent assessment against their exact assignment, sources, destination and saved validation. Reviews share worker capacity and respect the queue: pausing prevents new rounds, while an active round continues. The reviewer inspects the saved candidate and validation evidence.
 
-Reviewer sign-offs appear on the task and in the exact result. The reviewer can ask the implementer a scoped clarification, request an in-scope correction, or send an intent, scope or access question to Inbox. Saved human answers continue the review without another apply step. A correction produces a new candidate and fresh independent assessment. Changes to the agreement or authority require Coordinator reconciliation; an answer does not silently amend them. Waiting for an answer releases capacity.
+Reviewer sign-offs appear on the task and in the exact result. The reviewer can ask the implementer a scoped clarification, request an in-scope correction, or send an intent, scope or access question to Inbox. Saved human answers continue the review without another apply step. A correction produces a new candidate and fresh independent assessment. Guidance changes trigger [automatic reconciliation](/documents#keep-tasks-current); changes to the intended outcome or delivery authority still need a human decision. Waiting for an answer releases capacity.
 
 Ask the Coordinator to stop a review; stopping preserves the candidate and findings. Failed or stopped reviews require explicit **Retry review**. If cleanup is uncertain, inspect **Review rounds and diagnostics**, confirm the retained processes have stopped, then retry. Uncertain execution keeps its capacity reserved. Changed inputs make an assessment outdated and retain its evidence; questions belonging to that assessment are withdrawn with their saved answers preserved.
 
@@ -25,7 +25,7 @@ Read the worker report, limitations and checks against the task's success criter
 
 While Flowfield checks a candidate, the result shows the active setup or validation command, elapsed time and timeout, recent output, and completed commands. Output updates without moving your reading position. **Stop checks** stops the command and preserves captured output. Projects with no saved validation commands say so explicitly.
 
-The result identifies its project and destination branch below the task title. **Run result** provides the copyable launch command. Under **Details**, expand **Supporting files**, **Review evidence** or **Code changes** to inspect retained outputs, the exact review inputs or the candidate's diff. See [worker setup](/worker-setup#try-a-result) for populated previews and launchers.
+The result identifies its project and destination branch below the task title. **Run result** provides the copyable launch command. Under **Details**, expand **Supporting files**, **Review evidence**, **Guidance** or **Code changes** to inspect retained outputs, reviewer findings, exact document revisions or the candidate's diff. See [worker setup](/worker-setup#try-a-result) for populated previews and launchers.
 
 ![Code changes and exact-result review beside the Coordinator](/images/code-review.png)
 
@@ -41,7 +41,7 @@ Delivery updates the configured local branch and registered checkout. Ask the Co
 
 ## Earlier results and follow-ups
 
-When another delivery advances the destination, Flowfield prepares and checks the existing work against that destination automatically while the queue is enabled. Merge conflicts or failed checks caused by that change can queue a scoped worker correction with both code inputs and the failure evidence. The new candidate receives its configured review and needs fresh delivery approval. Pausing the queue prevents new automatic continuations. Changed requirements, settings, access problems or repeated unchanged corrections need attention rather than another automatic attempt.
+When another delivery advances the destination, Flowfield prepares and checks the existing work against that destination automatically while the queue is enabled. Merge conflicts or failed checks caused by that change can queue a scoped worker correction with both code inputs and the failure evidence. The new candidate receives its configured review and needs fresh delivery approval. Pausing the queue prevents new automatic continuations. Changed intent, settings, access problems or repeated unchanged corrections need attention rather than another automatic attempt.
 
 Completed tasks keep their delivered snapshots. If unfinished dependent work needs current validation of a prerequisite, its blocker links to **Check destination** in that result’s Checks section. Passing checks lets dependent work continue; failures leave it blocked without undoing the earlier delivery. Earlier results and existing preview copies remain unchanged.
 

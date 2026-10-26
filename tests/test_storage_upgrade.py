@@ -13,7 +13,7 @@ from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 
 
-def published(tmp_path):
+def published(tmp_path, version=86):
     fixtures = Path(__file__).parent / "fixtures"
     directory = tmp_path / "state"
     directory.mkdir()
@@ -24,6 +24,9 @@ def published(tmp_path):
     )
     with sqlite3.connect(directory / storage.DATABASE) as db:
         db.executescript(sql)
+        if version == 87:
+            db.execute(storage.TASK_DELETIONS)
+            db.execute("PRAGMA user_version=87")
     info = json.loads((fixtures / "published-schema-86.json").read_text())
     output = directory / "workspaces" / "harbor" / "outputs" / info["output_id"]
     output.parent.mkdir(parents=True)
@@ -43,17 +46,18 @@ def rows(database):
         return {name: db.execute(f'SELECT * FROM "{name}"').fetchall() for name in names}
 
 
-def test_published_upgrade_preserves_every_row_and_file_with_verified_recovery(tmp_path):
-    directory, output, info = published(tmp_path)
+@pytest.mark.parametrize("version", [86, 87])
+def test_published_upgrade_preserves_every_row_and_file_with_verified_recovery(tmp_path, version):
+    directory, output, info = published(tmp_path, version)
     before = rows(directory / storage.DATABASE)
     store = Workspace(directory)
     assert rows(store.database) == before
-    assert storage.status(directory)["schema_version"] == 87
+    assert storage.status(directory)["schema_version"] == 88
     assert hashlib.sha256(output.read_bytes()).hexdigest() == info["sha256"]
-    backups = list((directory / "backups").glob("schema-86-*.sqlite3"))
+    backups = list((directory / "backups").glob(f"schema-{version}-*.sqlite3"))
     assert len(backups) == 1 and rows(backups[0]) == before
     with sqlite3.connect(backups[0]) as db:
-        assert storage.version(db) == 86
+        assert storage.version(db) == version
         storage.integrity(db)
     board = BrowserReads(store).workspace_board("harbor")
     assert {task.status for task in board.tasks} == {"done", "backlog"}

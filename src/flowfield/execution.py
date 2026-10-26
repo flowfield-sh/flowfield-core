@@ -294,7 +294,12 @@ class Execution:
             if task.project_id
             else False
         )
-        if resume:
+        if (
+            resume
+            and predecessor
+            and predecessor.documents == task.publication.documents
+            and predecessor.agreement_revision == task.agreement_revision
+        ):
             assert predecessor
             run.documents = predecessor.documents
             assignment: dict[str, str] = json.loads(
@@ -377,7 +382,8 @@ class Execution:
                     "json_extract(data,'$.origin_review_id') IN ("
                     "SELECT r.id FROM task_reviews r WHERE "
                     "r.workspace_id=questions.workspace_id AND r.task_id=questions.task_id "
-                    "AND json_extract(r.data,'$.binding.agreement_revision')=?))) ORDER BY number",
+                    "AND coalesce(json_extract(r.data,'$.applied_agreement_revision'),"
+                    "json_extract(r.data,'$.binding.agreement_revision'))=?))) ORDER BY number",
                     (workspace_id, task.id, run.agreement_revision),
                 )
             ]
@@ -422,6 +428,16 @@ class Execution:
             from flowfield.task_assembly import TaskAssembly
 
             for task in candidates:
+                from flowfield.guidance_reconciliation import pending as guidance_pending
+
+                if guidance_pending(self.workspace, db, task):
+                    continue
+                if db.execute(
+                    "SELECT 1 FROM task_reviews WHERE workspace_id=? AND task_id=? "
+                    "AND status IN ('queued','preparing','running','waiting','uncertain')",
+                    (workspace_id, task.id),
+                ).fetchone():
+                    continue
                 current_agents = task_agents(self.workspace, db, workspace_id, task.id)
                 if checked_agents is not None and checked_agents != current_agents:
                     continue
@@ -461,6 +477,7 @@ class Execution:
                     and predecessor.input_checkpoint
                     else None
                 )
+                from flowfield.guidance_reconciliation import reconciled_run
                 from flowfield.input_delivery import other_input_blocks
 
                 continuation = bool(
@@ -470,7 +487,10 @@ class Execution:
                     and not pending_input.continuation_run_id
                     and pending_input.origin_run_id == predecessor.id
                     and task.status in ("in_progress", "up_next")
-                    and task.agreement_revision == predecessor.agreement_revision
+                    and (
+                        task.agreement_revision == predecessor.agreement_revision
+                        or reconciled_run(db, task, predecessor.id)
+                    )
                     and not task.reconciliation_reason
                     and not task.blocked_by
                     and not other_input_blocks(

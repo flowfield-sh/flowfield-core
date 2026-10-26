@@ -47,21 +47,30 @@ export function TaskReview({
   taskId,
   taskKey,
   refresh,
+  guidanceOnly = false,
 }: {
   projectId: string;
   taskId: string;
   taskKey: string;
   refresh: unknown;
+  guidanceOnly?: boolean;
 }) {
   const resource = useResource<Review | null>(
     `workspaces/${projectId}/tasks/${taskId}/review`,
     refresh,
   );
   const review = resource.data;
+  if (guidanceOnly && !review?.guidance && !resource.error) return null;
   if (review && ["decided", "stale"].includes(review.status)) return null;
   if (!review && !resource.error) return null;
   return (
-    <DetailSection title="Independent review">
+    <DetailSection
+      title={
+        guidanceOnly || review?.guidance
+          ? "Guidance review"
+          : "Independent review"
+      }
+    >
       <ContentStack>
         <ResourceRetry resources={[resource]}>Retry review</ResourceRetry>
         {review && (
@@ -70,7 +79,9 @@ export function TaskReview({
               {review.status === "decided"
                 ? review.verdict?.summary
                 : review.status === "running"
-                  ? "Reviewing result"
+                  ? review.guidance
+                    ? "Reviewing updated guidance"
+                    : "Reviewing result"
                   : review.status === "queued"
                     ? "Review queued"
                     : review.status === "waiting"
@@ -90,12 +101,14 @@ export function TaskReview({
               review={review}
               path={`workspaces/${projectId}/reviews/${review.id}`}
               saved={resource.setData}
+              stoppable={!!review.guidance}
             />
-            {["uncertain", "failed", "stopped"].includes(review.status) && (
-              <WorkspaceLink to={taskHref(projectId, { key: taskKey })}>
-                Review rounds and diagnostics
-              </WorkspaceLink>
-            )}
+            {!guidanceOnly &&
+              ["uncertain", "failed", "stopped"].includes(review.status) && (
+                <WorkspaceLink to={taskHref(projectId, { key: taskKey })}>
+                  Review rounds and diagnostics
+                </WorkspaceLink>
+              )}
           </>
         )}
       </ContentStack>
@@ -217,13 +230,15 @@ function ReviewControls<R extends { revision: number; status: string }>({
   review,
   path,
   saved: onSaved,
+  stoppable = false,
 }: {
   review: R;
   path: string;
   saved: (value: R) => void;
+  stoppable?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
-  async function act(action: "retry" | "confirm-stopped") {
+  async function act(action: "retry" | "confirm-stopped" | "stop") {
     if (!review) return;
     setBusy(true);
     try {
@@ -239,6 +254,19 @@ function ReviewControls<R extends { revision: number; status: string }>({
   }
   return (
     <div className="actions">
+      {stoppable &&
+        ["queued", "preparing", "running", "waiting"].includes(
+          review.status,
+        ) && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => void act("stop")}
+          >
+            Stop review
+          </Button>
+        )}
       {review.status === "uncertain" && (
         <ConfirmButton
           size="sm"

@@ -41,7 +41,9 @@ export function TaskState({
         </WorkState>
       )}
       {!!task.document_updates?.length && (
-        <p className="detail-metadata">{"Updated guidance available"}</p>
+        <p className="detail-metadata">
+          Guidance will be reviewed before continuing
+        </p>
       )}
     </>
   );

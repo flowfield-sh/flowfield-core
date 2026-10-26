@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
+from flowfield.document_models import DocumentSnapshot
 from flowfield.execution_models import Correction, Record, WorkerResult
 from flowfield.output_models import OutputFile
 
@@ -36,6 +37,7 @@ class IndependentAssessment(Record):
 
 
 class ResultVersion(Record):
+    guidance_documents: list[DocumentSnapshot] | None = None
     output_ids: list[str] = Field(default_factory=list)
     files: list[OutputFile] = Field(default_factory=list)
     id: str

@@ -65,7 +65,7 @@ def test_purpose_is_per_selection_frozen_and_changes_require_preparation(tmp_pat
     assert next(d for d in second.publication.documents if d.id == doc.id).purpose == "reference"
 
 
-def test_updates_reach_board_inbox_and_coordinator_without_blocking_and_are_scoped(tmp_path):
+def test_updates_reach_board_inbox_and_coordinator_and_remain_scoped(tmp_path):
     store = shared(tmp_path)
     space = Workspaces(store).for_project("core").id
     docs = Documents(store)
@@ -133,6 +133,12 @@ def test_updates_reach_board_inbox_and_coordinator_without_blocking_and_are_scop
         ),
     )
     assert not updated.document_updates
+    other_task = store.task(space, "site")
+    store.publish_task(
+        space,
+        other_task.id,
+        TaskPublish(expected_revision=other_task.revision, completion="report"),
+    )
     complete(store, space, "site")
     assert not docs.impact(space, doc.id)["items"]
     assert attention_page(store, space, "waiting").total == 0

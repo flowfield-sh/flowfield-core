@@ -38,7 +38,7 @@ Open [localhost:8765](http://127.0.0.1:8765), create a workspace and choose its 
 
 **🗂️ Follow tasks across projects**<br>Bring your API, application and documentation into one workspace. Each task keeps its scope, activity and results. Move cards on the board to set priorities and link tasks that depend on each other. Reports and files can have tasks without a repository.
 
-**📚 Keep decisions where workers can use them**<br>Maintain shared guidance with the Coordinator and select the documents each task needs. Prepared tasks keep their document revisions, so you can see which guidance informed a result.
+**📚 Keep decisions where workers can use them**<br>Maintain shared guidance with the Coordinator and select the documents each task needs. Flowfield reviews guidance changes before work and approval; results preserve the exact revisions used.
 
 **⚡ Build in parallel**<br>Workers carry out independent tasks in separate checkouts using your tools and checks. Dependent tasks wait for the work they need. Larger tasks can split into subtasks that come back as one result for review.
 

@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { expect } from "@playwright/test";
 import { test, state } from "./support";
 import { openResource } from "./shell-navigation";
+import { dialogViews } from "./dialog-evidence";
 
 test("one task owns assembled code, reviewer sign-off and durable PDF/screenshots", async ({
   page,
@@ -185,6 +186,17 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await expect(
     page.getByRole("region", { name: "Run command", exact: true }),
   ).toBeVisible();
+  await page.getByText("Guidance", { exact: true }).click();
+  const guidance = page
+    .locator("details")
+    .filter({ has: page.locator("summary", { hasText: /^Guidance$/ }) });
+  await expect(
+    guidance.getByRole("link", { name: /Workspace guidance/ }),
+  ).toHaveAttribute("href", /\/documents\/guidance\/revisions\/1$/);
+  await expect(guidance).toContainText("Required");
+  await dialogViews(page, testInfo, "result-guidance");
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.getByText("Guidance", { exact: true }).click();
   await expect(
     page.getByRole("img", { name: "launch-preview.png", exact: true }),
   ).not.toBeVisible();

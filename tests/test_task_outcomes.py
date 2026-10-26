@@ -273,12 +273,12 @@ def test_assembled_review_receives_frozen_sources_and_output_manifest(tmp_path):
     )
     assert run
     contribute(store, execution, owner, run, output="contract.pdf")
-    docs.edit(owner, contract.id, DocumentEdit(expected_revision=1, body="New, unselected rules"))
     assert assemblies.assemble(owner, task.id)
     Results(store).process(owner)
     result = Results(store).page(owner, task.id).items[0]
     reviews = TaskReviews(store)
     review = reviews.prepare(owner, result.id)
+    docs.edit(owner, contract.id, DocumentEdit(expected_revision=1, body="New, unselected rules"))
     assert reviews.read_context(review, f"document:{contract.id}") == contract.body
     assert json.loads(reviews.read_context(review, "files")) == []
     assert result.report.files == []

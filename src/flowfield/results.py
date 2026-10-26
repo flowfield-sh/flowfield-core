@@ -35,6 +35,9 @@ class Results:
             return self._present(db, self._get(db, workspace_id, identity))
 
     def _present(self, db: sqlite3.Connection, value: ResultVersion) -> ResultVersion:
+        from flowfield.guidance_reconciliation import result_documents
+
+        value.guidance_documents = result_documents(db, value)
         from flowfield.outputs import Outputs
         from flowfield.result_actions import result_action, reuse_action
 
@@ -243,6 +246,12 @@ class Results:
         request: ResultReview,
     ) -> ResultVersion:
         version = self._get(db, workspace_id, identity)
+        from flowfield.guidance_reconciliation import require_current
+
+        if request.action == "approve":
+            require_current(
+                self.workspace, db, self.workspace._task(db, workspace_id, version.task_id), version
+            )
         binding = version.candidate_commit or version.source_commit
         if request.candidate_commit != binding:
             raise ApplicationError(
@@ -628,6 +637,11 @@ class Results:
 
     def _finish_report(self, db: sqlite3.Connection, value: ResultVersion) -> None:
         """Complete retained findings, optionally after independent assessment."""
+        from flowfield.guidance_reconciliation import require_current
+
+        require_current(
+            self.workspace, db, self.workspace._task(db, value.workspace_id, value.task_id), value
+        )
         from flowfield.outputs import Outputs
 
         if value.completion != "report" or value.report.outcome != "complete":
@@ -784,6 +798,12 @@ class Results:
                         code=integration.problem_code,
                     )
         except (ApplicationError, OSError) as error:
+            if (
+                isinstance(error, ApplicationError)
+                and error.code == "guidance_changed"
+                and version.status == "preparing"
+            ):
+                return  # Reconciliation owns the next step, including report completion.
             if isinstance(error, ApplicationError) and error.code == "integration_busy":
                 return  # The service retries queued work after the current local operation.
             self._problem(

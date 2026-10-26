@@ -1,6 +1,6 @@
 ---
 title: Workspace documents
-description: Maintain shared guidance and select the revisions workers need.
+description: Maintain shared guidance that stays current as tasks progress.
 ---
 
 **Documents** holds versioned Markdown for purpose, conventions, architecture and specifications. **Workspace guidance** is always included in newly prepared tasks. Ask the Coordinator to create custom documents; you can edit them directly. Keep current work status in tasks and repository conventions in their authoritative files.
@@ -19,25 +19,27 @@ Ask the Coordinator to delete a custom document after removing it from defaults 
 
 ## Supply worker context
 
-**Saving a custom document does not select it for workers.** Choose **Edit → Use this document** to set its future audience:
+**Saving a custom document does not select it for workers.** Choose **Edit → Use this document** to select where it applies:
 
 | Selection | Applies to |
 | --- | --- |
-| Projects | New preparations for the selected projects; also editable in **Project settings → Worker documents**. |
-| Include for tasks without a project | New preparations for workspace-only work such as research, screenshots or PDFs. Off by default. |
-| Task-specific selection | One outcome; ask the Coordinator to select the document or pin an exact revision. |
+| Projects | Unfinished tasks in the selected projects; also editable in **Project settings → Worker documents**. |
+| Include for tasks without a project | Unfinished workspace-only work such as research, screenshots or PDFs. Off by default. |
+| Task-specific selection | One outcome; ask the Coordinator to select the document. |
 
-Choose **Required source** for rules the worker must read fully, or **Reference material** for optional supporting context. The same document can have different purposes in different projects/tasks. Main workspace guidance is always required. Unchecking a default excludes it from new preparations, unless a task explicitly selects it; already prepared inputs stay unchanged.
+Choose **Required source** for rules the worker must read fully, or **Reference material** for optional supporting context. The same document can have different purposes in different projects/tasks. Main workspace guidance is always required. Unchecking a default removes it from the next guidance review, unless a task explicitly selects it.
 
-Use defaults for shared rules and task selections for specific context. Task selections can override a default’s purpose or revision; omitting a document from that list does not exclude an inherited default. Split long mixed guidance into focused documents while preserving applicable rules and exceptions.
+Use defaults for shared rules and task selections for specific context. Task selections can override a default’s purpose; omitting a document from that list does not exclude an inherited default. Split long mixed guidance into focused documents while preserving applicable rules and exceptions.
 
-Preparation freezes workspace guidance plus at most 20 custom documents and 1 MB of text. Workers receive a brief and access to those revisions; linked documents must be selected separately. Inspect the selection under **Worker documents** in attempt evidence.
+Preparation selects the latest revisions of workspace guidance plus at most 20 custom documents and 1 MB of text. Workers receive a brief and access to those exact revisions; linked documents must be selected separately. Attempt evidence preserves the sources used for that attempt. Results list their reviewed sources under **Details → Guidance**, with links to exact revisions.
 
-## Adopt changes deliberately
+## Keep tasks current
 
-Document/default edits preserve prepared assignments and running attempts. Updated-document notices on unfinished tasks identify the changed document and link to its revisions. They are informational; they do not block work or invalidate results automatically.
+Before work starts or continues, Flowfield checks selected guidance against current revisions, defaults and purposes. If anything changed, a Reviewer compares it with the task and retained work, updates the definition, criteria or existing subtask instructions where needed, and continues automatically. Genuine conflicts or missing decisions become questions in Inbox.
 
-Ask the Coordinator to assess affected tasks, prepare upcoming work again when it should adopt changes, and reconcile work already started. Answer continuations retain their original sources. Completed tasks keep their delivered snapshots.
+Flowfield repeats this check after work and while a result awaits approval. Relevant implementation changes return to the worker; other updates produce a new result version for fresh assessment and approval. Earlier results keep their original guidance and approval history. Reviews respect the queue and share worker capacity, including when independent result assessment is disabled. A configured reviewer is required.
+
+Running attempts keep their original assignment until the next handoff. Each review uses one saved snapshot; further edits are checked before its conclusion applies. Completed tasks retain their delivered guidance without automatic reopening.
 
 ## Work with the Coordinator
 

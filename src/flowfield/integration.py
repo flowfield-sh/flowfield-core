@@ -467,6 +467,20 @@ class Integrations:
                 # allows recovery if the process exits between Git and SQLite commits.
                 with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
                     current = self.execution._run(db, workspace_id, record.run_id)
+                    from flowfield.guidance_reconciliation import require_current
+                    from flowfield.result_models import ResultVersion
+
+                    result_row = db.execute(
+                        "SELECT data FROM result_versions WHERE run_id=? "
+                        "ORDER BY version DESC LIMIT 1",
+                        (current.id,),
+                    ).fetchone()
+                    require_current(
+                        self.workspace,
+                        db,
+                        self.workspace._task(db, workspace_id, current.task_id),
+                        ResultVersion.model_validate_json(result_row[0]) if result_row else None,
+                    )
                     self.execution._current_assignment(
                         db, current, self.workspace._task(db, workspace_id, current.task_id)
                     )

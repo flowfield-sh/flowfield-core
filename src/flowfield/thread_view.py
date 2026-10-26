@@ -134,6 +134,7 @@ class ThreadView(Conversation):
                         cycle_start = "correction"
                     title = {
                         "approve": "Reviewer signed off",
+                        "adopt": "Guidance reconciled",
                         "request_changes": "Reviewer requested changes",
                         "ask_human": "Reviewer asked a question",
                         "ask_worker": "Reviewer asked the worker",
@@ -195,7 +196,11 @@ class ThreadView(Conversation):
                 "SELECT version FROM result_versions WHERE workspace_id=? AND id=?",
                 (workspace_id, data["result_id"]),
             ).fetchone()
-            title = f"Reviewing result #{version[0]}"
+            title = (
+                "Reviewing updated guidance"
+                if data.get("guidance")
+                else f"Reviewing result #{version[0]}"
+            )
             body = data.get("problem") or ""
             review_decision = (data.get("verdict") or {}).get("action")
         elif kind == "approval":

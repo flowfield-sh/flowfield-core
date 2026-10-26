@@ -25,9 +25,29 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
         super().__init__(supervisor, TaskReviews(supervisor.workspace))
         self.cursor = 0
         self.queue_cursor = 0
+        self.guidance_cursor = 0
 
     async def schedule(self) -> None:
         service = self.supervisor
+        from flowfield.guidance_reconciliation import prepare as prepare_guidance
+
+        with service.workspace.connection() as db:
+            tasks = db.execute(
+                "SELECT rowid,workspace_id,id FROM tasks WHERE json_extract(data,'$.archived')=0 "
+                "AND json_extract(data,'$.status') IN ('up_next','in_progress','in_review') "
+                "ORDER BY CASE WHEN rowid>? THEN 0 ELSE 1 END,rowid LIMIT 20",
+                (self.guidance_cursor,),
+            ).fetchall()
+        self.guidance_cursor = tasks[-1][0] if tasks else 0
+        for _, workspace, task_id in tasks:
+            try:
+                guidance_review = await asyncio.to_thread(
+                    prepare_guidance, self.reviews, workspace, task_id
+                )
+                if guidance_review and guidance_review.status == "waiting":
+                    self.reviews.resume_answer(workspace, guidance_review.id)
+            except ApplicationError as error:
+                service.execution.task_problem(workspace, task_id, error.message)
         # Bounded rotating discovery includes only results captured by the new lifecycle.
         with service.workspace.connection() as db:
             rows = db.execute(
@@ -92,6 +112,10 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
 
     def assigned_agent(self, review: TaskReview) -> EffectiveAgent:
         service = self.supervisor
+        if review.guidance:
+            assert review.guidance.reviewer.agent
+            return review.guidance.reviewer.agent
+        assert review.binding
         frozen = review.binding.reviewer.agent
         if review.recipient == "implementer":
             run_id = review.binding.run_id
@@ -114,7 +138,10 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
     def launch(self, review: TaskReview, attempt: str) -> ReviewLaunch:
         service = self.supervisor
         frozen = self.assigned_agent(review)
-        sections = service.execution.assignment(review.workspace_id, review.binding.run_id)
+        if review.guidance:
+            return self.guidance_launch(review, attempt)
+        assert review.binding
+        sections = self.reviews.assignment(review)
         exchanges = self.reviews.attempts(review.workspace_id, review.id)
         brief = {
             "purpose": review.recipient,
@@ -201,4 +228,66 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
             brief,
             project_id=service.workspace.task(review.workspace_id, review.task_id).project_id,
             files=list({file.id: file for file in inputs}.values()),
+        )
+
+    def guidance_launch(self, review: TaskReview, attempt: str) -> ReviewLaunch:
+        assert review.guidance
+        candidate = review.guidance.candidate_commit
+        inputs = []
+        if review.result_id:
+            result = self.supervisor.results.get(review.workspace_id, review.result_id)
+            with self.supervisor.workspace.connection() as db:
+                inputs = [
+                    FileInput(id=f.id, kind="output", name=f.name, size=f.size, sha256=f.sha256)
+                    for f in Outputs.selected(db, review.workspace_id, result.output_ids)
+                ]
+        brief = {
+            "purpose": "guidance_reconciliation",
+            "sections": [
+                "task",
+                "previous_guidance",
+                "current_guidance",
+                "retained_work",
+                "human_answer",
+                "earlier_answers",
+                "exchanges:0",
+                *["document:" + doc.id for doc in review.guidance.documents],
+                *["previous:document:" + doc.id for doc in review.guidance.previous_documents],
+            ],
+            "instructions": (
+                "Reconcile this task with the changed guidance. Read the task, both exact guidance "
+                "snapshots, the existing subtask plan, retained work and current or earlier human "
+                "answers. Required documents must be "
+                "read in full; "
+                "reference documents are available when relevant. Preserve the human's "
+                "intended outcome. "
+                "Propose only necessary in-scope changes to body, acceptance_criteria or "
+                "dependencies, or existing subtask bodies/dependencies through subtasks; "
+                "preserve the task's decomposition and completion types. "
+                "omit unchanged fields. The service applies your structured proposal "
+                "atomically after "
+                "checking these inputs again. Use adopt when changes are clear, including "
+                "when no task "
+                "text needs changing. Set rework only if retained implementation must "
+                "change, and state "
+                "the bounded correction in request. Do not invent scope or require "
+                "implementation work "
+                "for editorial guidance edits. Use ask_human for genuine intent conflicts, missing "
+                "decisions or denied access, with a concrete question and recommendation. "
+                "You may inspect "
+                "the retained candidate and files read-only. Do not edit or execute code, "
+                "mutate task "
+                "settings or grant delivery authority. Submit one conclusion through "
+                "submit_review and end."
+            ),
+        }
+        return ReviewLaunch(
+            candidate,
+            self.assigned_agent(review),
+            ReviewBridge(self.reviews, review, attempt, "reviewer").scope(),
+            brief,
+            files=inputs,
+            project_id=self.supervisor.workspace.task(
+                review.workspace_id, review.task_id
+            ).project_id,
         )

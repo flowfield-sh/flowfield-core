@@ -123,7 +123,7 @@ def task_state(
     *,
     facts: TaskReadFacts | None = None,
 ) -> WorkState:
-    from flowfield.result_actions import result_action
+    from flowfield.result_actions import guidance_action, result_action
     from flowfield.result_models import ResultVersion
 
     facts = facts or next(iter(read_task_facts(workspace, db, project, task_id).values()))
@@ -146,8 +146,6 @@ def task_state(
         ).for_event("attempt:" + task["owner_id"])
     if task["question_id"]:
         return question_state(db, project, task["question_id"])
-    if task["reason"]:
-        return WorkState(label="Update task", tone="attention", href=href)
     if task["scheduling_problem"] and not task["archived"]:
         return WorkState(
             label=task["scheduling_problem"], tone="attention", href=href, reason="scheduling"
@@ -158,6 +156,21 @@ def task_state(
             tone="waiting",
             href=href,
         )
+    from flowfield.guidance_reconciliation import pending_task
+
+    if pending_task(workspace, db, project, task_id):
+        action = guidance_action(db, project, task_id)
+        return WorkState(
+            label=action.label,
+            tone="active"
+            if action.label in ("Reviewing updated guidance", "Preparing reviewer")
+            else "attention"
+            if action.label in ("Choose reviewer", "Check reviewer state", "Retry guidance review")
+            else "waiting",
+            href=href,
+        )
+    if task["reason"]:
+        return WorkState(label="Update task", tone="attention", href=href)
     if task["result_id"]:
         # Load exact evidence only when the result owns the visible state.
         result = ResultVersion.model_validate_json(

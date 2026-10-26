@@ -3426,7 +3426,10 @@ export interface components {
     "DocumentReference-Input": {
       /** Id */
       id: string;
-      /** Revision */
+      /**
+       * Revision
+       * @description Legacy selection revision. Preparation and reconciliation use the latest revision; saved execution and review evidence retain their exact revisions.
+       */
       revision?: number | null;
       /**
        * Purpose
@@ -3439,7 +3442,10 @@ export interface components {
     "DocumentReference-Output": {
       /** Id */
       id: string;
-      /** Revision */
+      /**
+       * Revision
+       * @description Legacy selection revision. Preparation and reconciliation use the latest revision; saved execution and review evidence retain their exact revisions.
+       */
       revision: number | null;
       /**
        * Purpose
@@ -3652,6 +3658,36 @@ export interface components {
       items: components["schemas"]["FileWork"][];
       /** Next Offset */
       next_offset?: number | null;
+    };
+    /** GuidanceBinding */
+    GuidanceBinding: {
+      /** Task Revision */
+      task_revision: number;
+      /** Agreement Revision */
+      agreement_revision: number;
+      /** Documents */
+      documents: components["schemas"]["DocumentSnapshot"][];
+      /** Previous Documents */
+      previous_documents: components["schemas"]["DocumentSnapshot"][];
+      reviewer: components["schemas"]["EffectiveReviewer"];
+      /** Result Revision */
+      result_revision: number | null;
+      /** Run Id */
+      run_id: string | null;
+      /** Run Revision */
+      run_revision: number | null;
+      /** Candidate Commit */
+      candidate_commit: string | null;
+      /**
+       * Task Context
+       * @default
+       */
+      task_context: string;
+      /**
+       * Result Context
+       * @default
+       */
+      result_context: string;
     };
     /** GuidanceChange */
     GuidanceChange: {
@@ -5000,6 +5036,8 @@ export interface components {
     };
     /** ResultVersion */
     ResultVersion: {
+      /** Guidance Documents */
+      guidance_documents: components["schemas"]["DocumentSnapshot"][] | null;
       /** Output Ids */
       output_ids: string[];
       /** Files */
@@ -5163,6 +5201,13 @@ export interface components {
        * @enum {string}
        */
       outcome: "complete" | "partial";
+      /**
+       * Guidance Digest
+       * @default
+       */
+      guidance_digest: string;
+      /** Documents */
+      documents: components["schemas"]["DocumentSnapshot"][] | null;
     };
     /** ReviewVerdict */
     ReviewVerdict: {
@@ -6059,11 +6104,14 @@ export interface components {
       /** Task Id */
       task_id: string;
       /** Result Id */
-      result_id: string;
-      binding: components["schemas"]["ReviewBinding"];
+      result_id: string | null;
+      binding: components["schemas"]["ReviewBinding"] | null;
+      guidance: components["schemas"]["GuidanceBinding"] | null;
       verdict: components["schemas"]["ReviewVerdict"] | null;
       /** Applied At */
       applied_at: string | null;
+      /** Applied Agreement Revision */
+      applied_agreement_revision: number | null;
       /** Responding Subtask Id */
       responding_subtask_id: string | null;
     };

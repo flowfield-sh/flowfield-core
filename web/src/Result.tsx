@@ -1,5 +1,6 @@
 import { useLocation } from "react-router";
 import { TaskReview } from "./TaskReview";
+import { WorkerDocumentEvidence } from "./WorkerDocuments";
 import { ResourceRetry } from "./ResourceRetry";
 import { reportError } from "./requestFeedback";
 import {
@@ -409,7 +410,8 @@ export function Result({
           }
           {((version.completion === "code" && version.files.length > 0) ||
             version.independent_review?.evidence ||
-            version.candidate_commit) && (
+            version.candidate_commit ||
+            version.guidance_documents?.length) && (
             <DetailSection title="Details">
               {version.completion === "code" && (
                 <ResultFiles files={version.files} supporting />
@@ -419,6 +421,11 @@ export function Result({
                   <Markdown>{version.independent_review.evidence}</Markdown>
                 </Disclosure>
               )}
+              <WorkerDocumentEvidence
+                documents={version.guidance_documents ?? []}
+                summary="Guidance"
+                showSize={false}
+              />
               {version.integration_id && version.candidate_commit && (
                 <Disclosure
                   summary={<>Code changes</>}

@@ -9,6 +9,7 @@ from flowfield.agent_tools import ScopedTools
 from flowfield.context_pages import ReadContext
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import Record
+from flowfield.guidance_models import GuidanceDecision
 from flowfield.task_reviews import ReviewVerdict, TaskReview, TaskReviews
 
 
@@ -22,10 +23,16 @@ class ReviewResponse(Record):
 class ReviewBridge:
     def __init__(self, reviews: TaskReviews, review: TaskReview, attempt: str, role: str):
         self.reviews, self.review, self.attempt, self.role = reviews, review, attempt, role
-        self.decision: ReviewVerdict | ReviewResponse | None = None
+        self.decision: ReviewVerdict | ReviewResponse | GuidanceDecision | None = None
 
     def scope(self) -> ScopedTools:
-        model = ReviewVerdict if self.role == "reviewer" else ReviewResponse
+        model = (
+            GuidanceDecision
+            if self.review.guidance
+            else ReviewVerdict
+            if self.role == "reviewer"
+            else ReviewResponse
+        )
         operation = "submit_review" if self.role == "reviewer" else "answer_review"
         tools = [
             Tool(
@@ -58,7 +65,11 @@ class ReviewBridge:
                 decision = model.model_validate(arguments)
                 if decision.action == "ask_human" and not decision.request.strip():
                     raise ApplicationError("request_required", "State the human question.")
-                if decision.action == "approve" and self.review.binding.outcome == "partial":
+                if (
+                    decision.action == "approve"
+                    and self.review.binding
+                    and self.review.binding.outcome == "partial"
+                ):
                     raise ApplicationError(
                         "partial_outcome",
                         "Request the remaining work or ask a focused question; "

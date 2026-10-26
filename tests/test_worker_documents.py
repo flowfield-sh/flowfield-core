@@ -43,6 +43,8 @@ def test_preparation_freezes_union_and_workers_page_only_selected_revisions(tmp_
     )
     task = prepare(store)
     assert len(task.publication.documents) == 3
+    run = execution.claim("harbor", BASE, {BASE: set()})
+    task = store.task("harbor", task.id)
     docs.edit("harbor", shared.id, DocumentEdit(expected_revision=1, body="New instructions"))
     current = store.task("harbor", task.id)
     assert current.model_dump(exclude={"document_updates"}) == task.model_dump(
@@ -51,7 +53,6 @@ def test_preparation_freezes_union_and_workers_page_only_selected_revisions(tmp_
     assert [(u.id, u.prepared_revision, u.latest_revision) for u in current.document_updates] == [
         (shared.id, 1, 2)
     ]
-    run = execution.claim("harbor", BASE, {BASE: set()})
     assert run.documents == task.publication.documents
     assignment = execution.assignment("harbor", run.id)
     manifest = json.loads(assignment["documentation"])
@@ -109,7 +110,7 @@ def test_new_revisions_require_preparation_and_change_the_agreement_atomically(t
     assert [item.id for item in removed.publication.documents] == ["guidance"]
 
 
-def test_document_edits_and_default_changes_preserve_answer_continuations(tmp_path):
+def test_document_edits_refresh_answer_continuations_after_reconciliation(tmp_path):
     execution = fixture(tmp_path)
     store = execution.workspace
     doc = Documents(store).create("harbor", DocumentCreate(title="Design", body="Original"))
@@ -121,12 +122,42 @@ def test_document_edits_and_default_changes_preserve_answer_continuations(tmp_pa
     defaults(store, [])
     answer(Questions(store), q)
     execution.finish("harbor", run.id, "waiting_for_input", input_checkpoint=RESULT)
-    successor = execution.claim("harbor", BASE, {RESULT: set()})
-    assert successor.documents == run.documents
-    assert (
-        execution.assignment("harbor", successor.id)["documentation"] == assignment["documentation"]
+    assert execution.claim("harbor", BASE, {RESULT: set()}) is None
+    from flowfield.agent_models import AgentChoice
+    from flowfield.guidance_reconciliation import prepare as prepare_guidance
+    from flowfield.reviewer_settings import ReviewerEdit, Reviewers
+    from flowfield.task_reviews import TaskReviews
+
+    Reviewers(store).configure(
+        "harbor",
+        ReviewerEdit(
+            expected_revision=Reviewers(store).get("harbor").revision,
+            enabled=True,
+            selection=AgentChoice(model="fixture"),
+        ),
     )
-    assert execution.context_section("harbor", successor.id, f"document:{doc.id}") == "Original"
+
+    reviews = TaskReviews(store)
+    review = prepare_guidance(reviews, "harbor", run.task_id)
+    review = reviews.claim("harbor", review.id, review.revision)
+    review = reviews.begin_attempt("harbor", review.id)
+    review = reviews.started("harbor", review.id, review.revision)
+    reviews.save_decision(
+        "harbor",
+        review.id,
+        review.attempt_id,
+        {
+            "action": "adopt",
+            "summary": "Keep the task",
+            "evidence": "Removed reference is unnecessary.",
+        },
+    )
+    reviews.finish_attempt("harbor", review.id, review.attempt_id, cleanup_confirmed=True)
+    successor = execution.claim("harbor", BASE, {RESULT: set()})
+    assert successor and successor.documents != run.documents
+    assert [doc.id for doc in successor.documents] == ["guidance"]
+    assert execution.assignment("harbor", run.id) == assignment
+    assert successor.input_question_id == q.id and successor.input_base_commit == RESULT
 
 
 def test_reconciling_new_document_scope_does_not_rebind_old_attempt(tmp_path):
@@ -299,7 +330,7 @@ def test_workspace_guidance_is_required_and_uses_frozen_revisions(tmp_path):
     docs.edit("harbor", "guidance", DocumentEdit(expected_revision=1, body="Shared rule"))
     task = prepare(store)
     assert [(item.id, item.revision) for item in task.publication.documents] == [("guidance", 2)]
-    docs.edit("harbor", "guidance", DocumentEdit(expected_revision=2, body="Later rule"))
     run = execution.claim("harbor", BASE, {BASE: set()})
+    docs.edit("harbor", "guidance", DocumentEdit(expected_revision=2, body="Later rule"))
     assert execution.assignment("harbor", run.id)["document:guidance"] == "Shared rule"
     assert run.documents == task.publication.documents

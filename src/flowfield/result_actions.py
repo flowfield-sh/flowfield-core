@@ -13,6 +13,44 @@ if TYPE_CHECKING:
     from flowfield.application import Workspace
 
 
+def guidance_action(db: sqlite3.Connection, workspace: str, task: str) -> ResultAction:
+    from flowfield.reviewer_settings import Reviewers
+    from flowfield.worker_settings import read_workspace
+
+    if not Reviewers.resolved(db, workspace, task).effective.agent:
+        return ResultAction(
+            owner="human",
+            action="settings",
+            settings="reviewer",
+            label="Choose reviewer",
+            reason="Choose a reviewer to reconcile updated guidance.",
+        )
+    row = db.execute(
+        "SELECT status FROM task_reviews WHERE workspace_id=? AND task_id=? "
+        "AND json_extract(data,'$.guidance') IS NOT NULL ORDER BY number DESC LIMIT 1",
+        (workspace, task),
+    ).fetchone()
+    label = {
+        "preparing": "Preparing reviewer",
+        "running": "Reviewing updated guidance",
+        "waiting": "Waiting for review answer",
+        "uncertain": "Check reviewer state",
+        "failed": "Retry guidance review",
+        "stopped": "Guidance review stopped",
+    }.get(
+        row[0] if row else "",
+        "Guidance review queued"
+        if read_workspace(db, workspace).enabled
+        else "Guidance review paused",
+    )
+    return ResultAction(
+        owner="reviewer",
+        action="wait",
+        label=label,
+        reason="Open the task for review progress and recovery.",
+    )
+
+
 def result_action(
     workspace: "Workspace", db: sqlite3.Connection, value: ResultVersion
 ) -> ResultAction:
@@ -35,6 +73,16 @@ def result_action(
     if not latest or latest[0] != value.run_id or selected[0] != value.id:
         return ResultAction(owner="none", action="none", label="Earlier result")
     run = execution._run(db, value.workspace_id, value.run_id)
+    from flowfield.guidance_reconciliation import pending_task
+
+    if pending_task(
+        workspace,
+        db,
+        value.workspace_id,
+        value.task_id,
+        value if value.status not in ("changes_requested", "cancelled", "delivered") else None,
+    ):
+        return guidance_action(db, value.workspace_id, value.task_id)
     if value.status in ("preparing", "delivering"):
         return ResultAction(
             owner="service",
