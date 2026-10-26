@@ -686,6 +686,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/documents/{identity}/settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Document Settings */
+    get: operations["document_settings_api_workspaces__workspace_id__documents__identity__settings_get"];
+    /** Edit Document Settings */
+    put: operations["edit_document_settings_api_workspaces__workspace_id__documents__identity__settings_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/workspaces/{workspace_id}/documents/{identity}/restore": {
     parameters: {
       query?: never;
@@ -3465,6 +3483,48 @@ export interface components {
       author: string;
       /** Revision */
       revision: number;
+    };
+    /** DocumentSettings */
+    DocumentSettings: {
+      /** Workspace Id */
+      workspace_id: string;
+      /** Id */
+      id: string;
+      /** Revision */
+      revision: number;
+      /** Title */
+      title: string;
+      /** Created At */
+      created_at: string;
+      /** Author */
+      author: string;
+      /** Restored From */
+      restored_from?: number | null;
+      /** Characters */
+      characters: number;
+      /** Deleted At */
+      deleted_at?: string | null;
+      /** Deleted By */
+      deleted_by?: string | null;
+      /** Body */
+      body: string;
+      usage: components["schemas"]["DocumentUsageView"];
+      readonly actor: components["schemas"]["Actor"];
+    };
+    /** DocumentSettingsEdit */
+    DocumentSettingsEdit: {
+      /** Expected Revision */
+      expected_revision: number;
+      /**
+       * Author
+       * @default human
+       */
+      author: string;
+      /** Title */
+      title?: string | null;
+      /** Body */
+      body?: string | null;
+      usage?: components["schemas"]["DocumentUsageEdit"] | null;
     };
     /** DocumentSnapshot */
     DocumentSnapshot: {
@@ -8422,6 +8482,74 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["DocumentUsageView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  document_settings_api_workspaces__workspace_id__documents__identity__settings_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocumentSettings"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  edit_document_settings_api_workspaces__workspace_id__documents__identity__settings_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DocumentSettingsEdit"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocumentSettings"];
         };
       };
       /** @description Validation Error */

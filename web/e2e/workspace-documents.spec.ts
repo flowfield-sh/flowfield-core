@@ -26,6 +26,7 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   await page.getByRole("link", { name: /Workspace guidance/ }).click();
   await page.getByRole("link", { name: "Edit", exact: true }).click();
   await expect(page).toHaveURL(base + "/documents/guidance/edit");
+  await expect(page.locator(".document-history")).toHaveCount(0);
   await page.reload();
   await expect(
     page.getByRole("region", { name: "Edit document", exact: true }),
@@ -101,6 +102,9 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   await expect(
     page.getByRole("button", { name: "Restore", exact: true }),
   ).toBeEnabled();
+  await expect(
+    page.getByRole("link", { name: "Current document", exact: true }),
+  ).toHaveCount(0);
   await page.getByRole("link", { name: "Revision #3", exact: true }).click();
   await expect(
     page.getByRole("link", { name: "Edit", exact: true }),

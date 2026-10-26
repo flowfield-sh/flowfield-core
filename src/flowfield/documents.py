@@ -214,29 +214,34 @@ class Documents:
 
     def edit(self, workspace_id: str, identity: str, request: DocumentEdit) -> Document:
         with self.store.connection(write=True) as db:
-            current = self.read(db, workspace_id, identity)
-            self.store._current(current.revision, request.expected_revision)
-            if current.deleted_at:
-                raise ApplicationError(
-                    "document_deleted", "Restore this document before editing it.", 409
-                )
-            title = request.title if request.title is not None else current.title
-            body = request.body if request.body is not None else current.body
-            if title == current.title and body == current.body:
-                return current
-            return self.save(
-                db,
-                Document(
-                    workspace_id=workspace_id,
-                    id=identity,
-                    revision=current.revision + 1,
-                    title=title,
-                    body=body,
-                    characters=len(body),
-                    created_at=now(),
-                    author=request.author,
-                ),
+            return self._edit(db, workspace_id, identity, request)
+
+    def _edit(
+        self, db: sqlite3.Connection, workspace_id: str, identity: str, request: DocumentEdit
+    ) -> Document:
+        current = self.read(db, workspace_id, identity)
+        self.store._current(current.revision, request.expected_revision)
+        if current.deleted_at:
+            raise ApplicationError(
+                "document_deleted", "Restore this document before editing it.", 409
             )
+        title = request.title if request.title is not None else current.title
+        body = request.body if request.body is not None else current.body
+        if title == current.title and body == current.body:
+            return current
+        return self.save(
+            db,
+            Document(
+                workspace_id=workspace_id,
+                id=identity,
+                revision=current.revision + 1,
+                title=title,
+                body=body,
+                characters=len(body),
+                created_at=now(),
+                author=request.author,
+            ),
+        )
 
     def restore(self, workspace_id: str, identity: str, request: DocumentRestore) -> Document:
         with self.store.connection(write=True) as db:

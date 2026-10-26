@@ -1,23 +1,21 @@
 import type { DirtyCallback } from "./retainedState";
-import { useCallback, useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { DocumentUsage } from "./DocumentUsage";
-import { useDirtyItems } from "./useDirtyItems";
+import { DocumentEditor } from "./DocumentEditor";
 import { ResourceTitles } from "./WorkspaceTabs";
-import { FileText, Pencil, Eye, RotateCcw } from "lucide-react";
+import { FileText, Pencil, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import type { components } from "./api-schema";
 import type { AdjacentSnapshot } from "./AdjacentView";
 import { ContentStack } from "./DetailLayout";
 import { EntityPane } from "./EntityPane";
 import { HeaderAction } from "./HeaderAction";
 import { DetailHeader } from "./Presentation";
-import { Markdown, MarkdownField } from "./Markdown";
+import { Markdown } from "./Markdown";
 import { RevisionHistory } from "./RevisionHistory";
 import { Timestamp } from "./Timestamp";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { EditorFeedback, useRecordEditor } from "./useRecordEditor";
+import { useRecordEditor } from "./useRecordEditor";
 import { useResource } from "./useResource";
 import { request, type Project } from "./workspace";
 import { workspaceHref } from "./navigation";
@@ -104,12 +102,25 @@ export function Documents({
   return (
     <EntityPane
       label="Document details"
-      identity={`${identity}:${revision ?? "current"}`}
+      identity={`${identity}:${revision ?? "current"}:${pathname.endsWith("/edit") ? "edit" : "view"}`}
       close={close}
       returnFocusHref={`${base}/${identity}`}
     >
-      {document && latest.data ? (
+      {pathname.endsWith("/edit") ? (
         <DocumentEditor
+          key={`${path}/${identity}`}
+          path={`${path}/${identity}`}
+          refresh={refresh}
+          onDirty={onDirty}
+          close={() => navigate(`${base}/${identity}`, true)}
+          saved={(value) => {
+            latest.invalidate();
+            latest.setData(value);
+            navigate(`${base}/${identity}`, true);
+          }}
+        />
+      ) : document && latest.data ? (
+        <DocumentView
           key={`${identity}:${revision ?? "current"}`}
           incoming={document}
           latest={latest.data}
@@ -119,8 +130,6 @@ export function Documents({
           base={base}
           onDirty={onDirty}
           close={close}
-          editing={pathname.endsWith("/edit")}
-          viewDocument={() => navigate(`${base}/${identity}`, true)}
           read={async (signal) => {
             const fresh = await request<Document>(
               `${path}/${identity}`,
@@ -265,7 +274,7 @@ function DocumentList({
   );
 }
 
-function DocumentEditor({
+function DocumentView({
   incoming,
   latest,
   historical,
@@ -276,8 +285,6 @@ function DocumentEditor({
   saved,
   read,
   close,
-  editing,
-  viewDocument,
 }: {
   incoming: Document;
   latest: Document;
@@ -289,189 +296,78 @@ function DocumentEditor({
   saved: (record: Document, method: string) => void;
   read: (signal: AbortSignal) => Promise<Document>;
   close: () => void;
-  editing: boolean;
-  viewDocument: () => void;
 }) {
-  const markDirty = useDirtyItems(onDirty);
-  const [usageDirty, setUsageDirty] = useState(false);
-  const markBody = useCallback<DirtyCallback>(
-    (dirty, retained) => {
-      markDirty("body", dirty, retained);
-    },
-    [markDirty],
-  );
-  const markUsage = useCallback<DirtyCallback>(
-    (dirty, retained) => {
-      setUsageDirty(dirty);
-      markDirty("usage", dirty, retained);
-    },
-    [markDirty],
-  );
   const state = useRecordEditor({
     incoming,
     fields,
-    onDirty: markBody,
-    saved: (value, method) => {
-      saved(value, method);
-      if (method === "PUT" && !usageDirty) viewDocument();
-    },
+    onDirty,
+    saved,
     read,
     recordName: "document",
-    retainedKey: `${path}/${incoming.id}:${historical ? incoming.revision : "latest"}`,
     path: (record) => `${path}/${record!.id}`,
   });
-  const {
-    loaded,
-    values,
-    change,
-    busy,
-    dirty,
-    element: editor,
-    cancel,
-  } = state;
-  const selected = editing ? loaded! : incoming;
   return (
-    <section
-      ref={editor}
-      className="editor documents-page"
-      aria-label={editing ? "Edit document" : "Document"}
-    >
+    <section className="editor documents-page" aria-label="Document">
       <DetailHeader
-        title={selected.title}
+        title={incoming.title}
         close={close}
         closeLabel="Back"
         actions={
-          <div className="actions">
-            {historical || selected.deleted_at ? (
-              <>
-                <HeaderAction label="Current document" asChild>
-                  <WorkspaceLink to={`${base}/${selected.id}`}>
-                    <FileText />
-                  </WorkspaceLink>
-                </HeaderAction>
-                <HeaderAction
-                  label="Restore"
-                  tooltip="Restore this document revision"
-                  disabled={
-                    busy ||
-                    (!selected.deleted_at &&
-                      latest.revision === selected.revision)
-                  }
-                  onClick={() =>
-                    void state.run(
-                      "POST",
-                      {
-                        expected_revision: latest.revision,
-                        revision: selected.revision,
-                        author: "human",
-                      },
-                      "/restore",
-                    )
-                  }
-                >
-                  <RotateCcw />
-                </HeaderAction>
-              </>
-            ) : (
-              <HeaderAction
-                label={editing ? "View document" : "Edit"}
-                tooltip={editing ? "View document" : "Edit document"}
-                asChild
-              >
-                <WorkspaceLink
-                  to={`${base}/${selected.id}${editing ? "" : "/edit"}`}
-                >
-                  {editing ? <Eye /> : <Pencil />}
-                </WorkspaceLink>
-              </HeaderAction>
-            )}
-          </div>
+          historical || incoming.deleted_at ? (
+            <HeaderAction
+              label="Restore"
+              tooltip="Restore this document revision"
+              disabled={
+                state.busy ||
+                (!incoming.deleted_at && latest.revision === incoming.revision)
+              }
+              onClick={() =>
+                void state.run(
+                  "POST",
+                  {
+                    expected_revision: latest.revision,
+                    revision: incoming.revision,
+                    author: "human",
+                  },
+                  "/restore",
+                )
+              }
+            >
+              <RotateCcw />
+            </HeaderAction>
+          ) : (
+            <HeaderAction label="Edit" tooltip="Edit document" asChild>
+              <WorkspaceLink to={`${base}/${incoming.id}/edit`}>
+                <Pencil />
+              </WorkspaceLink>
+            </HeaderAction>
+          )
         }
       />
       <div className="document-layout">
         <ContentStack space="section" className="document-content">
           <DocumentUsage
-            path={`${path}/${selected.id}/usage`}
+            path={`${path}/${incoming.id}/usage`}
             refresh={refresh}
-            onDirty={markUsage}
-            editing={
-              editing &&
-              !historical &&
-              !selected.deleted_at &&
-              selected.id !== "guidance"
-            }
           />
-          {editing && <EditorFeedback state={state} />}
-          {selected.deleted_at && (
+          {incoming.deleted_at && (
             <p role="status">
               This document was deleted. Restore a revision to use it again.
             </p>
           )}
-          {!historical && !selected.deleted_at && editing ? (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                void state.run("PUT", {
-                  ...values,
-                  expected_revision: selected.revision,
-                  author: "human",
-                });
-              }}
-            >
-              <fieldset
-                disabled={busy}
-                className="content-stack"
-                data-space="section"
-              >
-                <Label className="field block">
-                  Document title
-                  <Input
-                    required
-                    maxLength={200}
-                    value={values.title}
-                    onChange={(event) => change("title", event.target.value)}
-                  />
-                </Label>
-                <MarkdownField
-                  label="Content"
-                  rows={16}
-                  value={values.body}
-                  onChange={(value) => change("body", value)}
-                />
-                <div className="actions">
-                  <Button size="sm" disabled={!values.title.trim() || !dirty}>
-                    Save document
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      cancel(() => {
-                        if (!usageDirty) viewDocument();
-                      });
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </fieldset>
-            </form>
-          ) : (
-            <Markdown>
-              {selected.body ||
-                (selected.id === "guidance"
-                  ? "No shared guidance yet. Write it here or discuss it with the Coordinator."
-                  : "This document is empty.")}
-            </Markdown>
-          )}
+          <Markdown>
+            {incoming.body ||
+              (incoming.id === "guidance"
+                ? "No shared guidance yet. Write it here or discuss it with the Coordinator."
+                : "This document is empty.")}
+          </Markdown>
         </ContentStack>
         <RevisionHistory
-          key={selected.id}
-          path={`${path}/${selected.id}`}
-          href={`${base}/${selected.id}`}
+          key={incoming.id}
+          path={`${path}/${incoming.id}`}
+          href={`${base}/${incoming.id}`}
           revision={latest.revision}
-          selected={selected.revision}
+          selected={incoming.revision}
         />
       </div>
     </section>

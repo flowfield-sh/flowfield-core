@@ -367,7 +367,6 @@ export function App() {
       returnFocusHref={workspaceId ? workspaceHref(workspaceId) : "/"}
       close={backFromGlobal}
     >
-      <DetailHeader title="Settings" close={backFromGlobal} />
       <FlowfieldSettings
         onDirty={setUnsaved}
         appearance={appearance}

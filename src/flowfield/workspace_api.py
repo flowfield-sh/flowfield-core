@@ -22,6 +22,11 @@ from flowfield.attention import (
 )
 from flowfield.browser import BrowserReads, BrowserWorkspaceBoard
 from flowfield.deliveries import DeliveredPage, delivery_page
+from flowfield.document_settings import (
+    DocumentSettings,
+    DocumentSettingsEdit,
+    DocumentSettingsService,
+)
 from flowfield.document_usage import DocumentUsage, DocumentUsageEdit, DocumentUsageView
 from flowfield.documents import (
     Document,
@@ -245,6 +250,16 @@ def workspace_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     @router.get("/{workspace_id}/documents/{identity}/usage")
     def document_usage(workspace_id: str, identity: str) -> DocumentUsageView:
         return DocumentUsage(supervisor().workspace).get(workspace_id, identity)
+
+    @router.get("/{workspace_id}/documents/{identity}/settings")
+    def document_settings(workspace_id: str, identity: str) -> DocumentSettings:
+        return DocumentSettingsService(supervisor().workspace).get(workspace_id, identity)
+
+    @router.put("/{workspace_id}/documents/{identity}/settings")
+    def edit_document_settings(
+        workspace_id: str, identity: str, request: DocumentSettingsEdit
+    ) -> DocumentSettings:
+        return DocumentSettingsService(supervisor().workspace).edit(workspace_id, identity, request)
 
     @router.put("/{workspace_id}/documents/{identity}/usage")
     def edit_document_usage(

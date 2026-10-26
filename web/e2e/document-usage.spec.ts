@@ -34,6 +34,21 @@ test("Documents shares project defaults and opts projectless tasks into exact so
   ).toBeVisible();
   await expect(page.getByRole("checkbox")).toHaveCount(0);
   await page.getByRole("link", { name: "Edit", exact: true }).click();
+  const editor = page.getByRole("region", {
+    name: "Edit document",
+    exact: true,
+  });
+  await expect(page.locator(".document-history")).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "View document", exact: true }),
+  ).toHaveCount(0);
+  await expect(editor.locator("form")).toHaveCount(1);
+  await editor
+    .getByLabel("Document title", { exact: true })
+    .fill("Updated conventions");
+  await editor
+    .getByRole("textbox", { name: "Content", exact: true })
+    .fill("Updated content and usage together.");
   const projectless = page.getByRole("checkbox", {
     name: "Include for tasks without a project",
   });
@@ -45,10 +60,16 @@ test("Documents shares project defaults and opts projectless tasks into exact so
   await page
     .getByRole("combobox", { name: "Use for Docs project as", exact: true })
     .selectOption("reference");
-  await page.getByRole("button", { name: "Save usage", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Save usage", exact: true }),
-  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Save document", exact: true })
+    .click();
+  await expect(page).toHaveURL(`/workspaces/${workspace}/documents/${doc.id}`);
+  const saved = await (await request.get(`${path}/${doc.id}`)).json();
+  expect(saved).toMatchObject({
+    title: "Updated conventions",
+    body: "Updated content and usage together.",
+    revision: 2,
+  });
   await expect
     .poll(
       async () =>
@@ -75,6 +96,10 @@ test("Documents shares project defaults and opts projectless tasks into exact so
   expect(
     task.publication.documents.map((item: { id: string }) => item.id).sort(),
   ).toEqual([doc.id, "guidance"].sort());
+  await page.getByRole("link", { name: "Edit", exact: true }).click();
+  await editor
+    .getByLabel("Document title", { exact: true })
+    .fill("Unsaved on conflict");
   await page
     .getByRole("combobox", {
       name: "Use for tasks without a project as",
@@ -92,12 +117,17 @@ test("Documents shares project defaults and opts projectless tasks into exact so
       exact: true,
     }),
   ).toHaveValue("reference");
-  await page.getByRole("button", { name: "Save usage", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Save document", exact: true })
+    .click();
   await expect(
     page
       .locator("[data-sonner-toast]")
-      .filter({ hasText: "Could not save document usage" }),
+      .filter({ hasText: "Could not save document" }),
   ).toBeVisible();
+  expect((await (await request.get(`${path}/${doc.id}`)).json()).title).toBe(
+    "Updated conventions",
+  );
   await page.screenshot({
     path: testInfo.outputPath("document-usage-conflict.png"),
   });

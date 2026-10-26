@@ -198,7 +198,7 @@ for (const failure of ["timeout", "network"] as const) {
     await page.waitForResponse("**/api/announcements/poll");
     await expect(notice).toHaveCount(0);
     await expect(
-      page.getByRole("heading", { name: "Settings", exact: true }),
+      page.getByRole("tablist", { name: "Flowfield settings", exact: true }),
     ).toBeVisible();
   });
 }

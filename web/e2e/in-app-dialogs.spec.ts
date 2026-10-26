@@ -124,7 +124,7 @@ test("load latest preserves edits on cancellation and failure, locks pending rea
   const waiting = new Promise<void>((resolve) => {
     release = resolve;
   });
-  await page.route(`**${path}`, async (route) => {
+  await page.route(`**${path}/settings`, async (route) => {
     if (route.request().method() !== "GET") return route.continue();
     reads++;
     if (failed)

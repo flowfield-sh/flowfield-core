@@ -430,7 +430,7 @@ test("mobile settings close workspace navigation and keep long host paths inside
     .getByRole("link", { name: "Flowfield settings", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Settings", exact: true }),
+    page.getByRole("tablist", { name: "Flowfield settings", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Close workspaces", exact: true }),

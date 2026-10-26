@@ -126,7 +126,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
     .getByRole("link", { name: "Flowfield settings", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Settings", exact: true }),
+    page.getByRole("tablist", { name: "Flowfield settings", exact: true }),
   ).toBeVisible();
   await expect(
     tabs.getByRole("tab", { name: "Flowfield settings", exact: true }),

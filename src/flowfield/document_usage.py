@@ -95,49 +95,50 @@ class DocumentUsage:
         self, workspace_id: str, identity: str, request: DocumentUsageEdit
     ) -> DocumentUsageView:
         with self.store.connection(write=True, workspace_id=workspace_id) as db:
-            require_active(Documents.read(db, workspace_id, identity))
-            current = self._read(db, workspace_id, identity)
-            self.store._current(current.revision, request.expected_revision)
-            if identity == "guidance":
-                raise ApplicationError(
-                    "main_guidance", "Workspace guidance applies to all tasks.", 409
-                )
-            if len({p.id for p in request.projects}) != len(request.projects):
-                raise ApplicationError("invalid_request", "Choose each project once.")
-            for change in request.projects:
-                if self.store._project_workspace(db, change.id) != workspace_id:
-                    raise ApplicationError("not_found", "Project not found in this workspace.", 404)
-                project = self.store._project(db, change.id)
-                references = [ref for ref in project.worker_documents if ref.id != identity]
-                selected = next(
-                    (ref for ref in project.worker_documents if ref.id == identity), None
-                )
-                if change.purpose is not None:
-                    references.append(
-                        DocumentReference(
-                            id=identity,
-                            revision=selected.revision if selected else None,
-                            purpose=change.purpose,
-                        )
+            return self._edit(db, workspace_id, identity, request)
+
+    def _edit(
+        self, db: sqlite3.Connection, workspace_id: str, identity: str, request: DocumentUsageEdit
+    ) -> DocumentUsageView:
+        require_active(Documents.read(db, workspace_id, identity))
+        current = self._read(db, workspace_id, identity)
+        self.store._current(current.revision, request.expected_revision)
+        if identity == "guidance":
+            raise ApplicationError("main_guidance", "Workspace guidance applies to all tasks.", 409)
+        if len({p.id for p in request.projects}) != len(request.projects):
+            raise ApplicationError("invalid_request", "Choose each project once.")
+        for change in request.projects:
+            if self.store._project_workspace(db, change.id) != workspace_id:
+                raise ApplicationError("not_found", "Project not found in this workspace.", 404)
+            project = self.store._project(db, change.id)
+            references = [ref for ref in project.worker_documents if ref.id != identity]
+            selected = next((ref for ref in project.worker_documents if ref.id == identity), None)
+            if change.purpose is not None:
+                references.append(
+                    DocumentReference(
+                        id=identity,
+                        revision=selected.revision if selected else None,
+                        purpose=change.purpose,
                     )
-                self.store._edit_project(
-                    db,
-                    change.id,
-                    ProjectEdit(
-                        expected_revision=change.expected_revision,
-                        worker_documents=references,
-                        author=request.author,
-                    ),
                 )
-            db.execute(
-                "INSERT INTO document_usage VALUES (?,?,?,?) ON CONFLICT(workspace_id,id) "
-                "DO UPDATE SET revision=excluded.revision,projectless=excluded.projectless",
-                (workspace_id, identity, current.revision + 1, request.projectless),
+            self.store._edit_project(
+                db,
+                change.id,
+                ProjectEdit(
+                    expected_revision=change.expected_revision,
+                    worker_documents=references,
+                    author=request.author,
+                ),
             )
-            if len(self.projectless_defaults(db, workspace_id)) > 21:
-                raise ApplicationError(
-                    "document_limit",
-                    "Select at most 20 custom defaults for tasks without a project.",
-                    409,
-                )
-            return self._read(db, workspace_id, identity)
+        db.execute(
+            "INSERT INTO document_usage VALUES (?,?,?,?) ON CONFLICT(workspace_id,id) "
+            "DO UPDATE SET revision=excluded.revision,projectless=excluded.projectless",
+            (workspace_id, identity, current.revision + 1, request.projectless),
+        )
+        if len(self.projectless_defaults(db, workspace_id)) > 21:
+            raise ApplicationError(
+                "document_limit",
+                "Select at most 20 custom defaults for tasks without a project.",
+                409,
+            )
+        return self._read(db, workspace_id, identity)
