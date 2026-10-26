@@ -119,6 +119,41 @@ def test_awaiting_approval_reconciles_then_requires_new_assessment(tmp_path, mon
     assert reviews.check("harbor", reconciliation.id).status == "decided"
 
 
+@pytest.mark.parametrize("completion", ["code", "report"])
+def test_post_work_reconciliation_waits_for_code_validation_only(tmp_path, monkeypatch, completion):
+    from result_fixtures import fixture
+
+    from flowfield.agent_models import AgentChoice
+    from flowfield.execution_models import QueueEdit
+    from flowfield.reviewer_settings import ReviewerEdit, Reviewers
+    from flowfield.task_reviews import TaskReviews
+
+    service, _, run = fixture(tmp_path, completion=completion, changed=completion == "code")
+    Reviewers(service.workspace).configure(
+        "harbor",
+        ReviewerEdit(
+            expected_revision=2, enabled=True, selection=AgentChoice(model="review-fixture")
+        ),
+    )
+    settings = service.execution.settings("harbor")
+    service.execution.queue("harbor", QueueEdit(expected_revision=settings.revision, enabled=True))
+    reviews = TaskReviews(service.workspace)
+    change(service.workspace)
+    peers(monkeypatch)
+    assert current(service).status == "preparing"
+    if completion == "code":
+        asyncio.run(round_trip(service))
+        assert reviews.latest("harbor", run.task_id) is None
+        assert not GuidanceReviewer.observed
+        service.results.process("harbor")
+        assert current(service).status == "ready"
+    asyncio.run(round_trip(service))
+    review = reviews.latest("harbor", run.task_id)
+    assert review.guidance and review.status == "decided"
+    assert len(GuidanceReviewer.observed) == 1
+    assert current(service).version == 2
+
+
 def test_changed_definition_queues_retained_implementation_with_new_assignment(
     tmp_path, monkeypatch
 ):

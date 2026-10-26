@@ -228,6 +228,11 @@ def prepare(owner: "TaskReviews", workspace: str, task_id: str) -> "TaskReview |
             ).fetchone()[0]
         ):
             result = None
+        if result and result.completion == "code" and result.status == "preparing":
+            # Candidate validation changes the result binding. Let it settle before
+            # spending a Reviewer turn that would be discarded as stale on completion.
+            # Reports must still reconcile here: they can finish during preparation.
+            return None
         if not pending(store, db, task, result):
             return None
         stopped = db.execute(
