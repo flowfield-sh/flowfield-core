@@ -416,16 +416,16 @@ export function Result({
               {version.completion === "code" && (
                 <ResultFiles files={version.files} supporting />
               )}
-              {version.independent_review?.evidence && (
-                <Disclosure summary="Review evidence">
-                  <Markdown>{version.independent_review.evidence}</Markdown>
-                </Disclosure>
-              )}
               <WorkerDocumentEvidence
                 documents={version.guidance_documents ?? []}
                 summary="Guidance"
                 showSize={false}
               />
+              {version.independent_review?.evidence && (
+                <Disclosure summary="Review evidence">
+                  <Markdown>{version.independent_review.evidence}</Markdown>
+                </Disclosure>
+              )}
               {version.integration_id && version.candidate_commit && (
                 <Disclosure
                   summary={<>Code changes</>}

@@ -85,7 +85,7 @@ def identity(db: sqlite3.Connection) -> tuple[str, int]:
 
 def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
     """Schema 86 shipped in 0.6/0.7; this migration changes only the database."""
-    if current not in (86, 87):
+    if current not in (86, 87, 88):
         require_supported(current)
         return
     integrity(db)
@@ -113,16 +113,23 @@ def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
         db.execute("BEGIN IMMEDIATE")
         if current == 86:
             db.execute(TASK_DELETIONS)
-        sequences = db.execute("SELECT name,seq FROM sqlite_sequence").fetchall()
-        db.execute(
-            TASK_REVIEWS.replace("CREATE TABLE task_reviews", "CREATE TABLE updated_task_reviews")
-        )
-        db.execute("INSERT INTO updated_task_reviews SELECT * FROM task_reviews")
-        db.execute("DROP TABLE task_reviews")
-        db.execute("ALTER TABLE updated_task_reviews RENAME TO task_reviews")
-        db.execute("CREATE INDEX task_reviews_task ON task_reviews(workspace_id, task_id, number)")
-        db.execute("DELETE FROM sqlite_sequence")
-        db.executemany("INSERT INTO sqlite_sequence(name,seq) VALUES (?,?)", sequences)
+        if current < 88:
+            sequences = db.execute("SELECT name,seq FROM sqlite_sequence").fetchall()
+            db.execute(
+                TASK_REVIEWS.replace(
+                    "CREATE TABLE task_reviews", "CREATE TABLE updated_task_reviews"
+                )
+            )
+            db.execute("INSERT INTO updated_task_reviews SELECT * FROM task_reviews")
+            db.execute("DROP TABLE task_reviews")
+            db.execute("ALTER TABLE updated_task_reviews RENAME TO task_reviews")
+            db.execute(
+                "CREATE INDEX task_reviews_task ON task_reviews(workspace_id, task_id, number)"
+            )
+            db.execute("DELETE FROM sqlite_sequence")
+            db.executemany("INSERT INTO sqlite_sequence(name,seq) VALUES (?,?)", sequences)
+        # New results may bind a reconciled task revision. Keep every old row unchanged,
+        # but prevent an older service from ignoring that agreement during delivery.
         db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
         integrity(db)
         db.commit()

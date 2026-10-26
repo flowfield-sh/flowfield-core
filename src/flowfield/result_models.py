@@ -37,6 +37,9 @@ class IndependentAssessment(Record):
 
 
 class ResultVersion(Record):
+    # Service-applied reconciliation binds this result to a saved definition;
+    # the producing Worker's original assignment stays immutable.
+    reconciled_task_revision: int | None = None
     guidance_documents: list[DocumentSnapshot] | None = None
     output_ids: list[str] = Field(default_factory=list)
     files: list[OutputFile] = Field(default_factory=list)

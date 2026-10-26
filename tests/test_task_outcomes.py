@@ -298,6 +298,93 @@ def test_assembled_review_receives_frozen_sources_and_output_manifest(tmp_path):
     assert json.loads(restarted.read_context(review, "result"))["files"][0] == output
 
 
+def test_editorial_guidance_preserves_assembled_report_and_contributions(tmp_path):
+    from flowfield.documents import DocumentEdit, Documents
+    from flowfield.guidance_reconciliation import prepare
+    from flowfield.task_reviews import TaskReviews
+
+    store, owner, execution = workspace(tmp_path, review=True)
+    task = store.create_task(owner, TaskCreate(title="Summarize the pilot", body="A short report"))
+    child = Subtasks(store).create(
+        owner,
+        task.id,
+        SubtaskCreate(title="Research", body="Inspect the pilot", completion="report"),
+    )
+    task = store.task(owner, task.id)
+    task = store.publish_task(
+        owner, task.id, TaskPublish(expected_revision=task.revision, completion="report")
+    )
+    task = store.prioritize_task(
+        owner, task.id, TaskPriority(expected_revision=task.revision, status="up_next")
+    )
+    assemblies = TaskAssembly(store)
+    assembly = assemblies.ensure(task, "", [])
+    run = execution.claim(
+        owner, "", {}, task_id=task.id, subtask_id=child.id, assembly_id=assembly.id
+    )
+    assert run
+    contribute(store, execution, owner, run, output="pilot.pdf")
+    assert assemblies.assemble(owner, task.id)
+    results = Results(store)
+    results.process(owner)
+    original = results.page(owner, task.id).items[0]
+    frozen = execution.assignment(owner, original.run_id)
+    docs = Documents(store)
+    guidance = docs.get(owner, "guidance")
+    docs.edit(
+        owner,
+        "guidance",
+        DocumentEdit(expected_revision=guidance.revision, body="Use concise labels."),
+    )
+    reviews = TaskReviews(store)
+    review = prepare(reviews, owner, task.id)
+    assert review
+    assert assemblies.ensure(store.task(owner, task.id), "", []).id == assembly.id
+    review = reviews.claim(owner, review.id, review.revision)
+    review = reviews.begin_attempt(owner, review.id)
+    review = reviews.started(owner, review.id, review.revision)
+    reviews.save_decision(
+        owner,
+        review.id,
+        review.attempt_id,
+        {
+            "action": "adopt",
+            "summary": "Clarified the existing outcome",
+            "evidence": "The retained report already meets this wording.",
+            "acceptance_criteria": "A concise pilot report.",
+            "rework": False,
+        },
+    )
+    reviews.finish_attempt(owner, review.id, review.attempt_id, cleanup_confirmed=True)
+    refreshed = results.page(owner, task.id).items[0]
+    assert refreshed.version == 2 and refreshed.run_id == original.run_id
+    assert refreshed.output_ids == original.output_ids
+    assert assemblies.ensure(store.task(owner, task.id), "", []).id == assembly.id
+    assert not assemblies.assemble(owner, task.id)
+    assert Subtasks(store).get(owner, task.id, child.id).contribution_run_id == run.id
+    assert execution.assignment(owner, original.run_id) == frozen
+    results.process(owner)
+    review = reviews.prepare(owner, refreshed.id)
+    assert reviews.assignment(review)["criteria"] == "A concise pilot report."
+    review = reviews.claim(owner, review.id, review.revision)
+    review = reviews.begin_attempt(owner, review.id)
+    review = reviews.started(owner, review.id, review.revision)
+    reviews.save_decision(
+        owner,
+        review.id,
+        review.attempt_id,
+        {
+            "action": "approve",
+            "summary": "Report meets the clarified outcome",
+            "evidence": "Read the retained report and current guidance.",
+        },
+    )
+    reviews.finish_attempt(owner, review.id, review.attempt_id, cleanup_confirmed=True)
+    results.process(owner)
+    assert store.task(owner, task.id).status == "done"
+    assert results.get(owner, refreshed.id).next_action.label == "Delivered"
+
+
 def test_correction_preserves_independent_contribution(tmp_path):
     store, owner, execution = workspace(tmp_path, review=True)
     task, a, b, c = decomposed(store, owner)

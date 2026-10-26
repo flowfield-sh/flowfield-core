@@ -187,6 +187,123 @@ def test_changed_definition_queues_retained_implementation_with_new_assignment(
     assert next_review.guidance.candidate_commit == run.result_commit
 
 
+@pytest.mark.parametrize("field", ["body", "acceptance_criteria"])
+def test_editorial_definition_reuses_code_with_one_revision_and_fresh_review(
+    tmp_path, monkeypatch, field
+):
+    from flowfield.execution_models import RunAction
+    from flowfield.thread_view import ThreadView
+
+    service, _, run, _, reviews = configured(tmp_path)
+    store = service.workspace
+    before = store.task("harbor", run.task_id)
+    old = current(service)
+    frozen = service.execution.assignment("harbor", run.id)
+    change(store)
+    peers(monkeypatch, {field: "Deliver the existing result with clear labels.", "rework": False})
+    asyncio.run(round_trip(service))
+    after = store.task("harbor", run.task_id)
+    reconciliation = reviews.latest("harbor", run.task_id)
+    assert after.revision == reconciliation.guidance.task_revision + 1
+    assert after.publication.task_revision == after.revision
+    assert after.publication.agreement_revision == after.agreement_revision
+    events = ThreadView(store).page_view("harbor", run.task_id).items
+    updates = [e for e in events if e.kind == "definition" and e.revision > before.revision]
+    assert len(updates) == 1
+    assert service.execution.assignment("harbor", run.id) == frozen
+    refreshed = current(service)
+    assert refreshed.version == 2 and refreshed.run_id == old.run_id
+    assert refreshed.source_commit == old.source_commit
+    assert refreshed.reconciled_task_revision == after.revision
+    assert service.execution.claim("harbor", run.base_commit, {}, task_id=run.task_id) is None
+    service.results.process("harbor")
+    asyncio.run(round_trip(service))
+    review = reviews.latest("harbor", run.task_id)
+    assert review.verdict.action == "approve"
+    assignment = reviews.assignment(review)
+    assert assignment["description" if field == "body" else "criteria"] == getattr(after, field)
+    assert json.loads(assignment["agreement"])["agreement_revision"] == after.agreement_revision
+    with pytest.raises(ApplicationError):
+        approve(service, old)
+    # Destination refresh retains the adopted definition and requires another assessment.
+    refreshed = current(service)
+    refreshed = service.results.reprepare(
+        "harbor", refreshed.id, RunAction(expected_revision=refreshed.revision)
+    )
+    assert refreshed.reconciled_task_revision == after.revision
+    service.results.process("harbor")
+    asyncio.run(round_trip(service))
+    approve(service, current(service))
+    service.results.process("harbor")
+    delivered = current(service)
+    assert delivered.status == "delivered" and delivered.next_action.label == "Delivered"
+    assert store.task("harbor", run.task_id).status == "done"
+    child = store.create_task("harbor", TaskCreate(title="Follow up", dependencies=[run.task_id]))
+    assert not store.task("harbor", child.id).blocked_by
+    assert service.execution.assignment("harbor", run.id) == frozen
+    change(store, "Future guidance does not alter completed work.")
+    assert prepare(reviews, "harbor", run.task_id) is None
+
+
+def test_legacy_two_save_reconciliation_has_one_combined_feed_diff(tmp_path, monkeypatch):
+    from flowfield.application import TaskRevision
+    from flowfield.thread_view import ThreadView
+
+    service, _, run, _, reviews = configured(tmp_path)
+    store = service.workspace
+    apply = store._apply_task
+
+    def legacy_apply(db, task, *, reconciled=False):
+        if not reconciled:
+            return apply(db, task)
+        publication = task.publication
+        task.publication = store._task(db, task.workspace_id, task.id).publication
+        apply(db, task)
+        final = TaskRevision.model_validate(
+            store._task(db, task.workspace_id, task.id).model_dump()
+        )
+        final.revision += 1
+        final.publication = publication
+        apply(db, final, reconciled=True)
+
+    monkeypatch.setattr(store, "_apply_task", legacy_apply)
+    change(store)
+    peers(monkeypatch, {"acceptance_criteria": "Clear labels.", "rework": False})
+    asyncio.run(round_trip(service))
+    review = reviews.latest("harbor", run.task_id)
+    before = review.guidance.task_revision
+    final = before + 2
+    feed = ThreadView(store)
+    events = feed.page_view("harbor", run.task_id).items
+    assert not any(e.id == f"definition:{before + 1}" for e in events)
+    combined = next(e for e in events if e.id == f"definition:{final}")
+    assert combined.kind == "definition" and combined.previous_revision == before
+    assert feed.item_view("harbor", run.task_id, combined.id).previous_revision == before
+    # Deep links and immutable source revisions remain available.
+    assert feed.item_view("harbor", run.task_id, f"definition:{before + 1}")
+    assert store.task("harbor", run.task_id).revision >= final
+
+
+def test_later_definition_change_cannot_reuse_an_editorial_adoption(tmp_path, monkeypatch):
+    from flowfield.application import TaskEdit
+
+    service, _, run, _, reviews = configured(tmp_path)
+    change(service.workspace)
+    peers(monkeypatch, {"acceptance_criteria": "Clarified existing behavior.", "rework": False})
+    asyncio.run(round_trip(service))
+    service.results.process("harbor")
+    asyncio.run(round_trip(service))
+    reviewed = reviews.latest("harbor", run.task_id)
+    saved_assignment = reviews.assignment(reviewed)
+    task = service.workspace.task("harbor", run.task_id)
+    service.workspace.edit_task(
+        "harbor", task.id, TaskEdit(expected_revision=task.revision, body="Different intended work")
+    )
+    with pytest.raises(ApplicationError):
+        approve(service, current(service))
+    assert reviews.assignment(reviewed) == saved_assignment
+
+
 def test_conflict_waits_for_answer_then_continues_once(tmp_path, monkeypatch):
     service, _, run, _, reviews = configured(tmp_path)
     change(service.workspace)

@@ -193,7 +193,12 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await expect(
     guidance.getByRole("link", { name: /Workspace guidance/ }),
   ).toHaveAttribute("href", /\/documents\/guidance\/revisions\/1$/);
-  await expect(guidance).toContainText("Required");
+  await expect(guidance).toContainText("Required source");
+  const detailOrder = await page.locator("details > summary").allTextContents();
+  expect(detailOrder).toContain("Review evidence");
+  expect(detailOrder.indexOf("Guidance")).toBeLessThan(
+    detailOrder.indexOf("Review evidence"),
+  );
   await dialogViews(page, testInfo, "result-guidance");
   await page.emulateMedia({ colorScheme: "light" });
   await page.getByText("Guidance", { exact: true }).click();

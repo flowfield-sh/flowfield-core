@@ -350,7 +350,7 @@ def apply(
         changes["dependencies"] = store._dependency_ids(
             db, task.workspace_id, changes["dependencies"]
         )
-    changed = plan_changed or any(getattr(task, key) != value for key, value in changes.items())
+    dependencies_changed = changes.get("dependencies", task.dependencies) != task.dependencies
     revised = TaskRevision.model_validate(
         {
             **task.model_dump(),
@@ -359,29 +359,24 @@ def apply(
             "agreement_revision": task.agreement_revision + int(plan_changed),
             "updated_at": now(),
             "updated_by": "reviewer",
+            "change_note": decision.summary,
+            "publication": task.publication.model_copy(
+                update={
+                    "documents": review.guidance.documents,
+                    "created_at": now(),
+                    "author": "reviewer",
+                }
+            ),
         }
     )
     # Existing validation owns dependency cycles and downstream invalidation.
-    store._apply_task(db, revised)
+    store._apply_task(db, revised, reconciled=True)
     revised = TaskRevision.model_validate(store._task(db, task.workspace_id, task.id).model_dump())
-    revised.revision += 1
-    revised.reconciliation_reason = None
-    revised.change_note = decision.summary
-    revised.publication = task.publication.model_copy(
-        update={
-            "documents": review.guidance.documents,
-            "task_revision": revised.revision,
-            "agreement_revision": revised.agreement_revision,
-            "created_at": now(),
-            "author": "reviewer",
-        }
-    )
-    store._save_task(db, revised)
     if review.result_id:
         results = Results(store)
         result = results._get(db, task.workspace_id, review.result_id)
         run = results.execution._run(db, task.workspace_id, result.run_id)
-        if changed or decision.rework or run.agreement_revision != revised.agreement_revision:
+        if plan_changed or dependencies_changed or decision.rework:
             result.status = run.status = "changes_requested"
             result.feedback = run.feedback = decision.request or decision.summary
             if run.purpose == "assembly":
@@ -404,9 +399,13 @@ def apply(
             results._save(db, result)
             run.status = "in_review"
             results.execution._save(db, run)
-            fresh = results.capture(db, run, output_ids=result.output_ids)
-            fresh.guidance_documents = review.guidance.documents
-            results._save(db, fresh)
+            results.capture(
+                db,
+                run,
+                output_ids=result.output_ids,
+                reconciled_task_revision=revised.revision,
+                guidance_documents=review.guidance.documents,
+            )
     review.applied_at = now()
     review.applied_agreement_revision = revised.agreement_revision
 

@@ -77,6 +77,21 @@ class TaskAssembly:
         with self.store.connection(write=True, workspace_id=task.workspace_id) as db:
             current = self.store._task(db, task.workspace_id, task.id)
             self.store._current(current.revision, task.revision)
+            latest = db.execute(
+                "SELECT status,json_extract(data,'$.assembly_id'),subtask_id FROM runs "
+                "WHERE workspace_id=? AND task_id=? ORDER BY number DESC LIMIT 1",
+                (task.workspace_id, task.id),
+            ).fetchone()
+            if (
+                current.status == "in_progress"
+                and latest
+                and latest[0] == "in_review"
+                and latest[1]
+                and latest[2] is None
+            ):
+                # Whole-task validation/review owns the retained contributions. A changed
+                # guidance snapshot cannot reset them before an actual correction is requested.
+                return self.read(db, latest[1])
             row = db.execute(
                 "SELECT data FROM task_assemblies WHERE workspace_id=? AND task_id=? "
                 "AND signature=?",

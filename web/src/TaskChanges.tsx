@@ -30,14 +30,16 @@ const fields: [Field, string][] = [
   ["project_id", "Project"],
   ["documents", "Selected documents"],
   ["input_files", "Input files"],
-  ["publication", "Preparation"],
+  ["publication", "Completion"],
 ];
 export function TaskChanges({
   revision,
+  previousRevision,
   path,
   tasks,
 }: {
   revision: number;
+  previousRevision?: number | null;
   path: string;
   tasks: TaskReference[];
 }) {
@@ -45,7 +47,9 @@ export function TaskChanges({
   const open = useContext(ActivityBodyVisible);
   const [retry, setRetry] = useState(0);
   const beforeRead = useResource<TaskRevision>(
-    open && revision > 1 ? `${path}/revisions/${revision - 1}` : null,
+    open && revision > 1
+      ? `${path}/revisions/${previousRevision ?? revision - 1}`
+      : null,
     retry,
   );
   const afterRead = useResource<TaskRevision>(
@@ -54,10 +58,15 @@ export function TaskChanges({
   );
   const before = beforeRead.data,
     after = afterRead.data;
+  const sourcesChanged =
+    JSON.stringify(before?.publication?.documents) !==
+    JSON.stringify(after?.publication?.documents);
   const changed =
     before && after
-      ? fields.filter(
-          ([key]) => JSON.stringify(before[key]) !== JSON.stringify(after[key]),
+      ? fields.filter(([key]) =>
+          key === "publication"
+            ? value(before, key) !== value(after, key)
+            : JSON.stringify(before[key]) !== JSON.stringify(after[key]),
         )
       : [];
   function value(record: TaskRevision, field: Field): string {
@@ -80,14 +89,14 @@ export function TaskChanges({
         record.documents
           .map(
             (item) =>
-              `${item.id} · ${item.revision ? `revision #${item.revision}` : "latest revision"} · ${item.purpose}`,
+              `${record.publication?.documents.find((doc) => doc.id === item.id)?.title ?? item.id} · ${item.purpose === "required" ? "Required source" : "Reference material"}`,
           )
           .join("\n") || "None"
       );
     if (field === "input_files") return record.input_files.join(", ") || "None";
     if (field === "publication")
       return record.publication
-        ? `Prepared revision #${record.publication.task_revision} for ${record.publication.completion}${record.publication.target_branch ? ` into ${record.publication.target_branch}` : ""}`
+        ? `${record.publication.completion === "code" ? "Code changes" : "Report and files"}${record.publication.target_branch ? ` · Branch: ${record.publication.target_branch}` : ""}`
         : "Not prepared";
     return record[field] ?? "None";
   }
@@ -117,7 +126,9 @@ export function TaskChanges({
         (changed.length ? (
           changed.map(([key, name]) => (
             <DetailSection key={key} title={name}>
-              {key === "body" || key === "title" ? (
+              {key === "body" ||
+              key === "title" ||
+              key === "acceptance_criteria" ? (
                 <TextChanges
                   before={value(before, key)}
                   after={value(after, key)}
@@ -145,18 +156,15 @@ export function TaskChanges({
               )}
             </DetailSection>
           ))
-        ) : (
+        ) : sourcesChanged ? null : (
           <p>{after.change_note || "Task settings updated."}</p>
         ))}
-      {open &&
-        after?.publication &&
-        JSON.stringify(before?.publication?.documents) !==
-          JSON.stringify(after.publication.documents) && (
-          <SourceReferences
-            documents={after.publication.documents}
-            title="Captured sources"
-          />
-        )}
+      {open && after?.publication && sourcesChanged && (
+        <SourceReferences
+          documents={after.publication.documents}
+          title="Guidance"
+        />
+      )}
     </ContentStack>
   );
 }

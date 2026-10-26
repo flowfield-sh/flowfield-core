@@ -1,6 +1,6 @@
 """Current schema and additive migration definitions for published stores."""
 
-SCHEMA_VERSION = 88
+SCHEMA_VERSION = 89
 
 TASK_REVIEWS = """
 CREATE TABLE task_reviews (number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL
@@ -413,7 +413,7 @@ INSERT INTO storage_metadata VALUES (1, lower(hex(randomblob(16))), 0);
 INSERT INTO harness_settings VALUES ('codex', 1, NULL, NULL), ('claude-code', 1, NULL,
     NULL), ('pi', 1, NULL, NULL);
 
-PRAGMA user_version = 88;
+PRAGMA user_version = 89;
 """
 
 SCHEMA += TASK_DELETIONS + ";"

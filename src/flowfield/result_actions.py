@@ -125,7 +125,9 @@ def result_action(
             "WHERE workspace_id=? AND id=?",
             (value.workspace_id, value.task_id),
         ).fetchone()[0]
-        if agreement != run.agreement_revision:
+        from flowfield.result_agreement import revision as result_agreement_revision
+
+        if agreement != result_agreement_revision(db, run, value):
             return ResultAction(owner="none", action="none", label="Earlier result")
         return ResultAction(owner="none", action="none", label="Delivered")
     task = workspace._task(db, value.workspace_id, value.task_id)

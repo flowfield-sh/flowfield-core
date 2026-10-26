@@ -93,6 +93,9 @@ WITH definitions AS (
         OR json_extract(data,'$.reconciliation_reason') IS NOT
             json_extract(previous,'$.reconciliation_reason')
         OR json_extract(data,'$.archived') != json_extract(previous,'$.archived')
+        OR json_extract(data,'$.publication') IS NOT json_extract(previous,'$.publication')
+        OR json_extract(data,'$.title') IS NOT json_extract(previous,'$.title')
+        OR json_extract(data,'$.labels') IS NOT json_extract(previous,'$.labels')
     UNION ALL
     SELECT 'question:'||question_id||':'||revision,
         CASE WHEN json_extract(data,'$.answer') IS NOT NULL THEN 'answer' ELSE 'question' END,

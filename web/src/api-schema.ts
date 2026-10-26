@@ -5036,6 +5036,8 @@ export interface components {
     };
     /** ResultVersion */
     ResultVersion: {
+      /** Reconciled Task Revision */
+      reconciled_task_revision: number | null;
       /** Guidance Documents */
       guidance_documents: components["schemas"]["DocumentSnapshot"][] | null;
       /** Output Ids */
@@ -6184,6 +6186,8 @@ export interface components {
       source_id: string;
       /** Revision */
       revision: number | null;
+      /** Previous Revision */
+      previous_revision: number | null;
       /** Created At */
       created_at: string;
       /** Order Key */

@@ -169,7 +169,10 @@ export function WorkerDocumentEvidence({
             >
               {item.title} · revision #{item.revision}
             </WorkspaceLink>
-            {" · " + (item.purpose === "reference" ? "Reference" : "Required")}
+            {" · " +
+              (item.purpose === "reference"
+                ? "Reference material"
+                : "Required source")}
             {updates
               .filter((update) => update.id === item.id)
               .map((update) => (

@@ -34,7 +34,9 @@ export function SourceReferences({
             <span className="detail-metadata">
               {" "}
               · <RecordTitle>{`revision #${item.revision}`}</RecordTitle> ·{" "}
-              {item.purpose === "reference" ? "Reference" : "Required"}
+              {item.purpose === "reference"
+                ? "Reference material"
+                : "Required source"}
             </span>
             {updates
               .filter(

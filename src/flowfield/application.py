@@ -712,8 +712,12 @@ class Workspace:
                 task.status == "done"
                 and db.execute(
                     "SELECT 1 FROM result_versions v JOIN runs r ON r.id=v.run_id "
+                    "LEFT JOIN task_revisions d ON d.workspace_id=v.workspace_id "
+                    "AND d.task_id=v.task_id "
+                    "AND d.revision=json_extract(v.data,'$.reconciled_task_revision') "
                     "WHERE v.workspace_id=? AND v.task_id=? AND v.status='delivered' "
-                    "AND json_extract(r.data,'$.agreement_revision')=? "
+                    "AND coalesce(json_extract(d.data,'$.agreement_revision'),"
+                    "json_extract(r.data,'$.agreement_revision'))=? "
                     "AND NOT EXISTS (SELECT 1 FROM result_versions n WHERE "
                     "n.workspace_id=v.workspace_id AND n.task_id=v.task_id AND "
                     "n.version>v.version)",
@@ -725,11 +729,15 @@ class Workspace:
                 completed.add(key)
         return completed
 
-    def _apply_task(self, db: sqlite3.Connection, task: TaskRevision) -> None:
+    def _apply_task(
+        self, db: sqlite3.Connection, task: TaskRevision, *, reconciled: bool = False
+    ) -> None:
         """Validate and persist the edit and its downstream impacts in one transaction."""
-        self._apply_tasks(db, [task])
+        self._apply_tasks(db, [task], reconciled=reconciled)
 
-    def _apply_tasks(self, db: sqlite3.Connection, tasks: list[TaskRevision]) -> None:
+    def _apply_tasks(
+        self, db: sqlite3.Connection, tasks: list[TaskRevision], *, reconciled: bool = False
+    ) -> None:
         """Apply a checked batch before deriving downstream impacts, once per revision."""
         if not tasks:
             return
@@ -756,11 +764,20 @@ class Workspace:
                 or previous.input_files != task.input_files
             ):
                 task.agreement_revision = previous.agreement_revision + 1
-                if task.status not in PLANNING:
+                if task.status not in PLANNING and not reconciled:
                     task.reconciliation_reason = (
                         "Requirements changed. Review recorded work with the coordinator."
                     )
                     task.change_note = task.reconciliation_reason
+            if reconciled:
+                assert task.publication
+                task.reconciliation_reason = None
+                task.publication = task.publication.model_copy(
+                    update={
+                        "task_revision": task.revision,
+                        "agreement_revision": task.agreement_revision,
+                    }
+                )
             records[self._record_key(task)] = task
         completed: set[str] = set()
         affected = set(changed)
@@ -929,6 +946,7 @@ class Workspace:
         else:
             for field, label in (
                 ("body", "Description"),
+                ("acceptance_criteria", "Acceptance criteria"),
                 ("title", "Title"),
                 ("labels", "Labels"),
                 ("dependencies", "Prerequisites"),

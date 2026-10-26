@@ -185,6 +185,7 @@ class Execution:
 
     def _current_assignment(self, db: sqlite3.Connection, run: Run, task: Task) -> None:
         from flowfield.input_delivery import other_input_blocks
+        from flowfield.result_agreement import revision as result_agreement_revision
         from flowfield.subtasks import Subtasks
 
         child = (
@@ -201,7 +202,7 @@ class Execution:
         if (
             task.archived
             or blocked
-            or task.agreement_revision != run.agreement_revision
+            or task.agreement_revision != result_agreement_revision(db, run)
             or not task.publication
             or task.publication_status != "published"
             or (child.completion if child else task.publication.completion) != run.completion

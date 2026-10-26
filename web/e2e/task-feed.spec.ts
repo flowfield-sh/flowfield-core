@@ -219,6 +219,7 @@ test("Feed disclosures preserve message drafts while coordinator revisions updat
       id: "one",
       title: "Tabbed task",
       body: "Original description",
+      acceptance_criteria: "Keep the original labels.",
     },
   });
   await page.goto(
@@ -242,7 +243,11 @@ test("Feed disclosures preserve message drafts while coordinator revisions updat
   await call("edit_task", {
     workspace_id: await projectWorkspace(page.request, "tabs"),
     task_id: "one",
-    changes: { expected_revision: 1, body: "New saved context" },
+    changes: {
+      expected_revision: 1,
+      body: "New saved context",
+      acceptance_criteria: "Keep the accessible labels.",
+    },
   });
   await expect(history).toContainText("Task definition updated");
   expect(revisionReads).toHaveLength(1);
@@ -251,13 +256,19 @@ test("Feed disclosures preserve message drafts while coordinator revisions updat
     .click();
   await expect
     .poll(() =>
-      history.locator(".text-changes").evaluate((node) => {
-        const copy = node.cloneNode(true) as HTMLElement;
-        copy.querySelectorAll("del, .sr-only").forEach((el) => el.remove());
-        return copy.textContent;
-      }),
+      history
+        .locator(".text-changes")
+        .first()
+        .evaluate((node) => {
+          const copy = node.cloneNode(true) as HTMLElement;
+          copy.querySelectorAll("del, .sr-only").forEach((el) => el.remove());
+          return copy.textContent;
+        }),
     )
     .toBe("New saved context");
+  const criteria = history.locator(".text-changes").nth(1);
+  await expect(criteria.locator("del")).toHaveText("original");
+  await expect(criteria.locator("ins")).toHaveText("accessible");
   expect(revisionReads).toHaveLength(3);
   await expect(history).not.toContainText("Unsaved draft");
   await expect(

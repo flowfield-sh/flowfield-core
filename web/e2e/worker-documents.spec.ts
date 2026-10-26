@@ -148,7 +148,7 @@ test("project defaults prepare exact task documents and preserve revision links"
   ).toBeVisible();
   await page.goto(`/workspaces/${workspace.id}/tasks`);
   await expect(
-    page.getByText("Updated guidance available", { exact: true }),
+    page.getByRole("link", { name: "Guidance review paused", exact: true }),
   ).toBeVisible();
   await page
     .getByTestId("work")

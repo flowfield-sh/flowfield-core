@@ -111,6 +111,8 @@ class TaskReviews(ReviewRecords[TaskReview]):
         run = results._current(db, result)
         task = self.store._task(db, project, result.task_id)
         from flowfield.guidance_reconciliation import require_current, result_documents
+        from flowfield.result_agreement import assignment as result_assignment
+        from flowfield.result_agreement import revision
 
         require_current(self.store, db, task, result)
         guidance_digest = hashlib.sha256(
@@ -161,7 +163,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
                     documents=result_documents(db, result),
                     result_revision=result.revision,
                     run_id=run.id,
-                    agreement_revision=run.agreement_revision,
+                    agreement_revision=revision(db, run, result),
                     candidate_commit=result.candidate_commit,
                     source_commit=result.source_commit,
                     target_branch="",
@@ -172,7 +174,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
                     reviewer=reviewer,
                     assignment_digest=hashlib.sha256(
                         json.dumps(
-                            Execution(self.store)._saved_assignment(db, project, run.id),
+                            result_assignment(db, run, result),
                             sort_keys=True,
                         ).encode()
                     ).hexdigest(),
@@ -210,7 +212,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 documents=result_documents(db, result),
                 result_revision=result.revision,
                 run_id=run.id,
-                agreement_revision=run.agreement_revision,
+                agreement_revision=revision(db, run, result),
                 candidate_commit=result.candidate_commit,
                 source_commit=result.source_commit,
                 target_branch=result.target_branch,
@@ -220,9 +222,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 settings_revision=result.settings_revision,
                 reviewer=reviewer,
                 assignment_digest=hashlib.sha256(
-                    json.dumps(
-                        Execution(self.store)._saved_assignment(db, project, run.id), sort_keys=True
-                    ).encode()
+                    json.dumps(result_assignment(db, run, result), sort_keys=True).encode()
                 ).hexdigest(),
                 outcome=result.report.outcome,
                 output_ids=result.output_ids,
@@ -453,9 +453,14 @@ class TaskReviews(ReviewRecords[TaskReview]):
 
     def assignment(self, review: TaskReview) -> dict[str, str]:
         assert review.binding
+        from flowfield.result_agreement import assignment as result_assignment
         from flowfield.worker_documents import sections
 
-        assignment = Execution(self.store).assignment(review.workspace_id, review.binding.run_id)
+        assert review.result_id
+        with self.store.connection() as db:
+            result = Results(self.store)._get(db, review.workspace_id, review.result_id)
+            run = Execution(self.store)._run(db, review.workspace_id, review.binding.run_id)
+            assignment = result_assignment(db, run, result)
         if review.binding.documents is not None:
             assignment = {
                 key: value for key, value in assignment.items() if not key.startswith("document:")

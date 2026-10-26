@@ -8,6 +8,7 @@ from uuid import uuid4
 from flowfield.adapters import git_integration as gitops
 from flowfield.adapters.git_workspace import git
 from flowfield.application import Workspace, now
+from flowfield.document_models import DocumentSnapshot
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.execution_models import Correction, Run, RunAction
@@ -135,7 +136,13 @@ class Results:
             self.ready(db, self._get(db, workspace_id, identity))
 
     def capture(
-        self, db: sqlite3.Connection, run: Run, *, output_ids: list[str] | None = None
+        self,
+        db: sqlite3.Connection,
+        run: Run,
+        *,
+        output_ids: list[str] | None = None,
+        reconciled_task_revision: int | None = None,
+        guidance_documents: list["DocumentSnapshot"] | None = None,
     ) -> ResultVersion:
         assert run.result
         if run.project_id and not run.result_commit:
@@ -166,7 +173,20 @@ class Results:
             "WHERE workspace_id=? AND task_id=?",
             (run.workspace_id, run.task_id),
         ).fetchone()[0]
+        previous = db.execute(
+            "SELECT data FROM result_versions WHERE workspace_id=? AND task_id=? "
+            "ORDER BY version DESC LIMIT 1",
+            (run.workspace_id, run.task_id),
+        ).fetchone()
+        prior = ResultVersion.model_validate_json(previous[0]) if previous else None
+        if prior and prior.run_id == run.id:
+            if reconciled_task_revision is None:
+                reconciled_task_revision = prior.reconciled_task_revision
+            if guidance_documents is None:
+                guidance_documents = prior.guidance_documents
         version = ResultVersion(
+            reconciled_task_revision=reconciled_task_revision,
+            guidance_documents=guidance_documents,
             id=uuid4().hex,
             workspace_id=run.workspace_id,
             task_id=run.task_id,
