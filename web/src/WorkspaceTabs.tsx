@@ -1,3 +1,4 @@
+import { useTabOverflow } from "./useTabOverflow";
 import { ResourceScroll } from "./ResourceScroll";
 import {
   createContext,
@@ -595,66 +596,17 @@ export function WorkspaceTabs({
   children: ReactNode;
 }) {
   const state = controller.state;
-  const strip = useRef<HTMLDivElement>(null);
-  const [overflow, setOverflow] = useState({ left: false, right: false });
-  useLayoutEffect(() => {
-    const host = strip.current;
-    const list = host?.querySelector<HTMLElement>('[role="tablist"]');
-    if (!host || !list) return;
-    const measure = () => {
-      const left = host.scrollLeft > 1;
-      const right = host.scrollWidth - host.clientWidth - host.scrollLeft > 1;
-      setOverflow((current) =>
-        current.left === left && current.right === right
-          ? current
-          : { left, right },
-      );
-    };
-    const wheel = (event: WheelEvent) => {
-      if (event.ctrlKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY))
-        return;
-      if (host.scrollWidth <= host.clientWidth) return;
-      event.preventDefault();
-      const unit =
-        event.deltaMode === 1
-          ? 16
-          : event.deltaMode === 2
-            ? host.clientWidth
-            : 1;
-      host.scrollLeft += event.deltaY * unit;
-    };
-    const observer = new ResizeObserver(measure);
-    observer.observe(host);
-    observer.observe(list);
-    host.addEventListener("scroll", measure);
-    host.addEventListener("wheel", wheel, { passive: false });
-    measure();
-    return () => {
-      observer.disconnect();
-      host.removeEventListener("scroll", measure);
-      host.removeEventListener("wheel", wheel);
-    };
-  }, [state]);
+  const { strip, overflow } = useTabOverflow(
+    state,
+    state?.active,
+    '.workspace-tab[data-active="true"]',
+  );
   const restoreFocus = () =>
     requestAnimationFrame(() =>
       strip.current
         ?.querySelector<HTMLElement>('[role="tab"][data-state="active"]')
         ?.focus(),
     );
-  useLayoutEffect(() => {
-    const host = strip.current;
-    const active = host?.querySelector<HTMLElement>(
-      '.workspace-tab[data-active="true"]',
-    );
-    if (!host || !active) return;
-    const reveal = () =>
-      active.scrollIntoView({ block: "nearest", inline: "nearest" });
-    const observer = new ResizeObserver(reveal);
-    observer.observe(host);
-    observer.observe(active);
-    reveal();
-    return () => observer.disconnect();
-  }, [state?.active]);
   if (!state) return children;
   return (
     <ResourceTitles.Provider value={controller.labelResource}>
@@ -694,7 +646,7 @@ export function WorkspaceTabs({
             }}
           >
             <div
-              className="workspace-tab-strip"
+              className="workspace-tab-strip tab-overflow"
               ref={strip}
               data-overflow-left={overflow.left}
               data-overflow-right={overflow.right}

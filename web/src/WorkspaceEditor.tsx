@@ -97,7 +97,12 @@ export function WorkspaceEditor({
     </div>
   );
   return (
-    <section ref={editor} className="editor" aria-label="Edit workspace">
+    <section
+      ref={editor}
+      className="editor content-stack"
+      data-space="section"
+      aria-label="Edit workspace"
+    >
       <DetailHeader title={incoming.name} close={close} />
       <DetailTabs
         id={id}

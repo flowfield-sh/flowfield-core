@@ -740,9 +740,6 @@
     padding: 8px 24px;
     border-bottom: 1px solid var(--border);
   }
-  .entity-pane .card-tabs {
-    margin-bottom: 16px;
-  }
   @media (max-width: 700px) {
     .entity-pane .editor,
     .entity-pane .question-detail {
@@ -928,4 +925,27 @@
   --diff-omit-gutter-line-color: var(--muted-foreground);
   --diff-gutter-selected-background-color: #36516b;
   --diff-code-selected-background-color: #304456;
+}
+
+.tab-overflow {
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  --tab-fade-left: 0px;
+  --tab-fade-right: 0px;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black var(--tab-fade-left),
+    black calc(100% - var(--tab-fade-right)),
+    transparent
+  );
+}
+.tab-overflow::-webkit-scrollbar {
+  display: none;
+}
+.tab-overflow[data-overflow-left="true"] {
+  --tab-fade-left: 24px;
+}
+.tab-overflow[data-overflow-right="true"] {
+  --tab-fade-right: 24px;
 }

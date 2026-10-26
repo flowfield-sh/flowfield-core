@@ -390,26 +390,6 @@
   overflow-y: hidden;
   padding: var(--workspace-gap) var(--workspace-gap) 0;
   scroll-padding-inline: var(--workspace-gap);
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
-  --tab-fade-left: 0px;
-  --tab-fade-right: 0px;
-  mask-image: linear-gradient(
-    to right,
-    transparent,
-    black var(--tab-fade-left),
-    black calc(100% - var(--tab-fade-right)),
-    transparent
-  );
-}
-.workspace-tab-strip::-webkit-scrollbar {
-  display: none;
-}
-.workspace-tab-strip[data-overflow-left="true"] {
-  --tab-fade-left: 24px;
-}
-.workspace-tab-strip[data-overflow-right="true"] {
-  --tab-fade-right: 24px;
 }
 .workspace-tab-strip [role="tablist"] {
   height: var(--workspace-tab-height);

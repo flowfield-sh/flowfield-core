@@ -540,3 +540,39 @@ test("installation verification explains missing configuration, pending work and
     entry,
   );
 });
+
+test("settings tabs reveal direct links and keyboard focus when the pane narrows", async ({
+  page,
+}) => {
+  await page.goto("/settings/updates");
+  const tabs = page.getByRole("tablist", { name: "Flowfield settings" });
+  const updates = tabs.getByRole("tab", { name: "Updates" });
+  await expect(updates).toHaveAttribute("aria-selected", "true");
+  await page.setViewportSize({ width: 320, height: 760 });
+  const contained = async (tab: Locator) => {
+    const frame = (await tabs.boundingBox())!;
+    const target = (await tab.boundingBox())!;
+    return (
+      target.x >= frame.x - 1 &&
+      target.x + target.width <= frame.x + frame.width + 1
+    );
+  };
+  await expect.poll(() => contained(updates)).toBe(true);
+  await page.reload();
+  await expect(updates).toHaveAttribute("aria-selected", "true");
+  await expect.poll(() => contained(updates)).toBe(true);
+  await updates.focus();
+  await page.keyboard.press("Home");
+  const harnesses = tabs.getByRole("tab", { name: "Harnesses" });
+  await expect(harnesses).toBeFocused();
+  await expect.poll(() => contained(harnesses)).toBe(true);
+  await expect(updates).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("End");
+  await expect(updates).toBeFocused();
+  await expect.poll(() => contained(updates)).toBe(true);
+  await tabs.hover();
+  await page.mouse.wheel(0, -1000);
+  await expect(tabs).toHaveAttribute("data-overflow-left", "false");
+  await page.mouse.wheel(0, 1000);
+  await expect(tabs).toHaveAttribute("data-overflow-right", "false");
+});

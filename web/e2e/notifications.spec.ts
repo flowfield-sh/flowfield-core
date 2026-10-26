@@ -1328,8 +1328,15 @@ for (const colorScheme of ["light", "dark"] as const) {
             () => document.documentElement.scrollWidth <= innerWidth,
           ),
         ).toBe(true);
-        const box = await updates.boundingBox();
-        expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+        // The shared single-row strip scrolls on narrow panes; the selected
+        // tab stays visible while other tabs remain reachable by scrolling.
+        const selected = page.getByRole("tab", { name, exact: true });
+        await expect
+          .poll(async () => {
+            const box = (await selected.boundingBox())!;
+            return box.x >= 0 && box.x + box.width <= width;
+          })
+          .toBe(true);
         if (process.env.FLOWFIELD_VISUAL_EVIDENCE)
           await page.screenshot({
             animations: "disabled",

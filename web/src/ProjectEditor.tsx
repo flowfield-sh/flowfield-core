@@ -56,7 +56,12 @@ export function ProjectEditor({
     cancel,
   } = state;
   return (
-    <section ref={editor} className="editor" aria-label="Edit project">
+    <section
+      ref={editor}
+      className="editor content-stack"
+      data-space="section"
+      aria-label="Edit project"
+    >
       <DetailHeader title={values.name} close={close} />
       <DetailTabs
         id={id}

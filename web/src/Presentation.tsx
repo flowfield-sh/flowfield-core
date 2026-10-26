@@ -1,3 +1,4 @@
+import { useTabOverflow } from "./useTabOverflow";
 import { TaskLabels } from "./TaskLabels";
 import { HeaderAction } from "./HeaderAction";
 import { authorLabel } from "./workspace";
@@ -138,20 +139,29 @@ export function DetailTabs<T extends string>({
   change: (tab: T) => void;
   indicators?: Partial<Record<T, string>>;
 }) {
+  const { strip, overflow } = useTabOverflow(
+    tabs,
+    active,
+    '[role="tab"][data-state="active"]',
+  );
   return (
     <Tabs
+      className="min-w-0"
       activationMode="manual"
       value={active}
       onValueChange={(value) => change(value as T)}
     >
       <TabsList
         variant="line"
-        className="card-tabs w-full justify-start"
+        className="card-tabs tab-overflow h-9 w-full justify-start overflow-x-auto p-0"
+        ref={strip}
+        data-overflow-left={overflow.left}
+        data-overflow-right={overflow.right}
         aria-label={title}
       >
         {tabs.map((tab) => (
           <TabsTrigger
-            className="flex-none"
+            className="h-full flex-none rounded-none group-data-[orientation=horizontal]/tabs:after:bottom-[-1px]"
             key={tab}
             value={tab}
             id={`${id}-${tab}-tab`}
