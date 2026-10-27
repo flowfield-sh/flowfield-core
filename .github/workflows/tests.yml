@@ -20,13 +20,19 @@ env:
 
 jobs:
   backend:
-    name: Python 3.12 / ${{ matrix.os }}
+    name: Python 3.12 / ${{ matrix.scope }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-15]
+        include:
+          - os: ubuntu-24.04
+            scope: full Linux suite
+            selection: ''
+          - os: macos-15
+            scope: macOS platform boundaries
+            selection: '@tests/macos-platform.txt'
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -50,8 +56,16 @@ jobs:
       - run: uv sync --locked
       - run: pnpm --dir runtimes/claude-sdk install --frozen-lockfile --ignore-scripts
       - run: node runtimes/claude-sdk/build.mjs --host
-      - run: uv run --no-sync pytest
-      - run: node --test runtimes/claude-sdk/cleanup.test.mjs
+      - name: Check the selected platform coverage
+        env:
+          TEST_SELECTION: ${{ matrix.selection }}
+        run: |
+          args=()
+          if [ -n "$TEST_SELECTION" ]; then args+=("$TEST_SELECTION"); fi
+          uv run --no-sync pytest "${args[@]}"
+      - name: Check platform-independent cleanup decisions
+        if: matrix.os == 'ubuntu-24.04'
+        run: node --test runtimes/claude-sdk/cleanup.test.mjs
 
   quality:
     name: Quality, docs and candidate build
@@ -138,7 +152,9 @@ jobs:
         timeout-minutes: 5
         run: pnpm --dir web exec playwright install --no-shell chromium firefox
       - run: pnpm --dir web build
-      - run: pnpm --dir web test:fixtures
+      - name: Check browser fixture lifecycle once
+        if: matrix.shard == 1
+        run: pnpm --dir web test:fixtures
       - run: pnpm --dir web exec playwright test --shard=${{ matrix.shard }}/2
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()
@@ -173,8 +189,7 @@ jobs:
       - run: uv sync --locked
       - run: pnpm --dir runtimes/claude-sdk install --frozen-lockfile --ignore-scripts
       - run: node runtimes/claude-sdk/build.mjs --host
-      - run: node --test runtimes/claude-sdk/cleanup.test.mjs
-      - run: uv run --no-sync pytest tests/test_native_adapters.py tests/test_claude_agent.py tests/test_pi_agent.py tests/test_local_execution.py
+      - run: uv run --no-sync pytest @tests/native-platform.txt
 
   installed:
     name: Candidate installs / ${{ matrix.os }}

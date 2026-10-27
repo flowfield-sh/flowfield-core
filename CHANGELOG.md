@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.1
+
+### Bug fixes
+
+- Keep task cards focused on one meaningful state. Updated documents no longer make unscheduled Backlog tasks appear to have a paused review. Remove repeated explanations and prerequisite lists from cards while retaining questions, failures and detailed recovery inside tasks.
+
+### Upgrade
+
+Stop Flowfield, run `uv tool upgrade flowfield-core`, then start it with `flowfield serve`. See [updating Flowfield](https://docs.flowfield.sh/installation#update) for other installation methods.
+
 ## 0.9.0
 
 ### Features
