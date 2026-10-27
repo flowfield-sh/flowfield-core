@@ -5,10 +5,10 @@
 ### Features
 
 - Keep unfinished tasks aligned with changing guidance automatically. Flowfield reviews updated documents and selections before work, after implementation and while awaiting approval, revising task definitions and existing subtask instructions where needed. Questions that need your decision arrive in Inbox; completed tasks keep their history.
-- Reuse existing work when it already satisfies updated guidance. Flowfield creates a fresh result with current sources, checks and review; changed code results still require exact approval. Inspect the document revisions behind a result under **Details → Guidance**.
 
 ### Improvements
 
+- Reuse existing work when it already satisfies updated guidance. Flowfield creates a fresh result with current sources, checks and review; changed code results still require exact approval. Inspect the document revisions behind a result under **Details → Guidance**.
 - Edit a document's title, content and usage in one dedicated form with a single save. Conflicts preserve the complete draft without saving only part of your changes.
 - Bookmark and share Files views with their folder, selected file, task filter and sort order. Reload and browser Back/Forward preserve the view.
 
