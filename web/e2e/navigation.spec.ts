@@ -74,11 +74,14 @@ test("task keys link to persistent selections with history and draft protection"
   await expect(
     waiting.getByRole("link", { name: one.key, exact: true }).first(),
   ).toBeVisible();
-  await page.goto(`/workspaces/${workspace}/tasks`);
-  const blocker = page.getByRole("link", { name: "T-1", exact: true });
-  await blocker.hover();
+  await waiting.getByRole("link", { name: "T-1", exact: true }).first().hover();
   await expect(page.getByRole("tooltip")).toHaveText("Prepare the export");
   await page.keyboard.press("Escape");
+  await page.goto(`/workspaces/${workspace}/tasks`);
+  const blocker = page.getByRole("link", {
+    name: "T-1 Prepare the export",
+    exact: true,
+  });
   await expect(blocker).toHaveAttribute(
     "href",
     `/workspaces/${await projectWorkspace(page.request, "navigation")}/tasks/T-1`,

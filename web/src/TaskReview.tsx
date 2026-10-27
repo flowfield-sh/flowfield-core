@@ -96,7 +96,9 @@ export function TaskReview({
                               ? "Review failed"
                               : "Preparing review"}
             </p>
-            {review.problem && <p>{review.problem}</p>}
+            {review.problem && review.status !== "stopped" && (
+              <p>{review.problem}</p>
+            )}
             <ReviewControls
               review={review}
               path={`workspaces/${projectId}/reviews/${review.id}`}

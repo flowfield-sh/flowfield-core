@@ -432,9 +432,6 @@
   .work-state[data-tone="active"] .work-state-dot {
     animation: work-pulse 1.8s ease-in-out infinite;
   }
-  .work-state-link {
-    align-self: flex-start;
-  }
   .run-activity-output {
     font-family: var(--font-mono, ui-monospace, monospace);
     max-height: 22rem;

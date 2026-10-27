@@ -86,6 +86,54 @@ def change(store, body="Use clear labels."):
     )
 
 
+def test_backlog_guidance_stays_idle_until_scheduled_and_preserves_real_blockers(tmp_path):
+    from flowfield.browser import BrowserReads
+    from flowfield.execution_models import QueueEdit
+    from flowfield.questions import QuestionCreate
+
+    service, reviews = planning(tmp_path)
+    store = service.workspace
+    task = store.create_task(
+        "harbor",
+        TaskCreate(
+            title="Investigate labels",
+            body="Identify unclear labels.",
+            preparation=TaskPreparation(completion="report"),
+        ),
+    )
+    change(store)
+    reads = BrowserReads(store)
+    for enabled in (False, True):
+        settings = service.execution.settings("harbor")
+        service.execution.queue(
+            "harbor", QueueEdit(expected_revision=settings.revision, enabled=enabled)
+        )
+        card = reads.workspace_board("harbor").tasks[0]
+        assert card.state.label == "Not scheduled" and card.state.tone == "idle"
+        assert card.document_updates
+        assert prepare(reviews, "harbor", task.id) is None
+        assert reads.task("harbor", task.id).state == card.state
+    question = Questions(store).ask(
+        "harbor",
+        QuestionCreate(
+            task_id=task.id, question="Which labels?", context="Choose scope", recommendation="All"
+        ),
+    )
+    assert reads.task("harbor", task.id).state.label == "Needs your answer"
+    Questions(store).answer(
+        "harbor", question.id, QuestionAnswer(expected_revision=question.revision, answer="All")
+    )
+    # A separate scheduled task verifies normal review progress and explicit recovery.
+    scheduled = planned_task(service)
+    change(store, "Use accessible labels.")
+    assert reads.task("harbor", scheduled.id).state.label == "Queued"
+    review = prepare(reviews, "harbor", scheduled.id)
+    review = reviews.claim("harbor", review.id, review.revision)
+    assert reads.task("harbor", scheduled.id).state.label == "Reviewing"
+    review = reviews.stop("harbor", review.id, review.revision, cleanup_confirmed=True)
+    assert reads.task("harbor", scheduled.id).state.label == "Review stopped"
+
+
 def test_preflight_refreshes_latest_guidance_and_then_claims(tmp_path, monkeypatch):
     service, reviews = planning(tmp_path)
     task = service.workspace.create_task(
@@ -377,10 +425,7 @@ def test_explicit_selection_change_projects_automatic_review_not_manual_repair(t
         task.id,
         TaskEdit(expected_revision=task.revision, documents=[{"id": doc.id}]),
     )
-    assert (
-        BrowserReads(service.workspace).task("harbor", task.id).state.label
-        == "Guidance review queued"
-    )
+    assert BrowserReads(service.workspace).task("harbor", task.id).state.label == "Queued"
 
 
 def test_delivery_rechecks_guidance_after_approval(tmp_path, monkeypatch):
@@ -435,6 +480,8 @@ def test_pause_stop_and_uncertain_cleanup_do_not_apply_or_restart_guidance(tmp_p
 
 
 def test_invalid_proposal_keeps_the_task_and_requires_explicit_retry(tmp_path, monkeypatch):
+    from flowfield.browser import BrowserReads
+
     service, _, run, _, reviews = configured(tmp_path)
     change(service.workspace)
     before = service.workspace.task("harbor", run.task_id)
@@ -442,6 +489,8 @@ def test_invalid_proposal_keeps_the_task_and_requires_explicit_retry(tmp_path, m
     asyncio.run(round_trip(service))
     review = reviews.latest("harbor", run.task_id)
     assert review.status == "failed" and not review.applied_at
+    state = BrowserReads(service.workspace).task("harbor", run.task_id).state
+    assert state.label == "Review failed" and state.tone == "attention"
     task = service.workspace.task("harbor", run.task_id)
     assert task.body == before.body and task.publication == before.publication
     assert task.dependencies == before.dependencies

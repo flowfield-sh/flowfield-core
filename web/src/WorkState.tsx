@@ -1,6 +1,4 @@
-import type { ReactNode } from "react";
 import type { components } from "./api-schema";
-import { WorkspaceLink } from "./WorkspaceLink";
 import {
   Tooltip,
   TooltipContent,
@@ -10,16 +8,12 @@ import {
 type State = components["schemas"]["WorkState"];
 export function WorkState({
   state,
-  linked = false,
   indicatorOnly = false,
   decorative = false,
-  children,
 }: {
   state: State | null | undefined;
-  linked?: boolean;
   indicatorOnly?: boolean;
   decorative?: boolean;
-  children?: ReactNode;
 }) {
   if (!state) return null;
   const content = (
@@ -33,7 +27,7 @@ export function WorkState({
       tabIndex={indicatorOnly && !decorative ? 0 : undefined}
     >
       <span className="work-state-dot" aria-hidden="true" />
-      {!indicatorOnly && (children ?? state.label)}
+      {!indicatorOnly && state.label}
     </span>
   );
   if (indicatorOnly && !decorative)
@@ -43,11 +37,5 @@ export function WorkState({
         <TooltipContent>{state.label}</TooltipContent>
       </Tooltip>
     );
-  return linked && state.href && !children ? (
-    <WorkspaceLink to={state.href} className="work-state-link">
-      {content}
-    </WorkspaceLink>
-  ) : (
-    content
-  );
+  return content;
 }

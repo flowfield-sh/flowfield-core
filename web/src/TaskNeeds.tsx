@@ -1,52 +1,11 @@
 import type { components } from "./api-schema";
 import { TaskLink, BlockedBy } from "./TaskLinks";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { taskHref } from "./navigation";
 import { QuestionLink } from "./QuestionLink";
 import type { TaskCard } from "./workspace";
-import { WorkState } from "./WorkState";
 
 function combinedDependencies(task: TaskCard) {
   return task.state?.reason === "prerequisites" && task.blocked_by.length > 0;
-}
-
-export function TaskState({
-  task,
-  projectId,
-  open,
-  linked = false,
-}: {
-  task: TaskCard;
-  projectId: string;
-  open: (id: string) => void;
-  linked?: boolean;
-}) {
-  return (
-    <>
-      {task.state && (
-        <WorkState
-          state={
-            task.state && { ...task.state, href: taskHref(projectId, task) }
-          }
-          linked={linked}
-        >
-          {combinedDependencies(task) ? (
-            <BlockedBy
-              prefix="Waiting on"
-              projectId={projectId}
-              tasks={task.blocked_by}
-              open={open}
-            />
-          ) : undefined}
-        </WorkState>
-      )}
-      {!!task.document_updates?.length && (
-        <p className="detail-metadata">
-          Guidance will be reviewed before continuing
-        </p>
-      )}
-    </>
-  );
 }
 
 export function hasTaskNeeds(

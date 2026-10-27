@@ -25,6 +25,30 @@ class WorkState(BaseModel):
     reason: Literal["prerequisites", "scheduling"] | None = None
 
 
+def action_label(label: str, *, queue_enabled: bool) -> str:
+    """Task summaries describe progress; exact actions retain their recovery detail."""
+    return {
+        "Preparing reviewer": "Reviewing",
+        "Reviewing changes": "Reviewing",
+        "Reviewing result": "Reviewing",
+        "Reviewing updated guidance": "Reviewing",
+        "Guidance review queued": "Queued",
+        "Review queued": "Queued",
+        "Awaiting review": "Queued",
+        "Guidance review paused": "Queue paused",
+        "Review paused": "Queue paused",
+        "Paused": "Queue paused",
+        "Waiting for capacity": "Queued",
+        "Waiting for worker reply": "Queued" if queue_enabled else "Queue paused",
+        "Waiting for review answer": "Needs your answer",
+        "Check reviewer state": "Check review",
+        "Retry guidance review": "Review failed",
+        "Retry review": "Review failed",
+        "Guidance review stopped": "Review stopped",
+        "Retaining results": "Finalizing",
+    }.get(label, label)
+
+
 def event_state(
     kind: str, status: str | None, identity: str, current: WorkState, *, decision: str | None = None
 ) -> WorkState:
@@ -37,11 +61,7 @@ def event_state(
     target = current._event_id
     if kind == "result" and status == "delivered":
         return WorkState(label="Delivered", tone="complete")
-    if (
-        kind == "result"
-        and target == identity
-        and current.label in ("Reviewing changes", "Reviewing result", "Preparing reviewer")
-    ):
+    if kind == "result" and target == identity and current.label == "Reviewing":
         return WorkState(label="Awaiting reviewer", tone="waiting")
     if kind in ("attempt", "result", "question") and target == identity:
         return current.model_copy(update={"href": None})
@@ -136,9 +156,9 @@ def task_state(
             return WorkState(label="Review tool permission", tone="waiting", href=href)
         return WorkState(
             label={
-                "preparing": "Preparing worker",
+                "preparing": "Starting work",
                 "running": "Working",
-                "stopping": "Stopping worker",
+                "stopping": "Stopping",
                 "uncertain": "Check worker state",
             }[status],
             tone="attention" if status == "uncertain" else "active",
@@ -147,31 +167,32 @@ def task_state(
     if task["question_id"]:
         return question_state(db, project, task["question_id"])
     if task["scheduling_problem"] and not task["archived"]:
-        return WorkState(
-            label=task["scheduling_problem"], tone="attention", href=href, reason="scheduling"
-        )
+        return WorkState(label="Cannot start", tone="attention", href=href, reason="scheduling")
     if task["reply_pending"]:
         return WorkState(
-            label="Reply queued" if facts.queue_enabled else "Reply paused",
+            label="Queued" if facts.queue_enabled else "Queue paused",
             tone="waiting",
             href=href,
         )
     from flowfield.guidance_reconciliation import pending_task
 
-    if pending_task(workspace, db, project, task_id):
+    # Changed documents do not schedule a Backlog task or create a paused review.
+    pending_guidance = pending_task(workspace, db, project, task_id)
+    if pending_guidance and task["status"] != "backlog":
         action = guidance_action(db, project, task_id)
+        label = action_label(action.label, queue_enabled=facts.queue_enabled)
         return WorkState(
-            label=action.label,
+            label=label,
             tone="active"
-            if action.label in ("Reviewing updated guidance", "Preparing reviewer")
+            if label == "Reviewing"
             else "attention"
-            if action.label in ("Choose reviewer", "Check reviewer state", "Retry guidance review")
+            if label in ("Choose reviewer", "Check review", "Review failed")
             else "waiting",
             href=href,
         )
     if task["reason"]:
         return WorkState(label="Update task", tone="attention", href=href)
-    if task["result_id"]:
+    if task["result_id"] and not (pending_guidance and task["status"] == "backlog"):
         # Load exact evidence only when the result owns the visible state.
         result = ResultVersion.model_validate_json(
             db.execute(
@@ -180,12 +201,13 @@ def task_state(
         )
         action = result_action(workspace, db, result)
         if action.label != "Earlier result":
+            label = action_label(action.label, queue_enabled=facts.queue_enabled)
             tone: Literal["active", "attention", "waiting", "complete", "idle"] = "waiting"
             if result.status in ("preparing", "delivering"):
                 tone = "active"
-            elif action.label in ("Reviewing changes", "Reviewing result", "Preparing reviewer"):
+            elif label == "Reviewing":
                 tone = "active"
-            elif action.label == "Check reviewer state":
+            elif label in ("Check review", "Review failed"):
                 tone = "attention"
             elif result.status == "delivered":
                 tone = "complete"
@@ -196,7 +218,7 @@ def task_state(
                 if result.status == "delivered" and action.action == "none"
                 else "Integration blocked"
                 if action.action == "retry-delivery"
-                else action.label,
+                else label,
                 tone=tone,
                 href=f"{workspace_href(project)}/results/{result.id}",
             ).for_event("result:" + result.id)

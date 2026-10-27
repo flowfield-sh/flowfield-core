@@ -99,11 +99,18 @@ def test_settings_race_requires_fresh_preflight(tmp_path, monkeypatch):
 
 
 def test_scheduling_diagnostics_are_retained_once_and_survive_recovery(tmp_path):
+    from flowfield.browser import BrowserReads
+
     execution = fixture(tmp_path)
     reason = "Local contributions conflict. Ask the Coordinator to reconcile shared files."
     details = "Git conflict evidence\nREADME.md: conflicting contribution edits"
     for _ in range(3):
         execution.task_problem("harbor", "task-0", reason, details=details)
+    reads = BrowserReads(execution.workspace)
+    card = reads.workspace_board("harbor").tasks[0]
+    assert card.state.label == "Cannot start" and card.state.tone == "attention"
+    assert reason not in card.model_dump_json()
+    assert reads.task("harbor", "task-0").scheduling_problem == reason
     with execution.workspace.connection() as db:
         assert (
             db.execute("SELECT scheduling_problem FROM tasks WHERE id='task-0'").fetchone()[0]
@@ -113,6 +120,7 @@ def test_scheduling_diagnostics_are_retained_once_and_survive_recovery(tmp_path)
             db.execute("SELECT count(*) FROM activity WHERE body=?", (details,)).fetchone()[0] == 1
         )
     execution.task_problem("harbor", "task-0", None)
+    assert reads.task("harbor", "task-0").scheduling_problem is None
     with execution.workspace.connection() as db:
         assert (
             db.execute("SELECT scheduling_problem FROM tasks WHERE id='task-0'").fetchone()[0]

@@ -71,6 +71,7 @@ class TaskCard(TaskReference):
 
 
 class TaskDetail(TaskRevision, TaskCard):
+    scheduling_problem: str | None = None
     subtasks: list[Subtask] = Field(default_factory=list)
     archive_blocker: str | None = None
     delete_blocker: str | None = None
@@ -275,11 +276,11 @@ class BrowserReads:
         with self.workspace.connection() as db:
             identity = self.workspace._activity_scope(db, workspace_id, task_id)
             records, positions = task_metadata(self.workspace, db, workspace_id)
-            current = TaskRevision.model_validate_json(
-                db.execute(
-                    "SELECT data FROM tasks WHERE workspace_id=? AND id=?", (workspace_id, identity)
-                ).fetchone()[0]
-            )
+            row = db.execute(
+                "SELECT data,scheduling_problem FROM tasks WHERE workspace_id=? AND id=?",
+                (workspace_id, identity),
+            ).fetchone()
+            current = TaskRevision.model_validate_json(row["data"])
             card = self._card(
                 db,
                 current,
@@ -298,6 +299,7 @@ class BrowserReads:
             ).fetchone()
             return TaskDetail(
                 **card.model_dump(),
+                scheduling_problem=row["scheduling_problem"],
                 subtasks=Subtasks.read_all(db, workspace_id, current.id),
                 archive_blocker=archive_issue.message if archive_issue else None,
                 delete_blocker=TaskDeletionService(self.workspace).blocker(db, current),

@@ -5981,6 +5981,8 @@ export interface components {
        * @default
        */
       change_note: string;
+      /** Scheduling Problem */
+      scheduling_problem: string | null;
       /** Subtasks */
       subtasks: components["schemas"]["Subtask"][];
       /** Archive Blocker */

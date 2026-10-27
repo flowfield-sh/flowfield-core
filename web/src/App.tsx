@@ -22,7 +22,7 @@ import { reportError } from "./requestFeedback";
 import { Toaster } from "@/components/ui/sonner";
 import { LabelCatalog } from "./labelContext";
 import { AnnouncementProvider } from "./Announcements";
-import { TaskState } from "./TaskNeeds";
+import { WorkState } from "./WorkState";
 import { WorkspaceList, NewWorkspace } from "./WorkspaceEntry";
 import { Documents } from "./Documents";
 import { Files } from "./Files";
@@ -1113,24 +1113,7 @@ function WorkspaceResource({
                                           </ScopedAnchor>
                                         }
                                       />
-                                      <TaskState
-                                        task={task}
-                                        projectId={task.workspace_id}
-                                        open={(id) =>
-                                          choose({
-                                            kind: "task",
-                                            id:
-                                              board.tasks.find(
-                                                (item) =>
-                                                  item.project_id ===
-                                                    task.project_id &&
-                                                  (item.id === id ||
-                                                    item.key === id),
-                                              )?.key ?? id,
-                                          })
-                                        }
-                                        linked
-                                      />
+                                      <WorkState state={task.state} />
                                     </WorkCard>
                                   </PlanningCard>
                                 ))}

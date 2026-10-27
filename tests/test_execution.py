@@ -245,7 +245,7 @@ def test_failure_retry_and_restart_never_automatically_relaunch(tmp_path: Path) 
     assert state_label() == "Queued"
     retry = execution.claim("harbor", BASE, {BASE: set()})
     assert retry and retry.predecessor_id == run.id and retry.environment_id != run.environment_id
-    assert state_label() == "Preparing worker"
+    assert state_label() == "Starting work"
 
 
 def test_usage_replay_is_not_added_and_history_is_paged(tmp_path: Path) -> None:

@@ -105,10 +105,10 @@ test("coordinator dependencies update blockers, links and reconciliation without
   const card = page.locator(".task-card").filter({ hasText: "Download CSV" });
   await expect(
     card.locator(".work-state:not([data-indicator-only])"),
-  ).toHaveText("Waiting on T-3");
+  ).toHaveText("Waiting on prerequisites");
   await expect(
     card.getByRole("link", { name: "T-3", exact: true }),
-  ).toHaveCount(1);
+  ).toHaveCount(0);
   await expect(
     card.getByText("Needs code from T-1", { exact: true }),
   ).toHaveCount(0);
@@ -411,9 +411,8 @@ test("cards keep one state while project questions remain in Inbox", async ({
     `/workspaces/${await projectWorkspace(request, project_id)}/tasks`,
   );
   const card = page.locator(".task-card");
-  await expect(
-    card.getByRole("link", { name: "Needs your answer", exact: true }),
-  ).toBeVisible();
+  await expect(card.locator(".work-state")).toHaveText("Needs your answer");
+  await expect(card.getByRole("link")).toHaveCount(1);
   await expect(card.locator(".task-needs")).toHaveCount(0);
   await call("ask_question", {
     workspace_id: await projectWorkspace(request, project_id),
@@ -490,7 +489,9 @@ test("Inbox carries a free-text answer from browser to coordinator application",
   );
   // Hiding a repeated question must not leave an empty needs list on any card.
   await expect(
-    page.getByRole("link", { name: "Needs your answer", exact: true }),
+    page
+      .locator(".task-card .work-state")
+      .filter({ hasText: "Needs your answer" }),
   ).toBeVisible();
   await expect(page.locator(".task-card .task-needs:empty")).toHaveCount(0);
   let releaseInput!: () => void;
@@ -505,7 +506,7 @@ test("Inbox carries a free-text answer from browser to coordinator application",
     },
   );
   await page
-    .getByRole("link", { name: "Needs your answer", exact: true })
+    .getByRole("link", { name: "T-2 Download CSV", exact: true })
     .click();
   await expect(page).toHaveURL(
     `/workspaces/${await projectWorkspace(request, project_id)}/tasks/T-2`,

@@ -243,7 +243,7 @@ export function TaskDetail({
                 </WorkspaceLink>
               }
             >
-              <p>{task.state.label}</p>
+              <p>{task.scheduling_problem}</p>
             </StatusNotice>
           )}
           {!!task.subtasks.length && (

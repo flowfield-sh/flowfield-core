@@ -147,9 +147,14 @@ test("project defaults prepare exact task documents and preserve revision links"
     page.getByText("Keep the public API stable. 🦉", { exact: true }),
   ).toBeVisible();
   await page.goto(`/workspaces/${workspace.id}/tasks`);
-  await expect(
-    page.getByRole("link", { name: "Guidance review paused", exact: true }),
-  ).toBeVisible();
+  const card = page.locator(".task-card").filter({ hasText: task.title });
+  await expect(card.locator(".work-state")).toHaveText("Not scheduled");
+  await expect(card.locator(".work-state")).toHaveAttribute(
+    "data-tone",
+    "idle",
+  );
+  await expect(card.locator("p")).toHaveCount(0);
+  await expect(card.getByRole("link")).toHaveCount(1);
   await page
     .getByTestId("work")
     .getByRole("link", { name: /Use documented conventions/ })
