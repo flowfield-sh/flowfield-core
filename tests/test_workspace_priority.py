@@ -86,5 +86,6 @@ def test_scheduler_follows_shared_priority_and_skips_unavailable_repository(
     assert started == (["T-3", "T-1"] if blocked_site else ["T-2", "T-3"])
     assert len(execution.active()) == 2
     if blocked_site:
-        assert BrowserReads(store).task(space, "site").state.label == "Site needs repository setup."
-        assert BrowserReads(store).task(space, "site").state.label == "Site needs repository setup."
+        detail = BrowserReads(store).task(space, "site")
+        assert detail.state.label == "Cannot start"
+        assert detail.scheduling_problem == "Site needs repository setup."
