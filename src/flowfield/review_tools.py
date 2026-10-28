@@ -84,17 +84,6 @@ class ReviewBridge:
                 request = ReadContext.model_validate(arguments)
                 text = self.reviews.read_context(self.review, request.section)
                 result = request.page(text)
-                if self.review.result_id and request.section.startswith("observation:"):
-                    from flowfield.review_observations import record_read
-
-                    with self.reviews.store.connection(write=True, notify=False) as db:
-                        record_read(
-                            db,
-                            self.attempt,
-                            request.section.removeprefix("observation:"),
-                            request.offset,
-                            len(text),
-                        )
             elif name == "read_evidence" and not self.review.guidance:
                 from flowfield.results import Results
                 from flowfield.task_evidence import read_file

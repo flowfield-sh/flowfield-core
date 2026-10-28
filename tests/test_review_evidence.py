@@ -4,67 +4,31 @@ import asyncio
 import json
 
 import pytest
-from replies_fixtures import message
+from replies_fixtures import historical_note
 from result_fixtures import current
 from review_execution_fixtures import Reviewer, install, round_trip
 from task_reviews_fixtures import configured, verdict
 
-from flowfield.conversation import Conversation
 from flowfield.errors import ApplicationError
 from flowfield.inspection import Inspections
 from flowfield.inspection_models import InspectionConfig
 from flowfield.outputs import Outputs
-from flowfield.replies import Replies
 from flowfield.review_tools import ReviewBridge
 
 
-@pytest.mark.parametrize("late", [False, True])
-def test_observation_must_be_read_before_verdict_can_apply(tmp_path, late):
+def test_historical_notes_are_readable_without_a_new_review_round(tmp_path):
     service, _, run, _, reviews = configured(tmp_path)
     result = current(service)
+    note = historical_note(service.workspace, run.task_id, "Earlier testing notes")
     review = reviews.prepare("harbor", result.id)
     review = reviews.claim("harbor", review.id, review.revision)
     review = reviews.begin_attempt("harbor", review.id)
     review = reviews.started("harbor", review.id, review.revision)
-    gate = Conversation(service.workspace).eligibility("harbor", run.task_id)
-    assert not gate.enabled and gate.observation_enabled
-    if late:
-        reviews.save_decision("harbor", review.id, review.attempt_id, verdict().model_dump())
-    note = Replies(service.workspace).submit(
-        "harbor",
-        run.task_id,
-        message(
-            service.workspace,
-            run.task_id,
-            action="observation",
-            body="Observed " + "x" * 7000,
-        ),
-    )
-    assert current(service).candidate_commit == result.candidate_commit
-    if late:
-        queued = reviews.finish_attempt(
-            "harbor", review.id, review.attempt_id, cleanup_confirmed=True
-        )
-        assert queued.status == "queued" and queued.launch_reason == "observation-continuation"
-        assert not queued.verdict and not current(service).approved_at
-        return
-    with pytest.raises(ApplicationError, match="New result observations"):
-        reviews.save_decision("harbor", review.id, review.attempt_id, verdict().model_dump())
     scope = ReviewBridge(reviews, review, review.attempt_id, "reviewer").scope()
 
     async def read():
-        # Skipping the first page must not acknowledge the whole note.
-        assert not (
-            await scope.call("read_context", {"section": "observation:" + note.id, "offset": 6000})
-        ).isError
-        denied = await scope.call("submit_review", verdict().model_dump())
-        assert denied.isError
-        for offset in (0, 6000):
-            assert not (
-                await scope.call(
-                    "read_context", {"section": "observation:" + note.id, "offset": offset}
-                )
-            ).isError
+        value = await scope.call("read_context", {"section": "observation:" + note.id})
+        assert not value.isError and "Earlier testing notes" in str(value)
         assert not (await scope.call("submit_review", verdict().model_dump())).isError
 
     asyncio.run(read())
@@ -198,16 +162,7 @@ def test_observation_attachment_requires_sent_result_binding(tmp_path):
             root,
             result_before=result.version + 1,
         )
-    Replies(service.workspace).submit(
-        "harbor",
-        run.task_id,
-        message(
-            service.workspace,
-            run.task_id,
-            action="observation",
-            body=f"Observed behavior: [file]({attachment.href})",
-        ),
-    )
+    historical_note(service.workspace, run.task_id, f"Observed behavior: [file]({attachment.href})")
     saved = json.loads(
         read_file(
             service.workspace,

@@ -363,3 +363,55 @@ def test_published_task_deletion_removes_accounting_atomically(tmp_path):
         assert not db.execute("SELECT 1 FROM usage_checkpoints").fetchone()
         assert db.execute("SELECT count(*) FROM usage_closed_scopes").fetchone()[0] == 1
         assert not db.execute("PRAGMA foreign_key_check").fetchone()
+
+
+def test_elapsed_time_merges_parallel_work_and_clips_periods(tmp_path):
+    execution, _, runs = accounting(tmp_path, count=3)
+    with execution.workspace.connection(write=True) as db:
+        for run, start, end in zip(runs, [0, 5, 30], [10, 20, 35], strict=True):
+            db.execute(
+                "UPDATE usage_executions SET started_at=?,ended_at=?,timing='recorded' "
+                "WHERE source_id=?",
+                (
+                    f"2026-10-27T10:{start:02d}:00+00:00",
+                    f"2026-10-27T10:{end:02d}:00+00:00",
+                    run.id,
+                ),
+            )
+    report = summary(execution)
+    assert report.totals.recorded_seconds == 30 * 60
+    assert report.totals.elapsed_seconds == 25 * 60
+    assert next(r for r in report.breakdowns if r.dimension == "role").elapsed_seconds == 25 * 60
+    # Pagination changes items, not the wall clock; idle gaps add nothing.
+    assert summary(execution, limit=1, after=1).totals.elapsed_seconds == 25 * 60
+    clipped = summary(execution, start="2026-10-27T10:08:00Z", end="2026-10-27T10:32:00Z")
+    assert clipped.totals.elapsed_seconds == 14 * 60
+
+
+def test_elapsed_time_includes_live_once_and_never_extends_unknown_end(tmp_path):
+    from datetime import UTC, datetime, timedelta
+
+    execution, _, runs = accounting(tmp_path, count=3)
+    start = datetime.now(UTC) - timedelta(seconds=60)
+    with execution.workspace.connection(write=True) as db:
+        db.execute(
+            "UPDATE usage_executions SET started_at=?,ended_at=NULL,timing='live'",
+            (start.isoformat(),),
+        )
+        db.execute(
+            "UPDATE usage_executions SET timing='unknown-end',started_at=? WHERE source_id=?",
+            ((start - timedelta(hours=1)).isoformat(), runs[2].id),
+        )
+    report = summary(execution)
+    assert 60 <= report.totals.elapsed_seconds < 65
+    assert report.totals.recorded_seconds is None
+    assert report.totals.live_intervals == 2
+    assert report.totals.unknown_intervals == 1
+    assert next(r for r in report.breakdowns if r.dimension == "role").live
+    past = summary(
+        execution,
+        start=(start - timedelta(minutes=5)).isoformat(),
+        end=(start - timedelta(seconds=1)).isoformat(),
+    )
+    assert past.totals.elapsed_seconds is None
+    assert not any(r.live for r in past.breakdowns)

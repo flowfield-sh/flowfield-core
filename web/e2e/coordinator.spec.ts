@@ -414,6 +414,7 @@ test("coordinator streams, stops, retains history and drafts beside responsive w
     'console.log("complete-prefix")\'`';
   permission = {
     id: "setup",
+    review_attempt_id: null,
     workspace_id: workspace,
     role: "coordinator",
     task_id: null,

@@ -89,9 +89,8 @@ def add_conversation_tools(mcp: FastMCP, workspace: Callable[[], Workspace]) -> 
     ) -> InputEligibility:
         """Read reply ownership, exact bindings, result action and latest attempt.
         Supply question_id for a specific question Request; otherwise read the current input.
-        enabled permits work-changing input; observation_enabled independently permits
-        passive exact-result notes, including during active review. Earlier results retain testing
-        observations but cannot receive changes. Follow result_next_action. If a newer attempt
+        enabled permits current work-changing input. Earlier results retain evidence but
+        cannot receive changes. Follow result_next_action. If a newer attempt
         stopped/failed without a result, inspect latest_attempt with get_run and use retry_run
         after resolving its task preparation; do not request changes to the earlier result.
         """
@@ -99,16 +98,12 @@ def add_conversation_tools(mcp: FastMCP, workspace: Callable[[], Workspace]) -> 
 
     @mcp.tool(annotations=write)
     def reply_to_task(workspace_id: str, task_id: str, request: ReplyCreate) -> Reply:
-        """Send an answer, request changes, or record result testing.
+        """Answer a question or request changes to an exact result.
         Discuss task scope and result questions in the coordinator conversation.
         Reuse the same ID after an uncertain response; stale input must be reconciled.
         For a local correction, action=changes and subtask_id target that contribution
         and its dependents, preserving unrelated completed work. Omitting subtask_id
         corrects every contribution; naming a subtask only in body does not scope it.
-        action=observation saves human testing against the exact result without starting
-        a worker, requesting changes or approving code. State what was tried and observed.
-        Observations remain bound to the exact task result; changed candidates never inherit them.
-        An active reviewer must read new observations before concluding; they do not amend scope.
         """
         return Replies(workspace()).submit(workspace_id, task_id, request)
 

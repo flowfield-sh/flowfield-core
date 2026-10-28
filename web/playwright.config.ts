@@ -27,5 +27,5 @@ export default defineConfig({
       use: { browserName: "firefox" },
     },
   ],
-  use: { browserName: "chromium", trace: "retain-on-failure" },
+  use: { headless: true, browserName: "chromium", trace: "retain-on-failure" },
 });

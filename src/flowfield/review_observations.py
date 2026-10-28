@@ -1,22 +1,9 @@
-"""Live, immutable result observations; reading evidence never changes task scope."""
+"""Read retained historical result notes; new feedback uses exact result decisions."""
 
 import json
 import sqlite3
-from typing import Any
 
 from flowfield.errors import ApplicationError
-
-
-def unread(db: sqlite3.Connection, workspace: str, result: str, data: dict[str, Any]) -> bool:
-    return bool(
-        db.execute(
-            "SELECT 1 FROM task_replies r LEFT JOIN json_each(?) seen ON seen.key=r.id "
-            "WHERE workspace_id=? AND json_extract(data,'$.binding.result_id')=? "
-            "AND json_extract(data,'$.action')='observation' "
-            "AND coalesce(seen.value,0)<length(r.data) LIMIT 1",
-            (json.dumps(data.get("observations_read", {})), workspace, result),
-        ).fetchone()
-    )
 
 
 def source(db: sqlite3.Connection, workspace: str, result: str, section: str) -> str:
@@ -57,16 +44,3 @@ def source(db: sqlite3.Connection, workspace: str, result: str, section: str) ->
             "next_section": f"observations:{offset + 20}" if len(page) > 20 else None,
         }
     )
-
-
-def record_read(
-    db: sqlite3.Connection, attempt: str, identity: str, offset: int, length: int
-) -> None:
-    row = db.execute("SELECT data FROM review_attempts WHERE id=?", (attempt,)).fetchone()
-    assert row
-    data = json.loads(row[0])
-    seen = data.setdefault("observations_read", {})
-    # A caller cannot acknowledge a long note by requesting only its last page.
-    if offset <= seen.get(identity, 0):
-        seen[identity] = max(seen.get(identity, 0), min(length, offset + 6000))
-    db.execute("UPDATE review_attempts SET data=? WHERE id=?", (json.dumps(data), attempt))

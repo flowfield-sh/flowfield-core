@@ -1,58 +1,64 @@
+import { useEffect, useMemo, useState } from "react";
 import type { components } from "./api-schema";
-import { request } from "./workspace";
-import { usePage } from "./useResource";
+import { useResource } from "./useResource";
 
 export type UsageView = components["schemas"]["UsageView"];
 export type UsageExecution = components["schemas"]["UsageExecution"];
-export type UsageEvidencePage = components["schemas"]["UsageEvidencePage"];
 export type Tokens = components["schemas"]["Tokens"];
-
 export const usageNumber = (value: number | null | undefined) =>
-  value == null ? "Not reported" : value.toLocaleString();
-export const usageLabel = (value: string) => value.replaceAll(/[-_]/g, " ");
-export const usageCoverage = (value: UsageExecution["coverage"]) =>
-  value === "complete"
-    ? "Final for reported scope"
-    : value === "partial"
-      ? "Partial coverage"
-      : "Usage unavailable";
+  value == null ? "—" : value.toLocaleString();
 export function usageDuration(seconds: number | null) {
-  if (seconds == null) return "Time unavailable";
-  if (seconds < 60) return `${Math.floor(seconds)}s recorded execution time`;
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes >= 60 ? `${Math.floor(minutes / 60)}h ` : ""}${minutes % 60}m recorded execution time`;
-}
-export function usageEvidencePath(
-  workspaceId: string,
-  execution: Pick<UsageExecution, "source" | "source_id">,
-) {
-  return `workspaces/${encodeURIComponent(workspaceId)}/usage/${execution.source}/${encodeURIComponent(execution.source_id)}`;
+  if (seconds == null) return "—";
+  const whole = Math.max(0, Math.floor(seconds));
+  if (whole < 60) return `${whole}s`;
+  const minutes = Math.floor(whole / 60);
+  return minutes >= 60
+    ? `${Math.floor(minutes / 60)}h ${minutes % 60}m`
+    : `${minutes}m ${whole % 60}s`;
 }
 
-// Adapt the accounting API's forward cursor to the shared retained-window owner.
-// All totals remain server-owned; loaded execution pages are never re-summed.
-type UsagePage = UsageView | UsageEvidencePage;
-async function readUsagePage<P extends UsagePage>(
-  path: string,
-  signal: AbortSignal,
-): Promise<P & { next_cursor: number | null }> {
-  const [base, query] = path.split("?");
-  const params = new URLSearchParams(query);
-  if (params.has("before")) {
-    params.set("after", params.get("before")!);
-    params.delete("before");
-  }
-  const page = await request<P>(`${base}?${params}`, "GET", undefined, signal);
-  return { ...page, next_cursor: page.next_after };
-}
-export function useUsagePage<P extends UsagePage>(
-  path: string,
-  refresh: unknown,
-) {
-  return usePage<P & { next_cursor: number | null }>(
-    path,
-    refresh,
-    true,
-    readUsagePage<P>,
+// Totals are service-owned, independent of pagination. Refresh a visible live
+// surface even when its harness has not emitted another workspace event.
+export function useUsagePage(path: string, refresh: unknown) {
+  const [poll, setPoll] = useState(0);
+  const tick = useMemo(() => ({ refresh, poll }), [refresh, poll]);
+  const resource = useResource<UsageView>(path, tick);
+  const live = !!resource.data?.breakdowns.some(
+    (row) => row.dimension === "role" && row.live,
   );
+  useEffect(() => {
+    if (!live) return;
+    const refreshVisible = () => {
+      if (document.visibilityState === "visible") setPoll((n) => n + 1);
+    };
+    const timer = window.setInterval(refreshVisible, 5000);
+    document.addEventListener("visibilitychange", refreshVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshVisible);
+    };
+  }, [live, path]);
+  return resource;
+}
+
+export function useUsageClock(view: UsageView) {
+  const live = view.breakdowns.some(
+    (row) => row.dimension === "role" && row.live,
+  );
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!live) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [live]);
+  // Stop interpolation after a missed refresh, rather than inventing indefinite
+  // running time during an outage. The next authoritative read reconciles it.
+  const delta = Math.max(
+    0,
+    Math.min(10, (now - Date.parse(view.measured_at)) / 1000),
+  );
+  return (seconds: number | null, running = live) =>
+    usageDuration(seconds == null ? null : seconds + (running ? delta : 0));
 }

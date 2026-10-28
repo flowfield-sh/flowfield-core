@@ -154,6 +154,7 @@ class UsageTotals(UsageRecord):
     unavailable: int = 0
     legacy: int = 0
     recorded_seconds: float | None = None
+    elapsed_seconds: float | None = None
     recorded_intervals: int = 0
     unknown_intervals: int = 0
     live_intervals: int = 0
@@ -173,6 +174,8 @@ class UsageBreakdown(UsageRecord):
     key: str | None
     tokens: Tokens
     attempts: int
+    elapsed_seconds: float | None = None
+    live: bool = False
 
 
 class UsageContract(UsageRecord):
@@ -217,6 +220,7 @@ def contracts() -> list[UsageContract]:
 
 
 class UsageView(UsageRecord):
+    measured_at: str
     contracts: list[UsageContract] = Field(default_factory=contracts)
     collection_started_at: str
     totals: UsageTotals

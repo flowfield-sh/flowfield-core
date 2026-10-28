@@ -31,7 +31,7 @@ class ReplyFields(Record):
 
 
 class ReplyCreate(ReplyFields):
-    action: Literal["changes", "answer", "observation"]
+    action: Literal["changes", "answer"]
 
     @model_validator(mode="after")
     def correction_scope(self) -> "ReplyCreate":

@@ -1,65 +1,77 @@
 @layer components {
+  .workspace-usage,
   .task-usage,
-  .usage-evidence,
-  .usage-executions {
-    overflow-wrap: anywhere;
-    min-width: 0;
-  }
-  .usage-executions {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .usage-executions > li {
-    border-top: 1px solid var(--border);
-    padding-top: 8px;
-  }
-  .usage-evidence {
-    max-height: 65vh;
-    overflow: auto;
-  }
-  .usage-evidence > * {
-    flex-shrink: 0;
-  }
-  .usage-table-scroll {
-    overflow-x: auto;
-  }
-  .usage-token-table {
-    width: 100%;
-    min-width: 360px;
-    overflow-wrap: normal;
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-  }
-  .usage-token-table caption {
-    text-align: left;
-    color: var(--muted-foreground);
-  }
-  .usage-token-table th,
-  .usage-token-table td {
-    padding: 4px 8px;
-    text-align: right;
-    border-bottom: 1px solid var(--border);
-  }
-  .usage-token-table th:first-child {
-    text-align: left;
-  }
-}
-@layer components {
-  .workspace-usage {
-    min-width: 0;
-    width: 100%;
-    max-width: 1040px;
-    overflow-wrap: anywhere;
-  }
-  .usage-controls {
-    flex-wrap: wrap;
-  }
   .usage-chart {
     min-width: 0;
+    width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .usage-controls,
+  .usage-date-range {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+  }
+  .usage-controls > *,
+  .usage-task-select {
+    max-width: 100%;
+  }
+  .usage-task-select {
+    width: min(340px, 100%);
+    text-overflow: ellipsis;
+  }
+  .usage-date-range {
+    align-items: end;
+  }
+  .usage-date-range label {
+    display: grid;
+    gap: 4px;
+    font-size: 12px;
+  }
+  .usage-metrics {
+    display: grid;
+    gap: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+  .usage-totals {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 16px 40px;
+    margin: 0;
+  }
+  .usage-totals dt {
+    color: var(--muted-foreground);
+    font-size: 12px;
+  }
+  .usage-totals dd {
+    font-size: 24px;
+    font-weight: 500;
+    line-height: 1.5;
+    margin: 0;
+  }
+  .task-usage .usage-totals dd {
+    font-size: 20px;
+  }
+  .usage-live {
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+  .usage-roles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+  }
+  .usage-role {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 14px;
+  }
+  .usage-chart {
     font-variant-numeric: tabular-nums;
   }
   .usage-chart-tooltip {
@@ -69,24 +81,5 @@
     color: var(--popover-foreground);
     padding: 8px;
     font-size: 12px;
-  }
-  .usage-filter-form {
-    border-block: 1px solid var(--border);
-    padding-block: 16px;
-  }
-  .usage-filter-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-    gap: 16px;
-  }
-  .usage-filter-grid label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-  }
-  .workspace-usage .usage-token-table a {
-    text-decoration: underline;
-    text-underline-offset: 3px;
   }
 }

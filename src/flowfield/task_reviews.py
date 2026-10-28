@@ -114,19 +114,6 @@ class TaskReviews(ReviewRecords[TaskReview]):
         data: dict[str, Any],
         decision: dict[str, Any],
     ) -> None:
-        from flowfield.review_observations import unread
-
-        if (
-            review.result_id
-            and review.recipient == "reviewer"
-            and unread(db, review.workspace_id, review.result_id, data)
-        ):
-            raise ApplicationError(
-                "observations_unread",
-                "New result observations are available. Read observations and each "
-                "observation:<id>, then submit your assessment.",
-                409,
-            )
         if decision.get("files"):
             if not review.verification or review.recipient != "implementer":
                 raise ApplicationError(
@@ -582,13 +569,6 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 )
             elif not self._fresh(db, review):
                 pass
-            elif (
-                review.result_id
-                and review.recipient == "reviewer"
-                and self._unread_observations(db, review, data)
-            ):
-                review.status, review.launch_reason = "queued", "observation-continuation"
-                review.problem = None
             else:
                 action = decision["action"]
                 # Application and receipt share a transaction. Native agents never deliver Git.
@@ -681,13 +661,6 @@ class TaskReviews(ReviewRecords[TaskReview]):
             db.execute("UPDATE review_attempts SET data=? WHERE id=?", (json.dumps(data), attempt))
             self._save(db, review)
             return review
-
-    def _unread_observations(
-        self, db: sqlite3.Connection, review: TaskReview, data: dict[str, Any]
-    ) -> bool:
-        from flowfield.review_observations import unread
-
-        return bool(review.result_id and unread(db, review.workspace_id, review.result_id, data))
 
     def read_context(self, review: TaskReview, section: str) -> str:
         if review.result_id and (

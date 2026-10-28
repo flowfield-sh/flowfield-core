@@ -1,11 +1,5 @@
 /** Synthetic accounting contract examples, not evidence of live-provider completeness. */
-import type { components } from "../src/api-schema";
-import type {
-  UsageView,
-  UsageExecution,
-  UsageEvidencePage,
-  Tokens,
-} from "../src/usage";
+import type { UsageView, UsageExecution, Tokens } from "../src/usage";
 
 export const unknownTokens: Tokens = {
   input: null,
@@ -111,6 +105,7 @@ export function usageFixture(workspace: string, task: string): UsageView {
           "Provider completeness and reported-model attribution remain unknown.",
       },
     ],
+    measured_at: start,
     collection_started_at: start,
     totals: {
       reasons: [],
@@ -123,6 +118,7 @@ export function usageFixture(workspace: string, task: string): UsageView {
       unavailable: 1,
       legacy: 0,
       recorded_seconds: 2880,
+      elapsed_seconds: 1200,
       recorded_intervals: 6,
       unknown_intervals: 1,
       live_intervals: 0,
@@ -133,14 +129,37 @@ export function usageFixture(workspace: string, task: string): UsageView {
     next_after: null,
     buckets: [],
     breakdowns: [
-      { dimension: "role", key: "worker", tokens: tokens(3500), attempts: 6 },
-      { dimension: "role", key: "reviewer", tokens: tokens(300), attempts: 1 },
-      { dimension: "source", key: "run", tokens: tokens(3350), attempts: 5 },
+      {
+        dimension: "role",
+        key: "worker",
+        tokens: tokens(3500),
+        attempts: 6,
+        elapsed_seconds: 1200,
+        live: false,
+      },
+      {
+        dimension: "role",
+        key: "reviewer",
+        tokens: tokens(300),
+        attempts: 1,
+        elapsed_seconds: 480,
+        live: false,
+      },
+      {
+        dimension: "source",
+        key: "run",
+        tokens: tokens(3350),
+        attempts: 5,
+        elapsed_seconds: null,
+        live: false,
+      },
       {
         dimension: "source",
         key: "review_attempt",
         tokens: tokens(450),
         attempts: 2,
+        elapsed_seconds: null,
+        live: false,
       },
     ],
     filters: {
@@ -166,73 +185,5 @@ export function usageFixture(workspace: string, task: string): UsageView {
     timing_label:
       "Usage reported during the period; consumption may span earlier periods.",
     limit_reached: false,
-  };
-}
-export function usageEvidenceFixture(
-  execution: UsageExecution,
-): UsageEvidencePage {
-  const codex = execution.harness === "codex";
-  const pi = execution.harness === "pi";
-  const observation: components["schemas"]["Consumption"] = {
-    event_id: "native-result-1",
-    session_id: execution.session_id!,
-    epoch: "0",
-    native_scope_id: codex ? execution.session_id : null,
-    dispatch_id: "dispatch-1",
-    uncertain_components: codex
-      ? ["cache_read", "cache_write", "reasoning"]
-      : pi
-        ? ["reasoning"]
-        : [],
-    limitations: pi ? ["native-provider-coverage-unknown"] : [],
-    order: 1,
-    source_time: null,
-    contract: codex
-      ? "codex-thread-total/0.164.0"
-      : pi
-        ? "pi-session-stats/1"
-        : "claude-model-usage/0.3.293",
-    native_version: codex ? "0.164.0" : pi ? "1.4.0" : "2.1.293",
-    adapter_version: codex
-      ? "codex-app-server-v1"
-      : pi
-        ? "pi-rpc-v1"
-        : "claude-sdk-v1",
-    scope: codex
-      ? "native-thread"
-      : pi
-        ? "native-session-all-entries"
-        : "query-pipeline-including-native-children",
-    model: codex || pi ? null : "reported-model",
-    counters: {
-      ...tokens((execution.tokens.total ?? 0) + 1000),
-      cache_read: 0,
-      cache_write: 0,
-    },
-    semantics: codex ? "inclusive-cache" : "disjoint-cache",
-    baseline: "resume",
-    inherited: null,
-    final: true,
-    gap: null,
-  };
-  return {
-    execution,
-    items:
-      execution.tokens.total == null
-        ? []
-        : [
-            {
-              number: 1,
-              received_at: "2026-10-27T10:21:00+00:00",
-              observation,
-              baseline: tokens(1000),
-              delta: execution.tokens,
-              disposition: "accepted",
-              interval_start: start,
-              interval_end: execution.ended_at,
-              timing: "execution-bounded",
-            },
-          ],
-    next_after: null,
   };
 }

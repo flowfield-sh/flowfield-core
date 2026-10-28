@@ -1,4 +1,4 @@
-"""Atomic answers, exact-result feedback and testing observations."""
+"""Atomic answers and exact-result feedback."""
 
 from flowfield.application import Workspace, now
 from flowfield.attachments import Attachments
@@ -33,11 +33,7 @@ class Replies:
             gate = Conversation(self.workspace)._eligibility(
                 db, workspace_id, task_id, request.binding.question_id
             )
-            if request.action == "observation" and not gate.result_id:
-                raise ApplicationError(
-                    "result_required", "Select a result before recording testing.", 409
-                )
-            if not (gate.observation_enabled if request.action == "observation" else gate.enabled):
+            if not gate.enabled:
                 raise ApplicationError(
                     "input_closed", "Work is processing. Your draft is kept; wait until idle.", 409
                 )
@@ -75,20 +71,12 @@ class Replies:
                     ),
                 )
                 reply.status = "recorded"
-            elif binding.question_id and request.action != "observation":
+            elif binding.question_id:
                 raise ApplicationError(
                     "answer_required",
                     "Answer the current question before starting other work.",
                     409,
                 )
-            elif request.action == "observation":
-                if not binding.result_id or not binding.result_revision:
-                    raise ApplicationError(
-                        "result_required", "Select a result before recording testing.", 409
-                    )
-                # Exact binding was checked in the same transaction. Recording evidence
-                # neither schedules a model nor changes the result, task or approval.
-                reply.status = "recorded"
             elif request.action == "changes":
                 if not binding.result_id or not binding.result_revision:
                     raise ApplicationError(

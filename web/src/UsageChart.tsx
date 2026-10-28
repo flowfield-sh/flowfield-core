@@ -11,13 +11,7 @@ import type { UsageView } from "./usage";
 import { usageNumber } from "./usage";
 import { bucketLabel } from "./usagePeriod";
 
-export default function UsageChart({
-  view,
-  select,
-}: {
-  view: UsageView;
-  select: (start: string, end: string) => void;
-}) {
+export default function UsageChart({ view }: { view: UsageView }) {
   const data = view.buckets.map((bucket) => ({
     ...bucket,
     total: bucket.tokens.total,
@@ -37,7 +31,7 @@ export default function UsageChart({
     <div
       className="usage-chart"
       role="region"
-      aria-label="Reported token timeline. Use Table for exact values and keyboard drill-down."
+      aria-label="Token usage over time"
     >
       <ResponsiveContainer width="100%" height={240} minWidth={0}>
         <BarChart
@@ -66,19 +60,14 @@ export default function UsageChart({
               active && payload?.length ? (
                 <div className="usage-chart-tooltip">
                   <p>{payload[0].payload.fullLabel}</p>
-                  <p>{usageNumber(payload[0].payload.total)} tokens reported</p>
+                  <p>{usageNumber(payload[0].payload.total)} tokens</p>
                 </div>
               ) : null
             }
           />
           <Bar
             dataKey="total"
-            onClick={(bar) => {
-              const bucket = data[bar.originalDataIndex];
-              if (bucket) select(bucket.start, bucket.end);
-            }}
-            cursor="pointer"
-            name="Tokens reported"
+            name="Tokens"
             fill="var(--primary)"
             maxBarSize={40}
             isAnimationActive={false}

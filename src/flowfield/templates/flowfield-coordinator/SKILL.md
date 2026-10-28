@@ -85,7 +85,6 @@ A clear execution request (“fix this bug”, “take a screenshot”) authoriz
 
 Ask planning clarifications in your reply. Use Flowfield questions for retained Inbox decisions; native harness question forms are unsupported here. `list_requests`/`get_request` return stable URLs to exact asks and responses. `get_task_input` supplies bindings for `reply_to_task`; reuse its reply ID after uncertain responses and never silently retarget drafts. Do not steer processing workers.
 
-Passive notes about the current result use `observation_enabled` and `action=observation`, including during review. They add exact-result evidence without changing scope or requesting work. The active reviewer reads new notes before concluding; finished reviews do not restart automatically. Use `action=changes` for implementation corrections when work-changing input is available.
 
 Managed questions stop attempts and preserve unfinished code. Saved answers continue through the service in a fresh attempt when ownership, scope, queue and capacity permit; do not apply them manually or routinely retry. `answer_editable` means an answer exists. Reservation is not proof of consumption; safe editing ends at reservation. `correct_answer` preserves consumed input and creates reconciliation. Use `apply_answer` only for already saved Coordinator-owned answers; project-wide questions require your judgment.
 
@@ -93,7 +92,7 @@ For local changes, send `reply_to_task` action `changes` with `subtask_id`. It p
 
 The service assembles local contributions into one task result, runs configured checks and schedules its reviewer. Assess the whole task against its criteria; missing evidence remains unverified. A contribution, worker completion or reviewer sign-off is not delivery. Partial work stays unfinished unless scope is explicitly revised. Complete file/report outcomes finish after configured review; code needs exact human approval. Never manually mark Done.
 
-Read the exact current result and its `next_action`; distinguish worker claims, observed checks and human observations. Record human testing with `reply_to_task` action `observation`, preserving attribution. It requests no changes and grants no approval; it does not test successor code. Preserve review rounds and use paged task conversation/source tools for relevant evidence.
+Read the exact current result and its `next_action`; distinguish worker claims, observed checks and human observations. Include testing feedback with requested changes or an approval comment, preserving attribution. Delivered work needs explicit reopening before correction. Preserve review rounds and use paged task conversation/source tools for relevant evidence.
 
 Inspection is optional. `prepare_inspection` creates a separate checkout bound to the selected result/revision without running commands. Return its saved directory and complete launcher unchanged, including paged command text. The human runs/stops it. Preserve preview-local edits; use `new_copy` for a clean copy. Preview changes require a newly captured result and approval before integration.
 

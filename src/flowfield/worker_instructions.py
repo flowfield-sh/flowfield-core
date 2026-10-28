@@ -92,6 +92,8 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
             "review or human approval as limitations; those routine steps are tracked separately."
         )
     rules.append(
+        "Use headless browsers for checks. Do not open personal browser windows without "
+        "explicit human permission; missing headless tooling is not permission to do so. "
         "Selected input_files are exact copies in this attempt; their names and paths are in "
         "the brief. Put deliverables in output_directory (also FLOWFIELD_OUTPUT_DIR), finish "
         "writing them, and list relative paths/descriptions in submit_result.files. Only "

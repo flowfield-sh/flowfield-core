@@ -30,6 +30,21 @@ def instant(value: str) -> datetime:
     return datetime.fromisoformat(value).astimezone(UTC)
 
 
+def elapsed(intervals: list[tuple[datetime, datetime]]) -> float | None:
+    """Wall-clock running time: merge overlap before counting parallel activity."""
+    if not intervals:
+        return None
+    total = 0.0
+    left, right = sorted(intervals)[0]
+    for start, end in sorted(intervals)[1:]:
+        if start > right:
+            total += (right - left).total_seconds()
+            left, right = start, end
+        else:
+            right = max(right, end)
+    return total + (right - left).total_seconds()
+
+
 def buckets(filters: UsageFilter) -> list[UsageBucket]:
     if filters.start is None or filters.end is None:
         return []
@@ -235,6 +250,10 @@ class UsageReads:
         groups = buckets(filters)
         bucket_tokens: list[list[Tokens]] = [[] for _ in groups]
         totals = UsageTotals()
+        measured_at = datetime.now(UTC)
+        intervals: list[tuple[datetime, datetime]] = []
+        role_intervals: dict[str, list[tuple[datetime, datetime]]] = defaultdict(list)
+        live_roles: set[str] = set()
         contributions: list[Tokens] = []
         items: list[UsageExecution] = []
         breakdown: dict[tuple[str, str | None], tuple[list[Tokens], set[int]]] = {}
@@ -280,6 +299,15 @@ class UsageReads:
                 continue
             start = instant(execution.started_at) if execution.started_at else None
             end = instant(execution.ended_at) if execution.ended_at else None
+            known_end = measured_at if execution.timing == "live" else end
+            if start and known_end and known_end >= start:
+                left = max(start, filters.start) if filters.start else start
+                right = min(known_end, filters.end) if filters.end else known_end
+                if right >= left:
+                    intervals.append((left, right))
+                    role_intervals[execution.role].append((left, right))
+                    if execution.timing == "live" and right == measured_at:
+                        live_roles.add(execution.role)
             if filters.start and filters.end:
                 overlaps = (
                     start is not None
@@ -346,6 +374,7 @@ class UsageReads:
                 entry[0].extend(values)
                 entry[1].add(execution.number)
         totals.tokens = add_tokens(contributions)
+        totals.elapsed_seconds = elapsed(intervals)
         if totals.tokens.total is None and any(value.total is not None for value in contributions):
             totals.reasons.append("aggregate-token-overflow")
         totals.coverage = (
@@ -363,6 +392,7 @@ class UsageReads:
             bucket.tokens = add_tokens(values)
         page = [item for item in items if item.number > filters.after][: filters.limit + 1]
         return UsageView(
+            measured_at=measured_at.isoformat(),
             collection_started_at=collection,
             totals=totals,
             items=page[: filters.limit],
@@ -376,6 +406,10 @@ class UsageReads:
                         "key": key,
                         "tokens": add_tokens(values),
                         "attempts": len(ids),
+                        "elapsed_seconds": elapsed(role_intervals[key])
+                        if dim == "role" and key is not None
+                        else None,
+                        "live": dim == "role" and key in live_roles,
                     }
                 )
                 for (dim, key), (values, ids) in breakdown.items()

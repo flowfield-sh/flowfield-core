@@ -7,7 +7,7 @@ import pytest
 from execution_fixtures import BASE, fixture, result
 from input_continuation_fixtures import question
 from project_fixtures import task_request
-from replies_fixtures import message
+from replies_fixtures import historical_note, message
 from result_fixtures import approve, current
 from result_fixtures import fixture as result_fixture
 
@@ -123,7 +123,7 @@ def test_human_test_feedback_reaches_same_task_without_approving_partial_work(tm
 
 
 @pytest.mark.parametrize("parallel", [False, True])
-def test_human_testing_records_exact_result_without_work_and_reaches_successor(tmp_path, parallel):
+def test_historical_testing_retains_exact_result_and_reaches_successor(tmp_path, parallel):
     service, repo, work = result_fixture(tmp_path)
     service.results.process("harbor")
     version = current(service)
@@ -152,11 +152,9 @@ def test_human_testing_records_exact_result_without_work_and_reaches_successor(t
         queue(service.execution, False)
     replies = Replies(service.workspace)
     text = "I tried Result 1: keyboard and reload work; narrow view not tested."
-    request = message(service.workspace, "work", action="observation", body=text)
     before = service.workspace.task("harbor", "work")
-    receipt = replies.submit("harbor", "work", request)
+    receipt = historical_note(service.workspace, "work", text)
     assert receipt.status == "recorded" and receipt.run_id is None
-    assert replies.submit("harbor", "work", request) == receipt
     assert service.execution.claim("harbor", work.base_commit, {}) is None
     assert current(service) == version and service.workspace.task("harbor", "work") == before
     restarted = Workspace(service.workspace.directory)
@@ -181,28 +179,25 @@ def test_human_testing_records_exact_result_without_work_and_reaches_successor(t
         )
 
 
-def test_testing_requires_idle_exact_result_and_does_not_reopen_done(tmp_path):
-    execution = fixture(tmp_path / "no-result")
-    with pytest.raises(ApplicationError, match="Select a result"):
-        Replies(execution.workspace).submit(
-            "harbor", "task-0", message(execution.workspace, action="observation")
-        )
-    service, repo, work = result_fixture(tmp_path / "result")
+def test_observation_creation_is_retired_but_saved_records_remain_readable(tmp_path):
+    from pydantic import ValidationError
+
+    service, _, _ = result_fixture(tmp_path)
     service.results.process("harbor")
-    version = current(service)
-    request = message(service.workspace, "work", action="observation")
-    approve(service, version)
+    note = historical_note(service.workspace, "work")
+    approve(service, current(service))
     service.results.process("harbor")
-    replies = Replies(service.workspace)
-    with pytest.raises(ApplicationError, match="changed"):
-        replies.submit("harbor", "work", request)
-    done = current(service)
-    receipt = replies.submit(
-        "harbor", "work", message(service.workspace, "work", action="observation")
-    )
-    assert receipt.status == "recorded"
     assert service.workspace.task("harbor", "work").status == "done"
-    assert current(service) == done
+    assert (
+        ThreadView(service.workspace).item_view("harbor", "work", "reply:" + note.id).body
+        == note.body
+    )
+    with pytest.raises(ValidationError):
+        message(service.workspace, "work", action="observation")
+    assert (
+        "observation_enabled"
+        not in Conversation(service.workspace).eligibility("harbor", "work").model_dump()
+    )
 
 
 def test_thread_is_bounded_links_exact_revisions_and_keeps_long_sources(tmp_path):
@@ -236,7 +231,7 @@ def test_registered_mcp_reply_and_browser_thread_share_durable_receipts(tmp_path
     execution = fixture(tmp_path)
     result(execution, partial=True)
     queue(execution, False)
-    request = message(execution.workspace, action="observation")
+    request = message(execution.workspace, action="changes")
 
     async def exercise(base):
         async with (
@@ -255,7 +250,8 @@ def test_registered_mcp_reply_and_browser_thread_share_durable_receipts(tmp_path
                 await session.call_tool("reply_to_task", args)
             ).structuredContent == first.structuredContent
             thread = (await api.get("/api/workspaces/harbor/tasks/task-0/thread")).json()
-            assert thread["items"][0]["body"] == request.body
+            saved = next(item for item in thread["items"] if item["id"] == "reply:" + request.id)
+            assert saved["body"] == request.body
             assert first.structuredContent["status"] == "recorded"
             assert not execution.settings("harbor").enabled
 
@@ -271,7 +267,7 @@ def test_new_worker_discussion_is_rejected_without_scheduling(tmp_path):
         ReplyCreate.model_validate(
             {**message(execution.workspace).model_dump(), "action": "message"}
         )
-    for action in ("answer", "observation"):
+    for action in ("answer",):
         with pytest.raises(ValidationError, match="only to requested changes"):
             ReplyCreate.model_validate(
                 {**message(execution.workspace).model_dump(), "action": action, "subtask_id": "S-1"}

@@ -4190,11 +4190,6 @@ export interface components {
     InputEligibility: {
       /** Enabled */
       enabled: boolean;
-      /**
-       * Observation Enabled
-       * @default false
-       */
-      observation_enabled: boolean;
       /** Reason */
       reason: string;
       /** Task Revision */
@@ -5250,7 +5245,7 @@ export interface components {
        * Action
        * @enum {string}
        */
-      action: "changes" | "answer" | "observation";
+      action: "changes" | "answer";
     };
     /** ResultAction */
     ResultAction: {
@@ -6670,6 +6665,13 @@ export interface components {
       tokens: components["schemas"]["Tokens"];
       /** Attempts */
       attempts: number;
+      /** Elapsed Seconds */
+      elapsed_seconds: number | null;
+      /**
+       * Live
+       * @default false
+       */
+      live: boolean;
     };
     /** UsageBucket */
     UsageBucket: {
@@ -6900,6 +6902,8 @@ export interface components {
       legacy: number;
       /** Recorded Seconds */
       recorded_seconds: number | null;
+      /** Elapsed Seconds */
+      elapsed_seconds: number | null;
       /**
        * Recorded Intervals
        * @default 0
@@ -6924,6 +6928,8 @@ export interface components {
     };
     /** UsageView */
     UsageView: {
+      /** Measured At */
+      measured_at: string;
       /** Contracts */
       contracts: components["schemas"]["UsageContract"][];
       /** Collection Started At */

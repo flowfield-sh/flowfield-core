@@ -244,7 +244,7 @@ def test_input_context_distinguishes_stopped_followup_from_historical_result(tmp
     service.execution.started("harbor", followup.id)
     service.execution.finish("harbor", followup.id, "stopped", input_checkpoint=ready.source_commit)
     context = thread.eligibility("harbor", "work")
-    assert context.enabled  # Historical testing observations remain valid.
+    assert context.enabled  # The stopped attempt remains actionable.
     assert context.result_id == ready.id
     assert context.result_next_action.action == "none"
     assert context.result_next_action.label == "Earlier result"
@@ -256,8 +256,6 @@ def test_input_context_distinguishes_stopped_followup_from_historical_result(tmp
         mcp.call_tool("get_task_input", {"workspace_id": "harbor", "task_id": "work"})
     )
     assert reply[1] == context.model_dump()
-    observation = message(service.workspace, "work", body="Tried the earlier candidate")
-    assert Replies(service.workspace).submit("harbor", "work", observation).status == "recorded"
     with pytest.raises(ApplicationError, match="newer result or attempt"):
         Replies(service.workspace).submit(
             "harbor", "work", message(service.workspace, "work", action="changes")

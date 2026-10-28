@@ -52,7 +52,6 @@ class InputAttempt(Record):
 
 class InputEligibility(Record):
     enabled: bool
-    observation_enabled: bool = False
     reason: str
     task_revision: int
     agreement_revision: int
@@ -342,7 +341,6 @@ class Conversation:
         if version:
             value = json.loads(version[0])
             result.result_id, result.result_revision = value["id"], value["revision"]
-            result.observation_enabled = not task["archived"]
             if value["status"] in ("preparing", "delivering"):
                 result.enabled, result.reason = False, "processing_result"
             elif value["completion"] == "report" and not (
