@@ -582,6 +582,10 @@ class Results:
         integrations = Integrations(self.workspace)
         with gitops.lock(repository):
             settings = integrations.for_task(workspace_id, version.task_id)
+            from flowfield.adapters import git_upstream
+
+            if settings.target_branch:
+                git_upstream.refresh(repository, settings.target_branch)
             target = integrations.head(workspace_id, version.task_id)
             with self.workspace.connection() as db:
                 run = self._current(db, version)

@@ -6,7 +6,7 @@ from pathlib import Path
 from time import monotonic
 from uuid import uuid4
 
-from flowfield.adapters import git_checkout
+from flowfield.adapters import git_checkout, git_upstream
 from flowfield.adapters import git_integration as gitops
 from flowfield.adapters.git_workspace import contains, git
 from flowfield.application import Workspace, now
@@ -228,6 +228,14 @@ class Integrations:
             Path(self.workspace.project(settings.project_id).path), settings.target_branch
         )
 
+    def refresh_source(self, workspace_id: str, task_id: str) -> str:
+        settings = self.for_task(workspace_id, task_id)
+        if not settings.target_branch:
+            return self.head(workspace_id, task_id)  # Existing actionable setup error.
+        repository = self.repository(settings.project_id, settings.target_branch)
+        with gitops.lock(repository):
+            return git_upstream.refresh(repository, settings.target_branch)
+
     def _accepted(self, workspace_id: str, run_id: str) -> Run:
         with self.workspace.connection() as db:
             run = self.execution._run(db, workspace_id, run_id)
@@ -271,6 +279,8 @@ class Integrations:
         repository = self.repository(run.project_id, run.target_branch)
         with gitops.lock(repository):
             settings = self.for_task(workspace_id, run.task_id)
+            assert settings.target_branch
+            git_upstream.refresh(repository, settings.target_branch)
             before = self.head(workspace_id, run.task_id)
             assert settings.target_branch and run.result_commit
             self.workspace._current(run.revision, request.expected_revision)
@@ -441,6 +451,7 @@ class Integrations:
                 and gitops.target(repository, record.target_branch) == record.candidate_commit
             ):
                 return self._recover_locked(record)
+            git_upstream.refresh(repository, record.target_branch)
             if (
                 self.settings(record.project_id).revision != record.settings_revision
                 or gitops.target(repository, record.target_branch) != record.target_before

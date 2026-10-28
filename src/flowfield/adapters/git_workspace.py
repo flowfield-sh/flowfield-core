@@ -1,5 +1,6 @@
 """Git workspace preparation and result capture, independent of runtime and harness."""
 
+import asyncio
 import os
 import stat
 import subprocess
@@ -8,6 +9,46 @@ from pathlib import Path
 
 from flowfield.errors import ApplicationError
 
+FETCH_TIMEOUT_SECONDS = 30
+
+
+async def _fetch(
+    command: list[str], repository: Path, environment: dict[str, str]
+) -> subprocess.CompletedProcess[bytes]:
+    from flowfield.adapters.local_process import LocalProcess
+
+    owner = await LocalProcess.start(command, cwd=repository.resolve(), env=environment)
+    process = owner.process
+    assert process.stdin and process.stdout and process.stderr
+    process.stdin.close()
+
+    async def drain(stream: asyncio.StreamReader) -> bytes:
+        output = bytearray()
+        while block := await stream.read(8192):
+            output.extend(block[: max(0, 65536 - len(output))])
+        return bytes(output)
+
+    readers = [asyncio.create_task(drain(stream)) for stream in (process.stdout, process.stderr)]
+    try:
+        async with asyncio.timeout(FETCH_TIMEOUT_SECONDS):
+            await process.wait()
+    finally:
+        cleaned = await owner.close()
+        _, pending = await asyncio.wait(readers, timeout=5)
+        if not cleaned or pending:
+            for reader in readers:
+                reader.cancel()
+            await asyncio.gather(*readers, return_exceptions=True)
+            raise ApplicationError(
+                "git_cleanup_uncertain",
+                f"Git transport cleanup could not be confirmed (process {process.pid}). "
+                "Check its child processes before retrying.",
+                409,
+            )
+        output, errors = await asyncio.gather(*readers)
+    assert process.returncode is not None
+    return subprocess.CompletedProcess(command, process.returncode, output, errors)
+
 
 def git(
     repository: Path,
@@ -15,14 +56,38 @@ def git(
     input: bytes | None = None,
     index: Path | None = None,
     allowed_returncodes: tuple[int, ...] = (0,),
+    native_config: bool = False,
 ) -> bytes:
     environment = {
         **{key: value for key, value in os.environ.items() if not key.startswith("GIT_")},
-        "GIT_CONFIG_NOSYSTEM": "1",
-        "GIT_CONFIG_GLOBAL": os.devnull,
         "GIT_TERMINAL_PROMPT": "0",
         "GIT_OPTIONAL_LOCKS": "0",
     }
+    if native_config:
+        # Fetch uses the host's existing credential helpers and URL/SSH configuration.
+        # Local object/checkout operations continue to ignore global Git behavior.
+        environment.update(GCM_INTERACTIVE="Never", SSH_ASKPASS_REQUIRE="never")
+        if "fetch" in args:
+            configured_ssh = (
+                git(
+                    repository,
+                    "config",
+                    "--get",
+                    "core.sshCommand",
+                    native_config=True,
+                    allowed_returncodes=(0, 1),
+                )
+                .decode()
+                .strip()
+            )
+            if os.environ.get("GIT_SSH_COMMAND") or configured_ssh:
+                environment["GIT_SSH_COMMAND"] = os.environ.get("GIT_SSH_COMMAND") or configured_ssh
+            elif os.environ.get("GIT_SSH"):
+                environment["GIT_SSH"] = os.environ["GIT_SSH"]
+            else:
+                environment["GIT_SSH_COMMAND"] = "ssh -oBatchMode=yes"
+    else:
+        environment.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
     if index:
         environment["GIT_INDEX_FILE"] = str(index)
     # Never run repository hooks, fsmonitor, external diff or credential prompts as the service.
@@ -37,10 +102,14 @@ def git(
         *args,
     ]
     try:
-        result = subprocess.run(
-            command, input=input, capture_output=True, timeout=30, env=environment
+        result = (
+            asyncio.run(_fetch(command, repository, environment))
+            if native_config and "fetch" in args
+            else subprocess.run(
+                command, input=input, capture_output=True, timeout=30, env=environment
+            )
         )
-    except (OSError, subprocess.TimeoutExpired) as error:
+    except (OSError, TimeoutError, subprocess.TimeoutExpired) as error:
         raise ApplicationError(
             "git_unavailable",
             "Git could not finish. Check the repository; existing work is preserved.",

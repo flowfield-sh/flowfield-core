@@ -14,6 +14,9 @@ DELIVERY_BLOCKERS = frozenset(
         "checkout_unsupported",
         "checkout_blocked",
         "delivery_uncertain",
+        "upstream_unavailable",
+        "upstream_diverged",
+        "upstream_invalid",
     }
 )
 

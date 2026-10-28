@@ -8,6 +8,7 @@ import os
 import subprocess
 from functools import partial
 from pathlib import Path
+from time import monotonic
 from typing import Any, BinaryIO
 
 from flowfield.adapters import git_integration as gitops
@@ -83,6 +84,7 @@ class Supervisor:
         self.loop_task: asyncio.Task[None] | None = None
         self.lock: BinaryIO | None = None
         self.closing = False
+        self.source_checks: dict[tuple[str, str], tuple[int, float, ApplicationError | None]] = {}
 
     async def start(self) -> None:
         self.lock = acquire_lock(self.workspace.directory, ".execution.lock")
@@ -260,7 +262,12 @@ class Supervisor:
             if self.execution.settings(owner.id).enabled:
                 enabled.add(owner.id)
         refreshed: set[str] = set()
-        for workspace_id, task_id in self.execution.scheduling_candidates():
+        candidates = self.execution.scheduling_candidates()
+        candidate_keys = set(candidates)
+        self.source_checks = {
+            key: value for key, value in self.source_checks.items() if key in candidate_keys
+        }
+        for workspace_id, task_id in candidates:
             if self.closing:
                 break
             if workspace_id not in enabled:
@@ -276,6 +283,34 @@ class Supervisor:
                     head, available = "", {}
                 else:
                     assert task.project_id
+                    if task.status == "up_next" and task.readiness == "ready":
+                        from flowfield.worker_settings import occupancy
+
+                        with self.workspace.connection() as db:
+                            occupied = occupancy(db, workspace=workspace_id)
+                        capacity = self.execution.settings(workspace_id).max_parallel
+                        if occupied.active + occupied.uncertain >= capacity:
+                            continue
+                        key = (workspace_id, task_id)
+                        prior = self.source_checks.get(key)
+                        retryable = (
+                            not prior or not prior[2] or prior[2].code != "git_cleanup_uncertain"
+                        )
+                        if (
+                            not prior
+                            or prior[0] != task.revision
+                            or (retryable and monotonic() - prior[1] >= 30)
+                        ):
+                            try:
+                                await asyncio.to_thread(
+                                    self.integrations.refresh_source, workspace_id, task_id
+                                )
+                            except ApplicationError as error:
+                                self.source_checks[key] = (task.revision, monotonic(), error)
+                                raise
+                            self.source_checks[key] = (task.revision, monotonic(), None)
+                        elif prior[2]:
+                            raise prior[2]
                     if task.project_id not in refreshed:
                         await asyncio.to_thread(
                             self.integrations.refresh_availability, task.project_id

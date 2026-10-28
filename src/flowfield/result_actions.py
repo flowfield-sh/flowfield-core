@@ -263,6 +263,13 @@ def result_action(
             label="Retry file delivery",
             reason="Restore the retained file's original bytes from backup, then retry delivery.",
         )
+    if value.problem_code in ("upstream_unavailable", "upstream_diverged", "upstream_invalid"):
+        return ResultAction(
+            owner="human",
+            action="prepare",
+            label="Retry source refresh",
+            reason=value.problem or "Check the destination's upstream access and Git state.",
+        )
     if value.problem_code in ("runtime_setup_failed", "runtime_changed_source"):
         current = db.execute(
             "SELECT data FROM integration_settings WHERE project_id=?", (run.project_id,)

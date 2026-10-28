@@ -16,6 +16,8 @@ Enter one shell command per line for setup and validation. Choose commands appro
 
 Validation commands are optional and can be cleared. Results state when none are configured.
 
+When the destination tracks an upstream branch, Flowfield fetches it and fast-forwards the clean destination before starting new work. Running attempts keep their saved commits. Result preparation and delivery also check upstream, so changed code receives fresh validation and approval. Branches without an upstream remain local. Routine refresh needs no action; unavailable access, divergent history or local checkout changes appear as specific blockers without discarding work.
+
 ## Validate before running workers
 
 1. Commit setup scripts, manifests and relevant repository guidance to the destination branch. Commit or ignore adoption metadata under your repository's rules; untracked files can block delivery.
