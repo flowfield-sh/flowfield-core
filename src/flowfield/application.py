@@ -994,7 +994,7 @@ class Workspace:
         )
         data = task.model_dump_json()
         db.execute(
-            "UPDATE tasks SET data=? WHERE workspace_id=? AND id=?",
+            "UPDATE tasks SET data=?,scheduling_problem=NULL WHERE workspace_id=? AND id=?",
             (data, task.workspace_id, task.id),
         )
         db.execute(

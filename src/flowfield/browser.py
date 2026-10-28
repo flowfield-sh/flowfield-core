@@ -299,7 +299,9 @@ class BrowserReads:
             ).fetchone()
             return TaskDetail(
                 **card.model_dump(),
-                scheduling_problem=row["scheduling_problem"],
+                scheduling_problem=row["scheduling_problem"]
+                if card.state and card.state.reason == "scheduling"
+                else None,
                 subtasks=Subtasks.read_all(db, workspace_id, current.id),
                 archive_blocker=archive_issue.message if archive_issue else None,
                 delete_blocker=TaskDeletionService(self.workspace).blocker(db, current),

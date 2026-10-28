@@ -81,7 +81,13 @@ class Execution:
             self._save_settings(db, settings)
 
     def task_problem(
-        self, workspace_id: str, task_id: str, problem: str | None, *, details: str | None = None
+        self,
+        workspace_id: str,
+        task_id: str,
+        problem: str | None,
+        *,
+        expected_revision: int | None = None,
+        details: str | None = None,
     ) -> None:
         with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
             if not db.execute(
@@ -90,8 +96,9 @@ class Execution:
                 return  # A queued discovery may have raced a confirmed task deletion.
             changed = db.execute(
                 "UPDATE tasks SET scheduling_problem=? WHERE workspace_id=? AND id=? "
-                "AND scheduling_problem IS NOT ?",
-                (problem, workspace_id, task_id, problem),
+                "AND scheduling_problem IS NOT ? "
+                "AND (? IS NULL OR json_extract(data,'$.revision')=?)",
+                (problem, workspace_id, task_id, problem, expected_revision, expected_revision),
             )
             if changed.rowcount and problem and details:
                 self.workspace._insert_activity(

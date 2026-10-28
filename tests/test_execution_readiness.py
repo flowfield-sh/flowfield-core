@@ -119,6 +119,7 @@ def test_scheduling_diagnostics_are_retained_once_and_survive_recovery(tmp_path)
         assert (
             db.execute("SELECT count(*) FROM activity WHERE body=?", (details,)).fetchone()[0] == 1
         )
+
     execution.task_problem("harbor", "task-0", None)
     assert reads.task("harbor", "task-0").scheduling_problem is None
     with execution.workspace.connection() as db:
@@ -129,3 +130,74 @@ def test_scheduling_diagnostics_are_retained_once_and_survive_recovery(tmp_path)
         assert (
             db.execute("SELECT count(*) FROM activity WHERE body=?", (details,)).fetchone()[0] == 1
         )
+
+
+def test_task_transition_expires_diagnostic_and_rejects_late_scheduler_write(tmp_path):
+    from flowfield.browser import BrowserReads
+
+    execution = fixture(tmp_path)
+    store = execution.workspace
+    before = store.task("harbor", "task-0")
+    execution.task_problem(
+        "harbor", before.id, "Old setup failure", expected_revision=before.revision
+    )
+    with store.connection(write=True, workspace_id="harbor") as db:
+        execution._task_state(db, before, "in_review", "Review passed.")
+    execution.task_problem(
+        "harbor", before.id, "Late preflight failure", expected_revision=before.revision
+    )
+    detail = BrowserReads(store).task("harbor", before.id)
+    assert detail.scheduling_problem is None
+    assert detail.state.reason != "scheduling"
+    with store.connection() as db:
+        assert (
+            db.execute("SELECT scheduling_problem FROM tasks WHERE id=?", (before.id,)).fetchone()[
+                0
+            ]
+            is None
+        )
+
+
+@pytest.mark.parametrize("status", ["in_review", "done", "backlog"])
+def test_retained_obsolete_scheduling_error_does_not_override_current_state(tmp_path, status):
+    from flowfield.browser import BrowserReads
+
+    execution = fixture(tmp_path)
+    store = execution.workspace
+    task = store.task("harbor", "task-0")
+    with store.connection(write=True, workspace_id="harbor") as db:
+        execution._task_state(db, task, status, "Current state")
+        # Old installed versions could persist a failed discovery after this transition.
+        db.execute(
+            "UPDATE tasks SET scheduling_problem='Revision 14 is stale' WHERE id=?", (task.id,)
+        )
+    reads = BrowserReads(store)
+    assert reads.task("harbor", task.id).scheduling_problem is None
+    assert reads.workspace_board("harbor").tasks[0].state.reason != "scheduling"
+
+
+def test_scheduler_revision_race_is_retried_without_persistent_error(tmp_path, monkeypatch):
+    execution = fixture(tmp_path)
+    service = Supervisor(execution.workspace)
+    monkeypatch.setattr(service, "_process_delivery", lambda _: None)
+    monkeypatch.setattr(service.review_execution, "schedule", AsyncMock())
+    monkeypatch.setattr(
+        service,
+        "check_task_agents",
+        AsyncMock(
+            side_effect=ApplicationError(
+                "revision_conflict", "Revision 14 is stale; current revision is 15.", 409
+            )
+        ),
+    )
+
+    async def exercise():
+        await service._schedule_once()
+        await asyncio.gather(*service.delivery_jobs.values())
+        if service.cleanup_job:
+            await service.cleanup_job
+
+    asyncio.run(exercise())
+    from flowfield.browser import BrowserReads
+
+    assert BrowserReads(execution.workspace).task("harbor", "task-0").scheduling_problem is None

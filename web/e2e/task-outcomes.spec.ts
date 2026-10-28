@@ -36,7 +36,7 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await page.goto(`${base}/tasks/T-3`);
   await expect(page.getByLabel("Current task definition")).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "View latest result", exact: true }),
+    page.getByRole("link", { name: "View result", exact: true }),
   ).toHaveCount(0);
   await expect(page.locator(".entity-pane-footer")).toHaveCount(0);
   await page.goto(`${base}?inbox=delivered`);
@@ -64,6 +64,12 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
   await expect(page).toHaveURL(new RegExp(`${base}/results/`));
   await expect(page.locator(".task-result")).toBeVisible();
   await page.goto(`${base}/tasks/T-1`);
+  await expect(
+    page
+      .getByLabel("Task notices")
+      .getByRole("heading", { name: "Result delivered", exact: true }),
+  ).toBeVisible();
+  await dialogViews(page, testInfo, "delivered-notice");
   await expect(page.locator(".entity-pane-footer")).toHaveCount(0);
   await expect(
     page.locator('[aria-label="Task feed"] .task-result'),
@@ -88,13 +94,37 @@ test("one task owns assembled code, reviewer sign-off and durable PDF/screenshot
     exact: true,
   });
   const latest = detail.getByRole("link", {
-    name: "View latest result",
+    name: "View result",
     exact: true,
   });
   await expect(latest).toHaveAttribute(
     "href",
     base + "/results/" + value.result,
   );
+  const notices = detail.getByLabel("Task notices", { exact: true });
+  await expect(
+    notices.getByRole("heading", { name: "Result available", exact: true }),
+  ).toBeVisible();
+  await expect(latest.locator("svg")).toHaveCount(0);
+  expect(
+    await notices.evaluate((element) =>
+      Boolean(
+        element.compareDocumentPosition(
+          document.querySelector(".task-definition")!,
+        ) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ),
+  ).toBe(true);
+  expect(
+    await notices.evaluate((element) =>
+      Boolean(
+        document
+          .querySelector(".task-summary")!
+          .compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ),
+  ).toBe(true);
+  await dialogViews(page, testInfo, "result-notice");
   await latest.click();
   await expect(page).toHaveURL(base + "/results/" + value.result);
   await page.goto(base + "/tasks/T-2");

@@ -265,6 +265,7 @@ class Supervisor:
                 break
             if workspace_id not in enabled:
                 continue
+            task = None
             try:
                 task = self.workspace.task(workspace_id, task_id)
                 checked_agents = await self.check_task_agents(workspace_id, task.id)
@@ -350,6 +351,10 @@ class Supervisor:
                     job.add_done_callback(partial(self._job_finished, run.id))
                     self.execution.task_problem(workspace_id, task_id, None)
             except ApplicationError as error:
+                if error.code == "revision_conflict":
+                    # A concurrent completion/edit won. The next discovery reads fresh
+                    # eligibility; this is not a persistent human setup problem.
+                    continue
                 if error.code == "integration_conflict":
                     self.execution.task_problem(
                         workspace_id,
@@ -357,13 +362,22 @@ class Supervisor:
                         "Local contributions conflict. Ask the Coordinator to reconcile their "
                         "shared files or ordering before assembly can continue.",
                         details=error.message,
+                        expected_revision=task.revision if task else None,
                     )
                 else:
-                    self.execution.task_problem(workspace_id, task_id, error.message)
+                    self.execution.task_problem(
+                        workspace_id,
+                        task_id,
+                        error.message,
+                        expected_revision=task.revision if task else None,
+                    )
             except Exception:
                 logging.getLogger(__name__).exception("Task scheduling failed")
                 self.execution.task_problem(
-                    workspace_id, task_id, "Scheduling failed. Inspect the service log."
+                    workspace_id,
+                    task_id,
+                    "Scheduling failed. Inspect the service log.",
+                    expected_revision=task.revision if task else None,
                 )
 
     async def check_task_agents(self, workspace_id: str, task_id: str) -> dict[str, TaskAgent]:

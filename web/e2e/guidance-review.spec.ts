@@ -65,6 +65,22 @@ print(json.dumps({"workspace": space.id, "task": task.key}))`,
       { exact: true },
     ),
   ).toBeVisible();
+  const notices = page.getByLabel("Task notices", { exact: true });
+  await expect(
+    notices.getByRole("heading", { name: "Work cannot start", exact: true }),
+  ).toBeVisible();
+  await expect(
+    notices.getByRole("link", { name: "Workspace settings" }),
+  ).toHaveCount(0);
+  expect(
+    await notices.evaluate((element) =>
+      Boolean(
+        element.compareDocumentPosition(
+          document.querySelector(".task-definition")!,
+        ) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ),
+  ).toBe(true);
   await dialogViews(page, info, "scheduling-blocker");
   await page.goto(`/workspaces/${value.workspace}/tasks/${value.task}`);
   const guidance = page.getByRole("heading", {

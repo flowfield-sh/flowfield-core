@@ -13,6 +13,7 @@ import { ConfirmButton } from "./ConfirmButton";
 import { RunActivity } from "./RunActivity";
 import { Timestamp } from "./Timestamp";
 import { ResourceRetry } from "./ResourceRetry";
+import { StatusNotice } from "./StatusNotice";
 
 export function ReviewActivity({
   projectId,
@@ -48,12 +49,14 @@ export function TaskReview({
   taskKey,
   refresh,
   guidanceOnly = false,
+  notice = false,
 }: {
   projectId: string;
   taskId: string;
   taskKey: string;
   refresh: unknown;
   guidanceOnly?: boolean;
+  notice?: boolean;
 }) {
   const resource = useResource<Review | null>(
     `workspaces/${projectId}/tasks/${taskId}/review`,
@@ -63,8 +66,18 @@ export function TaskReview({
   if (guidanceOnly && !review?.guidance && !resource.error) return null;
   if (review && ["decided", "stale"].includes(review.status)) return null;
   if (!review && !resource.error) return null;
+  const Frame = notice ? StatusNotice : DetailSection;
   return (
-    <DetailSection
+    <Frame
+      {...(notice
+        ? {
+            tone:
+              review &&
+              ["failed", "uncertain", "stopped"].includes(review.status)
+                ? ("attention" as const)
+                : ("neutral" as const),
+          }
+        : {})}
       title={
         guidanceOnly || review?.guidance
           ? "Guidance review"
@@ -114,7 +127,7 @@ export function TaskReview({
           </>
         )}
       </ContentStack>
-    </DetailSection>
+    </Frame>
   );
 }
 

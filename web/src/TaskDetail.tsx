@@ -1,11 +1,4 @@
-import { Button } from "@/components/ui/button";
-import {
-  Archive,
-  ArchiveRestore,
-  Settings,
-  FileText,
-  FileOutput,
-} from "lucide-react";
+import { Archive, ArchiveRestore, Settings, FileText } from "lucide-react";
 import { HeaderAction } from "./HeaderAction";
 import { TaskDeleteAction } from "./TaskDeleteAction";
 import { reportError } from "./requestFeedback";
@@ -13,7 +6,6 @@ import { request } from "./workspace";
 import { useLocation } from "react-router";
 import { useContext } from "react";
 import { WorkspaceLink } from "./WorkspaceLink";
-import { StatusNotice } from "./StatusNotice";
 import { ResourceNavigation } from "./WorkspaceTabs";
 import { ReviewerSettings } from "./ReviewerSettings";
 import { AgentSettingsForm } from "./AgentSettings";
@@ -23,12 +15,11 @@ import { ContentStack, DetailHeading, DetailSection } from "./DetailLayout";
 import { TaskLabels } from "./TaskLabels";
 import { DetailHeader, DraftBadge } from "./Presentation";
 import { WorkIdentity } from "./WorkIdentity";
-import { taskHref, resultHref } from "./navigation";
+import { taskHref } from "./navigation";
 import { ExpandableMarkdown } from "./ExpandableMarkdown";
 import { BlockedBy } from "./TaskLinks";
-import { TaskNeeds, hasTaskNeeds } from "./TaskNeeds";
 import { TaskConversation } from "./TaskConversation";
-import { TaskReview } from "./TaskReview";
+import { TaskNotices } from "./TaskNotices";
 import { type WorkspaceBoard, type Task } from "./workspace";
 export function TaskDetail({
   task,
@@ -164,17 +155,12 @@ export function TaskDetail({
       </ContentStack>
       {!settings && (
         <ContentStack space="section" className="task-context">
-          {task.latest_result_id && (
-            <div className="actions">
-              <Button variant="outline" size="sm" asChild>
-                <WorkspaceLink
-                  to={resultHref(workspaceId, task.latest_result_id)}
-                >
-                  <FileOutput aria-hidden="true" /> View latest result
-                </WorkspaceLink>
-              </Button>
-            </div>
-          )}
+          <TaskNotices
+            task={task}
+            workspaceId={workspaceId}
+            board={board}
+            openTask={openTask}
+          />
           <div
             className="task-definition content-stack"
             aria-label="Current task definition"
@@ -206,45 +192,6 @@ export function TaskDetail({
                 </p>
               )}
             </ContentStack>
-          )}
-          <TaskReview
-            projectId={workspaceId}
-            taskId={task.id}
-            taskKey={task.key}
-            refresh={board}
-            guidanceOnly
-          />
-          {hasTaskNeeds(
-            task,
-            board.pending_code[task.key],
-            false,
-            false,
-            true,
-          ) && (
-            <DetailSection title="Waiting on">
-              <TaskNeeds
-                task={task}
-                projectId={workspaceId}
-                pendingCode={board.pending_code[task.key]}
-                open={openTask}
-                detailed
-                showQuestions={false}
-                hideDependencies
-              />
-            </DetailSection>
-          )}
-          {task.state?.reason === "scheduling" && (
-            <StatusNotice
-              title="Task cannot start"
-              tone="attention"
-              actions={
-                <WorkspaceLink to={`/workspaces/${workspaceId}/edit`}>
-                  Workspace settings
-                </WorkspaceLink>
-              }
-            >
-              <p>{task.scheduling_problem}</p>
-            </StatusNotice>
           )}
           {!!task.subtasks.length && (
             <DetailSection title="Subtasks">

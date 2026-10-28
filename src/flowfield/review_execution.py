@@ -40,14 +40,19 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
             ).fetchall()
         self.guidance_cursor = tasks[-1][0] if tasks else 0
         for _, workspace, task_id in tasks:
+            task = None
             try:
+                task = service.workspace.task(workspace, task_id)
                 guidance_review = await asyncio.to_thread(
                     prepare_guidance, self.reviews, workspace, task_id
                 )
                 if guidance_review and guidance_review.status == "waiting":
                     self.reviews.resume_answer(workspace, guidance_review.id)
             except ApplicationError as error:
-                service.execution.task_problem(workspace, task_id, error.message)
+                if error.code not in ("revision_conflict", "not_found") and task:
+                    service.execution.task_problem(
+                        workspace, task_id, error.message, expected_revision=task.revision
+                    )
         # Bounded rotating discovery includes only results captured by the new lifecycle.
         with service.workspace.connection() as db:
             rows = db.execute(
@@ -92,8 +97,10 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
             ).fetchall()
         self.queue_cursor = queued[-1][0] if queued else 0
         for _, project, identity in queued:
+            task_revision = None
             try:
                 review = self.reviews.get(project, identity)
+                task_revision = service.workspace.task(project, review.task_id).revision
                 if not service.execution.settings(project).enabled:
                     continue
                 await service.check_task_agents(project, review.task_id)
@@ -107,7 +114,10 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
                 await self.start_queued(project, identity)
                 service.execution.task_problem(project, review.task_id, None)
             except ApplicationError as error:
-                service.execution.task_problem(project, review.task_id, error.message)
+                if error.code != "revision_conflict" and task_revision is not None:
+                    service.execution.task_problem(
+                        project, review.task_id, error.message, expected_revision=task_revision
+                    )
                 continue
 
     def assigned_agent(self, review: TaskReview) -> EffectiveAgent:

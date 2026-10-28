@@ -166,7 +166,11 @@ def task_state(
         ).for_event("attempt:" + task["owner_id"])
     if task["question_id"]:
         return question_state(db, project, task["question_id"])
-    if task["scheduling_problem"] and not task["archived"]:
+    if (
+        task["scheduling_problem"]
+        and not task["archived"]
+        and task["status"] in ("up_next", "in_progress")
+    ):
         return WorkState(label="Cannot start", tone="attention", href=href, reason="scheduling")
     if task["reply_pending"]:
         return WorkState(

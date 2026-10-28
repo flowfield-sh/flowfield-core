@@ -9,6 +9,21 @@
 .status-notice[data-tone="success"] > svg {
   color: var(--success-foreground);
 }
+.status-notice[data-tone="success"] {
+  border-color: color-mix(
+    in srgb,
+    var(--success-foreground) 35%,
+    var(--border)
+  );
+  background: color-mix(
+    in srgb,
+    var(--success-foreground) 6%,
+    var(--background)
+  );
+}
+.task-notices:empty {
+  display: none;
+}
 .status-notice[data-tone="attention"] {
   border-color: var(--warning-border);
   background: var(--warning-background);
