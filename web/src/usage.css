@@ -1,0 +1,51 @@
+@layer components {
+  .task-usage,
+  .usage-evidence,
+  .usage-executions {
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+  .usage-executions {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .usage-executions > li {
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+  }
+  .usage-evidence {
+    max-height: 65vh;
+    overflow: auto;
+    scrollbar-gutter: stable;
+  }
+  .usage-evidence > * {
+    flex-shrink: 0;
+  }
+  .usage-table-scroll {
+    overflow-x: auto;
+  }
+  .usage-token-table {
+    width: 100%;
+    min-width: 360px;
+    overflow-wrap: normal;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .usage-token-table caption {
+    text-align: left;
+    color: var(--muted-foreground);
+  }
+  .usage-token-table th,
+  .usage-token-table td {
+    padding: 4px 8px;
+    text-align: right;
+    border-bottom: 1px solid var(--border);
+  }
+  .usage-token-table th:first-child {
+    text-align: left;
+  }
+}

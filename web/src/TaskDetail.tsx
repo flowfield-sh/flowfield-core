@@ -20,6 +20,7 @@ import { ExpandableMarkdown } from "./ExpandableMarkdown";
 import { BlockedBy } from "./TaskLinks";
 import { TaskConversation } from "./TaskConversation";
 import { TaskNotices } from "./TaskNotices";
+import { TaskUsage } from "./TaskUsage";
 import { type WorkspaceBoard, type Task } from "./workspace";
 export function TaskDetail({
   task,
@@ -193,6 +194,12 @@ export function TaskDetail({
               )}
             </ContentStack>
           )}
+          <TaskUsage
+            key={task.id}
+            workspaceId={workspaceId}
+            taskId={task.id}
+            refresh={board}
+          />
           {!!task.subtasks.length && (
             <DetailSection title="Subtasks">
               <div className="work-resource-list">
