@@ -98,6 +98,12 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
         rules.append(
             "The service captures the tracked/nonignored tree after execution stops and checks it "
             "for exact review. Only the service delivers code under explicit human approval. "
+            "Completion describes your implementation and the checks available in this attempt. "
+            "Checks explicitly assigned to post-candidate review, such as exercising the "
+            "service-generated Run result launcher, cannot run before submission. Name those "
+            "pending checks in checks; do not claim they passed or mark implemented work partial "
+            "solely because that later review stage is pending. Required implementation work "
+            "or checks that can run now must still be finished; unavailable access is a blocker. "
             "Describe how to run or access the implemented behavior and its prerequisites. "
             + (
                 "Do not implement a sibling's launcher or runtime setup just to finish the "
@@ -134,7 +140,8 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
             "a sandbox denial does not explain a failing host check. Read the actual failed "
             "command's complete output before changing code or rerunning it. Never make a "
             "required runtime check pass by returning early on an access or startup failure. "
-            "Report skipped behavior as unverified; if required verification cannot run, "
+            "Report skipped behavior as unverified; if verification required in this attempt "
+            "cannot run, "
             "retain partial progress or ask for the missing access. "
             "Setup commands have finished; their shell exports and background processes do not "
             "carry into this turn. Use repository-owned wrappers for service-dependent checks, "

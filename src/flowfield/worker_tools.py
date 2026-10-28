@@ -84,6 +84,8 @@ def worker_tools() -> list[dict[str, Any]]:
                     "proof in checks, and only unresolved material caveats in limitations. "
                     "Explicitly choose complete or partial against the entire "
                     "agreed outcome and name remaining_work for partial progress. "
+                    "Explicit post-candidate review checks belong in checks as pending, not "
+                    "as unfinished implementation; never claim unperformed checks passed. "
                     "Code delivery follows explicit approval policy; complete unchanged-tree "
                     "reports finish after configured review. Put deliverable files in "
                     "FLOWFIELD_OUTPUT_DIR "
