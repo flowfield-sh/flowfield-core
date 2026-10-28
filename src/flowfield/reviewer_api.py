@@ -40,7 +40,7 @@ def reviewer_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
 
     @router.get("/workspaces/{workspace}/tasks/{task}/review")
     def current(workspace: str, task: str) -> TaskReview | None:
-        return supervisor().review_execution.reviews.latest(workspace, task)
+        return supervisor().review_execution.reviews.latest(workspace, task, current_only=True)
 
     @router.get("/workspaces/{workspace}/reviews/{identity}")
     def review(workspace: str, identity: str) -> TaskReview:

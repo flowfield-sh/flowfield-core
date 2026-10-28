@@ -469,7 +469,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 assignment.update(sections(db, review.binding.documents))
         return assignment
 
-    def latest(self, project: str, task: str) -> TaskReview | None:
+    def latest(self, project: str, task: str, *, current_only: bool = False) -> TaskReview | None:
         with self.store.connection() as db:
             task = self.store._task(db, project, task).id
             row = db.execute(
@@ -477,7 +477,28 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 "ORDER BY number DESC LIMIT 1",
                 (project, task),
             ).fetchone()
-            return TaskReview.model_validate_json(row[0]) if row else None
+            review = TaskReview.model_validate_json(row[0]) if row else None
+            if (
+                not review
+                or not current_only
+                or review.status in ("preparing", "running", "uncertain")
+            ):
+                return review
+            # Historical stopped/failed reviews remain inspectable by identity, but
+            # no longer supply recovery controls after corrections supersede them.
+            if review.result_id:
+                result = Results(self.store)._get(db, project, review.result_id)
+                if result.status in ("changes_requested", "cancelled"):
+                    return None
+            binding = review.guidance or review.binding
+            latest = db.execute(
+                "SELECT id FROM runs WHERE workspace_id=? AND task_id=? "
+                "ORDER BY number DESC LIMIT 1",
+                (project, task),
+            ).fetchone()
+            if binding and binding.run_id and latest and latest[0] != binding.run_id:
+                return None
+            return review
 
     def finish_attempt(
         self,

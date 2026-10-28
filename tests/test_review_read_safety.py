@@ -49,6 +49,7 @@ def test_stale_result_with_active_reviewer_is_not_a_human_recovery(tmp_path):
     service.integrations.refresh_availability("harbor")
     stale = current(service)
     assert stale.status == "stale"
+    assert reviews.latest("harbor", run.task_id, current_only=True).id == running.id
     assert stale.next_action.owner == "reviewer"
     assert stale.next_action.action == "wait"
     assert attention_page(service.workspace, "harbor", "action").total == 0
@@ -67,6 +68,36 @@ def test_read_connections_reject_accidental_mutation(tmp_path):
     with service.workspace.connection() as db:
         with pytest.raises(sqlite3.OperationalError, match="readonly"):
             db.execute("UPDATE storage_metadata SET revision=revision+1")
+
+
+def test_superseded_stopped_review_is_history_not_current_recovery(tmp_path):
+    from flowfield.result_models import ResultReview
+
+    service, repo, run, _, reviews = configured(tmp_path)
+    result = current(service)
+    review = reviews.prepare("harbor", result.id)
+    stopped = reviews.stop("harbor", review.id, review.revision, cleanup_confirmed=True)
+    assert reviews.latest("harbor", run.task_id, current_only=True) == stopped
+    service.results.review(
+        "harbor",
+        result.id,
+        ResultReview(
+            expected_revision=result.revision,
+            candidate_commit=result.candidate_commit,
+            action="request_changes",
+            note="Finish the remaining behavior",
+        ),
+    )
+    with service.workspace.connection(write=True) as writer:
+        revision = writer.execute("SELECT revision FROM storage_metadata").fetchone()[0]
+        assert reviews.latest("harbor", run.task_id, current_only=True) is None
+        assert writer.execute("SELECT revision FROM storage_metadata").fetchone()[0] == revision
+    assert reviews.get("harbor", review.id) == stopped
+    assert reviews.latest("harbor", run.task_id) == stopped
+    fresh = service.execution.claim("harbor", run.base_commit, {run.base_commit: set()})
+    assert fresh
+    assert reviews.latest("harbor", run.task_id, current_only=True) is None
+    assert reviews.get("harbor", review.id) == stopped
 
 
 def test_review_policy_changes_and_review_completion_persist_task_phases(tmp_path):

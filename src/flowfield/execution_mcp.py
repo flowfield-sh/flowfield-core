@@ -208,7 +208,9 @@ def add_execution_tools(
         """Read the task's current independent review identity, revision and lifecycle.
         Read its exact result for findings; this does not start or stop work.
         """
-        review = supervisor().review_execution.reviews.latest(workspace_id, task_id)
+        review = supervisor().review_execution.reviews.latest(
+            workspace_id, task_id, current_only=True
+        )
         return review.model_dump(exclude={"binding", "verdict"}) if review else None
 
     @mcp.tool(annotations=write)
