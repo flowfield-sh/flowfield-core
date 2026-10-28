@@ -4,9 +4,11 @@ import type { components } from "./api-schema";
 export function CheckEvidence({
   checks,
   title,
+  logBase,
 }: {
   checks: components["schemas"]["CheckResult"][];
   title: string;
+  logBase?: string;
 }) {
   if (!checks.length) return null;
   return (
@@ -30,6 +32,13 @@ export function CheckEvidence({
               {check.output.replace(/^(?:[ \t]*\r?\n)+/, "") || "No output."}
               {check.truncated && "\nOutput truncated."}
             </pre>
+            {check.log_id && logBase && (
+              <a href={`/api/${logBase}/${index}`} download>
+                {check.log_truncated
+                  ? "Download retained log (size limit reached)"
+                  : "Download complete log"}
+              </a>
+            )}
           </Disclosure>
         ))}
       </ContentStack>

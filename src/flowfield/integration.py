@@ -310,6 +310,7 @@ class Integrations:
             if version.integration_id and not availability_result:
                 return self.get(workspace_id, version.integration_id)
             record = Integration(
+                validation_epoch=self.workspace.validation_epoch,
                 id=uuid4().hex,
                 workspace_id=workspace_id,
                 project_id=run.project_id,
@@ -369,26 +370,43 @@ class Integrations:
 
             progress(ValidationProgress(phase="preparing"))
             try:
-                record.candidate_commit = gitops.candidate(
-                    repository, before, record.result_commit, record.id
-                )
-                from flowfield.candidate_validation import validate
+                from flowfield.validation_reuse import matching_receipt
 
-                evidence = validate(
-                    self.workspace.directory / "integration-work",
-                    repository,
-                    record.id,
-                    record.candidate_commit,
-                    settings,
-                    on_progress=progress,
-                    cancelled=cancelled,
-                )
-                record.workspace = evidence.workspace
-                record.setup_checks, record.checks = evidence.setup_checks, evidence.checks
-                if evidence.problem:
-                    raise ApplicationError(
-                        evidence.problem_code or "validation_failed", evidence.problem, 409
+                previous = matching_receipt(self.workspace, repository, record, settings)
+                if previous:
+                    record.candidate_commit = previous.candidate_commit
+                    record.reused_from = previous.id
+                    record.validated_at = previous.validated_at
+                    record.workspace = previous.workspace
+                    record.setup_checks, record.checks = previous.setup_checks, previous.checks
+                    assert record.candidate_commit
+                    git(
+                        repository,
+                        "update-ref",
+                        f"refs/flowfield/integrations/{record.id}",
+                        record.candidate_commit,
                     )
+                else:
+                    record.candidate_commit = gitops.candidate(
+                        repository, before, record.result_commit, record.id
+                    )
+                    from flowfield.candidate_validation import validate
+
+                    evidence = validate(
+                        self.workspace.directory / "integration-work",
+                        repository,
+                        record.id,
+                        record.candidate_commit,
+                        settings,
+                        on_progress=progress,
+                        cancelled=cancelled,
+                    )
+                    record.workspace = evidence.workspace
+                    record.setup_checks, record.checks = evidence.setup_checks, evidence.checks
+                    if evidence.problem:
+                        raise ApplicationError(
+                            evidence.problem_code or "validation_failed", evidence.problem, 409
+                        )
                 self._accepted(workspace_id, run_id)
                 if (
                     self.head(workspace_id, run.task_id) != before
@@ -414,7 +432,8 @@ class Integrations:
                 )
             finally:
                 self.workspace.validation_progress.pop(record.id, None)
-            record.completed_at = record.validated_at = now()
+            record.completed_at = now()
+            record.validated_at = record.validated_at or record.completed_at
             return self._save(record)
 
     def apply(self, workspace_id: str, identity: str, request: IntegrationApply) -> Integration:

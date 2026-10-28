@@ -64,6 +64,8 @@ class IntegrationApply(Record):
 
 
 class IntegrationSummary(Record):
+    validation_epoch: str | None = None
+    reused_from: str | None = None
     workspace_id: str
     task_id: str
     id: str

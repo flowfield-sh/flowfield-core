@@ -226,9 +226,14 @@ function WorkerEvidence({
           · both the worker’s changes and current branch code are included.
         </p>
       )}
-      <CheckEvidence checks={record.setup_checks ?? []} title="Runtime setup" />
+      <CheckEvidence
+        checks={record.setup_checks ?? []}
+        title="Runtime setup"
+        logBase={`${path}/logs/setup`}
+      />
       <CheckEvidence
         checks={record.project_check_results ?? []}
+        logBase={`${path}/logs/checks`}
         title="Worker project checks"
       />
       <WorkerDocumentEvidence documents={record.documents ?? []} />

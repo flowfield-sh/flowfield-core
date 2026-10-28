@@ -46,7 +46,11 @@ def rows(database):
         ]
         return {
             name: db.execute(
-                f'SELECT * FROM "{name}"'
+                (
+                    f'SELECT number,id,workspace_id,run_id,data FROM "{name}"'
+                    if name == "output_files"
+                    else f'SELECT * FROM "{name}"'
+                )
                 + (" WHERE name NOT LIKE 'usage_%'" if name == "sqlite_sequence" else "")
             ).fetchall()
             for name in names
@@ -59,7 +63,7 @@ def test_published_upgrade_preserves_every_row_and_file_with_verified_recovery(t
     before = rows(directory / storage.DATABASE)
     store = Workspace(directory)
     assert rows(store.database) == before
-    assert storage.status(directory)["schema_version"] == 90
+    assert storage.status(directory)["schema_version"] == 91
     assert hashlib.sha256(output.read_bytes()).hexdigest() == info["sha256"]
     backups = list((directory / "backups").glob(f"schema-{version}-*.sqlite3"))
     assert len(backups) == 1 and rows(backups[0]) == before

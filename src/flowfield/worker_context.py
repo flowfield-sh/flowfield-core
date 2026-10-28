@@ -115,7 +115,21 @@ def attempt_source(
         raise ApplicationError(
             "source_unavailable", "This report is not in the frozen context.", 409
         )
-    return str(row[0])
+    from flowfield.outputs import Outputs
+    from flowfield.task_evidence import review_files
+
+    return json.dumps(
+        {
+            **json.loads(row[0]),
+            "verification_files": review_files(db, run.workspace_id, identity),
+            "retained_files": [
+                file.model_dump(include={"id", "name", "description", "size", "sha256", "run_id"})
+                for file in Outputs.for_run(db, identity)
+            ],
+            "file_access": "Use read_evidence with a retained file ID; "
+            "no manual runtime-path discovery or copying is needed.",
+        }
+    )
 
 
 def brief_context(sections: dict[str, str]) -> dict[str, object]:

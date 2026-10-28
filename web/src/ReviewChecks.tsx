@@ -50,10 +50,12 @@ export function ReviewChecks({
           {availability.problem && <p>{availability.problem}</p>}
           <CheckEvidence
             checks={availability.setup_checks ?? []}
+            logBase={`workspaces/${availability.workspace_id}/integrations/${availability.id}/logs/setup`}
             title="Setup commands"
           />
           <CheckEvidence
             checks={availability.checks}
+            logBase={`workspaces/${availability.workspace_id}/integrations/${availability.id}/logs/checks`}
             title="Project commands"
           />
           <WorkspaceLink to={historyHref + "/validation:" + availability.id}>
@@ -86,11 +88,22 @@ export function ReviewChecks({
             ...preparation.checks,
           ].some((check) => check.exit_code !== 0)}
         >
+          {preparation.reused_from && (
+            <p>
+              Reused successful checks for this unchanged candidate and
+              configuration.
+            </p>
+          )}
           <CheckEvidence
             checks={preparation.setup_checks ?? []}
+            logBase={`workspaces/${preparation.workspace_id}/integrations/${preparation.id}/logs/setup`}
             title="Setup commands"
           />
-          <CheckEvidence checks={preparation.checks} title="Project commands" />
+          <CheckEvidence
+            checks={preparation.checks}
+            title="Project commands"
+            logBase={`workspaces/${preparation.workspace_id}/integrations/${preparation.id}/logs/checks`}
+          />
         </Disclosure>
       ) : (
         !preparation &&

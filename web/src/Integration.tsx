@@ -417,8 +417,16 @@ function SetupValidation({
               </pre>
             </Disclosure>
           )}
-          <CheckEvidence checks={value.setup} title="Setup output" />
-          <CheckEvidence checks={value.checks} title="Validation output" />
+          <CheckEvidence
+            checks={value.setup}
+            title="Setup output"
+            logBase={`projects/${value.project_id}/setup-validation/${value.id}/logs/setup`}
+          />
+          <CheckEvidence
+            checks={value.checks}
+            title="Validation output"
+            logBase={`projects/${value.project_id}/setup-validation/${value.id}/logs/checks`}
+          />
           {value.workspace && (
             <Disclosure summary={<>Validation copy</>}>
               <code>{value.workspace}</code>
@@ -466,8 +474,22 @@ export function IntegrationEvidence({
         </p>
       </DetailSection>
       {record.problem && <FailureEvidence problem={record.problem} />}
-      <CheckEvidence checks={record.setup_checks ?? []} title="Runtime setup" />
-      <CheckEvidence checks={record.checks} title="Validation checks" />
+      {record.reused_from && (
+        <p>
+          Reused successful checks for this unchanged candidate and
+          configuration.
+        </p>
+      )}
+      <CheckEvidence
+        checks={record.setup_checks ?? []}
+        title="Runtime setup"
+        logBase={`workspaces/${record.workspace_id}/integrations/${record.id}/logs/setup`}
+      />
+      <CheckEvidence
+        checks={record.checks}
+        title="Validation checks"
+        logBase={`workspaces/${record.workspace_id}/integrations/${record.id}/logs/checks`}
+      />
       {record.candidate_commit && (
         <>
           <Button size="sm" variant="outline" onClick={() => setDiff(!diff)}>

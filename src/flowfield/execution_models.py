@@ -114,6 +114,12 @@ class CheckResult(Record):
     exit_code: int
     output: str
     truncated: bool = False
+    log_id: str | None = None
+    log_size: int = 0
+    log_sha256: str | None = None
+    log_truncated: bool = False
+    started_at: str | None = None
+    elapsed_seconds: float | None = None
 
 
 class Correction(Record):

@@ -63,10 +63,12 @@ export function ValidationProgress({ record }: { record: IntegrationRead }) {
       )}
       <CheckEvidence
         checks={progress.setup_checks}
+        logBase={`workspaces/${record.workspace_id}/integrations/${record.id}/logs/setup`}
         title="Completed setup commands"
       />
       <CheckEvidence
         checks={progress.checks}
+        logBase={`workspaces/${record.workspace_id}/integrations/${record.id}/logs/checks`}
         title="Completed project commands"
       />
     </ContentStack>

@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Any
 
 from pydantic import Field
@@ -12,6 +13,7 @@ from flowfield.execution import Execution
 from flowfield.execution_models import Record, Run, WorkerResult, WorkerSubmission
 from flowfield.questions import QuestionCreate
 from flowfield.run_activity import ActivityUpdate
+from flowfield.task_evidence import EvidenceFileRequest
 
 
 class SearchContext(Record):
@@ -34,6 +36,14 @@ def worker_tools() -> list[dict[str, Any]]:
             "inputSchema": model.model_json_schema(),
         }
         for name, description, model in (
+            (
+                "read_evidence",
+                "Retrieve an exact retained output from the frozen task history into this "
+                "attempt's read-only evidence area. Read attempt:<id> for file IDs and provenance. "
+                "Historical evidence does not become a current deliverable "
+                "or authorize code changes.",
+                EvidenceFileRequest,
+            ),
             (
                 "run_project_checks",
                 "Run the saved project checks on this worker checkout using "
@@ -137,6 +147,28 @@ class WorkerBridge:
                 self.run.workspace_id, self.run.id, request.section
             )
             return request.page(text)
+        if name == "read_evidence":
+            from flowfield.task_evidence import read_file
+
+            query_file = EvidenceFileRequest.model_validate(arguments)
+            sections = self.execution.assignment(self.run.workspace_id, self.run.id)
+            with self.execution.workspace.connection() as db:
+                row = db.execute(
+                    "SELECT data FROM execution_local WHERE run_id=?", (self.run.id,)
+                ).fetchone()
+            metadata = json.loads(row[0]) if row else {}
+            if not metadata.get("runtime"):
+                raise ApplicationError(
+                    "evidence_unavailable", "This attempt has no evidence directory.", 409
+                )
+            return read_file(
+                self.execution.workspace,
+                self.run.workspace_id,
+                self.run.task_id,
+                query_file.file_id,
+                Path(metadata["runtime"]) / "evidence",
+                run_ids=set(json.loads(sections.get("attempt_sources", "{}"))),
+            )
         if name == "search_context":
             from flowfield.search import assignment_search
 

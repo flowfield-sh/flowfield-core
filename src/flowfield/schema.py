@@ -2,7 +2,7 @@
 
 from flowfield.usage_schema import TABLES, TRIGGERS
 
-SCHEMA_VERSION = 90
+SCHEMA_VERSION = 91
 
 TASK_REVIEWS = """
 CREATE TABLE task_reviews (number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL
@@ -127,8 +127,10 @@ CREATE TABLE integrations (
 
 
 CREATE TABLE output_files (number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL
-    UNIQUE, workspace_id TEXT NOT NULL REFERENCES workspaces(id), run_id TEXT NOT
-    NULL REFERENCES runs(id), data TEXT NOT NULL);
+    UNIQUE, workspace_id TEXT NOT NULL REFERENCES workspaces(id), run_id TEXT
+    REFERENCES runs(id), data TEXT NOT NULL,
+    review_attempt_id TEXT REFERENCES review_attempts(id),
+    CHECK ((run_id IS NOT NULL) != (review_attempt_id IS NOT NULL)));
 
 
 
@@ -415,7 +417,7 @@ INSERT INTO storage_metadata VALUES (1, lower(hex(randomblob(16))), 0);
 INSERT INTO harness_settings VALUES ('codex', 1, NULL, NULL), ('claude-code', 1, NULL,
     NULL), ('pi', 1, NULL, NULL);
 
-PRAGMA user_version = 90;
+PRAGMA user_version = 91;
 """
 
 SCHEMA += TASK_DELETIONS + ";"

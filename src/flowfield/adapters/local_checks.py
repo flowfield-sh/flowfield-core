@@ -5,15 +5,19 @@ groups cover ordinary children; projects must not daemonize setup or check comma
 """
 
 import asyncio
+import hashlib
 from collections.abc import Callable
 from datetime import UTC, datetime
 from time import monotonic
+from uuid import uuid4
 
 from flowfield.adapters.local_execution import LocalAttempt
 from flowfield.adapters.local_process import LocalLaunchCancelled, LocalProcess
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import CheckResult
 from flowfield.integration_models import CommandProgress
+
+MAX_LOG_BYTES = 8 * 1024 * 1024
 
 
 async def run_checks(
@@ -65,6 +69,13 @@ async def _run_check(
     last_output: str | None = None
     started_at = datetime.now(UTC).isoformat()
     started = monotonic()
+    log_id = uuid4().hex
+    log_directory = environment.runtime / "logs"
+    log_directory.mkdir(exist_ok=True)
+    log = (log_directory / log_id).open("xb")
+    log_size = 0
+    log_digest = hashlib.sha256()
+    log_truncated = False
 
     def publish() -> None:
         if on_progress:
@@ -76,7 +87,9 @@ async def _run_check(
                     started_at=started_at,
                     elapsed_seconds=monotonic() - started,
                     timeout_seconds=timeout,
-                    output=recent.decode(errors="replace"),
+                    output=recent.decode(errors="replace")
+                    .encode()[-12000:]
+                    .decode(errors="ignore"),
                     truncated=truncated,
                     last_output_at=last_output,
                 ),
@@ -84,8 +97,13 @@ async def _run_check(
             )
 
     async def drain(stream: asyncio.StreamReader) -> None:
-        nonlocal truncated, last_output
+        nonlocal truncated, last_output, log_size, log_truncated
         while block := await stream.read(8192):
+            saved = block[: max(0, MAX_LOG_BYTES - log_size)]
+            log.write(saved)
+            log_digest.update(saved)
+            log_size += len(saved)
+            log_truncated |= len(saved) < len(block)
             remaining = 12000 - len(output)
             output.extend(block[:remaining])
             truncated |= len(block) > remaining
@@ -124,26 +142,54 @@ async def _run_check(
         owner = error.owner
         raise
     finally:
-        if owner:
-            confirmed = await owner.close()
-            for reader in readers:
-                try:
-                    async with asyncio.timeout(1):
-                        await asyncio.shield(reader)
-                except TimeoutError:
-                    reader.cancel()
-            await asyncio.gather(*readers, return_exceptions=True)
-            if not confirmed:
-                raise ApplicationError(
-                    "command_cleanup_uncertain",
-                    "Project command cleanup could not be confirmed. Inspect the retained "
-                    "processes before retrying.",
-                    409,
-                )
-            if on_process:
-                on_process(None)
+        try:
+            if owner:
+                confirmed = await owner.close()
+                for reader in readers:
+                    try:
+                        async with asyncio.timeout(1):
+                            await asyncio.shield(reader)
+                    except TimeoutError:
+                        reader.cancel()
+                outcomes = await asyncio.gather(*readers, return_exceptions=True)
+                if not confirmed:
+                    raise ApplicationError(
+                        "command_cleanup_uncertain",
+                        "Project command cleanup could not be confirmed. Inspect the retained "
+                        "processes before retrying.",
+                        409,
+                    )
+                if on_process:
+                    on_process(None)
+                if any(isinstance(outcome, Exception) for outcome in outcomes):
+                    raise ApplicationError(
+                        "command_log_failed",
+                        "Could not retain command output; inspect the attempt before retrying.",
+                        409,
+                    )
+        finally:
+            log.close()
+    summary = output.decode(errors="replace")
+    truncated |= len(summary.encode()) > 12000
+    if truncated:
+        marker = "\n… middle omitted …\n"
+        tail_bytes = 12000 - 6000 - len(marker.encode())
+        summary = (
+            summary.encode()[:6000].decode(errors="ignore")
+            + marker
+            + recent.decode(errors="replace").encode()[-tail_bytes:].decode(errors="ignore")
+        )
     return CheckResult(
-        command=command, exit_code=code, output=output.decode(errors="replace"), truncated=truncated
+        command=command,
+        exit_code=code,
+        output=summary,
+        truncated=truncated,
+        log_id=log_id,
+        log_size=log_size,
+        log_sha256=log_digest.hexdigest(),
+        log_truncated=log_truncated,
+        started_at=started_at,
+        elapsed_seconds=monotonic() - started,
     )
 
 

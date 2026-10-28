@@ -83,6 +83,13 @@ test("candidate checks stream real output to the result and Coordinator without 
   await expect(
     page.getByText("Flowfield: 1 of 1 project checks passed"),
   ).toBeVisible();
+  await page.getByText("Flowfield: 1 of 1 project checks passed").click();
+  await page.getByText(`Passed · ${command}`, { exact: true }).click();
+  const log = page.getByRole("link", { name: "Download complete log" });
+  await expect(log).toBeVisible();
+  const downloaded = await request.get((await log.getAttribute("href"))!);
+  expect(downloaded.ok()).toBeTruthy();
+  expect(await downloaded.text()).toContain("Check complete");
   await page.goto(`/projects/${seed.project}/edit/integration`);
   await page.getByLabel("Validation commands", { exact: true }).fill("");
   await page

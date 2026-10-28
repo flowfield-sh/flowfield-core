@@ -35,6 +35,10 @@ step. Ask planning questions in your reply; use Flowfield questions for Inbox de
 For local corrections, reply_to_task action=changes must include subtask_id to preserve
 unrelated contributions. Omitting it corrects every contribution; message text does not scope it.
 Native question forms are unsupported. Link asks through list_requests/get_request URLs.
+For passive result notes, use get_task_input.observation_enabled and reply_to_task
+action=observation even during review. This adds evidence for that exact result, not changed
+instructions. The active reviewer reads new notes before concluding; completed reviews do not
+automatically restart. Use changes for requested implementation corrections.
 Retrieve older public chat with get_coordinator_history/get_coordinator_text; history never
 transfers permission or approval.
 

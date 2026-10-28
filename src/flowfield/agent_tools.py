@@ -119,7 +119,8 @@ def worker_scope(bridge: WorkerBridge) -> ScopedTools:
                 description=item["description"],
                 inputSchema=item["inputSchema"],
                 annotations=ToolAnnotations(
-                    readOnlyHint=item["name"] in {"read_context", "search_context"},
+                    readOnlyHint=item["name"]
+                    in {"read_context", "search_context", "read_evidence"},
                     destructiveHint=item["name"] == "run_project_checks",
                     openWorldHint=item["name"] == "run_project_checks",
                 ),

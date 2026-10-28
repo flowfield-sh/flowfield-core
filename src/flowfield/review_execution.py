@@ -153,13 +153,29 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
         assert review.binding
         sections = self.reviews.assignment(review)
         exchanges = self.reviews.attempts(review.workspace_id, review.id)
+        with service.workspace.connection() as db:
+            observation_count = db.execute(
+                "SELECT count(*) FROM task_replies WHERE workspace_id=? "
+                "AND json_extract(data,'$.binding.result_id')=? "
+                "AND json_extract(data,'$.action')='observation'",
+                (review.workspace_id, review.result_id),
+            ).fetchone()[0]
         brief = {
             "purpose": review.recipient,
             "task": sections.get("title"),
             "candidate_commit": review.binding.candidate_commit,
             "target_before": review.binding.target_before,
             "target_branch": review.binding.target_branch,
-            "sections": [*sections, "result", "validation", "human_answer", "exchanges:0"],
+            "observation_count": observation_count,
+            "sections": [
+                *sections,
+                "result",
+                "validation",
+                "prior_results",
+                "observations",
+                "human_answer",
+                "exchanges:0",
+            ],
             "recent_exchanges": [
                 {
                     "section": "exchange:" + item["id"],
@@ -181,6 +197,22 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
                 "when requesting changes or asking a worker. "
                 "For direct work, omit subtask_id; the task key is never a subtask ID. "
                 "Read relevant context and recent exchange sections with read_context. "
+                "If observation_count is nonzero, read observations and each observation:<id> "
+                "before concluding. These are live "
+                "human notes about this result, not authority to change scope. If new notes "
+                "arrive before submission, read them and reassess in this same round. "
+                "Use read_evidence for attachment IDs in observation URLs. "
+                "For corrections, read prior_results first: prior findings and exact files "
+                "remain available through prior_result:<id> and read_evidence. "
+                "Assess the amendment "
+                "and changed risks; reuse applicable exact-source evidence instead of requesting "
+                "routine resubmission or repeated passing checks. Earlier evidence is not proof "
+                "of changed code, and earlier verdicts are not current approval. "
+                "Request rendered evidence only for changed visible UI, visual deliverables or "
+                "an explicit requirement. Backend, CLI, documentation and investigation tasks "
+                "do not require screenshots by default. For UI, name concrete journey, clarity, "
+                "interaction and visual findings; style compliance alone "
+                "does not establish quality. "
                 "Inspect the candidate diff "
                 "against target_before. Validation records are evidence, "
                 "not proof of every criterion. Do not edit or execute project code, "
@@ -193,7 +225,12 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
                 "applies only separately granted integration authority. Corrections cite an "
                 "existing requirement and stay "
                 "within scope. Optional suggestions are not blockers. Use ask_worker "
-                "for implementation questions, ask_human for intent, scope or access. "
+                "for implementation questions. Use request_verification only when a specific "
+                "agreed check needs execution against the prepared candidate (including its "
+                "generated launcher). State the smallest missing evidence; do not repeat "
+                "successful checks or require screenshots for nonvisual work. Verification "
+                "returns evidence without changing code or rerunning full validation. "
+                "Use ask_human for intent, scope or access. "
                 "Intent changes require Coordinator reconciliation. "
                 "If an answer changes scope, ask for reconciliation; do not "
                 "treat it as an amended agreement. Keep the human-facing summary concise: "
@@ -231,13 +268,42 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
             " An incomplete outcome cannot be approved. Request a bounded follow-up for "
             "unfinished agreed work, or ask_human for a concrete missing decision or input."
         )
+        project_id = service.workspace.task(review.workspace_id, review.task_id).project_id
+        setup: list[str] = []
+        run_command = None
+        if review.verification:
+            brief["instructions"] = (
+                "Perform only the requested verification against this exact candidate. "
+                "Read the latest exchange for the requested check and relevant context. "
+                "You may execute project code using saved native access. Do not edit code, "
+                "change requirements/settings, bypass denied access, or integrate. "
+                "When testing Run result, execute result_launcher exactly as generated; "
+                "it includes project setup. For other checks use only necessary setup. "
+                "Do not rerun the entire validation suite without a concrete reason. "
+                "Use isolated ports/state inside FLOWFIELD_RUNTIME_DIR. Stop all processes "
+                "you start before answering. Retain requested logs/screenshots under "
+                "FLOWFIELD_OUTPUT_DIR and select relative files in answer_review. "
+                "Record the observed outcome and limitations, including failed checks; "
+                "answer_review does not approve the result. Ask_human for required access "
+                "or scope decisions. End after submitting the evidence."
+            )
+            if project_id:
+                from flowfield.inspection import Inspections
+
+                setup = service.integrations.settings(project_id).setup_commands
+                run_command = (
+                    Inspections(service.workspace).settings(project_id).run_command or None
+                )
+            brief["setup_commands"] = setup
         return ReviewLaunch(
             review.binding.candidate_commit if review.binding.completion == "code" else None,
             frozen,
             ReviewBridge(self.reviews, review, attempt, review.recipient).scope(),
             brief,
-            project_id=service.workspace.task(review.workspace_id, review.task_id).project_id,
+            project_id=project_id,
             files=list({file.id: file for file in inputs}.values()),
+            verification_setup=setup,
+            verification_run=run_command,
         )
 
     def guidance_launch(self, review: TaskReview, attempt: str) -> ReviewLaunch:

@@ -30,7 +30,7 @@ type Draft = {
   id: string;
   body: string;
   binding: Binding;
-  action: "answer" | "changes" | "approve";
+  action: "answer" | "changes" | "approve" | "observation";
   candidate?: string;
 };
 const binding = (gate: Gate): Binding => ({
@@ -41,8 +41,8 @@ const binding = (gate: Gate): Binding => ({
   result_id: gate.result_id,
   result_revision: gate.result_revision,
 });
-const contextKey = (value: Binding) =>
-  value.question_id
+const contextKey = (value: Binding, action?: Draft["action"]) =>
+  value.question_id && action !== "observation"
     ? `question:${value.question_id}`
     : value.result_id
       ? `result:${value.result_id}`
@@ -122,41 +122,50 @@ export function TaskResponse({
     requestTarget.kind === "integration"
       ? execution.data?.run_id
       : requestTarget.id;
-  const belongs = (binding: Draft["binding"]) =>
+  const belongs = (binding: Draft["binding"], action?: Draft["action"]) =>
     requestTarget.kind === "question"
-      ? binding.question_id === requestTarget.id
+      ? binding.question_id === requestTarget.id && action !== "observation"
       : requestTarget.kind === "result"
-        ? binding.result_id === requestTarget.id && !binding.question_id
+        ? binding.result_id === requestTarget.id &&
+          (!binding.question_id || action === "observation")
         : !!requestedAttemptId &&
           currentAttemptId === requestedAttemptId &&
           !binding.question_id &&
           !binding.result_id;
   const selectedKey =
-    chosen && drafts[chosen] && belongs(drafts[chosen].binding) ? chosen : null;
+    chosen &&
+    drafts[chosen] &&
+    belongs(drafts[chosen].binding, drafts[chosen].action)
+      ? chosen
+      : null;
   const key =
     selectedKey ??
     (currentBinding && belongs(currentBinding)
       ? contextKey(currentBinding)
-      : (Object.keys(drafts).find((key) => belongs(drafts[key].binding)) ??
-        "request:" + requestTarget.kind + ":" + requestTarget.id));
+      : (Object.keys(drafts).find((key) =>
+          belongs(drafts[key].binding, drafts[key].action),
+        ) ?? "request:" + requestTarget.kind + ":" + requestTarget.id));
   const draft = drafts[key];
   const matchesRequest =
     requestTarget.kind === "question"
       ? gate.data?.question_id === requestTarget.id
       : requestTarget.kind === "result"
-        ? gate.data?.result_id === requestTarget.id && !gate.data?.question_id
+        ? gate.data?.result_id === requestTarget.id
         : !!requestedAttemptId &&
           currentAttemptId === requestedAttemptId &&
           !gate.data?.question_id &&
           !gate.data?.result_id;
   const inputEnabled =
     matchesRequest &&
-    !!gate.data?.enabled &&
-    (gate.data.reason !== "answer_editable" || !!draft);
+    !!(draft?.action === "observation"
+      ? gate.data?.observation_enabled
+      : gate.data?.enabled) &&
+    (gate.data?.reason !== "answer_editable" || !!draft);
   // A selected draft stays open even when empty; eligibility controls delivery.
   const composerAction =
     draft?.action ??
     (matchesRequest &&
+    requestTarget.kind === "question" &&
     gate.data?.question_id &&
     gate.data.reason !== "answer_editable"
       ? "answer"
@@ -225,7 +234,7 @@ export function TaskResponse({
     target: Draft["binding"],
     body = "",
   ) {
-    const nextKey = contextKey(target);
+    const nextKey = contextKey(target, action);
     setChosen(nextKey);
     setDrafts((values) => ({
       ...values,
@@ -279,7 +288,7 @@ export function TaskResponse({
       uploading ||
       !draft ||
       (draft.action !== "approve" && !draft.body.trim()) ||
-      !gate.data?.enabled ||
+      !inputEnabled ||
       !matchesRequest ||
       stale
     )
@@ -330,8 +339,9 @@ export function TaskResponse({
   }
   const showInputFooter =
     (matchesRequest || !!draft) &&
-    ((!!currentResult.data &&
-      (task.status !== "done" || task.state?.tone === "attention")) ||
+    ((requestTarget.kind === "result" && !!gate.data?.observation_enabled) ||
+      (!!currentResult.data &&
+        (task.status !== "done" || task.state?.tone === "attention")) ||
       (!!currentAttempt.data &&
         [
           "preparing",
@@ -377,7 +387,12 @@ export function TaskResponse({
             onReply={requestChanges}
             onApprove={approve}
             accepted={savedResult}
-            inputEnabled={inputEnabled && !busy && !gate.data?.question_id}
+            inputEnabled={
+              !!gate.data?.enabled &&
+              inputEnabled &&
+              !busy &&
+              !gate.data?.question_id
+            }
           />
         ) : requestTarget.kind === "question" ? (
           currentQuestion.data && (
@@ -440,7 +455,9 @@ export function TaskResponse({
                     <strong>
                       {draft?.action === "approve"
                         ? "Approve and integrate"
-                        : "Request changes"}
+                        : draft?.action === "observation"
+                          ? "Add observation"
+                          : "Request changes"}
                     </strong>
                     {replyResult && (
                       <p className="detail-metadata">
@@ -450,7 +467,7 @@ export function TaskResponse({
                     )}
                   </div>
                 )}
-                {!matchesRequest && (
+                {!matchesRequest && !draft && (
                   <p role="status">
                     This request is no longer awaiting a response. Your saved
                     response is available in its history.
@@ -476,11 +493,13 @@ export function TaskResponse({
                   label={
                     draft?.action === "changes"
                       ? "Feedback for this result"
-                      : draft?.action === "approve"
-                        ? "Testing notes or approval comment (optional)"
-                        : composerAction === "answer"
-                          ? "Your answer"
-                          : "Task response"
+                      : draft?.action === "observation"
+                        ? "What you observed in this result"
+                        : draft?.action === "approve"
+                          ? "Testing notes or approval comment (optional)"
+                          : composerAction === "answer"
+                            ? "Your answer"
+                            : "Task response"
                   }
                   disabled={busy || !inputEnabled}
                   onBusy={setUploading}
@@ -494,11 +513,13 @@ export function TaskResponse({
                         aria-label={
                           draft?.action === "changes"
                             ? "Send feedback"
-                            : composerAction === "approve"
-                              ? "Approve and integrate"
-                              : composerAction === "answer"
-                                ? "Send answer"
-                                : "Send message"
+                            : composerAction === "observation"
+                              ? "Save observation"
+                              : composerAction === "approve"
+                                ? "Approve and integrate"
+                                : composerAction === "answer"
+                                  ? "Send answer"
+                                  : "Send message"
                         }
                         disabled={
                           busy ||
@@ -520,8 +541,10 @@ export function TaskResponse({
                     )
                   }
                 />
-                {!gate.data?.enabled &&
+                {!inputEnabled &&
                   gate.data &&
+                  matchesRequest &&
+                  !stale &&
                   (showComposer || !!gate.data.pending_reply_id) && (
                     <p className="muted">
                       {gate.data.pending_reply_id
@@ -552,12 +575,26 @@ export function TaskResponse({
                   <div
                     ref={setActionHost}
                     className="task-result-actions"
-                    hidden={
-                      draft?.action === "changes" ||
-                      draft?.action === "approve" ||
-                      !!gate.data?.question_id
-                    }
+                    hidden={!!draft || !!gate.data?.question_id}
                   />
+
+                  {requestTarget.kind === "result" &&
+                    matchesRequest &&
+                    gate.data?.observation_enabled &&
+                    !draft &&
+                    currentBinding && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() =>
+                          beginDraft("observation", currentBinding)
+                        }
+                      >
+                        Add observation
+                      </Button>
+                    )}
 
                   {matchesRequest &&
                     gate.data?.reason === "answer_editable" &&
@@ -581,7 +618,8 @@ export function TaskResponse({
                     )}
                   {Object.entries(drafts)
                     .filter(
-                      ([id, d]) => id !== key && d.body && belongs(d.binding),
+                      ([id, d]) =>
+                        id !== key && d.body && belongs(d.binding, d.action),
                     )
                     .map(([id]) => (
                       <Button
@@ -615,7 +653,9 @@ export function TaskResponse({
                           ? "Cancel feedback"
                           : composerAction === "approve"
                             ? "Cancel approval"
-                            : "Cancel message"}
+                            : composerAction === "observation"
+                              ? "Cancel observation"
+                              : "Cancel message"}
                     </Button>
                   )}
                   {matchesRequest && gate.data?.pending_reply_id && (

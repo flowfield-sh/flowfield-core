@@ -72,8 +72,8 @@ class TaskDeletionService:
             [
                 row[0]
                 for row in db.execute(
-                    "SELECT id FROM output_files WHERE run_id IN "
-                    "(SELECT id FROM runs WHERE workspace_id=? AND task_id=?) UNION ALL "
+                    "SELECT id FROM output_files WHERE workspace_id=? "
+                    "AND json_extract(data,'$.task_id')=? UNION ALL "
                     "SELECT id FROM attachments WHERE workspace_id=? AND task_id=?",
                     (task.workspace_id, task.id, task.workspace_id, task.id),
                 )
@@ -191,8 +191,7 @@ class TaskDeletionService:
                         CleanupPath(relative=f"workspaces/{task.workspace_id}/attempts/{identity}")
                     )
         for (identity,) in db.execute(
-            "SELECT id FROM output_files WHERE run_id IN "
-            "(SELECT id FROM runs WHERE workspace_id=? AND task_id=?)",
+            "SELECT id FROM output_files WHERE workspace_id=? AND json_extract(data,'$.task_id')=?",
             owner,
         ):
             paths.extend(
@@ -229,6 +228,7 @@ class TaskDeletionService:
         db.execute("DELETE FROM search_docs WHERE workspace_id=? AND task_id=?", owner)
         # Children first; foreign-key checking remains enabled throughout.
         statements = [
+            "DELETE FROM output_files WHERE workspace_id=? AND json_extract(data,'$.task_id')=?",
             "DELETE FROM inspections WHERE result_id IN "
             "(SELECT id FROM result_versions WHERE workspace_id=? AND task_id=?)",
             "DELETE FROM review_attempts WHERE review_id IN "
@@ -236,8 +236,6 @@ class TaskDeletionService:
             "DELETE FROM task_reviews WHERE workspace_id=? AND task_id=?",
             "DELETE FROM result_versions WHERE workspace_id=? AND task_id=?",
             "DELETE FROM integrations WHERE run_id IN "
-            "(SELECT id FROM runs WHERE workspace_id=? AND task_id=?)",
-            "DELETE FROM output_files WHERE run_id IN "
             "(SELECT id FROM runs WHERE workspace_id=? AND task_id=?)",
             "DELETE FROM execution_local WHERE run_id IN "
             "(SELECT id FROM runs WHERE workspace_id=? AND task_id=?)",

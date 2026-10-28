@@ -4,7 +4,7 @@ import hashlib
 import json
 import sqlite3
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 from uuid import uuid4
 
 from pydantic import Field, model_validator
@@ -18,6 +18,7 @@ from flowfield.execution import Execution
 from flowfield.execution_models import Record
 from flowfield.guidance_models import GuidanceBinding, GuidanceDecision
 from flowfield.integration import Integrations
+from flowfield.output_models import OutputFile
 from flowfield.outputs import Outputs
 from flowfield.results import Results
 from flowfield.review_records import ReviewRecord, ReviewRecords
@@ -31,7 +32,7 @@ class ReviewVerdict(Record):
         description="Responsible local subtask for assembled work only. "
         "Omit for direct work; never use a task key.",
     )
-    action: Literal["approve", "request_changes", "ask_worker", "ask_human"]
+    action: Literal["approve", "request_changes", "ask_worker", "request_verification", "ask_human"]
     summary: str = Field(min_length=1, max_length=2000)
     evidence: str = Field(min_length=1, max_length=8000)
     request: str = Field(default="", max_length=8000)
@@ -76,6 +77,7 @@ class TaskReview(ReviewRecord):
     applied_at: str | None = None
     applied_agreement_revision: int | None = None
     responding_subtask_id: str | None = None
+    verification: bool = False
 
 
 class ReviewAttemptInfo(Record):
@@ -91,6 +93,8 @@ class ReviewAttemptInfo(Record):
     requested_agent: AgentChoice | None = None
     applied_agent: AgentChoice | None = None
     problem: str | None = None
+    launch_reason: str = "assessment"
+    files: list[OutputFile] = Field(default_factory=list)
 
 
 class ReviewAttemptPage(Record):
@@ -102,6 +106,45 @@ class TaskReviews(ReviewRecords[TaskReview]):
     record_type = TaskReview
     job_table = "task_reviews"
     attempt_table = "review_attempts"
+
+    def check_decision_evidence(
+        self,
+        db: sqlite3.Connection,
+        review: TaskReview,
+        data: dict[str, Any],
+        decision: dict[str, Any],
+    ) -> None:
+        from flowfield.review_observations import unread
+
+        if (
+            review.result_id
+            and review.recipient == "reviewer"
+            and unread(db, review.workspace_id, review.result_id, data)
+        ):
+            raise ApplicationError(
+                "observations_unread",
+                "New result observations are available. Read observations and each "
+                "observation:<id>, then submit your assessment.",
+                409,
+            )
+        if decision.get("files"):
+            if not review.verification or review.recipient != "implementer":
+                raise ApplicationError(
+                    "verification_required", "Files belong to a verification round."
+                )
+            if data.get("decision") is None:
+                from flowfield.output_models import OutputSelection
+
+                files = Outputs(self.store).capture_owned(
+                    db,
+                    review.workspace_id,
+                    review.task_id,
+                    [OutputSelection.model_validate(item) for item in decision["files"]],
+                    data,
+                    review_attempt_id=review.attempt_id,
+                    result_id=review.result_id,
+                )
+                data["output_ids"] = [file.id for file in files]
 
     def _binding(
         self, db: sqlite3.Connection, project: str, result_id: str, *, delivering: bool = False
@@ -231,7 +274,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
 
     def validate_decision(self, review: TaskReview, decision: ReviewVerdict) -> None:
         assert review.binding
-        if decision.action not in ("request_changes", "ask_worker"):
+        if decision.action not in ("request_changes", "ask_worker", "request_verification"):
             return
         with self.store.connection() as db:
             run = Execution(self.store)._run(db, review.workspace_id, review.binding.run_id)
@@ -539,6 +582,13 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 )
             elif not self._fresh(db, review):
                 pass
+            elif (
+                review.result_id
+                and review.recipient == "reviewer"
+                and self._unread_observations(db, review, data)
+            ):
+                review.status, review.launch_reason = "queued", "observation-continuation"
+                review.problem = None
             else:
                 action = decision["action"]
                 # Application and receipt share a transaction. Native agents never deliver Git.
@@ -569,15 +619,18 @@ class TaskReviews(ReviewRecords[TaskReview]):
                         origin_review_id=review.id,
                     )
                     review.question_id, review.status = question.id, "waiting"
-                elif action in ("ask_worker", "answer"):
-                    review.recipient = "implementer" if action == "ask_worker" else "reviewer"
+                elif action in ("ask_worker", "request_verification", "answer"):
+                    review.recipient = "reviewer" if action == "answer" else "implementer"
+                    review.verification = action == "request_verification"
                     review.launch_reason = (
-                        "implementer-clarification"
-                        if action == "ask_worker"
+                        "result-verification"
+                        if review.verification
+                        else "implementer-clarification"
+                        if action != "answer"
                         else "assessment-continuation"
                     )
                     review.responding_subtask_id = (
-                        decision.get("subtask_id") if action == "ask_worker" else None
+                        decision.get("subtask_id") if action != "answer" else None
                     )
                     review.status = "queued"
                 elif review.guidance:
@@ -629,7 +682,47 @@ class TaskReviews(ReviewRecords[TaskReview]):
             self._save(db, review)
             return review
 
+    def _unread_observations(
+        self, db: sqlite3.Connection, review: TaskReview, data: dict[str, Any]
+    ) -> bool:
+        from flowfield.review_observations import unread
+
+        return bool(review.result_id and unread(db, review.workspace_id, review.result_id, data))
+
     def read_context(self, review: TaskReview, section: str) -> str:
+        if review.result_id and (
+            section == "observations" or section.startswith(("observations:", "observation:"))
+        ):
+            from flowfield.review_observations import source
+
+            with self.store.connection() as db:
+                return source(db, review.workspace_id, review.result_id, section)
+        if not review.guidance and (
+            section == "prior_results" or section.startswith(("prior_results:", "prior_result:"))
+        ):
+            from flowfield.task_evidence import prior_result, prior_results
+
+            assert review.result_id
+            current = Results(self.store).get(review.workspace_id, review.result_id)
+            if section.startswith("prior_result:"):
+                return prior_result(
+                    self.store,
+                    review.workspace_id,
+                    review.task_id,
+                    current.version,
+                    section.removeprefix("prior_result:"),
+                )
+            try:
+                before = (
+                    min(current.version, int(section.split(":")[1]))
+                    if ":" in section
+                    else current.version
+                )
+            except ValueError:
+                raise ApplicationError(
+                    "invalid_cursor", "Use the returned prior_results section."
+                ) from None
+            return prior_results(self.store, review.workspace_id, review.task_id, before)
         if review.guidance and (
             section.startswith(("document:", "previous:document:"))
             or section
@@ -646,12 +739,12 @@ class TaskReviews(ReviewRecords[TaskReview]):
             return guidance_context(self, review, section)
         if section.startswith("exchanges:"):
             try:
-                before = int(section.removeprefix("exchanges:")) or None
+                exchange_before = int(section.removeprefix("exchanges:")) or None
             except ValueError:
                 raise ApplicationError(
                     "invalid_cursor", "Use exchanges:0 or the returned cursor."
                 ) from None
-            page = self.attempts(review.workspace_id, review.id, before)
+            page = self.attempts(review.workspace_id, review.id, exchange_before)
             return json.dumps(
                 {
                     "items": [
@@ -678,7 +771,21 @@ class TaskReviews(ReviewRecords[TaskReview]):
                     (review.id, identity),
                 ).fetchone()
                 if row:
-                    return json.dumps(json.loads(row[0]).get("decision"), ensure_ascii=False)
+                    data = json.loads(row[0])
+                    return json.dumps(
+                        {
+                            "decision": data.get("decision"),
+                            "files": [
+                                file.model_dump()
+                                for file in Outputs.selected(
+                                    db, review.workspace_id, data.get("output_ids", [])
+                                )
+                            ],
+                            "cleanup_confirmed": data.get("cleanup_confirmed"),
+                            "problem": data.get("problem"),
+                        },
+                        ensure_ascii=False,
+                    )
             raise ApplicationError("not_found", "Exchange not found in this review.", 404)
         if section == "human_answer":
             from flowfield.questions import Questions

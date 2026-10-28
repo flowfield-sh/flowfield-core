@@ -223,22 +223,29 @@ class GitWorkspace:
             input=b"".join(entries),
         )
         tree = git(self.checkout, "write-tree", index=index).decode().strip()
+        # An evidence-only attempt must not manufacture a new code identity. Native
+        # local commits remain implementation scratch; the captured bytes are authoritative.
+        unchanged = tree == git(self.checkout, "rev-parse", parent + "^{tree}").decode().strip()
         commit = (
-            git(
-                self.checkout,
-                "-c",
-                "user.name=Flowfield",
-                "-c",
-                "user.email=local@flowfield.invalid",
-                "commit-tree",
-                tree,
-                "-p",
-                parent,
-                "-m",
-                "Managed task result",
+            parent
+            if unchanged
+            else (
+                git(
+                    self.checkout,
+                    "-c",
+                    "user.name=Flowfield",
+                    "-c",
+                    "user.email=local@flowfield.invalid",
+                    "commit-tree",
+                    tree,
+                    "-p",
+                    parent,
+                    "-m",
+                    "Managed task result",
+                )
+                .decode()
+                .strip()
             )
-            .decode()
-            .strip()
         )
         git(self.checkout, "update-ref", f"refs/flowfield/results/{self.root.name}", commit)
         ignored = [

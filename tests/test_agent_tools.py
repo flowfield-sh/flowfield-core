@@ -167,7 +167,9 @@ def test_worker_reads_runs_submits_and_closes_same_bridge(tmp_path):
         grant = worker_scope(bridge)
         for name, tool in grant.tools.items():
             assert tool.annotations
-            assert tool.annotations.readOnlyHint == (name in {"read_context", "search_context"})
+            assert tool.annotations.readOnlyHint == (
+                name in {"read_context", "search_context", "read_evidence"}
+            )
             assert tool.annotations.destructiveHint == (name == "run_project_checks")
             assert tool.annotations.openWorldHint == (name == "run_project_checks")
         events = await journey(
@@ -504,6 +506,7 @@ def test_coordinator_controls_workers_and_preserves_worker_scope(tmp_path, monke
         worker = worker_scope(WorkerBridge(execution, run, None))
         assert set(worker.tools) == {
             "read_context",
+            "read_evidence",
             "search_context",
             "run_project_checks",
             "ask_question",

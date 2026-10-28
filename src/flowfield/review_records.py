@@ -248,6 +248,12 @@ class ReviewRecords[J: ReviewRecord](ABC):
             self._save(db, review)
             return review
 
+    def check_decision_evidence(
+        self, db: sqlite3.Connection, review: J, data: dict[str, Any], decision: dict[str, Any]
+    ) -> None:
+        """Subclass evidence gate, in the same transaction as the decision."""
+        return None
+
     def save_decision(
         self, project: str, identity: str, attempt: str, decision: dict[str, Any]
     ) -> None:
@@ -260,6 +266,7 @@ class ReviewRecords[J: ReviewRecord](ABC):
             data = self.attempt(attempt)
             if data.get("decision") and data["decision"] != decision:
                 raise ApplicationError("review_closed", "The round already has a decision.", 409)
+            self.check_decision_evidence(db, review, data, decision)
             data["decision"] = decision
             db.execute(
                 f"UPDATE {self.attempt_table} SET data=? WHERE id=?", (json.dumps(data), attempt)

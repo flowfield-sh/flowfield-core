@@ -88,6 +88,8 @@ class ReviewLaunch:
     brief: dict[str, Any]
     files: list[FileInput] = field(default_factory=list)
     project_id: str | None = None
+    verification_setup: list[str] = field(default_factory=list)
+    verification_run: str | None = None
 
 
 class NativeReviewExecution[J: ReviewJob](ABC):
@@ -201,6 +203,20 @@ class NativeReviewExecution[J: ReviewJob](ABC):
                 save(checkout=str(environment.checkout), runtime=str(environment.runtime))
                 raise
             frozen = launch.agent
+            if launch.verification_run:
+                import shlex
+
+                from flowfield.adapters.inspection_launcher import write_launcher
+
+                launcher = write_launcher(
+                    environment, launch.verification_setup, launch.verification_run
+                )
+                launch.brief["result_launcher"] = f"/bin/sh {shlex.quote(str(launcher))}"
+                save(
+                    verification_launcher=str(launcher),
+                    verification_setup=launch.verification_setup,
+                    verification_run=launch.verification_run,
+                )
             from flowfield.task_files import materialize
 
             files = await asyncio.to_thread(

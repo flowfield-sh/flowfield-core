@@ -33,7 +33,11 @@ class Replies:
             gate = Conversation(self.workspace)._eligibility(
                 db, workspace_id, task_id, request.binding.question_id
             )
-            if not gate.enabled:
+            if request.action == "observation" and not gate.result_id:
+                raise ApplicationError(
+                    "result_required", "Select a result before recording testing.", 409
+                )
+            if not (gate.observation_enabled if request.action == "observation" else gate.enabled):
                 raise ApplicationError(
                     "input_closed", "Work is processing. Your draft is kept; wait until idle.", 409
                 )
@@ -71,7 +75,7 @@ class Replies:
                     ),
                 )
                 reply.status = "recorded"
-            elif binding.question_id:
+            elif binding.question_id and request.action != "observation":
                 raise ApplicationError(
                     "answer_required",
                     "Answer the current question before starting other work.",

@@ -96,6 +96,24 @@ def candidate(repository: Path, before: str, result: str, identity: str) -> str:
                 "on this result; both commits and the target are preserved.\n" + details[:8000],
                 409,
             ) from error
+        # Assemblies repeatedly combine the same immutable inputs. Retain their
+        # existing commit, including Git metadata, instead of dating a new merge.
+        saved = (
+            git(
+                repository,
+                "rev-parse",
+                "--verify",
+                "--quiet",
+                f"refs/flowfield/integrations/{identity}^{{commit}}",
+                allowed_returncodes=(0, 1),
+            )
+            .decode()
+            .strip()
+        )
+        if saved and git(repository, "show", "-s", "--format=%T %P", saved).decode().strip() == (
+            f"{tree} {before} {result}"
+        ):
+            return saved
         commit = (
             git(
                 repository,

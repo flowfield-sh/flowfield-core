@@ -30,7 +30,8 @@ class OutputFile(BaseModel):
     task_key: str
     task_title: str
 
-    run_id: str
+    run_id: str | None = None
+    review_attempt_id: str | None = None
     name: str
     description: str
     media_type: str

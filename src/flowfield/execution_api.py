@@ -3,10 +3,13 @@
 import asyncio
 from collections.abc import Callable
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Query
+from fastapi.responses import FileResponse
 
 from flowfield.adapters.git_review import changed_files, file_patch
+from flowfield.check_logs import download
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import (
     ModelOption,
@@ -69,6 +72,21 @@ def execution_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     @router.get("/workspaces/{workspace_id}/runs/{run_id}/location")
     def location(workspace_id: str, run_id: str) -> RunLocation:
         return supervisor().location(workspace_id, run_id)
+
+    @router.get("/workspaces/{workspace_id}/runs/{run_id}/logs/{phase}/{index}")
+    def command_log(
+        workspace_id: str, run_id: str, phase: Literal["setup", "checks"], index: int
+    ) -> FileResponse:
+        service = supervisor()
+        value = service.execution.get(workspace_id, run_id)
+        environment = service.environment(run_id)
+        if not environment:
+            raise ApplicationError("not_found", "No command environment retained.", 404)
+        return download(
+            environment.runtime,
+            value.setup_checks if phase == "setup" else value.project_check_results,
+            index,
+        )
 
     @router.get("/workspaces/{workspace_id}/runs/{run_id}/activity")
     def activity(workspace_id: str, run_id: str, after: int = Query(-1, ge=-1)) -> RunActivityPage:

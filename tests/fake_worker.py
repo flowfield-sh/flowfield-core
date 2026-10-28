@@ -65,6 +65,7 @@ class FakeWorker:
         assert "A final chat summary does not submit a result" in brief["instructions"]
         assert {t["name"] for t in tools} == {
             "read_context",
+            "read_evidence",
             "search_context",
             "run_project_checks",
             "ask_question",

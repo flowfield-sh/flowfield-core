@@ -1,4 +1,5 @@
 import { LoadMore } from "./LoadMore";
+import { ResultFiles } from "./Files";
 import { useContext, useState } from "react";
 import { ActivityBodyVisible } from "./ActivityEntry";
 import { WorkspaceLink } from "./WorkspaceLink";
@@ -187,6 +188,12 @@ function ReviewRound({
   const body = (
     <ContentStack>
       {attempt.problem && <p>{attempt.problem}</p>}
+      {attempt.launch_reason === "result-verification" && (
+        <p>Verification of the prepared result</p>
+      )}
+      {!!attempt.files?.length && (
+        <ResultFiles files={attempt.files} supporting />
+      )}
       <RunActivity
         projectId={projectId}
         runId={reviewId}

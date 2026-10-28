@@ -356,6 +356,9 @@ class Workspace:
         from flowfield.integration_models import ValidationProgress
 
         self.validation_progress: dict[str, ValidationProgress] = {}
+        # Successful checks may be reused within this service lifetime. A restart
+        # deliberately invalidates reuse after host/toolchain/service changes.
+        self.validation_epoch = uuid4().hex
         self.on_coordinator_activity = on_coordinator_activity
         self.on_activity = on_activity
         self.on_change = on_change

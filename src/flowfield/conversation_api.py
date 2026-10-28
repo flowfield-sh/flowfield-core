@@ -89,7 +89,8 @@ def add_conversation_tools(mcp: FastMCP, workspace: Callable[[], Workspace]) -> 
     ) -> InputEligibility:
         """Read reply ownership, exact bindings, result action and latest attempt.
         Supply question_id for a specific question Request; otherwise read the current input.
-        enabled permits input, not every reply action: an earlier result can retain testing
+        enabled permits work-changing input; observation_enabled independently permits
+        passive exact-result notes, including during active review. Earlier results retain testing
         observations but cannot receive changes. Follow result_next_action. If a newer attempt
         stopped/failed without a result, inspect latest_attempt with get_run and use retry_run
         after resolving its task preparation; do not request changes to the earlier result.
@@ -107,6 +108,7 @@ def add_conversation_tools(mcp: FastMCP, workspace: Callable[[], Workspace]) -> 
         action=observation saves human testing against the exact result without starting
         a worker, requesting changes or approving code. State what was tried and observed.
         Observations remain bound to the exact task result; changed candidates never inherit them.
+        An active reviewer must read new observations before concluding; they do not amend scope.
         """
         return Replies(workspace()).submit(workspace_id, task_id, request)
 

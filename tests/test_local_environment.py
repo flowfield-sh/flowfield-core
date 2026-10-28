@@ -43,3 +43,11 @@ def test_snapshot_preserves_source_and_collects_new_deleted_and_ignored(tmp_path
         "D\told.txt",
     ]
     assert env.runtime.is_dir() and (env.checkout / "new.txt").exists()
+
+    # Capturing evidence without changing bytes retains the original Git identity.
+    unchanged = LocalHost(os.environ).prepare(tmp_path / "state", source, "notes", result)
+    same, _ = unchanged.snapshot(result)
+    assert same == result
+    (unchanged.checkout / "new.txt").write_text("changed again")
+    different, _ = unchanged.snapshot(result)
+    assert different != result

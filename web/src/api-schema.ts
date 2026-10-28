@@ -1557,6 +1557,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/runs/{run_id}/logs/{phase}/{index}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Command Log */
+    get: operations["command_log_api_workspaces__workspace_id__runs__run_id__logs__phase___index__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/workspaces/{workspace_id}/runs/{run_id}/activity": {
     parameters: {
       query?: never;
@@ -2082,6 +2099,40 @@ export interface paths {
     };
     /** Detail */
     get: operations["detail_api_workspaces__workspace_id__integrations__identity__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/integrations/{identity}/logs/{phase}/{index}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Integration Log */
+    get: operations["integration_log_api_workspaces__workspace_id__integrations__identity__logs__phase___index__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/projects/{project_id}/setup-validation/{identity}/logs/{phase}/{index}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Setup Log */
+    get: operations["setup_log_api_projects__project_id__setup_validation__identity__logs__phase___index__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -3039,6 +3090,24 @@ export interface components {
        * @default false
        */
       truncated: boolean;
+      /** Log Id */
+      log_id: string | null;
+      /**
+       * Log Size
+       * @default 0
+       */
+      log_size: number;
+      /** Log Sha256 */
+      log_sha256: string | null;
+      /**
+       * Log Truncated
+       * @default false
+       */
+      log_truncated: boolean;
+      /** Started At */
+      started_at: string | null;
+      /** Elapsed Seconds */
+      elapsed_seconds: number | null;
     };
     /** CheckoutBinding */
     CheckoutBinding: {
@@ -4121,6 +4190,11 @@ export interface components {
     InputEligibility: {
       /** Enabled */
       enabled: boolean;
+      /**
+       * Observation Enabled
+       * @default false
+       */
+      observation_enabled: boolean;
       /** Reason */
       reason: string;
       /** Task Revision */
@@ -4279,6 +4353,10 @@ export interface components {
      * @description Transient progress belongs to the running validation, never persisted records.
      */
     IntegrationRead: {
+      /** Validation Epoch */
+      validation_epoch: string | null;
+      /** Reused From */
+      reused_from: string | null;
       /** Workspace Id */
       workspace_id: string;
       /** Task Id */
@@ -4382,6 +4460,10 @@ export interface components {
     };
     /** IntegrationSummary */
     IntegrationSummary: {
+      /** Validation Epoch */
+      validation_epoch: string | null;
+      /** Reused From */
+      reused_from: string | null;
       /** Workspace Id */
       workspace_id: string;
       /** Task Id */
@@ -4574,7 +4656,9 @@ export interface components {
       /** Task Title */
       task_title: string;
       /** Run Id */
-      run_id: string;
+      run_id: string | null;
+      /** Review Attempt Id */
+      review_attempt_id: string | null;
       /** Name */
       name: string;
       /** Description */
@@ -5349,6 +5433,13 @@ export interface components {
       applied_agent: components["schemas"]["AgentChoice-Output"] | null;
       /** Problem */
       problem: string | null;
+      /**
+       * Launch Reason
+       * @default assessment
+       */
+      launch_reason: string;
+      /** Files */
+      files: components["schemas"]["OutputFile"][];
     };
     /** ReviewAttemptPage */
     ReviewAttemptPage: {
@@ -5418,7 +5509,12 @@ export interface components {
        * Action
        * @enum {string}
        */
-      action: "approve" | "request_changes" | "ask_worker" | "ask_human";
+      action:
+        | "approve"
+        | "request_changes"
+        | "ask_worker"
+        | "request_verification"
+        | "ask_human";
       /** Summary */
       summary: string;
       /** Evidence */
@@ -6324,6 +6420,11 @@ export interface components {
       applied_agreement_revision: number | null;
       /** Responding Subtask Id */
       responding_subtask_id: string | null;
+      /**
+       * Verification
+       * @default false
+       */
+      verification: boolean;
     };
     /** TaskRevision */
     TaskRevision: {
@@ -10906,6 +11007,40 @@ export interface operations {
       };
     };
   };
+  command_log_api_workspaces__workspace_id__runs__run_id__logs__phase___index__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        run_id: string;
+        phase: "setup" | "checks";
+        index: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   activity_api_workspaces__workspace_id__runs__run_id__activity_get: {
     parameters: {
       query?: {
@@ -12171,6 +12306,74 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["IntegrationRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  integration_log_api_workspaces__workspace_id__integrations__identity__logs__phase___index__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        identity: string;
+        phase: "setup" | "checks";
+        index: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  setup_log_api_projects__project_id__setup_validation__identity__logs__phase___index__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        project_id: string;
+        identity: string;
+        phase: "setup" | "checks";
+        index: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
         };
       };
       /** @description Validation Error */

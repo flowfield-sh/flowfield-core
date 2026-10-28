@@ -5,6 +5,7 @@ from collections.abc import Callable
 from fastapi import APIRouter, Query
 
 from flowfield.execution_models import RunAction
+from flowfield.outputs import Outputs
 from flowfield.reviewer_settings import ReviewerEdit, Reviewers, ReviewerSettingsView
 from flowfield.run_activity import RunActivityPage
 from flowfield.supervisor import Supervisor
@@ -51,6 +52,9 @@ def reviewer_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
         workspace: str, identity: str, before: int | None = Query(default=None, ge=1)
     ) -> ReviewAttemptPage:
         page = supervisor().review_execution.reviews.attempts(workspace, identity, before)
+        with supervisor().workspace.connection() as db:
+            for item in page["items"]:
+                item["files"] = Outputs.selected(db, workspace, item.get("output_ids", []))
         return ReviewAttemptPage(
             items=[
                 ReviewAttemptInfo(

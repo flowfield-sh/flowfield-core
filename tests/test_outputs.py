@@ -57,6 +57,70 @@ def test_retained_file_survives_cleanup_restart_and_source_changes(tmp_path):
         outputs.get("another-workspace", first.id)
 
 
+def test_history_file_retrieval_enforces_frozen_owner_and_exact_bytes(tmp_path):
+    import json
+    from pathlib import Path
+
+    from flowfield.task_evidence import read_file
+
+    execution, run, output, owner = prepared(tmp_path)
+    (output / "proof.txt").write_text("original proof")
+    file = capture(execution, run, ["proof.txt"])[0]
+    root = tmp_path / "successor/evidence"
+    for workspace, task, runs in ((owner, run.task_id, set()), (owner, "other-task", {run.id})):
+        with pytest.raises(ApplicationError):
+            read_file(execution.workspace, workspace, task, file.id, root, run_ids=runs)
+    saved = json.loads(
+        read_file(execution.workspace, owner, run.task_id, file.id, root, run_ids={run.id})
+    )
+    target = Path(saved["path"])
+    assert target.read_text() == "original proof"
+    assert (
+        json.loads(
+            read_file(execution.workspace, owner, run.task_id, file.id, root, run_ids={run.id})
+        )
+        == saved
+    )
+    target.chmod(0o600)
+    target.write_text("tampered proof")
+    with pytest.raises(ApplicationError, match="changed"):
+        read_file(execution.workspace, owner, run.task_id, file.id, root, run_ids={run.id})
+
+
+def test_schema_90_upgrade_keeps_output_bytes_ids_and_owner(tmp_path):
+    import sqlite3
+
+    execution, run, output, owner = prepared(tmp_path)
+    (output / "proof.txt").write_text("retained evidence")
+    file = capture(execution, run, ["proof.txt"])[0]
+    with sqlite3.connect(execution.workspace.database) as db:
+        db.executescript("""
+            CREATE TABLE old_outputs(number INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT NOT NULL UNIQUE,workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+                run_id TEXT NOT NULL REFERENCES runs(id),data TEXT NOT NULL);
+            INSERT INTO old_outputs SELECT number,id,workspace_id,run_id,data FROM output_files;
+            DROP TABLE output_files;
+            ALTER TABLE old_outputs RENAME TO output_files;
+            CREATE INDEX output_run ON output_files(run_id,number);
+            CREATE INDEX output_workspace ON output_files(workspace_id,number);
+            PRAGMA user_version=90;
+        """)
+        before = db.execute(
+            "SELECT number,id,workspace_id,run_id,data FROM output_files"
+        ).fetchall()
+    store = Workspace(execution.workspace.directory)
+    with store.connection() as db:
+        assert [
+            tuple(row)
+            for row in db.execute("SELECT number,id,workspace_id,run_id,data FROM output_files")
+        ] == before
+        assert db.execute("SELECT review_attempt_id FROM output_files").fetchone()[0] is None
+    restored = Outputs(store).get(owner, file.id)
+    assert restored.run_id == run.id
+    assert Outputs(store).content(restored).read_text() == "retained evidence"
+    assert len(list((store.directory / "backups").glob("schema-90-*.sqlite3"))) == 1
+
+
 @pytest.mark.parametrize("path", ["../secret", "/tmp/secret", "a/../../secret", "a//b", "a\\b"])
 def test_output_path_rejects_traversal(path):
     with pytest.raises(ValueError):

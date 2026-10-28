@@ -135,6 +135,85 @@ def prepare(service, run):
     return service.get("harbor", version.integration_id)
 
 
+@pytest.mark.parametrize("change", ["evidence", "code", "settings", "restart"])
+def test_correction_reuses_only_exact_validation_receipt(tmp_path, monkeypatch, change):
+    from flowfield import candidate_validation
+
+    calls = []
+    validate = candidate_validation.validate
+
+    def observed(*args, **kwargs):
+        calls.append(args[3])
+        return validate(*args, **kwargs)
+
+    monkeypatch.setattr(candidate_validation, "validate", observed)
+    service, execution, repo, run = seed(tmp_path)
+    first = prepare(service, run)
+    results = Results(execution.workspace)
+    version = results.page("harbor", run.task_id).items[0]
+    results.review(
+        "harbor",
+        version.id,
+        ResultReview(
+            expected_revision=version.revision,
+            candidate_commit=version.candidate_commit,
+            action="request_changes",
+            note="Retain the missing test report.",
+        ),
+    )
+    successor = execution.claim("harbor", baseline(repo), {baseline(repo): set()})
+    assert successor and successor.task_id == run.task_id
+    execution.started("harbor", successor.id)
+    environment = LocalHost(os.environ).prepare(
+        execution.workspace.directory,
+        repo,
+        successor.id,
+        successor.input_base_commit or successor.base_commit,
+    )
+    if change == "code":
+        (environment.checkout / "extra.txt").write_text("new implementation")
+    commit, _ = environment.snapshot(successor.input_base_commit or successor.base_commit)
+    successor = execution.finish(
+        "harbor",
+        successor.id,
+        "in_review",
+        commit=commit,
+        result=WorkerResult(summary="Retained verification", checks="Original checks retained."),
+    )
+    if change == "settings":
+        settings = service.settings("harbor")
+        service.configure(
+            "harbor",
+            IntegrationConfig(
+                expected_revision=settings.revision,
+                target_branch="integration",
+                checks=[CHECK, "true"],
+            ),
+        )
+    elif change == "restart":
+        execution.workspace.validation_epoch = "another service lifetime"
+    second = prepare(service, successor)
+    assert second.status == "ready", second.problem
+    if change == "evidence":
+        assert second.result_commit == first.result_commit
+        assert second.candidate_commit == first.candidate_commit
+        assert second.reused_from == first.id
+        assert second.validated_at == first.validated_at
+        assert len(calls) == 1
+        assert results.get("harbor", version.id).status == "changes_requested"
+        assert results.page("harbor", run.task_id).items[0].approved_at is None
+    else:
+        assert second.reused_from is None
+        assert len(calls) == 2
+
+
+def test_explicit_reprepare_runs_checks_again(tmp_path):
+    service, execution, repo, run = seed(tmp_path)
+    first = prepare(service, run)
+    second = prepare(service, execution.get("harbor", run.id))
+    assert first.id != second.id and second.reused_from is None
+
+
 def test_empty_checks_prepare_and_can_be_cleared_and_restored(tmp_path):
     service, execution, repo, run = seed(tmp_path, checks=[])
     candidate = prepare(service, run)

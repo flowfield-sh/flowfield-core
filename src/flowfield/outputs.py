@@ -7,6 +7,7 @@ import os
 import sqlite3
 import stat
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from flowfield.application import Workspace, now
@@ -51,14 +52,31 @@ class Outputs:
     def capture(
         self, db: sqlite3.Connection, run: Run, selections: list[OutputSelection]
     ) -> list[OutputFile]:
-        if not selections:
-            return []
-        if len({item.path for item in selections}) != len(selections):
-            raise ApplicationError("output_duplicate", "Submit each file only once.")
-        owner = run.workspace_id
-        task = self.store._task(db, run.workspace_id, run.task_id)
         row = db.execute("SELECT data FROM execution_local WHERE run_id=?", (run.id,)).fetchone()
         metadata = json.loads(row[0]) if row else {}
+        return self.capture_owned(
+            db, run.workspace_id, run.task_id, selections, metadata, run_id=run.id
+        )
+
+    def capture_owned(
+        self,
+        db: sqlite3.Connection,
+        owner: str,
+        task_id: str,
+        selections: list[OutputSelection],
+        metadata: dict[str, Any],
+        *,
+        run_id: str | None = None,
+        review_attempt_id: str | None = None,
+        result_id: str | None = None,
+    ) -> list[OutputFile]:
+        if not selections:
+            return []
+        if (run_id is None) == (review_attempt_id is None):
+            raise ValueError("Evidence requires exactly one execution owner.")
+        if len({item.path for item in selections}) != len(selections):
+            raise ApplicationError("output_duplicate", "Submit each file only once.")
+        task = self.store._task(db, owner, task_id)
         if not metadata.get("runtime"):
             raise ApplicationError("output_unavailable", "This attempt has no output directory.")
         source = Path(metadata["runtime"]) / "output"
@@ -69,11 +87,13 @@ class Outputs:
             value = OutputFile(
                 id=uuid4().hex,
                 workspace_id=owner,
-                project_id=run.project_id,
+                project_id=task.project_id,
                 task_id=task.id,
                 task_key=task.key,
                 task_title=task.title,
-                run_id=run.id,
+                run_id=run_id,
+                review_attempt_id=review_attempt_id,
+                result_id=result_id,
                 name=selection.path,
                 description=selection.description,
                 media_type=mimetypes.guess_type(selection.path)[0] or "application/octet-stream",
@@ -130,8 +150,9 @@ class Outputs:
             copied.append(value)
         for value in copied:
             db.execute(
-                "INSERT INTO output_files(id,workspace_id,run_id,data) VALUES (?,?,?,?)",
-                (value.id, owner, run.id, value.model_dump_json()),
+                "INSERT INTO output_files(id,workspace_id,run_id,data,review_attempt_id) "
+                "VALUES (?,?,?,?,?)",
+                (value.id, owner, run_id, value.model_dump_json(), review_attempt_id),
             )
         return copied
 
@@ -157,6 +178,13 @@ class Outputs:
         ).fetchone()
         if row:
             file.result_id, file.result_version, file.result_status = row
+        elif file.result_id:
+            row = db.execute(
+                "SELECT version,status FROM result_versions WHERE workspace_id=? AND id=?",
+                (file.workspace_id, file.result_id),
+            ).fetchone()
+            if row:
+                file.result_version, file.result_status = row
         return file
 
     @staticmethod

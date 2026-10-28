@@ -3,10 +3,13 @@
 import asyncio
 from collections.abc import Callable
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Query
+from fastapi.responses import FileResponse
 
 from flowfield.adapters.git_review import changed_files, file_patch
+from flowfield.check_logs import download
 from flowfield.errors import ApplicationError
 from flowfield.integration_models import (
     IntegrationConfig,
@@ -50,6 +53,31 @@ def integration_router(supervisor: Callable[[], Supervisor]) -> APIRouter:
     @router.get("/workspaces/{workspace_id}/integrations/{identity}")
     def detail(workspace_id: str, identity: str) -> IntegrationRead:
         return supervisor().integrations.read(workspace_id, identity)
+
+    @router.get("/workspaces/{workspace_id}/integrations/{identity}/logs/{phase}/{index}")
+    def integration_log(
+        workspace_id: str, identity: str, phase: Literal["setup", "checks"], index: int
+    ) -> FileResponse:
+        value = supervisor().integrations.read(workspace_id, identity)
+        if not value.workspace:
+            raise ApplicationError("not_found", "No command environment retained.", 404)
+        checks = value.setup_checks if phase == "setup" else value.checks
+        if value.progress:
+            checks = value.progress.setup_checks if phase == "setup" else value.progress.checks
+        return download(Path(value.workspace).parent / "runtime", checks, index)
+
+    @router.get("/projects/{project_id}/setup-validation/{identity}/logs/{phase}/{index}")
+    def setup_log(
+        project_id: str, identity: str, phase: Literal["setup", "checks"], index: int
+    ) -> FileResponse:
+        value = supervisor().setup_validation.get(project_id, identity)
+        if not value or not value.workspace:
+            raise ApplicationError("not_found", "No command environment retained.", 404)
+        return download(
+            Path(value.workspace).parent / "runtime",
+            value.setup if phase == "setup" else value.checks,
+            index,
+        )
 
     def comparison(workspace_id: str, identity: str) -> tuple[Path, str, str]:
         record = supervisor().integrations.get(workspace_id, identity)

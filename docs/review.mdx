@@ -13,7 +13,9 @@ Configure the default **Task reviewer** in **Workspace settings → Reviewers**.
 
 Complete code and file outcomes receive an independent assessment against their exact assignment, sources, destination and saved validation. Reviews share worker capacity and respect the queue: pausing prevents new rounds, while an active round continues. The reviewer inspects the saved candidate and validation evidence.
 
-Reviewer sign-offs appear on the task and in the exact result. The reviewer can ask the implementer a scoped clarification, request an in-scope correction, or send an intent, scope or access question to Inbox. Saved human answers continue the review without another apply step. A correction produces a new candidate and fresh independent assessment. Guidance changes trigger [automatic reconciliation](/documents#keep-tasks-current); changes to the intended outcome or delivery authority still need a human decision. Waiting for an answer releases capacity.
+Reviewer sign-offs appear on the task and in the exact result. The reviewer can ask the implementer a scoped clarification, request a focused verification of the prepared candidate, request an in-scope correction, or send an intent, scope or access question to Inbox. Verification can run the generated launcher and retain files without changing code or repeating full validation. Its evidence returns to the reviewer. Saved human answers continue the review without another apply step. Corrections receive fresh independent assessment. Guidance changes trigger [automatic reconciliation](/documents#keep-tasks-current); changes to the intended outcome or delivery authority still need a human decision. Waiting for an answer releases capacity.
+
+Visual evidence applies to visible UI changes, visual deliverables and explicit requirements. Backend, CLI, documentation and investigation tasks do not require screenshots by default. Review considers the actual requested experience, including clarity and interaction, alongside functional checks.
 
 Ask the Coordinator to stop a review; stopping preserves the candidate and findings. Failed or stopped reviews require explicit **Retry review**. If cleanup is uncertain, inspect **Review rounds and diagnostics**, confirm the retained processes have stopped, then retry. Uncertain execution keeps its capacity reserved. Changed inputs make an assessment outdated and retain its evidence; questions belonging to that assessment are withdrawn with their saved answers preserved.
 
@@ -25,11 +27,15 @@ Read the worker report, limitations and checks against the task's success criter
 
 While Flowfield checks a candidate, the result shows the active setup or validation command, elapsed time and timeout, recent output, and completed commands. Output updates without moving your reading position. **Stop checks** stops the command and preserves captured output. Projects with no saved validation commands say so explicitly.
 
+Completed command evidence retains the beginning and end of long output. Expand a command to download its log, retained up to 8 MiB; a reached limit is labeled. An evidence-only correction can reuse successful validation of the exact unchanged candidate, destination and configuration within the same service session. Reused checks are identified. Changed code, destination, settings, a service restart or explicit revalidation runs checks again. Historical files remain available to Workers and Reviewers with their original provenance; they do not silently become new deliverables or approval.
+
 The result identifies its project and destination branch below the task title. **Run result** provides the copyable launch command. Under **Details**, expand **Supporting files**, **Review evidence**, **Guidance** or **Code changes** to inspect retained outputs, reviewer findings, exact document revisions or the candidate's diff. See [worker setup](/worker-setup#try-a-result) for populated previews and launchers.
 
 ![Code changes and exact-result review beside the Coordinator](/images/code-review.png)
 
 Choose **Request changes** to send concrete feedback for another pass. Attach relevant files or testing observations when needed. Or choose **Approve and integrate**, confirm the selected result and optionally include a testing comment. Explicit approval in the Coordinator conversation records the same exact decision without a second browser confirmation.
+
+Use **Add observation** to save a note about the current result, including while review is active. This does not change scope, request implementation or approve delivery. The active reviewer must read new observations before its conclusion is applied. A note arriving after review finishes remains available to you; it does not automatically launch another model.
 
 Flowfield checks and delivers the approved candidate to the configured project checkout. Conflicting local changes remain intact. Resolve the reported blocker and use its delivery retry action; if the candidate changes, review and approve the new result.
 

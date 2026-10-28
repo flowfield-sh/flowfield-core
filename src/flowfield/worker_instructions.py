@@ -121,7 +121,12 @@ def instructions(sections: dict[str, str], *, server: str, completion: str) -> s
     if repository and present("validation"):
         rules.append(
             "Read validation and use its frozen commands; report their observed results. "
-            "When validation.worker_checks_enabled is true, run saved checks through "
+            "For an evidence-only correction with unchanged code and configuration, "
+            "retrieve applicable prior evidence through attempt_history, attempt:<id> and "
+            "read_evidence. Do not repeat passing checks or resubmit unchanged files "
+            "without a concrete reason; say which original evidence still applies. "
+            "The service independently decides whether exact candidate validation is reusable. "
+            "When saved checks are needed and validation.worker_checks_enabled is true, use "
             "run_project_checks; it executes your current code with authorized Flowfield host "
             "access. Use native tools for other checks. If saved-check permission is missing, "
             "use native permission requests or ask the human; never bypass access restrictions. "
