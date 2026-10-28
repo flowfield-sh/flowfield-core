@@ -40,10 +40,17 @@ def rows(database):
             row[0]
             for row in db.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' "
-                "AND name NOT LIKE 'search_docs%' AND name!='task_deletions'"
+                "AND name NOT LIKE 'search_docs%' AND name NOT LIKE 'usage_%' "
+                "AND name!='task_deletions'"
             )
         ]
-        return {name: db.execute(f'SELECT * FROM "{name}"').fetchall() for name in names}
+        return {
+            name: db.execute(
+                f'SELECT * FROM "{name}"'
+                + (" WHERE name NOT LIKE 'usage_%'" if name == "sqlite_sequence" else "")
+            ).fetchall()
+            for name in names
+        }
 
 
 @pytest.mark.parametrize("version", [86, 87])
@@ -52,7 +59,7 @@ def test_published_upgrade_preserves_every_row_and_file_with_verified_recovery(t
     before = rows(directory / storage.DATABASE)
     store = Workspace(directory)
     assert rows(store.database) == before
-    assert storage.status(directory)["schema_version"] == 89
+    assert storage.status(directory)["schema_version"] == 90
     assert hashlib.sha256(output.read_bytes()).hexdigest() == info["sha256"]
     backups = list((directory / "backups").glob(f"schema-{version}-*.sqlite3"))
     assert len(backups) == 1 and rows(backups[0]) == before

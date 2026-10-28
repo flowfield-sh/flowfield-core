@@ -13,6 +13,7 @@ from flowfield.run_activity import ActivityUpdate, RunActivityPage, update_activ
 
 
 class ReviewRecord(Record):
+    launch_reason: str = "assessment"
     id: str
     workspace_id: str
     revision: int = 1
@@ -236,6 +237,7 @@ class ReviewRecords[J: ReviewRecord](ABC):
                         {
                             "id": review.attempt_id,
                             "role": review.recipient,
+                            "launch_reason": review.launch_reason,
                             "created_at": now(),
                             "status": "preparing",
                             "cleanup_confirmed": True,
@@ -290,6 +292,7 @@ class ReviewRecords[J: ReviewRecord](ABC):
                 )
                 owner._save(db, question, "Answer reserved for the review continuation.")
                 review.status = "queued"
+                review.launch_reason = "answer-continuation"
                 self._save(db, review)
             return review
 
@@ -302,6 +305,7 @@ class ReviewRecords[J: ReviewRecord](ABC):
                     "review_active", "Stop and reconcile this review before retrying.", 409
                 )
             if self._fresh(db, review):
+                review.launch_reason = "review-retry"
                 review.status, review.problem, review.completed_at = "queued", None, None
                 self._save(db, review)
             return review

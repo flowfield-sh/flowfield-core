@@ -669,6 +669,13 @@ class Execution:
                     "Worker reserved for this task.",
                 )
                 run = Run(
+                    launch_reason="answer-continuation"
+                    if continuation
+                    else "retry"
+                    if predecessor and predecessor.status in ("failed", "stopped")
+                    else "correction"
+                    if correction or (predecessor and predecessor.status == "changes_requested")
+                    else "implementation",
                     id=uuid4().hex,
                     workspace_id=workspace_id,
                     project_id=task.project_id,

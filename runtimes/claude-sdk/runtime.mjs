@@ -1,3 +1,4 @@
+import { consumption } from "./usage.mjs";
 // Flowfield's small official Agent SDK host. The installed Claude Code owns tools,
 // native settings and accounts. No CLI/SDK patches or ACP translator.
 import { query } from "@anthropic-ai/claude-agent-sdk";
@@ -60,6 +61,8 @@ async function permission(toolName, args, context) {
     ? {behavior: "allow", updatedInput: args}
     : {behavior: "deny", message: "Permission denied or turn stopped"};
 }
+let nativeVersion = null, resumedUsage = false;
+const dispatchedUsagePrompts = new Set();
 async function consume() {
   try {
     for await (const message of q) {
@@ -67,6 +70,16 @@ async function consume() {
       // Cleanup consumes every SDK event, including private reasoning; only public
       // allowlisted presentation crosses the application boundary.
       if (message.type === "system" && message.subtype === "init" && message.session_id !== sessionId) throw new Error("native identity changed");
+      if (message.type === "system" && message.subtype === "init") {
+        nativeVersion = typeof message.claude_code_version === "string" ? message.claude_code_version.slice(0, 200) : null;
+      }
+      // Accounting is independent of public activity and remains bound through Stop.
+      if (message.type === "result" &&
+          [message.user_message_uuid, ...(message.user_message_uuids ?? [])].some(id => dispatchedUsagePrompts.has(id))) {
+        for (const observation of consumption(message, {sessionId, nativeVersion, resumed: resumedUsage})) {
+          await send({method: "consumption", params: observation});
+        }
+      }
       if (stopping && promptResult && message.type === "result") {
         const result = promptResult; promptResult = null; result.resolve({status: "stopped"});
       }
@@ -139,6 +152,7 @@ async function handle(method, params) {
     if (typeof params.executable !== "string" || typeof params.cwd !== "string" ||
         !["default", "acceptEdits", "auto", "bypassPermissions"].includes(params.mode)) throw new Error("invalid startup");
     sessionId = params.resume ?? randomUUID();
+    resumedUsage = Boolean(params.resume);
     await cleanup.attach(async () => {
       const options = {
         pathToClaudeCodeExecutable: params.executable, cwd: params.cwd,
@@ -214,7 +228,10 @@ async function handle(method, params) {
     streamed.clear();
     turnError = null;
     const result = new Promise((resolve, reject) => { promptResult = {resolve, reject}; });
-    queue.push({type: "user", uuid: randomUUID(), session_id: sessionId, parent_tool_use_id: null,
+    if (dispatchedUsagePrompts.size >= 256) throw new Error("usage prompt bound");
+    const promptId = randomUUID();
+    dispatchedUsagePrompts.add(promptId);
+    queue.push({type: "user", uuid: promptId, session_id: sessionId, parent_tool_use_id: null,
       message: {role: "user", content: params.content}});
     inputWaiter?.(); inputWaiter = null;
     return await result;

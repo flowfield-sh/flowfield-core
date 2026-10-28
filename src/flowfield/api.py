@@ -57,6 +57,7 @@ from flowfield.result_api import result_router
 from flowfield.reviewer_api import reviewer_router
 from flowfield.state import data_path
 from flowfield.supervisor import Supervisor
+from flowfield.usage_api import usage_router
 from flowfield.workspace_api import workspace_router
 
 
@@ -259,6 +260,7 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
     from flowfield.agent_api import agent_router
 
     app.include_router(execution_router(supervisor))
+    app.include_router(usage_router(workspace))
     app.include_router(agent_router(supervisor))
     app.include_router(coordinator_router(supervisor))
     app.include_router(harness_router(workspace, supervisor))

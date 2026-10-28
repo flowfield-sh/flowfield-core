@@ -5,6 +5,11 @@ import os
 import sys
 import time
 
+if "--version" in sys.argv:
+    print("1.1.0")
+    sys.exit(0)
+
+usage_turns = 0
 scenario = os.environ.get("PI_TEST_SCENARIO", "complete")
 models = [
     {
@@ -73,6 +78,19 @@ for line in sys.stdin:
         state["thinkingLevel"] = request["level"] if scenario != "wrong-effort" else "off"
     elif method == "get_session_stats":
         data = {"contextUsage": {"tokens": 2000, "contextWindow": 10000}}
+        if scenario.startswith("usage"):
+            data.update(
+                sessionId=session,
+                tokens={
+                    "input": 100 * usage_turns,
+                    "output": 20 * usage_turns,
+                    "cacheRead": 50 * usage_turns,
+                    "cacheWrite": 10 * usage_turns,
+                    "total": 180 * usage_turns,
+                },
+                PRIVATE_USAGE_FIELD="never persist",
+                cost=999,
+            )
     elif method == "get_commands":
         data = {
             "commands": [
@@ -82,6 +100,7 @@ for line in sys.stdin:
             ]
         }
     elif method == "prompt":
+        usage_turns += 1
         state["isStreaming"] = True
         if request.get("message") == "/mcp":
             notify("fixture-mcp · connected")
@@ -110,10 +129,12 @@ for line in sys.stdin:
             "data": data,
         }
     )
+    if method == "prompt" and scenario == "usage-stop":
+        event("message_update", assistantMessageEvent={"type": "text_delta", "delta": "started"})
     if (
         method == "prompt"
         and request.get("message") != "/mcp"
-        and scenario not in {"foreground", "queued"}
+        and scenario not in {"foreground", "queued", "usage-stop"}
     ):
         event("message_start", message={"role": "assistant"})
         event(

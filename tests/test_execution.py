@@ -245,6 +245,7 @@ def test_failure_retry_and_restart_never_automatically_relaunch(tmp_path: Path) 
     assert state_label() == "Queued"
     retry = execution.claim("harbor", BASE, {BASE: set()})
     assert retry and retry.predecessor_id == run.id and retry.environment_id != run.environment_id
+    assert run.launch_reason == "implementation" and retry.launch_reason == "retry"
     assert state_label() == "Starting work"
 
 

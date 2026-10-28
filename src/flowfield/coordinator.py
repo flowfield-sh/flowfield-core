@@ -28,6 +28,7 @@ from flowfield.guidance import SKILL_TEMPLATE, template
 from flowfield.harness_settings import HarnessSettings
 from flowfield.reads import excerpt
 from flowfield.run_activity import ActivityRecorder, ActivityUpdate
+from flowfield.usage import Usage
 
 if TYPE_CHECKING:
     from flowfield.supervisor import Supervisor
@@ -235,6 +236,7 @@ class Coordinator:
                                 text="Starting a fresh agent session…",
                             )
                         )
+                    Usage(workspace).bind(turn.workspace_id, "coordinator_turn", turn.id, client)
                     await client.start([server], resume=session_id, persistent=True)
                     applied = await client.configure(turn.settings.choice)
                     assert client.session_id
@@ -326,6 +328,13 @@ class Coordinator:
                         conversation_id=turn.conversation_id,
                         generation_id=generation_id,
                     ) as permission_turn:
+                        Usage(workspace).start(
+                            turn.workspace_id,
+                            "coordinator_turn",
+                            turn.id,
+                            client.session_id,
+                            purpose="command" if native_command else "message",
+                        )
                         outcome = await client.prompt(
                             prompt,
                             permission_handler(permission_turn),
@@ -386,6 +395,12 @@ class Coordinator:
                         else "Fresh agent session did not receive this message.",
                     )
                 )
+            Usage(workspace).end(
+                turn.workspace_id,
+                "coordinator_turn",
+                turn.id,
+                confirmed=client is None or client.cleanup_confirmed,
+            )
             await recorder.close()
             with workspace.connection(write=True) as db:
                 if self.store.owns(db, turn.workspace_id, turn.id, generation_id):

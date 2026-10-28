@@ -84,10 +84,17 @@ def identity(db: sqlite3.Connection) -> tuple[str, int]:
 
 
 def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
-    """Upgrade published schemas 86 (0.6/0.7) and 87 (0.8) directly."""
-    if current not in (86, 87):
+    """Upgrade published 86, 87 and 89 stores atomically with a verified backup."""
+    if current not in (86, 87, 89):
         require_supported(current)
         return
+    if db.execute("SELECT 1 FROM sqlite_master WHERE name='usage_executions'").fetchone():
+        raise ApplicationError(
+            "unsupported_schema",
+            "This store contains an unpublished Usage schema. Preserve this data directory; "
+            "only published schemas 86, 87 and 89 can be upgraded.",
+            409,
+        )
     integrity(db)
     identity(db)
     backups = directory / "backups"
@@ -113,16 +120,31 @@ def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
         db.execute("BEGIN IMMEDIATE")
         if current == 86:
             db.execute(TASK_DELETIONS)
-        sequences = db.execute("SELECT name,seq FROM sqlite_sequence").fetchall()
-        db.execute(
-            TASK_REVIEWS.replace("CREATE TABLE task_reviews", "CREATE TABLE updated_task_reviews")
-        )
-        db.execute("INSERT INTO updated_task_reviews SELECT * FROM task_reviews")
-        db.execute("DROP TABLE task_reviews")
-        db.execute("ALTER TABLE updated_task_reviews RENAME TO task_reviews")
-        db.execute("CREATE INDEX task_reviews_task ON task_reviews(workspace_id, task_id, number)")
-        db.execute("DELETE FROM sqlite_sequence")
-        db.executemany("INSERT INTO sqlite_sequence(name,seq) VALUES (?,?)", sequences)
+        if current in (86, 87):
+            sequences = db.execute("SELECT name,seq FROM sqlite_sequence").fetchall()
+            db.execute(
+                TASK_REVIEWS.replace(
+                    "CREATE TABLE task_reviews", "CREATE TABLE updated_task_reviews"
+                )
+            )
+            db.execute("INSERT INTO updated_task_reviews SELECT * FROM task_reviews")
+            db.execute("DROP TABLE task_reviews")
+            db.execute("ALTER TABLE updated_task_reviews RENAME TO task_reviews")
+            db.execute(
+                "CREATE INDEX task_reviews_task ON task_reviews(workspace_id, task_id, number)"
+            )
+            db.execute("DELETE FROM sqlite_sequence")
+            db.executemany("INSERT INTO sqlite_sequence(name,seq) VALUES (?,?)", sequences)
+        from flowfield.usage_schema import BACKFILL, TABLES, TRIGGERS
+
+        statement = ""
+        for character in TABLES + BACKFILL + TRIGGERS:
+            statement += character
+            if character == ";" and sqlite3.complete_statement(statement):
+                db.execute(statement)
+                statement = ""
+        if statement.strip():
+            raise ValueError("Incomplete usage migration")
         # New results may bind a reconciled task revision. Keep every old row unchanged,
         # but prevent an older service from ignoring that agreement during delivery.
         db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")

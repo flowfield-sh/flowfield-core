@@ -126,6 +126,7 @@ class Correction(Record):
 
 
 class Run(Record):
+    launch_reason: str = "unknown"
     agent_settings: EffectiveAgent | None = None
     applied_agent: AgentChoice | None = None
     # Nonsecret observed native adapter locations; external credentials/files are not frozen.

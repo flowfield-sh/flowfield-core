@@ -201,6 +201,21 @@ def test_reprepared_result_waits_for_previous_review_cleanup(tmp_path):
 def test_clarification_serializes_roles_and_preserves_code(tmp_path, monkeypatch):
     service, _, run, _, reviews = configured(tmp_path)
     install(monkeypatch, "ask_worker")
+    from types import SimpleNamespace
+
+    from usage_fixtures import event
+
+    from flowfield.usage_models import UsageFilter
+    from flowfield.usage_reads import UsageReads
+
+    original_run = Reviewer.run
+
+    async def observed(self, *args):
+        result = await original_run(self, *args)
+        self.on_consumption(event(SimpleNamespace(id=self.session_id)))
+        return result
+
+    monkeypatch.setattr(Reviewer, "run", observed)
     original = current(service)
     asyncio.run(round_trip(service))
     review = reviews.latest("harbor", run.task_id)
@@ -214,6 +229,16 @@ def test_clarification_serializes_roles_and_preserves_code(tmp_path, monkeypatch
     Reviewer.decision = "approve"
     asyncio.run(round_trip(service))
     assert reviews.latest("harbor", run.task_id).verdict.action == "approve"
+    usage = UsageReads(service.workspace).view("harbor", UsageFilter(), task=run.task_id)
+    attempts = [item for item in usage.items if item.source == "review_attempt"]
+    assert [item.role for item in attempts] == ["reviewer", "worker", "reviewer"]
+    assert [item.purpose for item in attempts] == [
+        "assessment",
+        "implementer-clarification",
+        "assessment-continuation",
+    ]
+    assert usage.totals.tokens.total == 540
+    assert sum(item.tokens.total or 0 for item in attempts) == 540
     assert [brief["purpose"] for brief in Reviewer.observed] == [
         "reviewer",
         "implementer",

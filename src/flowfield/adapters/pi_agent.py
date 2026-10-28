@@ -14,6 +14,7 @@ from urllib.parse import quote, unquote
 from uuid import uuid4
 
 from flowfield.activity_text import command_title, mcp_title, public_output
+from flowfield.adapters import pi_usage
 from flowfield.adapters.agent_contract import (
     COMMANDS,
     Agent,
@@ -30,6 +31,7 @@ from flowfield.errors import ApplicationError
 from flowfield.execution_models import ModelOption, NativeMode
 from flowfield.harness_models import HarnessRegistration
 from flowfield.run_activity import ActivityUpdate, ContextUsage
+from flowfield.usage_models import Tokens
 
 MODE = NativeMode(
     id="full-access", name="Full access", description="Pi tools run without approval prompts."
@@ -75,6 +77,11 @@ class PiAgent(Agent):
         self.session_id = None
         self.stopping = False
         self.cleanup_confirmed = True
+        self._usage_version: str | None = None
+        self._usage_baseline: Tokens | None = None
+        self._usage_dispatch: str | None = None
+        self._usage_lock = asyncio.Lock()
+        self._usage_poll: asyncio.Task[None] | None = None
 
     @property
     def process(self) -> asyncio.subprocess.Process | None:
@@ -87,6 +94,17 @@ class PiAgent(Agent):
             if self.stopping:
                 raise NativeError("Agent stopped before startup")
             assert self.launch and self.launch.native_executable
+            if self.on_consumption:
+                from flowfield.adapters.harness_host import _native_command
+
+                try:
+                    code, output, _ = await _native_command(
+                        [self.launch.native_executable, "--version"], self.cwd, self.environment
+                    )
+                    if code == 0 and re.fullmatch(rb"\d+\.\d+\.\d+\s*", output):
+                        self._usage_version = output.decode("ascii").strip()
+                except (OSError, ValueError, TimeoutError):
+                    pass  # Missing version disables accounting, not the requested work.
             if resume and not re.fullmatch(r"[a-zA-Z0-9_.-]{1,200}", resume):
                 raise NativeError("Invalid Pi session identity")
             # Pi's provider tool names have a 64-character ceiling. Keep scoped
@@ -194,6 +212,12 @@ class PiAgent(Agent):
 
     async def _context(self) -> None:
         stats = await self.rpc.call("get_session_stats", {})
+        if (
+            self.on_consumption
+            and self._usage_dispatch is None
+            and stats.get("sessionId") == self.session_id
+        ):
+            self._usage_baseline = pi_usage.counters(stats.get("tokens"))
         context = stats.get("contextUsage", {})
         used, size = context.get("tokens"), context.get("contextWindow")
         if type(used) is int and used >= 0 and type(size) is int and size > 0:
@@ -239,6 +263,7 @@ class PiAgent(Agent):
             return {"status": "stopped"}
         if not self.choice or self._completion is not None:
             raise NativeError("Apply Pi settings before dispatch")
+        self._usage_dispatch = uuid4().hex
         if text in {"/status", "/skills", "/compact"}:
             if text == "/status":
                 state = await self.rpc.call("get_state", {})
@@ -260,6 +285,7 @@ class PiAgent(Agent):
                 await self.rpc.call("compact", {}, timeout=3600)
                 await self._context()
                 result = "Conversation compacted."
+            await self._capture_usage(final=True)
             self.activity(
                 ActivityUpdate(
                     key="command", kind="agent", text=bounded_details(result or "None available.")
@@ -301,6 +327,7 @@ class PiAgent(Agent):
                     result = await completion
             else:
                 raise NativeError("Pi did not start the requested turn; nothing was replayed")
+            await self._capture_usage(final=True, failed=result == "failed")
             if result == "failed":
                 raise ApplicationError(
                     "pi_turn_failed",
@@ -323,6 +350,30 @@ class PiAgent(Agent):
                 completion.cancel()
             elif not completion.cancelled():
                 completion.exception()  # Observe an early disconnect before prompt acknowledgement.
+
+    async def _capture_usage(self, *, final: bool, failed: bool = False) -> None:
+        if not self.on_consumption or not self.session_id or not self._usage_dispatch:
+            return
+        if final and self._usage_poll:
+            await self._usage_poll
+        # Prompt completion and Stop may both request the same terminal snapshot.
+        # Serial RPC observations plus canonical identities make that replay-safe.
+        async with self._usage_lock:
+            try:
+                stats = await self.rpc.call("get_session_stats", {}, timeout=5)
+            except (NativeError, TimeoutError):
+                return  # No report is not measured zero.
+            event = pi_usage.observation(
+                stats,
+                session=self.session_id,
+                dispatch=self._usage_dispatch,
+                version=self._usage_version,
+                inherited=self._usage_baseline,
+                final=final,
+                failed=failed,
+            )
+            if event:
+                self.on_consumption(event)
 
     def _event(self, method: str, data: dict[str, Any]) -> None:
         if method == "extension_error":
@@ -357,6 +408,13 @@ class PiAgent(Agent):
             return
         if completion is None or completion.done():
             return
+        if (
+            not self.stopping
+            and self.on_consumption
+            and method in {"message_end", "tool_execution_end", "auto_compaction_end"}
+            and (self._usage_poll is None or self._usage_poll.done())
+        ):
+            self._usage_poll = asyncio.create_task(self._capture_usage(final=False))
         if method == "agent_settled":
             completion.set_result(
                 "stopped"
@@ -482,8 +540,12 @@ class PiAgent(Agent):
                             ):
                                 confirmed = False
                             await asyncio.sleep(0.05)
+                        if confirmed:
+                            await self._capture_usage(final=True, failed=self._error)
         except (Exception, asyncio.CancelledError):
             confirmed = False
+        if self._usage_poll:
+            await asyncio.gather(self._usage_poll, return_exceptions=True)
         exited = await self.rpc.close()
         self.cleanup_confirmed = (
             confirmed

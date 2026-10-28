@@ -23,6 +23,7 @@ from flowfield.application import now
 from flowfield.errors import ApplicationError
 from flowfield.output_models import FileInput
 from flowfield.run_activity import ActivityRecorder, ActivityUpdate
+from flowfield.usage import Usage
 
 if TYPE_CHECKING:
     from flowfield.supervisor import Supervisor
@@ -217,6 +218,7 @@ class NativeReviewExecution[J: ReviewJob](ABC):
                 environment.launch_environment(),
                 registration=frozen.registration,
             )
+            Usage(service.workspace).bind(review.workspace_id, "review_attempt", attempt, client)
             service.clients[review.id] = client
             scope = launch.scope
             server = await scope_stack.enter_async_context(serve_scope(scope))
@@ -254,6 +256,9 @@ class NativeReviewExecution[J: ReviewJob](ABC):
             )
             client.on_activity = activity.emit
             brief = {**launch.brief, "flowfield_connection": server.name, "input_files": files}
+            Usage(service.workspace).start(
+                review.workspace_id, "review_attempt", attempt, client.session_id
+            )
             outcome = await client.prompt(json.dumps(brief, ensure_ascii=False), permission)
             if outcome.get("status") != "completed":
                 problem = "Review turn did not complete. Evidence is retained; retry explicitly."
@@ -301,6 +306,9 @@ class NativeReviewExecution[J: ReviewJob](ABC):
                 await scope_stack.aclose()
             except BaseException:
                 confirmed = False
+            Usage(service.workspace).end(
+                review.workspace_id, "review_attempt", attempt, confirmed=confirmed
+            )
             save(cleanup_confirmed=confirmed, completed_at=now())
             if activity:
                 await activity.close()
