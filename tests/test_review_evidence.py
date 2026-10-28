@@ -120,6 +120,8 @@ def test_verification_uses_generated_launcher_and_retains_evidence_without_new_c
         async def run(self, model, effort, prompt, tools):
             brief = json.loads(prompt)
             assert self.output_directory == self.cwd.parent / "runtime/output"
+            assert brief["output_directory"] == str(self.output_directory)
+            assert brief["runtime_directory"] == str(self.output_directory.parent)
             assert brief["candidate_commit"] == result.candidate_commit
             process = await asyncio.create_subprocess_shell(
                 brief["result_launcher"], stdout=asyncio.subprocess.PIPE

@@ -56,7 +56,9 @@ class ReviewBridge:
                 description="Record this round's conclusion and evidence, then end your turn. "
                 "Approval is an assessment only. Corrections must stay within the agreed task; "
                 "scope, intent or access changes require ask_human. Optional suggestions must "
-                "not become blocking requests. A clarification answer cannot change code.",
+                "not become blocking requests. A clarification answer cannot change code "
+                "or amend the submitted report. Use request_changes for report amendments "
+                "with applicable existing evidence.",
                 inputSchema=model.model_json_schema(),
                 annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False),
             ),
@@ -126,8 +128,9 @@ class ReviewBridge:
                 ):
                     raise ApplicationError(
                         "partial_outcome",
-                        "Request the remaining work or ask a focused question; "
-                        "partial outcomes cannot be approved.",
+                        "Partial outcomes cannot be approved. Use request_changes for remaining "
+                        "work or an evidence-only report amendment when verification resolved "
+                        "the remainder. ask_worker only clarifies; it cannot amend the report.",
                     )
                 if isinstance(decision, ReviewVerdict):
                     self.reviews.validate_decision(self.review, decision)

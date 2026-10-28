@@ -294,6 +294,11 @@ class NativeReviewExecution[J: ReviewJob](ABC):
             )
             client.on_activity = activity.emit
             brief = {**launch.brief, "flowfield_connection": server.name, "input_files": files}
+            if launch.verification:
+                brief.update(
+                    runtime_directory=str(environment.runtime),
+                    output_directory=str(environment.runtime / "output"),
+                )
             Usage(service.workspace).start(
                 review.workspace_id, "review_attempt", attempt, client.session_id
             )
