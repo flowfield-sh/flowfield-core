@@ -24,6 +24,59 @@ def setup(tmp_path):
     return execution, run, Permissions(execution.workspace)
 
 
+@pytest.mark.parametrize("invalidate", [None, "stop", "session", "assessment", "disconnect"])
+def test_verification_permission_belongs_to_exact_live_attempt(tmp_path, monkeypatch, invalidate):
+    from review_execution_fixtures import install, round_trip
+    from task_reviews_fixtures import configured
+
+    service, _, run, _, reviews = configured(tmp_path)
+
+    async def exercise():
+        install(monkeypatch, "request_verification")
+        await round_trip(service)
+        review = reviews.latest("harbor", run.task_id)
+        review = reviews.claim("harbor", review.id, review.revision)
+        review = reviews.begin_attempt("harbor", review.id)
+        reviews.save_attempt(review.attempt_id, {"session_id": "native", "status": "running"})
+        review = reviews.started("harbor", review.id, review.revision)
+        owner = service.permissions
+        async with owner.turn(
+            "harbor",
+            "worker",
+            session_id="native",
+            turn_id=review.attempt_id,
+            review_attempt_id=review.attempt_id,
+        ) as turn:
+            task = asyncio.create_task(turn.request("shell", "Run exact launcher", OPTIONS))
+            record = await pending(owner)
+            assert record.task_id == run.task_id
+            assert record.run_id is None and record.review_attempt_id == review.attempt_id
+            if invalidate == "stop":
+                reviews.stop("harbor", review.id, review.revision, cleanup_confirmed=True)
+            elif invalidate == "session":
+                reviews.save_attempt(review.attempt_id, {"session_id": "replacement"})
+            elif invalidate == "assessment":
+                with service.workspace.connection(write=True) as db:
+                    review.verification = False
+                    reviews._save(db, review)
+            elif invalidate == "disconnect":
+                owner.close()
+            answer = PermissionAnswer(expected_revision=record.revision, option_id="yes")
+            if invalidate:
+                with pytest.raises(ApplicationError):
+                    owner.answer("harbor", record.id, answer)
+                task.cancel()
+                with suppress(asyncio.CancelledError, ApplicationError):
+                    await task
+            else:
+                owner.answer("harbor", record.id, answer)
+                assert await task == "yes"
+                assert owner.page("harbor").items[0].released_at
+        assert not owner.turns
+
+    asyncio.run(exercise())
+
+
 @pytest.mark.parametrize("option", ["yes", "no"])
 def test_answer_is_offered_exactly_once_and_persisted(tmp_path, option):
     async def exercise():

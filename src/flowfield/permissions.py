@@ -5,6 +5,7 @@ bindings. A saved answer is evidence, never a message to replay after reconnect.
 """
 
 import asyncio
+import json
 import sqlite3
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -38,6 +39,7 @@ class PermissionTurn:
     conversation_id: str | None
     task_id: str | None
     generation_id: str | None = None
+    review_attempt_id: str | None = None
     id: str = field(default_factory=lambda: uuid4().hex)
     pending: dict[str, asyncio.Future[str]] = field(default_factory=dict)
     open: bool = True
@@ -62,6 +64,7 @@ class PermissionTurn:
             role=self.role,
             task_id=self.task_id,
             run_id=self.run_id,
+            review_attempt_id=self.review_attempt_id,
             conversation_id=self.conversation_id,
             binding=self.id,
             turn_id=self.turn_id,
@@ -146,6 +149,24 @@ class Permissions:
             ).fetchone()
             if row is None or row[0] != "running":
                 raise ApplicationError("permission_stale", "The worker is no longer running.", 409)
+        elif turn.review_attempt_id:
+            row = db.execute(
+                "SELECT r.data,a.data FROM review_attempts a JOIN task_reviews r "
+                "ON r.id=a.review_id WHERE a.id=? AND r.workspace_id=?",
+                (turn.review_attempt_id, turn.project),
+            ).fetchone()
+            review, attempt = (json.loads(value) for value in row) if row else ({}, {})
+            if (
+                review.get("status") != "running"
+                or review.get("attempt_id") != turn.review_attempt_id
+                or not review.get("verification")
+                or review.get("recipient") != "implementer"
+                or attempt.get("status") != "running"
+                or attempt.get("session_id") != turn.session_id
+            ):
+                raise ApplicationError(
+                    "permission_stale", "The verification worker is no longer running.", 409
+                )
         else:
             if turn.generation_id is None:
                 raise ApplicationError(
@@ -175,13 +196,16 @@ class Permissions:
         run_id: str | None = None,
         conversation_id: str | None = None,
         generation_id: str | None = None,
+        review_attempt_id: str | None = None,
     ) -> AsyncIterator[PermissionTurn]:
         if len(self.turns) >= 64 or not session_id or not turn_id:
             raise ApplicationError("permission_capacity", "No permission turn is available.", 409)
-        if (role == "worker" and (not run_id or conversation_id)) or (
-            role == "coordinator" and (not conversation_id or run_id)
+        if (role == "worker" and (bool(run_id) == bool(review_attempt_id) or conversation_id)) or (
+            role == "coordinator" and (not conversation_id or run_id or review_attempt_id)
         ):
-            raise ValueError("A turn must belong to one worker run or coordinator conversation")
+            raise ValueError(
+                "A turn must belong to one worker execution or coordinator conversation"
+            )
         task_id = None
         with self.workspace.connection() as db:
             if role == "coordinator":
@@ -198,12 +222,25 @@ class Permissions:
                         "permission_stale", "The worker is no longer running.", 409
                     )
                 task_id = row[0]
+            elif review_attempt_id:
+                row = db.execute(
+                    "SELECT r.task_id FROM review_attempts a JOIN task_reviews r "
+                    "ON r.id=a.review_id WHERE a.id=? AND r.workspace_id=?",
+                    (review_attempt_id, project),
+                ).fetchone()
+                if row is None:
+                    raise ApplicationError(
+                        "permission_stale", "Verification attempt not found.", 409
+                    )
+                task_id = row[0]
             else:
                 CoordinatorStore._conversation(db, project, conversation_id or "")
         if any(
             t.project == project
             and t.role == role
-            and (t.run_id == run_id if run_id else t.conversation_id == conversation_id)
+            and t.run_id == run_id
+            and t.review_attempt_id == review_attempt_id
+            and t.conversation_id == conversation_id
             for t in self.turns.values()
         ):
             raise ApplicationError("permission_busy", "This agent already has a live turn.", 409)
@@ -217,6 +254,7 @@ class Permissions:
             conversation_id,
             task_id,
             generation_id=generation_id,
+            review_attempt_id=review_attempt_id,
         )
         self.turns[turn.id] = turn
         try:

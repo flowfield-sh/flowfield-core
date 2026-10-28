@@ -21,6 +21,7 @@ class PermissionRecord(AgentRecord):
     role: AgentRole
     task_id: str | None = None
     run_id: str | None = None
+    review_attempt_id: str | None = None
     conversation_id: str | None = None
     binding: str
     turn_id: str

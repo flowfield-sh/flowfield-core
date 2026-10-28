@@ -4772,6 +4772,8 @@ export interface components {
       task_id: string | null;
       /** Run Id */
       run_id: string | null;
+      /** Review Attempt Id */
+      review_attempt_id: string | null;
       /** Conversation Id */
       conversation_id: string | null;
       /** Binding */

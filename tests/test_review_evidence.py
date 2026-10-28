@@ -92,8 +92,34 @@ def test_verification_uses_generated_launcher_and_retains_evidence_without_new_c
     assert review.recipient == "implementer" and review.verification
 
     class Verifier(Reviewer):
+        async def prompt(self, text, on_permission, *, attachments=None):
+            from permissions_fixtures import pending
+
+            from flowfield.adapters.agent_contract import PermissionRequest
+            from flowfield.permission_models import PermissionAnswer
+
+            request = asyncio.create_task(
+                on_permission(
+                    PermissionRequest(
+                        "shell",
+                        "Execute generated launcher",
+                        (("yes", "Allow once", "allow_once"), ("no", "Reject", "reject_once")),
+                    )
+                )
+            )
+            record = await pending(service.permissions)
+            assert record.review_attempt_id and record.run_id is None
+            service.permissions.answer(
+                "harbor",
+                record.id,
+                PermissionAnswer(expected_revision=record.revision, option_id="yes"),
+            )
+            assert await request == "yes"
+            return await super().prompt(text, on_permission, attachments=attachments)
+
         async def run(self, model, effort, prompt, tools):
             brief = json.loads(prompt)
+            assert self.output_directory == self.cwd.parent / "runtime/output"
             assert brief["candidate_commit"] == result.candidate_commit
             process = await asyncio.create_subprocess_shell(
                 brief["result_launcher"], stdout=asyncio.subprocess.PIPE

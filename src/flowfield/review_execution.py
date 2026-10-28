@@ -277,6 +277,8 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
                 "Read the latest exchange for the requested check and relevant context. "
                 "You may execute project code using saved native access. Do not edit code, "
                 "change requirements/settings, bypass denied access, or integrate. "
+                "If an operation needs permission, use the harness's normal permission request "
+                "for that exact operation. Respect a declined request; do not work around it. "
                 "When testing Run result, execute result_launcher exactly as generated; "
                 "it includes project setup. For other checks use only necessary setup. "
                 "Do not rerun the entire validation suite without a concrete reason. "
@@ -304,6 +306,7 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
             files=list({file.id: file for file in inputs}.values()),
             verification_setup=setup,
             verification_run=run_command,
+            verification=review.verification,
         )
 
     def guidance_launch(self, review: TaskReview, attempt: str) -> ReviewLaunch:

@@ -12,8 +12,9 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar
 
-from flowfield.adapters.agent_contract import PermissionRequest
+from flowfield.adapters.agent_contract import PermissionHandler, PermissionRequest
 from flowfield.adapters.agent_mcp import serve_scope
+from flowfield.adapters.agent_permissions import permission_handler
 from flowfield.adapters.agent_selection import create
 from flowfield.adapters.git_workspace import git
 from flowfield.adapters.local_execution import LocalHost
@@ -90,6 +91,7 @@ class ReviewLaunch:
     project_id: str | None = None
     verification_setup: list[str] = field(default_factory=list)
     verification_run: str | None = None
+    verification: bool = False
 
 
 class NativeReviewExecution[J: ReviewJob](ABC):
@@ -150,6 +152,7 @@ class NativeReviewExecution[J: ReviewJob](ABC):
         confirmed = True
         activity: ActivityRecorder | None = None
         scope_stack = AsyncExitStack()
+        native_permission: PermissionHandler | None = None
         review = self.reviews.begin_attempt(review.workspace_id, review.id)
         assert review.attempt_id
         attempt = review.attempt_id
@@ -158,12 +161,14 @@ class NativeReviewExecution[J: ReviewJob](ABC):
             self.reviews.save_attempt(attempt, values)
 
         async def permission(request: PermissionRequest) -> str | None:
-            # No background permission escalation. Ask the human through a scoped question.
-            # Native requests remain harness-owned; only the bound Flowfield tool is allowed.
+            # Assessments remain read-only. Verification uses the normal Worker decision owner,
+            # bound to this live attempt; it never grants access from a saved answer.
             managed = request.managed_tool
             allowed = bool(
                 managed and managed.server == server.name and managed.name in scope.tools
             )
+            if not managed and native_permission:
+                return await native_permission(request)
             kind = "allow_once" if allowed else "reject_once"
             return next(
                 (identity for identity, _, option in request.options if option == kind), None
@@ -235,6 +240,8 @@ class NativeReviewExecution[J: ReviewJob](ABC):
                 registration=frozen.registration,
             )
             Usage(service.workspace).bind(review.workspace_id, "review_attempt", attempt, client)
+            if launch.verification:
+                client.output_directory = environment.runtime / "output"
             service.clients[review.id] = client
             scope = launch.scope
             server = await scope_stack.enter_async_context(serve_scope(scope))
@@ -267,6 +274,21 @@ class NativeReviewExecution[J: ReviewJob](ABC):
                     "review_stopped", "Review stopped before its model turn.", 409
                 )
             self.reviews.started(review.workspace_id, review.id, current.revision)
+            if launch.verification:
+                if not client.session_id:
+                    raise ApplicationError(
+                        "review_session_missing", "Verification has no native session.", 409
+                    )
+                permission_turn = await scope_stack.enter_async_context(
+                    service.permissions.turn(
+                        review.workspace_id,
+                        "worker",
+                        session_id=client.session_id,
+                        turn_id=attempt,
+                        review_attempt_id=attempt,
+                    )
+                )
+                native_permission = permission_handler(permission_turn)
             activity = ActivityRecorder(
                 service.workspace, review.workspace_id, attempt, store=self.reviews
             )
