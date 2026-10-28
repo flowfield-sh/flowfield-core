@@ -114,3 +114,31 @@ test("Today boundaries follow local calendar days at DST and unusual offsets", (
     todayPeriod("Asia/Kathmandu", Date.parse("2026-10-27T12:00:00Z")).start,
   ).toBe("2026-10-26T18:15:00.000Z");
 });
+
+test("invalid saved dates recover without losing the selected task", async ({
+  page,
+}) => {
+  const f = seed();
+  for (const broken of ["start=not-a-date", "timezone=Not/AZone"]) {
+    const query = new URLSearchParams(
+      new URL(f.workspace_url, "http://localhost").search,
+    );
+    const [key, value] = broken.split("=");
+    query.set(key, value);
+    query.set("task_id", f.task);
+    await page.goto(`/workspaces/${f.workspace}/usage?${query}`);
+    const usage = page.getByRole("region", {
+      name: "Workspace usage",
+      exact: true,
+    });
+    await expect(
+      usage.getByRole("button", { name: "Reset dates" }),
+    ).toBeVisible();
+    await usage.getByRole("button", { name: "Reset dates" }).click();
+    await expect(usage.getByLabel("Usage period")).toHaveValue("today");
+    await expect(usage.getByLabel("Usage task")).toHaveValue(f.task);
+    await expect(
+      usage.getByRole("button", { name: "Reset dates" }),
+    ).toHaveCount(0);
+  }
+});

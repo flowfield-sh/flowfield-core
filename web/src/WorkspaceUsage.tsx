@@ -63,6 +63,14 @@ export function WorkspaceUsage({
     refresh,
   );
   const timezone = params.get("timezone")!;
+  let validDates = false;
+  try {
+    localDate(Date.parse(params.get("start")!), timezone);
+    localDate(Date.parse(params.get("end")!), timezone);
+    validDates = true;
+  } catch {
+    // Invalid saved links still reach the API's normal error/recovery surface.
+  }
   const tasks = board.tasks;
   const taskId = params.get("task_id") || "";
   const hiddenFilters = filterKeys.filter(
@@ -83,15 +91,17 @@ export function WorkspaceUsage({
                 change({ period: preset });
                 return;
               }
-              const period = todayPeriod(timezone);
+              const zone = validDates ? timezone : defaults.get("timezone")!;
+              const period = todayPeriod(zone);
               const days = preset === "month" ? 30 : preset === "week" ? 7 : 1;
               for (let day = 1; day < days; day++)
                 period.start = todayPeriod(
-                  timezone,
+                  zone,
                   Date.parse(period.start) - 1,
                 ).start;
               change({
                 ...period,
+                timezone: zone,
                 period: preset,
                 group: days === 1 ? "hour" : "day",
               });
@@ -121,7 +131,7 @@ export function WorkspaceUsage({
             ))}
           </NativeSelect>
         </div>
-        {params.get("period") === "custom" && (
+        {params.get("period") === "custom" && validDates && (
           <DateRange
             key={`${params.get("start")}/${params.get("end")}/${timezone}`}
             start={params.get("start")!}
@@ -152,6 +162,17 @@ export function WorkspaceUsage({
           </div>
         )}
         <UsageReadState resource={resource} name="usage" />
+        {resource.error && !validDates && (
+          <div className="actions">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => change(Object.fromEntries(defaultUsageQuery()))}
+            >
+              Reset dates
+            </Button>
+          </div>
+        )}
         {resource.data &&
           (resource.data.totals.attempts === 0 ? (
             <p>No usage in this period.</p>
