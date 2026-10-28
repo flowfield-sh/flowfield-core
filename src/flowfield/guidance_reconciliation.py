@@ -242,7 +242,9 @@ def prepare(owner: "TaskReviews", workspace: str, task_id: str) -> "TaskReview |
         ).fetchone()
         if stopped:
             previous_review = TaskReview.model_validate_json(stopped[0])
-            if previous_review.status in ("stopped", "failed"):
+            if previous_review.status in ("stopped", "failed") and owner.is_current(
+                db, previous_review
+            ):
                 return previous_review
         # Do not change inputs underneath another native owner. Its freshness check will
         # discard the old conclusion, then the next scheduler pass coalesces current edits.

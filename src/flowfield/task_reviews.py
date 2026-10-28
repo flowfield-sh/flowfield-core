@@ -478,27 +478,24 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 (project, task),
             ).fetchone()
             review = TaskReview.model_validate_json(row[0]) if row else None
-            if (
-                not review
-                or not current_only
-                or review.status in ("preparing", "running", "uncertain")
-            ):
-                return review
-            # Historical stopped/failed reviews remain inspectable by identity, but
-            # no longer supply recovery controls after corrections supersede them.
-            if review.result_id:
-                result = Results(self.store)._get(db, project, review.result_id)
-                if result.status in ("changes_requested", "cancelled"):
-                    return None
-            binding = review.guidance or review.binding
-            latest = db.execute(
-                "SELECT id FROM runs WHERE workspace_id=? AND task_id=? "
-                "ORDER BY number DESC LIMIT 1",
-                (project, task),
-            ).fetchone()
-            if binding and binding.run_id and latest and latest[0] != binding.run_id:
+            if review and current_only and not self.is_current(db, review):
                 return None
             return review
+
+    def is_current(self, db: sqlite3.Connection, review: TaskReview) -> bool:
+        """Shared read-only eligibility for current recovery and guidance scheduling."""
+        if review.status in ("preparing", "running", "uncertain"):
+            return True
+        if review.result_id:
+            result = Results(self.store)._get(db, review.workspace_id, review.result_id)
+            if result.status in ("changes_requested", "cancelled"):
+                return False
+        binding = review.guidance or review.binding
+        latest = db.execute(
+            "SELECT id FROM runs WHERE workspace_id=? AND task_id=? ORDER BY number DESC LIMIT 1",
+            (review.workspace_id, review.task_id),
+        ).fetchone()
+        return not (binding and binding.run_id and latest and latest[0] != binding.run_id)
 
     def finish_attempt(
         self,

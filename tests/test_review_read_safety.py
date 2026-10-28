@@ -100,6 +100,35 @@ def test_superseded_stopped_review_is_history_not_current_recovery(tmp_path):
     assert reviews.get("harbor", review.id) == stopped
 
 
+def test_superseded_guidance_stop_does_not_block_new_guidance(tmp_path):
+    from test_guidance_reconciliation import change
+
+    from flowfield.guidance_reconciliation import prepare
+    from flowfield.result_models import ResultReview
+
+    service, _, run, _, reviews = configured(tmp_path)
+    change(service.workspace)
+    review = prepare(reviews, "harbor", run.task_id)
+    stopped = reviews.stop("harbor", review.id, review.revision, cleanup_confirmed=True)
+    result = current(service)
+    service.results.review(
+        "harbor",
+        result.id,
+        ResultReview(
+            expected_revision=result.revision,
+            candidate_commit=result.candidate_commit,
+            action="request_changes",
+            note="Complete the remaining work",
+        ),
+    )
+    change(service.workspace, "Use accessible labels and controls.")
+    fresh = prepare(reviews, "harbor", run.task_id)
+    assert fresh.id != stopped.id
+    assert fresh.status == "queued"
+    assert reviews.latest("harbor", run.task_id, current_only=True) == fresh
+    assert reviews.get("harbor", stopped.id) == stopped
+
+
 def test_review_policy_changes_and_review_completion_persist_task_phases(tmp_path):
     from flowfield.reviewer_settings import ReviewerEdit
 
