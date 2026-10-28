@@ -7023,6 +7023,7 @@ export interface components {
       outcome: "complete" | "partial";
       /**
        * Remaining Work
+       * @description Describe unfinished work for partial outcomes. Omit or use an empty string for complete outcomes; do not write 'none' or a completion explanation here.
        * @default
        */
       remaining_work: string;

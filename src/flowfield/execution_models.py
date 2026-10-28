@@ -68,14 +68,22 @@ class WorkerResult(Record):
     checks: str = Field(min_length=1, max_length=8000)
     limitations: str = Field(default="", max_length=8000)
     outcome: Literal["complete", "partial"] = "complete"
-    remaining_work: str = Field(default="", max_length=8000)
+    remaining_work: str = Field(
+        default="",
+        max_length=8000,
+        description="Describe unfinished work for partial outcomes. Omit or use an empty string "
+        "for complete outcomes; do not write 'none' or a completion explanation here.",
+    )
 
     @model_validator(mode="after")
     def consistent_outcome(self) -> Self:
         if self.outcome == "partial" and not self.remaining_work.strip():
             raise ValueError("Describe the agreed work that remains unfinished.")
         if self.outcome == "complete" and self.remaining_work.strip():
-            raise ValueError("Unfinished required work must be reported as partial.")
+            raise ValueError(
+                "A complete outcome must omit remaining_work or leave it empty. "
+                "If required work remains, choose partial."
+            )
         return self
 
 
