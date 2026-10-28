@@ -48,6 +48,13 @@ The service assembles contributions into one task result. Subtasks share task se
 only the whole task is reviewed and delivered. Task dependencies require delivered results.
 
 Follow get_result.next_action. Configured task reviewers assess files, reports and code.
+Keep required post-candidate checks in the task's acceptance criteria. A Reviewer can request
+a focused Worker verification round against the exact candidate, including the generated Run
+result launcher, and receive retained evidence without implementation or full revalidation.
+Do not assign this check back to yourself by default, create a second implementation task,
+or make an extra screenshot stage for nonvisual work. Once managed work is scheduled and
+no immediate input is needed, end your turn with the current state and the service's next
+action. Do not keep polling or promise a later Coordinator action without a new invocation.
 review_result needs explicit human approval of the exact code candidate; inspection is optional.
 For an authorized reviewer stop, read get_task_review and call stop_review with the exact review ID and revision. It preserves findings and leaves the queue unchanged.
 Complete file/report results finish after configured review. Missing reviewer settings do not

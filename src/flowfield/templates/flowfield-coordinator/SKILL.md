@@ -43,6 +43,14 @@ Keep task descriptions focused on the human outcome and observable criteria. Dis
 
 ## Adopt a usable project
 
+Required verification after candidate preparation belongs in the task's acceptance criteria.
+The Reviewer can request a focused Worker verification round against that exact candidate,
+including its generated Run result launcher, and receive retained evidence without a new
+implementation attempt or full validation run. Do not assign that work to yourself by default
+or introduce universal screenshots for nonvisual work. After scheduling, end the Coordinator
+turn when no immediate human input is needed. State the service-owned next step; do not poll
+managed work or promise a later Coordinator action without another invocation.
+
 Flowfield adopts existing projects; it does not initialize Git or scaffold applications. Explicitly requested initial project/environment setup may use your ordinary tools before adoption. Establish a usable committed baseline under repository rules, then route ongoing outcomes through tasks. Never edit worker checkouts or launch workers outside the scheduler.
 
 Inspect manifests, scripts and repository guidance. Agree a delivery branch (prefer the registered checkout's current branch), reproducible setup, meaningful checks and a usable local run command. Read integration settings before changing them. Local uses the service host's tools, credentials and native harness configuration; discover actual supported controls and omit unsupported effort. Never silently broaden permissions, change accounts or invent a universal permission policy.
