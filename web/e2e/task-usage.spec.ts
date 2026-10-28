@@ -1,3 +1,4 @@
+import { settleUsageTheme } from "./usage-inspection";
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import { test } from "./support";
 import {
@@ -80,7 +81,7 @@ test("compact totals disclose exact attempts, role/source partitions and baselin
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
     for (const colorScheme of ["light", "dark"] as const) {
-      await page.emulateMedia({ colorScheme });
+      await settleUsageTheme(page, colorScheme);
       await usage.scrollIntoViewIfNeeded();
       await page.screenshot({
         animations: "disabled",
@@ -153,10 +154,25 @@ test("compact totals disclose exact attempts, role/source partitions and baselin
   await expect(
     first.getByText("Source: run · execution-1", { exact: true }),
   ).toBeInViewport();
+  await expect(scroll).toHaveCSS("scrollbar-gutter", "auto");
+  await scroll.hover();
+  await page.mouse.wheel(0, 480);
+  await expect
+    .poll(() => scroll.evaluate((el) => el.scrollTop))
+    .toBeGreaterThan(0);
+  await page.mouse.wheel(0, -2000);
+  await expect.poll(() => scroll.evaluate((el) => el.scrollTop)).toBe(0);
+  const time = scroll.locator("time").first();
+  await expect(time).toHaveAttribute("datetime", view.items[0].started_at!);
+  await expect(time).not.toHaveText(view.items[0].started_at!);
+  await time.focus();
+  await expect(page.getByRole("tooltip")).toBeVisible();
+  await expect(time).toHaveAttribute("aria-label", /2026.*\d+:\d+:\d+/);
+  await page.keyboard.press("Escape");
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
     for (const colorScheme of ["light", "dark"] as const) {
-      await page.emulateMedia({ colorScheme });
+      await settleUsageTheme(page, colorScheme);
       await first.getByRole("table").scrollIntoViewIfNeeded();
       await page.screenshot({
         animations: "disabled",
@@ -323,7 +339,7 @@ test("pagination keeps aggregate totals and refreshed windows with live and long
     "Observation 2 · reordered · 0 tokens counted",
   );
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.emulateMedia({ colorScheme: "dark" });
+  await settleUsageTheme(page, "dark");
   await first.scrollIntoViewIfNeeded();
   expect(
     await page.evaluate(
@@ -353,9 +369,7 @@ test("bounded reads cannot appear complete", async ({ page, request }) => {
     .locator("summary")
     .filter({ hasText: /^Accounting and coverage$/ })
     .click();
-  await expect(
-    usage.getByText(/This is not the complete task total/),
-  ).toBeVisible();
+  await expect(usage.getByText(/Narrow the period or filters/)).toBeVisible();
 });
 
 test("durable production reads trace counted deltas and preserve the exact result journey", async ({
@@ -451,7 +465,7 @@ test("durable production reads trace counted deltas and preserve the exact resul
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });
     for (const colorScheme of ["light", "dark"] as const) {
-      await page.emulateMedia({ colorScheme });
+      await settleUsageTheme(page, colorScheme);
       await page
         .getByRole("heading", {
           name: "Trace recorded task usage",

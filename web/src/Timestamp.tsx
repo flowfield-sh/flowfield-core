@@ -11,6 +11,10 @@ const exactTime = new Intl.DateTimeFormat(undefined, {
   dateStyle: "full",
   timeStyle: "long",
 });
+const readableTime = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
 
 /** Also wraps timestamp-bearing card links, keeping their single keyboard stop. */
 export function ExactTimeTooltip({
@@ -33,9 +37,11 @@ export function ExactTimeTooltip({
 export function Timestamp({
   date,
   tooltip = true,
+  format = "relative",
 }: {
   date: string;
   tooltip?: boolean;
+  format?: "relative" | "absolute";
 }) {
   const { formattedDate } = useTimeAgo({
     date: Date.parse(date),
@@ -49,7 +55,9 @@ export function Timestamp({
       tabIndex={tooltip ? 0 : undefined}
       aria-label={exactTime.format(new Date(date))}
     >
-      {formattedDate}
+      {format === "absolute"
+        ? readableTime.format(new Date(date))
+        : formattedDate}
     </time>
   );
   return tooltip ? (

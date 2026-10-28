@@ -20,7 +20,6 @@
   .usage-evidence {
     max-height: 65vh;
     overflow: auto;
-    scrollbar-gutter: stable;
   }
   .usage-evidence > * {
     flex-shrink: 0;
@@ -47,5 +46,47 @@
   }
   .usage-token-table th:first-child {
     text-align: left;
+  }
+}
+@layer components {
+  .workspace-usage {
+    min-width: 0;
+    width: 100%;
+    max-width: 1040px;
+    overflow-wrap: anywhere;
+  }
+  .usage-controls {
+    flex-wrap: wrap;
+  }
+  .usage-chart {
+    min-width: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .usage-chart-tooltip {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--popover);
+    color: var(--popover-foreground);
+    padding: 8px;
+    font-size: 12px;
+  }
+  .usage-filter-form {
+    border-block: 1px solid var(--border);
+    padding-block: 16px;
+  }
+  .usage-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 16px;
+  }
+  .usage-filter-grid label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .workspace-usage .usage-token-table a {
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 }

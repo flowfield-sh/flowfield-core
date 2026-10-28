@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { taskUsageQuery } from "./usagePeriod";
+import { WorkspaceLink } from "./WorkspaceLink";
 import { ContentStack, DetailSection, Disclosure } from "./DetailLayout";
 import { LoadMore } from "./LoadMore";
 import {
@@ -66,6 +68,11 @@ export function TaskUsage({
           >
             {detailsLoaded && (
               <>
+                <WorkspaceLink
+                  to={`/workspaces/${encodeURIComponent(workspaceId)}/usage?${taskUsageQuery(taskId, view)}`}
+                >
+                  Explore workspace usage
+                </WorkspaceLink>
                 <p>{view.totals.attempts} execution attempts</p>
                 <Disclosure summary="Accounting and coverage">
                   <UsageCoverageDetails view={view} />

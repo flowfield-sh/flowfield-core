@@ -3,6 +3,7 @@ import { ContentStack, Disclosure } from "./DetailLayout";
 import { LoadMore } from "./LoadMore";
 import { ResourceRetry } from "./ResourceRetry";
 import { WorkspaceLink } from "./WorkspaceLink";
+import { Timestamp } from "./Timestamp";
 import { requestHref } from "./requestLinks";
 import {
   usageNumber,
@@ -67,8 +68,8 @@ export function UsageCoverageDetails({ view }: { view: UsageView }) {
     <ContentStack>
       {view.limit_reached && (
         <p>
-          Only a bounded subtotal is available. This is not the complete task
-          total.
+          Only a bounded subtotal is available. Narrow the period or filters for
+          a complete selection.
         </p>
       )}
       <p>
@@ -145,7 +146,11 @@ export function UsageBreakdowns({ view }: { view: UsageView }) {
 }
 
 export function ExactUsageTime({ value }: { value: string | null }) {
-  return value ? <time dateTime={value}>{value}</time> : <>Not recorded</>;
+  return value ? (
+    <Timestamp date={value} format="absolute" />
+  ) : (
+    <>Not recorded</>
+  );
 }
 
 export function UsageExecutionList({
@@ -254,6 +259,13 @@ function ExecutionEvidence({
       )}
       <UsageTokenDetails tokens={current.tokens} />
       <div className="actions">
+        {current.task_id && (
+          <WorkspaceLink
+            to={`/workspaces/${encodeURIComponent(workspaceId)}/tasks/${encodeURIComponent(current.task_id)}`}
+          >
+            Open task
+          </WorkspaceLink>
+        )}
         {current.source === "run" && (
           <WorkspaceLink
             to={requestHref(workspaceId, "attempt", current.source_id)}

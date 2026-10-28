@@ -113,6 +113,7 @@ test("shared workspace board, project filters, Inbox and settings", async ({
     "Task Board",
     "Documents",
     "Files",
+    "Usage",
     "Projects",
     "Settings",
   ]);

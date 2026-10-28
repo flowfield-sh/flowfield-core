@@ -60,6 +60,8 @@ Open [localhost:8765](http://127.0.0.1:8765), create a workspace and choose its 
   </tr>
 </table>
 
+Explore reported tokens and recorded execution time in task and workspace [Usage](https://docs.flowfield.sh/usage), with coverage and exact execution evidence.
+
 ## Contributing
 
 Bug reports, feature requests and feedback are welcome. See [CONTRIBUTING.md](https://github.com/flowfield-sh/flowfield-core/blob/main/CONTRIBUTING.md) for issue reporting and contribution policy. Report vulnerabilities through [private security reporting](https://github.com/flowfield-sh/flowfield-core/security/advisories/new).

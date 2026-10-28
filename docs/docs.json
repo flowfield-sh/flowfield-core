@@ -31,7 +31,8 @@
         "pages": [
           "inbox",
           "review",
-          "files"
+          "files",
+          "usage"
         ]
       },
       {
