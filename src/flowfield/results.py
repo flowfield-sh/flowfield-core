@@ -294,10 +294,16 @@ class Results:
         run = self._current(db, version)
         task = self.workspace._task(db, workspace_id, version.task_id)
         if request.action == "request_changes":
+            revised_assembly = (
+                run.purpose == "assembly" and run.agreement_revision != task.agreement_revision
+            )
+            if revised_assembly:
+                self.workspace._require_ready(task)
             if (
                 version.completion == "code"
                 and version.status in ("blocked", "stale")
                 and version.problem_code != "partial_outcome"
+                and not revised_assembly
             ):
                 raise ApplicationError(
                     "correction_required",
@@ -548,6 +554,29 @@ class Results:
                 "Request correction for a blocked or stale code result.",
                 409,
             )
+        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+            run = self._current(db, version)
+            task = self.workspace._task(db, workspace_id, run.task_id)
+            if run.purpose == "assembly" and run.agreement_revision != task.agreement_revision:
+                # A reconciled plan can invalidate every contribution. Restart through
+                # its current owners; the old assembly remains retained evidence, not
+                # a correction seed assigned to an arbitrary final subtask.
+                if automatic:
+                    from flowfield.result_continuation import guard
+
+                    guard(self, db, version)
+                return self._review(
+                    db,
+                    workspace_id,
+                    identity,
+                    ResultReview(
+                        expected_revision=request.expected_revision,
+                        candidate_commit=version.candidate_commit or version.source_commit,
+                        action="request_changes",
+                        note=request.note or "Rebuild the reconciled task from its retained work.",
+                        author=request.author,
+                    ),
+                )
         settings = Integrations(self.workspace).for_task(workspace_id, version.task_id)
         repository = Path(self.workspace.project(settings.project_id).path)
         integrations = Integrations(self.workspace)

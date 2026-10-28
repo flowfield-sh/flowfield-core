@@ -446,7 +446,10 @@ def test_correction_preserves_independent_contribution(tmp_path):
 
 
 @pytest.mark.parametrize("dependent_contribution", [False, True])
-@pytest.mark.parametrize("correction_source", ["reply", "plan", "stopped", "failed", "partial"])
+@pytest.mark.parametrize(
+    "correction_source",
+    ["reply", "plan", "stopped", "failed", "partial", "replanned_reply", "replanned_correction"],
+)
 def test_code_assembly_review_exact_approval_and_delivered_dependency(
     tmp_path, dependent_contribution, correction_source
 ):
@@ -584,6 +587,85 @@ def test_code_assembly_review_exact_approval_and_delivered_dependency(
     from flowfield.conversation import Conversation
     from flowfield.replies import Replies
     from flowfield.reply_models import ReplyBinding, ReplyCreate
+
+    if correction_source.startswith("replanned_"):
+        from flowfield.execution_models import RunAction
+
+        task = store.task(owner, task.id)
+        store.edit_task(
+            owner,
+            task.id,
+            TaskEdit(expected_revision=task.revision, body="Build API and UI for all adapters"),
+        )
+        for child in children.all(owner, task.id):
+            fresh = children.get(owner, task.id, child.id)
+            children.edit(
+                owner,
+                task.id,
+                child.id,
+                SubtaskEdit(expected_revision=fresh.revision, body="Support every adapter"),
+            )
+        task = store.task(owner, task.id)
+        task = store.reconcile_task(
+            owner,
+            task.id,
+            TaskReconcile(expected_revision=task.revision, note="All adapters"),
+        )
+        (repo / "upstream.txt").write_text("Current release")
+        git(repo, "add", "upstream.txt")
+        git(
+            repo,
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-m",
+            "Current release",
+        )
+        advanced = baseline(repo)
+        integrations.refresh_availability(project.id)
+        stale = Results(store).get(owner, result.id)
+        assert stale.status == "stale"
+        assert all(child.contribution_run_id is None for child in children.all(owner, task.id))
+        if correction_source == "replanned_correction":
+            Results(store).correct(
+                owner,
+                result.id,
+                RunAction(expected_revision=stale.revision, note="Finish all adapters"),
+            )
+        else:
+            gate = Conversation(store).eligibility(owner, task.id)
+            Replies(store).submit(
+                owner,
+                task.id,
+                ReplyCreate(
+                    binding=ReplyBinding.model_validate(
+                        gate.model_dump(include=set(ReplyBinding.model_fields))
+                    ),
+                    action="changes",
+                    body="Finish all adapters",
+                ),
+            )
+        retained = Results(store).get(owner, result.id)
+        assert retained.status == "changes_requested" and retained.approved_at is None
+        assert retained.source_commit == result.source_commit
+        assert git(repo, "show", retained.source_commit + ":api.txt") == b"API"
+        task = store.task(owner, task.id)
+        assert task.status == "up_next"
+        fresh_assembly = assemblies.ensure(task, advanced, [])
+        assert fresh_assembly.id != assembly.id and fresh_assembly.base_commit == advanced
+        fresh = execution.claim(
+            owner,
+            advanced,
+            {advanced: set()},
+            task_id=task.id,
+            subtask_id=a.id,
+            assembly_id=fresh_assembly.id,
+        )
+        assert fresh and fresh.base_commit == advanced and fresh.correction is None
+        assert baseline(repo) == advanced
+        return
 
     if correction_source != "reply":
         previous = children.get(owner, task.id, a.id)
