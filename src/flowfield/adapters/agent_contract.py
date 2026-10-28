@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from flowfield.agent_models import AgentChoice, AgentCommand
 from flowfield.harness_models import HarnessLaunch
 from flowfield.run_activity import ActivityUpdate
+from flowfield.usage_models import Consumption
 
 
 class McpHeader(BaseModel):
@@ -74,6 +75,7 @@ class Agent(ABC):
     session_id: str | None = None
     cleanup_confirmed = True
     stopping = False
+    on_consumption: Callable[[Consumption], None] | None = None
     on_activity: Callable[[ActivityUpdate], None] | None = None
 
     @property

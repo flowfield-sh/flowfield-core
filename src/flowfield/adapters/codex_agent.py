@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from flowfield import __version__
+from flowfield.adapters import codex_usage
 from flowfield.adapters.agent_contract import (
     COMMANDS,
     Agent,
@@ -27,6 +28,7 @@ from flowfield.errors import ApplicationError
 from flowfield.execution_models import ModelOption, NativeMode
 from flowfield.harness_models import HarnessRegistration
 from flowfield.run_activity import ActivityUpdate, ContextUsage
+from flowfield.usage_models import Tokens
 
 MODES = [
     NativeMode(id="read-only", name="Read-only"),
@@ -114,6 +116,12 @@ class CodexAgent(Agent):
         self.session_id = None
         self.stopping = False
         self.cleanup_confirmed = True
+        self._usage_version: str | None = None
+        self._usage_baselines: dict[str, Tokens] = {}
+        self._usage_latest: dict[tuple[str, str], Tokens] = {}
+        self._usage_threads: dict[str, bool] = {}
+        self._usage_turns: set[tuple[str, str]] = set()
+        self._usage_final: dict[tuple[str, str], bool] = {}
 
     @property
     def process(self) -> asyncio.subprocess.Process | None:
@@ -129,13 +137,17 @@ class CodexAgent(Agent):
             self.cleanup_confirmed = False
             assert self.launch and self.launch.native_executable
             await self.rpc.start(self.command, self.cwd, self.environment)
-            await self.rpc.call(
+            initialized = await self.rpc.call(
                 "initialize",
                 {
                     "clientInfo": {"name": "flowfield", "version": __version__},
                     "capabilities": {"experimentalApi": True},
                 },
             )
+            version = re.match(
+                r"[^ /]+/(\d+\.\d+\.\d+)(?:\s|$)", str(initialized.get("userAgent", ""))
+            )
+            self._usage_version = version[1] if version else None
             await self.rpc.send({"method": "initialized", "params": {}})
             self.models = await self._page("model/list", {"includeHidden": False}, 64)
 
@@ -232,6 +244,7 @@ class CodexAgent(Agent):
             if not isinstance(identity, str) or not identity or len(identity) > 500:
                 raise NativeError("Invalid native thread identity")
             self.session_id = identity
+            self._usage_threads[identity] = bool(self.resume)
             expected_type = {
                 "read-only": "readOnly",
                 "workspace-write": "workspaceWrite",
@@ -263,6 +276,9 @@ class CodexAgent(Agent):
             if self.stopping:
                 raise NativeError("Agent stopped while configuring")
             self.choice = choice.model_copy(deep=True)
+            if self.resume and self.on_consumption:
+                # Barrier after resume's numeric replay, without fetching turns.
+                await self.rpc.call("thread/read", {"threadId": identity, "includeTurns": False})
             return choice.model_copy(deep=True)
         except (ValueError, NativeError) as error:
             raise ApplicationError(
@@ -381,6 +397,7 @@ class CodexAgent(Agent):
         return [item.model_copy() for item in COMMANDS]
 
     def _event(self, method: str, data: dict[str, Any]) -> None:
+        self._usage_event(method, data)
         if method in {"turn/started", "turn/completed", "thread/started", "thread/closed"}:
             self.epoch += 1
             if method.startswith("turn/"):
@@ -474,6 +491,7 @@ class CodexAgent(Agent):
                         text=title + " · " + str(status) + "\n" + details,
                     )
                 )
+
         elif not self.stopping and method == "thread/tokenUsage/updated":
             usage = data.get("tokenUsage", {})
             used, size = usage.get("last", {}).get("totalTokens"), usage.get("modelContextWindow")
@@ -487,6 +505,81 @@ class CodexAgent(Agent):
                         context=ContextUsage(used=used, size=size),
                     )
                 )
+
+    def _usage_event(self, method: str, data: dict[str, Any]) -> None:
+        """Accounting remains bound after Stop; it has no lifecycle/tool authority."""
+        if not self.on_consumption:
+            return
+        thread = data.get("threadId")
+        if method == "thread/started":
+            native = data.get("thread", {})
+            identity, parent = native.get("id"), native.get("parentThreadId")
+            source = native.get("source")
+            if not parent and isinstance(source, dict):
+                child = source.get("subAgent")
+                if isinstance(child, dict) and isinstance(child.get("thread_spawn"), dict):
+                    parent = child["thread_spawn"].get("parent_thread_id")
+            if (
+                isinstance(identity, str)
+                and len(identity) <= 200
+                and isinstance(parent, str)
+                and parent in self._usage_threads
+                and len(self._usage_threads) < 64
+            ):
+                self._usage_threads[identity] = (
+                    "forkedFromId" not in native or native["forkedFromId"] is not None
+                )
+            return
+        # The root resume replay can precede the thread/resume response.
+        if isinstance(thread, str) and thread == self.resume and self.session_id is None:
+            if method == "thread/tokenUsage/updated":
+                self._usage_baselines[thread] = codex_usage.counters(
+                    data.get("tokenUsage", {}).get("total")
+                )
+            return
+        if not isinstance(thread, str) or thread not in self._usage_threads or not self.session_id:
+            return
+        turn = data.get("turn", {}).get("id") if method.startswith("turn/") else data.get("turnId")
+        if not isinstance(turn, str) or not turn or len(turn) > 120:
+            return
+        key = (thread, turn)
+        if method == "turn/started" and (
+            (self._completion is not None and not self.stopping)
+            or (thread != self.session_id and bool(self._usage_turns))
+        ):
+            if len(self._usage_turns) < 4096:
+                self._usage_turns.add(key)
+        elif method == "thread/tokenUsage/updated":
+            value = codex_usage.counters(data.get("tokenUsage", {}).get("total"))
+            if key not in self._usage_turns:
+                if (
+                    not any(t == thread for t, _ in self._usage_turns)
+                    and self._usage_threads[thread]
+                ):
+                    self._usage_baselines[thread] = value
+                return
+            self._usage_latest[key] = value
+            self._emit_usage(thread, turn, value)
+        elif method == "turn/completed" and key in self._usage_turns:
+            self._usage_final[key] = data.get("turn", {}).get("status") != "completed"
+            self._emit_usage(thread, turn, self._usage_latest.get(key, Tokens()))
+
+    def _emit_usage(self, thread: str, turn: str, value: Tokens) -> None:
+        assert self.on_consumption and self.session_id
+        key = (thread, turn)
+        self.on_consumption(
+            codex_usage.observation(
+                value,
+                session=self.session_id,
+                thread=thread,
+                turn=turn,
+                version=self._usage_version,
+                resumed=self._usage_threads[thread],
+                inherited=self._usage_baselines.get(thread),
+                final=key in self._usage_final,
+                failed=self._usage_final.get(key, False),
+            )
+        )
 
     async def _request(self, method: str, data: dict[str, Any]) -> dict[str, Any]:
         def eligible() -> bool:

@@ -293,6 +293,8 @@ def test_failed_input_continuation_retry_keeps_answer_and_checkpoint(tmp_path):
     assert questions.get("harbor", q.id).delivery.state == "Continuation blocked"
     execution.retry("harbor", successor.id, RunAction(expected_revision=failed.revision))
     retry = execution.claim("harbor", BASE, {RESULT: set()})
+    assert successor.launch_reason == "answer-continuation"
+    assert retry.launch_reason == "retry"
     assert retry.base_commit == BASE and retry.input_base_commit == RESULT
     assert (
         execution.assignment("harbor", retry.id)["input"]

@@ -20,6 +20,8 @@ if "fast" in sys.argv:
     CONFIG.append({"id": "fast-mode", "currentValue": "off"})
 active = False
 current = {}
+current_turn = "turn-1"
+usage_turns = 0
 
 
 def send(message):
@@ -36,7 +38,7 @@ def reply(request, result):
                 "params": {
                     "threadId": "test-session",
                     "turn": {
-                        "id": "turn-1",
+                        "id": current_turn,
                         "status": "interrupted"
                         if result.get("stopReason") == "cancelled"
                         else "completed",
@@ -49,7 +51,7 @@ def reply(request, result):
 
 
 def update(update_type, **data):
-    common = {"threadId": "test-session", "turnId": "turn-1"}
+    common = {"threadId": "test-session", "turnId": current_turn}
     if update_type == "agent_message_chunk":
         send(
             {
@@ -85,6 +87,19 @@ def update(update_type, **data):
                     **common,
                     "tokenUsage": {
                         "last": {"totalTokens": data["used"]},
+                        **(
+                            {
+                                "total": {
+                                    "inputTokens": 100 * usage_turns,
+                                    "outputTokens": 20 * usage_turns,
+                                    "cachedInputTokens": 50 * usage_turns,
+                                    "reasoningOutputTokens": 10 * usage_turns,
+                                    "totalTokens": 120 * usage_turns,
+                                }
+                            }
+                            if "usage" in sys.argv
+                            else {}
+                        ),
                         "modelContextWindow": data["size"],
                     },
                 },
@@ -100,6 +115,7 @@ def update(update_type, **data):
 
 
 async def main():
+    global usage_turns, current_turn
     global active, current
     stopped = asyncio.Event()
     pending = {}
@@ -122,7 +138,7 @@ async def main():
                     "method": "turn/completed",
                     "params": {
                         "threadId": "test-session",
-                        "turn": {"id": "turn-1", "status": "failed"},
+                        "turn": {"id": current_turn, "status": "failed"},
                     },
                 }
             )
@@ -148,7 +164,12 @@ async def main():
                 "data:image/png;base64,"
             )
             assert "iVBOR" in blocks[4]["url"]
-        control = json.loads(request["params"]["prompt"][0]["text"])
+        try:
+            control = json.loads(request["params"]["prompt"][0]["text"])
+        except json.JSONDecodeError:
+            if "usage" not in sys.argv:
+                raise
+            control = {}
         if "coordinator" in sys.argv:
             assert control["flowfield_connection"] == servers[0]["name"]
             assert control["flowfield_connection"] in control["instructions"]
@@ -219,7 +240,7 @@ async def main():
                     "params": {
                         "threadId": "test-session",
                         "turn": {
-                            "id": "turn-1",
+                            "id": current_turn,
                             "status": "failed",
                             "error": {
                                 "codexErrorInfo": control.get("error"),
@@ -284,7 +305,7 @@ async def main():
                     "method": "item/fileChange/requestApproval",
                     "params": {
                         "threadId": "test-session",
-                        "turnId": "turn-1",
+                        "turnId": current_turn,
                         "itemId": "tool-1",
                         "reason": "command: inspect project",
                         "toolCall": {
@@ -392,7 +413,7 @@ async def main():
         if method == "initialize":
             if "slow-start" in sys.argv:
                 await asyncio.Event().wait()
-            reply(request, {"userAgent": "scripted-native"})
+            reply(request, {"userAgent": "codex_cli_rs/0.164.0 (scripted)"})
         elif method == "model/list":
             reply(
                 request,
@@ -535,6 +556,9 @@ async def main():
                 terminal_active = False
                 reply(request, {"terminated": True})
         elif method in {"turn/start", "thread/compact/start"}:
+            if "usage" in sys.argv:
+                usage_turns += 1
+                current_turn = f"turn-{usage_turns}"
             if method == "thread/compact/start" and "no-compact" in sys.argv:
                 send({"id": request["id"], "error": {"code": -32601}})
                 continue
@@ -543,10 +567,10 @@ async def main():
             send(
                 {
                     "method": "turn/started",
-                    "params": {"threadId": "test-session", "turn": {"id": "turn-1"}},
+                    "params": {"threadId": "test-session", "turn": {"id": current_turn}},
                 }
             )
-            reply(request, {"turn": {"id": "turn-1", "status": "inProgress"}})
+            reply(request, {"turn": {"id": current_turn, "status": "inProgress"}})
             request["prompting"] = True
             request["params"]["prompt"] = params.get(
                 "input", [{"type": "text", "text": "/compact"}]

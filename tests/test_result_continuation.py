@@ -99,6 +99,7 @@ def test_unchanged_correction_stops_instead_of_looping(tmp_path):
     service._process_delivery("harbor")
     run = service.execution.claim("harbor", target, {target: set()})
     assert run and run.correction
+    assert run.launch_reason == "correction"
     service.execution.started("harbor", run.id)
     service.execution.finish(
         "harbor",

@@ -1642,6 +1642,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/usage": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Usage */
+    get: operations["usage_api_workspaces__workspace_id__usage_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/tasks/{task_id}/usage": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Task Usage */
+    get: operations["task_usage_api_workspaces__workspace_id__tasks__task_id__usage_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspaces/{workspace_id}/usage/{source}/{source_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Evidence */
+    get: operations["evidence_api_workspaces__workspace_id__usage__source___source_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/workspaces/{workspace_id}/tasks/{task_id}/agent-settings": {
     parameters: {
       query?: never;
@@ -3030,6 +3081,91 @@ export interface components {
       truncated: boolean;
       /** Last Output At */
       last_output_at: string | null;
+    };
+    /**
+     * Consumption
+     * @description Allowlisted native cumulative evidence; ownership is bound by the service callback.
+     */
+    Consumption: {
+      /** Event Id */
+      event_id: string;
+      /** Session Id */
+      session_id: string;
+      /**
+       * Epoch
+       * @default 0
+       */
+      epoch: string;
+      /** Native Scope Id */
+      native_scope_id: string | null;
+      /** Dispatch Id */
+      dispatch_id: string | null;
+      /** Order */
+      order: number | null;
+      /** Source Time */
+      source_time: string | null;
+      /**
+       * Contract
+       * @default claude-model-usage/0.3.293
+       * @enum {string}
+       */
+      contract:
+        | "claude-model-usage/0.3.293"
+        | "codex-thread-total/0.164.0"
+        | "pi-session-stats/1";
+      /** Native Version */
+      native_version: string | null;
+      /**
+       * Adapter Version
+       * @default claude-sdk-v1
+       * @enum {string}
+       */
+      adapter_version: "claude-sdk-v1" | "codex-app-server-v1" | "pi-rpc-v1";
+      /**
+       * Scope
+       * @default query-pipeline-including-native-children
+       * @enum {string}
+       */
+      scope:
+        | "query-pipeline-including-native-children"
+        | "native-thread"
+        | "native-session-all-entries";
+      /** Model */
+      model: string | null;
+      counters: components["schemas"]["Tokens"];
+      /** Uncertain Components */
+      uncertain_components: (
+        | "input"
+        | "output"
+        | "cache_read"
+        | "cache_write"
+        | "reasoning"
+        | "total"
+      )[];
+      /**
+       * Semantics
+       * @default disjoint-cache
+       * @enum {string}
+       */
+      semantics: "disjoint-cache" | "inclusive-cache";
+      /**
+       * Baseline
+       * @default fresh
+       * @enum {string}
+       */
+      baseline: "fresh" | "resume" | "fork" | "explicit-reset";
+      inherited: components["schemas"]["Tokens"] | null;
+      /**
+       * Final
+       * @default false
+       */
+      final: boolean;
+      /** Gap */
+      gap: ("native-error" | "missing-counters" | "unsupported-version") | null;
+      /** Limitations */
+      limitations: (
+        "native-provider-coverage-unknown" | "native-child-baseline-unknown"
+      )[];
     };
     /** ContextUsage */
     ContextUsage: {
@@ -5315,6 +5451,11 @@ export interface components {
     };
     /** Run */
     Run: {
+      /**
+       * Launch Reason
+       * @default unknown
+       */
+      launch_reason: string;
       agent_settings: components["schemas"]["EffectiveAgent"] | null;
       applied_agent: components["schemas"]["AgentChoice-Output"] | null;
       harness_launch: components["schemas"]["HarnessLaunch"] | null;
@@ -6123,6 +6264,11 @@ export interface components {
     };
     /** TaskReview */
     TaskReview: {
+      /**
+       * Launch Reason
+       * @default assessment
+       */
+      launch_reason: string;
       /** Id */
       id: string;
       /** Workspace Id */
@@ -6297,6 +6443,21 @@ export interface components {
       /** Next Cursor */
       next_cursor: string | null;
     };
+    /** Tokens */
+    Tokens: {
+      /** Input */
+      input: number | null;
+      /** Output */
+      output: number | null;
+      /** Cache Read */
+      cache_read: number | null;
+      /** Cache Write */
+      cache_write: number | null;
+      /** Reasoning */
+      reasoning: number | null;
+      /** Total */
+      total: number | null;
+    };
     /** UpdateCheck */
     UpdateCheck: {
       /** Client Id */
@@ -6386,6 +6547,309 @@ export interface components {
        * @default false
        */
       complete: boolean;
+    };
+    /** UsageBreakdown */
+    UsageBreakdown: {
+      /**
+       * Dimension
+       * @enum {string}
+       */
+      dimension:
+        | "role"
+        | "source"
+        | "task"
+        | "harness"
+        | "model"
+        | "purpose"
+        | "outcome";
+      /** Key */
+      key: string | null;
+      tokens: components["schemas"]["Tokens"];
+      /** Attempts */
+      attempts: number;
+    };
+    /** UsageBucket */
+    UsageBucket: {
+      /** Start */
+      start: string;
+      /** End */
+      end: string;
+      /** Label */
+      label: string;
+      tokens: components["schemas"]["Tokens"];
+      /** Recorded Seconds */
+      recorded_seconds: number | null;
+    };
+    /** UsageContract */
+    UsageContract: {
+      /** Harness */
+      harness: string;
+      /** Contract */
+      contract: string | null;
+      /** Native Version */
+      native_version: string | null;
+      /** Supported */
+      supported: boolean;
+      /** Scope */
+      scope: string;
+      /** Limitation */
+      limitation: string;
+    };
+    /** UsageEvidence */
+    UsageEvidence: {
+      /** Number */
+      number: number;
+      /** Received At */
+      received_at: string;
+      observation: components["schemas"]["Consumption"];
+      baseline: components["schemas"]["Tokens"] | null;
+      delta: components["schemas"]["Tokens"];
+      /** Disposition */
+      disposition: string;
+      /** Interval Start */
+      interval_start: string | null;
+      /** Interval End */
+      interval_end: string | null;
+      /**
+       * Timing
+       * @default unknown
+       * @enum {string}
+       */
+      timing: "execution-bounded" | "unknown";
+    };
+    /** UsageEvidencePage */
+    UsageEvidencePage: {
+      execution: components["schemas"]["UsageExecution"];
+      /** Items */
+      items: components["schemas"]["UsageEvidence"][];
+      /** Next After */
+      next_after: number | null;
+    };
+    /** UsageExecution */
+    UsageExecution: {
+      /** Number */
+      number: number;
+      /** Workspace Id */
+      workspace_id: string;
+      /**
+       * Source
+       * @enum {string}
+       */
+      source: "run" | "review_attempt" | "coordinator_turn";
+      /** Source Id */
+      source_id: string;
+      /** Task Id */
+      task_id: string | null;
+      /** Related Task Id */
+      related_task_id: string | null;
+      /** Project Id */
+      project_id: string | null;
+      /** Parent Id */
+      parent_id: string | null;
+      /** Subtask Id */
+      subtask_id: string | null;
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: "worker" | "reviewer" | "coordinator";
+      /** Purpose */
+      purpose: string;
+      /** Outcome */
+      outcome: string;
+      /** Harness */
+      harness: string | null;
+      /** Requested Model */
+      requested_model: string | null;
+      /** Session Id */
+      session_id: string | null;
+      /** Created At */
+      created_at: string;
+      /** Started At */
+      started_at: string | null;
+      /** Ended At */
+      ended_at: string | null;
+      /**
+       * Timing
+       * @enum {string}
+       */
+      timing: "not-dispatched" | "recorded" | "live" | "unknown-end" | "legacy";
+      /** Legacy */
+      legacy: boolean;
+      /**
+       * Coverage
+       * @enum {string}
+       */
+      coverage: "complete" | "partial" | "unavailable";
+      /** Reasons */
+      reasons: string[];
+      tokens: components["schemas"]["Tokens"];
+      /** Observed Models */
+      observed_models: (string | null)[];
+      /**
+       * Observation Count
+       * @default 0
+       */
+      observation_count: number;
+      /**
+       * Dispatch Count
+       * @default 0
+       */
+      dispatch_count: number;
+    };
+    /** UsageFilter */
+    UsageFilter: {
+      /** Start */
+      start: string | null;
+      /** End */
+      end: string | null;
+      /**
+       * Timezone
+       * @default UTC
+       */
+      timezone: string;
+      /**
+       * Group
+       * @default day
+       * @enum {string}
+       */
+      group: "hour" | "day";
+      /** Task Id */
+      task_id: string | null;
+      /** Project Id */
+      project_id: string | null;
+      /** Role */
+      role: ("worker" | "reviewer" | "coordinator") | null;
+      /** Source */
+      source: ("run" | "review_attempt" | "coordinator_turn") | null;
+      /** Purpose */
+      purpose: string | null;
+      /** Outcome */
+      outcome: string | null;
+      /** Harness */
+      harness: string | null;
+      /** Model */
+      model: string | null;
+      /** Coverage */
+      coverage: ("complete" | "partial" | "unavailable") | null;
+      /** Related Task Id */
+      related_task_id: string | null;
+      /**
+       * Unassigned
+       * @default false
+       */
+      unassigned: boolean;
+      /**
+       * Unknown Model
+       * @default false
+       */
+      unknown_model: boolean;
+      /**
+       * After
+       * @default 0
+       */
+      after: number;
+      /**
+       * Limit
+       * @default 50
+       */
+      limit: number;
+    };
+    /** UsageTotals */
+    UsageTotals: {
+      /** Reasons */
+      reasons: string[];
+      tokens: components["schemas"]["Tokens"];
+      /**
+       * Attempts
+       * @default 0
+       */
+      attempts: number;
+      /**
+       * Started Attempts
+       * @default 0
+       */
+      started_attempts: number;
+      /**
+       * Unknown Starts
+       * @default 0
+       */
+      unknown_starts: number;
+      /**
+       * Complete
+       * @default 0
+       */
+      complete: number;
+      /**
+       * Partial
+       * @default 0
+       */
+      partial: number;
+      /**
+       * Unavailable
+       * @default 0
+       */
+      unavailable: number;
+      /**
+       * Legacy
+       * @default 0
+       */
+      legacy: number;
+      /** Recorded Seconds */
+      recorded_seconds: number | null;
+      /**
+       * Recorded Intervals
+       * @default 0
+       */
+      recorded_intervals: number;
+      /**
+       * Unknown Intervals
+       * @default 0
+       */
+      unknown_intervals: number;
+      /**
+       * Live Intervals
+       * @default 0
+       */
+      live_intervals: number;
+      /**
+       * Coverage
+       * @default unavailable
+       * @enum {string}
+       */
+      coverage: "complete" | "partial" | "unavailable";
+    };
+    /** UsageView */
+    UsageView: {
+      /** Contracts */
+      contracts: components["schemas"]["UsageContract"][];
+      /** Collection Started At */
+      collection_started_at: string;
+      totals: components["schemas"]["UsageTotals"];
+      /**
+       * Related Coordinator Attempts
+       * @default 0
+       */
+      related_coordinator_attempts: number;
+      /** Items */
+      items: components["schemas"]["UsageExecution"][];
+      /** Next After */
+      next_after: number | null;
+      /** Buckets */
+      buckets: components["schemas"]["UsageBucket"][];
+      /** Breakdowns */
+      breakdowns: components["schemas"]["UsageBreakdown"][];
+      filters: components["schemas"]["UsageFilter"];
+      /**
+       * Timing Label
+       * @default Usage reported during the period; consumption may span earlier periods.
+       */
+      timing_label: string;
+      /**
+       * Limit Reached
+       * @default false
+       */
+      limit_reached: boolean;
     };
     /** ValidationError */
     ValidationError: {
@@ -10603,6 +11067,143 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Run"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  usage_api_workspaces__workspace_id__usage_get: {
+    parameters: {
+      query?: {
+        start?: string | null;
+        end?: string | null;
+        timezone?: string;
+        group?: "hour" | "day";
+        task_id?: string | null;
+        project_id?: string | null;
+        role?: ("worker" | "reviewer" | "coordinator") | null;
+        source?: ("run" | "review_attempt" | "coordinator_turn") | null;
+        purpose?: string | null;
+        outcome?: string | null;
+        harness?: string | null;
+        model?: string | null;
+        coverage?: ("complete" | "partial" | "unavailable") | null;
+        related_task_id?: string | null;
+        unassigned?: boolean;
+        unknown_model?: boolean;
+        after?: number;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UsageView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  task_usage_api_workspaces__workspace_id__tasks__task_id__usage_get: {
+    parameters: {
+      query?: {
+        start?: string | null;
+        end?: string | null;
+        timezone?: string;
+        group?: "hour" | "day";
+        task_id?: string | null;
+        project_id?: string | null;
+        role?: ("worker" | "reviewer" | "coordinator") | null;
+        source?: ("run" | "review_attempt" | "coordinator_turn") | null;
+        purpose?: string | null;
+        outcome?: string | null;
+        harness?: string | null;
+        model?: string | null;
+        coverage?: ("complete" | "partial" | "unavailable") | null;
+        related_task_id?: string | null;
+        unassigned?: boolean;
+        unknown_model?: boolean;
+        after?: number;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+        task_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UsageView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  evidence_api_workspaces__workspace_id__usage__source___source_id__get: {
+    parameters: {
+      query?: {
+        after?: number;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+        source: "run" | "review_attempt" | "coordinator_turn";
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UsageEvidencePage"];
         };
       };
       /** @description Validation Error */

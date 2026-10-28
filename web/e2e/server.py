@@ -15,7 +15,7 @@ from flowfield.api import create_app
 state, address = map(Path, sys.argv[1:3])
 owner = int(sys.argv[3])
 with socket.socket() as listener:
-    listener.bind(("127.0.0.1", 0))
+    listener.bind(("127.0.0.1", int(sys.argv[4]) if len(sys.argv) > 4 else 0))
     listener.listen(128)
     pending_address = address.with_suffix(".tmp")
     pending_address.write_text(json.dumps({"port": listener.getsockname()[1], "pid": os.getpid()}))

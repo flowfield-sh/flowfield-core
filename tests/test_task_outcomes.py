@@ -221,6 +221,17 @@ def test_parallel_contributions_exact_inputs_and_single_delivery(tmp_path):
     assert last
     assert json.loads(execution.assignment(owner, last.id)["files"])[0]["name"] == "research.pdf"
     contribute(store, execution, owner, last, output="report.pdf")
+    from usage_fixtures import event
+
+    from flowfield.usage import Usage
+    from flowfield.usage_models import UsageFilter
+    from flowfield.usage_reads import UsageReads
+
+    accounting = Usage(store)
+    for contributor in (first, second, last):
+        accounting.start(owner, "run", contributor.id, contributor.id)
+        accounting.observe(owner, "run", contributor.id, event(contributor))
+        accounting.end(owner, "run", contributor.id, confirmed=True)
     assert assemblies.assemble(owner, task.id)
     assert not TaskAssembly(Workspace(store.directory)).assemble(owner, task.id)
     result = Results(store).page(owner, task.id).items[0]
@@ -234,6 +245,12 @@ def test_parallel_contributions_exact_inputs_and_single_delivery(tmp_path):
     Results(store).process(owner)
     assert store.task(owner, task.id).status == "done"
     assert len(Results(store).page(owner, task.id).items) == 1
+    usage = UsageReads(store).view(owner, UsageFilter(), task=task.id)
+    assert usage.totals.attempts == 3 and usage.totals.tokens.total == 540
+    assert {item.subtask_id for item in usage.items} == {a.id, b.id, c.id}
+    assert Results(store).page(owner, task.id).items[0].run_id not in {
+        item.source_id for item in usage.items
+    }
 
 
 def test_assembled_review_receives_frozen_sources_and_output_manifest(tmp_path):

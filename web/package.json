@@ -28,10 +28,12 @@
     "react": "^19.0.0",
     "react-diff-view": "^3.3.3",
     "react-dom": "^19.0.0",
+    "react-is": "19.3.0",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "4.14.2",
     "react-router": "^8.4.0",
     "react-time-ago": "^7.4.4",
+    "recharts": "3.10.0",
     "refractor": "^3.6.0",
     "remark-gfm": "^4.0.1",
     "sonner": "^2.0.8"

@@ -29,6 +29,7 @@ def main() -> None:
     tasks = []
     active_prompt = None
     initialize_count = 0
+    usage_turn = 0
 
     def emit(message):
         print(json.dumps(message), flush=True)
@@ -67,6 +68,8 @@ def main() -> None:
         raise RuntimeError("The explicitly supplied test tool did not exit")
 
     def finish(cancelled=False, *, is_error=False):
+        nonlocal usage_turn
+        usage_turn += 1
         emit(
             {
                 "type": "result",
@@ -85,7 +88,19 @@ def main() -> None:
                     "cache_read_input_tokens": 0,
                     "cache_creation_input_tokens": 0,
                 },
-                "modelUsage": {},
+                "modelUsage": {
+                    "claude-sonnet-5-5": {
+                        "inputTokens": 100 * usage_turn,
+                        "outputTokens": 20 * usage_turn,
+                        "cacheReadInputTokens": 50 * usage_turn,
+                        "cacheCreationInputTokens": 10 * usage_turn,
+                        "thinkingTokens": 8 * usage_turn,
+                        "costUSD": 999,
+                        "private": "PRIVATE_USAGE_FIELD",
+                    }
+                }
+                if scenario in {"usage", "usage-stop"}
+                else {},
                 "permission_denials": [],
                 "uuid": str(uuid4()),
                 "session_id": session_id,
@@ -153,7 +168,7 @@ def main() -> None:
                 }
             elif subtype == "interrupt":
                 response = {"still_queued": []}
-                if scenario == "foreground" and active_prompt:
+                if scenario in {"foreground", "usage-stop"} and active_prompt:
                     stop_tool()
                     finish(cancelled=True)
                     active_prompt = None
@@ -238,6 +253,15 @@ def main() -> None:
             active_prompt = None
         elif message.get("type") == "user":
             active_prompt = message
+            if scenario in {"usage", "usage-stop"}:
+                emit(
+                    {
+                        "type": "system",
+                        "subtype": "init",
+                        "session_id": session_id,
+                        "claude_code_version": "2.1.293",
+                    }
+                )
             save({"input": message["message"]})
             emit(
                 {
@@ -360,7 +384,7 @@ def main() -> None:
                         },
                     }
                 )
-            elif scenario != "foreground":
+            elif scenario not in {"foreground", "usage-stop"}:
                 finish()
 
 

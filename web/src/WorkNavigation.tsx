@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   Columns3,
+  ChartColumn,
   FileText,
   Files,
   Folder,
@@ -101,6 +102,7 @@ export function WorkNavigation({
     { name: "Task Board", href: base + "/tasks", Icon: Columns3 },
     { name: "Documents", href: base + "/documents", Icon: FileText },
     { name: "Files", href: base + "/files", Icon: Files },
+    { name: "Usage", href: base + "/usage", Icon: ChartColumn },
     { name: "Projects", href: base + "/projects", Icon: Folder },
   ];
   return (

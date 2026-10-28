@@ -9,7 +9,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, ValidationError
 
 from flowfield.activity_text import command_title, public_output
 from flowfield.adapters.agent_contract import (
@@ -303,6 +303,17 @@ class ClaudeAgent(Agent):
             self._permission = None
 
     def _event(self, method: str, data: dict[str, Any]) -> None:
+        if method == "consumption":
+            from flowfield.usage_models import Consumption
+
+            if data.get("session_id") != self.session_id or not self.on_consumption:
+                return
+            try:
+                observation = Consumption.model_validate(data)
+            except ValidationError:
+                return
+            self.on_consumption(observation)
+            return
         if (
             method != "activity"
             or data.get("sessionId") != self.session_id

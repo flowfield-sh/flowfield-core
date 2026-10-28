@@ -571,6 +571,11 @@ class TaskReviews(ReviewRecords[TaskReview]):
                     review.question_id, review.status = question.id, "waiting"
                 elif action in ("ask_worker", "answer"):
                     review.recipient = "implementer" if action == "ask_worker" else "reviewer"
+                    review.launch_reason = (
+                        "implementer-clarification"
+                        if action == "ask_worker"
+                        else "assessment-continuation"
+                    )
                     review.responding_subtask_id = (
                         decision.get("subtask_id") if action == "ask_worker" else None
                     )

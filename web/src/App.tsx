@@ -26,6 +26,7 @@ import { WorkState } from "./WorkState";
 import { WorkspaceList, NewWorkspace } from "./WorkspaceEntry";
 import { Documents } from "./Documents";
 import { Files } from "./Files";
+import { WorkspaceUsage } from "./WorkspaceUsage";
 import { ProjectOverview } from "./ProjectOverview";
 import { ProjectList } from "./ProjectList";
 import { SetupInstructions } from "./SetupInstructions";
@@ -699,6 +700,7 @@ function WorkspaceResource({
     !!projectId && pathname === `${projectHref(projectId)}/overview`;
   const documentsView = pathname.startsWith(`${base}/documents`);
   const filesView = pathname === `${base}/files`;
+  const usageView = pathname === `${base}/usage`;
   const addingProject = pathname.endsWith("/projects/new");
   const selectedProject = board?.projects.find(
     (project) => project.id === projectId,
@@ -744,7 +746,10 @@ function WorkspaceResource({
     }
   }, [filtered, board, labelFilter, location.search, pathname, changeLocation]);
   const adjacentContext: AdjacentContext | null =
-    !requestSelected && board && (!taskRef || (taskDetail && !detailError))
+    !usageView &&
+    !requestSelected &&
+    board &&
+    (!taskRef || (taskDetail && !detailError))
       ? {
           view: {
             surface,
@@ -941,9 +946,9 @@ function WorkspaceResource({
         !addingProject &&
         !requestSelected && (
           <div
-            className={`${(documentsView && params.documentId) || filesView ? "workspace-detail-content " : ""}workspace-work-content ${!projectsView && !documentsView && !filesView && !showInbox && !archive ? "workspace-task-board" : ""}`}
+            className={`${(documentsView && params.documentId) || filesView || usageView ? "workspace-detail-content " : ""}workspace-work-content ${!projectsView && !documentsView && !filesView && !usageView && !showInbox && !archive ? "workspace-task-board" : ""}`}
           >
-            {!projectsView && !documentsView && !filesView && (
+            {!projectsView && !documentsView && !filesView && !usageView && (
               <div className="board-toolbar">
                 {
                   <div className="actions board-filters">
@@ -1011,6 +1016,13 @@ function WorkspaceResource({
                 projects={board.projects}
                 problems={{}}
                 workspaceId={workspaceId}
+              />
+            ) : usageView ? (
+              <WorkspaceUsage
+                workspaceId={workspaceId}
+                board={board}
+                refresh={refresh}
+                navigate={changeLocation}
               />
             ) : filesView ? (
               <Files workspaceId={workspaceId} refresh={refresh} />

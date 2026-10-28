@@ -46,6 +46,7 @@ from flowfield.results import Results
 from flowfield.run_activity import ActivityRecorder, ActivityUpdate
 from flowfield.setup_validation import SetupValidation
 from flowfield.storage import acquire_lock
+from flowfield.usage import Usage
 from flowfield.worker_context import brief_context
 from flowfield.worker_tools import WorkerBridge
 from flowfield.workspaces import Workspaces
@@ -93,6 +94,7 @@ class Supervisor:
             # connection() rechecks the schema under the shared maintenance lock.
             with self.workspace.connection():
                 pass
+            Usage(self.workspace).recover()
             self.execution.restart()
             self.review_execution.reviews.restart()
             self.permissions.restart()
@@ -541,6 +543,7 @@ class Supervisor:
                 environment.launch_environment(),
                 registration=run.agent_settings.registration if run.agent_settings else None,
             )
+            Usage(self.workspace).bind(run.workspace_id, "run", run.id, client)
             client.output_directory = environment.runtime / "output"
             self.clients[run.id] = client
             checks = WorkerChecks(self.execution, run, environment)
@@ -627,6 +630,7 @@ class Supervisor:
                     run_id=run.id,
                 ) as turn,
             ):
+                Usage(self.workspace).start(run.workspace_id, "run", run.id, client.session_id)
                 outcome = await client.prompt(
                     json.dumps(brief, ensure_ascii=False),
                     checks.permission(server.name, permission_handler(turn)),
@@ -653,6 +657,7 @@ class Supervisor:
                                 "Asking once for a result or blocking question.",
                             )
                         )
+                    Usage(self.workspace).start(run.workspace_id, "run", run.id, client.session_id)
                     outcome = await client.prompt(
                         completion_reminder(server.name),
                         checks.permission(server.name, permission_handler(turn)),
@@ -743,6 +748,12 @@ class Supervisor:
                         "native_cleanup_confirmed": client.cleanup_confirmed,
                     },
                 )
+            Usage(self.workspace).end(
+                run.workspace_id,
+                "run",
+                run.id,
+                confirmed=client is None or client.cleanup_confirmed,
+            )
             try:
                 await scope_stack.aclose()
             except (Exception, asyncio.CancelledError):

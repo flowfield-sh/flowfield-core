@@ -1,0 +1,32 @@
+---
+title: Usage
+description: Explore reported tokens and recorded execution time, with coverage and exact evidence.
+---
+
+Open **Usage** in workspace navigation to see when token usage was reported. The default is Today, grouped by hour, in your browser’s timezone. A compact summary and one timeline show the selection; **Table** provides exact values and keyboard links to each period’s executions.
+
+## Explore recorded work
+
+Choose **Hour** or **Day**, or select a bar or table period to inspect its executions. **Filters** holds custom dates, timezone, task, project, role, purpose, outcome, harness, reported model and coverage. Custom dates use date/time controls labeled UTC; the end is exclusive. Hour views support up to 31 days and day views up to 366 days. Changing timezone regroups the same UTC period; selecting Today again selects that timezone’s local day. **Reset** returns to Today in your browser’s timezone and clears filters. The URL, reload and Back/Forward retain the exact selection.
+
+**Breakdowns and executions** opens one breakdown at a time, followed by the counted executions. Select a breakdown row to narrow the selection. Archived tasks, **No task assigned** activity and models not reported remain included. Each breakdown partitions the same usage; its totals must not be added to another breakdown’s totals. Model attempt counts can overlap when an execution reports several models, and model-filtered time covers matching executions rather than time measured per model.
+
+Open an execution for its numeric evidence or its task. On a task, **Usage** shows lifetime reported tokens, recorded execution time and coverage. **Usage details** provides attempts, purposes, outcomes, role/source breakdowns, exact evidence and a link to workspace exploration. Bound subtasks and all review attempts contribute once; result references and assembly do not add usage. Coordinator work remains workspace activity, even when a task was selected as conversation context.
+
+## Read the numbers
+
+**Tokens reported** is consumption reported by supported executions, separate from the active context occupancy indicator. Missing values say **Not reported** rather than zero. **Partial coverage** means known values are a subtotal; it is not a capture percentage. **Final for reported scope** means reconciled final reports for that scope, not complete account-wide usage. Read limits are identified beside the total; narrow the period or filters when a bounded subtotal is shown.
+
+Buckets show usage **reported in the period**. Consumption can span earlier periods: a final-only report stays in its receipt bucket rather than being spread across hours. Replayed reports preserve their original receipt; a later higher report adds only its new amount. Timestamps are stored in UTC and displayed in the chosen IANA timezone. Table labels include offsets so repeated daylight-saving hours remain distinct; local days can contain 23 or 25 hours.
+
+**Recorded execution time** includes tools and waits. Parallel execution time can exceed elapsed wall time. Supported intervals can be clipped to a selected period; live or unknown endpoints are shown separately and never extended into a running total. Exact evidence exposes receipt times and supported execution bounds without claiming the instant each token was consumed.
+
+## Coverage and retained evidence
+
+Usage collection supports Codex app-server 0.164.0 thread totals, Claude SDK 0.3.293 / native Claude Code 2.1.293 query-pipeline totals, and Pi RPC 1.1.0 / 1.4.0 session statistics across Worker, Reviewer and Coordinator executions. Native scope and version appear in evidence. Claude includes native children within its query pipeline; Codex tracks bound child threads independently; Pi includes session entries, compaction and tool-reported usage. Unsupported versions or missing reports remain unavailable. Deterministic tests establish interface behavior, not live-provider completeness.
+
+Codex and Pi aggregate counters do not establish a reported-model partition, so they remain under **Not reported** rather than the configured model. Default-like or omitted component counters stay unknown. Pi’s provider completeness remains partial even when a positive total is known. Context occupancy is separate from all consumption totals.
+
+Historical missing consumption and unknown execution endpoints are not backfilled. **Accounting and coverage** shows collection start, legacy records and gaps. Numeric evidence retains source/version/scope, reported model, raw counters, baseline and counted delta; it does not retain prompts or hidden reasoning. Cache tokens are within normalized input and reasoning tokens are within output, so these subsets are not added again.
+
+Archiving keeps usage and provenance. Deleting a source removes its retained accounting consistently. Capture is bounded to 4,096 observations per execution; reaching the limit freezes further capture with an explicit gap. Reads are bounded to 10,000 matching executions and 100,000 observations. Usage has no billing, cost, quota or productivity estimates.
