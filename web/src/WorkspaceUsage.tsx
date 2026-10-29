@@ -7,10 +7,22 @@ import { ContentStack, DetailHeading } from "./DetailLayout";
 import { UsageMetrics, UsageReadState } from "./UsageMetrics";
 import type { WorkspaceBoard } from "./workspace";
 import { useUsagePage } from "./usage";
-import { defaultUsageQuery, todayPeriod, localDate } from "./usagePeriod";
+import type { UsageMetric } from "./UsageChart";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  defaultUsageQuery,
+  todayPeriod,
+  localDate,
+  bucketLabel,
+  usageZoom,
+} from "./usagePeriod";
 const UsageChart = lazy(() => import("./UsageChart"));
 
-// Retain older deep-link filters, but keep routine controls to date and task.
+// Retain diagnostic deep links alongside the routine exploration controls.
 const filterKeys = [
   "task_id",
   "project_id",
@@ -43,6 +55,11 @@ export function WorkspaceUsage({
     params.set("period", "custom");
   for (const [key, value] of defaults)
     if (!params.has(key)) params.set(key, value);
+  if (!params.has("metric")) params.set("metric", "tokens");
+  if (!params.has("dimension")) params.set("dimension", "role");
+  const zoom = usageZoom(params.get("zoom"));
+  const metric: UsageMetric =
+    params.get("metric") === "duration" ? "duration" : "tokens";
   const canonical = params.toString();
   useEffect(() => {
     if (new URLSearchParams(location.search).toString() !== canonical)
@@ -56,7 +73,14 @@ export function WorkspaceUsage({
     navigate(`${location.pathname}?${next}`);
   }
   const query = new URLSearchParams();
-  for (const key of ["start", "end", "timezone", "group", ...filterKeys])
+  for (const key of [
+    "start",
+    "end",
+    "timezone",
+    "group",
+    "dimension",
+    ...filterKeys,
+  ])
     if (params.get(key)) query.set(key, params.get(key)!);
   const resource = useUsagePage(
     `workspaces/${encodeURIComponent(workspaceId)}/usage?${query}`,
@@ -88,7 +112,7 @@ export function WorkspaceUsage({
             onChange={(e) => {
               const preset = e.target.value;
               if (preset === "custom") {
-                change({ period: preset });
+                change({ period: preset, zoom: "" });
                 return;
               }
               const zone = validDates ? timezone : defaults.get("timezone")!;
@@ -103,6 +127,7 @@ export function WorkspaceUsage({
                 ...period,
                 timezone: zone,
                 period: preset,
+                zoom: "",
                 group: days === 1 ? "hour" : "day",
               });
             }}
@@ -111,6 +136,13 @@ export function WorkspaceUsage({
             <option value="week">Last 7 days</option>
             <option value="month">Last 30 days</option>
             <option value="custom">Custom dates</option>
+            {zoom.length > 0 && (
+              <option value="zoom">
+                {params.get("group") === "minute"
+                  ? "Selected hour"
+                  : "Selected day"}
+              </option>
+            )}
           </NativeSelect>
           <NativeSelect
             className="usage-task-select"
@@ -130,14 +162,73 @@ export function WorkspaceUsage({
               </option>
             ))}
           </NativeSelect>
+          <NativeSelect
+            aria-label="Usage metric"
+            size="sm"
+            value={metric}
+            onChange={(e) => change({ metric: e.target.value })}
+          >
+            <option value="tokens">Tokens</option>
+            <option value="duration">Duration</option>
+          </NativeSelect>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <NativeSelect
+                  aria-label="Usage dimension"
+                  size="sm"
+                  value={params.get("dimension")!}
+                  onChange={(e) => change({ dimension: e.target.value })}
+                >
+                  <option value="role">By agent type</option>
+                  <option value="harness">By harness</option>
+                  <option value="model">By model</option>
+                </NativeSelect>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {params.get("dimension") === "model"
+                ? "Groups by the model selected for each run."
+                : metric === "duration"
+                  ? "Elapsed running time within each group. Groups may overlap."
+                  : "Groups the tokens reported during this period."}
+            </TooltipContent>
+          </Tooltip>
         </div>
+        {zoom.length > 0 && validDates && (
+          <div className="actions usage-controls">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const parent = zoom.at(-1)!;
+                change({
+                  ...parent,
+                  zoom:
+                    zoom.length > 1 ? JSON.stringify(zoom.slice(0, -1)) : "",
+                });
+              }}
+            >
+              Zoom out
+            </Button>
+            <span className="detail-metadata">
+              {bucketLabel(
+                params.get("start")!,
+                timezone,
+                params.get("group")!,
+              )}{" "}
+              –{" "}
+              {bucketLabel(params.get("end")!, timezone, params.get("group")!)}
+            </span>
+          </div>
+        )}
         {params.get("period") === "custom" && validDates && (
           <DateRange
             key={`${params.get("start")}/${params.get("end")}/${timezone}`}
             start={params.get("start")!}
             end={params.get("end")!}
             timezone={timezone}
-            apply={change}
+            apply={(values) => change({ ...values, zoom: "" })}
           />
         )}
         {!!hiddenFilters.length && (
@@ -167,7 +258,9 @@ export function WorkspaceUsage({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => change(Object.fromEntries(defaultUsageQuery()))}
+              onClick={() =>
+                change({ ...Object.fromEntries(defaultUsageQuery()), zoom: "" })
+              }
             >
               Reset dates
             </Button>
@@ -180,7 +273,29 @@ export function WorkspaceUsage({
             <>
               <UsageMetrics view={resource.data} task={!!taskId} />
               <Suspense fallback={<p role="status">Loading chart…</p>}>
-                <UsageChart view={resource.data} />
+                <UsageChart
+                  view={resource.data}
+                  metric={metric}
+                  select={(start, end) =>
+                    change({
+                      start,
+                      end,
+                      group: params.get("group") === "day" ? "hour" : "minute",
+                      period: "zoom",
+                      zoom: JSON.stringify(
+                        [
+                          ...zoom,
+                          {
+                            start: params.get("start")!,
+                            end: params.get("end")!,
+                            group: params.get("group")!,
+                            period: params.get("period")!,
+                          },
+                        ].slice(-2),
+                      ),
+                    })
+                  }
+                />
               </Suspense>
             </>
           ))}

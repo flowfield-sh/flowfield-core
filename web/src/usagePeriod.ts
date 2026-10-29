@@ -44,14 +44,43 @@ export function bucketLabel(
 ) {
   return new Intl.DateTimeFormat(undefined, {
     timeZone: timezone,
-    ...(!compact || group !== "hour"
+    ...(!compact || group === "day"
       ? { month: "short" as const, day: "numeric" as const }
       : {}),
-    ...(group === "hour"
+    ...(group !== "day"
       ? { hour: "2-digit" as const, minute: "2-digit" as const }
       : {}),
     ...(!compact
       ? { year: "numeric" as const, timeZoneName: "shortOffset" as const }
       : {}),
   }).format(new Date(value));
+}
+
+export type UsageZoom = {
+  start: string;
+  end: string;
+  group: string;
+  period: string;
+};
+export function usageZoom(value: string | null): UsageZoom[] {
+  try {
+    const parsed: unknown = JSON.parse(value ?? "[]");
+    return Array.isArray(parsed) &&
+      parsed.length <= 2 &&
+      parsed.every(
+        (item) =>
+          item &&
+          typeof item === "object" &&
+          ["start", "end", "group", "period"].every(
+            (key) => typeof item[key] === "string",
+          ) &&
+          Number.isFinite(Date.parse(item.start)) &&
+          Number.isFinite(Date.parse(item.end)) &&
+          ["day", "hour"].includes(item.group),
+      )
+      ? parsed
+      : [];
+  } catch {
+    return [];
+  }
 }

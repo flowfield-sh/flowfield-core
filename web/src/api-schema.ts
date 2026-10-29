@@ -6684,6 +6684,8 @@ export interface components {
       tokens: components["schemas"]["Tokens"];
       /** Recorded Seconds */
       recorded_seconds: number | null;
+      /** Elapsed Seconds */
+      elapsed_seconds: number | null;
     };
     /** UsageContract */
     UsageContract: {
@@ -6818,7 +6820,13 @@ export interface components {
        * @default day
        * @enum {string}
        */
-      group: "hour" | "day";
+      group: "minute" | "hour" | "day";
+      /**
+       * Dimension
+       * @default role
+       * @enum {string}
+       */
+      dimension: "role" | "harness" | "model";
       /** Task Id */
       task_id: string | null;
       /** Project Id */
@@ -6859,6 +6867,24 @@ export interface components {
        * @default 50
        */
       limit: number;
+    };
+    /** UsageSeries */
+    UsageSeries: {
+      /** Key */
+      key: string | null;
+      /**
+       * Other
+       * @default false
+       */
+      other: boolean;
+      /** Points */
+      points: components["schemas"]["UsageSeriesPoint"][];
+    };
+    /** UsageSeriesPoint */
+    UsageSeriesPoint: {
+      tokens: components["schemas"]["Tokens"];
+      /** Elapsed Seconds */
+      elapsed_seconds: number | null;
     };
     /** UsageTotals */
     UsageTotals: {
@@ -6946,6 +6972,8 @@ export interface components {
       next_after: number | null;
       /** Buckets */
       buckets: components["schemas"]["UsageBucket"][];
+      /** Series */
+      series: components["schemas"]["UsageSeries"][];
       /** Breakdowns */
       breakdowns: components["schemas"]["UsageBreakdown"][];
       filters: components["schemas"]["UsageFilter"];
@@ -11230,7 +11258,8 @@ export interface operations {
         start?: string | null;
         end?: string | null;
         timezone?: string;
-        group?: "hour" | "day";
+        group?: "minute" | "hour" | "day";
+        dimension?: "role" | "harness" | "model";
         task_id?: string | null;
         project_id?: string | null;
         role?: ("worker" | "reviewer" | "coordinator") | null;
@@ -11280,7 +11309,8 @@ export interface operations {
         start?: string | null;
         end?: string | null;
         timezone?: string;
-        group?: "hour" | "day";
+        group?: "minute" | "hour" | "day";
+        dimension?: "role" | "harness" | "model";
         task_id?: string | null;
         project_id?: string | null;
         role?: ("worker" | "reviewer" | "coordinator") | null;

@@ -3,12 +3,12 @@ title: Usage
 description: See token consumption and time spent running work.
 ---
 
-Open **Usage** to see tokens and duration across your workspace. Choose Today, Last 7 days, Last 30 days or custom dates, then optionally select a task. The chart shows when token usage was reported. Dates use your local timezone; custom dates include both selected days.
+Open **Usage** to see tokens and duration across your workspace. Choose Today, Last 7 days, Last 30 days or custom dates, then optionally select a task. Choose **Tokens** or **Duration**, grouped **By agent type**, **By harness** or **By model**. Click a day bar to see its hours, then an hour bar to see its minutes; **Zoom out** returns to the previous range. With the chart focused, use arrow keys to inspect intervals and Enter to zoom. Token bars show when usage was reported. Dates use your local timezone; custom dates include both selected days.
 
-The summary shows total tokens, duration and the Coordinator, Worker and Reviewer figures. Selecting a task includes its Workers, subtasks, review and clarification work. Coordinator conversations remain workspace usage because a conversation can span multiple tasks.
+The summary shows total tokens and duration. Hover, focus or tap a total for the Coordinator, Worker and Reviewer breakdown. Selecting a task includes its Workers, subtasks, review and clarification work. Coordinator conversations remain workspace usage because a conversation can span multiple tasks.
 
-Task details show lifetime tokens and duration, with compact Worker and Reviewer figures. Totals update during active work as the harness reports counters. Some harnesses only report counters at the end of a turn.
+Task details show lifetime tokens and duration, with Worker and Reviewer breakdowns in the totals’ tooltips. Totals update during active work as the harness reports counters. Some harnesses only report counters at the end of a turn.
 
-Duration counts time with work running, including tools and waits inside a run. Parallel work counts once, and idle gaps between runs are excluded. Role durations can overlap, so they do not add up to the overall duration. Missing timing or token counters appear as a dash, not zero.
+Duration counts time with work running, including tools and waits inside a run. Parallel work counts once, and idle gaps between runs are excluded. Group durations can overlap, so their bars appear alongside each other and do not add up to the overall duration. **By model** uses the model selected for each run; native reported-model evidence remains separate. Missing timing or token counters appear as a dash, not zero.
 
 Usage measures consumption, not price or productivity. Native token counters include cached input where reported; cache and reasoning subsets are not added twice. Detailed accounting, coverage and retained native observations remain available through the read-only usage API. Historical tasks retain available records; Flowfield does not reconstruct unreported consumption.

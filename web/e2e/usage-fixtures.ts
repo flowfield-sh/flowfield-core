@@ -128,6 +128,7 @@ export function usageFixture(workspace: string, task: string): UsageView {
     items,
     next_after: null,
     buckets: [],
+    series: [],
     breakdowns: [
       {
         dimension: "role",
@@ -167,6 +168,7 @@ export function usageFixture(workspace: string, task: string): UsageView {
       end: null,
       timezone: "UTC",
       group: "day",
+      dimension: "role",
       task_id: task,
       project_id: null,
       role: null,

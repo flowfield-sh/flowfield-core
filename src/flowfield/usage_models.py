@@ -108,7 +108,8 @@ class UsageFilter(UsageRecord):
     start: AwareDatetime | None = None
     end: AwareDatetime | None = None
     timezone: str = Field(default="UTC", max_length=100)
-    group: Literal["hour", "day"] = "day"
+    group: Literal["minute", "hour", "day"] = "day"
+    dimension: Literal["role", "harness", "model"] = "role"
     task_id: str | None = Field(default=None, max_length=200)
     project_id: str | None = Field(default=None, max_length=200)
     role: Role | None = None
@@ -140,6 +141,8 @@ class UsageFilter(UsageRecord):
                 raise ValueError("Choose a positive period of at most 366 days")
             if self.group == "hour" and seconds > 31 * 86400:
                 raise ValueError("Hourly views cover at most 31 days")
+            if self.group == "minute" and seconds > 86400:
+                raise ValueError("Minute views cover at most one day")
         return self
 
 
@@ -167,6 +170,18 @@ class UsageBucket(UsageRecord):
     label: str
     tokens: Tokens = Field(default_factory=Tokens)
     recorded_seconds: float | None = None
+    elapsed_seconds: float | None = None
+
+
+class UsageSeriesPoint(UsageRecord):
+    tokens: Tokens = Field(default_factory=Tokens)
+    elapsed_seconds: float | None = None
+
+
+class UsageSeries(UsageRecord):
+    key: str | None
+    other: bool = False
+    points: list[UsageSeriesPoint]
 
 
 class UsageBreakdown(UsageRecord):
@@ -228,6 +243,7 @@ class UsageView(UsageRecord):
     items: list[UsageExecution]
     next_after: int | None = None
     buckets: list[UsageBucket] = Field(default_factory=list)
+    series: list[UsageSeries] = Field(default_factory=list)
     breakdowns: list[UsageBreakdown] = Field(default_factory=list)
     filters: UsageFilter
     timing_label: str = "Usage reported during the period; consumption may span earlier periods."

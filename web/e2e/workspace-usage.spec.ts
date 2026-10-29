@@ -26,7 +26,7 @@ test("usage fills its pane, retains Coordinator and filters persisted counters b
     exact: true,
   });
   await expect(usage.locator("dd").first()).toHaveText("4,800");
-  await expect(usage.getByLabel("coordinator usage")).toContainText("300");
+  await expect(usage.getByLabel("Chart legend")).toContainText("Coordinator");
   await expect(usage.getByRole("table")).toHaveCount(0);
   const chart = usage.getByRole("region", { name: "Token usage over time" });
   await expect(chart.locator("svg").first()).toBeVisible();
@@ -42,6 +42,7 @@ test("usage fills its pane, retains Coordinator and filters persisted counters b
   await expect(page).toHaveURL(new RegExp(`task_id=${f.task}`));
   const query = new URL(page.url()).searchParams;
   query.delete("period");
+  query.delete("metric");
   const expected = await (
     await request.get(`/api/workspaces/${f.workspace}/usage?${query}`)
   ).json();
@@ -141,4 +142,60 @@ test("invalid saved dates recover without losing the selected task", async ({
       usage.getByRole("button", { name: "Reset dates" }),
     ).toHaveCount(0);
   }
+});
+
+test("chart explores metrics and dimensions, zooms by pointer and keyboard, and retains filters", async ({
+  page,
+}, info) => {
+  const f = seed();
+  const query = new URL(f.workspace_url, "http://localhost").searchParams;
+  query.set("group", "day");
+  await page.goto(`/workspaces/${f.workspace}/usage?${query}`);
+  const usage = page.getByRole("region", {
+    name: "Workspace usage",
+    exact: true,
+  });
+  await usage.getByLabel("Usage metric").selectOption("duration");
+  await usage.getByLabel("Usage dimension").selectOption("harness");
+  const chart = usage.getByRole("region", { name: "Duration over time" });
+  await expect(chart.getByLabel("Chart legend")).toContainText("Claude Code");
+  // Clicking the SVG focuses it without drawing the browser's pointer-focus outline.
+  const svg = chart.locator("svg.recharts-surface");
+  await svg.click({
+    position: { x: (await svg.boundingBox())!.width - 5, y: 120 },
+  });
+  expect(await svg.evaluate((e) => getComputedStyle(e).outlineStyle)).toBe(
+    "none",
+  );
+  await chart.locator(".recharts-bar-rectangle path").first().click();
+  await expect(page).toHaveURL(/group=hour/);
+  await expect(usage.getByLabel("Usage period")).toHaveValue("zoom");
+  await usage.getByLabel("Usage dimension").selectOption("model");
+  await expect(chart.getByLabel("Chart legend")).toContainText(
+    "synthetic-requested-model",
+  );
+  await page.reload();
+  await expect(usage.getByLabel("Usage dimension")).toHaveValue("model");
+  await expect(usage.getByLabel("Usage metric")).toHaveValue("duration");
+  await expect(
+    chart.locator(".recharts-bar-rectangle path").first(),
+  ).toBeVisible();
+  // Keyboard focus remains visible; arrows inspect buckets and Enter drills in.
+  await usage.getByLabel("Token usage breakdown").focus();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  await expect(svg).toBeFocused();
+  expect(await svg.evaluate((e) => getComputedStyle(e).outlineStyle)).toBe(
+    "solid",
+  );
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/group=minute/);
+  await usage.getByRole("button", { name: "Zoom out" }).click();
+  await expect(page).toHaveURL(/group=hour/);
+  await usage.getByRole("button", { name: "Zoom out" }).click();
+  await expect(page).toHaveURL(/group=day/);
+  await expect(usage.getByLabel("Usage dimension")).toHaveValue("model");
+  await usage.getByLabel("Usage metric").selectOption("tokens");
+  await dialogViews(page, info, "explored-usage");
 });

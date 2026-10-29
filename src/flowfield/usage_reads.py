@@ -21,6 +21,7 @@ from flowfield.usage_models import (
     UsageTotals,
     UsageView,
 )
+from flowfield.usage_timeline import Timeline, elapsed
 
 MAX_EXECUTIONS = 10_000
 MAX_READ_OBSERVATIONS = 100_000
@@ -28,21 +29,6 @@ MAX_READ_OBSERVATIONS = 100_000
 
 def instant(value: str) -> datetime:
     return datetime.fromisoformat(value).astimezone(UTC)
-
-
-def elapsed(intervals: list[tuple[datetime, datetime]]) -> float | None:
-    """Wall-clock running time: merge overlap before counting parallel activity."""
-    if not intervals:
-        return None
-    total = 0.0
-    left, right = sorted(intervals)[0]
-    for start, end in sorted(intervals)[1:]:
-        if start > right:
-            total += (right - left).total_seconds()
-            left, right = start, end
-        else:
-            right = max(right, end)
-    return total + (right - left).total_seconds()
 
 
 def buckets(filters: UsageFilter) -> list[UsageBucket]:
@@ -53,12 +39,16 @@ def buckets(filters: UsageFilter) -> list[UsageBucket]:
     cursor = (
         local.replace(minute=0, second=0, microsecond=0)
         if filters.group == "hour"
+        else local.replace(second=0, microsecond=0)
+        if filters.group == "minute"
         else local.replace(hour=0, minute=0, second=0, microsecond=0)
     ).astimezone(UTC)
     result = []
     while cursor < filters.end:
         right = (
-            cursor + timedelta(hours=1)
+            cursor + timedelta(minutes=1)
+            if filters.group == "minute"
+            else cursor + timedelta(hours=1)
             if filters.group == "hour"
             else (cursor.astimezone(zone) + timedelta(days=1))
             .replace(hour=0, minute=0, second=0, microsecond=0)
@@ -248,7 +238,7 @@ class UsageReads:
                 else 0
             )
         groups = buckets(filters)
-        bucket_tokens: list[list[Tokens]] = [[] for _ in groups]
+        timeline = Timeline(groups)
         totals = UsageTotals()
         measured_at = datetime.now(UTC)
         intervals: list[tuple[datetime, datetime]] = []
@@ -262,6 +252,13 @@ class UsageReads:
             execution = execution_record(row, own)
             if filters.coverage and execution.coverage != filters.coverage:
                 continue
+            chart_key = (
+                execution.role
+                if filters.dimension == "role"
+                else execution.harness
+                if filters.dimension == "harness"
+                else execution.requested_model
+            )
             selected = []
             models: dict[str | None, list[Tokens]] = defaultdict(list)
             for receipt in own:
@@ -280,15 +277,8 @@ class UsageReads:
                 if receipt["disposition"] == "accepted":
                     delta = Tokens.model_validate_json(receipt["delta"])
                     contributions.append(delta)
+                    timeline.receipt(chart_key, instant(receipt["received_at"]), delta)
                     models[event.model].append(delta)
-                    for index, bucket in enumerate(groups):
-                        if (
-                            instant(bucket.start)
-                            <= instant(receipt["received_at"])
-                            < instant(bucket.end)
-                        ):
-                            bucket_tokens[index].append(delta)
-                            break
             if filters.model is not None and filters.model not in execution.observed_models:
                 continue
             if (
@@ -305,6 +295,7 @@ class UsageReads:
                 right = min(known_end, filters.end) if filters.end else known_end
                 if right >= left:
                     intervals.append((left, right))
+                    timeline.interval(chart_key, left, right)
                     role_intervals[execution.role].append((left, right))
                     if execution.timing == "live" and right == measured_at:
                         live_roles.add(execution.role)
@@ -388,8 +379,9 @@ class UsageReads:
             if totals.tokens.total is not None or totals.reasons
             else "unavailable"
         )
-        for bucket, values in zip(groups, bucket_tokens, strict=True):
-            bucket.tokens = add_tokens(values)
+        for bucket, point in zip(groups, timeline.totals(), strict=True):
+            bucket.tokens = point.tokens
+            bucket.elapsed_seconds = point.elapsed_seconds
         page = [item for item in items if item.number > filters.after][: filters.limit + 1]
         return UsageView(
             measured_at=measured_at.isoformat(),
@@ -399,6 +391,7 @@ class UsageReads:
             next_after=page[filters.limit - 1].number if len(page) > filters.limit else None,
             related_coordinator_attempts=related,
             buckets=groups,
+            series=timeline.series(),
             breakdowns=[
                 UsageBreakdown.model_validate(
                     {

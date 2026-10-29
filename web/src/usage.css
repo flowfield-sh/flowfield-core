@@ -47,29 +47,17 @@
     font-size: 12px;
   }
   .usage-totals dd {
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 500;
     line-height: 1.5;
     margin: 0;
   }
   .task-usage .usage-totals dd {
-    font-size: 20px;
+    font-size: 16px;
   }
   .usage-live {
     font-size: 12px;
     color: var(--muted-foreground);
-  }
-  .usage-roles {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 24px;
-  }
-  .usage-role {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 14px;
   }
   .usage-chart {
     font-variant-numeric: tabular-nums;
@@ -81,5 +69,72 @@
     color: var(--popover-foreground);
     padding: 8px;
     font-size: 12px;
+  }
+}
+@layer components {
+  .usage-chart {
+    --usage-series-1: var(--primary);
+    --usage-series-2: #39867b;
+    --usage-series-3: #8062a5;
+    --usage-series-4: #b57938;
+    --usage-series-5: #ae617d;
+    --usage-series-6: #567a9b;
+    --usage-series-7: #708348;
+    --usage-series-8: var(--muted-foreground);
+  }
+  .dark .usage-chart {
+    --usage-series-2: #7ac5b4;
+    --usage-series-3: #b39bd7;
+    --usage-series-4: #d8ad73;
+    --usage-series-5: #dc9db6;
+    --usage-series-6: #94b9d7;
+    --usage-series-7: #afc58b;
+  }
+  .usage-chart .recharts-surface:focus:not(:focus-visible) {
+    outline: none;
+  }
+  .usage-chart .recharts-surface:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .usage-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+  .usage-series-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    margin-right: 6px;
+  }
+  .usage-metric-trigger {
+    border-radius: 4px;
+    cursor: help;
+  }
+  .usage-metric-trigger:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 4px;
+  }
+  .usage-tooltip-rows {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    min-width: 170px;
+    font-variant-numeric: tabular-nums;
+  }
+  .usage-tooltip-rows > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .usage-tooltip-rows + p {
+    margin-top: 8px;
   }
 }
