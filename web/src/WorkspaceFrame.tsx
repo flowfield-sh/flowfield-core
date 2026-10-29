@@ -22,7 +22,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Home } from "lucide-react";
+import { Home, BookOpen } from "lucide-react";
 import { usePanelRef } from "react-resizable-panels";
 import { Button } from "@/components/ui/button";
 import { ChoiceSelect } from "@/components/ui/choice-select";
@@ -88,6 +88,22 @@ function WorkspaceNavigation({
             </Button>
           </ActionTooltip>
           <SettingsLink active={!!settingsActive} />
+          <ActionTooltip label="Documentation">
+            <Button
+              asChild
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Documentation"
+            >
+              <a
+                href="https://docs.flowfield.sh"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <BookOpen />
+              </a>
+            </Button>
+          </ActionTooltip>
           {isMobile && <SidebarTrigger aria-label="Close navigation" />}
         </div>
         {workspacesLoaded && !workspaces.length ? (

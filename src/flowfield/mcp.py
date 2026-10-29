@@ -842,6 +842,28 @@ def create_mcp(
             lambda: workspace().edit_task(workspace_id, task_id, attributed(changes)).model_dump()
         )
 
+    @mcp.tool(
+        annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True, openWorldHint=False)
+    )
+    async def delete_task(
+        workspace_id: Identifier, task_id: TaskIdentifier, changes: Edit
+    ) -> CallToolResult:
+        """Permanently delete a task, history, results, files and inspection copies.
+
+        Use when the human requests deletion; archive for reversible removal.
+        Delivered repository code remains. Active ownership and referenced evidence block deletion.
+        Read the task first and supply its current revision.
+        """
+        from flowfield.task_deletion import TaskDeletionService
+
+        return await mutate(
+            lambda: (
+                TaskDeletionService(workspace())
+                .delete(workspace_id, task_id, attributed(changes))
+                .model_dump()
+            )
+        )
+
     @mcp.tool(annotations=write)
     async def prioritize_task(
         workspace_id: Identifier, task_id: TaskIdentifier, priority: TaskPriority

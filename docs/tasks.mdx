@@ -11,7 +11,7 @@ Open a task to read its definition, related work, subtasks and feed. **Task sett
 
 ## Define useful work
 
-Describe the outcome and how you will judge it. The Coordinator can clarify the scope, select [worker documents](/documents#supply-worker-context) and prepare the assignment. The Coordinator maintains task definitions and labels; priorities are also available directly on the board.
+Describe the outcome and how you will judge it. The Coordinator can clarify the scope, select [worker documents](/documents#supply-worker-context) and prepare the assignment. You and the Coordinator can edit task definitions and labels; priorities are also available directly on the board.
 
 Tasks use workspace-local keys such as `T-1`. For reports, datasets or images, ask for a workspace task without a project. See [Files](/files) for outputs and inputs.
 
@@ -39,11 +39,15 @@ Missing role settings or unavailable harness/model choices block a task before a
 
 Each board column scrolls independently. On narrow screens, scroll sideways to reach the other columns.
 
+## Edit a task
+
+Choose **Edit task** in the task header to change its title, description, acceptance criteria or labels, then **Save task**. Project assignment stays fixed. Changes appear as task-definition updates in the feed. Unsaved edits stay protected when navigating; if someone changes the task before you save, use **Load latest** to review the current definition. Changes to requirements can require reconciliation of recorded work with the Coordinator.
+
 ## Archive or delete
 
 Use **Archive task** in the task header to hide abandoned work while retaining its history and inspection copies. Restore returns it to its previous column. Stop active work before archiving. Archiving withdraws task-only questions and cancels pending replies; resolve shared questions first.
 
-**Delete task**, beside Archive, permanently removes the task, its history, results, submitted files and owned work folders, including inspection edits and preview data. Confirm the deletion after stopping any manually launched previews and saving anything you want to keep. Delivered code in your project stays. Active or uncertain managed work, dependent tasks and frozen file/evidence consumers block deletion. Archive instead when those references should remain.
+**Delete task**, beside Archive, permanently removes the task, its history, results, submitted files and owned work folders, including inspection edits and preview data. Confirm the deletion after stopping any manually launched previews and saving anything you want to keep. Delivered code in your project stays. Active or uncertain managed work, dependent tasks and frozen file/evidence consumers block deletion. Archive instead when those references should remain. The Coordinator can also delete tasks through `delete_task`, using the same ownership and evidence checks.
 
 Deletion removes the task from collections and closes its open tabs after refresh. Task numbers are never reused. See the [CLI](/cli#tasks-and-subtasks) for command-line deletion.
 
@@ -73,11 +77,11 @@ Open an **In progress** task to follow the worker's activity. The worker should 
 
 If a worker ends normally without a submission or question, Flowfield gives it one reminder in the same session and checkout. This uses another model turn and retains the slot until cleanup completes. If it still does not report, work is preserved for inspection and explicit retry. Stopped or interrupted attempts are never restarted by this reminder.
 
-Ask the Coordinator to stop active task workers; unfinished work is preserved. **Retry worker** queues a fresh attempt; it respects pause, dependencies and capacity. Follow the displayed recovery action if native cleanup is uncertain.
+Choose **Stop task** in the task header and confirm, or ask the Coordinator to stop it. This stops active Worker and Reviewer execution and moves the task to Backlog. Recorded work, files and history remain; questions from other waiting contributions are preserved. The control appears only when execution or cleanup is still active. **Retry worker** queues a fresh attempt; it respects pause, dependencies and capacity. Follow the displayed recovery action if native cleanup is uncertain.
 
 ## Read the task story
 
-The feed groups definition changes, sources, questions, activity and results into initial work, corrections and follow-ups. Expand an event for its evidence; hover a timestamp for the exact time. Feedback names its exact result. Earlier saved testing notes remain available as historical evidence.
+The feed groups definition changes, sources, questions, activity and results into initial work, corrections and follow-ups. Expand an event for its evidence; hover a timestamp for the exact time. Contribution work events name their assigned subtask. Feedback names its exact result. Earlier saved testing notes remain available as historical evidence. Worker and Reviewer activity keeps a bounded recent buffer; “Earlier activity is no longer retained” means older activity exceeded that buffer. Task events, results and submitted files are retained separately.
 
 The task page stays at your reading position. Open worker or reviewer output to follow new entries inside that panel; scroll up to read earlier output and return to the bottom to follow again. Manual disclosure choices survive work-tab navigation. Numeric context occupancy and reported consumed tokens are separate measurements. The compact **Metrics** section shows lifetime reported tokens, elapsed running time, Corrections and Retries. The Corrections count includes Worker runs started to correct prior work, excluding retries and answer continuations. Hover, focus or tap Tokens or Duration for its Worker and Reviewer breakdown, or [explore workspace Metrics](/metrics) by period.
 

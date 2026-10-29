@@ -457,7 +457,8 @@ function title(
   const settings = location.pathname.endsWith("/settings");
   const suffix = settings
     ? " · Settings"
-    : location.pathname.endsWith("/edit") && root.includes("/documents/")
+    : location.pathname.endsWith("/edit") &&
+        (root.includes("/documents/") || root.includes("/tasks/"))
       ? " · Edit"
       : "";
   if (titles[root]) return titles[root] + suffix;
@@ -468,7 +469,7 @@ function title(
       (key === t.key || key === t.id),
   );
   if (task)
-    return `${task.key} ${location.pathname.endsWith("/settings") ? "Settings" : task.title}`;
+    return `${task.key} ${location.pathname.endsWith("/settings") ? "Settings" : task.title}${location.pathname.endsWith("/edit") ? " · Edit" : ""}`;
   const project = board?.projects.find(
     (p) => location.pathname === `/projects/${p.id}/overview`,
   );

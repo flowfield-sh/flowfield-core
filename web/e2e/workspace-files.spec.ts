@@ -53,6 +53,20 @@ test("workspace files organize retained task outputs without a project", async (
     "Use a 1024 pixel viewport.",
   );
   expect(failedReads).toEqual([]);
+  const results = await (
+    await request.get(`/api${base}/tasks/${value.task}/results`)
+  ).json();
+  await page.goto(`${base}/results/${results.items[0].id}`);
+  await expect(page.locator(".text-preview")).toHaveCount(0);
+  const resultFile = page.getByRole("link", {
+    name: "launch-report.txt",
+    exact: true,
+  });
+  await resultFile.click();
+  await expect(page).toHaveURL(/\/files\?.*file=/);
+  await expect(page.getByLabel("Preview of launch-report.txt")).toContainText(
+    "The pilot supports a focused launch.",
+  );
   await page.goto(`${base}/files`);
   const files = page.getByRole("region", { name: "Files", exact: true });
   const taskFilter = files.getByRole("combobox", {

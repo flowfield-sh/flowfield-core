@@ -35,14 +35,12 @@ export function OutputFiles({ files }: { files: OutputFile[] }) {
         <li key={file.id} className="content-stack px-3 py-2">
           <div className="flex min-w-0 items-center gap-2">
             <File className="size-4 shrink-0" aria-hidden="true" />
-            <a
+            <WorkspaceLink
               className="min-w-0 flex-1 break-all"
-              href={contentHref(file)}
-              target="_blank"
-              rel="noreferrer"
+              to={`/workspaces/${file.workspace_id}/files?${new URLSearchParams({ file: file.id, task_key: file.task_key, path: file.name.includes("/") ? file.name.slice(0, file.name.lastIndexOf("/")) : "" })}`}
             >
               {file.name}
-            </a>
+            </WorkspaceLink>
             <span className="detail-metadata shrink-0">
               {sizeLabel(file.size)}
             </span>
@@ -61,7 +59,6 @@ export function OutputFiles({ files }: { files: OutputFile[] }) {
               <TooltipContent>Download {file.name}</TooltipContent>
             </Tooltip>
           </div>
-          <OutputPreview key={file.id} file={file} compact />
         </li>
       ))}
     </ul>

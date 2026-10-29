@@ -920,6 +920,7 @@ function WorkspaceResource({
             task={incoming as Task}
             board={board}
             setUnsaved={setUnsaved}
+            navigate={changeLocation}
             close={() => choose(null)}
             openTask={(id) => choose({ kind: "task", id })}
           />

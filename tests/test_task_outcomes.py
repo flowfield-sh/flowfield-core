@@ -968,3 +968,48 @@ def test_parallel_subtask_questions_resume_without_blocking_siblings(tmp_path):
     )
     assert other and other.input_question_id == pending[1].id
     assert execution.occupancy(owner).active == 2
+
+
+def test_stopping_active_sibling_preserves_waiting_question_and_subtask_identity(tmp_path):
+    import asyncio
+
+    from flowfield.execution_models import RunAction
+    from flowfield.questions import QuestionCreate, Questions
+    from flowfield.supervisor import Supervisor
+    from flowfield.thread_view import ThreadView
+
+    store, owner, execution = workspace(tmp_path)
+    task, a, b, _ = decomposed(store, owner)
+    assembly = TaskAssembly(store).ensure(task, "", [])
+    first = execution.claim(
+        owner, "", {}, task_id=task.id, subtask_id=a.id, assembly_id=assembly.id
+    )
+    second = execution.claim(
+        owner, "", {}, task_id=task.id, subtask_id=b.id, assembly_id=assembly.id
+    )
+    assert first and second
+    execution.started(owner, first.id)
+    question = execution.ask_question(
+        owner,
+        first.id,
+        QuestionCreate(
+            task_id=task.id,
+            question="Which source?",
+            context="Clarify the research",
+            recommendation="Use the primary source",
+            blocking_scope="Contribution",
+        ),
+    )
+    execution.finish(owner, first.id, "waiting_for_input", input_checkpoint="files")
+    current = store.task(owner, task.id)
+    stopped = asyncio.run(
+        Supervisor(store).stop_task(owner, task.id, RunAction(expected_revision=current.revision))
+    )
+    assert [run.id for run in stopped] == [second.id]
+    assert Questions(store).get(owner, question.id).status == "open"
+    assert execution.get(owner, first.id).status == "waiting_for_input"
+    assert store.task(owner, task.id).status == "backlog"
+    feed = ThreadView(store).page_view(owner, task.id)
+    titles = [item.title for item in feed.items]
+    assert f"Contribution work: {a.key} · {a.title}" in titles
+    assert f"Contribution work: {b.key} · {b.title}" in titles

@@ -28,10 +28,8 @@ function tokens(nodes: Node[]): ReactNode {
 }
 export default function TextPreview({
   file,
-  compact,
 }: {
   file: components["schemas"]["OutputFile"];
-  compact: boolean;
 }) {
   const resource = useResource<components["schemas"]["OutputText"]>(
     `workspaces/${file.workspace_id}/files/${file.id}/text`,
@@ -51,7 +49,7 @@ export default function TextPreview({
   return (
     <div className="text-preview content-stack min-h-0">
       <ResourceRetry resources={[resource]}>Retry preview</ResourceRetry>
-      {!compact && resource.error && !resource.data && <PreviewUnavailable />}
+      {resource.error && !resource.data && <PreviewUnavailable />}
       {resource.loading && !resource.data && (
         <p role="status">Loading preview…</p>
       )}
@@ -61,7 +59,7 @@ export default function TextPreview({
             <div
               aria-label={`Preview of ${file.name}`}
               tabIndex={0}
-              className={`output-code min-h-0 min-w-0 overflow-auto rounded-md border p-3 ${compact ? "max-h-48" : ""}`}
+              className="output-code min-h-0 min-w-0 overflow-auto rounded-md border p-3"
             >
               {/\.csv$/i.test(file.name) || file.media_type === "text/csv" ? (
                 <CsvPreview text={text} truncated={resource.data.truncated} />
@@ -82,10 +80,6 @@ export default function TextPreview({
               </p>
             )}
           </>
-        ) : compact ? (
-          <p className="detail-metadata">
-            No text preview for this file. Open or download it.
-          </p>
         ) : (
           <PreviewUnavailable />
         ))}

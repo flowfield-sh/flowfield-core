@@ -105,24 +105,25 @@ class ReviewRecords[J: ReviewRecord](ABC):
         with self.store.connection(write=True, workspace_id=project) as db:
             review = self._get(db, project, identity)
             self.store._current(review.revision, expected_revision)
-            if review.status not in ("queued", "preparing", "running", "waiting", "uncertain"):
-                raise ApplicationError("review_closed", "This review is already closed.", 409)
-            review.status = (
-                "stopped"
-                if cleanup_confirmed or review.status in ("queued", "waiting")
-                else "uncertain"
-            )
-            review.problem = (
-                "Review stopped; retained evidence is unchanged."
-                if review.status == "stopped"
-                else "Confirm review process cleanup before releasing its slot."
-            )
-            review.completed_at = now() if review.status == "stopped" else None
-            self._retire_question(
-                db, review, "Review stopped; the question and answer are retained."
-            )
-            self._save(db, review)
-            return review
+            return self._stop(db, review, cleanup_confirmed=cleanup_confirmed)
+
+    def _stop(self, db: sqlite3.Connection, review: J, *, cleanup_confirmed: bool) -> J:
+        if review.status not in ("queued", "preparing", "running", "waiting", "uncertain"):
+            raise ApplicationError("review_closed", "This review is already closed.", 409)
+        review.status = (
+            "stopped"
+            if cleanup_confirmed or review.status in ("queued", "waiting")
+            else "uncertain"
+        )
+        review.problem = (
+            "Review stopped; retained evidence is unchanged."
+            if review.status == "stopped"
+            else "Confirm review process cleanup before releasing its slot."
+        )
+        review.completed_at = now() if review.status == "stopped" else None
+        self._retire_question(db, review, "Review stopped; the question and answer are retained.")
+        self._save(db, review)
+        return review
 
     def restart(self) -> None:
         with self.store.connection(write=True) as db:

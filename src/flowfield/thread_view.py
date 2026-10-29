@@ -187,6 +187,17 @@ class ThreadView(Conversation):
                 if data.get("started_at")
                 else "Worker reserved"
             )
+            if data.get("subtask_id"):
+                child = db.execute(
+                    "SELECT data FROM subtask_revisions WHERE workspace_id=? AND task_id=? "
+                    "AND subtask_id=? AND revision=?",
+                    (workspace_id, task_id, data["subtask_id"], data.get("subtask_revision")),
+                ).fetchone()
+                if child:
+                    subtask = json.loads(child[0])
+                    title += f": {subtask['key']} · {subtask['title']}"
+                else:
+                    title += ": " + data["subtask_id"]
             body = data.get("problem") or ""
         elif kind == "result":
             title = "Result #" + str(data["version"])

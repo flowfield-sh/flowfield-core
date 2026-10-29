@@ -377,6 +377,14 @@ class NativeReviewExecution[J: ReviewJob](ABC):
             expected_revision,
             cleanup_confirmed=not (client or job) and current.status != "uncertain",
         )
+        return await self._cleanup_stopped(current)
+
+    async def _cleanup_stopped(self, current: J) -> J:
+        """Clean an already-revoked owner without racing its final progress revision."""
+        service = self.supervisor
+        project, identity = current.workspace_id, current.id
+        client = service.clients.get(identity)
+        job = service.jobs.get(identity)
         if job:
             job.cancel()
             await asyncio.gather(job, return_exceptions=True)

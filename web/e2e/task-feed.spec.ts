@@ -852,8 +852,10 @@ test("attempt activity updates without reloading the board and replays on reload
     attempt.getByRole("region", { name: "Execution details", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Stop task", exact: true }),
-  ).toHaveCount(0);
+    page
+      .locator(".editor-heading")
+      .getByRole("button", { name: "Stop task", exact: true }),
+  ).toBeEnabled();
   const workspace = await projectWorkspace(page.request, "stream-project");
   const task = await (
     await page.request.get(`/api/workspaces/${workspace}/tasks/stream`)

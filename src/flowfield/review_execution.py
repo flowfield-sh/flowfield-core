@@ -100,7 +100,10 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
             task_revision = None
             try:
                 review = self.reviews.get(project, identity)
-                task_revision = service.workspace.task(project, review.task_id).revision
+                task = service.workspace.task(project, review.task_id)
+                task_revision = task.revision
+                if task.archived or task.status not in ("up_next", "in_progress", "in_review"):
+                    continue
                 if not service.execution.settings(project).enabled:
                     continue
                 await service.check_task_agents(project, review.task_id)

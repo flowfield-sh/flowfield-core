@@ -67,7 +67,7 @@ export function RunActivity({
         >
           <div ref={contentRef} className="content-stack">
             {page.omitted && (
-              <p className="muted">Earlier activity was omitted.</p>
+              <p className="muted">Earlier activity is no longer retained.</p>
             )}
             <ActivityEntries items={page.items} />
           </div>

@@ -390,6 +390,11 @@ class TaskReviews(ReviewRecords[TaskReview]):
                 raise ApplicationError(
                     "review_not_queued", "This review is already claimed or closed.", 409
                 )
+            task = self.store._task(db, project, review.task_id)
+            if task.archived or task.status not in ("up_next", "in_progress", "in_review"):
+                raise ApplicationError(
+                    "review_waiting", "Move this task out of Backlog before continuing review.", 409
+                )
             if not self._fresh(db, review):
                 return review
             settings = read_workspace(db, project)

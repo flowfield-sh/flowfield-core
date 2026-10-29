@@ -11,6 +11,7 @@ const pagePaths = [
   "workspaces/:workspaceId/tasks",
   "workspaces/:workspaceId/tasks/:taskKey",
   "workspaces/:workspaceId/tasks/:taskKey/settings",
+  "workspaces/:workspaceId/tasks/:taskKey/edit",
   "workspaces/:workspaceId/tasks/:taskKey/history/:runId?",
   "workspaces/:workspaceId/documents",
   "workspaces/:workspaceId/files",

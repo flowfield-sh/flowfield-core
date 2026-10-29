@@ -813,31 +813,51 @@ class Supervisor:
         with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
             task = self.workspace._task(db, workspace_id, task_id)
             self.workspace._current(task.revision, request.expected_revision)
-            runs = [
-                Run.model_validate_json(row[0])
-                for row in db.execute(
-                    "SELECT data FROM runs WHERE workspace_id=? AND task_id=? AND "
-                    "status IN ('preparing','running','stopping','uncertain')",
-                    (workspace_id, task.id),
+            from flowfield.task_execution import active_task_execution
+
+            run_ids, review_ids = active_task_execution(db, workspace_id, task.id)
+            if not run_ids and not review_ids:
+                raise ApplicationError(
+                    "not_running", "No Worker or Reviewer execution is active.", 409
                 )
+            # Revoke every owner in this transaction, before any cleanup yields.
+            runs = []
+            for identity in run_ids:
+                run = self.execution._run(db, workspace_id, identity)
+                runs.append(
+                    self.execution._stop_requested(
+                        db, run, RunAction(expected_revision=run.revision, author=request.author)
+                    )
+                )
+            reviews = self.review_execution.reviews
+            stopped_reviews = [
+                reviews._stop(db, reviews._get(db, workspace_id, identity), cleanup_confirmed=False)
+                for identity in review_ids
             ]
-            if not runs:
-                raise ApplicationError("not_running", "No task workers are active.", 409)
             self.execution._task_state(
                 db,
                 task,
                 "backlog",
-                "Stopped task work; contributions and unfinished files are retained.",
+                "Stopped task execution; recorded work and files are retained.",
                 request.author,
             )
-        return [
-            await self.stop(
-                workspace_id,
-                run.id,
-                RunAction(expected_revision=run.revision, author=request.author),
-            )
-            for run in runs
-        ]
+        # Attempt cleanup for every owner even when another cleanup fails.
+        outcomes = await asyncio.gather(
+            *(
+                self.stop(
+                    workspace_id,
+                    run.id,
+                    RunAction(expected_revision=run.revision, author=request.author),
+                )
+                for run in runs
+            ),
+            *(self.review_execution._cleanup_stopped(review) for review in stopped_reviews),
+            return_exceptions=True,
+        )
+        for outcome in outcomes:
+            if isinstance(outcome, BaseException):
+                raise outcome
+        return [self.execution.get(workspace_id, run.id) for run in runs]
 
     async def stop(self, project_id: str, run_id: str, request: RunAction) -> Run:
         run = self.execution.stop_requested(project_id, run_id, request)

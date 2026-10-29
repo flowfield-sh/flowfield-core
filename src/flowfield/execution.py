@@ -964,24 +964,27 @@ class Execution:
     def stop_requested(self, workspace_id: str, run_id: str, request: RunAction) -> Run:
         with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
             run = self._run(db, workspace_id, run_id)
-            # Stop targets this immutable attempt, not its changing usage/progress snapshot.
-            # Never retarget a successor; future revisions still indicate an invalid request.
-            if request.expected_revision > run.revision:
-                self.workspace._current(run.revision, request.expected_revision)
-            if run.status in ("stopping", "stopped"):
-                return run
-            if run.status == "waiting_for_input" and run.question_id:
-                run.status, run.problem = (
-                    "stopped",
-                    "Continuation stopped; your answer and unfinished work are preserved.",
-                )
-                self._save(db, run)
-                return run
-            if run.status not in ACTIVE:
-                raise ApplicationError("not_running", "This attempt is no longer running.", 409)
-            run.status = "stopping"
+            return self._stop_requested(db, run, request)
+
+    def _stop_requested(self, db: sqlite3.Connection, run: Run, request: RunAction) -> Run:
+        # Stop targets this immutable attempt, not its changing usage/progress snapshot.
+        # Never retarget a successor; future revisions still indicate an invalid request.
+        if request.expected_revision > run.revision:
+            self.workspace._current(run.revision, request.expected_revision)
+        if run.status in ("stopping", "stopped"):
+            return run
+        if run.status == "waiting_for_input" and run.question_id:
+            run.status, run.problem = (
+                "stopped",
+                "Continuation stopped; your answer and unfinished work are preserved.",
+            )
             self._save(db, run)
             return run
+        if run.status not in ACTIVE:
+            raise ApplicationError("not_running", "This attempt is no longer running.", 409)
+        run.status = "stopping"
+        self._save(db, run)
+        return run
 
     def retry(self, workspace_id: str, run_id: str, request: RunAction) -> Run:
         with self.workspace.connection(write=True, workspace_id=workspace_id) as db:

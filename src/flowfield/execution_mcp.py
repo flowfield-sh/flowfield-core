@@ -199,6 +199,15 @@ def add_execution_tools(
         }
 
     @mcp.tool(annotations=write)
+    async def stop_task(workspace_id: str, task_id: str, request: RunAction) -> dict[str, Any]:
+        """Stop active Worker/Reviewer execution when requested and move the task to Backlog.
+        Read the task revision first. Preserve recorded work, files and unrelated questions.
+        Cleanup uncertainty remains visible; this neither deletes work nor approves delivery.
+        """
+        await supervisor().stop_task(workspace_id, task_id, request)
+        return reads().task(workspace_id, task_id)
+
+    @mcp.tool(annotations=write)
     async def stop_run(workspace_id: str, run_id: str, request: RunAction) -> dict[str, Any]:
         """Stop/reconcile this attempt's owned process and tracked tools; preserve its code."""
         return (await supervisor().stop(workspace_id, run_id, request)).model_dump()

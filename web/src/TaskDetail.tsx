@@ -1,5 +1,13 @@
-import { Archive, ArchiveRestore, Settings, FileText } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  Settings,
+  FileText,
+  Pencil,
+} from "lucide-react";
 import { HeaderAction } from "./HeaderAction";
+import { TaskEditor } from "./TaskEditor";
+import { TaskStopAction } from "./TaskStopAction";
 import { TaskDeleteAction } from "./TaskDeleteAction";
 import { reportError } from "./requestFeedback";
 import { request } from "./workspace";
@@ -29,6 +37,7 @@ export function TaskDetail({
   setUnsaved,
   close,
   openTask,
+  navigate: changeLocation,
 }: {
   task: Task;
   workspaceId: string;
@@ -36,17 +45,29 @@ export function TaskDetail({
   setUnsaved: DirtyCallback;
   close: () => void;
   openTask: (id: string) => void;
+  navigate: (url: string, replace?: boolean) => void;
 }) {
   const navigate = useContext(ResourceNavigation);
-  const settings = useLocation().pathname.endsWith("/settings");
+  const pathname = useLocation().pathname;
+  const settings = pathname.endsWith("/settings");
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [reviewerDirty, setReviewerDirty] = useState(false);
-  const [archiving, setArchiving] = useState(false);
+  const [busy, setBusy] = useState(false);
   const archiveLabel = task.archived ? "Restore task" : "Archive task";
   useEffect(() => {
     setUnsaved(settingsDirty || reviewerDirty);
     return () => setUnsaved(false);
   }, [settingsDirty, reviewerDirty, setUnsaved]);
+  if (pathname.endsWith("/edit"))
+    return (
+      <TaskEditor
+        task={task}
+        workspaceId={workspaceId}
+        onDirty={setUnsaved}
+        close={close}
+        saved={() => changeLocation(taskHref(workspaceId, task), true)}
+      />
+    );
   return (
     <section className="editor task-detail">
       <DetailHeader
@@ -64,6 +85,18 @@ export function TaskDetail({
         closeLabel="Back"
         actions={
           <>
+            <HeaderAction
+              label="Edit task"
+              onClick={() => navigate?.(`${taskHref(workspaceId, task)}/edit`)}
+            >
+              <Pencil aria-hidden="true" />
+            </HeaderAction>
+            <TaskStopAction
+              task={task}
+              workspaceId={workspaceId}
+              busy={busy}
+              setBusy={setBusy}
+            />
             <HeaderAction
               label={settings ? "View task" : "Task settings"}
               onClick={() =>
@@ -83,9 +116,9 @@ export function TaskDetail({
             <HeaderAction
               label={archiveLabel}
               tooltip={task.archive_blocker || archiveLabel}
-              disabled={!!task.archive_blocker || archiving}
+              disabled={!!task.archive_blocker || busy}
               onClick={async () => {
-                setArchiving(true);
+                setBusy(true);
                 try {
                   await request(
                     `workspaces/${workspaceId}/view/tasks/${task.id}`,
@@ -105,7 +138,7 @@ export function TaskDetail({
                       : "Could not archive task",
                   );
                 } finally {
-                  setArchiving(false);
+                  setBusy(false);
                 }
               }}
             >
@@ -118,8 +151,8 @@ export function TaskDetail({
             <TaskDeleteAction
               task={task}
               workspaceId={workspaceId}
-              busy={archiving}
-              setBusy={setArchiving}
+              busy={busy}
+              setBusy={setBusy}
               dirty={settingsDirty || reviewerDirty}
               close={close}
             />
@@ -169,6 +202,11 @@ export function TaskDetail({
             <ExpandableMarkdown key={task.id} title="Definition">
               {task.body}
             </ExpandableMarkdown>
+            {task.acceptance_criteria && (
+              <ExpandableMarkdown title="Acceptance criteria">
+                {task.acceptance_criteria}
+              </ExpandableMarkdown>
+            )}
           </div>
           {(task.prerequisites.length > 0 || task.dependents.length > 0) && (
             <ContentStack aria-label="Related work">

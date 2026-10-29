@@ -6223,6 +6223,11 @@ export interface components {
       archive_blocker: string | null;
       /** Delete Blocker */
       delete_blocker: string | null;
+      /**
+       * Can Stop
+       * @default false
+       */
+      can_stop: boolean;
       /** Latest Result Id */
       latest_result_id: string | null;
       /** Prerequisites */

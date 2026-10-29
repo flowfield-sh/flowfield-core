@@ -15,13 +15,7 @@ const imageTypes = new Set([
 ]);
 
 /** Shared preview boundary. Only explicitly supported passive formats render inline. */
-export function OutputPreview({
-  file,
-  compact = false,
-}: {
-  file: OutputFile;
-  compact?: boolean;
-}) {
+export function OutputPreview({ file }: { file: OutputFile }) {
   const [failed, setFailed] = useState(false);
   if (
     file.media_type.startsWith("text/") ||
@@ -32,19 +26,11 @@ export function OutputPreview({
   )
     return (
       <Suspense fallback={<p>Loading preview…</p>}>
-        <TextPreview file={file} compact={compact} />
+        <TextPreview file={file} />
       </Suspense>
     );
-  if (!imageTypes.has(file.media_type))
-    return compact ? null : <PreviewUnavailable />;
-  if (failed)
-    return compact ? (
-      <p className="detail-metadata">
-        Preview unavailable. Open or download the file.
-      </p>
-    ) : (
-      <PreviewUnavailable />
-    );
+  if (!imageTypes.has(file.media_type)) return <PreviewUnavailable />;
+  if (failed) return <PreviewUnavailable />;
   return (
     <a
       href={outputHref(file)}
@@ -58,11 +44,7 @@ export function OutputPreview({
         alt={file.name}
         loading="lazy"
         onError={() => setFailed(true)}
-        className={
-          compact
-            ? "mx-auto max-h-48 max-w-full object-contain"
-            : "mx-auto max-h-[65vh] max-w-full object-contain"
-        }
+        className="mx-auto max-h-[65vh] max-w-full object-contain"
       />
     </a>
   );
