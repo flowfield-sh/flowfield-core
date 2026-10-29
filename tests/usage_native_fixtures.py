@@ -57,7 +57,7 @@ def native(tmp_path, harness, *, stop=False):
     )
 
 
-def native_factory(tmp_path, harness):
+def native_factory(tmp_path, harness, *, version=None):
     index = 0
 
     def create(*args, **kwargs):
@@ -65,6 +65,9 @@ def native_factory(tmp_path, harness):
         index += 1
         directory = tmp_path / f"native-{index}"
         directory.mkdir()
-        return native(directory, harness)
+        agent = native(directory, harness)
+        if version is not None:
+            agent.environment["FLOWFIELD_TEST_NATIVE_VERSION"] = version
+        return agent
 
     return create

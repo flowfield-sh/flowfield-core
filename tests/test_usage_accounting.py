@@ -239,7 +239,16 @@ def test_read_pagination_and_filter_bounds(tmp_path):
 
 
 @pytest.mark.parametrize("confirmed", [True, False])
-def test_session_resume_requires_a_reconciled_owner_boundary(tmp_path, confirmed):
+@pytest.mark.parametrize(
+    "contract,version,semantics,per_turn",
+    [
+        ("claude-model-usage/0.3.293", "2.1.293", "disjoint-cache", 180),
+        ("codex-thread-total/0.164.0", "0.164.0", "inclusive-cache", 120),
+    ],
+)
+def test_session_resume_requires_a_reconciled_owner_boundary(
+    tmp_path, confirmed, contract, version, semantics, per_turn
+):
 
     execution, usage, (run,) = accounting(tmp_path)
     # Coordinator turns share a native session but never inherit an unrelated task.
@@ -263,19 +272,35 @@ def test_session_resume_requires_a_reconciled_owner_boundary(tmp_path, confirmed
             f"VALUES({','.join('?' for _ in fields)})",
             [original[k] for k in fields],
         )
-    usage.observe("harbor", "coordinator_turn", run.id, event(run))
+    usage.observe(
+        "harbor",
+        "coordinator_turn",
+        run.id,
+        event(run, contract=contract, native_version=version, semantics=semantics),
+    )
     usage.end("harbor", "coordinator_turn", run.id, confirmed=confirmed)
+    # A restart/native upgrade must preserve the original contract's checkpoint.
+    usage = Usage(Workspace(execution.workspace.directory))
+    usage.rebuild()
     usage.start("harbor", "coordinator_turn", "next-turn", run.id)
     usage.observe(
         "harbor",
         "coordinator_turn",
         "next-turn",
-        event(run, 200, identity="resumed-result", baseline="resume"),
+        event(
+            run,
+            200,
+            identity="resumed-result",
+            baseline="resume",
+            contract=contract,
+            native_version="9.0.0",
+            semantics=semantics,
+        ),
     )
     detail = UsageReads(execution.workspace).evidence("harbor", "coordinator_turn", "next-turn")
-    assert detail.execution.tokens.total == (180 if confirmed else None)
-    assert detail.items[0].baseline.total == 180
-    assert summary(execution).totals.tokens.total == (360 if confirmed else 180)
+    assert detail.execution.tokens.total == (per_turn if confirmed else None)
+    assert detail.items[0].baseline.total == per_turn
+    assert summary(execution).totals.tokens.total == (2 * per_turn if confirmed else per_turn)
 
 
 def test_reordered_without_source_order_is_explicit_gap(tmp_path):

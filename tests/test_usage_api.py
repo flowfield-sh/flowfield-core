@@ -20,7 +20,7 @@ def test_usage_http_contract_scope_validation_and_origin(tmp_path):
         assert report.status_code == 200, report.text
         body = report.json()
         assert body["totals"]["tokens"]["total"] == 180
-        assert body["contracts"][0]["native_version"] == "2.1.293"
+        assert body["contracts"][0]["native_version"].startswith(">=2.1.277")
         evidence = client.get(f"/api/workspaces/harbor/usage/run/{run.id}")
         assert evidence.status_code == 200
         assert evidence.json()["items"][0]["delta"]["reasoning"] == 10

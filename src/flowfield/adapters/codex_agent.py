@@ -145,7 +145,8 @@ class CodexAgent(Agent):
                 },
             )
             version = re.match(
-                r"[^ /]+/(\d+\.\d+\.\d+)(?:\s|$)", str(initialized.get("userAgent", ""))
+                r"[^ /]+/(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)(?:\s|$)",
+                str(initialized.get("userAgent", "")),
             )
             self._usage_version = version[1] if version else None
             await self.rpc.send({"method": "initialized", "params": {}})
@@ -493,8 +494,11 @@ class CodexAgent(Agent):
                 )
 
         elif not self.stopping and method == "thread/tokenUsage/updated":
-            usage = data.get("tokenUsage", {})
-            used, size = usage.get("last", {}).get("totalTokens"), usage.get("modelContextWindow")
+            usage = data.get("tokenUsage")
+            usage = usage if isinstance(usage, dict) else {}
+            last = usage.get("last")
+            used = last.get("totalTokens") if isinstance(last, dict) else None
+            size = usage.get("modelContextWindow")
             if type(used) is int and type(size) is int and size > 0 and used >= 0:
                 self.input_tokens_available = max(0, size - used)
                 self.activity(
@@ -533,9 +537,7 @@ class CodexAgent(Agent):
         # The root resume replay can precede the thread/resume response.
         if isinstance(thread, str) and thread == self.resume and self.session_id is None:
             if method == "thread/tokenUsage/updated":
-                self._usage_baselines[thread] = codex_usage.counters(
-                    data.get("tokenUsage", {}).get("total")
-                )
+                self._usage_baselines[thread] = codex_usage.cumulative(data)
             return
         if not isinstance(thread, str) or thread not in self._usage_threads or not self.session_id:
             return
@@ -550,7 +552,7 @@ class CodexAgent(Agent):
             if len(self._usage_turns) < 4096:
                 self._usage_turns.add(key)
         elif method == "thread/tokenUsage/updated":
-            value = codex_usage.counters(data.get("tokenUsage", {}).get("total"))
+            value = codex_usage.cumulative(data)
             if key not in self._usage_turns:
                 if (
                     not any(t == thread for t, _ in self._usage_turns)

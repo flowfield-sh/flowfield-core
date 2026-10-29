@@ -413,7 +413,8 @@ async def main():
         if method == "initialize":
             if "slow-start" in sys.argv:
                 await asyncio.Event().wait()
-            reply(request, {"userAgent": "codex_cli_rs/0.164.0 (scripted)"})
+            version = os.environ.get("FLOWFIELD_TEST_NATIVE_VERSION", "0.164.0")
+            reply(request, {"userAgent": f"codex_cli_rs/{version} (scripted)"})
         elif method == "model/list":
             reply(
                 request,

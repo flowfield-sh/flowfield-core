@@ -259,7 +259,9 @@ def main() -> None:
                         "type": "system",
                         "subtype": "init",
                         "session_id": session_id,
-                        "claude_code_version": "2.1.293",
+                        "claude_code_version": os.environ.get(
+                            "FLOWFIELD_TEST_NATIVE_VERSION", "2.1.293"
+                        ),
                     }
                 )
             save({"input": message["message"]})

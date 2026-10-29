@@ -218,20 +218,22 @@ def contracts() -> list[UsageContract]:
         UsageContract(
             harness="claude-code",
             contract="claude-model-usage/0.3.293",
-            native_version="2.1.293",
+            native_version=">=2.1.277 with compatible modelUsage counters",
             supported=True,
             scope="Query pipeline including native children; cumulative per reported model",
             limitation="Reported estimates for this scope; excludes helpers outside the pipeline. "
-            "Resumed history requires a known baseline. Other native versions are unavailable.",
+            "Resumed history requires a known baseline. Older or unreported native versions "
+            "are unavailable; compatible updates retain accounting.",
         ),
         UsageContract(
             harness="codex",
             contract="codex-thread-total/0.164.0",
-            native_version="0.164.0",
+            native_version="Compatible thread/tokenUsage/updated counters",
             supported=True,
             scope="Cumulative native thread; bound child threads have separate series",
             limitation="Reported counters. Resumes/forks require a baseline; "
-            "decreases and context-full sentinels are quarantined. Model is unreported.",
+            "decreases and context-full sentinels are quarantined. Model is unreported. "
+            "Native release numbers are provenance, not an accounting gate.",
         ),
         UsageContract(
             harness="pi",

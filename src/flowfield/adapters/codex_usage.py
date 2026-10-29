@@ -1,14 +1,21 @@
-"""Codex 0.164.0 thread totals; no context, account totals or transcript inspection.
+"""Codex cumulative thread totals; no context, account totals or transcript inspection.
 
 Protocol TokenUsageInfo appends response usage; resume replays the saved snapshot.
 Each thread owns its counters. Forked children require their own inherited baseline.
 The ledger quarantines decreases and the inconsistent context-full sentinel.
+The contract ID names the original schema, not an exact native release requirement;
+keeping it stable preserves persisted resume baselines across compatible updates.
 """
 
 import hashlib
 from typing import Any, Literal
 
 from flowfield.usage_models import Consumption, Tokens
+
+
+def cumulative(data: dict[str, Any]) -> Tokens:
+    usage = data.get("tokenUsage")
+    return counters(usage.get("total") if isinstance(usage, dict) else None)
 
 
 def counters(value: Any) -> Tokens:
@@ -65,10 +72,8 @@ def observation(
         semantics="inclusive-cache",
         baseline="resume" if resumed else "fresh",
         inherited=inherited,
-        final=final and not failed and version == "0.164.0",
-        gap="unsupported-version"
-        if version != "0.164.0"
-        else "native-error"
+        final=final and not failed,
+        gap="native-error"
         if failed
         else "missing-counters"
         if value.input is None or value.output is None or value.total is None

@@ -19,14 +19,30 @@ from flowfield.usage_models import UsageFilter
 from flowfield.usage_reads import UsageReads
 
 
-@pytest.mark.parametrize("harness", CHOICES)
-def test_worker_reminder_through_native_adapter_is_one_attempt(tmp_path, monkeypatch, harness):
+@pytest.mark.parametrize(
+    "harness,version",
+    [
+        ("codex", "0.164.0"),
+        ("codex", "0.165.0"),
+        ("codex", "9.0.0"),
+        ("codex", "9.0.0-beta.1+build.7"),
+        ("claude-code", "2.1.293"),
+        ("claude-code", "2.1.295"),
+        ("claude-code", "9.0.0"),
+        ("pi", None),
+    ],
+)
+def test_worker_reminder_through_native_adapter_is_one_attempt(
+    tmp_path, monkeypatch, harness, version
+):
     service, repo, _ = configured(tmp_path, monkeypatch)
     settings = service.execution.settings("harbor")
     service.execution.configure(
         "harbor", SettingsEdit(expected_revision=settings.revision, selection=CHOICES[harness])
     )
-    monkeypatch.setattr("flowfield.supervisor.create", native_factory(tmp_path, harness))
+    monkeypatch.setattr(
+        "flowfield.supervisor.create", native_factory(tmp_path, harness, version=version)
+    )
     base = baseline(repo)
     run = service.execution.claim("harbor", base, {base: set()})
     asyncio.run(service._execute(run, repo))
@@ -39,6 +55,8 @@ def test_worker_reminder_through_native_adapter_is_one_attempt(tmp_path, monkeyp
     assert service.execution.get("harbor", run.id).status == "failed"  # no managed result
     assert "PRIVATE_USAGE_FIELD" not in detail.model_dump_json()
     assert "costUSD" not in detail.model_dump_json()
+    if version is not None:
+        assert {item.observation.native_version for item in detail.items} == {version}
 
 
 @pytest.mark.parametrize("harness", CHOICES)

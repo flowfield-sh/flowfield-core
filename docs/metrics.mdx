@@ -18,3 +18,5 @@ Task details show four compact cards: **Tokens**, **Duration**, **Corrections** 
 Duration measures elapsed running time, counts parallel work once and excludes idle gaps. Workspace charts and task rows clip it to the selected interval. Token charts place consumption when it was reported. Unreported values remain a dash; completed work retains its available records. Active task counters update while visible.
 
 Metrics measures consumption, not price or productivity. Native token counters include cached input where reported; cache and reasoning subsets are not added twice. Detailed accounting, coverage and retained native observations remain available through the read-only usage API. Flowfield does not reconstruct unreported consumption.
+
+Compatible Codex and Claude Code updates continue reporting tokens without requiring an exact release match. Flowfield validates the reported counters and session boundaries; missing or inconsistent data remains unavailable. Claude Code requires version 2.1.277 or later because older versions report resumed-session totals differently. Previously unavailable measurements are not reconstructed after an update.

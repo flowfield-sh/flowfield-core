@@ -117,12 +117,8 @@ def test_codex_resume_replay_is_baseline_and_context_sentinel_never_consumption(
     assert "inconsistent-total" in evidence.execution.reasons
 
 
-@pytest.mark.parametrize(
-    "resumed,version,reason",
-    [(True, "0.164.0", "unknown-baseline"), (False, "0.165.0", "unsupported-version")],
-)
-def test_codex_unknown_baseline_and_version_do_not_invent_usage(tmp_path, resumed, version, reason):
-    execution, _, run, agent = codex_owner(tmp_path, resumed=resumed, version=version)
+def test_codex_unknown_baseline_does_not_invent_usage(tmp_path):
+    execution, _, run, agent = codex_owner(tmp_path, resumed=True, version="0.165.0")
 
     async def exercise():
         agent._completion = asyncio.get_running_loop().create_future()
@@ -133,7 +129,69 @@ def test_codex_unknown_baseline_and_version_do_not_invent_usage(tmp_path, resume
     asyncio.run(exercise())
     evidence = detail(execution, run)
     assert evidence.execution.tokens.total is None
-    assert reason in evidence.execution.reasons
+    assert "unknown-baseline" in evidence.execution.reasons
+
+
+@pytest.mark.parametrize("version", ["0.164.0", "0.165.0", "0.999.0", "1.0.0", None])
+def test_codex_compatible_releases_preserve_accounting(tmp_path, version):
+    execution, usage, run, agent = codex_owner(tmp_path, version=version)
+
+    async def exercise():
+        agent._completion = asyncio.get_running_loop().create_future()
+        agent._event("turn/started", {"threadId": run.id, "turn": {"id": "first"}})
+        total(agent, run.id, "first", 100, futureCounter={"ignored": True})
+        terminal(agent, run.id, "first")
+        # Upgrade within the same native scope: stable contract/deduplication and
+        # cumulative baseline must neither double count nor discard the new delta.
+        agent._usage_version = "9.0.0"
+        usage.start("harbor", "run", run.id, run.id)
+        agent._event("turn/started", {"threadId": run.id, "turn": {"id": "second"}})
+        total(agent, run.id, "second", 100)
+        total(agent, run.id, "second", 150)
+        terminal(agent, run.id, "second")
+
+    asyncio.run(exercise())
+    usage.end("harbor", "run", run.id, confirmed=True)
+    evidence = detail(execution, run)
+    assert evidence.execution.tokens.total == 180
+    assert evidence.execution.coverage == ("partial" if version is None else "complete")
+    assert "unsupported-version" not in evidence.execution.reasons
+    usage.rebuild()
+    assert detail(execution, run).execution.tokens.total == 180
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        None,
+        [],
+        "changed",
+        {},
+        {"total": None, "last": []},
+        {"total": {"inputTokens": True, "outputTokens": -1, "totalTokens": "120"}},
+        {"total": {"inputTokens": 100, "outputTokens": 20, "totalTokens": 999}},
+    ],
+)
+def test_codex_changed_usage_shape_is_unavailable_without_breaking_execution(tmp_path, payload):
+    execution, _, run, agent = codex_owner(tmp_path, version="9.0.0")
+
+    async def exercise():
+        agent._completion = asyncio.get_running_loop().create_future()
+        agent._event("turn/started", {"threadId": run.id, "turn": {"id": "first"}})
+        agent._event(
+            "thread/tokenUsage/updated",
+            {
+                "threadId": run.id,
+                "turnId": "first",
+                "tokenUsage": payload,
+            },
+        )
+        terminal(agent, run.id, "first")
+
+    asyncio.run(exercise())
+    evidence = detail(execution, run)
+    assert evidence.execution.tokens.total is None
+    assert set(evidence.execution.reasons) & {"missing-counters", "inconsistent-total"}
 
 
 def test_codex_unknown_reset_freezes_series_and_terminal_replays_do_not_replace_reminder(tmp_path):
