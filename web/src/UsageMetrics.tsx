@@ -70,13 +70,10 @@ export function UsageMetrics({
       </dl>
     );
   }
-  const Frame = task ? Card : "div";
   return (
     <div className="usage-metrics">
-      <dl className={`usage-totals ${task ? "metrics-cards" : ""}`}>
-        <Frame
-          className={task ? "gap-1 rounded-lg p-3 shadow-none" : undefined}
-        >
+      <dl className="usage-totals metrics-cards">
+        <Card className="gap-1 rounded-lg p-3 shadow-none">
           <dt>Tokens</dt>
           <dd>
             <MetricValue
@@ -86,10 +83,8 @@ export function UsageMetrics({
               {breakdown("tokens")}
             </MetricValue>
           </dd>
-        </Frame>
-        <Frame
-          className={task ? "gap-1 rounded-lg p-3 shadow-none" : undefined}
-        >
+        </Card>
+        <Card className="gap-1 rounded-lg p-3 shadow-none">
           <dt>Duration</dt>
           <dd>
             <MetricValue
@@ -99,29 +94,34 @@ export function UsageMetrics({
               {breakdown("duration")}
             </MetricValue>
           </dd>
-        </Frame>
-        {task && (
-          <Frame className="gap-1 rounded-lg p-3 shadow-none">
-            <dt>Corrections</dt>
-            <dd>
-              <MetricValue
-                label="Corrections explained"
-                value={usageNumber(view.totals.corrections)}
-              >
-                <dl className="usage-tooltip-rows">
-                  <div>
-                    <dt>Corrections</dt>
-                    <dd>{usageNumber(view.totals.corrections)}</dd>
-                  </div>
-                  <div>
-                    <dt>Retries</dt>
-                    <dd>{usageNumber(view.totals.retries)}</dd>
-                  </div>
-                </dl>
-              </MetricValue>
-            </dd>
-          </Frame>
-        )}
+        </Card>
+        {task &&
+          (
+            [
+              [
+                "Corrections",
+                view.totals.corrections,
+                "Work started to address review or human feedback.",
+              ],
+              [
+                "Retries",
+                view.totals.retries,
+                "Worker attempts started again after failure or stopping.",
+              ],
+            ] as const
+          ).map(([label, value, explanation]) => (
+            <Card key={label} className="gap-1 rounded-lg p-3 shadow-none">
+              <dt>{label}</dt>
+              <dd>
+                <MetricValue
+                  label={label + " explained"}
+                  value={usageNumber(value)}
+                >
+                  <p>{explanation} Answer continuations are excluded.</p>
+                </MetricValue>
+              </dd>
+            </Card>
+          ))}
         {live && <span className="usage-live">Running</span>}
       </dl>
       {view.limit_reached && (

@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { LoadMore } from "./LoadMore";
@@ -77,7 +78,7 @@ export function MetricsTasks({
             <tr key={row.task_id}>
               <td>
                 <WorkspaceLink to={taskHref(workspaceId, row)}>
-                  <span className="detail-metadata">{row.key}</span> {row.title}
+                  <Badge variant="outline">{row.key}</Badge> {row.title}
                 </WorkspaceLink>
               </td>
               <td>{usageNumber(row.tokens.total)}</td>

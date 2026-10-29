@@ -1,4 +1,12 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+  useId,
+  type ChangeEvent,
+} from "react";
 import { useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,9 +57,13 @@ export function WorkspaceUsage({
   navigate: (url: string, replace?: boolean) => void;
 }) {
   const location = useLocation();
+  const controlId = useId();
   const [openedAt] = useState(Date.now);
-  const params = metricsQuery(location.search, openedAt);
-  const canonical = params.toString();
+  const canonical = useMemo(
+    () => metricsQuery(location.search, openedAt).toString(),
+    [location.search, openedAt],
+  );
+  const params = new URLSearchParams(canonical);
   useEffect(() => {
     if (new URLSearchParams(location.search).toString() !== canonical)
       navigate(`${location.pathname}?${canonical}`, true);
@@ -63,6 +75,14 @@ export function WorkspaceUsage({
       else next.delete(key);
     }
     navigate(`${location.pathname}?${metricsQuery(next.toString(), openedAt)}`);
+  }
+  function handlePeriodChange(event: ChangeEvent<HTMLSelectElement>) {
+    const period = event.target.value as Period;
+    change(
+      period === "custom"
+        ? { period }
+        : { ...presetRange(period, Date.now()), period },
+    );
   }
   const query = new URLSearchParams();
   for (const key of [
@@ -99,89 +119,96 @@ export function WorkspaceUsage({
   const start = params.get("start") ?? "",
     end = params.get("end") ?? "";
   return (
-    <section className="workspace-usage p-5" aria-label="Workspace metrics">
-      <ContentStack>
-        <DateRange
-          key={`${start}/${end}`}
-          start={start}
-          end={end}
-          apply={(range) => change({ ...range, period: "custom" })}
-        />
-        <div className="usage-controls">
-          <NativeSelect
-            aria-label="Metrics period"
-            size="sm"
-            value={params.get("period")!}
-            onChange={(e) => {
-              const period = e.target.value as Period;
-              change(
-                period === "custom"
-                  ? { period }
-                  : { ...presetRange(period, Date.now()), period },
-              );
-            }}
-          >
-            {periods.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </NativeSelect>
-          <div className="metrics-activity">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <NativeSelect
-                  aria-label="Metrics activity"
-                  size="sm"
-                  value={activity}
-                  className="truncate"
-                  onChange={(e) =>
-                    change({
-                      task_id: ["all", "coordinator"].includes(e.target.value)
-                        ? ""
-                        : e.target.value,
-                      role:
-                        e.target.value === "coordinator" ? "coordinator" : "",
-                      unassigned: "",
-                    })
-                  }
-                >
-                  <option value="all">All activity</option>
-                  <option value="coordinator">Coordinator</option>
-                  {taskId && !selectedTask && (
-                    <option value={taskId}>Selected task</option>
-                  )}
-                  {board.tasks.map((task) => (
-                    <option key={task.id} value={task.id}>
-                      {task.key} · {task.title}
-                      {task.archived ? " (archived)" : ""}
-                    </option>
-                  ))}
-                </NativeSelect>
-              </TooltipTrigger>
-              <TooltipContent>{activityTitle}</TooltipContent>
-            </Tooltip>
-          </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
+    <section className="workspace-usage" aria-label="Workspace metrics">
+      <ContentStack space="settings">
+        <ContentStack>
+          <div className="usage-controls">
+            <div className="metrics-filter">
+              <label htmlFor={`${controlId}-period`}>Period</label>
               <NativeSelect
-                aria-label="Chart grouping"
+                id={`${controlId}-period`}
+                aria-label="Metrics period"
                 size="sm"
-                value={params.get("dimension")!}
-                onChange={(e) => change({ dimension: e.target.value })}
+                value={params.get("period")!}
+                onChange={handlePeriodChange}
               >
-                <option value="role">By agent type</option>
-                <option value="harness">By harness</option>
-                <option value="model">By model</option>
+                {periods.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
               </NativeSelect>
-            </TooltipTrigger>
-            {params.get("dimension") === "model" && (
-              <TooltipContent>
-                Groups by the model selected for each run.
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </div>
+            </div>
+            <div className="metrics-filter metrics-activity">
+              <label htmlFor={`${controlId}-activity`}>Activity</label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <NativeSelect
+                    id={`${controlId}-activity`}
+                    aria-label="Metrics activity"
+                    size="sm"
+                    value={activity}
+                    className="truncate"
+                    onChange={(e) =>
+                      change({
+                        task_id: ["all", "coordinator"].includes(e.target.value)
+                          ? ""
+                          : e.target.value,
+                        role:
+                          e.target.value === "coordinator" ? "coordinator" : "",
+                        unassigned: "",
+                      })
+                    }
+                  >
+                    <option value="all">All activity</option>
+                    <option value="coordinator">Coordinator</option>
+                    {taskId && !selectedTask && (
+                      <option value={taskId}>Selected task</option>
+                    )}
+                    {board.tasks.map((task) => (
+                      <option key={task.id} value={task.id}>
+                        {task.key} · {task.title}
+                        {task.archived ? " (archived)" : ""}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </TooltipTrigger>
+                <TooltipContent>{activityTitle}</TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="metrics-filter">
+              <label htmlFor={`${controlId}-group`}>Group by</label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <NativeSelect
+                    id={`${controlId}-group`}
+                    aria-label="Chart grouping"
+                    size="sm"
+                    value={params.get("dimension")!}
+                    onChange={(e) => change({ dimension: e.target.value })}
+                  >
+                    <option value="role">Agent type</option>
+                    <option value="harness">Harness</option>
+                    <option value="model">Model</option>
+                  </NativeSelect>
+                </TooltipTrigger>
+                {params.get("dimension") === "model" && (
+                  <TooltipContent>
+                    Groups by the model selected for each run.
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </div>
+          </div>
+          <DetailSection title="Date range" panel>
+            <DateRange
+              key={`${start}/${end}`}
+              start={start}
+              end={end}
+              apply={(range) => change({ ...range, period: "custom" })}
+            />
+          </DetailSection>
+        </ContentStack>
         {!!hiddenFilters.length && (
           <div className="actions">
             <span className="detail-metadata">
@@ -306,7 +333,7 @@ function DateRange({
           required
         />
       </label>
-      <Button size="sm" variant="outline" disabled={!dirty}>
+      <Button variant="outline" disabled={!dirty}>
         Apply
       </Button>
       {error && <p role="alert">{error}</p>}

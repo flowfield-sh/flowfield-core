@@ -50,6 +50,16 @@ test("Metrics shows both charts and sortable task costs with shared local dateti
     "2026-10-28T00:00",
   );
   const table = metrics.getByRole("table");
+  // Wheel navigation must reach the lower chart/table without automation
+  // scrolling a hidden-overflow ancestor on our behalf.
+  const from = metrics.getByLabel("From", { exact: true });
+  const bounds = (await from.boundingBox())!;
+  await page.mouse.move(bounds.x + 40, bounds.y + 15);
+  await page.mouse.wheel(0, 2400);
+  await expect(table).toBeInViewport();
+  await expect(from).not.toBeInViewport();
+  await page.mouse.wheel(0, -2400);
+  await expect(from).toBeInViewport();
   await expect(
     table.getByRole("columnheader", { name: "Tokens" }),
   ).toHaveAttribute("aria-sort", "descending");

@@ -5,13 +5,15 @@ description: Explore token consumption, running time and task corrections.
 
 Open **Metrics** in the workspace sidebar. Tokens and Duration have separate charts that share the same local datetime range, activity selection and grouping. Token bars are stacked; duration lines show each group's elapsed running time. Group by **agent type**, **harness** or **model**. Model grouping uses the model selected for each run, rather than inferring the model from native reports.
 
-Choose **Today**, **Last 7 days**, **Last 30 days**, **Last 3 months**, **Year to date** or **Custom**. Last 3 months uses calendar months; Year to date starts at local January 1. The From and To fields let you select local dates and times. The end is exclusive. Clicking a day or hour in either chart updates those fields and selects Custom. With a chart focused, use arrow keys to inspect intervals and Enter to select one.
+Choose **Today**, **Last 7 days**, **Last 30 days**, **Last 3 months**, **Year to date** or **Custom**. Last 3 months uses calendar months; Year to date starts at local January 1. The Date range panel below the filters lets you select local From and To dates and times. The end is exclusive. Clicking a day or hour in either chart updates those fields and selects Custom. With a chart focused, use arrow keys to inspect intervals and Enter to select one.
 
 Select **All activity**, **Coordinator** or an individual task. Task activity includes its Workers, subtasks, review and clarification work. Coordinator conversations remain workspace activity because a conversation can span multiple tasks.
 
+Workspace totals use the same compact Tokens and Duration cards.
+
 The **Tasks** table below the charts uses the same selected range. It starts with the highest token total; click Tokens or Duration to change the sort order, or click a task name to open it. Coordinator activity does not appear as a task row.
 
-Task details show three compact cards: **Tokens**, **Duration** and **Corrections**. Hover, focus or tap Tokens or Duration for Worker and Reviewer values. The Corrections breakdown also includes retries. Corrections counts started correction work; retries counts started Worker retries after failure or stopping. Answer continuations do not count as either. Counts come from execution records, independently of the number of results or feedback messages.
+Task details show four compact cards: **Tokens**, **Duration**, **Corrections** and **Retries**. Hover, focus or tap Tokens or Duration for Worker and Reviewer values. Corrections counts started correction work; retries counts started Worker retries after failure or stopping. Answer continuations do not count as either. Counts come from execution records, independently of the number of results or feedback messages.
 
 Duration measures elapsed running time, counts parallel work once and excludes idle gaps. Workspace charts and task rows clip it to the selected interval. Token charts place consumption when it was reported. Unreported values remain a dash; completed work retains its available records. Active task counters update while visible.
 

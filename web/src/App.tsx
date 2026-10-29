@@ -946,7 +946,7 @@ function WorkspaceResource({
         !addingProject &&
         !requestSelected && (
           <div
-            className={`${(documentsView && params.documentId) || filesView || usageView ? "workspace-detail-content " : ""}workspace-work-content ${!projectsView && !documentsView && !filesView && !usageView && !showInbox && !archive ? "workspace-task-board" : ""}`}
+            className={`${(documentsView && params.documentId) || filesView ? "workspace-detail-content " : ""}workspace-work-content ${!projectsView && !documentsView && !filesView && !usageView && !showInbox && !archive ? "workspace-task-board" : ""}`}
           >
             {!projectsView && !documentsView && !filesView && !usageView && (
               <div className="board-toolbar">

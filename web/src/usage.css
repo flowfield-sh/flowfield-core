@@ -9,13 +9,19 @@
   .usage-controls,
   .usage-date-range {
     display: flex;
-    align-items: center;
+    align-items: end;
     flex-wrap: wrap;
     gap: 8px;
     min-width: 0;
   }
   .usage-controls > * {
     max-width: 100%;
+  }
+  .metrics-filter {
+    display: grid;
+    gap: 4px;
+    font-size: 14px;
+    min-width: 0;
   }
   .metrics-activity {
     width: min(20rem, 100%);
@@ -24,14 +30,11 @@
   .metrics-activity [data-slot="native-select-wrapper"] {
     width: 100%;
   }
-  .usage-date-range {
-    align-items: end;
-  }
   .usage-date-range label {
     display: grid;
     gap: 4px;
     font-size: 14px;
-    flex: 1 1 220px;
+    flex: 1 1 240px;
     min-width: 0;
   }
   .usage-metrics {
@@ -40,10 +43,6 @@
     font-variant-numeric: tabular-nums;
   }
   .usage-totals {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 16px 40px;
     margin: 0;
   }
   .usage-totals dt {
@@ -51,7 +50,7 @@
     font-size: 12px;
   }
   .usage-totals dd {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 500;
     line-height: 1.5;
     margin: 0;
@@ -60,9 +59,6 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
     gap: 8px;
-  }
-  .metrics-cards dd {
-    font-size: 22px;
   }
   .metrics-cards .usage-live {
     grid-column: 1 / -1;
@@ -108,6 +104,8 @@
   }
   .metrics-tasks a {
     overflow-wrap: anywhere;
+    color: inherit;
+    text-decoration: none;
   }
   @media (max-width: 480px) {
     .metrics-tasks th:not(:first-child) {
@@ -196,8 +194,5 @@
     display: flex;
     justify-content: space-between;
     gap: 16px;
-  }
-  .usage-tooltip-rows + p {
-    margin-top: 8px;
   }
 }

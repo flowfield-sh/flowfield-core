@@ -46,7 +46,7 @@ test("task metrics shows one clock and tooltip role breakdowns without accountin
   await expect(usage).toContainText("3,800");
   await expect(usage.locator("dd").nth(1)).toHaveText("20m 0s");
   await expect(usage.locator("dd").nth(2)).toHaveText("2");
-  await expect(usage.locator("[data-slot=card]")).toHaveCount(3);
+  await expect(usage.locator("[data-slot=card]")).toHaveCount(4);
   await expect(usage.getByText("Worker", { exact: true })).toHaveCount(0);
   await usage.getByRole("button", { name: "Token usage breakdown" }).hover();
   await expect(page.getByRole("tooltip")).toContainText("Worker3,500");
@@ -58,7 +58,15 @@ test("task metrics shows one clock and tooltip role breakdowns without accountin
   await expect(page.getByRole("tooltip")).not.toContainText("Parallel work");
   await page.keyboard.press("Escape");
   await usage.getByRole("button", { name: "Corrections explained" }).focus();
-  await expect(page.getByRole("tooltip")).toContainText("Retries2");
+  await expect(page.getByRole("tooltip")).toContainText(
+    "review or human feedback",
+  );
+  await page.keyboard.press("Escape");
+  await usage.getByRole("button", { name: "Retries explained" }).focus();
+  await expect(page.getByRole("tooltip")).toContainText("failure or stopping");
+  await expect(
+    usage.locator(".metrics-cards > [data-slot=card]").nth(3),
+  ).toContainText("Retries2");
   await page.keyboard.press("Escape");
   await usage.getByRole("heading").first().click();
   await expect(usage.locator("details, table")).toHaveCount(0);
