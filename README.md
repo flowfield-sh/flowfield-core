@@ -60,7 +60,7 @@ Open [localhost:8765](http://127.0.0.1:8765), create a workspace and choose its 
   </tr>
 </table>
 
-Explore reported tokens and recorded execution time in task and workspace [Metrics](https://docs.flowfield.sh/usage), with coverage and exact execution evidence.
+Explore reported tokens and recorded execution time in task and workspace [Metrics](https://docs.flowfield.sh/metrics), with coverage and exact execution evidence.
 
 ## Contributing
 

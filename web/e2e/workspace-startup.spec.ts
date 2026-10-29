@@ -163,6 +163,9 @@ for (const enabled of [false, true]) {
     expect((await read(request, `${path}/workers`)).enabled).toBe(!enabled);
     await openResource(page, "Projects");
     await expect(editor).toHaveCount(0);
+    // Queue changes refresh hidden settings. Finish intercepted reads before
+    // the browser and service fixtures close their request contexts.
+    await page.unrouteAll({ behavior: "wait" });
   });
 }
 

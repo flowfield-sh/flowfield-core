@@ -2,7 +2,12 @@ import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { test, state } from "./support";
 import { expect } from "@playwright/test";
-import { todayPeriod } from "../src/usagePeriod";
+import {
+  metricsQuery,
+  presetRange,
+  localDateTime,
+  parseLocalDateTime,
+} from "../src/usagePeriod";
 import { dialogViews } from "./dialog-evidence";
 
 function seed() {
@@ -14,186 +19,227 @@ function seed() {
     ),
   );
 }
+test.use({ timezoneId: "America/Denver" });
 
-test("usage fills its pane, retains Coordinator and filters persisted counters by task and date", async ({
+test("Metrics shows both charts and sortable task costs with shared local datetime controls", async ({
   page,
-  request,
 }, info) => {
   const f = seed();
   await page.goto(f.workspace_url);
-  const usage = page.getByRole("region", {
+  const metrics = page.getByRole("region", {
     name: "Workspace metrics",
     exact: true,
   });
-  await expect(usage.locator("dd").first()).toHaveText("4,800");
-  await expect(usage.getByLabel("Chart legend")).toContainText("Coordinator");
-  await expect(usage.getByRole("table")).toHaveCount(0);
-  const chart = usage.getByRole("region", { name: "Token usage over time" });
-  await expect(chart.locator("svg").first()).toBeVisible();
-  const panelBounds = (await usage.boundingBox())!,
-    chartBounds = (await chart.boundingBox())!;
-  expect(chartBounds.width).toBeGreaterThan(panelBounds.width - 50);
   await expect(
-    page.getByRole("tabpanel", { name: "Coordinator", exact: true }),
+    metrics.getByRole("heading", { name: "Metrics", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    metrics.getByRole("combobox", { name: "Chart metric" }),
+  ).toHaveCount(0);
+  await expect(metrics.locator(".usage-totals dd").first()).toHaveText("4,800");
+  const tokens = metrics.getByRole("region", { name: "Token usage over time" });
+  const duration = metrics.getByRole("region", { name: "Duration over time" });
+  await expect(
+    tokens.locator(".recharts-bar-rectangle path").first(),
   ).toBeVisible();
-  await dialogViews(page, info, "workspace-usage");
-  await usage.getByLabel("Metrics task").selectOption(f.task);
-  await expect(usage.getByLabel("coordinator usage")).toHaveCount(0);
-  await expect(page).toHaveURL(new RegExp(`task_id=${f.task}`));
-  const query = new URL(page.url()).searchParams;
-  query.delete("period");
-  query.delete("metric");
-  const expected = await (
-    await request.get(`/api/workspaces/${f.workspace}/usage?${query}`)
-  ).json();
-  await expect(usage.locator("dd").first()).toHaveText(
-    expected.totals.tokens.total.toLocaleString(),
+  await expect(duration.locator(".recharts-line-dot").first()).toBeVisible();
+  await expect(metrics.getByLabel("From", { exact: true })).toHaveValue(
+    "2026-10-27T00:00",
   );
-  await page.reload();
-  await expect(usage.getByLabel("Metrics task")).toHaveValue(f.task);
-  await usage.getByLabel("Metrics period").selectOption("week");
-  await expect(page).toHaveURL(/period=week/);
-  await page.goBack();
-  await expect(usage.getByLabel("Metrics period")).toHaveValue("custom");
-  await usage.getByLabel("From", { exact: true }).fill("2026-10-26");
-  await usage.getByLabel("Through", { exact: true }).fill("2026-10-28");
-  await usage.getByRole("button", { name: "Apply dates" }).click();
-  expect(new URL(page.url()).searchParams.get("start")).toBe(
-    "2026-10-26T06:00:00.000Z",
+  await expect(metrics.getByLabel("To", { exact: true })).toHaveValue(
+    "2026-10-28T00:00",
   );
-  expect(new URL(page.url()).searchParams.get("end")).toBe(
-    "2026-10-29T06:00:00.000Z",
+  const table = metrics.getByRole("table");
+  await expect(
+    table.getByRole("columnheader", { name: "Tokens" }),
+  ).toHaveAttribute("aria-sort", "descending");
+  await expect(table.locator("tbody tr").first()).toContainText(
+    "Trace recorded task usage",
   );
-  await page.setViewportSize({ width: 390, height: 844 });
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
+  await expect(table).not.toContainText("Coordinator");
+  await table.getByRole("button", { name: "Duration" }).click();
+  await expect(
+    table.getByRole("columnheader", { name: "Duration" }),
+  ).toHaveAttribute("aria-sort", "descending");
+  await table.getByRole("button", { name: "Duration" }).click();
+  await expect(
+    table.getByRole("columnheader", { name: "Duration" }),
+  ).toHaveAttribute("aria-sort", "ascending");
+  await expect(table.locator("tbody tr").last()).toContainText(
+    "Usage not reported",
+  );
+  await metrics.getByLabel("Chart grouping").selectOption("harness");
+  await expect(tokens.getByLabel("Chart legend")).toContainText("Claude Code");
+  await expect(duration.getByLabel("Chart legend")).toContainText(
+    "Claude Code",
+  );
+  await dialogViews(page, info, "metrics-both-charts");
+  await metrics.getByLabel("Metrics activity").selectOption("coordinator");
+  await expect(metrics.locator(".usage-totals dd").first()).toHaveText("300");
+  await expect(tokens.getByLabel("Chart legend")).not.toContainText("Worker");
+  await expect(metrics).toContainText("No task activity in this period.");
+  await metrics.getByLabel("Metrics activity").selectOption(f.task);
+  await expect(metrics.locator(".usage-totals dd").first()).toHaveText("3,800");
+  await expect(table.locator("tbody tr")).toHaveCount(1);
+  await table.getByRole("link").click();
+  await expect(page).toHaveURL(/\/tasks\/T-1$/);
+  await expect(
+    page.getByRole("region", { name: "Task metrics", exact: true }),
+  ).toBeVisible();
 });
 
-test("empty periods and failed refreshes retain useful recovery", async ({
-  page,
-}, info) => {
-  const f = seed();
-  let fail = true;
-  await page.route("**/api/workspaces/*/usage?*", async (route) =>
-    fail
-      ? route.fulfill({ status: 503, json: { detail: "Read failed" } })
-      : route.continue(),
-  );
-  await page.goto(f.workspace_url);
-  const usage = page.getByRole("region", {
-    name: "Workspace metrics",
-    exact: true,
-  });
-  await expect(usage.getByText(/Could not refresh metrics/)).toBeVisible();
-  fail = false;
-  await usage.getByRole("button", { name: "Retry metrics" }).click();
-  await expect(usage.locator("dd").first()).toHaveText("4,800");
-  await usage.getByLabel("From", { exact: true }).fill("2020-01-01");
-  await usage.getByLabel("Through", { exact: true }).fill("2020-01-02");
-  await usage.getByRole("button", { name: "Apply dates" }).click();
-  await expect(usage).toContainText("No metrics in this period.");
-  await dialogViews(page, info, "empty-usage");
-});
-test("Today boundaries follow local calendar days at DST and unusual offsets", () => {
-  const fall = todayPeriod(
-    "America/Denver",
-    Date.parse("2026-11-01T12:00:00Z"),
-  );
-  expect(fall).toEqual({
-    start: "2026-11-01T06:00:00.000Z",
-    end: "2026-11-02T07:00:00.000Z",
-  });
-  const spring = todayPeriod(
-    "America/Denver",
-    Date.parse("2026-03-08T12:00:00Z"),
-  );
-  expect(Date.parse(spring.end) - Date.parse(spring.start)).toBe(23 * 3600000);
-  expect(
-    todayPeriod("Asia/Kathmandu", Date.parse("2026-10-27T12:00:00Z")).start,
-  ).toBe("2026-10-26T18:15:00.000Z");
-});
-
-test("invalid saved dates recover without losing the selected task", async ({
+test("preset-only Metrics links compute their range on load and preserve exact history", async ({
   page,
 }) => {
   const f = seed();
-  for (const broken of ["start=not-a-date", "timezone=Not/AZone"]) {
-    const query = new URLSearchParams(
-      new URL(f.workspace_url, "http://localhost").search,
-    );
-    const [key, value] = broken.split("=");
-    query.set(key, value);
-    query.set("task_id", f.task);
-    await page.goto(`/workspaces/${f.workspace}/usage?${query}`);
-    const usage = page.getByRole("region", {
-      name: "Workspace metrics",
-      exact: true,
-    });
-    await expect(
-      usage.getByRole("button", { name: "Reset dates" }),
-    ).toBeVisible();
-    await usage.getByRole("button", { name: "Reset dates" }).click();
-    await expect(usage.getByLabel("Metrics period")).toHaveValue("today");
-    await expect(usage.getByLabel("Metrics task")).toHaveValue(f.task);
-    await expect(
-      usage.getByRole("button", { name: "Reset dates" }),
-    ).toHaveCount(0);
-  }
-});
-
-test("chart explores metrics and dimensions, zooms by pointer and keyboard, and retains filters", async ({
-  page,
-}, info) => {
-  const f = seed();
-  const query = new URL(f.workspace_url, "http://localhost").searchParams;
-  query.set("group", "day");
-  await page.goto(`/workspaces/${f.workspace}/usage?${query}`);
-  const usage = page.getByRole("region", {
+  await page.clock.setFixedTime(new Date("2026-10-29T18:00:00Z"));
+  await page.goto(`/workspaces/${f.workspace}/metrics?period=month`);
+  const metrics = page.getByRole("region", {
     name: "Workspace metrics",
     exact: true,
   });
-  await usage.getByLabel("Chart metric").selectOption("duration");
-  await usage.getByLabel("Chart grouping").selectOption("harness");
-  const chart = usage.getByRole("region", { name: "Duration over time" });
-  await expect(chart.getByLabel("Chart legend")).toContainText("Claude Code");
-  // Clicking the SVG focuses it without drawing the browser's pointer-focus outline.
-  const svg = chart.locator("svg.recharts-surface");
-  await svg.click({
-    position: { x: (await svg.boundingBox())!.width - 5, y: 120 },
-  });
-  expect(await svg.evaluate((e) => getComputedStyle(e).outlineStyle)).toBe(
-    "none",
+  await expect(metrics.locator(".usage-totals dd").first()).toHaveText("4,800");
+  await expect(metrics.getByLabel("From", { exact: true })).toHaveValue(
+    "2026-09-30T00:00",
   );
-  await chart.locator(".recharts-line-dot").first().click();
-  await expect(page).toHaveURL(/group=hour/);
-  await expect(usage.getByLabel("Metrics period")).toHaveValue("zoom");
-  await usage.getByLabel("Chart grouping").selectOption("model");
-  await expect(chart.getByLabel("Chart legend")).toContainText(
-    "synthetic-requested-model",
+  await expect(metrics.getByLabel("To", { exact: true })).toHaveValue(
+    "2026-10-29T12:00",
   );
+  await expect(metrics.getByLabel("Metrics period")).toHaveValue("month");
+  const month = page.url();
   await page.reload();
-  await expect(usage.getByLabel("Chart grouping")).toHaveValue("model");
-  await expect(usage.getByLabel("Chart metric")).toHaveValue("duration");
-  await expect(chart.locator(".recharts-line-dot").first()).toBeVisible();
-  // Keyboard focus remains visible; arrows inspect buckets and Enter drills in.
-  await usage.getByLabel("Token usage breakdown").focus();
-  await page.keyboard.press("Tab");
-  await page.keyboard.press("Tab");
-  await expect(svg).toBeFocused();
-  expect(await svg.evaluate((e) => getComputedStyle(e).outlineStyle)).toBe(
-    "solid",
+  await expect(page).toHaveURL(month);
+  await metrics.getByLabel("Metrics period").selectOption("quarter");
+  await expect(metrics.getByLabel("From", { exact: true })).toHaveValue(
+    "2026-07-29T12:00",
   );
+  await metrics.getByLabel("Metrics period").selectOption("year");
+  await expect(metrics.getByLabel("From", { exact: true })).toHaveValue(
+    "2026-01-01T00:00",
+  );
+  await page.goBack();
+  await expect(metrics.getByLabel("Metrics period")).toHaveValue("quarter");
+  await page.goBack();
+  await expect(page).toHaveURL(month);
+});
+
+test("both charts select the visible datetime range without zoom state or tooltip motion", async ({
+  page,
+}) => {
+  const f = seed();
+  await page.goto(
+    `/workspaces/${f.workspace}/metrics?start=2026-10-25T00:00:00Z&end=2026-10-29T00:00:00Z`,
+  );
+  const metrics = page.getByRole("region", {
+    name: "Workspace metrics",
+    exact: true,
+  });
+  const tokens = metrics.getByRole("region", { name: "Token usage over time" });
+  const duration = metrics.getByRole("region", { name: "Duration over time" });
+  await metrics.getByLabel("Chart grouping").selectOption("model");
+  const bar = tokens.locator(".recharts-bar-rectangle path").first();
+  await bar.hover();
+  await expect(tokens.locator(".usage-chart-tooltip")).toBeVisible();
+  expect(
+    await tokens
+      .locator(".recharts-tooltip-wrapper")
+      .evaluate((e) => getComputedStyle(e).transitionDuration),
+  ).toBe("0s");
+  await bar.click();
+  await expect(page).toHaveURL(/group=hour/);
+  await expect(metrics.getByLabel("Metrics period")).toHaveValue("custom");
+  await expect(metrics.getByLabel("From", { exact: true })).toBeVisible();
+  await expect(metrics.getByRole("button", { name: "Zoom out" })).toHaveCount(
+    0,
+  );
+  expect(new URL(page.url()).searchParams.has("zoom")).toBe(false);
+  await expect(duration.locator(".recharts-line-dot").first()).toBeVisible();
+  const svg = duration.locator("svg.recharts-surface");
+  await svg.focus();
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/group=minute/);
-  await usage.getByRole("button", { name: "Zoom out" }).click();
-  await expect(page).toHaveURL(/group=hour/);
-  await usage.getByRole("button", { name: "Zoom out" }).click();
-  await expect(page).toHaveURL(/group=day/);
-  await expect(usage.getByLabel("Chart grouping")).toHaveValue("model");
-  await usage.getByLabel("Chart metric").selectOption("tokens");
-  await dialogViews(page, info, "explored-usage");
+  const selected = page.url();
+  await page.reload();
+  await expect(page).toHaveURL(selected);
+  await expect(metrics.getByLabel("Chart grouping")).toHaveValue("model");
+  await metrics.getByLabel("From", { exact: true }).fill("2026-10-27T04:05");
+  await metrics.getByLabel("To", { exact: true }).fill("2026-10-27T04:25");
+  await metrics.getByRole("button", { name: "Apply", exact: true }).click();
+  expect(new URL(page.url()).searchParams.get("start")).toBe(
+    "2026-10-27T10:05:00.000Z",
+  );
+  expect(new URL(page.url()).searchParams.get("end")).toBe(
+    "2026-10-27T10:25:00.000Z",
+  );
+  await expect(tokens.locator("svg").first()).toBeVisible();
+  await expect(duration.locator("svg").first()).toBeVisible();
+});
+
+test("Metrics has pending, retry, empty and invalid-range recovery", async ({
+  page,
+}, info) => {
+  const f = seed();
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => (release = resolve));
+  let fail = true;
+  await page.route("**/api/workspaces/*/usage?*", async (route) => {
+    await pending;
+    return fail
+      ? route.fulfill({ status: 503, json: { detail: "Read failed" } })
+      : route.continue();
+  });
+  await page.goto(f.workspace_url);
+  const metrics = page.getByRole("region", {
+    name: "Workspace metrics",
+    exact: true,
+  });
+  await expect(metrics).toContainText("Loading metrics");
+  await dialogViews(page, info, "metrics-pending");
+  release();
+  await expect(metrics).toContainText("Could not refresh metrics");
+  fail = false;
+  await metrics.getByRole("button", { name: "Retry metrics" }).click();
+  await expect(metrics.locator(".usage-totals dd").first()).toHaveText("4,800");
+  await metrics.getByLabel("From", { exact: true }).fill("2020-01-01T00:00");
+  await metrics.getByLabel("To", { exact: true }).fill("2020-01-02T00:00");
+  await metrics.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(metrics).toContainText("No metrics in this period.");
+  await dialogViews(page, info, "metrics-empty");
+  await page.goto(
+    `/workspaces/${f.workspace}/metrics?start=invalid&end=2026-10-29T00:00:00Z&task_id=${f.task}`,
+  );
+  await metrics.getByRole("button", { name: "Reset dates" }).click();
+  await expect(metrics.getByLabel("Metrics activity")).toHaveValue(f.task);
+  await expect(metrics.getByLabel("From", { exact: true })).not.toHaveValue("");
+});
+
+test("local presets clamp calendar months, handle DST and preserve a repeated-hour selection", () => {
+  const original = process.env.TZ;
+  process.env.TZ = "America/Denver";
+  try {
+    expect(
+      presetRange("quarter", Date.parse("2024-05-31T18:00:00Z")).start,
+    ).toBe("2024-02-29T19:00:00.000Z");
+    expect(presetRange("year", Date.parse("2026-10-29T18:00:00Z")).start).toBe(
+      "2026-01-01T07:00:00.000Z",
+    );
+    expect(presetRange("today", Date.parse("2026-03-08T18:00:00Z")).start).toBe(
+      "2026-03-08T07:00:00.000Z",
+    );
+    expect(() => parseLocalDateTime("2026-03-08T02:30")).toThrow();
+    const repeated = "2026-11-01T08:30:00.000Z";
+    expect(parseLocalDateTime(localDateTime(repeated), repeated)).toBe(
+      repeated,
+    );
+    const query = metricsQuery(
+      "period=month",
+      Date.parse("2026-10-29T18:00:00Z"),
+    );
+    expect(query.get("start")).toBe("2026-09-30T06:00:00.000Z");
+    expect(query.get("period")).toBe("month");
+  } finally {
+    if (original === undefined) delete process.env.TZ;
+    else process.env.TZ = original;
+  }
 });

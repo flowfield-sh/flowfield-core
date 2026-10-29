@@ -152,6 +152,7 @@ class UsageTotals(UsageRecord):
     attempts: int = 0
     started_attempts: int = 0
     corrections: int | None = 0
+    retries: int | None = 0
     unknown_starts: int = 0
     complete: int = 0
     partial: int = 0
@@ -190,6 +191,15 @@ class UsageBreakdown(UsageRecord):
     key: str | None
     tokens: Tokens
     attempts: int
+    elapsed_seconds: float | None = None
+    live: bool = False
+
+
+class UsageTask(UsageRecord):
+    task_id: str
+    key: str
+    title: str
+    tokens: Tokens
     elapsed_seconds: float | None = None
     live: bool = False
 
@@ -246,6 +256,7 @@ class UsageView(UsageRecord):
     buckets: list[UsageBucket] = Field(default_factory=list)
     series: list[UsageSeries] = Field(default_factory=list)
     breakdowns: list[UsageBreakdown] = Field(default_factory=list)
+    tasks: list[UsageTask] = Field(default_factory=list)
     filters: UsageFilter
     timing_label: str = "Usage reported during the period; consumption may span earlier periods."
     limit_reached: bool = False

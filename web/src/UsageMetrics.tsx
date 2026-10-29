@@ -5,6 +5,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { usageNumber, useUsageClock, type UsageView } from "./usage";
+import { Card } from "@/components/ui/card";
 import { ResourceRetry } from "./ResourceRetry";
 
 export function UsageReadState({
@@ -69,10 +70,13 @@ export function UsageMetrics({
       </dl>
     );
   }
+  const Frame = task ? Card : "div";
   return (
     <div className="usage-metrics">
-      <dl className="usage-totals">
-        <div>
+      <dl className={`usage-totals ${task ? "metrics-cards" : ""}`}>
+        <Frame
+          className={task ? "gap-1 rounded-lg p-3 shadow-none" : undefined}
+        >
           <dt>Tokens</dt>
           <dd>
             <MetricValue
@@ -82,8 +86,10 @@ export function UsageMetrics({
               {breakdown("tokens")}
             </MetricValue>
           </dd>
-        </div>
-        <div>
+        </Frame>
+        <Frame
+          className={task ? "gap-1 rounded-lg p-3 shadow-none" : undefined}
+        >
           <dt>Duration</dt>
           <dd>
             <MetricValue
@@ -91,28 +97,30 @@ export function UsageMetrics({
               value={duration(view.totals.elapsed_seconds)}
             >
               {breakdown("duration")}
-              <p>
-                Elapsed running time. Parallel work counts once; role times may
-                overlap.
-              </p>
             </MetricValue>
           </dd>
-        </div>
+        </Frame>
         {task && (
-          <div>
+          <Frame className="gap-1 rounded-lg p-3 shadow-none">
             <dt>Corrections</dt>
             <dd>
               <MetricValue
                 label="Corrections explained"
                 value={usageNumber(view.totals.corrections)}
               >
-                <p>
-                  Worker runs started to correct prior work. Retries and answer
-                  continuations are excluded.
-                </p>
+                <dl className="usage-tooltip-rows">
+                  <div>
+                    <dt>Corrections</dt>
+                    <dd>{usageNumber(view.totals.corrections)}</dd>
+                  </div>
+                  <div>
+                    <dt>Retries</dt>
+                    <dd>{usageNumber(view.totals.retries)}</dd>
+                  </div>
+                </dl>
               </MetricValue>
             </dd>
-          </div>
+          </Frame>
         )}
         {live && <span className="usage-live">Running</span>}
       </dl>

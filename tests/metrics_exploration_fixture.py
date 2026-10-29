@@ -263,7 +263,7 @@ def seed(state: Path):
         "workspace": owner,
         "task": tasks[7].id,
         "url": f"/workspaces/{owner}/tasks/{tasks[7].key}",
-        "workspace_url": f"/workspaces/{owner}/usage?{query}",
+        "workspace_url": f"/workspaces/{owner}/metrics?{query}",
         "board_url": f"/workspaces/{owner}/tasks",
         "tasks": len(tasks),
     }

@@ -432,6 +432,7 @@ def test_corrections_count_started_work_without_retries_or_page_bias(tmp_path):
             )
         db.execute("UPDATE usage_executions SET started_at=NULL WHERE source_id=?", (runs[-1].id,))
     assert summary(execution, limit=1, after=1).totals.corrections == 1
+    assert summary(execution, limit=1, after=1).totals.retries == 1
     assert summary(execution, task_id=runs[0].task_id).totals.corrections == 1
     assert summary(execution, task_id=runs[1].task_id).totals.corrections == 0
     # A run overlapping a period is not another correction started in that period.
@@ -444,3 +445,39 @@ def test_corrections_count_started_work_without_retries_or_page_bias(tmp_path):
     with execution.workspace.connection(write=True) as db:
         db.execute("UPDATE usage_executions SET purpose='unknown' WHERE source_id=?", (runs[0].id,))
     assert summary(execution).totals.corrections is None
+
+
+def test_task_metrics_aggregate_full_selection_and_union_parallel_time(tmp_path):
+    execution, usage, runs = accounting(tmp_path, count=3)
+    for run in runs:
+        usage.observe("harbor", "run", run.id, event(run))
+    with execution.workspace.connection(write=True) as db:
+        for run, start, end in zip(runs, [0, 5, 10], [10, 20, 30], strict=True):
+            db.execute(
+                "UPDATE usage_executions SET task_id=?,started_at=?,ended_at=?,timing='recorded' "
+                "WHERE source_id=?",
+                (
+                    runs[0].task_id,
+                    f"2026-10-27T10:{start:02d}:00+00:00",
+                    f"2026-10-27T10:{end:02d}:00+00:00",
+                    run.id,
+                ),
+            )
+        db.execute("UPDATE usage_observations SET received_at='2026-10-27T10:12:00+00:00'")
+    report = summary(
+        execution, limit=1, after=1, start="2026-10-27T10:08:00Z", end="2026-10-27T10:25:00Z"
+    )
+    assert len(report.items) == 1
+    assert len(report.tasks) == 1
+    row = report.tasks[0]
+    assert row.task_id == runs[0].task_id
+    assert row.key == execution.workspace.task("harbor", row.task_id).key
+    assert row.tokens.total == 540
+    assert row.elapsed_seconds == 17 * 60
+    assert row.elapsed_seconds == report.totals.elapsed_seconds
+    assert summary(execution, role="coordinator").tasks == []
+    # Filtering is applied before task aggregation, with unknown totals preserved.
+    with execution.workspace.connection(write=True) as db:
+        db.execute("DELETE FROM usage_observations")
+    unknown = summary(execution).tasks[0]
+    assert unknown.tokens.total is None

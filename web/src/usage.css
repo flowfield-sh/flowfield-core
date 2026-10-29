@@ -14,13 +14,15 @@
     gap: 8px;
     min-width: 0;
   }
-  .usage-controls > *,
-  .usage-task-select {
+  .usage-controls > * {
     max-width: 100%;
   }
-  .usage-task-select {
-    width: min(340px, 100%);
-    text-overflow: ellipsis;
+  .metrics-activity {
+    width: min(20rem, 100%);
+    min-width: 0;
+  }
+  .metrics-activity [data-slot="native-select-wrapper"] {
+    width: 100%;
   }
   .usage-date-range {
     align-items: end;
@@ -28,7 +30,9 @@
   .usage-date-range label {
     display: grid;
     gap: 4px;
-    font-size: 12px;
+    font-size: 14px;
+    flex: 1 1 220px;
+    min-width: 0;
   }
   .usage-metrics {
     display: grid;
@@ -52,8 +56,67 @@
     line-height: 1.5;
     margin: 0;
   }
-  .task-usage .usage-totals dd {
-    font-size: 16px;
+  .metrics-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+    gap: 8px;
+  }
+  .metrics-cards dd {
+    font-size: 22px;
+  }
+  .metrics-cards .usage-live {
+    grid-column: 1 / -1;
+  }
+  .metrics-sections {
+    display: grid;
+    gap: 32px;
+  }
+  .usage-date-range input {
+    width: 100%;
+  }
+  .metrics-tasks {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .metrics-tasks th,
+  .metrics-tasks td {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+    vertical-align: top;
+    font-variant-numeric: tabular-nums;
+  }
+  .metrics-tasks th:first-child,
+  .metrics-tasks td:first-child {
+    text-align: left;
+    padding-left: 0;
+  }
+  .metrics-tasks th:not(:first-child) {
+    width: 100px;
+  }
+  .metrics-tasks th button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+  .metrics-tasks th button:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 4px;
+  }
+  .metrics-tasks a {
+    overflow-wrap: anywhere;
+  }
+  @media (max-width: 480px) {
+    .metrics-tasks th:not(:first-child) {
+      width: 84px;
+    }
+    .metrics-tasks th,
+    .metrics-tasks td {
+      padding-inline: 4px;
+    }
   }
   .usage-live {
     font-size: 12px;

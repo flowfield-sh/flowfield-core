@@ -116,7 +116,7 @@ def seed(state: Path):
             "period": "custom",
         }
     )
-    result["workspace_url"] = f"/workspaces/{owner}/usage?{query}"
+    result["workspace_url"] = f"/workspaces/{owner}/metrics?{query}"
     result["coordinator"] = turn.id
     return result
 

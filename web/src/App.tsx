@@ -700,7 +700,7 @@ function WorkspaceResource({
     !!projectId && pathname === `${projectHref(projectId)}/overview`;
   const documentsView = pathname.startsWith(`${base}/documents`);
   const filesView = pathname === `${base}/files`;
-  const usageView = pathname === `${base}/usage`;
+  const usageView = pathname === `${base}/metrics`;
   const addingProject = pathname.endsWith("/projects/new");
   const selectedProject = board?.projects.find(
     (project) => project.id === projectId,

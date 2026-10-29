@@ -112,6 +112,7 @@ export function usageFixture(workspace: string, task: string): UsageView {
       tokens: tokens(3800),
       attempts: 7,
       corrections: 2,
+      retries: 2,
       started_attempts: 7,
       unknown_starts: 0,
       complete: 4,
@@ -130,6 +131,7 @@ export function usageFixture(workspace: string, task: string): UsageView {
     next_after: null,
     buckets: [],
     series: [],
+    tasks: [],
     breakdowns: [
       {
         dimension: "role",

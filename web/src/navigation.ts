@@ -14,7 +14,7 @@ const pagePaths = [
   "workspaces/:workspaceId/tasks/:taskKey/history/:runId?",
   "workspaces/:workspaceId/documents",
   "workspaces/:workspaceId/files",
-  "workspaces/:workspaceId/usage",
+  "workspaces/:workspaceId/metrics",
   "workspaces/:workspaceId/documents/:documentId",
   "workspaces/:workspaceId/documents/:documentId/edit",
   "workspaces/:workspaceId/documents/:documentId/revisions/:documentRevision",

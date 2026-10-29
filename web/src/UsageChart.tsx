@@ -97,6 +97,7 @@ export default function UsageChart({
         <ComposedChart
           data={data}
           accessibilityLayer
+          style={{ cursor: zoomable ? "pointer" : undefined }}
           aria-label={
             zoomable
               ? "Use arrow keys to inspect intervals and Enter to zoom in"
@@ -149,6 +150,8 @@ export default function UsageChart({
             }
           />
           <Tooltip
+            isAnimationActive={false}
+            filterNull={false}
             cursor={
               metric === "tokens"
                 ? { fill: "var(--muted)" }

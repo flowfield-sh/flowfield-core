@@ -480,7 +480,7 @@ function title(
         tasks: "Task Board",
         documents: "Documents",
         files: "Files",
-        usage: "Metrics",
+        metrics: "Metrics",
         projects: "Projects",
         archive: "Archive",
         settings: "Flowfield settings",

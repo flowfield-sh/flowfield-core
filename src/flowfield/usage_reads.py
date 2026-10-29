@@ -18,6 +18,7 @@ from flowfield.usage_models import (
     UsageEvidencePage,
     UsageExecution,
     UsageFilter,
+    UsageTask,
     UsageTotals,
     UsageView,
 )
@@ -225,6 +226,15 @@ class UsageReads:
                     limited = True
                     break
                 observations[row["execution"]].append(row)
+            task_names = {
+                row["id"]: (row["key"], row["title"])
+                for row in db.execute(
+                    "SELECT id,key,json_extract(data,'$.title') AS title FROM tasks "
+                    "WHERE workspace_id=? AND id IN (SELECT task_id FROM usage_executions "
+                    f"WHERE {where} ORDER BY number LIMIT ?)",
+                    (workspace, *parameters, MAX_EXECUTIONS),
+                )
+            }
             collection = db.execute(
                 "SELECT collection_started_at FROM usage_metadata WHERE id=1"
             ).fetchone()[0]
@@ -244,6 +254,8 @@ class UsageReads:
         intervals: list[tuple[datetime, datetime]] = []
         role_intervals: dict[str, list[tuple[datetime, datetime]]] = defaultdict(list)
         live_roles: set[str] = set()
+        task_intervals: dict[str, list[tuple[datetime, datetime]]] = defaultdict(list)
+        live_tasks: set[str] = set()
         contributions: list[Tokens] = []
         items: list[UsageExecution] = []
         breakdown: dict[tuple[str, str | None], tuple[list[Tokens], set[int]]] = {}
@@ -297,8 +309,12 @@ class UsageReads:
                     intervals.append((left, right))
                     timeline.interval(chart_key, left, right)
                     role_intervals[execution.role].append((left, right))
+                    if execution.task_id:
+                        task_intervals[execution.task_id].append((left, right))
                     if execution.timing == "live" and right == measured_at:
                         live_roles.add(execution.role)
+                        if execution.task_id:
+                            live_tasks.add(execution.task_id)
             if filters.start and filters.end:
                 overlaps = (
                     start is not None
@@ -318,11 +334,15 @@ class UsageReads:
                 totals.started_attempts += 1
                 if execution.source == "run":
                     if execution.purpose == "unknown":
-                        totals.corrections = None
+                        totals.corrections = totals.retries = None
                     elif execution.purpose == "correction" and totals.corrections is not None:
                         totals.corrections += 1
+                    elif execution.purpose == "retry" and totals.retries is not None:
+                        totals.retries += 1
             elif start is None and execution.legacy:
                 totals.unknown_starts += 1
+                if execution.source == "run":
+                    totals.corrections = totals.retries = None
             setattr(totals, execution.coverage, getattr(totals, execution.coverage) + 1)
             totals.legacy += execution.legacy
             if start and end and end >= start:
@@ -411,6 +431,18 @@ class UsageReads:
                     }
                 )
                 for (dim, key), (values, ids) in breakdown.items()
+            ],
+            tasks=[
+                UsageTask(
+                    task_id=identity,
+                    key=task_names[identity][0],
+                    title=task_names[identity][1],
+                    tokens=add_tokens(values),
+                    elapsed_seconds=elapsed(task_intervals[identity]),
+                    live=identity in live_tasks,
+                )
+                for (dimension, identity), (values, _) in breakdown.items()
+                if dimension == "task" and identity in task_names and identity is not None
             ],
             filters=filters,
             limit_reached=limited,

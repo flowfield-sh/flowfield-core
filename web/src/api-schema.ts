@@ -6886,6 +6886,23 @@ export interface components {
       /** Elapsed Seconds */
       elapsed_seconds: number | null;
     };
+    /** UsageTask */
+    UsageTask: {
+      /** Task Id */
+      task_id: string;
+      /** Key */
+      key: string;
+      /** Title */
+      title: string;
+      tokens: components["schemas"]["Tokens"];
+      /** Elapsed Seconds */
+      elapsed_seconds: number | null;
+      /**
+       * Live
+       * @default false
+       */
+      live: boolean;
+    };
     /** UsageTotals */
     UsageTotals: {
       /** Reasons */
@@ -6906,6 +6923,11 @@ export interface components {
        * @default 0
        */
       corrections: number | null;
+      /**
+       * Retries
+       * @default 0
+       */
+      retries: number | null;
       /**
        * Unknown Starts
        * @default 0
@@ -6981,6 +7003,8 @@ export interface components {
       series: components["schemas"]["UsageSeries"][];
       /** Breakdowns */
       breakdowns: components["schemas"]["UsageBreakdown"][];
+      /** Tasks */
+      tasks: components["schemas"]["UsageTask"][];
       filters: components["schemas"]["UsageFilter"];
       /**
        * Timing Label

@@ -3,26 +3,25 @@ import { useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
-import { ContentStack, DetailHeading } from "./DetailLayout";
-import { UsageMetrics, UsageReadState } from "./UsageMetrics";
-import type { WorkspaceBoard } from "./workspace";
-import { useUsagePage } from "./usage";
-import type { UsageMetric } from "./UsageChart";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ContentStack, DetailSection } from "./DetailLayout";
+import { UsageMetrics, UsageReadState } from "./UsageMetrics";
+import { MetricsTasks } from "./MetricsTasks";
+import type { WorkspaceBoard } from "./workspace";
+import { useUsagePage } from "./usage";
 import {
-  defaultUsageQuery,
-  todayPeriod,
-  localDate,
-  bucketLabel,
-  usageZoom,
+  localDateTime,
+  parseLocalDateTime,
+  metricsQuery,
+  periods,
+  presetRange,
+  type Period,
 } from "./usagePeriod";
 const UsageChart = lazy(() => import("./UsageChart"));
-
-// Retain diagnostic deep links alongside the routine exploration controls.
 const filterKeys = [
   "task_id",
   "project_id",
@@ -37,6 +36,7 @@ const filterKeys = [
   "unknown_model",
   "related_task_id",
 ];
+
 export function WorkspaceUsage({
   workspaceId,
   board,
@@ -49,17 +49,8 @@ export function WorkspaceUsage({
   navigate: (url: string, replace?: boolean) => void;
 }) {
   const location = useLocation();
-  const [defaults] = useState(defaultUsageQuery);
-  const params = new URLSearchParams(location.search);
-  if (!params.has("period") && (params.has("start") || params.has("end")))
-    params.set("period", "custom");
-  for (const [key, value] of defaults)
-    if (!params.has(key)) params.set(key, value);
-  if (!params.has("metric")) params.set("metric", "tokens");
-  if (!params.has("dimension")) params.set("dimension", "role");
-  const zoom = usageZoom(params.get("zoom"));
-  const metric: UsageMetric =
-    params.get("metric") === "duration" ? "duration" : "tokens";
+  const [openedAt] = useState(Date.now);
+  const params = metricsQuery(location.search, openedAt);
   const canonical = params.toString();
   useEffect(() => {
     if (new URLSearchParams(location.search).toString() !== canonical)
@@ -67,10 +58,11 @@ export function WorkspaceUsage({
   }, [canonical, location.pathname, location.search, navigate]);
   function change(changes: Record<string, string>) {
     const next = new URLSearchParams(canonical);
-    for (const [key, value] of Object.entries(changes))
+    for (const [key, value] of Object.entries(changes)) {
       if (value) next.set(key, value);
       else next.delete(key);
-    navigate(`${location.pathname}?${next}`);
+    }
+    navigate(`${location.pathname}?${metricsQuery(next.toString(), openedAt)}`);
   }
   const query = new URLSearchParams();
   for (const key of [
@@ -86,151 +78,110 @@ export function WorkspaceUsage({
     `workspaces/${encodeURIComponent(workspaceId)}/usage?${query}`,
     refresh,
   );
-  const timezone = params.get("timezone")!;
-  let validDates = false;
-  try {
-    localDate(Date.parse(params.get("start")!), timezone);
-    localDate(Date.parse(params.get("end")!), timezone);
-    validDates = true;
-  } catch {
-    // Invalid saved links still reach the API's normal error/recovery surface.
-  }
-  const tasks = board.tasks;
   const taskId = params.get("task_id") || "";
+  const activity =
+    taskId || (params.get("role") === "coordinator" ? "coordinator" : "all");
+  const selectedTask = board.tasks.find((task) => task.id === taskId);
+  const activityTitle =
+    activity === "all"
+      ? "All activity"
+      : activity === "coordinator"
+        ? "Coordinator"
+        : selectedTask
+          ? `${selectedTask.key} · ${selectedTask.title}`
+          : "Selected task";
   const hiddenFilters = filterKeys.filter(
-    (key) => key !== "task_id" && params.has(key),
+    (key) =>
+      key !== "task_id" &&
+      !(key === "role" && activity === "coordinator") &&
+      params.has(key),
   );
+  const start = params.get("start") ?? "",
+    end = params.get("end") ?? "";
   return (
     <section className="workspace-usage p-5" aria-label="Workspace metrics">
       <ContentStack>
-        <DetailHeading title="Metrics" titleAs="h2" />
+        <DateRange
+          key={`${start}/${end}`}
+          start={start}
+          end={end}
+          apply={(range) => change({ ...range, period: "custom" })}
+        />
         <div className="usage-controls">
           <NativeSelect
             aria-label="Metrics period"
             size="sm"
             value={params.get("period")!}
             onChange={(e) => {
-              const preset = e.target.value;
-              if (preset === "custom") {
-                change({ period: preset, zoom: "" });
-                return;
-              }
-              const zone = validDates ? timezone : defaults.get("timezone")!;
-              const period = todayPeriod(zone);
-              const days = preset === "month" ? 30 : preset === "week" ? 7 : 1;
-              for (let day = 1; day < days; day++)
-                period.start = todayPeriod(
-                  zone,
-                  Date.parse(period.start) - 1,
-                ).start;
-              change({
-                ...period,
-                timezone: zone,
-                period: preset,
-                zoom: "",
-                group: days === 1 ? "hour" : "day",
-              });
+              const period = e.target.value as Period;
+              change(
+                period === "custom"
+                  ? { period }
+                  : { ...presetRange(period, Date.now()), period },
+              );
             }}
           >
-            <option value="today">Today</option>
-            <option value="week">Last 7 days</option>
-            <option value="month">Last 30 days</option>
-            <option value="custom">Custom dates</option>
-            {zoom.length > 0 && (
-              <option value="zoom">
-                {params.get("group") === "minute"
-                  ? "Selected hour"
-                  : "Selected day"}
-              </option>
-            )}
-          </NativeSelect>
-          <NativeSelect
-            className="usage-task-select"
-            aria-label="Metrics task"
-            size="sm"
-            value={taskId}
-            onChange={(e) => change({ task_id: e.target.value })}
-          >
-            <option value="">All tasks &amp; Coordinator</option>
-            {taskId && !tasks.some((task) => task.id === taskId) && (
-              <option value={taskId}>Selected task</option>
-            )}
-            {tasks.map((task) => (
-              <option key={task.id} value={task.id}>
-                {task.key} · {task.title}
-                {task.archived ? " (archived)" : ""}
+            {periods.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
               </option>
             ))}
           </NativeSelect>
-          <NativeSelect
-            aria-label="Chart metric"
-            size="sm"
-            value={metric}
-            onChange={(e) => change({ metric: e.target.value })}
-          >
-            <option value="tokens">Tokens</option>
-            <option value="duration">Duration</option>
-          </NativeSelect>
+          <div className="metrics-activity">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <NativeSelect
+                  aria-label="Metrics activity"
+                  size="sm"
+                  value={activity}
+                  className="truncate"
+                  onChange={(e) =>
+                    change({
+                      task_id: ["all", "coordinator"].includes(e.target.value)
+                        ? ""
+                        : e.target.value,
+                      role:
+                        e.target.value === "coordinator" ? "coordinator" : "",
+                      unassigned: "",
+                    })
+                  }
+                >
+                  <option value="all">All activity</option>
+                  <option value="coordinator">Coordinator</option>
+                  {taskId && !selectedTask && (
+                    <option value={taskId}>Selected task</option>
+                  )}
+                  {board.tasks.map((task) => (
+                    <option key={task.id} value={task.id}>
+                      {task.key} · {task.title}
+                      {task.archived ? " (archived)" : ""}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </TooltipTrigger>
+              <TooltipContent>{activityTitle}</TooltipContent>
+            </Tooltip>
+          </div>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span>
-                <NativeSelect
-                  aria-label="Chart grouping"
-                  size="sm"
-                  value={params.get("dimension")!}
-                  onChange={(e) => change({ dimension: e.target.value })}
-                >
-                  <option value="role">By agent type</option>
-                  <option value="harness">By harness</option>
-                  <option value="model">By model</option>
-                </NativeSelect>
-              </span>
+              <NativeSelect
+                aria-label="Chart grouping"
+                size="sm"
+                value={params.get("dimension")!}
+                onChange={(e) => change({ dimension: e.target.value })}
+              >
+                <option value="role">By agent type</option>
+                <option value="harness">By harness</option>
+                <option value="model">By model</option>
+              </NativeSelect>
             </TooltipTrigger>
-            <TooltipContent>
-              {params.get("dimension") === "model"
-                ? "Groups by the model selected for each run."
-                : metric === "duration"
-                  ? "Elapsed running time within each group. Groups may overlap."
-                  : "Groups the tokens reported during this period."}
-            </TooltipContent>
+            {params.get("dimension") === "model" && (
+              <TooltipContent>
+                Groups by the model selected for each run.
+              </TooltipContent>
+            )}
           </Tooltip>
         </div>
-        {zoom.length > 0 && validDates && (
-          <div className="actions usage-controls">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                const parent = zoom.at(-1)!;
-                change({
-                  ...parent,
-                  zoom:
-                    zoom.length > 1 ? JSON.stringify(zoom.slice(0, -1)) : "",
-                });
-              }}
-            >
-              Zoom out
-            </Button>
-            <span className="detail-metadata">
-              {bucketLabel(
-                params.get("start")!,
-                timezone,
-                params.get("group")!,
-              )}{" "}
-              –{" "}
-              {bucketLabel(params.get("end")!, timezone, params.get("group")!)}
-            </span>
-          </div>
-        )}
-        {params.get("period") === "custom" && validDates && (
-          <DateRange
-            key={`${params.get("start")}/${params.get("end")}/${timezone}`}
-            start={params.get("start")!}
-            end={params.get("end")!}
-            timezone={timezone}
-            apply={(values) => change({ ...values, zoom: "" })}
-          />
-        )}
         {!!hiddenFilters.length && (
           <div className="actions">
             <span className="detail-metadata">
@@ -253,13 +204,13 @@ export function WorkspaceUsage({
           </div>
         )}
         <UsageReadState resource={resource} name="metrics" />
-        {resource.error && !validDates && (
+        {resource.error && (!localDateTime(start) || !localDateTime(end)) && (
           <div className="actions">
             <Button
               size="sm"
               variant="outline"
               onClick={() =>
-                change({ ...Object.fromEntries(defaultUsageQuery()), zoom: "" })
+                change({ ...presetRange("today", Date.now()), period: "today" })
               }
             >
               Reset dates
@@ -271,111 +222,93 @@ export function WorkspaceUsage({
             <p>No metrics in this period.</p>
           ) : (
             <>
-              <UsageMetrics view={resource.data} task={!!taskId} />
-              <Suspense fallback={<p role="status">Loading chart…</p>}>
-                <UsageChart
-                  view={resource.data}
-                  metric={metric}
-                  select={(start, end) =>
-                    change({
-                      start,
-                      end,
-                      group: params.get("group") === "day" ? "hour" : "minute",
-                      period: "zoom",
-                      zoom: JSON.stringify(
-                        [
-                          ...zoom,
-                          {
-                            start: params.get("start")!,
-                            end: params.get("end")!,
-                            group: params.get("group")!,
-                            period: params.get("period")!,
-                          },
-                        ].slice(-2),
-                      ),
-                    })
-                  }
-                />
-              </Suspense>
+              <UsageMetrics view={resource.data} />
+              <div className="metrics-sections">
+                <Suspense fallback={<p role="status">Loading charts…</p>}>
+                  {(["tokens", "duration"] as const).map((metric) => (
+                    <DetailSection
+                      key={metric}
+                      title={metric === "tokens" ? "Tokens" : "Duration"}
+                    >
+                      <UsageChart
+                        view={resource.data!}
+                        metric={metric}
+                        select={(start, end) =>
+                          change({ start, end, period: "custom" })
+                        }
+                      />
+                    </DetailSection>
+                  ))}
+                </Suspense>
+                <DetailSection title="Tasks">
+                  <MetricsTasks
+                    key={query.toString()}
+                    workspaceId={workspaceId}
+                    view={resource.data}
+                    sort={params.get("sort") || "tokens-desc"}
+                    change={(sort) => change({ sort })}
+                  />
+                </DetailSection>
+              </div>
             </>
           ))}
       </ContentStack>
     </section>
   );
 }
-
 function DateRange({
   start,
   end,
-  timezone,
   apply,
 }: {
   start: string;
   end: string;
-  timezone: string;
-  apply: (changes: Record<string, string>) => void;
+  apply: (range: { start: string; end: string }) => void;
 }) {
-  const [from, setFrom] = useState(() =>
-    localDate(Date.parse(start), timezone),
-  );
-  const [through, setThrough] = useState(() =>
-    localDate(Date.parse(end) - 1, timezone),
-  );
+  const [from, setFrom] = useState(() => localDateTime(start));
+  const [to, setTo] = useState(() => localDateTime(end));
   const [error, setError] = useState("");
-  function boundary(date: string, last: boolean) {
-    // Noon UTC falls within the selected date in almost all zones; find the
-    // matching local day explicitly for extreme offsets before using DST bounds.
-    let probe = Date.parse(`${date}T12:00:00Z`);
-    while (localDate(probe, timezone) < date) probe += 3600000;
-    while (localDate(probe, timezone) > date) probe -= 3600000;
-    const period = todayPeriod(timezone, probe);
-    return last ? period.end : period.start;
-  }
+  const dirty = from !== localDateTime(start) || to !== localDateTime(end);
   return (
     <form
       className="usage-date-range"
-      aria-label="Custom usage dates"
+      aria-label="Metrics datetime range"
       onSubmit={(event) => {
         event.preventDefault();
-        if (!from || !through || through < from) {
-          setError("Choose an end date on or after the start date.");
-          return;
+        try {
+          const left = parseLocalDateTime(from, start),
+            right = parseLocalDateTime(to, end);
+          const seconds = (Date.parse(right) - Date.parse(left)) / 1000;
+          if (seconds <= 0 || seconds > 366 * 86400)
+            throw new Error("Choose an end after the start, within one year.");
+          setError("");
+          apply({ start: left, end: right });
+        } catch (error) {
+          setError((error as Error).message);
         }
-        const left = boundary(from, false),
-          right = boundary(through, true);
-        if (Date.parse(right) - Date.parse(left) > 366 * 86400000) {
-          setError("Choose up to one year.");
-          return;
-        }
-        apply({
-          start: left,
-          end: right,
-          group: from === through ? "hour" : "day",
-        });
       }}
     >
       <label>
         From
         <Input
-          type="date"
+          type="datetime-local"
           value={from}
           onChange={(e) => setFrom(e.target.value)}
           required
         />
       </label>
       <label>
-        Through
+        To
         <Input
-          type="date"
-          value={through}
-          onChange={(e) => setThrough(e.target.value)}
+          type="datetime-local"
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
           required
         />
       </label>
-      <Button size="sm" variant="outline">
-        Apply dates
+      <Button size="sm" variant="outline" disabled={!dirty}>
+        Apply
       </Button>
-      <span className="detail-metadata">{timezone}</span>
       {error && <p role="alert">{error}</p>}
     </form>
   );
