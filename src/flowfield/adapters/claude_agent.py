@@ -15,6 +15,7 @@ from flowfield.activity_text import command_title, public_output
 from flowfield.adapters.agent_contract import (
     COMMANDS,
     Agent,
+    ManagedToolCall,
     McpServer,
     PermissionHandler,
     PermissionRequest,
@@ -121,6 +122,8 @@ class ClaudeAgent(Agent):
         self.rpc = JsonRpc(self._event, self._request)
         self.info: dict[str, Any] = {}
         self._permission: PermissionHandler | None = None
+        self._permission_lock = asyncio.Lock()
+        self._servers: set[str] = set()
         self._configured = False
         self._running = False
         self._tools: dict[str, dict[str, Any]] = {}
@@ -143,6 +146,7 @@ class ClaudeAgent(Agent):
             runtime = self.launch.runtime_executable if self.launch else None
             assert runtime
             self.cleanup_confirmed = False
+            self._servers = {server.name for server in servers}
             await self.rpc.start([str(runtime)], self.cwd, self.environment)
             try:
                 self.info = await self.rpc.call(
@@ -150,7 +154,8 @@ class ClaudeAgent(Agent):
                     {
                         "cwd": str(self.cwd),
                         "directories": [str(path) for path in self.project_directories]
-                        + ([str(self.output_directory)] if self.output_directory else []),
+                        + ([str(self.output_directory)] if self.output_directory else [])
+                        + ([str(self.input_directory)] if self.input_directory else []),
                         "executable": self.launch.native_executable if self.launch else None,
                         "resume": resume,
                         "persistent": persistent,
@@ -368,6 +373,13 @@ class ClaudeAgent(Agent):
                 )
 
     async def _request(self, method: str, data: dict[str, Any]) -> dict[str, Any]:
+        # Native parallel tool calls share one durable permission slot. Queue them
+        # here instead of presenting concurrency as a human denial. Stop cancels
+        # the RPC request jobs, including requests waiting for this lock.
+        async with self._permission_lock:
+            return await self._permission_request(method, data)
+
+    async def _permission_request(self, method: str, data: dict[str, Any]) -> dict[str, Any]:
         if (
             method != "permission"
             or data.get("sessionId") != self.session_id
@@ -379,12 +391,20 @@ class ClaudeAgent(Agent):
         details = bounded_details(
             "\n".join(f"{key}: {value}" for key, value in data.get("details", {}).items())
         )
+        name = str(data.get("title", "Tool permission"))
+        matches = [server for server in self._servers if name.startswith(f"mcp__{server}__")]
+        managed = None
+        if len(matches) == 1 and isinstance(data.get("toolInput"), dict):
+            tool = name[len(f"mcp__{matches[0]}__") :]
+            if re.fullmatch(r"[A-Za-z0-9_-]{1,128}", tool):
+                managed = ManagedToolCall(matches[0], tool, data["toolInput"])
         selection = await self._permission(
             PermissionRequest(
                 str(data.get("toolId", "permission"))[:500],
-                tool_title(str(data.get("title", "Tool permission"))),
+                tool_title(name),
                 (("allow", "Allow once", "allow_once"), ("deny", "Deny", "reject_once")),
                 details,
+                managed_tool=managed,
             )
         )
         return {"decision": "allow" if selection == "allow" and not self.stopping else "deny"}

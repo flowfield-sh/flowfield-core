@@ -53,7 +53,8 @@ async function permission(toolName, args, context) {
     permissions.set(id, resolve);
     abort = () => { permissions.delete(id); resolve({decision: "deny"}); };
     context.signal.addEventListener("abort", abort, {once: true});
-    send({id, method: "permission", params: {sessionId, toolId: context.toolUseID ?? id, title: toolName, details}});
+    send({id, method: "permission", params: {sessionId, toolId: context.toolUseID ?? id, title: toolName, details,
+      ...(toolName.startsWith("mcp__") ? {toolInput: args} : {})}});
   });
   context.signal.removeEventListener("abort", abort);
   permissions.delete(id);

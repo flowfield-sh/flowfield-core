@@ -30,6 +30,7 @@ def main() -> None:
     active_prompt = None
     initialize_count = 0
     usage_turn = 0
+    pending_permissions = 0
 
     def emit(message):
         print(json.dumps(message), flush=True)
@@ -230,6 +231,9 @@ def main() -> None:
                 snapshot()
         elif message.get("type") == "control_response":
             save({"permission": message["response"]})
+            pending_permissions -= 1
+            if pending_permissions > 0:
+                continue
             if scenario == "complete":
                 emit(
                     {
@@ -344,24 +348,26 @@ def main() -> None:
                     "session_id": session_id,
                 }
             )
-            if scenario == "permission":
-                emit(
-                    {
-                        "type": "control_request",
-                        "request_id": "fixture-permission",
-                        "request": {
-                            "subtype": "can_use_tool",
-                            "tool_name": "Bash",
-                            "tool_use_id": "owned-tool",
-                            "input": {
-                                "command": "echo public",
-                                "cwd": str(Path.cwd()),
-                                "private": "PRIVATE_TOOL_INPUT",
+            if scenario in {"permission", "permission-mcp", "permission-parallel"}:
+                pending_permissions = 2 if scenario == "permission-parallel" else 1
+                for index in range(pending_permissions):
+                    emit(
+                        {
+                            "type": "control_request",
+                            "request_id": f"fixture-permission-{index}",
+                            "request": {
+                                "subtype": "can_use_tool",
+                                "tool_name": os.environ.get("FLOWFIELD_TEST_TOOL", "Bash"),
+                                "tool_use_id": "owned-tool" if index == 0 else "second-tool",
+                                "input": {
+                                    "command": "echo public",
+                                    "cwd": str(Path.cwd()),
+                                    "private": "PRIVATE_TOOL_INPUT",
+                                },
+                                "permission_suggestions": [],
                             },
-                            "permission_suggestions": [],
-                        },
-                    }
-                )
+                        }
+                    )
                 continue
             if scenario in {"background", "refused", "runtime-failure"}:
                 tasks = [

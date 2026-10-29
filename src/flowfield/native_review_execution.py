@@ -240,6 +240,7 @@ class NativeReviewExecution[J: ReviewJob](ABC):
                 registration=frozen.registration,
             )
             Usage(service.workspace).bind(review.workspace_id, "review_attempt", attempt, client)
+            client.input_directory = environment.runtime / "input"
             if launch.verification:
                 client.output_directory = environment.runtime / "output"
             service.clients[review.id] = client

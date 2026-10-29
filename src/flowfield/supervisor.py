@@ -545,6 +545,7 @@ class Supervisor:
             )
             Usage(self.workspace).bind(run.workspace_id, "run", run.id, client)
             client.output_directory = environment.runtime / "output"
+            client.input_directory = environment.runtime / "input"
             self.clients[run.id] = client
             checks = WorkerChecks(self.execution, run, environment)
             self.check_jobs[run.id] = checks

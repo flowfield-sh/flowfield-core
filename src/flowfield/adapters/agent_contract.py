@@ -68,6 +68,8 @@ class Agent(ABC):
     project_directories: tuple[Path, ...] = ()
     # Worker-owned deliverables live outside the checkout; reviewers receive no grant.
     output_directory: Path | None = None
+    # Attempt-owned copies of selected files, never the retained originals.
+    input_directory: Path | None = None
     supports_activity = True
     input_tokens_available: int | None = None
     max_prompt_bytes: int | None = None

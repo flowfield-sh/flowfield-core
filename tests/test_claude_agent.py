@@ -214,6 +214,7 @@ def test_sdk_permissions_scoped_mcp_and_attachments_reach_native_cli(tmp_path, s
 
     async def exercise():
         agent = installed_candidate(tmp_path, "permission")
+        agent.input_directory = tmp_path / "frozen-input"
         observed = []
 
         async def decide(request):
@@ -244,6 +245,8 @@ def test_sdk_permissions_scoped_mcp_and_attachments_reach_native_cli(tmp_path, s
             records = [
                 json.loads(line) for line in (tmp_path / "native.jsonl").read_text().splitlines()
             ]
+            arguments = next(record["args"] for record in records if "args" in record)
+            assert str(agent.input_directory) in arguments
             native_permission = next(
                 record["permission"] for record in records if "permission" in record
             )
@@ -467,5 +470,83 @@ def test_compiled_sdk_forwards_member_directories_without_changing_cwd_or_mode(t
             assert agent.cwd == tmp_path
         finally:
             assert await agent.stop()
+
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("server_name", ["flowfield_owned", "foreign"])
+def test_sdk_permission_retains_only_registered_mcp_identity(tmp_path, server_name):
+    from flowfield.adapters.agent_contract import McpServer
+
+    async def exercise():
+        agent = installed_candidate(tmp_path, "permission-mcp")
+        agent.environment["FLOWFIELD_TEST_TOOL"] = f"mcp__{server_name}__submit_review"
+        observed = []
+
+        async def decide(request):
+            observed.append(request)
+            call = request.managed_tool
+            return "allow" if call and call.server == "flowfield_owned" else "deny"
+
+        try:
+            await agent.start(
+                [McpServer(name="flowfield_owned", url="http://127.0.0.1:1/mcp", headers=[])]
+            )
+            await agent.configure(CHOICE)
+            assert (await agent.prompt("Review", decide))["status"] == "completed"
+            assert len(observed) == 1
+            call = observed[0].managed_tool
+            if server_name == "flowfield_owned":
+                assert call and call.server == server_name and call.name == "submit_review"
+                assert call.arguments["private"] == "PRIVATE_TOOL_INPUT"
+            else:
+                assert call is None
+            assert "PRIVATE_TOOL_INPUT" not in observed[0].details
+            records = [
+                json.loads(line) for line in (tmp_path / "native.jsonl").read_text().splitlines()
+            ]
+            answer = next(record["permission"] for record in records if "permission" in record)
+            assert answer["response"]["behavior"] == ("allow" if call else "deny")
+        finally:
+            assert await agent.stop()
+
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("stop", [False, True])
+def test_sdk_parallel_permissions_queue_and_stop_cancels_waiters(tmp_path, stop):
+    async def exercise():
+        agent = installed_candidate(tmp_path, "permission-parallel")
+        entered = asyncio.Event()
+        observed = []
+        active = False
+
+        async def decide(request):
+            nonlocal active
+            assert not active  # The application's durable permission owner has one slot.
+            active = True
+            observed.append(request.tool_id)
+            entered.set()
+            if stop:
+                await asyncio.Event().wait()
+            await asyncio.sleep(0.02)
+            active = False
+            return "allow"
+
+        task = None
+        try:
+            await agent.start([])
+            await agent.configure(CHOICE)
+            task = asyncio.create_task(agent.prompt("Two tools", decide))
+            await asyncio.wait_for(entered.wait(), 5)
+            if stop:
+                assert await agent.stop()
+            result = await asyncio.wait_for(task, 5)
+            assert result["status"] == ("stopped" if stop else "completed")
+            assert observed == (["owned-tool"] if stop else ["owned-tool", "second-tool"])
+        finally:
+            assert await agent.stop()
+            if task and not task.done():
+                task.cancel()
 
     asyncio.run(exercise())
