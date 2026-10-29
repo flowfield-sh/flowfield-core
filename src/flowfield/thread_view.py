@@ -89,23 +89,27 @@ class ThreadView(Conversation):
                 and same_definition
             ):
                 kind = "state"
-                title = "Moved to " + data["status"].replace("_", " ").capitalize()
-                if data.get("reconciliation_reason"):
-                    title = "Scope needs reconciliation"
-                if data.get("archived"):
-                    title = "Task archived"
-                if previous.get("reconciliation_reason") and not data.get("reconciliation_reason"):
-                    title = "Task reconciled"
+                title = "Task updated"
+                if previous["archived"] != data["archived"]:
+                    title = "Task archived" if data["archived"] else "Task restored"
+                elif previous.get("reconciliation_reason") != data.get("reconciliation_reason"):
+                    title = (
+                        "Task needs reconciliation"
+                        if data.get("reconciliation_reason")
+                        else "Task reconciled"
+                    )
                     body = data["change_note"]
+                elif previous["status"] != data["status"]:
+                    title = "Moved to " + data["status"].replace("_", " ").capitalize()
             else:
-                title = "Task defined" if not previous else "Task definition updated"
+                title = "Task created" if not previous else "Task updated"
                 body = "## " + data["title"] + "\n\n" + data["body"]
                 if same_definition and previous is not None:
-                    kind = "subtasks"
-                    title = "Subtasks updated"
                     body = subtask_changes(
                         db, workspace_id, task_id, previous["updated_at"], data["updated_at"]
                     )
+                    kind = "subtasks" if body else "state"
+                    title = "Subtasks updated" if body else "Task updated"
         elif kind == "question":
             title = "Question"
             body = "\n\n".join(
@@ -136,6 +140,7 @@ class ThreadView(Conversation):
                         "approve": "Reviewer signed off",
                         "adopt": "Guidance reconciled",
                         "request_changes": "Reviewer requested changes",
+                        "request_verification": "Reviewer requested verification",
                         "ask_human": "Reviewer asked a question",
                         "ask_worker": "Reviewer asked the worker",
                     }.get(decision[0], title)
@@ -166,7 +171,7 @@ class ThreadView(Conversation):
                     title = (
                         f"Result #{version[0]} feedback"
                         if data["action"] == "changes"
-                        else f"Reviewing result #{version[0]} observation"
+                        else f"Result #{version[0]} observation"
                     )
         elif kind == "attempt":
             if data.get("correction"):
@@ -207,11 +212,7 @@ class ThreadView(Conversation):
                 "SELECT version FROM result_versions WHERE workspace_id=? AND id=?",
                 (workspace_id, data["result_id"]),
             ).fetchone()
-            title = (
-                "Reviewing updated guidance"
-                if data.get("guidance")
-                else f"Reviewing result #{version[0]}"
-            )
+            title = "Guidance review" if data.get("guidance") else f"Result #{version[0]} review"
             body = data.get("problem") or ""
             review_decision = (data.get("verdict") or {}).get("action")
         elif kind == "approval":
@@ -221,7 +222,7 @@ class ThreadView(Conversation):
             title = (
                 "Integrated into " + str(data["target_branch"])
                 if data["completion"] == "code"
-                else "Findings delivered"
+                else "Result delivered"
             )
         assembled = kind == "attempt" and data.get("purpose") == "assembly"
         has_activity = False

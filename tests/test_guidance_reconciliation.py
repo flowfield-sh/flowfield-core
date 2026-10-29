@@ -154,7 +154,7 @@ def test_preflight_refreshes_latest_guidance_and_then_claims(tmp_path, monkeypat
     from flowfield.thread_view import ThreadView
 
     events = ThreadView(service.workspace).page_view("harbor", task.id).items
-    assert any(event.title == "Reviewing updated guidance" for event in events)
+    assert any(event.title == "Guidance review" for event in events)
     saved = service.workspace.task("harbor", task.id)
     assert saved.publication.documents[0].revision == changed.revision
     run = service.execution.claim("harbor", "", {}, task_id=task.id)

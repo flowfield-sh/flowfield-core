@@ -96,7 +96,7 @@ def test_standalone_review_is_idempotent_and_grants_no_delivery(tmp_path):
     review_event = next(item for item in feed.items if item.id == f"review:{review.id}")
     assert result_event.title == f"Result #{result.version}"
     assert result_event.state.tone == "waiting"
-    assert review_event.title == f"Reviewing result #{result.version}"
+    assert review_event.title == f"Result #{result.version} review"
     assert review_event.state.tone == "active"
     assert sum(item.state.tone == "active" for item in feed.items) == 1
     with service.workspace.connection() as db:

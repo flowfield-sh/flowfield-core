@@ -131,7 +131,7 @@ def test_task_and_subtask_graphs_are_distinct_and_transactional(tmp_path):
         (message for message in messages if message.kind in ("definition", "subtasks")),
         key=lambda message: message.revision or 0,
     )
-    assert definitions[0].title == "Task defined"
+    assert definitions[0].title == "Task created"
     assert [message.title for message in definitions[1:]] == [
         "Subtasks updated",
         "Subtasks updated",

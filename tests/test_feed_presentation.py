@@ -148,3 +148,45 @@ def test_finished_attempt_without_activity_has_no_empty_disclosure(tmp_path):
     )
     execution.finish("harbor", next_run.id, "stopped")
     assert thread.item_view("harbor", run.task_id, "attempt:" + next_run.id).has_activity
+
+
+def test_task_event_names_distinguish_edits_reordering_and_restoration(tmp_path):
+    from flowfield.application import TaskEdit, TaskPriority
+
+    execution = fixture(tmp_path, count=2)
+    store = execution.workspace
+    thread = ThreadView(store)
+    task = store.task("harbor", "task-0")
+    assert thread.item_view("harbor", task.id, "definition:1").title == "Task created"
+    task = store.edit_task(
+        "harbor", task.id, TaskEdit(expected_revision=task.revision, title="Renamed task")
+    )
+    assert (
+        thread.item_view("harbor", task.id, f"definition:{task.revision}").title == "Task updated"
+    )
+    # Same-column ordering is intentionally absent from the conversation.
+    task = store.prioritize_task(
+        "harbor", task.id, TaskPriority(expected_revision=task.revision, status="up_next")
+    )
+    assert f"definition:{task.revision}" not in {
+        item.id for item in thread.page_view("harbor", task.id).items
+    }
+    task = store.edit_task(
+        "harbor", task.id, TaskEdit(expected_revision=task.revision, archived=True)
+    )
+    assert (
+        thread.item_view("harbor", task.id, f"definition:{task.revision}").title == "Task archived"
+    )
+    task = store.edit_task(
+        "harbor", task.id, TaskEdit(expected_revision=task.revision, archived=False)
+    )
+    assert (
+        thread.item_view("harbor", task.id, f"definition:{task.revision}").title == "Task restored"
+    )
+    task = store.prioritize_task(
+        "harbor", task.id, TaskPriority(expected_revision=task.revision, status="backlog")
+    )
+    assert (
+        thread.item_view("harbor", task.id, f"definition:{task.revision}").title
+        == "Moved to Backlog"
+    )

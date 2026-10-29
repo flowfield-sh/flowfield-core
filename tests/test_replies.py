@@ -159,7 +159,7 @@ def test_historical_testing_retains_exact_result_and_reaches_successor(tmp_path,
     assert current(service) == version and service.workspace.task("harbor", "work") == before
     restarted = Workspace(service.workspace.directory)
     entry = ThreadView(restarted).item_view("harbor", "work", "reply:" + receipt.id)
-    assert entry.title == "Reviewing result #1 observation" and entry.result_id == version.id
+    assert entry.title == "Result #1 observation" and entry.result_id == version.id
     assert entry.state.label == "Observation recorded" and entry.state.tone == "complete"
     assert entry.body == text
     source = Conversation(restarted).source("harbor", "work", "reply:" + receipt.id)
@@ -217,7 +217,7 @@ def test_thread_is_bounded_links_exact_revisions_and_keeps_long_sources(tmp_path
     newest = page.items[0]
     assert newest.truncated and len(newest.body) == 6000
     assert len(thread.item_view("harbor", "task-0", newest.id, full=True).body) > 6000
-    assert thread.item_view("harbor", "task-0", "definition:1").title == "Task defined"
+    assert thread.item_view("harbor", "task-0", "definition:1").title == "Task created"
     older = thread.page_view("harbor", "task-0", page.next_cursor)
     assert not {m.id for m in older.items} & {m.id for m in page.items}
 

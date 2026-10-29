@@ -249,7 +249,7 @@ test("Feed disclosures preserve message drafts while coordinator revisions updat
       acceptance_criteria: "Keep the accessible labels.",
     },
   });
-  await expect(history).toContainText("Task definition updated");
+  await expect(history).toContainText("Task updated");
   expect(revisionReads).toHaveLength(1);
   await history
     .locator('[data-message-id="definition:2"] .activity-entry > summary')

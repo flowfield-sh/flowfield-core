@@ -115,9 +115,7 @@ test("task editing saves definition fields, retains drafts and recovers stale sa
   await expect(page.getByLabel("Current task definition")).toContainText(
     "Save all four supported fields together.",
   );
-  await expect(page.getByLabel("Task feed")).toContainText(
-    "Task definition updated",
-  );
+  await expect(page.getByLabel("Task feed")).toContainText("Task updated");
   const saved = await (
     await request.get(`/api${base}/tasks/${value.id}`)
   ).json();

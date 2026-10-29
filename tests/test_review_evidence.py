@@ -14,6 +14,7 @@ from flowfield.inspection import Inspections
 from flowfield.inspection_models import InspectionConfig
 from flowfield.outputs import Outputs
 from flowfield.review_tools import ReviewBridge
+from flowfield.thread_view import ThreadView
 
 
 def test_historical_notes_are_readable_without_a_new_review_round(tmp_path):
@@ -54,6 +55,10 @@ def test_verification_uses_generated_launcher_and_retains_evidence_without_new_c
     asyncio.run(round_trip(service))
     review = reviews.latest("harbor", run.task_id)
     assert review.recipient == "implementer" and review.verification
+    assert any(
+        item.title == "Reviewer requested verification"
+        for item in ThreadView(service.workspace).page_view("harbor", run.task_id).items
+    )
 
     class Verifier(Reviewer):
         async def prompt(self, text, on_permission, *, attachments=None):
