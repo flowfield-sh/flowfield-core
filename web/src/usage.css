@@ -20,7 +20,6 @@
   .metrics-filter {
     display: grid;
     gap: 4px;
-    font-size: 14px;
     min-width: 0;
   }
   .metrics-activity {

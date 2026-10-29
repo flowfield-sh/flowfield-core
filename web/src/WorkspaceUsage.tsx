@@ -121,10 +121,15 @@ export function WorkspaceUsage({
   return (
     <section className="workspace-usage" aria-label="Workspace metrics">
       <ContentStack space="settings">
-        <ContentStack>
+        <ContentStack space="settings">
           <div className="usage-controls">
             <div className="metrics-filter">
-              <label htmlFor={`${controlId}-period`}>Period</label>
+              <label
+                className="detail-metadata"
+                htmlFor={`${controlId}-period`}
+              >
+                Period
+              </label>
               <NativeSelect
                 id={`${controlId}-period`}
                 aria-label="Metrics period"
@@ -140,7 +145,12 @@ export function WorkspaceUsage({
               </NativeSelect>
             </div>
             <div className="metrics-filter metrics-activity">
-              <label htmlFor={`${controlId}-activity`}>Activity</label>
+              <label
+                className="detail-metadata"
+                htmlFor={`${controlId}-activity`}
+              >
+                Activity
+              </label>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <NativeSelect
@@ -177,7 +187,9 @@ export function WorkspaceUsage({
               </Tooltip>
             </div>
             <div className="metrics-filter">
-              <label htmlFor={`${controlId}-group`}>Group by</label>
+              <label className="detail-metadata" htmlFor={`${controlId}-group`}>
+                Group by
+              </label>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <NativeSelect
@@ -200,14 +212,12 @@ export function WorkspaceUsage({
               </Tooltip>
             </div>
           </div>
-          <DetailSection title="Date range" panel>
-            <DateRange
-              key={`${start}/${end}`}
-              start={start}
-              end={end}
-              apply={(range) => change({ ...range, period: "custom" })}
-            />
-          </DetailSection>
+          <DateRange
+            key={`${start}/${end}`}
+            start={start}
+            end={end}
+            apply={(range) => change({ ...range, period: "custom" })}
+          />
         </ContentStack>
         {!!hiddenFilters.length && (
           <div className="actions">
@@ -298,7 +308,7 @@ function DateRange({
   const dirty = from !== localDateTime(start) || to !== localDateTime(end);
   return (
     <form
-      className="usage-date-range"
+      className="usage-date-range detail-panel"
       aria-label="Metrics datetime range"
       onSubmit={(event) => {
         event.preventDefault();
@@ -316,7 +326,7 @@ function DateRange({
       }}
     >
       <label>
-        From
+        <span className="detail-metadata">From</span>
         <Input
           type="datetime-local"
           value={from}
@@ -325,7 +335,7 @@ function DateRange({
         />
       </label>
       <label>
-        To
+        <span className="detail-metadata">To</span>
         <Input
           type="datetime-local"
           value={to}
