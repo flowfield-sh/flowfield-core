@@ -1,7 +1,8 @@
 import { useEffect, useRef, type RefObject } from "react";
 import {
   Bar,
-  BarChart,
+  ComposedChart,
+  Line,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
@@ -93,7 +94,7 @@ export default function UsageChart({
       aria-label={`${metric === "tokens" ? "Token usage" : "Duration"} over time`}
     >
       <ResponsiveContainer width="100%" height={260} minWidth={0}>
-        <BarChart
+        <ComposedChart
           data={data}
           accessibilityLayer
           aria-label={
@@ -101,6 +102,11 @@ export default function UsageChart({
               ? "Use arrow keys to inspect intervals and Enter to zoom in"
               : "Use arrow keys to inspect intervals"
           }
+          onClick={(state) => {
+            if (!zoomable || state.activeIndex == null) return;
+            const bucket = view.buckets[Number(state.activeIndex)];
+            if (bucket) select(bucket.start, bucket.end);
+          }}
           margin={{ top: 8, right: 24, left: 0, bottom: 8 }}
         >
           <ChartKeyboard
@@ -143,7 +149,11 @@ export default function UsageChart({
             }
           />
           <Tooltip
-            cursor={{ fill: "var(--muted)" }}
+            cursor={
+              metric === "tokens"
+                ? { fill: "var(--muted)" }
+                : { stroke: "var(--muted-foreground)", strokeDasharray: "3 3" }
+            }
             content={({ active, payload, label }) =>
               active && payload?.length ? (
                 <div className="usage-chart-tooltip">
@@ -171,27 +181,34 @@ export default function UsageChart({
               ) : null
             }
           />
-          {series.map((series) => (
-            <Bar
-              key={series.field}
-              dataKey={series.field}
-              name={series.label}
-              fill={series.color}
-              stackId={metric === "tokens" ? "tokens" : undefined}
-              maxBarSize={40}
-              isAnimationActive={false}
-              cursor={zoomable ? "pointer" : undefined}
-              onClick={
-                zoomable
-                  ? (bar) => {
-                      const bucket = view.buckets[bar.originalDataIndex];
-                      if (bucket) select(bucket.start, bucket.end);
-                    }
-                  : undefined
-              }
-            />
-          ))}
-        </BarChart>
+          {series.map((series) =>
+            metric === "duration" ? (
+              <Line
+                key={series.field}
+                dataKey={series.field}
+                name={series.label}
+                stroke={series.color}
+                strokeWidth={2}
+                type="linear"
+                dot={{ r: 2 }}
+                activeDot={{ r: 5 }}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            ) : (
+              <Bar
+                key={series.field}
+                dataKey={series.field}
+                name={series.label}
+                fill={series.color}
+                stackId="tokens"
+                maxBarSize={40}
+                isAnimationActive={false}
+                cursor={zoomable ? "pointer" : undefined}
+              />
+            ),
+          )}
+        </ComposedChart>
       </ResponsiveContainer>
       <ul className="usage-legend" aria-label="Chart legend">
         {series.map((series) => (

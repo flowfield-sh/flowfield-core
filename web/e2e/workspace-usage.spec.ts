@@ -22,7 +22,7 @@ test("usage fills its pane, retains Coordinator and filters persisted counters b
   const f = seed();
   await page.goto(f.workspace_url);
   const usage = page.getByRole("region", {
-    name: "Workspace usage",
+    name: "Workspace metrics",
     exact: true,
   });
   await expect(usage.locator("dd").first()).toHaveText("4,800");
@@ -37,7 +37,7 @@ test("usage fills its pane, retains Coordinator and filters persisted counters b
     page.getByRole("tabpanel", { name: "Coordinator", exact: true }),
   ).toBeVisible();
   await dialogViews(page, info, "workspace-usage");
-  await usage.getByLabel("Usage task").selectOption(f.task);
+  await usage.getByLabel("Metrics task").selectOption(f.task);
   await expect(usage.getByLabel("coordinator usage")).toHaveCount(0);
   await expect(page).toHaveURL(new RegExp(`task_id=${f.task}`));
   const query = new URL(page.url()).searchParams;
@@ -50,11 +50,11 @@ test("usage fills its pane, retains Coordinator and filters persisted counters b
     expected.totals.tokens.total.toLocaleString(),
   );
   await page.reload();
-  await expect(usage.getByLabel("Usage task")).toHaveValue(f.task);
-  await usage.getByLabel("Usage period").selectOption("week");
+  await expect(usage.getByLabel("Metrics task")).toHaveValue(f.task);
+  await usage.getByLabel("Metrics period").selectOption("week");
   await expect(page).toHaveURL(/period=week/);
   await page.goBack();
-  await expect(usage.getByLabel("Usage period")).toHaveValue("custom");
+  await expect(usage.getByLabel("Metrics period")).toHaveValue("custom");
   await usage.getByLabel("From", { exact: true }).fill("2026-10-26");
   await usage.getByLabel("Through", { exact: true }).fill("2026-10-28");
   await usage.getByRole("button", { name: "Apply dates" }).click();
@@ -84,17 +84,17 @@ test("empty periods and failed refreshes retain useful recovery", async ({
   );
   await page.goto(f.workspace_url);
   const usage = page.getByRole("region", {
-    name: "Workspace usage",
+    name: "Workspace metrics",
     exact: true,
   });
-  await expect(usage.getByText(/Could not refresh usage/)).toBeVisible();
+  await expect(usage.getByText(/Could not refresh metrics/)).toBeVisible();
   fail = false;
-  await usage.getByRole("button", { name: "Retry usage" }).click();
+  await usage.getByRole("button", { name: "Retry metrics" }).click();
   await expect(usage.locator("dd").first()).toHaveText("4,800");
   await usage.getByLabel("From", { exact: true }).fill("2020-01-01");
   await usage.getByLabel("Through", { exact: true }).fill("2020-01-02");
   await usage.getByRole("button", { name: "Apply dates" }).click();
-  await expect(usage).toContainText("No usage in this period.");
+  await expect(usage).toContainText("No metrics in this period.");
   await dialogViews(page, info, "empty-usage");
 });
 test("Today boundaries follow local calendar days at DST and unusual offsets", () => {
@@ -129,15 +129,15 @@ test("invalid saved dates recover without losing the selected task", async ({
     query.set("task_id", f.task);
     await page.goto(`/workspaces/${f.workspace}/usage?${query}`);
     const usage = page.getByRole("region", {
-      name: "Workspace usage",
+      name: "Workspace metrics",
       exact: true,
     });
     await expect(
       usage.getByRole("button", { name: "Reset dates" }),
     ).toBeVisible();
     await usage.getByRole("button", { name: "Reset dates" }).click();
-    await expect(usage.getByLabel("Usage period")).toHaveValue("today");
-    await expect(usage.getByLabel("Usage task")).toHaveValue(f.task);
+    await expect(usage.getByLabel("Metrics period")).toHaveValue("today");
+    await expect(usage.getByLabel("Metrics task")).toHaveValue(f.task);
     await expect(
       usage.getByRole("button", { name: "Reset dates" }),
     ).toHaveCount(0);
@@ -152,11 +152,11 @@ test("chart explores metrics and dimensions, zooms by pointer and keyboard, and 
   query.set("group", "day");
   await page.goto(`/workspaces/${f.workspace}/usage?${query}`);
   const usage = page.getByRole("region", {
-    name: "Workspace usage",
+    name: "Workspace metrics",
     exact: true,
   });
-  await usage.getByLabel("Usage metric").selectOption("duration");
-  await usage.getByLabel("Usage dimension").selectOption("harness");
+  await usage.getByLabel("Chart metric").selectOption("duration");
+  await usage.getByLabel("Chart grouping").selectOption("harness");
   const chart = usage.getByRole("region", { name: "Duration over time" });
   await expect(chart.getByLabel("Chart legend")).toContainText("Claude Code");
   // Clicking the SVG focuses it without drawing the browser's pointer-focus outline.
@@ -167,19 +167,17 @@ test("chart explores metrics and dimensions, zooms by pointer and keyboard, and 
   expect(await svg.evaluate((e) => getComputedStyle(e).outlineStyle)).toBe(
     "none",
   );
-  await chart.locator(".recharts-bar-rectangle path").first().click();
+  await chart.locator(".recharts-line-dot").first().click();
   await expect(page).toHaveURL(/group=hour/);
-  await expect(usage.getByLabel("Usage period")).toHaveValue("zoom");
-  await usage.getByLabel("Usage dimension").selectOption("model");
+  await expect(usage.getByLabel("Metrics period")).toHaveValue("zoom");
+  await usage.getByLabel("Chart grouping").selectOption("model");
   await expect(chart.getByLabel("Chart legend")).toContainText(
     "synthetic-requested-model",
   );
   await page.reload();
-  await expect(usage.getByLabel("Usage dimension")).toHaveValue("model");
-  await expect(usage.getByLabel("Usage metric")).toHaveValue("duration");
-  await expect(
-    chart.locator(".recharts-bar-rectangle path").first(),
-  ).toBeVisible();
+  await expect(usage.getByLabel("Chart grouping")).toHaveValue("model");
+  await expect(usage.getByLabel("Chart metric")).toHaveValue("duration");
+  await expect(chart.locator(".recharts-line-dot").first()).toBeVisible();
   // Keyboard focus remains visible; arrows inspect buckets and Enter drills in.
   await usage.getByLabel("Token usage breakdown").focus();
   await page.keyboard.press("Tab");
@@ -195,7 +193,7 @@ test("chart explores metrics and dimensions, zooms by pointer and keyboard, and 
   await expect(page).toHaveURL(/group=hour/);
   await usage.getByRole("button", { name: "Zoom out" }).click();
   await expect(page).toHaveURL(/group=day/);
-  await expect(usage.getByLabel("Usage dimension")).toHaveValue("model");
-  await usage.getByLabel("Usage metric").selectOption("tokens");
+  await expect(usage.getByLabel("Chart grouping")).toHaveValue("model");
+  await usage.getByLabel("Chart metric").selectOption("tokens");
   await dialogViews(page, info, "explored-usage");
 });

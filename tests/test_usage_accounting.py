@@ -415,3 +415,32 @@ def test_elapsed_time_includes_live_once_and_never_extends_unknown_end(tmp_path)
     )
     assert past.totals.elapsed_seconds is None
     assert not any(r.live for r in past.breakdowns)
+
+
+def test_corrections_count_started_work_without_retries_or_page_bias(tmp_path):
+    execution, _, runs = accounting(tmp_path, count=5)
+    with execution.workspace.connection(write=True) as db:
+        for run, purpose in zip(
+            runs,
+            ["correction", "retry", "answer-continuation", "implementation", "correction"],
+            strict=True,
+        ):
+            db.execute(
+                "UPDATE usage_executions SET purpose=?,started_at=?,ended_at=?,timing='recorded' "
+                "WHERE source_id=?",
+                (purpose, "2026-10-27T10:00:00+00:00", "2026-10-27T10:20:00+00:00", run.id),
+            )
+        db.execute("UPDATE usage_executions SET started_at=NULL WHERE source_id=?", (runs[-1].id,))
+    assert summary(execution, limit=1, after=1).totals.corrections == 1
+    assert summary(execution, task_id=runs[0].task_id).totals.corrections == 1
+    assert summary(execution, task_id=runs[1].task_id).totals.corrections == 0
+    # A run overlapping a period is not another correction started in that period.
+    assert (
+        summary(
+            execution, start="2026-10-27T10:05:00Z", end="2026-10-27T10:15:00Z"
+        ).totals.corrections
+        == 0
+    )
+    with execution.workspace.connection(write=True) as db:
+        db.execute("UPDATE usage_executions SET purpose='unknown' WHERE source_id=?", (runs[0].id,))
+    assert summary(execution).totals.corrections is None

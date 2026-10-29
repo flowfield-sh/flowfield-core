@@ -151,6 +151,7 @@ class UsageTotals(UsageRecord):
     tokens: Tokens = Field(default_factory=Tokens)
     attempts: int = 0
     started_attempts: int = 0
+    corrections: int | None = 0
     unknown_starts: int = 0
     complete: int = 0
     partial: int = 0

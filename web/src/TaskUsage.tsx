@@ -16,13 +16,17 @@ export function TaskUsage({
     refresh,
   );
   return (
-    <DetailSection title="Usage" aria-label="Task usage" className="task-usage">
-      <UsageReadState resource={resource} name="task usage" />
+    <DetailSection
+      title="Metrics"
+      aria-label="Task metrics"
+      className="task-usage"
+    >
+      <UsageReadState resource={resource} name="task metrics" />
       {resource.data &&
         (resource.data.totals.attempts ? (
           <UsageMetrics view={resource.data} task />
         ) : (
-          <p className="detail-metadata">No usage yet.</p>
+          <p className="detail-metadata">No metrics yet.</p>
         ))}
     </DetailSection>
   );

@@ -78,7 +78,7 @@ test("attention leads Work and Home; resource tabs reorder and host settings", a
     "Task Board",
     "Documents",
     "Files",
-    "Usage",
+    "Metrics",
     "Projects",
     "Settings",
   ]);

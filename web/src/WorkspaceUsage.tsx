@@ -101,12 +101,12 @@ export function WorkspaceUsage({
     (key) => key !== "task_id" && params.has(key),
   );
   return (
-    <section className="workspace-usage p-5" aria-label="Workspace usage">
+    <section className="workspace-usage p-5" aria-label="Workspace metrics">
       <ContentStack>
-        <DetailHeading title="Usage" titleAs="h2" />
+        <DetailHeading title="Metrics" titleAs="h2" />
         <div className="usage-controls">
           <NativeSelect
-            aria-label="Usage period"
+            aria-label="Metrics period"
             size="sm"
             value={params.get("period")!}
             onChange={(e) => {
@@ -146,7 +146,7 @@ export function WorkspaceUsage({
           </NativeSelect>
           <NativeSelect
             className="usage-task-select"
-            aria-label="Usage task"
+            aria-label="Metrics task"
             size="sm"
             value={taskId}
             onChange={(e) => change({ task_id: e.target.value })}
@@ -163,7 +163,7 @@ export function WorkspaceUsage({
             ))}
           </NativeSelect>
           <NativeSelect
-            aria-label="Usage metric"
+            aria-label="Chart metric"
             size="sm"
             value={metric}
             onChange={(e) => change({ metric: e.target.value })}
@@ -175,7 +175,7 @@ export function WorkspaceUsage({
             <TooltipTrigger asChild>
               <span>
                 <NativeSelect
-                  aria-label="Usage dimension"
+                  aria-label="Chart grouping"
                   size="sm"
                   value={params.get("dimension")!}
                   onChange={(e) => change({ dimension: e.target.value })}
@@ -252,7 +252,7 @@ export function WorkspaceUsage({
             </Button>
           </div>
         )}
-        <UsageReadState resource={resource} name="usage" />
+        <UsageReadState resource={resource} name="metrics" />
         {resource.error && !validDates && (
           <div className="actions">
             <Button
@@ -268,7 +268,7 @@ export function WorkspaceUsage({
         )}
         {resource.data &&
           (resource.data.totals.attempts === 0 ? (
-            <p>No usage in this period.</p>
+            <p>No metrics in this period.</p>
           ) : (
             <>
               <UsageMetrics view={resource.data} task={!!taskId} />

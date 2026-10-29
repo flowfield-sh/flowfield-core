@@ -32,7 +32,7 @@ async function setup(request: import("@playwright/test").APIRequestContext) {
   };
 }
 
-test("task usage shows one clock and tooltip role breakdowns without accounting controls", async ({
+test("task metrics shows one clock and tooltip role breakdowns without accounting controls", async ({
   page,
   request,
 }, info) => {
@@ -42,9 +42,10 @@ test("task usage shows one clock and tooltip role breakdowns without accounting 
     route.fulfill({ json: view }),
   );
   await page.goto(f.url);
-  const usage = page.getByRole("region", { name: "Task usage", exact: true });
+  const usage = page.getByRole("region", { name: "Task metrics", exact: true });
   await expect(usage).toContainText("3,800");
   await expect(usage.locator("dd").nth(1)).toHaveText("20m 0s");
+  await expect(usage.locator("dd").nth(2)).toHaveText("2");
   await expect(usage.getByText("Worker", { exact: true })).toHaveCount(0);
   await usage.getByRole("button", { name: "Token usage breakdown" }).hover();
   await expect(page.getByRole("tooltip")).toContainText("Worker3,500");
@@ -80,7 +81,7 @@ test("live tokens refresh, parallel time advances once, and completion stops the
     return route.fulfill({ json: view });
   });
   await page.goto(f.url);
-  const usage = page.getByRole("region", { name: "Task usage", exact: true });
+  const usage = page.getByRole("region", { name: "Task metrics", exact: true });
   await expect(usage.getByText("Running", { exact: true })).toBeVisible();
   await expect(usage.locator("dd").nth(1)).toHaveText(/1m [0-9]s/);
   view.totals.tokens = tokens(5800);
@@ -113,10 +114,10 @@ test("failed reads retry and unknown usage never becomes measured zero", async (
       : route.fulfill({ json: view }),
   );
   await page.goto(f.url);
-  const usage = page.getByRole("region", { name: "Task usage", exact: true });
+  const usage = page.getByRole("region", { name: "Task metrics", exact: true });
   await expect(usage.getByText(/Could not refresh/)).toBeVisible();
   fail = false;
-  await usage.getByRole("button", { name: "Retry task usage" }).click();
+  await usage.getByRole("button", { name: "Retry task metrics" }).click();
   await expect(usage.locator("dd").first()).toHaveText("—");
   await expect(usage.locator("dd").nth(1)).toHaveText("—");
   view.totals.tokens = tokens(0);
@@ -131,8 +132,8 @@ test("failed reads retry and unknown usage never becomes measured zero", async (
 test("new tasks show a short empty state", async ({ page, request }) => {
   const f = await setup(request);
   await page.goto(f.url);
-  const usage = page.getByRole("region", { name: "Task usage", exact: true });
-  await expect(usage).toContainText("No usage yet.");
+  const usage = page.getByRole("region", { name: "Task metrics", exact: true });
+  await expect(usage).toContainText("No metrics yet.");
   await expect(usage.locator("dd")).toHaveCount(0);
 });
 
@@ -161,8 +162,11 @@ test.describe("touch usage", () => {
       );
     });
     await page.goto(f.url);
-    const usage = page.getByRole("region", { name: "Task usage", exact: true });
-    await expect(usage).toContainText("Loading task usage");
+    const usage = page.getByRole("region", {
+      name: "Task metrics",
+      exact: true,
+    });
+    await expect(usage).toContainText("Loading task metrics");
     await usage.scrollIntoViewIfNeeded();
     await dialogViews(page, info, "pending-usage");
     release();

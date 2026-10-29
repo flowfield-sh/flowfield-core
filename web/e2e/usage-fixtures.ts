@@ -111,6 +111,7 @@ export function usageFixture(workspace: string, task: string): UsageView {
       reasons: [],
       tokens: tokens(3800),
       attempts: 7,
+      corrections: 2,
       started_attempts: 7,
       unknown_starts: 0,
       complete: 4,

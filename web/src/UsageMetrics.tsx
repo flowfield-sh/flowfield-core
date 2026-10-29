@@ -98,6 +98,22 @@ export function UsageMetrics({
             </MetricValue>
           </dd>
         </div>
+        {task && (
+          <div>
+            <dt>Corrections</dt>
+            <dd>
+              <MetricValue
+                label="Corrections explained"
+                value={usageNumber(view.totals.corrections)}
+              >
+                <p>
+                  Worker runs started to correct prior work. Retries and answer
+                  continuations are excluded.
+                </p>
+              </MetricValue>
+            </dd>
+          </div>
+        )}
         {live && <span className="usage-live">Running</span>}
       </dl>
       {view.limit_reached && (

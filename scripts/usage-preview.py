@@ -30,7 +30,7 @@ def main() -> None:
 
     signal.signal(signal.SIGTERM, stop)
     try:
-        print("Building Usage preview from this checkout…", flush=True)
+        print("Building Metrics preview from this checkout…", flush=True)
         child = subprocess.Popen(
             ["pnpm", "--dir", "web", "build"],
             cwd=checkout,
@@ -41,7 +41,7 @@ def main() -> None:
             raise RuntimeError("Frontend build failed; preview was not started.")
         with (state / "seed.json").open("w") as seeded_output:
             child = subprocess.Popen(
-                [sys.executable, "tests/workspace_usage_browser_fixture.py", str(state)],
+                [sys.executable, "tests/metrics_exploration_fixture.py", str(state)],
                 cwd=checkout,
                 env=env,
                 stdout=seeded_output,
@@ -84,8 +84,8 @@ def main() -> None:
                 raise RuntimeError(
                     "Preview did not become ready; see " + str(state / "service.log")
                 )
-            print("Workspace Usage preview: " + base + seeded["workspace_url"], flush=True)
-            print("Task Usage preview: " + base + seeded["url"], flush=True)
+            print("Workspace Metrics preview: " + base + seeded["workspace_url"], flush=True)
+            print("Task Metrics preview: " + base + seeded["url"], flush=True)
             print(
                 "State/log: " + str(state) + "; queues paused; synthetic reports only.", flush=True
             )

@@ -6902,6 +6902,11 @@ export interface components {
        */
       started_attempts: number;
       /**
+       * Corrections
+       * @default 0
+       */
+      corrections: number | null;
+      /**
        * Unknown Starts
        * @default 0
        */

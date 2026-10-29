@@ -316,6 +316,11 @@ class UsageReads:
                 filters.start is None or filters.end is None or filters.start <= start < filters.end
             ):
                 totals.started_attempts += 1
+                if execution.source == "run":
+                    if execution.purpose == "unknown":
+                        totals.corrections = None
+                    elif execution.purpose == "correction" and totals.corrections is not None:
+                        totals.corrections += 1
             elif start is None and execution.legacy:
                 totals.unknown_starts += 1
             setattr(totals, execution.coverage, getattr(totals, execution.coverage) + 1)
