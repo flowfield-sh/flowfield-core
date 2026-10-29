@@ -1,13 +1,22 @@
-"""Pi RPC 1.1.0/1.4.0 full-session statistics, never added to message usage.
+"""Compatible Pi RPC full-session statistics, never added to message usage.
 
 getSessionStats sums all session entries, including tools and compaction. It has
 no model partition or provider-omission bit: retain that coverage gap explicitly.
 """
 
 import hashlib
+import re
 from typing import Any, Literal
 
 from flowfield.usage_models import Consumption, Tokens
+
+
+def compatible_version(version: str | None) -> bool:
+    """Retain the earliest measured scope; release numbers are not an allowlist."""
+    match = re.fullmatch(
+        r"(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?", version or ""
+    )
+    return bool(match and tuple(int(part) for part in match.groups()) >= (1, 1, 0))
 
 
 def counters(value: Any) -> Tokens:
@@ -41,7 +50,7 @@ def observation(
     if stats.get("sessionId") != session:
         return None
     value = counters(stats.get("tokens"))
-    supported = version in {"1.1.0", "1.4.0"}
+    supported = compatible_version(version)
     digest = hashlib.sha256(value.model_dump_json().encode()).hexdigest()
     optional: tuple[Literal["input", "output", "cache_read", "cache_write", "reasoning"], ...] = (
         "input",

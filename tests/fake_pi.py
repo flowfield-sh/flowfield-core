@@ -6,7 +6,7 @@ import sys
 import time
 
 if "--version" in sys.argv:
-    print("1.1.0")
+    print(os.environ.get("FLOWFIELD_TEST_NATIVE_VERSION", "1.1.0"))
     sys.exit(0)
 
 usage_turns = 0

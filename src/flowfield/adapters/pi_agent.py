@@ -101,7 +101,9 @@ class PiAgent(Agent):
                     code, output, _ = await _native_command(
                         [self.launch.native_executable, "--version"], self.cwd, self.environment
                     )
-                    if code == 0 and re.fullmatch(rb"\d+\.\d+\.\d+\s*", output):
+                    if code == 0 and re.fullmatch(
+                        rb"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\s*", output
+                    ):
                         self._usage_version = output.decode("ascii").strip()
                 except (OSError, ValueError, TimeoutError):
                     pass  # Missing version disables accounting, not the requested work.

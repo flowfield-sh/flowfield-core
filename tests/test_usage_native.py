@@ -30,6 +30,9 @@ from flowfield.usage_reads import UsageReads
         ("claude-code", "2.1.295"),
         ("claude-code", "9.0.0"),
         ("pi", None),
+        ("pi", "1.4.0"),
+        ("pi", "9.0.0"),
+        ("pi", "9.0.0-beta.1+build.7"),
     ],
 )
 def test_worker_reminder_through_native_adapter_is_one_attempt(

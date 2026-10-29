@@ -214,7 +214,8 @@ def test_codex_unknown_reset_freezes_series_and_terminal_replays_do_not_replace_
     assert "unknown-reset-or-regression" in detail(execution, run).execution.reasons
 
 
-def test_pi_aggregate_scope_omissions_and_unsupported_versions():
+@pytest.mark.parametrize("version", ["1.1.0", "1.4.0", "9.0.0", "9.0.0-beta.1+build.7"])
+def test_pi_aggregate_scope_omissions_and_compatible_versions(version):
     stats = {
         "sessionId": "session",
         "tokens": {"input": 100, "output": 20, "cacheRead": 50, "cacheWrite": 10, "total": 180},
@@ -226,7 +227,7 @@ def test_pi_aggregate_scope_omissions_and_unsupported_versions():
         stats,
         session="session",
         dispatch="turn",
-        version="1.1.0",
+        version=version,
         inherited=Tokens(input=0, output=0, cache_read=0, cache_write=0, total=0),
         final=True,
         failed=False,
@@ -234,6 +235,7 @@ def test_pi_aggregate_scope_omissions_and_unsupported_versions():
     assert normalize(event)[0].total == 180
     assert event.model is None and event.counters.reasoning is None
     assert event.limitations == ["native-provider-coverage-unknown"]
+    assert event.native_version == version and event.final and event.gap is None
     assert "private" not in event.model_dump_json() and "cost" not in event.model_dump_json()
     assert (
         pi_usage.observation(
@@ -248,8 +250,12 @@ def test_pi_aggregate_scope_omissions_and_unsupported_versions():
         is None
     )
     for version, tokens in [
+        (None, stats["tokens"]),
         ("unknown", stats["tokens"]),
+        ("1.0.99", stats["tokens"]),
         ("1.1.0", {}),
+        ("9.0.0", None),
+        ("9.0.0", []),
         ("1.1.0", dict.fromkeys(stats["tokens"], 0)),
     ]:
         value = pi_usage.observation(

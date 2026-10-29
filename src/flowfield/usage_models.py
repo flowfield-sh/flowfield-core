@@ -238,7 +238,7 @@ def contracts() -> list[UsageContract]:
         UsageContract(
             harness="pi",
             contract="pi-session-stats/1",
-            native_version="1.1.0, 1.4.0",
+            native_version=">=1.1.0 with compatible full-session statistics",
             supported=True,
             scope="Full-session aggregate including compacted history, tools and summaries",
             limitation="Session statistics cannot establish provider counter completeness or "
