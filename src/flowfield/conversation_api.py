@@ -92,7 +92,7 @@ def add_conversation_tools(mcp: FastMCP, workspace: Callable[[], Workspace]) -> 
         enabled permits current work-changing input. Earlier results retain evidence but
         cannot receive changes. Follow result_next_action. If a newer attempt
         stopped/failed without a result, inspect latest_attempt with get_run and use retry_run
-        after resolving its task preparation; do not request changes to the earlier result.
+        after resolving its requirements; do not request changes to the earlier result.
         """
         return Conversation(workspace()).eligibility(workspace_id, task_id, question_id)
 

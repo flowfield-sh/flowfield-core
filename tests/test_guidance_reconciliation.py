@@ -11,7 +11,7 @@ from task_reviews_fixtures import configured
 from worker_documents_fixtures import defaults
 
 from flowfield.agent_models import AgentChoice
-from flowfield.application import TaskCreate, TaskPreparation
+from flowfield.application import TaskCreate
 from flowfield.documents import DocumentCreate, DocumentEdit, Documents
 from flowfield.errors import ApplicationError
 from flowfield.guidance_reconciliation import pending, prepare
@@ -41,7 +41,7 @@ def planned_task(service):
             body="Identify unclear labels and report recommendations.",
             status="up_next",
             project_id="harbor",
-            preparation=TaskPreparation(completion="report"),
+            completion="report",
         ),
     )
 
@@ -98,7 +98,7 @@ def test_backlog_guidance_stays_idle_until_scheduled_and_preserves_real_blockers
         TaskCreate(
             title="Investigate labels",
             body="Identify unclear labels.",
-            preparation=TaskPreparation(completion="report"),
+            completion="report",
         ),
     )
     change(store)
@@ -142,7 +142,7 @@ def test_preflight_refreshes_latest_guidance_and_then_claims(tmp_path, monkeypat
             title="Investigate accessibility",
             body="Identify unclear labels",
             status="up_next",
-            preparation=TaskPreparation(completion="report"),
+            completion="report",
         ),
     )
     changed = change(service.workspace)
@@ -507,7 +507,7 @@ def test_preparation_uses_latest_even_with_an_older_selection_revision(tmp_path)
             title="New investigation",
             body="Investigate the stated outcome",
             documents=[{"id": "guidance", "revision": 1}],
-            preparation=TaskPreparation(completion="report"),
+            completion="report",
         ),
     )
     assert task.publication.documents[0].revision == changed.revision
@@ -530,7 +530,7 @@ def test_reopened_task_reconciles_without_changing_its_delivered_result(tmp_path
     task = service.workspace.edit_task(
         "harbor",
         task.id,
-        TaskEdit(expected_revision=task.revision, preparation=TaskPreparation(completion="code")),
+        TaskEdit(expected_revision=task.revision, completion="code"),
     )
     service.workspace.prioritize_task(
         "harbor", task.id, TaskPriority(expected_revision=task.revision, status="up_next")
@@ -570,7 +570,7 @@ def test_reconciliation_updates_existing_subtask_plan_atomically(tmp_path, monke
         task.id,
         TaskEdit(
             expected_revision=task.revision,
-            preparation=TaskPreparation(completion="report"),
+            completion="report",
         ),
     )
     task = service.workspace.prioritize_task(

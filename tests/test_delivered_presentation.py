@@ -6,7 +6,7 @@ from result_fixtures import approve, current, fixture
 from result_recovery_fixtures import target_change
 
 from flowfield.adapters.git_workspace import git
-from flowfield.application import TaskPublish
+from flowfield.application import TaskEdit
 from flowfield.attention import attention_page
 from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
@@ -72,10 +72,10 @@ def test_stale_delivery_stays_complete_and_refresh_releases_only_validated_code(
                 status="up_next",
             ),
         )
-        service.workspace.publish_task(
+        service.workspace.edit_task(
             "harbor",
             task.id,
-            TaskPublish(
+            TaskEdit(
                 expected_revision=task.revision,
                 completion="code",
             ),

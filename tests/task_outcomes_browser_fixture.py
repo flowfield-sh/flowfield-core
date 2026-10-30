@@ -15,9 +15,8 @@ from flowfield.agent_models import AgentChoice
 from flowfield.application import (
     ProjectSetup,
     TaskCreate,
-    TaskPreparation,
+    TaskEdit,
     TaskPriority,
-    TaskPublish,
     Workspace,
 )
 from flowfield.execution import Execution
@@ -126,7 +125,7 @@ def seed(state: Path, assets: Path, agents=None):
                 "The PDF opens, its text is readable, and the preview matches the release."
             ),
             status="up_next",
-            preparation=TaskPreparation(completion="report"),
+            completion="report",
         ),
     )
     run = claim(report)
@@ -204,8 +203,8 @@ def seed(state: Path, assets: Path, agents=None):
         ),
     )
     feature = store.task(owner, feature.id)
-    feature = store.publish_task(
-        owner, feature.id, TaskPublish(expected_revision=feature.revision, completion="code")
+    feature = store.edit_task(
+        owner, feature.id, TaskEdit(expected_revision=feature.revision, completion="code")
     )
     feature = store.prioritize_task(
         owner, feature.id, TaskPriority(expected_revision=feature.revision, status="up_next")
@@ -250,7 +249,7 @@ def seed(state: Path, assets: Path, agents=None):
             body="Capture the final integrated feature after delivery.",
             dependencies=[feature.key],
             status="up_next",
-            preparation=TaskPreparation(completion="report"),
+            completion="report",
         ),
     )
     return {

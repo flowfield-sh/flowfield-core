@@ -8,7 +8,7 @@ from unittest.mock import patch
 from project_fixtures import adopt, task_request
 
 from flowfield.agent_models import AgentChoice
-from flowfield.application import ProjectSetup, TaskPreparation, Workspace
+from flowfield.application import ProjectSetup, Workspace
 from flowfield.execution import Execution
 from flowfield.execution_models import SettingsEdit
 from flowfield.questions import QuestionCreate
@@ -26,7 +26,7 @@ if sys.argv[2] == "create":
             title="Export records",
             body="Implement the agreed export.",
             status="up_next",
-            preparation=TaskPreparation(completion="report"),
+            completion="report",
         ),
     )
     execution.configure(

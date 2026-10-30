@@ -857,10 +857,10 @@ def create_mcp(
 
         Use task keys (for example API-1) for dependencies across projects in this workspace;
         bare task IDs resolve only within the destination project.
-        For actionable intent include preparation with completion. Capture and preparation
-        commit atomically or neither is saved. Check
-        code destination/check settings first; if genuinely missing, save intent without
-        preparation and explain the setup blocker. Never label code as report to bypass setup.
+        Backlog is unscheduled; Up next runs when the queue and concrete requirements allow.
+        Set completion=code for repository delivery or report for files/findings only.
+        Missing code destination/check settings remain explicit blockers; never relabel code
+        as report to bypass setup. Assignment snapshots are captured automatically.
         Does not enable the queue. Only choose Up next with human execution authorization.
         Omit project_id and supply workspace_id for repository-free file/report work.
         Its returned project_id is the opaque task scope for subsequent task operations,
@@ -915,12 +915,10 @@ def create_mcp(
     ) -> CallToolResult:
         """Refine the existing task; read complete description/dependencies before replacement.
 
-        Include preparation for actionable upcoming work, using completion, to save and prepare
-        atomically. Failure leaves prior intent
-        unchanged. Preparation applies only to Backlog/Up next. For work in progress or review,
-        once no worker owns the task, omit preparation, then reconcile_task
-        before requesting feedback continuation through get_task_input/reply_to_task.
-        For delivered work, first use reopen_task, then edit with fresh preparation.
+        Upcoming edits preserve execution intent and automatically update their snapshots.
+        Active execution, review and delivery block edits. Once idle, changed work in progress
+        or review needs reconcile_task before get_task_input/reply_to_task continuation.
+        For delivered work, first use reopen_task, then edit the follow-up requirements.
         Preserves priority/queue.
         Cross-project dependencies use task keys (for example API-1), not bare task IDs.
         archived=false restores.
@@ -989,10 +987,10 @@ def create_mcp(
     async def reopen_task(
         workspace_id: Identifier, task_id: TaskIdentifier, reopening: TaskReopen
     ) -> CallToolResult:
-        """Return completed work to Draft/Backlog for an authorized follow-up on the same task.
+        """Return completed work to Backlog for an authorized follow-up on the same task.
 
         Preserve delivered results, approvals and history. Read current task/result first and
-        explain the new work in note. Then edit_task with fresh preparation;
+        explain the new work in note. Then edit_task for the follow-up;
         prioritize only when execution is authorized. Reopening does not start a worker or
         transfer approval. Use result feedback for work that has not yet been delivered.
         """

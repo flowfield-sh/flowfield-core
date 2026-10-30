@@ -9,7 +9,7 @@ from project_fixtures import adopt, task_request
 
 from flowfield.activity import ActivityCreate
 from flowfield.agent_models import AgentChoice
-from flowfield.application import ProjectSetup, TaskPublish, Workspace
+from flowfield.application import ProjectSetup, TaskEdit, Workspace
 from flowfield.execution import Execution
 from flowfield.execution_models import SettingsEdit, Usage
 from flowfield.run_activity import ActivityUpdate, ContextUsage, RunActivity
@@ -29,10 +29,10 @@ if sys.argv[2] == "create":
             status="up_next",
         ),
     )
-    ws.publish_task(
+    ws.edit_task(
         "stream-project",
         task.id,
-        TaskPublish(
+        TaskEdit(
             completion="report",
             expected_revision=task.revision,
         ),

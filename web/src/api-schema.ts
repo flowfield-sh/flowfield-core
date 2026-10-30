@@ -248,23 +248,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/workspaces/{workspace_id}/tasks/{task_id}/publish": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Publish Task */
-    post: operations["publish_task_api_workspaces__workspace_id__tasks__task_id__publish_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/workspaces/{workspace_id}/tasks/{task_id}/reconcile": {
     parameters: {
       query?: never;
@@ -6014,6 +5997,12 @@ export interface components {
       /** Project Id */
       project_id: string | null;
       /**
+       * Completion
+       * @default code
+       * @enum {string}
+       */
+      completion: "code" | "report";
+      /**
        * Acceptance Criteria
        * @default
        */
@@ -6053,23 +6042,18 @@ export interface components {
       change_note: string;
       /** Document Updates */
       document_updates: components["schemas"]["DocumentUpdate"][];
-      /** Preparation Issue */
-      preparation_issue: string | null;
+      /** Execution Issue */
+      execution_issue: string | null;
       latest_update: components["schemas"]["ActivityEntry"] | null;
       /** Position */
       position: number;
       /** Revisions */
       revisions: components["schemas"]["TaskRevision"][];
       /**
-       * Publication Status
-       * @enum {string}
-       */
-      publication_status: "draft" | "published" | "needs_reconciliation";
-      /**
        * Readiness
        * @enum {string}
        */
-      readiness: "ready" | "blocked" | "draft" | "needs_reconciliation";
+      readiness: "ready" | "blocked" | "needs_reconciliation";
       /** Blocked By */
       blocked_by: components["schemas"]["TaskReference"][];
       /** Blocking Questions */
@@ -6108,8 +6092,8 @@ export interface components {
       reconciliation_reason: string | null;
       /** Document Updates */
       document_updates?: components["schemas"]["DocumentUpdate"][];
-      /** Preparation Issue */
-      preparation_issue: string | null;
+      /** Execution Issue */
+      execution_issue: string | null;
       state?: components["schemas"]["WorkState"] | null;
       /** Labels */
       labels: string[];
@@ -6137,12 +6121,7 @@ export interface components {
        * Readiness
        * @enum {string}
        */
-      readiness: "ready" | "blocked" | "draft" | "needs_reconciliation";
-      /**
-       * Publication Status
-       * @enum {string}
-       */
-      publication_status: "draft" | "published" | "needs_reconciliation";
+      readiness: "ready" | "blocked" | "needs_reconciliation";
       /** Agreement Revision */
       agreement_revision: number;
       publication: components["schemas"]["Publication"] | null;
@@ -6176,7 +6155,8 @@ export interface components {
       acceptance_criteria: string;
       /** Input Files */
       input_files?: string[];
-      preparation?: components["schemas"]["TaskPreparation"] | null;
+      /** Completion */
+      completion?: ("code" | "report") | null;
       /** Labels */
       labels?: string[];
       /**
@@ -6234,8 +6214,8 @@ export interface components {
       reconciliation_reason: string | null;
       /** Document Updates */
       document_updates: components["schemas"]["DocumentUpdate"][];
-      /** Preparation Issue */
-      preparation_issue: string | null;
+      /** Execution Issue */
+      execution_issue: string | null;
       state: components["schemas"]["WorkState"] | null;
       /** Labels */
       labels: string[];
@@ -6263,12 +6243,7 @@ export interface components {
        * Readiness
        * @enum {string}
        */
-      readiness: "ready" | "blocked" | "draft" | "needs_reconciliation";
-      /**
-       * Publication Status
-       * @enum {string}
-       */
-      publication_status: "draft" | "published" | "needs_reconciliation";
+      readiness: "ready" | "blocked" | "needs_reconciliation";
       /**
        * Agreement Revision
        * @default 1
@@ -6281,6 +6256,12 @@ export interface components {
       blocking_questions: components["schemas"]["QuestionReference"][];
       /** Body */
       body: string;
+      /**
+       * Completion
+       * @default code
+       * @enum {string}
+       */
+      completion: "code" | "report";
       /**
        * Acceptance Criteria
        * @default
@@ -6308,6 +6289,8 @@ export interface components {
        * @default false
        */
       can_stop: boolean;
+      /** Edit Blocker */
+      edit_blocker: string | null;
       /** Latest Result Id */
       latest_result_id: string | null;
       /** Prerequisites */
@@ -6328,7 +6311,8 @@ export interface components {
       acceptance_criteria?: string | null;
       /** Input Files */
       input_files?: string[] | null;
-      preparation?: components["schemas"]["TaskPreparation"] | null;
+      /** Completion */
+      completion?: ("code" | "report") | null;
       /** Title */
       title?: string | null;
       /** Body */
@@ -6352,14 +6336,6 @@ export interface components {
       /** Next Offset */
       next_offset: number | null;
     };
-    /** TaskPreparation */
-    TaskPreparation: {
-      /**
-       * Completion
-       * @enum {string}
-       */
-      completion: "code" | "report";
-    };
     /** TaskPriority */
     TaskPriority: {
       /** Expected Revision */
@@ -6376,21 +6352,6 @@ export interface components {
       status: "backlog" | "up_next";
       /** Before Id */
       before_id?: string | null;
-    };
-    /** TaskPublish */
-    TaskPublish: {
-      /** Expected Revision */
-      expected_revision: number;
-      /**
-       * Author
-       * @default human
-       */
-      author: string;
-      /**
-       * Completion
-       * @enum {string}
-       */
-      completion: "code" | "report";
     };
     /** TaskReconcile */
     TaskReconcile: {
@@ -6528,6 +6489,12 @@ export interface components {
       workspace_id: string;
       /** Project Id */
       project_id: string | null;
+      /**
+       * Completion
+       * @default code
+       * @enum {string}
+       */
+      completion: "code" | "report";
       /**
        * Acceptance Criteria
        * @default
@@ -7935,42 +7902,6 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["TaskPriority"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Task"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  publish_task_api_workspaces__workspace_id__tasks__task_id__publish_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        workspace_id: string;
-        task_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["TaskPublish"];
       };
     };
     responses: {

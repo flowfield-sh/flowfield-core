@@ -1,4 +1,4 @@
-"""Publication records an informed check of an assignment, never permission to run."""
+"""Frozen assignment snapshots and concrete execution requirements."""
 
 import sqlite3
 from typing import TYPE_CHECKING, Literal
@@ -11,8 +11,7 @@ from flowfield.task_read_facts import TaskReadFacts
 if TYPE_CHECKING:
     from flowfield.application import TaskRevision
 
-PublicationStatus = Literal["draft", "published", "needs_reconciliation"]
-Readiness = Literal["ready", "blocked", "draft", "needs_reconciliation"]
+Readiness = Literal["ready", "blocked", "needs_reconciliation"]
 DEPENDENCY_CHANGED = "Prerequisites changed. Review recorded work with the coordinator."
 
 
@@ -27,13 +26,15 @@ class Publication(BaseModel):
     documents: list[DocumentSnapshot] = Field(default_factory=list)
 
 
-def publication_status(task: "TaskRevision") -> PublicationStatus:
-    check = task.publication
-    if check is None:
-        return "draft"
-    if check.agreement_revision != task.agreement_revision:
-        return "draft" if task.status in ("backlog", "up_next") else "needs_reconciliation"
-    return "published"
+def requires_reconciliation(task: "TaskRevision") -> bool:
+    return bool(
+        task.reconciliation_reason
+        or (
+            task.status not in ("backlog", "up_next")
+            and task.publication
+            and task.publication.agreement_revision != task.agreement_revision
+        )
+    )
 
 
 def blocked_dependencies(task: "TaskRevision", completed: set[str]) -> list[str]:
@@ -43,52 +44,49 @@ def blocked_dependencies(task: "TaskRevision", completed: set[str]) -> list[str]
     )
 
 
-def readiness(
-    task: "TaskRevision",
-    publication: PublicationStatus,
-    *,
-    blocked: bool,
-) -> Readiness:
-    if task.reconciliation_reason:
+def readiness(task: "TaskRevision", *, blocked: bool) -> Readiness:
+    if requires_reconciliation(task):
         return "needs_reconciliation"
-    if publication == "needs_reconciliation" and task.status not in ("backlog", "up_next"):
-        return "needs_reconciliation"
-    if blocked:
-        return "blocked"
-    if task.status in ("backlog", "up_next") and publication != "published":
-        return "draft"
-    return "ready"
+    return "blocked" if blocked else "ready"
 
 
-def preparation_issue(
-    db: sqlite3.Connection,
-    task: "TaskRevision",
-    *,
-    include_draft_hint: bool = True,
-    facts: TaskReadFacts | None = None,
+def execution_issue(
+    db: sqlite3.Connection, task: "TaskRevision", *, facts: TaskReadFacts | None = None
 ) -> str | None:
-    """Human next action without exposing the snapshot protocol or implying agent wake-up."""
-    # Browser labels own the generic draft hint; concrete blockers stay visible everywhere.
     if task.archived:
         return None
-    if task.reconciliation_reason:
-        return task.reconciliation_reason
-    state = publication_status(task)
-    if state == "needs_reconciliation":
-        return "Task changed. Review it with the coordinator before continuing."
-    if state == "published" or task.status not in ("backlog", "up_next"):
+    if requires_reconciliation(task):
+        return task.reconciliation_reason or "Requirements changed. Reconcile the recorded work."
+    if task.status not in ("backlog", "up_next"):
         return None
     has_description = (
         facts.row["has_description"]
-        if facts is not None
+        if facts
         else db.execute(
             "SELECT length(trim(json_extract(data, '$.body'), char(9)||char(10)||char(13)||' ')) "
             "FROM tasks WHERE workspace_id=? AND id=?",
             (task.workspace_id, task.id),
         ).fetchone()[0]
     )
+    target_branch = None
+    if task.completion == "code":
+        if facts:
+            target_branch = facts.row["target_branch"]
+        else:
+            row = db.execute(
+                "SELECT json_extract(data,'$.target_branch') FROM integration_settings "
+                "WHERE project_id=?",
+                (task.project_id,),
+            ).fetchone()
+            target_branch = row[0] if row else None
+    return execution_requirement(bool(has_description), task.completion, target_branch)
+
+
+def execution_requirement(
+    has_description: bool, completion: str, target_branch: str | None
+) -> str | None:
     if not has_description:
-        return "Describe the requested outcome with your coordinator."
-    if task.publication:
-        return "Task changed. Ask the coordinator to prepare it again."
-    return "Ask the coordinator to prepare this task." if include_draft_hint else None
+        return "Add a task description before execution."
+    if completion == "code" and not target_branch:
+        return "Configure the project's delivery target before execution."
+    return None

@@ -7,7 +7,7 @@ from execution_fixtures import BASE
 from project_fixtures import task_request
 from workspace_workers_fixtures import shared
 
-from flowfield.application import TaskPriority, TaskPublish
+from flowfield.application import TaskEdit, TaskPriority
 from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 from flowfield.supervisor import Supervisor
@@ -27,10 +27,10 @@ def test_scheduler_follows_shared_priority_and_skips_unavailable_repository(
             status="up_next",
         ),
     )
-    store.publish_task(
+    store.edit_task(
         space,
         extra.id,
-        TaskPublish(
+        TaskEdit(
             expected_revision=extra.revision,
             completion="report",
         ),

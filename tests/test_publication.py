@@ -1,4 +1,4 @@
-"""Publication checks current intent without conflating it with priority or execution."""
+"""Automatic assignment snapshots preserve intent independently of scheduling."""
 
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -12,12 +12,12 @@ from flowfield.application import (
     ProjectSetup,
     TaskEdit,
     TaskPriority,
-    TaskPublish,
     TaskReconcile,
     Workspace,
 )
 from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
+from flowfield.execution import Execution
 from flowfield.questions import QuestionAnswer, QuestionApply, QuestionCreate, Questions
 from flowfield.reads import ContextReads
 
@@ -38,12 +38,12 @@ def setup(tmp_path: Path) -> Workspace:
     return workspace
 
 
-def publish(workspace: Workspace, identity: str = "export"):
+def save_requirements(workspace: Workspace, identity: str = "export"):
     current = workspace.task("harbor", identity)
-    return workspace.publish_task(
+    return workspace.edit_task(
         "harbor",
         identity,
-        TaskPublish(
+        TaskEdit(
             completion="report",
             expected_revision=current.revision,
             author="coordinator",
@@ -51,12 +51,12 @@ def publish(workspace: Workspace, identity: str = "export"):
     )
 
 
-def test_publication_is_separate_from_dependencies_priority_and_notes(tmp_path: Path) -> None:
+def test_assignment_is_separate_from_dependencies_priority_and_notes(tmp_path: Path) -> None:
     workspace = setup(tmp_path)
     workspace.edit_task("harbor", "export", TaskEdit(expected_revision=1, dependencies=["T-1"]))
-    checked = publish(workspace)
-    assert checked.publication_status == "published" and checked.readiness == "blocked"
-    assert checked.status == "up_next" and checked.publication.author == "coordinator"
+    checked = save_requirements(workspace)
+    assert checked.readiness == "blocked"
+    assert checked.status == "up_next" and checked.publication
     workspace.add_activity(
         "harbor", ActivityCreate(task_id="export", body="Observed a slow export.")
     )
@@ -68,25 +68,26 @@ def test_publication_is_separate_from_dependencies_priority_and_notes(tmp_path: 
     moved = workspace.prioritize_task(
         "harbor", "export", TaskPriority(expected_revision=labeled.revision, status="backlog")
     )
-    assert moved.publication == checked.publication and moved.publication_status == "published"
+    assert moved.publication == checked.publication
     changed = workspace.edit_task(
         "harbor",
         "export",
         TaskEdit(expected_revision=moved.revision, body="Export HTML instead. Test escaping."),
     )
-    assert changed.publication_status == "draft"
+    assert changed.publication.agreement_revision == changed.agreement_revision
+    assert changed.readiness == "blocked"  # The prerequisite still applies.
     assert changed.status == moved.status
     assert changed.position == moved.position
     assert changed.agreement_revision == checked.agreement_revision + 1
-    refreshed = publish(workspace)
-    assert publish(workspace) == refreshed  # identical check does not manufacture another revision
+    refreshed = save_requirements(workspace)
+    assert save_requirements(workspace) == refreshed  # No-op edits do not add revisions.
     restored = Workspace(tmp_path / "state").task("harbor", "export")
     assert restored.publication == refreshed.publication
-    assert ContextReads(workspace).task("harbor", "T-2")["publication_status"] == "published"
-    assert BrowserReads(workspace).task("harbor", "T-2").publication_status == "published"
+    assert ContextReads(workspace).task("harbor", "T-2")["readiness"] == "blocked"
+    assert BrowserReads(workspace).task("harbor", "T-2").readiness == "blocked"
 
 
-def test_questions_must_be_applied_and_edits_race_with_publication(tmp_path: Path) -> None:
+def test_questions_must_be_applied_and_definition_edits_are_atomic(tmp_path: Path) -> None:
     workspace = setup(tmp_path)
     questions = Questions(workspace)
     q = questions.ask(
@@ -102,8 +103,7 @@ def test_questions_must_be_applied_and_edits_race_with_publication(tmp_path: Pat
     questions.answer(
         "harbor", q.id, QuestionAnswer(expected_revision=1, answer="All filtered rows.")
     )
-    with pytest.raises(ApplicationError, match="blocking questions"):
-        publish(workspace)
+    assert save_requirements(workspace).readiness == "blocked"
     questions.apply(
         "harbor",
         q.id,
@@ -118,12 +118,12 @@ def test_questions_must_be_applied_and_edits_race_with_publication(tmp_path: Pat
 
     def change(which: str):
         try:
-            if which == "publish":
-                return workspace.publish_task(
+            if which == "title":
+                return workspace.edit_task(
                     "harbor",
                     "export",
-                    TaskPublish(
-                        completion="report",
+                    TaskEdit(
+                        title="Resolved export outcome",
                         expected_revision=current.revision,
                     ),
                 )
@@ -139,16 +139,23 @@ def test_questions_must_be_applied_and_edits_race_with_publication(tmp_path: Pat
             return None
 
     with ThreadPoolExecutor(2) as pool:
-        results = list(pool.map(change, ["publish", "edit"]))
+        results = list(pool.map(change, ["title", "edit"]))
     assert sum(result is not None for result in results) == 1
 
 
 def test_active_work_requires_reconciliation_without_moving_its_card(tmp_path: Path) -> None:
     workspace = setup(tmp_path)
-    checked = publish(workspace)
+    checked = save_requirements(workspace)
     active = run_report(
         workspace, "harbor", "export", expected_revision=checked.revision, status="in_progress"
     )
+    execution = Execution(workspace)
+    with pytest.raises(ApplicationError, match="working on this task"):
+        workspace.edit_task(
+            "harbor", "export", TaskEdit(expected_revision=active.revision, body="Changed")
+        )
+    execution.finish("harbor", execution.active()[0].id, "stopped")
+    active = workspace.task("harbor", "export")
     changed = workspace.edit_task(
         "harbor",
         "export",
@@ -173,7 +180,7 @@ def test_active_work_requires_reconciliation_without_moving_its_card(tmp_path: P
             note="Reviewed the changed assignment and remaining work.",
         ),
     )
-    assert reconciled.status == "in_progress" and reconciled.publication_status == "published"
+    assert reconciled.status == "in_progress" and reconciled.readiness == "ready"
 
 
 def test_project_answer_updates_a_completed_dependency_chain_atomically(tmp_path: Path) -> None:
@@ -192,7 +199,7 @@ def test_project_answer_updates_a_completed_dependency_chain_atomically(tmp_path
         ),
     )
     for identity in ("catalog", "export"):
-        task = publish(workspace, identity)
+        task = save_requirements(workspace, identity)
         run_report(
             workspace,
             "harbor",
@@ -229,22 +236,17 @@ def test_project_answer_updates_a_completed_dependency_chain_atomically(tmp_path
         assert current.readiness == "needs_reconciliation" and current.status == "done"
 
 
-def test_changed_selected_assignment_requires_republication_before_progress(tmp_path: Path) -> None:
+def test_upcoming_edit_runs_without_another_preparation_operation(tmp_path: Path) -> None:
     workspace = setup(tmp_path)
-    original = publish(workspace)
+    original = save_requirements(workspace)
     changed = workspace.edit_task(
         "harbor",
         "export",
         TaskEdit(expected_revision=original.revision, body="Export only filtered rows."),
     )
-    assert changed.publication_status == "draft"
+    assert changed.readiness == "ready"
     assert changed.status == "up_next" and changed.position == original.position
-    with pytest.raises(ApplicationError, match="publish"):
-        run_report(
-            workspace, "harbor", "export", expected_revision=changed.revision, status="in_progress"
-        )
-    published = publish(workspace)
     running = run_report(
-        workspace, "harbor", "export", expected_revision=published.revision, status="in_progress"
+        workspace, "harbor", "export", expected_revision=changed.revision, status="in_progress"
     )
-    assert running.status == "in_progress" and running.publication_status == "published"
+    assert running.status == "in_progress" and running.readiness == "ready"

@@ -13,7 +13,7 @@ function seed(active = false) {
         "-c",
         `import json, sys
 from pathlib import Path
-from flowfield.application import Workspace, TaskCreate, TaskPreparation
+from flowfield.application import Workspace, TaskCreate
 from flowfield.workspaces import Workspaces, WorkspaceCreate
 from flowfield.labels import Labels, LabelCreate
 from flowfield.execution import Execution
@@ -21,7 +21,7 @@ from flowfield.execution_models import QueueEdit
 store = Workspace(Path(sys.argv[1]))
 space = Workspaces(store).create(WorkspaceCreate(name="Release planning", **{role: {"model": "scripted-fixture"} for role in ("coordinator", "worker", "reviewer")}))
 label = Labels(store).create(space.id, LabelCreate(name="Polish", guidance="Improve clarity and consistency", color="slate"))
-task = store.create_task(space.id, TaskCreate(title="Polish the task experience", body="Make task controls clear and consistent.", acceptance_criteria="Every change is visible in the task feed.", status="up_next", preparation=TaskPreparation(completion="report")))
+task = store.create_task(space.id, TaskCreate(title="Polish the task experience", body="Make task controls clear and consistent.", acceptance_criteria="Every change is visible in the task feed.", status="up_next", completion="report"))
 if sys.argv[2] == "active":
     execution = Execution(store)
     settings = execution.settings(space.id)
@@ -167,6 +167,9 @@ test("task header stop confirms and returns active work to Backlog", async ({
   const value = seed(true);
   const base = `/workspaces/${value.workspace}`;
   await page.goto(`${base}/tasks/${value.task}`);
+  await expect(
+    page.getByRole("button", { name: "Edit task", exact: true }),
+  ).toBeDisabled();
   const stop = page.getByRole("button", { name: "Stop task", exact: true });
   await stop.click();
   const dialog = page.getByRole("alertdialog");
@@ -192,6 +195,9 @@ test("task header stop confirms and returns active work to Backlog", async ({
   await stop.click();
   await dialog.getByRole("button", { name: "Stop task", exact: true }).click();
   await expect(stop).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Edit task", exact: true }),
+  ).toBeEnabled();
   await expect
     .poll(
       async () =>
@@ -207,4 +213,83 @@ test("task header stop confirms and returns active work to Backlog", async ({
     .click();
   await expect(page.getByLabel("Task feed")).toContainText("Moved to Backlog");
   await dialogViews(page, info, "task-stopped");
+});
+
+test("an open editor locks when execution starts and preserves unsaved text after stop", async ({
+  page,
+  request,
+}, info) => {
+  const value = seed();
+  const base = `/workspaces/${value.workspace}`;
+  const href = `${base}/tasks/${value.task}`;
+  await page.goto(href);
+  await page.getByRole("button", { name: "Edit task", exact: true }).click();
+  const editor = page.getByRole("region", { name: "Edit task", exact: true });
+  const title = editor.getByLabel("Task title", { exact: true });
+  await title.fill("Retain this unsaved title");
+  execFileSync(resolve("../.venv/bin/python"), [
+    "-c",
+    `
+import sys
+from pathlib import Path
+from flowfield.application import Workspace
+from flowfield.execution import Execution
+from flowfield.execution_models import QueueEdit
+store = Workspace(Path(sys.argv[1]))
+execution = Execution(store)
+settings = execution.settings(sys.argv[2])
+execution.queue(sys.argv[2], QueueEdit(expected_revision=settings.revision, enabled=True))
+assert execution.claim(sys.argv[2], "", {}, task_id=sys.argv[3])
+`,
+    state,
+    value.workspace,
+    value.id,
+  ]);
+  // Publish the fixture's ownership change through the service's normal event path.
+  const workers = await (await request.get(`/api${base}/workers`)).json();
+  const paused = await request.post(`/api${base}/queue`, {
+    data: { expected_revision: workers.revision, enabled: false },
+  });
+  expect(paused.ok()).toBe(true);
+  await expect(title).toBeDisabled();
+  await expect(title).toHaveValue("Retain this unsaved title");
+  await expect(
+    editor.getByRole("button", { name: "Save task", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    editor
+      .getByRole("status")
+      .filter({ hasText: "Flowfield is working on this task" }),
+  ).toBeVisible();
+  await dialogViews(page, info, "task-editor-active");
+  const current = await (
+    await request.get(`/api${base}/tasks/${value.id}`)
+  ).json();
+  for (const route of [
+    `/api${base}/tasks/${value.id}`,
+    `/api${base}/view/tasks/${value.id}`,
+  ]) {
+    const rejected = await request.put(route, {
+      data: {
+        expected_revision: current.revision,
+        title: "Forbidden active edit",
+      },
+    });
+    expect(rejected.status()).toBe(409);
+    expect((await rejected.json()).error.code).toBe("task_busy");
+  }
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await page.getByRole("button", { name: "Stop task", exact: true }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Stop task", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Edit task", exact: true }),
+  ).toBeEnabled();
+  await page.getByRole("button", { name: "Edit task", exact: true }).click();
+  await expect(title).toBeEnabled();
+  await expect(title).toHaveValue("Retain this unsaved title");
+  await expect(page.getByText("Draft", { exact: true })).toHaveCount(0);
+  await dialogViews(page, info, "task-editor-stopped-retained");
 });

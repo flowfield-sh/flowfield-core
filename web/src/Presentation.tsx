@@ -4,11 +4,7 @@ import { HeaderAction } from "./HeaderAction";
 import { authorLabel } from "./workspace";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip";
+
 import { ArrowLeft, X } from "lucide-react";
 import { useContext, type ReactNode } from "react";
 import { label, type TaskRevision, type TaskCard } from "./workspace";
@@ -101,7 +97,6 @@ export function TaskIdentity({
   title?: ReactNode;
   task: Pick<TaskRevision, "key" | "title" | "labels"> & {
     status?: string;
-    publication_status?: string;
     state?: TaskCard["state"];
   };
 }) {
@@ -110,7 +105,6 @@ export function TaskIdentity({
       <span className="task-identity-heading">
         <span className="inline-flex items-center gap-1 align-baseline">
           <Badge variant="outline">{task.key}</Badge>
-          <DraftBadge publicationStatus={task.publication_status} />
         </span>{" "}
         <strong>{title ?? task.title}</strong>
         {metadata}
@@ -184,23 +178,5 @@ export function DetailTabs<T extends string>({
         ))}
       </TabsList>
     </Tabs>
-  );
-}
-
-export function DraftBadge({
-  publicationStatus,
-}: {
-  publicationStatus?: string;
-}) {
-  if (publicationStatus !== "draft") return null;
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Badge variant="outline" className="bg-background" tabIndex={0}>
-          Draft
-        </Badge>
-      </TooltipTrigger>
-      <TooltipContent>Ask the coordinator to prepare this task.</TooltipContent>
-    </Tooltip>
   );
 }

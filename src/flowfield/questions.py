@@ -585,6 +585,11 @@ class Questions:
                 raise ApplicationError(
                     "inactive_task", "Restore the task before applying an answer.", 409
                 )
+            from flowfield.task_execution import task_edit_blocker
+
+            if request.body is not None and request.body != task.body:
+                if blocker := task_edit_blocker(db, task.workspace_id, task.id):
+                    raise ApplicationError("task_busy", blocker, 409)
             patch_data: dict[str, Any] = {
                 "expected_revision": task.revision,
                 "author": request.author,
@@ -647,6 +652,11 @@ class Questions:
                 raise ApplicationError(
                     "inactive_task", "Restore the task before applying an answer.", 409
                 )
+            from flowfield.task_execution import task_edit_blocker
+
+            if update.body is not None and update.body != task.body:
+                if blocker := task_edit_blocker(db, task.workspace_id, task.id):
+                    raise ApplicationError("task_busy", blocker, 409)
             patch_data: dict[str, Any] = {
                 "expected_revision": update.expected_revision,
                 "author": request.author,

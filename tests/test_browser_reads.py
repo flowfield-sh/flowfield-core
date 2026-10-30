@@ -240,8 +240,9 @@ def test_archive_availability_shares_write_policy_and_rechecks_races(tmp_path: P
             f"/api/workspaces/{project.id}/view/tasks/{active.id}",
             json={"expected_revision": active.revision, "title": "Still active"},
         )
-        assert edited.status_code == 200
-        assert edited.json()["archive_blocker"] == reads.task(project.id, active.id).archive_blocker
+        assert edited.status_code == 409
+        assert "Flowfield is working on this task" in edited.text
+        assert workspace.task(project.id, active.id).title == "Active task"
 
 
 def test_stopped_task_can_archive_without_completion_and_retains_history(tmp_path):

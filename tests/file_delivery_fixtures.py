@@ -8,7 +8,7 @@ from workspace_fixtures import TEST_AGENTS
 
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_models import AgentChoice
-from flowfield.application import TaskPreparation, Workspace
+from flowfield.application import Workspace
 from flowfield.execution import Execution
 from flowfield.execution_models import SettingsEdit, WorkerResult
 from flowfield.output_models import OutputSelection
@@ -41,7 +41,7 @@ def task(store, scope, **values):
             title=values.pop("title", "Prepare launch research"),
             body="Produce the agreed report and source data. Check both before delivery.",
             status="up_next",
-            preparation=TaskPreparation(completion="report"),
+            completion="report",
             **values,
         ),
     )

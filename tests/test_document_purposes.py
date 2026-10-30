@@ -11,7 +11,7 @@ from worker_documents_fixtures import defaults, prepare
 from workspace_dependencies_fixtures import complete, shared
 
 from flowfield.agent_tools import workspace_scope
-from flowfield.application import ProjectEdit, TaskPublish
+from flowfield.application import ProjectEdit, TaskReconcile
 from flowfield.attention import attention_page
 from flowfield.browser import BrowserReads
 from flowfield.document_models import DocumentReference
@@ -59,7 +59,7 @@ def test_purpose_is_per_selection_frozen_and_changes_require_preparation(tmp_pat
             title="Other work",
             body="Review this outcome",
             documents=[{"id": doc.id, "purpose": "reference"}],
-            preparation={"completion": "report"},
+            completion="report",
         ),
     )
     assert next(d for d in second.publication.documents if d.id == doc.id).purpose == "reference"
@@ -81,7 +81,7 @@ def test_updates_reach_board_inbox_and_coordinator_and_remain_scoped(tmp_path):
                 project_id=project,
                 title="Apply contract",
                 body="Review this outcome",
-                preparation={"completion": "report"},
+                completion="report",
             ),
         )
     before = store.task(space, "core")
@@ -124,20 +124,25 @@ def test_updates_reach_board_inbox_and_coordinator_and_remain_scoped(tmp_path):
         grant.revoke()
 
     asyncio.run(read())
-    updated = store.publish_task(
+    updated = store.reconcile_task(
         space,
         current.id,
-        TaskPublish(
+        TaskReconcile(
             expected_revision=current.revision,
             completion="report",
+            note="Adopt the revised contract.",
         ),
     )
     assert not updated.document_updates
     other_task = store.task(space, "site")
-    store.publish_task(
+    store.reconcile_task(
         space,
         other_task.id,
-        TaskPublish(expected_revision=other_task.revision, completion="report"),
+        TaskReconcile(
+            expected_revision=other_task.revision,
+            completion="report",
+            note="Adopt the revised contract.",
+        ),
     )
     complete(store, space, "site")
     assert not docs.impact(space, doc.id)["items"]

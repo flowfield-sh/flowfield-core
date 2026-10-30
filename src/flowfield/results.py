@@ -652,7 +652,7 @@ class Results:
                     )
                 current.status, current.correction = "changes_requested", correction
                 current.feedback = (
-                    request.note or "Correct the recorded failure within the published assignment."
+                    request.note or "Correct the recorded failure within the agreed assignment."
                 )
                 run.status, run.feedback, run.next_correction = (
                     "changes_requested",

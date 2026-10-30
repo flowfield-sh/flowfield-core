@@ -41,12 +41,11 @@ from flowfield.project_config import Identifier, ProjectConfig, Title, read_conf
 from flowfield.publication import (
     DEPENDENCY_CHANGED,
     Publication,
-    PublicationStatus,
     Readiness,
     blocked_dependencies,
-    preparation_issue,
-    publication_status,
+    execution_issue,
     readiness,
+    requires_reconciliation,
 )
 from flowfield.questions import QuestionReference, Questions, blocking_questions, pending_questions
 from flowfield.schema import SCHEMA, SCHEMA_VERSION
@@ -192,15 +191,11 @@ class WorkRecord(ContentRecord):
     project_id: str | None = None
 
 
-class TaskPreparation(Input):
-    completion: Literal["code", "report"]
-
-
 class TaskCreate(WorkCreate):
     project_id: Identifier | None = None
     acceptance_criteria: Markdown = ""
     input_files: list[Identifier] = Field(default_factory=list, max_length=32)
-    preparation: TaskPreparation | None = None
+    completion: Literal["code", "report"] | None = None
     body: TaskDescription = ""
     labels: LabelIds = Field(default_factory=list)
     status: WorkStatus = "backlog"
@@ -216,7 +211,7 @@ class TaskCreate(WorkCreate):
 class TaskEdit(Edit):
     acceptance_criteria: Markdown | None = None
     input_files: list[Identifier] | None = Field(default=None, max_length=32)
-    preparation: TaskPreparation | None = None
+    completion: Literal["code", "report"] | None = None
     title: Title | None = None
     body: TaskDescription | None = None
     labels: LabelIds | None = None
@@ -251,11 +246,27 @@ class TaskReopen(Edit):
     note: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=8000)]
 
 
-class TaskPublish(Edit):
-    completion: Literal["code", "report"]
-
-
 class TaskRevision(WorkRecord):
+    completion: Literal["code", "report"] = "code"
+
+    @model_validator(mode="before")
+    @classmethod
+    def read_completion(cls, value: Any) -> Any:
+        # Published snapshots already carry this choice. Older unstarted records
+        # use the same project-based default as task creation.
+        if isinstance(value, dict) and value.get("completion") is None:
+            publication = value.get("publication")
+            mode = (
+                publication.completion
+                if isinstance(publication, Publication)
+                else (publication or {}).get("completion")
+            )
+            value = {
+                **value,
+                "completion": mode or ("code" if value.get("project_id") else "report"),
+            }
+        return value
+
     acceptance_criteria: str = ""
     input_files: list[str] = Field(default_factory=list)
 
@@ -284,11 +295,10 @@ class TaskReference(BaseModel):
 
 class Task(TaskRevision):
     document_updates: list[DocumentUpdate] = Field(default_factory=list)
-    preparation_issue: str | None
+    execution_issue: str | None
     latest_update: ActivityEntry | None = None
     position: int
     revisions: list[TaskRevision]
-    publication_status: PublicationStatus
     readiness: Readiness
     blocked_by: list[TaskReference]
     blocking_questions: list[QuestionReference]
@@ -727,7 +737,7 @@ class Workspace:
                     (task.workspace_id, task.id, task.agreement_revision),
                 ).fetchone()
                 and not task.reconciliation_reason
-                and publication_status(task) != "needs_reconciliation"
+                and not requires_reconciliation(task)
             ):
                 completed.add(key)
         return completed
@@ -748,6 +758,24 @@ class Workspace:
         records = self._records(db, first.workspace_id)
         changed = {self._record_key(task) for task in tasks}
         for task in tasks:
+            if task.completion == "code" and not task.project_id:
+                raise ApplicationError(
+                    "repository_required",
+                    "Workspace tasks deliver files and reports. "
+                    "Choose an existing project for repository changes.",
+                    409,
+                )
+            if task.completion == "report":
+                from flowfield.subtasks import Subtasks
+
+                if any(
+                    child.completion == "code"
+                    for child in Subtasks.read_all(db, task.workspace_id, task.id)
+                ):
+                    raise ApplicationError(
+                        "code_delivery_required",
+                        "A task with code contributions requires code delivery.",
+                    )
             if task.input_files:
                 from flowfield.task_files import freeze
 
@@ -765,6 +793,7 @@ class Workspace:
                 or previous.dependencies != task.dependencies
                 or previous.documents != task.documents
                 or previous.input_files != task.input_files
+                or previous.completion != task.completion
             ):
                 task.agreement_revision = previous.agreement_revision + 1
                 if task.status not in PLANNING and not reconciled:
@@ -781,6 +810,12 @@ class Workspace:
                         "agreement_revision": task.agreement_revision,
                     }
                 )
+            if task.status in PLANNING and (
+                not task.publication
+                or task.publication.agreement_revision != task.agreement_revision
+                or task.publication.completion != task.completion
+            ):
+                self._capture_assignment(db, task)
             records[self._record_key(task)] = task
         completed: set[str] = set()
         affected = set(changed)
@@ -816,7 +851,7 @@ class Workspace:
             if (
                 item.status == "done"
                 and not item.reconciliation_reason
-                and publication_status(item) != "needs_reconciliation"
+                and not requires_reconciliation(item)
             ):
                 completed.add(key)
         self._mark_task_workspaces(db, {records[key].workspace_id for key in affected})
@@ -852,7 +887,7 @@ class Workspace:
         completed = completed if completed is not None else self._completed(records, db)
         blocked = [records[p] for p in blocked_dependencies(current, completed)]
         questions = blocking_questions(db, workspace_id, task_id)
-        publication = publication_status(current)
+        issue = execution_issue(db, current)
         from flowfield.document_updates import task_updates
 
         return Task(
@@ -863,12 +898,10 @@ class Workspace:
             else [],
             latest_update=self._latest_update(db, workspace_id, task_id),
             revisions=revisions,
-            publication_status=publication,
-            preparation_issue=preparation_issue(db, current),
+            execution_issue=issue,
             readiness=readiness(
                 current,
-                publication,
-                blocked=bool(blocked or questions),
+                blocked=bool(blocked or questions or issue),
             ),
             blocked_by=[TaskReference(**item.model_dump()) for item in blocked],
             blocking_questions=questions,
@@ -954,17 +987,10 @@ class Workspace:
                 ("labels", "Labels"),
                 ("dependencies", "Prerequisites"),
                 ("documents", "Worker documents"),
+                ("completion", "Delivery requirement"),
             ):
                 if getattr(previous, field) != getattr(task, field):
                     messages.append(f"{label} updated.")
-            if previous.publication != task.publication:
-                messages.append("Assignment checked and published.")
-            elif previous.agreement_revision != task.agreement_revision and previous.publication:
-                messages.append(
-                    "Assignment changed; coordinator must republish before work starts."
-                    if task.status in PLANNING
-                    else "Assignment changed; recorded work needs reconciliation."
-                )
             if previous.status != task.status:
                 messages.append(
                     f"{previous.status.replace('_', ' ').capitalize()} → "
@@ -1040,7 +1066,7 @@ class Workspace:
                 (workspace_id, workspace_id),
             ).fetchone()[0]
             task = TaskRevision(
-                **request.model_dump(exclude={"id", "author", "dependencies", "preparation"}),
+                **request.model_dump(exclude={"id", "author", "dependencies"}),
                 key=f"T-{number}",
                 dependencies=self._dependency_ids(db, workspace_id, request.dependencies),
                 id=request.id or generated_id(request.title),
@@ -1082,27 +1108,17 @@ class Workspace:
                     "task_blocked", "Complete prerequisites before recording work.", 409
                 )
             self._apply_task(db, task)
-            if request.preparation:
-                return self._publish_task(
-                    db,
-                    workspace_id,
-                    task.id,
-                    TaskPublish(
-                        **request.preparation.model_dump(),
-                        expected_revision=task.revision,
-                        author=request.author,
-                    ),
-                )
             return self._task(db, workspace_id, task.id)
 
     def edit_task(self, workspace_id: str, task_id: str, request: TaskEdit) -> Task:
-        preparation = request.preparation
-        request = TaskEdit.model_validate(
-            request.model_dump(exclude_unset=True, exclude={"preparation"})
-        )
         with self.connection(write=True, workspace_id=workspace_id) as db:
             current = self._task(db, workspace_id, task_id)
             task_id = current.id
+            from flowfield.task_execution import task_edit_blocker
+
+            blocker = task_edit_blocker(db, workspace_id, task_id)
+            if blocker:
+                raise ApplicationError("task_busy", blocker, 409)
             if request.documents is not None:
                 from flowfield.worker_documents import validate_references
 
@@ -1153,19 +1169,6 @@ class Workspace:
                         "UPDATE tasks SET position=? WHERE workspace_id=? AND id=?",
                         (self._append_position(db, workspace_id), workspace_id, task_id),
                     )
-            if preparation:
-                return self._publish_task(
-                    db,
-                    workspace_id,
-                    task_id,
-                    TaskPublish.model_validate(
-                        {
-                            **preparation.model_dump(),
-                            "expected_revision": task.revision,
-                            "author": request.author,
-                        }
-                    ),
-                )
             return self._task(db, workspace_id, task_id)
 
     def archive_issue(self, db: sqlite3.Connection, task: TaskRevision) -> ApplicationError | None:
@@ -1201,92 +1204,21 @@ class Workspace:
                 )
         return None
 
-    def publish_task(self, workspace_id: str, task_id: str, request: TaskPublish) -> Task:
-        with self.connection(write=True, workspace_id=workspace_id) as db:
-            return self._publish_task(db, workspace_id, task_id, request)
-
-    def _publish_task(
-        self, db: sqlite3.Connection, workspace_id: str, task_id: str, request: TaskPublish
-    ) -> Task:
-        current = self._task(db, workspace_id, task_id)
-        self._current(current.revision, request.expected_revision)
-        if current.archived or current.status not in PLANNING:
-            raise ApplicationError(
-                "inactive_task",
-                "Publish upcoming work; reconcile work already in progress or completed.",
-                409,
-            )
-        if not current.body.strip():
-            raise ApplicationError(
-                "missing_description",
-                "Describe the outcome, completion expectations and relevant context first.",
-                409,
-            )
-        if current.blocking_questions:
-            raise ApplicationError(
-                "task_blocked",
-                "Apply or withdraw blocking questions before publishing the task.",
-                409,
-            )
-        from flowfield.subtasks import Subtasks
-
-        if request.completion == "report" and any(
-            child.completion == "code" for child in Subtasks.read_all(db, workspace_id, current.id)
-        ):
-            raise ApplicationError(
-                "code_delivery_required", "A task with code contributions requires code delivery."
-            )
-        documents = self._prepare_sources(db, current, request.author)
-        current = self._task(db, workspace_id, current.id)
+    def _capture_assignment(self, db: sqlite3.Connection, task: TaskRevision) -> None:
+        from flowfield.guidance_reconciliation import latest_documents
         from flowfield.integration import Integrations
 
-        target_branch = (
-            Integrations(self)._settings(db, current.project_id).target_branch
-            if request.completion == "code" and current.project_id
-            else None
-        )
-        if request.completion == "code":
-            if current.project_id is None:
-                raise ApplicationError(
-                    "repository_required",
-                    "Workspace tasks deliver files and reports. "
-                    "Choose an existing project for repository changes.",
-                    409,
-                )
-            if not target_branch:
-                raise ApplicationError(
-                    "integration_target_required",
-                    "Configure the delivery target and checks before publishing code work.",
-                    409,
-                )
-        if (
-            current.publication_status == "published"
-            and current.publication
-            and current.publication.completion == request.completion
-            and current.publication.target_branch == target_branch
-            and current.publication.documents == documents
-        ):
-            return current
-        task = TaskRevision(
-            **{
-                **current.model_dump(),
-                "revision": current.revision + 1,
-                "updated_at": now(),
-                "updated_by": request.author,
-                "change_note": "",
-            }
-        )
         task.publication = Publication(
-            documents=documents,
-            completion=request.completion,
-            target_branch=target_branch,
-            agreement_revision=current.agreement_revision,
-            task_revision=current.revision,
-            author=request.author,
+            completion=task.completion,
+            target_branch=Integrations(self)._settings(db, task.project_id).target_branch
+            if task.completion == "code" and task.project_id
+            else None,
+            documents=latest_documents(self, db, task),
+            agreement_revision=task.agreement_revision,
+            task_revision=task.revision,
+            author=task.updated_by,
             created_at=task.updated_at,
         )
-        self._apply_task(db, task)
-        return self._task(db, workspace_id, current.id)
 
     def _prepare_sources(
         self, db: sqlite3.Connection, current: Task, author: str
@@ -1382,13 +1314,13 @@ class Workspace:
             raise ApplicationError(
                 "task_blocked", "Resolve task questions and prerequisites first.", 409
             )
-        if task.status in PLANNING and task.publication_status == "draft":
-            raise ApplicationError(
-                "publication_required", "Prepare the current task before continuing.", 409
-            )
         if (
-            task.reconciliation_reason or task.publication_status == "needs_reconciliation"
-        ) and not reconciling:
+            task.status in PLANNING
+            and task.execution_issue
+            and not (reconciling and requires_reconciliation(task))
+        ):
+            raise ApplicationError("task_blocked", task.execution_issue, 409)
+        if requires_reconciliation(task) and not reconciling:
             raise ApplicationError(
                 "reconciliation_required", "Reconcile the changed task before continuing.", 409
             )
@@ -1444,6 +1376,10 @@ class Workspace:
     def reconcile_task(self, workspace_id: str, task_id: str, request: TaskReconcile) -> Task:
         with self.connection(write=True, workspace_id=workspace_id) as db:
             current = self._task(db, workspace_id, task_id)
+            from flowfield.task_execution import task_edit_blocker
+
+            if blocker := task_edit_blocker(db, workspace_id, current.id):
+                raise ApplicationError("task_busy", blocker, 409)
             self._current(current.revision, request.expected_revision)
             if current.archived:
                 raise ApplicationError(
@@ -1452,15 +1388,13 @@ class Workspace:
             self._require_ready(current, reconciling=True)
             if (
                 not current.reconciliation_reason
-                and current.publication_status != "needs_reconciliation"
+                and not requires_reconciliation(current)
                 and request.completion is None
             ):
                 raise ApplicationError(
                     "no_reconciliation", "This task does not need reconciliation.", 409
                 )
-            completion = request.completion or (
-                current.publication.completion if current.publication else None
-            )
+            completion = request.completion or current.completion
             from flowfield.integration import Integrations
 
             target_branch = (
@@ -1485,6 +1419,7 @@ class Workspace:
                     "updated_by": request.author,
                     "reconciliation_reason": None,
                     "change_note": request.note,
+                    "completion": completion,
                     "publication": Publication(
                         documents=documents,
                         completion=completion,

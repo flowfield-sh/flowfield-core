@@ -28,10 +28,8 @@ from flowfield.labels import Labels, WorkspaceLabel
 from flowfield.prerequisite_reads import PendingCode, pending_code
 from flowfield.publication import (
     Publication,
-    PublicationStatus,
     Readiness,
-    preparation_issue,
-    publication_status,
+    execution_issue,
     readiness,
 )
 from flowfield.questions import (
@@ -48,7 +46,7 @@ from flowfield.workspaces import WorkspaceRecord, Workspaces
 
 class TaskCard(TaskReference):
     document_updates: list[DocumentUpdate] = Field(default_factory=list)
-    preparation_issue: str | None
+    execution_issue: str | None
     state: WorkState | None = None
     workspace_id: str
     labels: list[str]
@@ -63,7 +61,6 @@ class TaskCard(TaskReference):
     archived_by: str | None
     dependencies: list[str]
     readiness: Readiness
-    publication_status: PublicationStatus
     agreement_revision: int
     publication: Publication | None
     blocked_by: list[TaskReference]
@@ -76,6 +73,7 @@ class TaskDetail(TaskRevision, TaskCard):
     archive_blocker: str | None = None
     delete_blocker: str | None = None
     can_stop: bool = False
+    edit_blocker: str | None = None
     latest_result_id: str | None = None
     prerequisites: list[TaskReference]
     dependents: list[TaskReference]
@@ -174,13 +172,13 @@ class BrowserReads:
             if batch
             else blocking_questions(db, task.workspace_id, task.id)
         )
-        publication = publication_status(task)
         facts = (
             batch.facts[task.id]
             if batch
             else read_task_facts(self.workspace, db, task.workspace_id, task.id)[task.id]
         )
         state = task_state(self.workspace, db, task.workspace_id, task.id, facts=facts)
+        issue = execution_issue(db, task, facts=facts)
         from flowfield.document_updates import task_updates
 
         return TaskCard(
@@ -197,12 +195,10 @@ class BrowserReads:
             status_changed_at=timeline["entered"],
             archived_at=timeline["archived_at"] if task.archived else None,
             archived_by=timeline["archived_by"] if task.archived else None,
-            publication_status=publication,
-            preparation_issue=preparation_issue(db, task, include_draft_hint=False, facts=facts),
+            execution_issue=issue,
             readiness=readiness(
                 task,
-                publication,
-                blocked=bool(blocked or questions),
+                blocked=bool(blocked or questions or issue),
             ),
             blocked_by=[TaskReference(**item.model_dump()) for item in blocked],
             blocking_questions=questions,
@@ -292,7 +288,7 @@ class BrowserReads:
             )
             archive_issue = self.workspace.archive_issue(db, current)
             from flowfield.task_deletion import TaskDeletionService
-            from flowfield.task_execution import active_task_execution
+            from flowfield.task_execution import active_task_execution, task_edit_blocker
 
             owners = active_task_execution(db, workspace_id, current.id)
             latest_result = db.execute(
@@ -308,6 +304,7 @@ class BrowserReads:
                 subtasks=Subtasks.read_all(db, workspace_id, current.id),
                 archive_blocker=archive_issue.message if archive_issue else None,
                 can_stop=any(owners),
+                edit_blocker=task_edit_blocker(db, workspace_id, current.id),
                 delete_blocker=TaskDeletionService(self.workspace).blocker(db, current),
                 latest_result_id=latest_result[0] if latest_result else None,
                 body=current.body,

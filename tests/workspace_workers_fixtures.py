@@ -4,7 +4,7 @@ from project_fixtures import existing_directory, task_request
 from workspace_fixtures import TEST_AGENTS
 
 from flowfield.agent_models import AgentChoice
-from flowfield.application import ProjectSetup, TaskPublish, Workspace
+from flowfield.application import ProjectSetup, TaskEdit, Workspace
 from flowfield.execution import Execution
 from flowfield.execution_models import QueueEdit, SettingsEdit
 from flowfield.workspaces import WorkspaceCreate, Workspaces
@@ -26,10 +26,10 @@ def shared(tmp_path, *, cap=1):
                 status="up_next",
             ),
         )
-        store.publish_task(
+        store.edit_task(
             space.id,
             task.id,
-            TaskPublish(
+            TaskEdit(
                 expected_revision=task.revision,
                 completion="report",
             ),

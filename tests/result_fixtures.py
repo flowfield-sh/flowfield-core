@@ -8,7 +8,7 @@ from project_fixtures import adopt, task_request
 from flowfield.adapters.git_workspace import baseline, git
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_models import AgentChoice
-from flowfield.application import ProjectSetup, TaskPublish, Workspace
+from flowfield.application import ProjectSetup, TaskEdit, Workspace
 from flowfield.execution_models import QueueEdit, SettingsEdit, WorkerResult
 from flowfield.integration_models import IntegrationConfig
 from flowfield.result_models import ResultReview
@@ -65,10 +65,10 @@ def fixture(
             status="up_next",
         ),
     )
-    workspace.publish_task(
+    workspace.edit_task(
         "harbor",
         task.id,
-        TaskPublish(
+        TaskEdit(
             completion=completion,
             expected_revision=task.revision,
         ),

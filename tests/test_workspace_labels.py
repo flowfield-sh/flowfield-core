@@ -229,9 +229,9 @@ def test_label_removal_preserves_exact_approved_delivery(tmp_path):
 
     service, repo, _ = result_fixture(tmp_path)
     store = service.workspace
+    service.results.process("harbor")
     task = store.task("harbor", "work")
     store.edit_task("harbor", task.id, TaskEdit(expected_revision=task.revision, labels=["bug"]))
-    service.results.process("harbor")
     ready = current(service)
     assert ready.status == "ready"
     approved = approve(service, ready)

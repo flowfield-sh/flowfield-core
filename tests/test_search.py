@@ -11,7 +11,7 @@ from project_fixtures import adopt, task_request
 from result_fixtures import approve, current, fixture
 
 from flowfield.activity import ActivityCreate
-from flowfield.application import ProjectSetup, TaskEdit, TaskPublish, Workspace
+from flowfield.application import ProjectSetup, TaskEdit, Workspace
 from flowfield.errors import ApplicationError
 from flowfield.reads import PAGE_BYTES, ContextReads, size
 from flowfield.search import Search, assignment_search
@@ -171,10 +171,10 @@ def test_worker_search_cannot_escape_snapshot_and_manual_report_is_usable(tmp_pa
             dependencies=[report.id],
         ),
     )
-    workspace.publish_task(
+    workspace.edit_task(
         "harbor",
         child.id,
-        TaskPublish(
+        TaskEdit(
             expected_revision=child.revision,
             completion="report",
         ),
@@ -197,4 +197,4 @@ def test_worker_search_cannot_escape_snapshot_and_manual_report_is_usable(tmp_pa
     assert response["scope"] == "frozen_assignment" and response["items"]
     assert not assignment_search(sections, "secret later")["items"]
     assert "Report complete" in sections["prerequisites"]
-    assert json.loads(sections["agreement"])["task_revision"] == child.revision + 1
+    assert json.loads(sections["agreement"])["task_revision"] == child.revision

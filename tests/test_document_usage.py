@@ -5,7 +5,7 @@ from execution_fixtures import fixture
 from project_fixtures import task_request
 from worker_documents_fixtures import prepare
 
-from flowfield.application import Edit, ProjectEdit, TaskPublish
+from flowfield.application import Edit, ProjectEdit, TaskEdit
 from flowfield.document_usage import DocumentUsage, DocumentUsageEdit
 from flowfield.documents import DocumentCreate, DocumentEdit, Documents
 from flowfield.errors import ApplicationError
@@ -27,8 +27,8 @@ def test_projectless_defaults_freeze_sources_and_allow_opt_out(tmp_path):
             body="Capture the homepage at 1024px and return its image.",
         ),
     )
-    task = store.publish_task(
-        "harbor", task.id, TaskPublish(expected_revision=task.revision, completion="report")
+    task = store.edit_task(
+        "harbor", task.id, TaskEdit(expected_revision=task.revision, completion="report")
     )
     frozen = task.publication.documents
     assert {(item.id, item.purpose) for item in frozen} == {
@@ -44,8 +44,8 @@ def test_projectless_defaults_freeze_sources_and_allow_opt_out(tmp_path):
     second = store.create_task(
         "harbor", task_request(id="other", title="Other task", body="Write a short report.")
     )
-    second = store.publish_task(
-        "harbor", second.id, TaskPublish(expected_revision=second.revision, completion="report")
+    second = store.edit_task(
+        "harbor", second.id, TaskEdit(expected_revision=second.revision, completion="report")
     )
     assert [item.id for item in second.publication.documents] == ["guidance"]
     with pytest.raises(ApplicationError, match="all tasks"):
@@ -152,8 +152,8 @@ def test_unchecked_defaults_are_absent_from_actual_worker_input(tmp_path, projec
             status="up_next",
         ),
     )
-    task = store.publish_task(
-        "harbor", task.id, TaskPublish(expected_revision=task.revision, completion="report")
+    task = store.edit_task(
+        "harbor", task.id, TaskEdit(expected_revision=task.revision, completion="report")
     )
     run = execution.claim("harbor", BASE if project_id else "", {BASE: set()}, task_id=task.id)
     assert run and [item.id for item in run.documents] == ["guidance"]

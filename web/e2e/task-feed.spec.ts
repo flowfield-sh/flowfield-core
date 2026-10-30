@@ -424,7 +424,7 @@ test("archive preserves dated records and supports restore and mobile archiving"
   );
 });
 
-test("publication shares browser, CLI and MCP state without manual editing", async ({
+test("automatic readiness agrees across browser, CLI and MCP without a Draft state", async ({
   page,
   request,
 }) => {
@@ -454,27 +454,22 @@ test("publication shares browser, CLI and MCP state without manual editing", asy
   const draft = page
     .getByRole("region", { name: "Task details", exact: true })
     .getByText("Draft", { exact: true });
-  await expect(draft).toBeVisible();
-  await draft.focus();
-  await expect(page.getByRole("tooltip")).toContainText(
-    "Ask the coordinator to prepare this task.",
-  );
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await expect(draft).toHaveCount(0);
   await expect(editor).toBeVisible();
   await expect(
     editor.getByRole("button", { name: /publish|prepare/i }),
   ).toHaveCount(0);
   const first = cli([
     "task",
-    "prepare",
+    "edit",
     "T-1",
     "--completion",
     "report",
     "--workspace",
     await projectWorkspace(request, "publication"),
   ]);
-  expect(first.publication_status).toBe("published");
+  expect(first.readiness).toBe("ready");
+  expect(first).not.toHaveProperty("publication_status");
   await expect(draft).toHaveCount(0);
   const call = await connectMcp(request);
   await call("add_activity", {
@@ -491,17 +486,17 @@ test("publication shares browser, CLI and MCP state without manual editing", asy
       body: "Export filtered rows as JSON, capped at 500. Test Unicode, empty output and overflow.",
     },
   });
-  await expect(draft).toBeVisible();
+  await expect(draft).toHaveCount(0);
   const fromCli = cli([
     "task",
-    "prepare",
+    "edit",
     "T-1",
     "--completion",
     "report",
     "--workspace",
     await projectWorkspace(request, "publication"),
   ]);
-  expect(fromCli.publication_status).toBe("published");
+  expect(fromCli.readiness).toBe("ready");
   await expect(draft).toHaveCount(0);
   await call("edit_task", {
     workspace_id: await projectWorkspace(page.request, "publication"),
@@ -511,7 +506,7 @@ test("publication shares browser, CLI and MCP state without manual editing", asy
       body: "Export filtered rows as JSON, capped at 500. Test Unicode, empty output and overflow. Use UTF-8.",
     },
   });
-  await expect(draft).toBeVisible();
+  await expect(draft).toHaveCount(0);
   const current = await call("get_task", {
     workspace_id: await projectWorkspace(page.request, "publication"),
     task_id: "T-1",
@@ -520,7 +515,7 @@ test("publication shares browser, CLI and MCP state without manual editing", asy
     workspace_id: await projectWorkspace(page.request, "publication"),
     task_id: "T-1",
     changes: {
-      preparation: { completion: "report" },
+      completion: "report",
       expected_revision: current.revision,
     },
   });
@@ -529,7 +524,7 @@ test("publication shares browser, CLI and MCP state without manual editing", asy
   await expect(editor).toContainText("capped at 500");
 });
 
-test("conversation capture prepares atomically while task defaults show only useful work", async ({
+test("conversation edits preserve readiness and task defaults show only useful work", async ({
   page,
   request,
 }) => {
@@ -554,12 +549,10 @@ test("conversation capture prepares atomically while task defaults show only use
       title: "Investigate import formats",
       body: "Compare existing formats, evidence and a recommendation; deliver a report without changing repository files.",
       labels: ["investigation"],
-      preparation: {
-        completion: "report",
-      },
+      completion: "report",
     },
   });
-  expect(task.publication_status).toBe("published");
+  expect(task.readiness).toBe("ready");
   expect(task.status).toBe("backlog");
   expect(
     (
@@ -599,12 +592,10 @@ test("conversation capture prepares atomically while task defaults show only use
       expected_revision: current.revision,
 
       body: "Compare formats, include uncertainty and recommend one; report only with no file changes.",
-      preparation: {
-        completion: "report",
-      },
+      completion: "report",
     },
   });
-  expect(updated.publication_status).toBe("published");
+  expect(updated.readiness).toBe("ready");
   await expect(
     editor
       .getByLabel("Current task definition")
@@ -616,9 +607,7 @@ test("conversation capture prepares atomically while task defaults show only use
       data: {
         expected_revision: current.revision,
         body: "Stale replacement",
-        preparation: {
-          completion: "report",
-        },
+        completion: "report",
       },
     },
   );

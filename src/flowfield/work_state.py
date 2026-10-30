@@ -241,6 +241,12 @@ def task_state(
             label="Waiting on prerequisites", tone="waiting", href=href, reason="prerequisites"
         )
     if task["status"] == "up_next":
+        from flowfield.publication import execution_requirement
+
+        if execution_requirement(
+            bool(task["has_description"]), task["completion"], task["target_branch"]
+        ):
+            return WorkState(label="Needs setup", tone="attention", href=href)
         return WorkState(
             label="Queued" if facts.queue_enabled else "Queue paused", tone="waiting", href=href
         )

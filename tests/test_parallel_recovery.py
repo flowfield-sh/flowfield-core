@@ -8,16 +8,15 @@ from execution_fixtures import BASE, RESULT, fixture, validate_report
 from input_continuation_fixtures import answer
 from project_fixtures import task_request
 
-from flowfield.application import TaskEdit, TaskPublish
+from flowfield.application import TaskEdit
 from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import RunAction, Usage, WorkerResult
 from flowfield.questions import QuestionCreate, Questions
 from flowfield.reads import ContextReads
-from flowfield.results import Results
 
 
-def test_changed_agreement_blocks_only_its_task_until_coordinator_reconciles(tmp_path):
+def test_upcoming_edits_keep_execution_intent_and_claim_the_new_scope(tmp_path):
     execution = fixture(
         tmp_path,
         count=2,
@@ -28,25 +27,19 @@ def test_changed_agreement_blocks_only_its_task_until_coordinator_reconciles(tmp
     task = workspace.edit_task(
         "harbor", task.id, TaskEdit(expected_revision=task.revision, body="Refined scope")
     )
-    publication = TaskPublish(
-        completion="report",
-        expected_revision=task.revision,
-    )
     task = workspace.task("harbor", task.id)
     card = BrowserReads(workspace).task("harbor", task.id)
     brief = ContextReads(workspace).task("harbor", task.id)
-    assert task.readiness == card.readiness == brief["readiness"] == "draft"
-    assert task.preparation_issue == card.preparation_issue == brief["preparation_issue"]
-    assert "prepare" in task.preparation_issue
+    assert task.readiness == card.readiness == brief["readiness"] == "ready"
+    assert task.execution_issue == card.execution_issue == brief["execution_issue"] is None
     board = BrowserReads(workspace).workspace_board("harbor")
     assert next(item for item in board.tasks if item.id == task.id).state == card.state
+    resumed = execution.claim("harbor", BASE, {BASE: set()})
+    assert resumed.task_id == task.id
+    assert execution.assignment("harbor", resumed.id)["description"] == "Refined scope"
     independent = execution.claim("harbor", BASE, {BASE: set()})
     assert independent.task_id == "task-1"
     assert execution.claim("harbor", BASE, {BASE: set()}) is None
-    workspace.publish_task("harbor", task.id, publication)
-    assert workspace.task("harbor", task.id).readiness == "ready"
-    resumed = execution.claim("harbor", BASE, {BASE: set()})
-    assert resumed.task_id == task.id
     assert execution.get("harbor", independent.id).status == "preparing"
 
 
@@ -101,10 +94,10 @@ def test_answer_continues_once_beside_independent_work(tmp_path, restart):
     task = execution.workspace.create_task(
         "harbor", task_request(id="task-2", title="Later", status="up_next", body="Report")
     )
-    execution.workspace.publish_task(
+    execution.workspace.edit_task(
         "harbor",
         task.id,
-        TaskPublish(
+        TaskEdit(
             completion="report",
             expected_revision=task.revision,
         ),
@@ -129,29 +122,38 @@ def test_answer_continues_once_beside_independent_work(tmp_path, restart):
     assert execution.get("harbor", successor.id).status == "preparing"
 
 
-def test_changed_intent_only_blocks_its_own_parallel_result(tmp_path):
+def test_stopping_to_change_intent_preserves_independent_work(tmp_path):
     execution = fixture(tmp_path, count=2, cap=2)
     changed = execution.claim("harbor", BASE, {BASE: set()})
     independent = execution.claim("harbor", BASE, {BASE: set()})
     for run in (changed, independent):
         execution.started("harbor", run.id)
     task = execution.workspace.task("harbor", changed.task_id)
+    with pytest.raises(ApplicationError, match="working on this task"):
+        execution.workspace.edit_task(
+            "harbor", task.id, TaskEdit(expected_revision=task.revision, body="Changed outcome")
+        )
+    execution.finish("harbor", changed.id, "stopped")
+    task = execution.workspace.task("harbor", changed.task_id)
     execution.workspace.edit_task(
         "harbor", task.id, TaskEdit(expected_revision=task.revision, body="Changed outcome")
     )
-    for run in (changed, independent):
+    with pytest.raises(ApplicationError, match="late result"):
         execution.finish(
             "harbor",
-            run.id,
+            changed.id,
             "in_review",
-            result=WorkerResult(summary="Report", checks="Read source", outcome="complete"),
+            result=WorkerResult(summary="Too late", checks="Read source"),
             commit=RESULT,
         )
-        validate_report(execution)
-    assert (
-        Results(execution.workspace).page("harbor", changed.task_id).items[0].problem_code
-        == "assignment_changed"
+    execution.finish(
+        "harbor",
+        independent.id,
+        "in_review",
+        result=WorkerResult(summary="Report", checks="Read source"),
+        commit=RESULT,
     )
+    validate_report(execution)
     assert execution.workspace.task("harbor", changed.task_id).status == "in_progress"
     assert execution.workspace.task("harbor", independent.task_id).status == "done"
     assert execution.assignment("harbor", changed.id)["description"] == task.body

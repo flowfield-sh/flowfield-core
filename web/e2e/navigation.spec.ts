@@ -349,7 +349,7 @@ test("entity identity and drafts persist across task and workspace tabs", async 
     exact: true,
   });
   const title = editor.getByRole("heading", {
-    name: /T-1 Draft Task$/,
+    name: /T-1 Task$/,
   });
 
   await editor.locator('[data-message-id="definition:1"] summary').click();

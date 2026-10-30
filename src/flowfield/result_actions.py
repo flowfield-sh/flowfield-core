@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.integration_models import DELIVERY_BLOCKERS
+from flowfield.publication import requires_reconciliation
 from flowfield.result_models import ResultAction, ResultVersion
 
 if TYPE_CHECKING:
@@ -101,12 +102,12 @@ def result_action(
     settings = execution._settings(db, value.workspace_id)
     if value.status == "changes_requested":
         task = workspace._task(db, value.workspace_id, value.task_id)
-        if task.readiness in ("draft", "needs_reconciliation") and task.preparation_issue:
+        if task.readiness in ("blocked", "needs_reconciliation") and task.execution_issue:
             return ResultAction(
                 owner="coordinator",
                 action="coordinator",
-                label="Prepare follow-up",
-                reason=task.preparation_issue,
+                label="Resolve task requirements",
+                reason=task.execution_issue,
             )
         return ResultAction(
             owner="worker_queue",
@@ -145,7 +146,7 @@ def result_action(
             else None
         )
         revised_assignment = (
-            task.publication_status == "published"
+            not requires_reconciliation(task)
             and task.publication is not None
             and task.publication.completion == "code"
             and destination is not None

@@ -106,8 +106,7 @@ def continue_available(results: "Results", workspace_id: str) -> None:
                     results._save(db, latest)
                 return
             request.note = (
-                "Correct the failure against the advanced destination "
-                "within the published assignment."
+                "Correct the failure against the advanced destination within the agreed assignment."
             )
             results.correct(workspace_id, version.id, request, automatic=True)
             return

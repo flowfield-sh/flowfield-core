@@ -3,12 +3,13 @@
 import asyncio
 
 import pytest
+from execution_fixtures import BASE
 from execution_fixtures import fixture as execution_fixture
 from result_fixtures import current
 from task_reviews_fixtures import configured, verdict
 
 from flowfield.agent_tools import worker_scope, workspace_scope
-from flowfield.application import TaskEdit
+from flowfield.application import TaskEdit, TaskReconcile
 from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import RunAction
@@ -24,6 +25,13 @@ def test_task_stop_revokes_reviewer_before_cleanup_and_keeps_result(tmp_path):
     review = reviews.started("harbor", review.id, review.revision)
     task = service.workspace.task("harbor", review.task_id)
     assert BrowserReads(service.workspace).task("harbor", task.id).can_stop
+    assert BrowserReads(service.workspace).task("harbor", task.id).edit_blocker
+    with pytest.raises(ApplicationError, match="working on this task"):
+        service.workspace.edit_task(
+            "harbor",
+            task.id,
+            TaskEdit(expected_revision=task.revision, title="Changed during review"),
+        )
 
     class Client:
         async def stop(self):
@@ -45,6 +53,7 @@ def test_task_stop_revokes_reviewer_before_cleanup_and_keeps_result(tmp_path):
     assert reviews.get("harbor", review.id).status == "stopped"
     assert service.results.get("harbor", result.id).report == result.report
     assert not BrowserReads(service.workspace).task("harbor", task.id).can_stop
+    assert BrowserReads(service.workspace).task("harbor", task.id).edit_blocker is None
 
 
 def test_task_stop_rejects_stale_revision_and_idle_task(tmp_path):
@@ -58,16 +67,13 @@ def test_task_stop_rejects_stale_revision_and_idle_task(tmp_path):
     run = execution.claim("harbor", "abc", {}, task_id=task.id)
     assert run
     task = service.workspace.task("harbor", task.id)
-    edited = service.workspace.edit_task(
-        "harbor", task.id, TaskEdit(expected_revision=task.revision, title="New title")
-    )
     with pytest.raises(ApplicationError) as error:
         asyncio.run(
-            service.stop_task("harbor", task.id, RunAction(expected_revision=task.revision))
+            service.stop_task("harbor", task.id, RunAction(expected_revision=task.revision - 1))
         )
     assert error.value.code == "revision_conflict"
     assert execution.get("harbor", run.id).status == "preparing"
-    assert edited.status != "backlog"
+    assert service.workspace.task("harbor", task.id).status != "backlog"
 
 
 def test_queued_review_cannot_claim_backlogged_task(tmp_path):
@@ -95,6 +101,18 @@ def test_coordinator_can_stop_and_delete_but_worker_cannot(tmp_path):
         assert "delete_task" not in worker.tools and "stop_task" not in worker.tools
         assert coordinator.tools["delete_task"].annotations.destructiveHint
         task = service.workspace.task("harbor", run.task_id)
+        refused_edit = await coordinator.call(
+            "edit_task",
+            {
+                "task_id": task.key,
+                "changes": {
+                    "expected_revision": task.revision,
+                    "title": "Changed during execution",
+                },
+            },
+        )
+        assert refused_edit.isError
+        assert service.workspace.task("harbor", task.id).title == task.title
         blocked = await coordinator.call(
             "delete_task", {"task_id": task.key, "changes": {"expected_revision": task.revision}}
         )
@@ -113,3 +131,48 @@ def test_coordinator_can_stop_and_delete_but_worker_cannot(tmp_path):
             service.workspace.task("harbor", task.id)
 
     asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("status", ["preparing", "running", "stopping", "uncertain"])
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"title": "Changed"},
+        {"body": "Changed"},
+        {"acceptance_criteria": "Changed"},
+        {"labels": ["bug"]},
+    ],
+)
+def test_active_ownership_blocks_every_definition_field_then_stop_unlocks(
+    tmp_path, status, changes
+):
+    execution = execution_fixture(tmp_path)
+    run = execution.claim("harbor", BASE, {BASE: set()})
+    if status == "running":
+        run = execution.started("harbor", run.id)
+    elif status == "stopping":
+        run = execution.stop_requested("harbor", run.id, RunAction(expected_revision=run.revision))
+    elif status == "uncertain":
+        run = execution.finish("harbor", run.id, "uncertain", problem="Lost observation")
+    store = execution.workspace
+    before = store.task("harbor", run.task_id)
+    blocker = BrowserReads(store).task("harbor", before.id).edit_blocker
+    assert blocker
+    with pytest.raises(ApplicationError, match="working on this task") as rejected:
+        store.edit_task("harbor", before.id, TaskEdit(expected_revision=before.revision, **changes))
+    assert rejected.value.code == "task_busy"
+    with pytest.raises(ApplicationError, match="working on this task"):
+        store.reconcile_task(
+            "harbor",
+            before.id,
+            TaskReconcile(expected_revision=before.revision, completion="report", note="Changed"),
+        )
+    assert store.task("harbor", before.id) == before
+    execution.finish("harbor", run.id, "stopped")
+    current = store.task("harbor", before.id)
+    assert BrowserReads(store).task("harbor", before.id).edit_blocker is None
+    changed = store.edit_task(
+        "harbor", before.id, TaskEdit(expected_revision=current.revision, **changes)
+    )
+    for key, value in changes.items():
+        assert getattr(changed, key) == value

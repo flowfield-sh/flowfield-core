@@ -10,7 +10,7 @@ from workspace_fixtures import TEST_AGENTS
 
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_models import AgentChoice
-from flowfield.application import TaskPreparation, Workspace
+from flowfield.application import Workspace
 from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
@@ -71,7 +71,7 @@ def test_managed_files_and_dependency_inputs_use_one_queue(tmp_path, monkeypatch
             title="Source",
             body="Write a file",
             status="up_next",
-            preparation=TaskPreparation(completion="report"),
+            completion="report",
         ),
     )
     second = store.create_task(
@@ -81,7 +81,7 @@ def test_managed_files_and_dependency_inputs_use_one_queue(tmp_path, monkeypatch
             body="Use the source file",
             status="up_next",
             dependencies=[first.id],
-            preparation=TaskPreparation(completion="report"),
+            completion="report",
         ),
     )
     settings = spaces.configure_workers(
@@ -153,7 +153,7 @@ def test_workspace_file_result_without_git_survives_attempt_cleanup(tmp_path):
             title="Make a report",
             body="Produce a report and dataset.",
             status="up_next",
-            preparation=TaskPreparation(completion="report"),
+            completion="report",
         ),
     )
     assert store.projects() == []
@@ -209,7 +209,7 @@ def test_workspace_task_cannot_claim_repository_delivery(tmp_path):
             task_request(
                 title="Code",
                 body="Change a repository",
-                preparation=TaskPreparation(completion="code"),
+                completion="code",
             ),
         )
 
@@ -220,7 +220,7 @@ def test_revisions_keep_exact_inputs_and_old_files(tmp_path):
     from file_delivery_fixtures import deliver, setup
     from file_delivery_fixtures import task as make_task
 
-    from flowfield.application import TaskPriority, TaskPublish, TaskReopen
+    from flowfield.application import TaskEdit, TaskPriority, TaskReopen
     from flowfield.output_models import FileInput
     from flowfield.task_files import materialize
 
@@ -247,10 +247,10 @@ def test_revisions_keep_exact_inputs_and_old_files(tmp_path):
     current = store.prioritize_task(
         scope, task.id, TaskPriority(expected_revision=current.revision, status="up_next")
     )
-    store.publish_task(
+    store.edit_task(
         scope,
         task.id,
-        TaskPublish(
+        TaskEdit(
             expected_revision=current.revision,
             completion="report",
         ),

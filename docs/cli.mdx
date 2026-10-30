@@ -55,7 +55,7 @@ flowfield task subtask create T-1 --workspace WORKSPACE_ID --title "Implement AP
 
 Task creation accepts an optional `--project PROJECT_ID` for repository work. Task keys accept either case; internal IDs remain exact. Repeated `--depends-on` values name prerequisite tasks in the same workspace. For subtask creation and editing, they name sibling subtasks within the parent task. Repeated `--label` values replace a task’s labels; `--no-labels` clears them.
 
-Use `task reopen T-1 --workspace WORKSPACE_ID --note "Correction needed"` for follow-up to completed work. It returns the task to Draft/Backlog, retaining earlier results and approvals. Prepare the revised task before scheduling it.
+Use `task reopen T-1 --workspace WORKSPACE_ID --note "Correction needed"` for follow-up to completed work. It returns the task to Backlog, retaining earlier results and approvals. Edit the follow-up requirements before moving it to Up next.
 
 Use `task archive` / `task restore` to hide or restore work. `task delete T-1 --workspace WORKSPACE_ID` permanently removes a task and its owned records/files after confirmation; `--yes` confirms noninteractively. Stop previews first. See [task deletion](/tasks#archive-or-delete) for retained dependencies and cleanup.
 

@@ -28,7 +28,7 @@ Subtasks’ files are combined in the final result. Earlier versions remain avai
 
 ## Worker and coordinator tools
 
-Create repository-free work with `create_task(workspace_id=…, task=…)`, omitting `project_id`, and prepare it with `completion="report"`. Built-in Coordinator tools already bind the workspace. Subsequent task tools use the same `workspace_id` and task key. Select immutable file IDs with `task.input_files`.
+Create repository-free work with `create_task(workspace_id=…, task=…)`, omitting `project_id`, and set `completion="report"`. Built-in Coordinator tools already bind the workspace. Subsequent task tools use the same `workspace_id` and task key. Select immutable file IDs with `task.input_files`.
 
 Workers write final files in the supplied `output_directory`, also available as `FLOWFIELD_OUTPUT_DIR`, and include relative paths and optional descriptions in `submit_result.files`. Only explicitly submitted files are retained. A submission supports up to 32 regular files, 128 MiB per file and 512 MiB total. Symlinks, hardlinks and paths outside the output directory are rejected. Finish writing files before submitting; a failed capture leaves the result unsubmitted so the worker can correct it.
 

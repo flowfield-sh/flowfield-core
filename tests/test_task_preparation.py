@@ -1,4 +1,4 @@
-"""Intent and preparation commit together without scheduling or weakening freshness."""
+"""Saved task requirements run without a separate preparation gate."""
 
 from pathlib import Path
 
@@ -9,7 +9,6 @@ from flowfield.agent_models import AgentChoice
 from flowfield.application import (
     ProjectSetup,
     TaskEdit,
-    TaskPreparation,
     TaskPriority,
     Workspace,
 )
@@ -17,7 +16,6 @@ from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.execution_models import QueueEdit, SettingsEdit
-from flowfield.questions import QuestionCreate, Questions
 from flowfield.reads import ContextReads
 
 
@@ -25,10 +23,6 @@ def setup(tmp_path: Path):
     w = Workspace(tmp_path / "state")
     adopt(w, ProjectSetup(path=str(tmp_path / "project")))
     return w
-
-
-def preparation(completion="report"):
-    return TaskPreparation(completion=completion)
 
 
 def test_capture_refinement_and_queue_are_separate(tmp_path: Path):
@@ -45,10 +39,10 @@ def test_capture_refinement_and_queue_are_separate(tmp_path: Path):
         task_request(
             title="Find the cause",
             body="Report evidence and recommendation.",
-            preparation=preparation(),
+            completion="report",
         ),
     )
-    assert len(snapshots) == 1 and snapshots[0][0].publication_status == "published"
+    assert len(snapshots) == 1 and snapshots[0][0].readiness == "ready"
     assert task.status == "backlog" and not execution.settings("project").enabled
     task = w.prioritize_task(
         "project", task.id, TaskPriority(expected_revision=task.revision, status="up_next")
@@ -60,100 +54,34 @@ def test_capture_refinement_and_queue_are_separate(tmp_path: Path):
         TaskEdit(
             expected_revision=task.revision,
             body="Report evidence, uncertainty and recommendation.",
-            preparation=preparation(),
+            completion="report",
         ),
     )
     assert task.status == "up_next" and task.position == position
     assert task.publication.agreement_revision == task.agreement_revision
-    assert task.readiness == "ready" and task.preparation_issue is None
+    assert task.readiness == "ready" and task.execution_issue is None
     assert execution.claim("project", "a" * 40, {}) is None
     execution.queue("project", QueueEdit(expected_revision=settings.revision, enabled=True))
     run = execution.claim("project", "a" * 40, {"a" * 40: set()})
     assert run and run.task_id == task.id
-    with pytest.raises(ApplicationError, match="upcoming"):
+    with pytest.raises(ApplicationError, match="working on this task"):
         w.edit_task(
             "project",
             task.id,
             TaskEdit(
                 expected_revision=w.task("project", task.id).revision,
                 body="Unrelated work",
-                preparation=preparation(),
+                completion="report",
             ),
         )
     assert w.task("project", task.id).body == task.body
     assert execution.claim("project", "a" * 40, {}) is None
 
 
-def test_failed_preparation_rolls_back_creation_edits_history_and_notifications(tmp_path: Path):
-    w = setup(tmp_path)
-    notifications = []
-    w.on_change = notifications.append
-    with pytest.raises(ApplicationError, match="existing project"):
-        w.create_task(
-            "project",
-            task_request(
-                title="Code",
-                body="Implement the change.",
-                preparation=preparation(completion="code"),
-            ),
-        )
-    assert not w.tasks("project") and not notifications
-    task = w.create_task(
-        "project",
-        task_request(title="Report", body="Original agreement", preparation=preparation()),
-    )
-    assert task.key.endswith("-1")
-    w.edit_task(
-        "project", task.id, TaskEdit(expected_revision=task.revision, body="Use recorded evidence.")
-    )
-    before = w.task("project", task.id)
-    notifications.clear()
-    with pytest.raises(ApplicationError, match="stale"):
-        w.edit_task(
-            "project",
-            task.id,
-            TaskEdit(
-                expected_revision=task.revision,
-                body="Overwrite original",
-                preparation=preparation(),
-            ),
-        )
-    assert w.task("project", task.id) == before and not notifications
-    with pytest.raises(ApplicationError):
-        w.edit_task(
-            "project",
-            task.id,
-            TaskEdit(expected_revision=1, body="Stale overwrite", preparation=preparation()),
-        )
-    q = Questions(w).ask(
-        "project",
-        QuestionCreate(
-            task_id=task.id,
-            question="Which audience?",
-            context="Missing audience",
-            recommendation="Internal team",
-            blocking_scope="Audience",
-        ),
-    )
-    before = w.task("project", task.id)
-    with pytest.raises(ApplicationError, match="blocking questions"):
-        w.edit_task(
-            "project",
-            task.id,
-            TaskEdit(
-                expected_revision=before.revision,
-                body="Wrong audience",
-                preparation=preparation(),
-            ),
-        )
-    assert w.task("project", task.id) == before
-    assert q.id == before.blocking_questions[0].id
-
-
-def test_preparation_keeps_dependency_gates_and_manual_edits_show_next_owner(tmp_path: Path):
+def test_saved_requirements_keep_dependency_gates_and_show_next_owner(tmp_path: Path):
     w = setup(tmp_path)
     first = w.create_task(
-        "project", task_request(title="Findings", body="Report findings", preparation=preparation())
+        "project", task_request(title="Findings", body="Report findings", completion="report")
     )
     second = w.create_task(
         "project",
@@ -161,27 +89,64 @@ def test_preparation_keeps_dependency_gates_and_manual_edits_show_next_owner(tmp
             title="Recommendation",
             body="Use the findings",
             dependencies=[first.key],
-            preparation=preparation(),
+            completion="report",
         ),
     )
-    assert second.publication_status == "published" and second.readiness == "blocked"
+    assert second.readiness == "blocked"
     assert second.blocked_by[0].id == first.id
     changed = w.edit_task(
         "project", second.id, TaskEdit(expected_revision=second.revision, body="Use new findings")
     )
-    assert changed.publication_status == "draft"
-    assert "prepare" in changed.preparation_issue.lower()
+    assert changed.readiness == "blocked"
+    assert changed.execution_issue is None
+    assert changed.publication.agreement_revision == changed.agreement_revision
     browser = BrowserReads(w).workspace_board("project")
     assert (
-        next(t for t in browser.tasks if t.id == second.id).preparation_issue
-        == changed.preparation_issue
+        next(t for t in browser.tasks if t.id == second.id).execution_issue
+        == changed.execution_issue
     )
-    assert (
-        ContextReads(w).task("project", second.key)["preparation_issue"]
-        == changed.preparation_issue
-    )
+    assert ContextReads(w).task("project", second.key)["execution_issue"] == changed.execution_issue
     empty = w.create_task("project", task_request(title="Unfinished idea"))
-    assert (
-        "Describe the requested outcome"
-        in BrowserReads(w).task("project", empty.id).preparation_issue
+    assert "Add a task description" in BrowserReads(w).task("project", empty.id).execution_issue
+
+
+def test_setup_added_after_task_creation_allows_execution_without_another_edit(tmp_path):
+    from flowfield.adapters.git_workspace import git
+    from flowfield.integration import Integrations
+    from flowfield.integration_models import IntegrationConfig
+
+    w = setup(tmp_path)
+    repo = tmp_path / "project"
+    git(repo, "init", "-b", "main")
+    git(
+        repo,
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.invalid",
+        "commit",
+        "--allow-empty",
+        "-m",
+        "Initial",
     )
+    base = git(repo, "rev-parse", "HEAD").decode().strip()
+    task = w.create_task(
+        "project",
+        task_request(
+            project_id="project", title="Fix the bug", body="Fix and test it", status="up_next"
+        ),
+    )
+    assert task.readiness == "blocked" and task.publication.target_branch is None
+    assert BrowserReads(w).task("project", task.id).state.label == "Needs setup"
+    execution = Execution(w)
+    settings = execution.settings("project")
+    execution.queue("project", QueueEdit(expected_revision=settings.revision, enabled=True))
+    assert execution.claim("project", base, {base: set()}) is None
+    Integrations(w).configure(
+        "project", IntegrationConfig(expected_revision=1, target_branch="main")
+    )
+    run = execution.claim("project", base, {base: set()})
+    assert run and run.completion == "code" and run.target_branch == "main"
+    updated = w.task("project", task.id)
+    assert updated.publication.task_revision == task.revision + 1
+    assert updated.publication.agreement_revision == run.agreement_revision

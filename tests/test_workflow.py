@@ -343,6 +343,13 @@ def test_priority_cannot_change_progress_and_times_survive_edits(tmp_path):
     with pytest.raises(ApplicationError):
         store.edit_task("harbor", task.id, TaskEdit(expected_revision=task.revision, archived=True))
     before = BrowserReads(store).task("harbor", task.id).status_changed_at
+    with pytest.raises(ApplicationError) as error:
+        store.edit_task(
+            "harbor", task.id, TaskEdit(expected_revision=task.revision, title="Clearer title")
+        )
+    assert error.value.code == "task_busy"
+    execution.finish("harbor", run.id, "stopped")
+    task = store.task("harbor", task.id)
     renamed = store.edit_task(
         "harbor", task.id, TaskEdit(expected_revision=task.revision, title="Clearer title")
     )

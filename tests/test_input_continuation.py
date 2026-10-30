@@ -306,7 +306,7 @@ def test_failed_input_continuation_retry_keeps_answer_and_checkpoint(tmp_path):
 
 
 def test_explicit_retry_after_scope_revision_cannot_relabel_old_answer_as_new_assignment(tmp_path):
-    from flowfield.application import TaskPublish
+    from flowfield.application import TaskEdit
 
     execution = fixture(tmp_path)
     run, q = question(execution)
@@ -322,10 +322,10 @@ def test_explicit_retry_after_scope_revision_cannot_relabel_old_answer_as_new_as
     )
     execution.retry("harbor", failed.id, RunAction(expected_revision=failed.revision))
     task = execution.workspace.task("harbor", run.task_id)
-    execution.workspace.publish_task(
+    execution.workspace.edit_task(
         "harbor",
         task.id,
-        TaskPublish(
+        TaskEdit(
             expected_revision=task.revision,
             completion="report",
         ),

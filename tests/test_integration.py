@@ -9,7 +9,7 @@ from execution_fixtures import fixture
 from flowfield.adapters import git_integration as gitops
 from flowfield.adapters.git_workspace import baseline, git
 from flowfield.adapters.local_execution import LocalHost
-from flowfield.application import TaskEdit, TaskPublish
+from flowfield.application import TaskEdit
 from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import RunAction, WorkerResult
@@ -100,10 +100,10 @@ def seed(tmp_path: Path, checks: list[str] | None = None):
     )
     git(repo, "switch", "integration")
     for task in execution.workspace.tasks("harbor"):
-        execution.workspace.publish_task(
+        execution.workspace.edit_task(
             "harbor",
             task.id,
-            TaskPublish(
+            TaskEdit(
                 completion="code",
                 expected_revision=task.revision,
             ),
@@ -292,10 +292,10 @@ def test_accept_validate_apply_releases_dependent_without_touching_human_files(t
     task = execution.workspace.edit_task(
         "harbor", task.id, TaskEdit(expected_revision=task.revision, dependencies=[run.task_id])
     )
-    execution.workspace.publish_task(
+    execution.workspace.edit_task(
         "harbor",
         task.id,
-        TaskPublish(
+        TaskEdit(
             completion="code",
             expected_revision=task.revision,
         ),
@@ -589,10 +589,10 @@ def test_enabled_scheduler_picks_up_dependent_after_explicit_integration(tmp_pat
     task = execution.workspace.edit_task(
         "harbor", task.id, TaskEdit(expected_revision=task.revision, dependencies=[run.task_id])
     )
-    execution.workspace.publish_task(
+    execution.workspace.edit_task(
         "harbor",
         task.id,
-        TaskPublish(
+        TaskEdit(
             completion="code",
             expected_revision=task.revision,
         ),

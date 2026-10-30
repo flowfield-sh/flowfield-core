@@ -73,7 +73,7 @@ def test_answer_is_not_application_and_other_gates_survive(tmp_path: Path) -> No
     )
     assert workspace.task("harbor", "T-2").readiness == "blocked"  # dependency still applies
     run_report(workspace, "harbor", "T-1", expected_revision=1, status="done", completion="report")
-    assert workspace.task("harbor", "T-2").readiness == "draft"
+    assert workspace.task("harbor", "T-2").readiness == "ready"
     restarted = Workspace(tmp_path / "state")
     assert Questions(restarted).get("harbor", "scope") == resolved
     assert restarted.task("harbor", "T-2").body == task.body
@@ -162,7 +162,7 @@ def test_nonblocking_input_and_question_only_readiness_are_consistent(tmp_path: 
     workspace, questions = setup(tmp_path)
     run_report(workspace, "harbor", "T-1", expected_revision=1, status="done", completion="report")
     question = ask(questions, blocking=False)
-    assert workspace.task("harbor", "T-2").readiness == "draft"
+    assert workspace.task("harbor", "T-2").readiness == "ready"
     run_report(workspace, "harbor", "T-2", expected_revision=1, status="in_progress")
     gate = ask(questions, "blocking")
     reads = ContextReads(workspace)
@@ -334,7 +334,7 @@ def test_project_input_targets_and_atomic_stale_protection(tmp_path: Path) -> No
     question = project_question(questions, ["T-1", "serializer", "T-2"])
     assert len(question.affected_task_ids) == 2
     assert project_question(questions, ["T-2", "T-1"]) == question
-    assert workspace.task("harbor", "T-3").readiness == "draft"
+    assert workspace.task("harbor", "T-3").readiness == "blocked"
     assert questions.list("harbor", task_id="T-1")["items"][0]["id"] == question.id
     assert workspace.task("harbor", "T-1").blocking_questions[0].id == question.id
     with pytest.raises(ApplicationError):
@@ -370,7 +370,7 @@ def test_project_input_targets_and_atomic_stale_protection(tmp_path: Path) -> No
     request.expected_workspace_revision = 1
     applied = questions.apply("harbor", question.id, request)
     assert applied.applied_task_revisions == {"serializer": 2, "download": 3}
-    assert workspace.task("harbor", "T-1").readiness == "draft"
+    assert workspace.task("harbor", "T-1").readiness == "ready"
     assert workspace.task("harbor", "T-2").readiness == "blocked"
     assert not workspace.task("harbor", "T-2").blocking_questions
     assert (
@@ -422,7 +422,7 @@ def test_project_question_rejects_ambiguous_scope_and_incomplete_application(
     questions.withdraw(
         "harbor", question.id, QuestionWithdraw(expected_revision=2, reason="Unneeded")
     )
-    assert workspace.task("harbor", "T-1").readiness == "draft"
+    assert workspace.task("harbor", "T-1").readiness == "blocked"
     workspace.edit_task("harbor", "T-2", TaskEdit(expected_revision=1, dependencies=[]))
     workspace.edit_task("harbor", "T-1", TaskEdit(expected_revision=1, archived=True))
     with pytest.raises(ApplicationError, match="active tasks"):

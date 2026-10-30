@@ -8,7 +8,7 @@ import pytest
 from project_fixtures import existing_directory, task_request
 from workspace_dependencies_fixtures import complete, shared
 
-from flowfield.application import ProjectSetup, TaskEdit, TaskPublish
+from flowfield.application import ProjectSetup, TaskEdit
 from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 from flowfield.reads import ContextReads
@@ -166,9 +166,7 @@ def test_foreign_code_is_frozen_evidence_without_local_ancestry_or_worker_scope(
             dependencies=["T-1"],
         ),
     )
-    store.publish_task(
-        "harbor", task.id, TaskPublish(expected_revision=task.revision, completion="code")
-    )
+    store.edit_task("harbor", task.id, TaskEdit(expected_revision=task.revision, completion="code"))
     settings = service.execution.settings("harbor")
     if managed:
         settings = service.execution.configure(

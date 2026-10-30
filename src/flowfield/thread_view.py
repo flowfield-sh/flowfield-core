@@ -77,12 +77,20 @@ class ThreadView(Conversation):
                 "dependencies",
                 "documents",
                 "input_files",
-                "publication",
                 "labels",
             )
             same_definition = previous is not None and all(
                 data.get(field) == previous.get(field) for field in authored_fields
             )
+            if same_definition and previous is not None:
+                # Snapshot metadata follows every agreement revision. Only changed
+                # execution requirements belong to the authored definition.
+                before_assignment = previous.get("publication") or {}
+                after_assignment = data.get("publication") or {}
+                same_definition = all(
+                    before_assignment.get(field) == after_assignment.get(field)
+                    for field in ("completion", "target_branch", "documents")
+                )
             if (
                 previous
                 and data["agreement_revision"] == previous["agreement_revision"]

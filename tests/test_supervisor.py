@@ -7,7 +7,7 @@ from execution_fixtures import fixture
 from fake_worker import FakeWorker
 
 from flowfield.adapters.git_workspace import baseline, git
-from flowfield.application import TaskPublish
+from flowfield.application import TaskEdit
 from flowfield.execution_models import QueueEdit, RunAction, SettingsEdit
 from flowfield.integration_models import IntegrationConfig
 from flowfield.result_models import ResultReview
@@ -73,10 +73,10 @@ def test_managed_claim_result_review_and_restart(tmp_path, monkeypatch):
 
     git(repo, "switch", "integration")
     task = execution.workspace.task("harbor", "task-0")
-    execution.workspace.publish_task(
+    execution.workspace.edit_task(
         "harbor",
         task.id,
-        TaskPublish(
+        TaskEdit(
             completion="code",
             expected_revision=task.revision,
         ),
@@ -212,10 +212,10 @@ def test_parallel_queue_capacity_pause_and_exact_delivery(tmp_path, monkeypatch)
     base = baseline(repo)
     for index in range(3):
         task = execution.workspace.task("harbor", f"task-{index}")
-        execution.workspace.publish_task(
+        execution.workspace.edit_task(
             "harbor",
             task.id,
-            TaskPublish(
+            TaskEdit(
                 completion="code",
                 expected_revision=task.revision,
             ),

@@ -42,6 +42,7 @@ from flowfield.harness_models import HarnessKind
 from flowfield.harness_settings import HarnessSettings
 from flowfield.integration import Integrations
 from flowfield.permissions import Permissions
+from flowfield.publication import requires_reconciliation
 from flowfield.results import Results
 from flowfield.run_activity import ActivityRecorder, ActivityUpdate
 from flowfield.setup_validation import SetupValidation
@@ -341,7 +342,7 @@ class Supervisor:
                         )
                     if (
                         prerequisites is None
-                        or task.publication_status != "published"
+                        or requires_reconciliation(task)
                         or task.reconciliation_reason
                     ):
                         continue

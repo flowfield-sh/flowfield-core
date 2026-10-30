@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 from flowfield.agent_models import AgentChoice
-from flowfield.application import TaskEdit, TaskPriority, TaskPublish, TaskReopen
+from flowfield.application import TaskEdit, TaskPriority, TaskReopen
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.execution_models import QueueEdit, SettingsEdit, WorkerResult
@@ -16,6 +16,12 @@ def run_report(
 ):
     task = store.task(owner, identity)
     store._current(task.revision, expected_revision)
+    if task.status in ("backlog", "up_next") and completion and completion != task.completion:
+        task = store.edit_task(
+            owner,
+            identity,
+            TaskEdit(expected_revision=task.revision, completion=completion, author=author),
+        )
     if task.status == "done" and status != "done":
         task = store.reopen_task(
             owner,
@@ -24,10 +30,10 @@ def run_report(
                 expected_revision=task.revision, note="Verify revised findings", author=author
             ),
         )
-        task = store.publish_task(
+        task = store.edit_task(
             owner,
             identity,
-            TaskPublish(expected_revision=task.revision, completion="report", author=author),
+            TaskEdit(expected_revision=task.revision, completion="report", author=author),
         )
     if status in ("backlog", "up_next"):
         return store.prioritize_task(
@@ -41,9 +47,9 @@ def run_report(
         )
     if task.reconciliation_reason:
         raise ApplicationError("reconcile_task", "Please reconcile the task before execution.")
-    if task.publication and task.publication_status != "published":
+    if task.readiness == "needs_reconciliation":
         raise ApplicationError(
-            "publication_required", "Republish the changed assignment before execution."
+            "reconciliation_required", "Reconcile the changed assignment before execution."
         )
     if task.publication and task.publication.completion == "code":
         raise ApplicationError(
@@ -86,8 +92,8 @@ def run_report(
                 ),
             )
         if not task.publication:
-            task = store.publish_task(
-                owner, identity, TaskPublish(expected_revision=task.revision, completion="report")
+            task = store.edit_task(
+                owner, identity, TaskEdit(expected_revision=task.revision, completion="report")
             )
         if task.status != "up_next":
             task = store.prioritize_task(

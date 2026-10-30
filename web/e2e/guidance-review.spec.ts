@@ -14,7 +14,7 @@ test("changed guidance has visible queue and stop recovery without starting a wo
         "-c",
         `import json, sys
 from pathlib import Path
-from flowfield.application import Workspace, TaskCreate, TaskPreparation
+from flowfield.application import Workspace, TaskCreate
 from flowfield.workspaces import Workspaces, WorkspaceCreate
 from flowfield.documents import Documents, DocumentEdit
 from flowfield.guidance_reconciliation import prepare
@@ -24,9 +24,9 @@ store = Workspace(Path(sys.argv[1]))
 space = Workspaces(store).create(WorkspaceCreate(name="Harbor", **{
     role: {"model": "scripted-fixture"} for role in ("coordinator", "worker", "reviewer")
 }))
-task = store.create_task(space.id, TaskCreate(title="Review the pilot labels", body="Identify unclear labels and propose concise alternatives.", status="up_next", preparation=TaskPreparation(completion="report")))
-store.create_task(space.id, TaskCreate(title="Plan the next accessibility review across navigation, labels and keyboard controls", body="Identify follow-up work.", preparation=TaskPreparation(completion="report")))
-blocked = store.create_task(space.id, TaskCreate(title="Check the preview setup", body="Verify the preview.", status="up_next", preparation=TaskPreparation(completion="report")))
+task = store.create_task(space.id, TaskCreate(title="Review the pilot labels", body="Identify unclear labels and propose concise alternatives.", status="up_next", completion="report"))
+store.create_task(space.id, TaskCreate(title="Plan the next accessibility review across navigation, labels and keyboard controls", body="Identify follow-up work.", completion="report"))
+blocked = store.create_task(space.id, TaskCreate(title="Check the preview setup", body="Verify the preview.", status="up_next", completion="report"))
 Execution(store).task_problem(space.id, blocked.id, "The preview setup command failed. Fix its configuration before continuing.")
 Documents(store).edit(space.id, "guidance", DocumentEdit(expected_revision=1, body="Use plain language and accessible labels."))
 prepare(TaskReviews(store), space.id, task.id)

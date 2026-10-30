@@ -11,7 +11,7 @@ from replies_fixtures import historical_note, message
 from result_fixtures import approve, current
 from result_fixtures import fixture as result_fixture
 
-from flowfield.application import TaskEdit, TaskPublish, Workspace
+from flowfield.application import TaskEdit, Workspace
 from flowfield.conversation import Conversation
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import QueueEdit, SettingsEdit
@@ -138,10 +138,10 @@ def test_historical_testing_retains_exact_result_and_reaches_successor(tmp_path,
         task = service.workspace.create_task(
             "harbor", task_request(title="Independent", status="up_next", body="Investigate")
         )
-        service.workspace.publish_task(
+        service.workspace.edit_task(
             "harbor",
             task.id,
-            TaskPublish(
+            TaskEdit(
                 completion="report",
                 expected_revision=task.revision,
             ),

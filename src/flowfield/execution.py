@@ -26,6 +26,7 @@ from flowfield.execution_models import (
 )
 from flowfield.execution_readiness import TaskAgent, task_agents
 from flowfield.harness_models import HarnessLaunch
+from flowfield.publication import requires_reconciliation
 from flowfield.questions import Question, QuestionCreate, Questions
 
 
@@ -211,7 +212,7 @@ class Execution:
             or blocked
             or task.agreement_revision != result_agreement_revision(db, run)
             or not task.publication
-            or task.publication_status != "published"
+            or requires_reconciliation(task)
             or (child.completion if child else task.publication.completion) != run.completion
             or task.publication.target_branch != run.target_branch
         ):
@@ -438,6 +439,23 @@ class Execution:
             for task in candidates:
                 from flowfield.guidance_reconciliation import pending as guidance_pending
 
+                # Missing setup may be configured after an upcoming task was saved.
+                # Bind its first code destination under the same lock as claiming.
+                if (
+                    task.status == "up_next"
+                    and task.readiness == "ready"
+                    and (
+                        not task.publication
+                        or (task.completion == "code" and not task.publication.target_branch)
+                    )
+                ):
+                    refreshed = TaskRevision.model_validate(task.model_dump())
+                    refreshed.revision += 1
+                    refreshed.updated_at = now()
+                    refreshed.updated_by = "flowfield"
+                    self.workspace._capture_assignment(db, refreshed)
+                    self.workspace._apply_task(db, refreshed)
+                    task = self.workspace._task(db, workspace_id, task.id)
                 if guidance_pending(self.workspace, db, task):
                     continue
                 if db.execute(
@@ -516,7 +534,7 @@ class Execution:
                         )
                         or task.readiness != "ready"
                     )
-                ) or task.publication_status != "published":
+                ) or requires_reconciliation(task):
                     continue
                 if db.execute(
                     (

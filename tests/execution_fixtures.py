@@ -8,7 +8,7 @@ from project_fixtures import adopt, task_request
 from flowfield.agent_models import AgentChoice
 from flowfield.application import (
     ProjectSetup,
-    TaskPublish,
+    TaskEdit,
     Workspace,
 )
 from flowfield.execution import Execution
@@ -39,10 +39,10 @@ def fixture(tmp_path: Path, *, count: int = 1, cap: int = 1) -> Execution:
                 status="up_next",
             ),
         )
-        workspace.publish_task(
+        workspace.edit_task(
             "harbor",
             task.id,
-            TaskPublish(
+            TaskEdit(
                 completion="report",
                 expected_revision=task.revision,
             ),

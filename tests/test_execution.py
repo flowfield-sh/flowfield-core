@@ -9,7 +9,7 @@ from lifecycle_fixtures import run_report
 from project_fixtures import adopt
 
 from flowfield.agent_models import AgentChoice
-from flowfield.application import ProjectSetup, TaskEdit, TaskPublish, Workspace
+from flowfield.application import ProjectSetup, TaskEdit, Workspace
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.execution_models import (
@@ -70,27 +70,28 @@ def test_competing_claims_capacity_and_pause(tmp_path: Path) -> None:
     assert all(run.status == "preparing" for run in execution.active())
 
 
-def test_claim_preserves_exact_assignment_and_refuses_changed_launch(tmp_path: Path) -> None:
+def test_claim_preserves_exact_assignment_and_blocks_user_edits(tmp_path: Path) -> None:
     execution = fixture(tmp_path)
     run = execution.claim("harbor", BASE, {BASE: set()})
     assert run
     task = execution.workspace.task("harbor", run.task_id)
-    execution.workspace.edit_task(
-        "harbor",
-        task.id,
-        TaskEdit(expected_revision=task.revision, body="A materially different requirement"),
-    )
+    with pytest.raises(ApplicationError, match="working on this task"):
+        execution.workspace.edit_task(
+            "harbor",
+            task.id,
+            TaskEdit(expected_revision=task.revision, body="A materially different requirement"),
+        )
+    assert execution.workspace.task("harbor", task.id).revision == task.revision
     assert (
         execution.assignment("harbor", run.id)["description"]
         == "Implement and test the assigned behavior."
     )
-    with pytest.raises(ApplicationError, match="older or blocked assignment"):
-        execution.started("harbor", run.id)
+    assert execution.started("harbor", run.id).status == "running"
 
 
 def test_review_is_bound_to_code_and_current_intent(tmp_path: Path) -> None:
     execution = fixture(tmp_path)
-    run = result(execution, process=False)
+    run = result(execution, process=False, partial=True)
     with pytest.raises(ApplicationError, match="exact current candidate"):
         results = Results(execution.workspace)
         version = results.page("harbor", run.task_id).items[0]
@@ -110,13 +111,14 @@ def test_review_is_bound_to_code_and_current_intent(tmp_path: Path) -> None:
         run_report(
             execution.workspace, "harbor", task.id, expected_revision=task.revision, status="done"
         )
+    with pytest.raises(ApplicationError, match="working on this task"):
+        execution.workspace.edit_task(
+            "harbor", task.id, TaskEdit(expected_revision=task.revision, body="Changed requirement")
+        )
+    validate_report(execution)
+    task = execution.workspace.task("harbor", task.id)
     execution.workspace.edit_task(
         "harbor", task.id, TaskEdit(expected_revision=task.revision, body="Changed requirement")
-    )
-    validate_report(execution)
-    assert (
-        Results(execution.workspace).page("harbor", run.task_id).items[0].problem_code
-        == "assignment_changed"
     )
     results = Results(execution.workspace)
     version = results.page("harbor", run.task_id).items[0]
@@ -132,16 +134,8 @@ def test_review_is_bound_to_code_and_current_intent(tmp_path: Path) -> None:
         ),
     )
     upcoming = execution.workspace.task("harbor", task.id)
-    assert upcoming.status == "up_next" and upcoming.publication_status == "draft"
-    assert execution.claim("harbor", BASE, {BASE: set()}) is None
-    execution.workspace.publish_task(
-        "harbor",
-        task.id,
-        TaskPublish(
-            completion="report",
-            expected_revision=upcoming.revision,
-        ),
-    )
+    assert upcoming.status == "up_next" and upcoming.readiness == "ready"
+    assert upcoming.publication.agreement_revision == upcoming.agreement_revision
     revised = execution.claim("harbor", BASE, {BASE: set()})
     assert revised and revised.predecessor_id == run.id and revised.base_commit == RESULT
     assert revised.feedback == "Implement the updated requirement"
@@ -197,10 +191,10 @@ def test_report_prerequisite_does_not_require_code_availability(tmp_path: Path) 
     second = workspace.edit_task(
         "harbor", second.id, TaskEdit(expected_revision=second.revision, dependencies=["task-0"])
     )
-    workspace.publish_task(
+    workspace.edit_task(
         "harbor",
         second.id,
-        TaskPublish(
+        TaskEdit(
             completion="report",
             expected_revision=second.revision,
         ),
@@ -283,8 +277,14 @@ def test_followup_checks_prerequisites_in_its_own_base(tmp_path: Path) -> None:
         worker.id,
         "in_review",
         commit=earlier_code,
-        result=WorkerResult(summary="Independent first result", checks="Fixture checks"),
+        result=WorkerResult(
+            summary="Independent first result",
+            checks="Fixture checks",
+            outcome="partial",
+            remaining_work="Apply the prerequisite.",
+        ),
     )
+    validate_report(execution)
     task = execution.workspace.task("harbor", worker.task_id)
     task = execution.workspace.edit_task(
         "harbor",
@@ -305,14 +305,7 @@ def test_followup_checks_prerequisites_in_its_own_base(tmp_path: Path) -> None:
         ),
     )
     task = execution.workspace.task("harbor", task.id)
-    execution.workspace.publish_task(
-        "harbor",
-        task.id,
-        TaskPublish(
-            completion="report",
-            expected_revision=task.revision,
-        ),
-    )
+    assert task.readiness == "ready"
     with pytest.raises(ApplicationError, match="prerequisite code"):
         execution.claim("harbor", RESULT, {RESULT: {RESULT}, earlier_code: set()})
     # A positive fact must concern the exact starting commit, not just project HEAD.

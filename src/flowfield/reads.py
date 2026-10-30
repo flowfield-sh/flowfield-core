@@ -17,8 +17,7 @@ from flowfield.errors import ApplicationError
 from flowfield.input_delivery import question_delivery
 from flowfield.publication import (
     blocked_dependencies,
-    preparation_issue,
-    publication_status,
+    execution_issue,
     readiness,
 )
 from flowfield.questions import Questions, blocking_questions
@@ -78,7 +77,6 @@ def receipt(item: dict[str, Any]) -> dict[str, Any]:
         "revision",
         "status",
         "readiness",
-        "publication_status",
         "agreement_revision",
         "archived",
         "deleted_at",
@@ -185,7 +183,7 @@ class ContextReads:
     ) -> dict[str, Any]:
         blocked = blocked_dependencies(item, completed)
         questions = blocking_questions(db, item.workspace_id, item.id)
-        publication = publication_status(item)
+        issue = execution_issue(db, item)
         from flowfield.document_updates import task_updates
 
         return excerpt(
@@ -203,11 +201,9 @@ class ContextReads:
                 "position": position,
                 "readiness": readiness(
                     item,
-                    publication,
-                    blocked=bool(blocked or questions),
+                    blocked=bool(blocked or questions or issue),
                 ),
-                "publication_status": publication,
-                "preparation_issue": preparation_issue(db, item),
+                "execution_issue": issue,
                 "document_updates": [
                     update.model_dump() for update in task_updates(db, item.workspace_id, item.id)
                 ]
@@ -308,7 +304,6 @@ class ContextReads:
         if readiness is not None and readiness not in (
             "ready",
             "blocked",
-            "draft",
             "needs_reconciliation",
         ):
             raise ApplicationError("invalid_request", "Unknown readiness.")
@@ -536,20 +531,6 @@ class ContextReads:
                 [t for t in summaries if t["status"] == "in_progress"],
                 "Inspect the current attempt before intervening; "
                 "the service owns managed execution.",
-            ),
-            (
-                "publish",
-                sorted(
-                    (
-                        t
-                        for t in summaries
-                        if t["status"] == "up_next"
-                        and t["publication_status"] != "published"
-                        and not t["blocking_question_count"]
-                    ),
-                    key=lambda t: positions[t["id"]],
-                ),
-                "Clarify the draft, apply answers and publish a coherent assignment.",
             ),
             (
                 "work",

@@ -179,9 +179,22 @@ def test_changed_bindings_cannot_produce_an_approval(tmp_path, change):
         service.results.reprepare("harbor", result.id, RunAction(expected_revision=result.revision))
     else:
         task = service.workspace.task("harbor", run.task_id)
-        service.workspace.edit_task(
-            "harbor", task.id, TaskEdit(expected_revision=task.revision, body="Changed agreement")
+        with pytest.raises(ApplicationError) as error:
+            service.workspace.edit_task(
+                "harbor",
+                task.id,
+                TaskEdit(expected_revision=task.revision, body="Changed agreement"),
+            )
+        assert error.value.code == "task_busy"
+        assert (
+            service.workspace.task("harbor", task.id).agreement_revision == task.agreement_revision
         )
+        decided = reviews.conclude(
+            "harbor", queued.id, running.revision, verdict(), cleanup_confirmed=True
+        )
+        assert decided.status == "decided"
+        assert not current(service).approved_at
+        return
     stale = reviews.conclude(
         "harbor", queued.id, running.revision, verdict(), cleanup_confirmed=True
     )
@@ -242,7 +255,7 @@ def test_review_and_worker_share_capacity(tmp_path):
     from project_fixtures import task_request
 
     from flowfield.adapters.git_workspace import baseline
-    from flowfield.application import TaskPublish
+    from flowfield.application import TaskEdit
 
     service, repo, _, _, reviews = configured(tmp_path)
     settings = service.execution.settings("harbor")
@@ -264,8 +277,8 @@ def test_review_and_worker_share_capacity(tmp_path):
             status="up_next",
         ),
     )
-    service.workspace.publish_task(
-        "harbor", task.id, TaskPublish(expected_revision=task.revision, completion="code")
+    service.workspace.edit_task(
+        "harbor", task.id, TaskEdit(expected_revision=task.revision, completion="code")
     )
     queued = reviews.prepare("harbor", current(service).id)
     prepared = reviews.claim("harbor", queued.id, queued.revision)

@@ -11,7 +11,7 @@ from flowfield.adapters.git_integration import run_checks
 from flowfield.adapters.git_workspace import baseline, git
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_models import AgentChoice
-from flowfield.application import ProjectSetup, TaskCreate, TaskPublish, Workspace
+from flowfield.application import ProjectSetup, TaskCreate, TaskEdit, Workspace
 from flowfield.execution import Execution
 from flowfield.execution_models import SettingsEdit, WorkerResult
 from flowfield.integration import Integrations
@@ -99,10 +99,10 @@ def main() -> None:
                 "Add a unittest for an empty and populated catalog.",
             ),
         )
-        workspace.publish_task(
+        workspace.edit_task(
             space.id,
             task.id,
-            TaskPublish(
+            TaskEdit(
                 completion="code",
                 expected_revision=task.revision,
             ),

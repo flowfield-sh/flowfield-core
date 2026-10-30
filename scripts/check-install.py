@@ -500,7 +500,9 @@ def main() -> None:
                     )
                     board = json.loads(command("status", "--json"))
                     assert board["columns"][1]["tasks"][0]["key"] == task["key"]
-                    assert board["recommendation"]["action"] == "publish"
+                    assert board["recommendation"]["action"] == "work"
+                    assert task["readiness"] == "ready"
+                    assert "publication_status" not in task
                     workers = json.loads(
                         command(
                             "workspace", "workers", "show", "--workspace", space["id"], "--json"

@@ -259,8 +259,7 @@ class Integrations:
             if run.target_branch != self._settings(db, run.project_id).target_branch:
                 raise ApplicationError(
                     "delivery_target_changed",
-                    "The published delivery target changed. "
-                    "Reconcile and publish the intended target before continuing.",
+                    "The delivery target changed. Reconcile the intended target before continuing.",
                     409,
                 )
             return run

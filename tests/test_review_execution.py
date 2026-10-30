@@ -277,7 +277,7 @@ def test_human_answer_is_canonical_and_consumed_once(tmp_path, monkeypatch, deci
     assert reviews.latest("harbor", run.task_id).status == "decided"
     if decision != "approve":
         if decision == "new_agreement":
-            from flowfield.application import TaskEdit, TaskPublish
+            from flowfield.application import TaskEdit
 
             task = service.workspace.task("harbor", run.task_id)
             changed = service.workspace.edit_task(
@@ -285,10 +285,10 @@ def test_human_answer_is_canonical_and_consumed_once(tmp_path, monkeypatch, deci
                 task.id,
                 TaskEdit(expected_revision=task.revision, body="Follow the newly agreed scope."),
             )
-            service.workspace.publish_task(
+            service.workspace.edit_task(
                 "harbor",
                 task.id,
-                TaskPublish(expected_revision=changed.revision, completion="code"),
+                TaskEdit(expected_revision=changed.revision, completion="code"),
             )
         retry = service.execution.claim("harbor", run.base_commit, {}, task_id=run.task_id)
         assert retry

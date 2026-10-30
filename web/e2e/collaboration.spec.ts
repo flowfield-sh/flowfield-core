@@ -100,7 +100,9 @@ test("coordinator dependencies update blockers, links and reconciliation without
     detail.getByText("Needs code from T-1", { exact: true }),
   ).toHaveCount(0);
   await expect(dependencyState).toContainText("Prerequisites: T-1, T-3");
-  await expect(detail.locator(".task-needs")).toHaveCount(0);
+  await expect(detail.locator(".task-needs")).toContainText(
+    "Configure the project's delivery target before execution.",
+  );
   await openResource(page, "Task Board");
   const card = page.locator(".task-card").filter({ hasText: "Download CSV" });
   await expect(
@@ -120,7 +122,11 @@ test("coordinator dependencies update blockers, links and reconciliation without
     await fixtureProgress(request, {
       ...identity,
       task_id: taskId,
-      progress: { expected_revision: task.revision, status: "done" },
+      progress: {
+        expected_revision: task.revision,
+        status: "done",
+        completion: "report",
+      },
     });
   }
   const completed = await (

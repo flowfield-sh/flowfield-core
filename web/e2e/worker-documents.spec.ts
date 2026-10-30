@@ -103,7 +103,7 @@ test("project defaults prepare exact task documents and preserve revision links"
         title: "Use documented conventions",
         body: "Review the public API",
 
-        preparation: { completion: "report" },
+        completion: "report",
       },
     },
   );

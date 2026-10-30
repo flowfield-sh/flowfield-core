@@ -76,7 +76,7 @@ def selected_references(
 
 
 def latest_documents(
-    store: Workspace, db: sqlite3.Connection, task: Task
+    store: Workspace, db: sqlite3.Connection, task: TaskRevision
 ) -> list[DocumentSnapshot]:
     # Selections are live; only publications, runs and review/result evidence pin revisions.
     return select(

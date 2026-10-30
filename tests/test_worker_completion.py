@@ -8,7 +8,7 @@ from execution_fixtures import fixture
 from fake_worker import FakeWorker
 
 from flowfield.adapters.git_workspace import baseline, git
-from flowfield.application import TaskPublish
+from flowfield.application import TaskEdit
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import RunAction
 from flowfield.integration_models import IntegrationConfig
@@ -58,8 +58,8 @@ def test_single_reporting_reminder(tmp_path, monkeypatch, behavior, expected, pr
         IntegrationConfig(expected_revision=1, target_branch="main", checks=["test -f result.txt"]),
     )
     task = execution.workspace.task("harbor", "task-0")
-    execution.workspace.publish_task(
-        "harbor", task.id, TaskPublish(expected_revision=task.revision, completion="code")
+    execution.workspace.edit_task(
+        "harbor", task.id, TaskEdit(expected_revision=task.revision, completion="code")
     )
     head = baseline(repository)
     run = execution.claim("harbor", head, {head: set()})

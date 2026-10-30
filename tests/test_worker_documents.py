@@ -5,7 +5,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from execution_fixtures import BASE, RESULT, fixture, result, validate_report
+from execution_fixtures import BASE, RESULT, fixture, result
 from input_continuation_fixtures import answer, question
 from project_fixtures import task_request
 from worker_documents_fixtures import defaults, prepare
@@ -192,7 +192,7 @@ def test_adopting_document_changes_invalidates_the_old_result(tmp_path):
     doc = Documents(store).create("harbor", DocumentCreate(title="Design", body="Original"))
     defaults(store, [{"id": doc.id}])
     prepare(store)
-    run = result(execution, process=False)
+    run = result(execution, partial=True)
     Documents(store).edit("harbor", doc.id, DocumentEdit(expected_revision=1, body="New scope"))
     current = store.task("harbor", run.task_id)
     store.reconcile_task(
@@ -204,9 +204,11 @@ def test_adopting_document_changes_invalidates_the_old_result(tmp_path):
             note="Adopt the new scope.",
         ),
     )
-    validate_report(execution)
     version = Results(store).page("harbor", run.task_id).items[0]
-    assert version.problem_code == "assignment_changed"
+    assert version.status != "delivered"
+    with store.connection() as db, pytest.raises(ApplicationError) as error:
+        execution._current_assignment(db, run, store.task("harbor", run.task_id))
+    assert error.value.code == "assignment_changed"
     assert execution.context_section("harbor", run.id, f"document:{doc.id}") == "Original"
 
 
@@ -264,7 +266,7 @@ def test_scoped_coordinator_can_select_and_prepare_without_document_body_echo(tm
                     project_id="harbor",
                     title="Documented work",
                     body="Review selected design",
-                    preparation={"completion": "report"},
+                    completion="report",
                 ).model_dump()
             },
         )

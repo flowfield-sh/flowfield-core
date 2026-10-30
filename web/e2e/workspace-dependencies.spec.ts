@@ -44,7 +44,7 @@ test("cross-project prerequisites link to their owner and refresh dependent view
               project_id: id,
               title: `${id} outcome`,
               body: "Agreed report",
-
+              completion: "report",
               dependencies: prefix === "DPS" ? ["T-1"] : [],
             },
           },

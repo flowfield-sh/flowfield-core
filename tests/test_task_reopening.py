@@ -10,7 +10,7 @@ from result_fixtures import approve, current, fixture
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_tools import worker_scope, workspace_scope
 from flowfield.api import create_app
-from flowfield.application import TaskEdit, TaskPreparation, TaskPriority, TaskReopen
+from flowfield.application import TaskEdit, TaskPriority, TaskReopen
 from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import QueueEdit, WorkerResult
@@ -28,9 +28,7 @@ def delivered(tmp_path, completion="code"):
 
 
 @pytest.mark.parametrize("completion", ["code", "report"])
-def test_reopen_preserves_evidence_and_requires_new_preparation_scheduling_and_approval(
-    tmp_path, completion
-):
+def test_reopen_preserves_evidence_and_requires_new_scheduling_and_approval(tmp_path, completion):
     service, repo, old_run = delivered(tmp_path, completion)
     store = service.workspace
     old = current(service)
@@ -40,7 +38,7 @@ def test_reopen_preserves_evidence_and_requires_new_preparation_scheduling_and_a
     reopened = store.reopen_task(
         "harbor", "work", TaskReopen(expected_revision=task.revision, note="Cover another case")
     )
-    assert reopened.status == "backlog" and reopened.publication_status == "draft"
+    assert reopened.status == "backlog" and reopened.readiness == "ready"
     event = ThreadView(store).item_view("harbor", "work", f"definition:{reopened.revision}")
     assert event.cycle_start == "follow_up"
     assert reopened.agreement_revision == task.agreement_revision + 1
@@ -61,10 +59,10 @@ def test_reopen_preserves_evidence_and_requires_new_preparation_scheduling_and_a
         TaskEdit(
             expected_revision=reopened.revision,
             body="Deliver the result and cover another case",
-            preparation=TaskPreparation(completion=completion),
+            completion=completion,
         ),
     )
-    assert prepared.publication_status == "published" and prepared.status == "backlog"
+    assert prepared.readiness == "ready" and prepared.status == "backlog"
     assert (
         service.execution.claim("harbor", head, service._available("harbor", "harbor", repo, head))
         is None

@@ -86,7 +86,7 @@ def test_completed_deliveries_survive_upstream_reopening_without_cascades(tmp_pa
     with pytest.raises(ApplicationError, match="prerequisite"):
         service.edit_task("harbor", "a", TaskEdit(expected_revision=1, archived=True))
     progress(service, "a", "done")
-    assert service.task("harbor", "b").readiness == "draft"
+    assert service.task("harbor", "b").readiness == "blocked"
     assert service.task("harbor", "b").revision == 1  # Derived readiness, no fictitious edit.
     for key in ["b", "c"]:
         progress(service, key, "done")
@@ -150,6 +150,22 @@ def test_unfinished_dependents_still_reconcile_changed_prerequisites(tmp_path: P
     with pytest.raises(ApplicationError, match="reconcile"):
         progress(service, "b", "done")
     current = service.task("harbor", "b")
+    with pytest.raises(ApplicationError, match="working on this task"):
+        service.reconcile_task(
+            "harbor",
+            "b",
+            TaskReconcile(expected_revision=current.revision, note="Review changed inputs"),
+        )
+    import asyncio
+
+    from flowfield.execution_models import RunAction
+    from flowfield.supervisor import Supervisor
+
+    asyncio.run(
+        Supervisor(service).stop_task("harbor", "b", RunAction(expected_revision=current.revision))
+    )
+    current = service.task("harbor", "b")
+    assert current.status == "backlog"
     reconciled = service.reconcile_task(
         "harbor",
         "b",

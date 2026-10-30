@@ -92,27 +92,10 @@ class Subtasks:
     def _editable(db: sqlite3.Connection, parent: TaskRevision) -> None:
         if parent.archived or parent.status == "done":
             raise ApplicationError("task_closed", "Reopen the task before changing its work.", 409)
-        # Frozen running attempts must never acquire a changed assignment mid-flight.
-        if (
-            db.execute(
-                "SELECT 1 FROM runs WHERE workspace_id=? AND task_id=? "
-                "AND status IN ('preparing','running','stopping','uncertain')",
-                (parent.workspace_id, parent.id),
-            ).fetchone()
-            or db.execute(
-                "SELECT 1 FROM task_reviews WHERE workspace_id=? AND task_id=? "
-                "AND status IN ('preparing','running','uncertain')",
-                (parent.workspace_id, parent.id),
-            ).fetchone()
-            or db.execute(
-                "SELECT 1 FROM result_versions WHERE workspace_id=? AND task_id=? "
-                "AND status IN ('preparing','delivering')",
-                (parent.workspace_id, parent.id),
-            ).fetchone()
-        ):
-            raise ApplicationError(
-                "task_busy", "Finish or stop active work before changing the plan.", 409
-            )
+        from flowfield.task_execution import task_edit_blocker
+
+        if blocker := task_edit_blocker(db, parent.workspace_id, parent.id):
+            raise ApplicationError("task_busy", blocker, 409)
 
     @staticmethod
     def _graph(records: list[Subtask]) -> None:

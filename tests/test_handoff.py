@@ -83,7 +83,14 @@ def test_briefing_prioritizes_answers_and_exposes_omissions(tmp_path: Path) -> N
     (root / "AGENTS.md").write_text("Use unittest.")
     for number in range(5):
         service.create_task(
-            "harbor", task_request(id=f"t{number}", title=f"Task {number}", status="up_next")
+            "harbor",
+            task_request(
+                id=f"t{number}",
+                title=f"Task {number}",
+                body="Report findings",
+                status="up_next",
+                completion="report",
+            ),
         )
     service.prioritize_task(
         "harbor", "t4", TaskPriority(expected_revision=1, status="up_next", before_id="t0")

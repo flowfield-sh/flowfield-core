@@ -7,7 +7,7 @@ from execution_fixtures import fixture
 
 from flowfield.adapters.git_workspace import git
 from flowfield.agent_models import AgentChoice
-from flowfield.application import TaskPublish
+from flowfield.application import TaskEdit
 from flowfield.execution_models import SettingsEdit
 from flowfield.integration_models import IntegrationConfig
 from flowfield.supervisor import Supervisor
@@ -53,10 +53,10 @@ def configured(tmp_path, monkeypatch, *, count=1, scenario="normal", flags=()):
         ),
     )
     for task in execution.workspace.tasks("harbor"):
-        execution.workspace.publish_task(
+        execution.workspace.edit_task(
             "harbor",
             task.id,
-            TaskPublish(
+            TaskEdit(
                 completion="code",
                 expected_revision=task.revision,
             ),

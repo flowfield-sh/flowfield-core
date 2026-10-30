@@ -109,17 +109,23 @@ def test_report_delivery_is_not_endorsement_and_cannot_race_changed_scope(tmp_pa
         if not changed:
             changed = True
             task = racing.workspace.task("harbor", "work")
-            racing.workspace.edit_task(
-                "harbor",
-                "work",
-                TaskEdit(expected_revision=task.revision, body="A broader required investigation"),
-            )
+            with pytest.raises(ApplicationError) as error:
+                racing.workspace.edit_task(
+                    "harbor",
+                    "work",
+                    TaskEdit(
+                        expected_revision=task.revision, body="A broader required investigation"
+                    ),
+                )
+            assert error.value.code == "task_busy"
+            assert racing.workspace.task("harbor", "work").body == task.body
         return actual(*args, **kwargs)
 
     monkeypatch.setattr(results, "git", change_scope)
     racing.results.process("harbor")
-    assert current(racing).problem_code == "assignment_changed"
-    assert racing.workspace.task("harbor", "work").status != "done"
+    assert changed
+    assert current(racing).status == "delivered"
+    assert racing.workspace.task("harbor", "work").status == "done"
 
 
 def test_recovery_agrees_across_result_attention_and_coordinator(tmp_path):

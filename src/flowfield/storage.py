@@ -1,9 +1,11 @@
 """Exclusive initialization, verified upgrades and current-schema validation."""
 
 import fcntl
+import json
 import os
 import sqlite3
 from contextlib import closing
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, BinaryIO
 from uuid import uuid4
@@ -83,13 +85,40 @@ def identity(db: sqlite3.Connection) -> tuple[str, int]:
     return str(row[0]), int(row[1])
 
 
+def retire_task_drafts(db: sqlite3.Connection) -> None:
+    """Preserve the exclusion from execution of old unprepared Up next tasks."""
+    timestamp = datetime.now(UTC).isoformat()
+    for workspace, identity, raw in db.execute(
+        "SELECT workspace_id,id,data FROM tasks WHERE json_extract(data,'$.status')='up_next' "
+        "AND (json_extract(data,'$.publication') IS NULL OR "
+        "json_extract(data,'$.publication.agreement_revision') != "
+        "json_extract(data,'$.agreement_revision'))"
+    ).fetchall():
+        task = json.loads(raw)
+        task.update(
+            status="backlog",
+            revision=task["revision"] + 1,
+            updated_at=timestamp,
+            updated_by="flowfield",
+            change_note="Moved to Backlog during upgrade to preserve unscheduled work.",
+        )
+        value = json.dumps(task)
+        db.execute(
+            "UPDATE tasks SET data=? WHERE workspace_id=? AND id=?", (value, workspace, identity)
+        )
+        db.execute(
+            "INSERT INTO task_revisions(workspace_id,task_id,revision,data) VALUES(?,?,?,?)",
+            (workspace, identity, task["revision"], value),
+        )
+
+
 def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
-    """Upgrade supported 86, 87, 89, 90 and 91 stores atomically with a verified backup."""
-    if current not in (86, 87, 89, 90, 91):
+    """Upgrade supported 86, 87, 89, 90, 91 and 92 stores atomically with a verified backup."""
+    if current not in (86, 87, 89, 90, 91, 92):
         require_supported(current)
         return
     if (
-        current not in (90, 91)
+        current not in (90, 91, 92)
         and db.execute("SELECT 1 FROM sqlite_master WHERE name='usage_executions'").fetchone()
     ):
         raise ApplicationError(
@@ -141,7 +170,7 @@ def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
         from flowfield.usage_schema import BACKFILL, TABLES, TRIGGERS
 
         statement = ""
-        for character in TABLES + BACKFILL + TRIGGERS if current not in (90, 91) else "":
+        for character in TABLES + BACKFILL + TRIGGERS if current not in (90, 91, 92) else "":
             statement += character
             if character == ";" and sqlite3.complete_statement(statement):
                 db.execute(statement)
@@ -150,12 +179,13 @@ def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
             raise ValueError("Incomplete usage migration")
         from flowfield.evidence_schema import migrate_outputs
 
-        if current != 91:
+        if current not in (91, 92):
             migrate_outputs(db)
         if current in (90, 91):
             db.execute("ALTER TABLE usage_observations ADD COLUMN cost TEXT")
         # New results may bind a reconciled task revision. Keep every old row unchanged,
         # but prevent an older service from ignoring that agreement during delivery.
+        retire_task_drafts(db)
         db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
         integrity(db)
         db.commit()

@@ -9,9 +9,7 @@ from flowfield.agent_models import AgentChoice
 from flowfield.application import (
     TaskCreate,
     TaskEdit,
-    TaskPreparation,
     TaskPriority,
-    TaskPublish,
     TaskReconcile,
     Workspace,
 )
@@ -88,8 +86,8 @@ def decomposed(store, owner):
         ),
     )
     task = store.task(owner, task.id)
-    task = store.publish_task(
-        owner, task.id, TaskPublish(expected_revision=task.revision, completion="report")
+    task = store.edit_task(
+        owner, task.id, TaskEdit(expected_revision=task.revision, completion="report")
     )
     task = store.prioritize_task(
         owner, task.id, TaskPriority(expected_revision=task.revision, status="up_next")
@@ -164,7 +162,7 @@ def test_direct_files_survive_attempt_and_require_configured_review(tmp_path):
             title="PDF",
             body="Produce a PDF",
             status="up_next",
-            preparation=TaskPreparation(completion="report"),
+            completion="report",
         ),
     )
     run = execution.claim(owner, "", {}, task_id=task.id)
@@ -277,8 +275,8 @@ def test_assembled_review_receives_frozen_sources_and_output_manifest(tmp_path):
         SubtaskCreate(title="Research", body="Read the contract", completion="report"),
     )
     task = store.task(owner, task.id)
-    task = store.publish_task(
-        owner, task.id, TaskPublish(expected_revision=task.revision, completion="report")
+    task = store.edit_task(
+        owner, task.id, TaskEdit(expected_revision=task.revision, completion="report")
     )
     task = store.prioritize_task(
         owner, task.id, TaskPriority(expected_revision=task.revision, status="up_next")
@@ -328,8 +326,8 @@ def test_editorial_guidance_preserves_assembled_report_and_contributions(tmp_pat
         SubtaskCreate(title="Research", body="Inspect the pilot", completion="report"),
     )
     task = store.task(owner, task.id)
-    task = store.publish_task(
-        owner, task.id, TaskPublish(expected_revision=task.revision, completion="report")
+    task = store.edit_task(
+        owner, task.id, TaskEdit(expected_revision=task.revision, completion="report")
     )
     task = store.prioritize_task(
         owner, task.id, TaskPriority(expected_revision=task.revision, status="up_next")
@@ -549,8 +547,8 @@ def test_code_assembly_review_exact_approval_and_delivered_dependency(
         ),
     )
     task = store.task(owner, task.id)
-    task = store.publish_task(
-        owner, task.id, TaskPublish(expected_revision=task.revision, completion="code")
+    task = store.edit_task(
+        owner, task.id, TaskEdit(expected_revision=task.revision, completion="code")
     )
     task = store.prioritize_task(
         owner, task.id, TaskPriority(expected_revision=task.revision, status="up_next")
@@ -562,7 +560,7 @@ def test_code_assembly_review_exact_approval_and_delivered_dependency(
             body="Capture delivered UI",
             dependencies=[task.key],
             status="up_next",
-            preparation=TaskPreparation(completion="report"),
+            completion="report",
         ),
     )
     original = baseline(repo)
@@ -910,8 +908,8 @@ def test_changed_parent_inputs_cannot_claim_or_assemble_old_contributions(tmp_pa
     updated = store.edit_task(
         owner, task.id, TaskEdit(expected_revision=task.revision, body="Use different evidence")
     )
-    updated = store.publish_task(
-        owner, task.id, TaskPublish(expected_revision=updated.revision, completion="report")
+    updated = store.edit_task(
+        owner, task.id, TaskEdit(expected_revision=updated.revision, completion="report")
     )
     with pytest.raises(ApplicationError, match="prerequisites changed"):
         execution.claim(owner, "", {}, task_id=task.id, subtask_id=a.id, assembly_id=assembly.id)

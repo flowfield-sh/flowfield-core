@@ -50,12 +50,18 @@ export function TaskEditor({
       <DetailHeader title="Edit task" close={close} />
       <ContentStack space="section">
         <EditorFeedback state={state} />
+        {task.edit_blocker && (
+          <p role="status" className="notice">
+            {task.edit_blocker}
+          </p>
+        )}
         {loaded && (
           <form
             className="content-stack"
             data-space="section"
             onSubmit={(event) => {
               event.preventDefault();
+              if (task.edit_blocker) return;
               void state.run("PUT", {
                 ...values,
                 expected_revision: loaded.revision,
@@ -64,7 +70,7 @@ export function TaskEditor({
             }}
           >
             <fieldset
-              disabled={busy}
+              disabled={busy || !!task.edit_blocker}
               className="content-stack"
               data-space="section"
             >
@@ -125,7 +131,9 @@ export function TaskEditor({
             <div className="actions">
               <Button
                 size="sm"
-                disabled={busy || !values.title.trim() || !dirty}
+                disabled={
+                  busy || !!task.edit_blocker || !values.title.trim() || !dirty
+                }
               >
                 Save task
               </Button>

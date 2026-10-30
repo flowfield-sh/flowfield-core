@@ -31,7 +31,6 @@ from flowfield.application import (
     TaskCreate,
     TaskEdit,
     TaskPriority,
-    TaskPublish,
     TaskReconcile,
     TaskReopen,
     Workspace,
@@ -230,12 +229,6 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
         workspace_id: str, task_id: str, request: TaskPriority, service: Service
     ) -> Task:
         return service.prioritize_task(workspace_id, task_id, request)
-
-    @task_router.post("/{workspace_id}/tasks/{task_id}/publish")
-    def publish_task(
-        workspace_id: str, task_id: str, request: TaskPublish, service: Service
-    ) -> Task:
-        return service.publish_task(workspace_id, task_id, request)
 
     @task_router.post("/{workspace_id}/tasks/{task_id}/reconcile")
     def reconcile_task(

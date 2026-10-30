@@ -36,7 +36,7 @@ Open [localhost:8765](http://127.0.0.1:8765), create a workspace and choose its 
 
 **💬 Plan through one conversation**<br>Bring a rough idea, a wall of feedback or a one-off request to the Coordinator. Group related changes into focused tasks, agree on what they should accomplish, and keep planning while workers carry them out.
 
-**🗂️ Follow tasks across projects**<br>Bring your API, application and documentation into one workspace. Each task keeps its scope, activity and results. Move cards on the board to set priorities and link tasks that depend on each other. Reports and files can have tasks without a repository.
+**🗂️ Follow tasks across projects**<br>Bring your API, application and documentation into one workspace. Each task keeps its scope, activity and results. Capture work in Backlog, move it to Up next when you want it executed, and link tasks that depend on each other. Reports and files can have tasks without a repository.
 
 **📚 Keep decisions where workers can use them**<br>Maintain shared guidance with the Coordinator and select the documents each task needs. Flowfield reviews guidance changes before work and approval; results preserve the exact revisions used.
 

@@ -494,13 +494,7 @@ def readiness_text(task: dict[str, Any]) -> str:
         return f"Blocked by {task['blocked_count']} task(s); use task show for details"
     if task.get("blocked_by"):
         return "Blocked by: " + ", ".join(f"{p['key']} ({p['title']})" for p in task["blocked_by"])
-    if task.get("status") in ("backlog", "up_next") and task.get("publication_status") == "draft":
-        return "Draft; coordinator must publish before work starts"
-    return (
-        "Published; prerequisites satisfied"
-        if task.get("publication_status") == "published"
-        else "Recorded prerequisites satisfied"
-    )
+    return task.get("execution_issue") or "Prerequisites satisfied"
 
 
 def display(result: Any) -> None:
@@ -615,8 +609,8 @@ def display(result: Any) -> None:
             typer.echo("Project text is excerpted; use project text for the full description.")
         typer.echo(
             "\nUp next expresses priority. "
-            "Readiness covers publication, prerequisites and blocking questions; "
-            "an enabled queue starts eligible published work."
+            "Readiness covers requirements, prerequisites and blocking questions; "
+            "an enabled queue starts eligible work."
         )
         if result.get("recommendation"):
             item = result["recommendation"]
@@ -636,13 +630,7 @@ def display(result: Any) -> None:
         typer.echo(f"{result['title']}  [{result.get('key', result['id'])}]")
         if "status" in result:
             typer.echo(f"{label(result['status'])}" + (" · Archived" if result["archived"] else ""))
-            if result.get("publication_status"):
-                publication_labels = {
-                    "published": "Published",
-                    "draft": "Draft",
-                    "needs_reconciliation": "Needs update",
-                }
-                typer.echo(f"Publication: {publication_labels[result['publication_status']]}")
+
             typer.echo(readiness_text(result))
             if result.get("dependencies"):
                 typer.echo("Prerequisites: " + ", ".join(t["key"] for t in result["prerequisites"]))
@@ -869,6 +857,7 @@ def task_create(
     body: str | None = None,
     body_file: Path | None = None,
     acceptance_criteria: str | None = None,
+    completion: str | None = None,
     labels: Annotated[
         list[str] | None,
         typer.Option("--label", help="Workspace label ID; repeat for multiple labels."),
@@ -896,6 +885,7 @@ def task_create(
                 "id": id,
                 "body": text_value(body, body_file) or "",
                 "acceptance_criteria": acceptance_criteria or "",
+                "completion": completion,
                 "labels": labels or [],
                 "status": status.replace("-", "_"),
                 "dependencies": depends_on or [],
@@ -914,6 +904,7 @@ def task_edit(
     body: str | None = None,
     body_file: Path | None = None,
     acceptance_criteria: str | None = None,
+    completion: str | None = None,
     labels: Annotated[list[str] | None, typer.Option("--label")] = None,
     no_labels: bool = False,
     depends_on: Annotated[
@@ -938,6 +929,7 @@ def task_edit(
                 "title": title,
                 "body": text_value(body, body_file),
                 "acceptance_criteria": acceptance_criteria,
+                "completion": completion,
                 "labels": labels,
             }.items()
             if v is not None
@@ -991,37 +983,6 @@ def task_prioritize(
     )
 
 
-@task_app.command("prepare")
-def task_prepare(
-    ctx: typer.Context,
-    task: str,
-    completion: Annotated[str, typer.Option(help="Completion requirement: code or report.")],
-    workspace: str = typer.Option(..., "--workspace"),
-    expected_revision: Expected = None,
-    author: Author = "coordinator",
-    json_output: Json = False,
-) -> None:
-    """Prepare an existing assignment after checking requirements.
-
-    Clarify gaps first. This does not start work or accept code.
-    """
-
-    def run() -> Any:
-        path = workspace_item_path(workspace, "tasks", task)
-        current = ctx.obj.request("GET", "context/" + path)
-        return update(
-            ctx.obj,
-            path,
-            {
-                "preparation": {"completion": completion},
-            },
-            expected_revision if expected_revision is not None else current["revision"],
-            author,
-        )
-
-    output(run, json_output)
-
-
 @task_app.command("reconcile")
 def task_reconcile(
     ctx: typer.Context,
@@ -1063,7 +1024,7 @@ def task_reopen(
     author: Author = "human",
     json_output: Json = False,
 ) -> None:
-    """Return completed work to Draft/Backlog, preserving delivered results and approval."""
+    """Return completed work to Backlog, preserving delivered results and approval."""
     output(
         lambda: update(
             ctx.obj,

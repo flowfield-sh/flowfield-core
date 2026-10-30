@@ -10,7 +10,7 @@ from project_fixtures import adopt, task_request
 from flowfield.adapters.git_workspace import git
 from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_models import AgentChoice
-from flowfield.application import ProjectSetup, TaskPreparation, Workspace
+from flowfield.application import ProjectSetup, Workspace
 from flowfield.execution_models import SettingsEdit, WorkerResult
 from flowfield.inspection import Inspections
 from flowfield.inspection_models import InspectionConfig
@@ -68,7 +68,7 @@ if sys.argv[2] == "create":
             title="Try the candidate",
             body="Make a useful greeting",
             status="up_next",
-            preparation=TaskPreparation(completion="code"),
+            completion="code",
         ),
     )
 settings = service.execution.settings(project).model_copy(update={"enabled": True})

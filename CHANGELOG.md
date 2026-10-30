@@ -98,7 +98,7 @@ Stop Flowfield, run `uv tool upgrade flowfield-core`, then start it with `flowfi
 - Follow candidate preparation and validation through the active command, elapsed time, timeout and incremental output. Stop checks when needed, and configure projects without validation commands when appropriate.
 - Review results with a concise outcome, destination and supporting evidence. Earlier results retain their history and link to newer work; obsolete preview and delivery controls no longer compete with the current action.
 - Scan compact Inbox lists, open exact requests and results in work tabs, and find completed outcomes in Delivered. History focuses on earlier decisions. Sidebar groups keep needs-attention, delivered and active work within reach.
-- Use consistent title actions for task settings, archive and document editing. Task cards keep their key and Draft label together, wrap titles naturally and show status once. Custom application keyboard shortcuts are removed.
+- Use consistent title actions for task settings, archive and document editing. Task cards wrap keys and titles naturally and show status once. Custom application keyboard shortcuts are removed.
 
 ### Bug fixes
 

@@ -86,7 +86,7 @@ def test_review_api_files_and_successor_use_captured_commits(tmp_path: Path, mon
 
     from flowfield.adapters.local_execution import LocalHost
     from flowfield.api import create_app
-    from flowfield.application import TaskPublish
+    from flowfield.application import TaskEdit
     from flowfield.execution_models import QueueEdit, WorkerResult
     from flowfield.integration import Integrations
     from flowfield.integration_models import IntegrationConfig
@@ -113,10 +113,10 @@ def test_review_api_files_and_successor_use_captured_commits(tmp_path: Path, mon
         ),
     )
     task = execution.workspace.task("harbor", "task-0")
-    execution.workspace.publish_task(
+    execution.workspace.edit_task(
         "harbor",
         task.id,
-        TaskPublish(
+        TaskEdit(
             completion="code",
             expected_revision=task.revision,
         ),

@@ -87,7 +87,7 @@ test("Documents shares project defaults and opts projectless tasks into exact so
       data: {
         title: "Capture the homepage",
         body: "Take a 1024px screenshot and return it.",
-        preparation: { completion: "report" },
+        completion: "report",
       },
     },
   );

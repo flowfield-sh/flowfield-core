@@ -16,7 +16,7 @@ export function hasTaskNeeds(
   hideDependencies = false,
 ) {
   return !!(
-    (task.preparation_issue &&
+    (task.execution_issue &&
       (!task.blocking_questions.length ||
         task.readiness === "needs_reconciliation")) ||
     (!hideDependencies &&
@@ -48,10 +48,10 @@ export function TaskNeeds({
 }) {
   return (
     <ul className="task-needs">
-      {task.preparation_issue &&
+      {task.execution_issue &&
         (!task.blocking_questions.length ||
           task.readiness === "needs_reconciliation") && (
-          <li>{task.preparation_issue}</li>
+          <li>{task.execution_issue}</li>
         )}
       {!hideDependencies &&
         (includeDependencies || !combinedDependencies(task)) &&

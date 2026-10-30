@@ -8,7 +8,7 @@ from unittest.mock import patch
 from project_fixtures import adopt, task_request
 
 from flowfield.agent_models import AgentChoice
-from flowfield.application import ProjectSetup, TaskPublish, Workspace
+from flowfield.application import ProjectSetup, TaskEdit, Workspace
 from flowfield.execution import Execution
 from flowfield.execution_models import SettingsEdit
 
@@ -21,8 +21,8 @@ task = workspace.create_task(
         title="Recover the import", body="Report verified import behavior.", status="up_next"
     ),
 )
-workspace.publish_task(
-    project.id, task.id, TaskPublish(expected_revision=task.revision, completion="report")
+workspace.edit_task(
+    project.id, task.id, TaskEdit(expected_revision=task.revision, completion="report")
 )
 execution = Execution(workspace)
 settings = execution.configure(

@@ -8,7 +8,7 @@ from project_fixtures import adopt, task_request
 
 from flowfield.adapters.git_workspace import git
 from flowfield.agent_models import AgentChoice
-from flowfield.application import ProjectSetup, TaskPreparation, Workspace
+from flowfield.application import ProjectSetup, Workspace
 from flowfield.execution import Execution
 from flowfield.execution_models import SettingsEdit
 from flowfield.integration import Integrations
@@ -37,7 +37,7 @@ task = store.create_task(
         title="Finish the inventory export",
         body="Complete the saved export contract and verify the HTTP behavior.",
         status="up_next",
-        preparation=TaskPreparation(completion="report"),
+        completion="report",
     ),
 )
 execution = Execution(store)

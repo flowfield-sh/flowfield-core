@@ -21,7 +21,7 @@ import type { DirtyCallback } from "./retainedState";
 import { useEffect, useState } from "react";
 import { ContentStack, DetailHeading, DetailSection } from "./DetailLayout";
 import { TaskLabels } from "./TaskLabels";
-import { DetailHeader, DraftBadge } from "./Presentation";
+import { DetailHeader } from "./Presentation";
 import { WorkIdentity } from "./WorkIdentity";
 import { taskHref } from "./navigation";
 import { ExpandableMarkdown } from "./ExpandableMarkdown";
@@ -75,9 +75,6 @@ export function TaskDetail({
           <WorkIdentity
             state={task.state}
             itemKey={task.key}
-            keyBadge={
-              <DraftBadge publicationStatus={task.publication_status} />
-            }
             title={settings ? "Task settings" : "Task"}
           />
         }
@@ -87,6 +84,8 @@ export function TaskDetail({
           <>
             <HeaderAction
               label="Edit task"
+              disabled={!!task.edit_blocker}
+              tooltip={task.edit_blocker ?? "Edit task"}
               onClick={() => navigate?.(`${taskHref(workspaceId, task)}/edit`)}
             >
               <Pencil aria-hidden="true" />
