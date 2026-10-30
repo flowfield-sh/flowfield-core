@@ -70,9 +70,9 @@ export function useRetainedState<T>(
       if (Object.is(value, previous)) return;
       entries.delete(key);
       entries.set(key, value);
-      queueMicrotask(() => {
-        for (const listener of listeners) listener();
-      });
+      // Controlled inputs must see their new value before the input event ends.
+      // Deferring this notification makes React restore stale text and selection.
+      for (const listener of listeners) listener();
     },
     [key],
   );

@@ -1,6 +1,8 @@
 import { openResource } from "./shell-navigation";
 import { expect } from "@playwright/test";
 import { test } from "./support";
+import { editInsideText } from "./text-editing";
+import { dialogViews } from "./dialog-evidence";
 
 test("workspace documents preserve drafts, exact history and restore as a new revision", async ({
   page,
@@ -31,11 +33,19 @@ test("workspace documents preserve drafts, exact history and restore as a new re
   await expect(
     page.getByRole("region", { name: "Edit document", exact: true }),
   ).toBeVisible();
+  const title = page.getByLabel("Document title", { exact: true });
+  const originalTitle = await title.inputValue();
+  await editInsideText(title);
+  await title.fill(originalTitle);
+  await editInsideText(
+    page.getByRole("textbox", { name: "Content", exact: true }),
+  );
   await page
     .getByRole("textbox", { name: "Content", exact: true })
     .fill(
       "# Working together\n\nCoordinate core and site here.\n\n- Keep tasks project-specific.\n- Review exact results before delivery.",
     );
+  await dialogViews(page, testInfo, "document-editor");
   await expect(
     page.getByRole("button", { name: "Write", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");

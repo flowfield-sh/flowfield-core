@@ -7,7 +7,13 @@ import { useDiscardChanges } from "./DiscardChangesDialog";
 import { reportError } from "./requestFeedback";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useLocation } from "react-router";
 import { request, RequestError } from "./workspace";
 
@@ -89,7 +95,16 @@ export function useRecordEditor<R extends { revision: number }, V>({
     setValues(fields(record));
     setConflict(false);
   }
-  if (incoming && (!loaded || newer) && !dirty && !busy) adopt(incoming);
+  // Retained values notify all mounted readers synchronously. Adopt new records
+  // after render so that another reader is never updated during this render.
+  const shouldAdopt = !!(incoming && (!loaded || newer) && !dirty && !busy);
+  if (shouldAdopt && conflict) setConflict(false);
+  useLayoutEffect(() => {
+    if (incoming && shouldAdopt) {
+      setLoaded(incoming);
+      setValues(fields(incoming));
+    }
+  }, [incoming, shouldAdopt, fields, setLoaded, setValues]);
   function change<K extends keyof V>(key: K, value: V[K]) {
     const next = { ...values, [key]: value };
     setValues(next);

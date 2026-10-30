@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { expect } from "@playwright/test";
 import { test, state } from "./support";
 import { dialogViews } from "./dialog-evidence";
+import { editInsideText } from "./text-editing";
 
 function seed(active = false) {
   return JSON.parse(
@@ -61,9 +62,14 @@ test("task editing saves definition fields, retains drafts and recovers stale sa
   await page.getByRole("button", { name: "Edit task", exact: true }).click();
   await expect(page).toHaveURL(`${href}/edit`);
   const editor = page.getByRole("region", { name: "Edit task", exact: true });
+  await editInsideText(editor.getByLabel("Task title", { exact: true }));
+  await editInsideText(editor.getByLabel("Description", { exact: true }));
   await expect(
     editor.getByLabel("Acceptance criteria", { exact: true }),
   ).toHaveValue("Every change is visible in the task feed.");
+  await editInsideText(
+    editor.getByLabel("Acceptance criteria", { exact: true }),
+  );
   await editor
     .getByLabel("Task title", { exact: true })
     .fill("Polish task controls for release");

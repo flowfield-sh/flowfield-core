@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { resolve, join } from "node:path";
 import { expect } from "@playwright/test";
+import { editInsideText } from "./text-editing";
 import {
   test,
   state,
@@ -180,6 +181,9 @@ test("compact Inbox opens independent question tabs and preserves their drafts",
   await expect(inbox.locator(".inbox-history-row")).toHaveCount(2);
   await expect(inbox.getByRole("textbox")).toHaveCount(0);
   await inbox.getByRole("link", { name: /Which format/ }).click();
+  await editInsideText(
+    page.getByRole("textbox", { name: "Your answer", exact: true }),
+  );
   await page
     .getByRole("textbox", { name: "Your answer", exact: true })
     .fill("CSV first.");
@@ -266,6 +270,11 @@ test("compact result row opens exact approval and preserves saving through an ea
   await result
     .getByRole("button", { name: "Approve and integrate", exact: true })
     .click();
+  await editInsideText(
+    result.getByRole("textbox", {
+      name: "Testing notes or approval comment (optional)",
+    }),
+  );
   await result
     .getByRole("textbox", {
       name: "Testing notes or approval comment (optional)",
