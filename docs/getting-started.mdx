@@ -3,9 +3,7 @@ title: Getting started
 description: Create a workspace, shape a useful first task, and review its result.
 ---
 
-Flowfield keeps the plan, context, agent work and reviewed results together. Plan with the Coordinator, let workers carry out focused tasks, and decide which exact code to deliver. Start with one existing repository, then add related projects when you need them.
-
-For reports, datasets or other files, start with a workspace and skip repository setup. Ask the Coordinator to prepare a file task with clear success criteria. [File delivery](/files) uses the same queue and independent review.
+Plan with the Coordinator, let workers carry out focused tasks, and review the results. Start with an existing repository, or skip project setup for reports and files.
 
 ![A Flowfield workspace with labeled tasks across its shared board](/images/task-board.png)
 
@@ -28,7 +26,7 @@ Choose **New workspace**, enter a name, choose one harness/model for its agents 
 
 Open **Projects → Add project → Choose directory**. Select an existing repository, review its name and ID, then choose **Add project**. The folder chooser operates on the machine running Flowfield; use the [CLI](/cli#workspaces-and-projects) if it is unavailable.
 
-Discuss the repository's existing instructions and roadmap with the Coordinator. Decide what should stay in repository files and what belongs in [workspace documents](/documents). Adding a project preserves those files and leaves the queue paused in a new workspace.
+Discuss existing instructions with the Coordinator and decide what belongs in [workspace documents](/documents). New workspaces start with the queue paused.
 
 See [Workspaces and projects](/workspaces) when coordinating several repositories.
 
@@ -46,14 +44,14 @@ Before running code tasks, ask the Coordinator to configure the project's delive
 
 Move the prepared task to **Up next**, directly on Task Board or through the Coordinator, then choose **Run queue** in the sidebar. Its status explains any missing setup, input or prerequisite. Eligible work runs in an isolated checkout; open the task to follow activity.
 
-Questions and decisions appear in **Inbox → Needs me**. Click a row to open its exact request and send an answer. A saved worker answer continues managed work when the queue permits it. **Pause queue** prevents new starts while active work continues; ask the Coordinator to stop a specific worker or review when needed.
+Questions and decisions appear in **Inbox → Needs me**. Open a request and send your answer to continue work. **Pause queue** prevents new starts; **Stop task** in the task header stops active execution.
 
 ## Review the result
 
-The configured Reviewer assesses the whole task and can request corrections before handing code back to you. Read the result, reviewer findings, checks and limitations. Inspect **Code changes**, or copy the **Run result** command into your terminal to try an independent copy. Opening the result prepares that copy; it does not start the application.
+The Reviewer checks the result and can request corrections. Read its findings, inspect **Code changes**, and use the **Run result** command to try an independent copy.
 
-Choose **Request changes** for another pass. When the exact code is ready, choose **Approve and integrate** and confirm, or explicitly approve that result in the Coordinator conversation. Flowfield delivers it to the configured local branch and checkout before marking the task **Done**. If local changes block delivery, follow the recovery action without discarding your work.
+Choose **Request changes** for another pass, or **Approve and integrate** and confirm. You can also approve the exact result in the Coordinator conversation. Flowfield delivers approved code to your local branch and marks the task **Done**.
 
 ## Return to the outcome
 
-Open **Inbox → Delivered** to revisit completed work. Complete reports and files finish after the configured review without a code-approval step; their outputs remain in **Files**. The task feed retains questions, answers, corrections and earlier results. See [Results, review and delivery](/review) for exact approval and recovery.
+Revisit completed work in **Inbox → Delivered** and submitted files in **Files**. The task feed keeps earlier questions, corrections and results. See [review and delivery](/review) for more.

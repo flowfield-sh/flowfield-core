@@ -17,13 +17,13 @@ One service data directory stores all your Flowfield workspaces. The default is 
 
 Choose another data directory with `FLOWFIELD_DATA_DIR` or `flowfield --data-dir /absolute/path serve`. This changes the service's store, not an individual workspace's repository locations.
 
-Inspection copies remain available after completion or archiving. Permanently deleting a task removes its copies, local edits, preview data and retained result files. Stop manually launched previews and preserve useful changes before confirming deletion. Flowfield retries interrupted file cleanup; adopted repositories and delivered code remain intact.
+Inspection copies remain after completion or archiving. Deleting a task removes its copies and files; stop previews and save useful edits first. Adopted repositories and delivered code remain intact.
 
 ## Updating and recovery
 
 Follow the [update commands](/installation#update). Stores from 0.6.0 onward upgrade in place.
 
-Queues start paused unless **Auto-start worker queue** is saved in workspace Workers settings. Sidebar Run/Pause changes only the current queue. Interrupted workers still need recovery.
+Queues start paused unless **Auto-start worker queue** is enabled. Interrupted workers may need recovery.
 
 ### Recovery
 

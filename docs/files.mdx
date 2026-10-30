@@ -9,7 +9,7 @@ Ask the Coordinator for the files you need and how they should be checked. A wor
 
 ## Browse and use results
 
-Select a filename in a result to open that exact file in **Files**, or open **Files** in the sidebar. Results show file lists without inline previews. Above the file list, choose **All files** or a task and sort by name, newest or type. Browse folders with breadcrumbs; the selected file previews beside the list, or below it on narrow screens. **Load more files** continues the list. Repeated filenames remain distinct by submission time and source result. The browser URL preserves the folder, selected file, task filter and sort order, so you can bookmark the view, reload it or return with Back and Forward.
+Open **Files** from the sidebar or select a filename in a result. Filter by task, sort by name, date or type, and browse folders with breadcrumbs. Select a file to preview it. The URL preserves your view for bookmarks and navigation.
 
 Use **Source** to open the result that submitted a file, **Open** for browser-supported formats, or **Download** for the original. Images, CSV, UTF-8 text, Markdown and code preview inline. HTML and SVG display as source.
 
@@ -18,13 +18,13 @@ Use **Source** to open the result that submitted a file, **Open** for browser-su
 | Text, Markdown and code | 64 KiB, with a truncation notice. |
 | CSV | 200 data rows and 50 columns; first row supplies headings. Formulas remain text; malformed CSV falls back to source. |
 
-Complete file/report tasks finish after their files are retained and any configured task reviewer signs off. Reviewers can request corrections or ask a focused question about missing input. Incomplete results stay unfinished. Open the exact result to request changes, or ask the Coordinator to reconcile missing input and prepare the follow-up.
+Complete file/report tasks finish after review. Request changes from the result or discuss missing input with the Coordinator.
 
 ## Inputs and later versions
 
-The Coordinator can select sent message attachments or previously submitted files as task inputs. Workers receive separate copies of those exact bytes. Delivered prerequisite files are also supplied automatically. Later edits or successor results cannot silently replace the inputs of an existing attempt. Reopening a completed task preserves its previous files and result history.
+The Coordinator can supply message attachments or submitted files as task inputs. Workers receive copies, including files from delivered prerequisites. Later versions leave existing inputs unchanged.
 
-For decomposed work, the final task result contains its contributions’ retained files. The task reviewer checks the combined outcome. Earlier file versions remain accessible after corrections.
+Subtasks’ files are combined in the final result. Earlier versions remain available after corrections.
 
 ## Worker and coordinator tools
 
@@ -36,6 +36,6 @@ Use `list_workspace_files` for bounded browsing, optionally filtered by task key
 
 ## Retention and backup
 
-Submitted bytes live under `<data-root>/workspaces/<workspace-id>/outputs/`, separately from disposable attempt directories. Files survive task archiving, attempt cleanup and service restart. New versions have new identities. [Permanently deleting a task](/tasks#archive-or-delete) removes its retained outputs; deletion is blocked while another task's frozen inputs or evidence reference them.
+Files survive archiving, attempt cleanup and restarts. [Deleting a task](/tasks#archive-or-delete) removes its outputs unless other tasks still reference them.
 
 See [local storage](/storage#full-backups) to preserve metadata and file bytes together. Missing or changed files retain their metadata and show a problem; restore the original bytes to recover them.

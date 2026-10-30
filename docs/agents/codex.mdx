@@ -11,15 +11,13 @@ In **Settings → Harnesses**, keep detected paths or override the executable an
 
 ## Models and access
 
-Models, reasoning effort, access modes and Fast availability come from Codex. Tool approval requests expose the offered one-time, session and exact command-prefix policy choices. **Always allow in Codex** changes native command policy and can outlive the Flowfield task. Flowfield does not invent a broader choice when Codex has not offered one. Saved task access-mode changes apply to the next attempt.
+Models, reasoning effort, access modes and Fast availability come from Codex. Tool approvals can apply once, for the session or to a command prefix. **Always allow in Codex** updates native policy beyond the current task.
 
-Workspace member repositories are added to the Coordinator’s writable roots in **Agent** mode.
-The managed working directory stays separate. **Read only** and **Full access** retain their native
-permissions; task workers keep their isolated checkout scope.
+In **Agent** mode, the Coordinator can write to workspace repositories. Workers use isolated checkouts; other access modes retain their native permissions.
 
 ## Commands
 
-The Coordinator supports `/compact`, `/status`, `/mcp` and `/skills`. Compaction uses the native thread control. Status shows the current choice; MCP and skills use native inventories.
+The Coordinator supports `/compact`, `/status`, `/mcp` and `/skills` through native Codex controls.
 
 ## Sessions and Stop
 

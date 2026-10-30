@@ -16,7 +16,7 @@ Enter one shell command per line for setup and validation. Choose commands appro
 
 Validation commands are optional and can be cleared. Results state when none are configured.
 
-When the destination tracks an upstream branch, Flowfield fetches it and fast-forwards the clean destination before starting new work. Running attempts keep their saved commits. Result preparation and delivery also check upstream, so changed code receives fresh validation and approval. Branches without an upstream remain local. Routine refresh needs no action; unavailable access, divergent history or local checkout changes appear as specific blockers without discarding work.
+Flowfield refreshes tracked upstream branches before work and delivery. Local changes, divergent history or access failures appear as blockers; running attempts keep their starting commits.
 
 ## Validate before running workers
 
@@ -27,15 +27,13 @@ When the destination tracks an upstream branch, Flowfield fetches it and fast-fo
 
 Setup and checks run in the worktree directory and must leave source files unchanged. Keep dependency outputs ignored; use `FLOWFIELD_RUNTIME_DIR` for temporary files and `FLOWFIELD_WORKSPACE` for the checkout path. Checks must finish and return a failing exit code on failure. A development server belongs in Run command, not validation.
 
-Read failed validation output, fix the scripts or configuration and validate again. Revalidate after changing setup, checks or the destination branch. Setup and validation commands have configured timeouts. Follow an active worker in its [task feed](/tasks#follow-an-attempt), and ask the Coordinator to stop it when needed.
-
-Ask the Coordinator to identify environment requirements and resolve service or access questions. Save reusable setup in repository scripts and project settings. Validation retains the tested commit, settings and output for later inspection.
+If validation fails, fix the reported problem and validate again. Revalidate after changing setup, checks or the destination branch.
 
 ## Checks that need services
 
-Use a repository-owned test wrapper that starts a disposable service, waits for readiness, runs the tests and stops its own resources before exiting. For example, a `test:isolated` script can choose an available loopback port and fresh test data, pass the endpoint to its tests, then clean up on success, failure or interruption. Keep the entire lifecycle within the command's timeout.
+Use a test script that starts disposable services, waits for readiness, runs checks and cleans up on success, failure or interruption. Keep the entire lifecycle within the timeout.
 
-Each setup or validation command runs in a separate shell. Its exports do not carry forward, and Flowfield stops ordinary child processes when it finishes. Starting a background database in setup does not leave it available to the worker. Never detach or daemonize these processes. Services needed throughout a worker session require an explicitly agreed external arrangement; Flowfield does not provision them automatically.
+Each command runs in a separate shell and its child processes stop when it finishes. Use an agreed external service for anything needed throughout the worker session; do not detach services from setup or checks.
 
 For a shared service, agree its endpoint, data permissions, version and owner. Workers must leave borrowed services running. Cross-project references supply evidence, not running services.
 
@@ -43,15 +41,15 @@ For a shared service, agree its endpoint, data permissions, version and owner. W
 
 **Project settings → Integration → Allow saved checks outside the worker sandbox** lets workers call `run_project_checks` for the exact saved validation commands. It starts disabled. This permission runs the worker’s edited code with Flowfield’s service-host access, including access that the native harness may restrict. Enable it only for a project whose code and check scripts you trust. It does not approve code delivery or grant general native shell permission.
 
-The worker cannot supply a command, working directory or environment to this operation. Commands run in its owned checkout with saved timeouts, bounded retained output and ordinary child-process cleanup. Latest full output is available through worker `read_context` pages and attempt evidence; final candidate validation still runs separately before approval.
+Workers run only the saved commands in their assigned checkout. Output remains in attempt evidence; final candidate validation runs separately.
 
-Changing integration settings or replacing the registered repository directory invalidates permission. Enable the revised settings deliberately and start a fresh attempt to adopt changed commands. Revocation prevents future calls; stopping the worker cancels checks already running. Process cleanup uncertainty remains visible and reserves ownership until reconciled. Repository scripts must not detach services or modify shared data without explicit agreement.
+Changing integration settings or the repository invalidates this permission. Enable it again for the new settings. Revocation prevents future calls; stopping the worker cancels running checks.
 
 ## Choose workers
 
-Workspace defaults apply across member projects. The **Task settings** icon opens **Worker** overrides; each attempt retains the harness, model and host registration it started with. Changes affect subsequent attempts, and unavailable choices fail explicitly rather than substituting a model.
+Set workspace defaults or use **Task settings → Worker** to override them. Changes apply to the next attempt.
 
-The Coordinator's choice is independent. Supported Fast mode starts off. Enable it with the checkbox in workspace Worker or Reviewer settings, or override it for a task. Running attempts keep their saved choices. [Agent setup](/agents/overview) covers native accounts, discovery and permissions; [documents](/documents#supply-worker-context) covers the sources selected for workers.
+Fast is off by default; enable it in Worker or Reviewer settings when supported. See [agent setup](/agents/overview) and [worker documents](/documents#supply-worker-context).
 
 Workers use separate Git worktrees and scoped Flowfield connections. Git isolation separates repository edits, not the whole host: use separate ports, databases and other mutable resources for concurrent tasks, or serialize them. Native access modes govern agent tools; configured setup and validation commands run directly on the service host.
 
@@ -59,6 +57,6 @@ Workers use separate Git worktrees and scoped Flowfield connections. Git isolati
 
 Opening an exact code result prepares an independent copy of that candidate. Its **Run result** section shows a complete, copyable launcher. Run it in your terminal, or ask the Coordinator to run it, to execute setup followed by the saved Run command.
 
-For an app with an API or database, use a repository-owned launcher that prepares all components, uses isolated ports and data, waits for readiness and prints the browser URL and stop instructions. Define representative sample data in workspace guidance and reuse the project’s seed scripts for populated previews. Workers verify that launch during implementation; checks of the exact service-generated Run result launcher happen after candidate preparation through focused review verification.
+Use a repository-owned launcher that starts all required components with isolated ports and sample data, then prints the URL and stop instructions. Verify the app during implementation and the exact **Run result** launcher during candidate review.
 
 Existing copies keep their files and saved settings. A later delivery does not update them automatically. Open the result you intend to try, and follow any displayed preparation or destination recovery action.

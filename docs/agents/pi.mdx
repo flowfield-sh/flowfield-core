@@ -11,7 +11,7 @@ In **Settings → Harnesses**, keep detected paths or override the executable an
 
 ## Models and access
 
-Models and thinking levels come directly from Pi, including provider names and custom model definitions. The list reflects Pi’s available catalog; actual access depends on the provider account. Selecting a model leaves Pi’s saved defaults unchanged. Sign-in is managed by Pi per provider.
+Models and thinking levels come from Pi’s provider configuration. Manage provider sign-in in Pi.
 
 If no models appear, configure a provider in Pi on the service host, then choose **Retry loading models** in Flowfield.
 
@@ -19,17 +19,17 @@ Pi tools use **Full access**, without built-in per-tool approvals or a sandbox. 
 
 ## Commands
 
-The Coordinator supports `/compact`, `/status`, `/mcp` and `/skills`. Compaction uses Pi’s native RPC control. Status shows model/thinking settings, MCP uses Pi’s connection inventory, and skills lists native skill commands. Terminal-only commands are not exposed.
+The Coordinator supports `/compact`, `/status`, `/mcp` and `/skills`. Use Pi’s terminal for terminal-only commands.
 
 ## Sessions and Stop
 
-Unchanged settings resume the native Coordinator session. Stop clears queued work, aborts native execution and closes the session, including extension shutdown hooks. Extensions must honor Pi’s cancellation and cleanup contracts; arbitrary detached services are outside managed cleanup.
+Unchanged settings resume the Coordinator session. Stop aborts execution and closes the session, including extension shutdown hooks.
 
 See [Coordinator recovery](/coordinator#stop-and-continue-later) for saved history, fresh sessions and uncertain cleanup.
 
 ## Native customization
 
-Pi loads installed extensions, custom tools and native MCP settings, respecting its saved project-trust decisions. The Flowfield extension loads automatically alongside them. Extension confirmations appear in Flowfield; terminal widgets and free-text extension dialogs require Pi’s terminal interface. Other extension dialogs are cancelled with a visible notice. Extension shutdown failures retain uncertain ownership for recovery.
+Pi loads native extensions, tools and MCP settings alongside Flowfield. Extension confirmations appear in Flowfield; widgets and free-text dialogs require Pi’s terminal.
 
 ## Standalone conversation
 

@@ -3,35 +3,35 @@ title: Working with the Coordinator
 description: Explore the problem, maintain the plan and review work in one conversation.
 ---
 
-The Coordinator stays with you across the workspace’s projects. Send a rough idea, a list of feedback or a one-off request. Ask it to group related changes into focused tasks, separate independent outcomes and clarify decisions that matter. Keep refining the plan as work progresses.
+Use one conversation across your projects to explore ideas, organize tasks and review outcomes.
 
 ## Start a conversation
 
 Create a [workspace](/workspaces) and send your message. Change its saved [harness](/agents/overview), model or supported effort/access controls beside the input when needed. Enter sends; Shift+Enter or Command/Ctrl+Enter adds a new line. Worker defaults are configured separately.
 
-The Coordinator uses a Flowfield-managed working directory and the service host's tools and credentials. Its Flowfield tools are scoped to the workspace; repository actions identify a member project. Its native access mode still governs filesystem and tool actions.
+The Coordinator uses tools and credentials on the machine running Flowfield, within its selected access mode. Its Flowfield tools are scoped to the workspace.
 
-Ask it to configure [project integration](/worker-setup), organize implementation into tasks, or run, push or publish a selected result. Specify the destination and checks for those actions. Direct setup changes affect the project or host immediately; worker code follows the task review flow.
+Ask it to configure [project integration](/worker-setup), organize tasks, or run, push or publish a result. Specify the destination and checks when requesting delivery beyond your local branch.
 
 ## Use the work beside the chat
 
 Open a task, document or filtered board beside the same conversation. Each message captures the selected task, result, document revision or board filters when sent. The Coordinator asks when the intended project is ambiguous.
 
-Ask it to sort Inbox, explain blockers, update guidance, adjust priorities, request another pass or help review a result. You can explicitly approve a specific code result here; Flowfield records that exact approval and delivers it without another browser confirmation. [Inbox actions](/inbox) follow the same records and approval rules.
+Ask it to explain blockers, update guidance, adjust priorities or review a result. Explicit approval of an exact code result here records the same decision as the browser controls.
 
-Ask the Coordinator to compare task costs, inspect tokens by period or explain where running time went. It can read the same [Metrics](/metrics) totals and execution evidence as the browser, including Worker and Reviewer activity.
+It can also read workspace and task [Metrics](/metrics).
 
 ## Attach context
 
 Use the paperclip, drag files onto the input or paste an image. Remove unsent attachments with ×. Sent files remain with the message and can be downloaded.
 
-A message accepts up to four UTF-8 text/code files of 64 KiB each or PNG, JPEG and WebP images of 2 MiB each. Image input requires support from the selected harness. Workspace conversation and each project's task feeds have separate 128 MiB attachment limits; unsent uploads expire after 24 hours.
+Attach up to four text/code files of 64 KiB each or PNG, JPEG and WebP images of 2 MiB each. Image input depends on the selected harness.
 
-Attachments accompany the message and its native session. Reattach important files after a fresh session or when compaction has omitted their details. Task answers and feedback accompany separate worker attempts; attach files again when later input needs them. Use [documents](/documents) for durable shared context.
+Use [documents](/documents) for durable context. Reattach files when starting a fresh session or sending them to a separate task attempt.
 
 ## Controls and commands
 
-Model, effort, access and supported Fast choices apply to subsequent messages; a running turn keeps its captured settings. Fast provides quicker responses with increased usage where the selected model supports it. Changing the model starts at normal speed. The context ring shows the latest reported occupancy, separately from consumed tokens.
+Model, effort, access and Fast choices apply to subsequent messages. Fast offers quicker responses with increased usage on supported models. The context ring shows current occupancy.
 
 Type `/` to load available commands, select one and send. Commands take no arguments or attachments:
 
@@ -42,18 +42,18 @@ Type `/` to load available commands, select one and send. Commands take no argum
 | `/mcp` | Show native MCP connections. |
 | `/skills` | List available skills. |
 
-Inventory commands send no model prompt. See the [agent pages](/agents/overview) for native differences. Permission requests appear in the conversation and Inbox; answer while the turn is waiting. Tool permission is separate from approval to deliver worker code.
+See the [agent pages](/agents/overview) for native differences. Answer tool permission requests in the conversation or Inbox while the turn is waiting.
 
 ## Stop and continue later
 
 One Coordinator turn runs per workspace, independently of worker slots. Replies and tool activity stream as it works; you can draft your next message while it runs. **Stop** ends that turn, preserving saved work changes. Task workers continue independently.
 
-Finished turns leave their final reply visible and fold activity into an expandable summary. Open an event for commands, file changes or returned evidence; **Retained output** exposes longer details. Older messages load on demand. Compatible native sessions resume across messages and service restarts.
+Finished turns show the final reply with expandable activity. Open events for commands and file changes, or **Retained output** for longer details. Earlier messages load on demand.
 
-Switching harness, adding a project or changing a member repository path starts a fresh native session on the next message. Other settings changes follow the harness's continuation rules. Saved Flowfield conversation stays available; fresh sessions receive recent exchanges and can retrieve older history. Native tool history stays with its original session.
+Switching harness, adding a project or changing its repository path starts a fresh native session. Saved conversation remains available.
 
-If a session cannot resume, restore its native history or choose **Start new session**. This preserves the saved conversation and takes effect on your next message. A fresh session receives recent chat; reattach files it needs from earlier messages. Reconnects and restarts do not replay interrupted prompts.
+If a session cannot resume, restore its native history or choose **Start new session**, then resend your message. Saved conversation is preserved; reattach any earlier files you need.
 
-When cleanup is uncertain, inspect and stop remaining native work on the host, then choose **Confirm coordinator stopped** and confirm in the dialog.
+If cleanup is uncertain, stop remaining native work on the host, then choose **Confirm coordinator stopped**.
 
 Resize Coordinator and Work on wide screens. Switching between their phone views preserves the current draft.

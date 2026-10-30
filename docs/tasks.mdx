@@ -3,11 +3,9 @@ title: Tasks and execution
 description: Turn an agreed outcome into focused work, with dependencies and optional local subtasks.
 ---
 
-A task owns an outcome, its success criteria, sources, activity, results and final delivery. Ask the Coordinator to create and prepare tasks; use **Task Board** to follow the plan. Repository work belongs to one project. Reports and files can belong directly to the workspace.
+A task keeps an outcome, success criteria, context, activity and results together. Ask the Coordinator to prepare work and use **Task Board** to set priorities. Code tasks belong to a project; reports and files can belong to the workspace.
 
-Completed tasks show **Done**. **Delivered** identifies their recorded results in Inbox and delivery history.
-
-Open a task to read its definition, related work, subtasks and feed. **Task settings** in the header opens Worker and Reviewer overrides. Answer questions in [Inbox](/inbox) and inspect or approve [results](/review) from their own views.
+Open a task for its definition, subtasks and activity. Use **Task settings** for agent overrides, [Inbox](/inbox) for questions and [results](/review) for approval.
 
 ## Define useful work
 
@@ -15,11 +13,9 @@ Describe the outcome and how you will judge it. The Coordinator can clarify the 
 
 Tasks use workspace-local keys such as `T-1`. For reports, datasets or images, ask for a workspace task without a project. See [Files](/files) for outputs and inputs.
 
-A prepared assignment gives the worker the outcome, constraints, success criteria and selected sources. Resolve conflicting requirements with the Coordinator before preparation; saved answers and correction feedback accompany subsequent attempts.
+Preparation captures the agreed scope and selected guidance. Flowfield [checks guidance changes](/documents#keep-tasks-current) at work and review handoffs. Discuss changes to the intended outcome with the Coordinator.
 
-Preparation records the agreement and latest selected guidance. Placing a task in Up next expresses priority, not readiness. Flowfield [reconciles guidance changes automatically](/documents#keep-tasks-current) at work and review handoffs. Discuss changes to the intended outcome with the Coordinator. Task notes retain discussion and evidence; they do not rewrite the assignment.
-
-If completed work needs correction, ask the Coordinator to reopen the same task. It returns to Backlog as a draft, preserving its earlier results, approvals and history. The Coordinator prepares fresh requirements before scheduling the follow-up. New code requires its own approval; the earlier delivery stays recorded.
+For a correction to completed work, ask the Coordinator to reopen the task. It returns to Backlog with its history preserved and needs fresh preparation and code approval.
 
 ## Priorities and queue
 
@@ -31,58 +27,58 @@ If completed work needs correction, ask the Coordinator to reopen the same task.
 | In review | A result needs a human decision or approved delivery is pending. |
 | Done | The agreed outcome is complete, including required code delivery. |
 
-Drag a card’s move handle to order Backlog and Up next or move work between them. You can also ask the Coordinator. The shared scheduler follows Up next order and skips work whose project, input or prerequisites are not ready. Read the card's status for the specific next action.
+Drag cards within Backlog and Up next to prioritize work. The queue follows that order, skipping tasks whose setup, inputs or dependencies are not ready. Card status shows what is needed.
 
-New workspaces start paused with capacity for five parallel workers. **Run queue** enables eligible starts; **Pause queue** prevents new starts while active workers continue. In **Workspace settings → Workers**, save the model, **Maximum parallel workers** and **Auto-start worker queue** together. Auto-start controls whether the queue runs when Flowfield starts; sidebar Run/Pause changes only the current queue.
+New workspaces start paused with five worker slots. **Run queue** starts eligible work; **Pause queue** leaves active work running. Set capacity and **Auto-start worker queue** in **Workspace settings → Workers**.
 
-Missing role settings or unavailable harness/model choices block a task before a worker starts. Update the relevant settings, then eligible work resumes through the queue. Workspace changes apply to inheriting tasks on their next attempt; running attempts keep their captured settings. Waiting for review frees a worker slot.
+Agent-setting changes apply to the next attempt. Missing or unavailable choices block work until corrected.
 
 Each board column scrolls independently. On narrow screens, scroll sideways to reach the other columns.
 
 ## Edit a task
 
-Choose **Edit task** in the task header to change its title, description, acceptance criteria or labels, then **Save task**. Project assignment stays fixed. Changes appear as **Task updated** events in the feed. Unsaved edits stay protected when navigating; if someone changes the task before you save, use **Load latest** to review the current definition. Changes to requirements can require reconciliation of recorded work with the Coordinator.
+Choose **Edit task** to change the title, description, acceptance criteria or labels, then **Save task**. If someone edits it meanwhile, use **Load latest** to reconcile. Project assignment stays fixed.
 
 ## Archive or delete
 
-Use **Archive task** in the task header to hide abandoned work while retaining its history and inspection copies. Restore returns it to its previous column. Stop active work before archiving. Archiving withdraws task-only questions and cancels pending replies; resolve shared questions first.
+**Archive task** hides work while keeping its history. Stop active work first and resolve shared questions. Restore returns the task to its previous column.
 
-**Delete task**, beside Archive, permanently removes the task, its history, results, submitted files and owned work folders, including inspection edits and preview data. Confirm the deletion after stopping any manually launched previews and saving anything you want to keep. Delivered code in your project stays. Active or uncertain managed work, dependent tasks and frozen file/evidence consumers block deletion. Archive instead when those references should remain. The Coordinator can also delete tasks through `delete_task`, using the same ownership and evidence checks.
+**Delete task** permanently removes its history, results, files and working copies. Stop previews and save useful edits before confirming. Delivered code stays in your repository. Active work or references from other tasks block deletion; archive instead. The Coordinator can also delete tasks.
 
-Deletion removes the task from collections and closes its open tabs after refresh. Task numbers are never reused. See the [CLI](/cli#tasks-and-subtasks) for command-line deletion.
+See the [CLI](/cli#tasks-and-subtasks) for command-line deletion.
 
 ## Dependencies
 
 Tasks can depend on other tasks in the same workspace, including other projects. Dependents wait for delivered results; archiving unfinished work does not satisfy them. Cross-project prerequisites supply context and files without merging their code into the dependent repository.
 
-Completed tasks keep their delivered results and captured inputs when prerequisites change. Reopen the task for a correction or create a new task for new work. Unfinished tasks reconcile changed inputs before continuing; see [result follow-ups](/review#earlier-results-and-follow-ups).
+Completed tasks keep their delivered results when dependencies change. Reopen for corrections or create a new task for new work.
 
 ## Work within a task
 
 ![A task with local subtasks, dependencies and its activity feed](/images/task.png)
 
-A task can run directly or contain one level of subtasks. Ask the Coordinator to split work when independent contributions or a concrete dependency make execution clearer. Subtasks appear directly in the task’s **Subtasks** section; the board and sidebar continue to show the task.
+Ask the Coordinator to split work into subtasks when contributions can run independently or have useful dependencies. Subtasks appear inside their parent task.
 
-Subtask dependencies belong only to that parent task. Independent contributions may run in parallel within workspace capacity. A dependent contribution receives its prerequisites’ code and retained files. Each contribution gets its own managed worker session. Native subagents, when supported and enabled by the harness, remain inside that session; Flowfield does not schedule them as separate tasks or count them as separate worker slots. External dependencies belong on the parent task.
+Subtask dependencies stay within the parent. Independent contributions can run in parallel; dependent ones receive their prerequisites’ code and files. Dependencies on other tasks belong on the parent.
 
-When every contribution is ready, Flowfield assembles one task result and checks the combined code. The task reviewer assesses that whole outcome. There is one final code approval for delivery to the project’s configured destination. Reports, screenshots and PDFs follow the same task review flow without requiring Git.
+Flowfield combines the contributions into one result for review and code approval. File and report tasks use the same review flow.
 
-A correction can target a contribution and invalidate its downstream dependents while retaining independent completed work. Guidance reconciliation can update the task and existing subtask instructions together before work continues. Earlier results, files and sign-offs remain in history.
+Corrections can rerun affected subtasks and dependents while keeping independent work. Earlier results remain in history.
 
-Tool permission requests remain pending while the native session is waiting. Stopping the session or service cancels an undelivered request; saved decisions are never replayed into a replacement session. Task access settings apply to the next attempt.
+Tool permission requests need an answer while the session is waiting. Stopping it cancels pending requests.
 
 ## Follow an attempt
 
-Open an **In progress** task to follow the worker's activity. The worker should finish by submitting an outcome with its checks and limitations, or asking a blocking question. A final chat summary alone does not create a reviewable result.
+Open an **In progress** task to follow activity. Workers finish by submitting a result or asking a blocking question.
 
-If a worker ends normally without a submission or question, Flowfield gives it one reminder in the same session and checkout. This uses another model turn and retains the slot until cleanup completes. If it still does not report, work is preserved for inspection and explicit retry. Stopped or interrupted attempts are never restarted by this reminder.
+If a worker finishes without either, Flowfield reminds it once. If it still does not report, inspect the preserved work and retry explicitly.
 
-Choose **Stop task** in the task header and confirm, or ask the Coordinator to stop it. This stops active Worker and Reviewer execution and moves the task to Backlog. Recorded work, files and history remain; questions from other waiting contributions are preserved. The control appears only when execution or cleanup is still active. **Retry worker** queues a fresh attempt; it respects pause, dependencies and capacity. Follow the displayed recovery action if native cleanup is uncertain.
+Choose **Stop task** and confirm to stop active Worker or Reviewer execution and return the task to Backlog. Work and history remain. **Retry worker** queues a fresh attempt; follow the displayed recovery action if cleanup is uncertain.
 
 ## Read the task story
 
-The feed groups definition changes, sources, questions, activity and results into initial work, corrections and follow-ups. Expand an event for its evidence; hover a timestamp for the exact time. Contribution work events name their assigned subtask. Feedback names its exact result. Earlier saved testing notes remain available as historical evidence. Worker and Reviewer activity keeps a bounded recent buffer; “Earlier activity is no longer retained” means older activity exceeded that buffer. Task events, results and submitted files are retained separately.
+The feed groups changes, questions, activity and results into initial work, corrections and follow-ups. Expand an event for details; contribution events name their subtask. Older streamed activity may expire, while task events, results and files remain.
 
-The task page stays at your reading position. Open worker or reviewer output to follow new entries inside that panel; scroll up to read earlier output and return to the bottom to follow again. Manual disclosure choices survive work-tab navigation. Numeric context occupancy and reported consumed tokens are separate measurements. The compact **Metrics** section shows lifetime reported Tokens, Cost, Duration and Corrections. The Corrections count includes Worker runs started to correct prior work, excluding retries and answer continuations. Hover, focus or tap Tokens, Cost or Duration for its Worker and Reviewer breakdown, or [explore workspace Metrics](/metrics) by period.
+Activity follows new output until you scroll up. Task **Metrics** shows lifetime Tokens, Cost, Duration and Corrections; open a callout for details or [Metrics](/metrics) for workspace comparisons.
 
-Current notices appear below task labels and above Definition. Use **View result** in the result notice to open the most recent saved result; earlier results remain in the feed. Follow a request or result link to answer, request changes, retry a failed review or approve code.
+Use **View result** to open the latest result, or find earlier results in the feed. Request and result links open their response and recovery controls.

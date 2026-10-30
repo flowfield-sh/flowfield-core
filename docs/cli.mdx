@@ -21,7 +21,7 @@ flowfield storage status
 
 `serve` opens the browser in an interactive terminal; `serve --no-open` prints the URL without opening it. Global `--port` or `FLOWFIELD_PORT` selects the service; `--data-dir` or `FLOWFIELD_DATA_DIR` selects its data directory.
 
-Update status reads the shared result or offline cache; a manual check requires the running service. These commands install nothing. Storage inspection runs offline without initializing or modifying data. See [installation](/installation#update) and [storage](/storage#inspect-storage).
+Update commands report availability; they do not install releases. Storage inspection works offline. See [installation](/installation#update) and [storage](/storage#inspect-storage).
 
 ## Workspaces and projects
 
@@ -39,7 +39,7 @@ flowfield project show
 
 Create a workspace before adopting a repository. `project init` accepts initial `--id` and `--name` overrides. See [workspaces](/workspaces) for ownership and navigation.
 
-For optional standalone coordinator guidance, use `project guidance preview`, `install` or `show`. `project guidance export --part coordinator` prints the packaged skill offline; `remove` removes unchanged owned content while preserving local edits. See [standalone setup](/agents/overview#standalone-conversations).
+Use `project guidance preview`, `install` or `show` for [standalone coordinator guidance](/agents/overview#standalone-conversations). `remove` preserves local edits; `export --part coordinator` prints the packaged skill.
 
 ## Tasks and subtasks
 
@@ -74,7 +74,7 @@ flowfield task results list T-1 --workspace WORKSPACE_ID
 flowfield task results show RESULT_ID --workspace WORKSPACE_ID
 ```
 
-Workers models returns native IDs and supported controls; `--refresh` reloads after native account/configuration changes. `workspace workers configure --help` lists the harness/model, effort, access and capacity options. Saving settings enables no queue.
+Use `workspace workers models --refresh` after account or configuration changes, and `workspace workers configure --help` for model, access and capacity settings.
 
 Run enables eligible Up next starts. Pause leaves active work running. `task runs stop ATTEMPT_ID` targets one attempt; `task runs retry ATTEMPT_ID` queues a fresh attempt while respecting pause, dependencies and capacity.
 
@@ -107,7 +107,7 @@ Changes apply to future turns/attempts. A changed native session location may re
 flowfield harness confirm-stopped codex --discovery DISCOVERY_ID
 ```
 
-See [agent recovery](/agents/overview#recover-setup-and-discovery). Connection commands for standalone conversations also live in [agent setup](/agents/overview#standalone-conversations).
+See [agent recovery](/agents/overview#recover-setup-and-discovery) and [standalone connections](/agents/overview#standalone-conversations).
 
 ## Saved conversation reads
 

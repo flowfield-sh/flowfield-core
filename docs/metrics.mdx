@@ -1,54 +1,46 @@
 ---
 title: Metrics
-description: Follow tokens, cost and running time across your workspace and individual tasks.
+description: Track tokens, cost and running time across your workspace and tasks.
 ---
 
-Metrics brings the resources behind your work into the same workspace as its tasks and results. Open **Metrics** in the sidebar to see reported tokens, cost and elapsed running time for the Coordinator, Workers and Reviewers.
+Open **Metrics** in the sidebar to compare activity across tasks, agent types, harnesses or models. Metrics supports Codex, Claude Code and Pi.
 
-![Workspace Metrics with a selected period, activity filters and usage totals](/images/metrics.png)
+![Workspace Metrics with shared filters and totals](/images/metrics.png)
 
 ## Explore workspace activity
 
-Choose **Today**, **Last 7 days**, **Last 30 days**, **Last 3 months**, **Year to date** or **Custom**. Last 3 months uses calendar months; Year to date starts at local January 1. Use **From** and **To** for an exact local datetime range, then select **Apply**. The end is exclusive.
+Choose a **Period**, or enter **From** and **To** in your local time and select **Apply**. Use **Activity** to select all work, the Coordinator or a task, and **Group by** to compare agent types, harnesses or models.
 
-The Tokens, Cost and Duration charts share that range. Select **All activity**, **Coordinator** or an individual task, then group by **agent type**, **harness** or **model**. Model grouping uses the model selected for each run. Cost calculations price each model actually reported by the harness separately, including helper models.
+The charts and task table share these filters. Click a day or hour to narrow the range; use arrow keys and Enter when navigating by keyboard. Sort the Tasks table by Tokens, Cost or Duration, then open a task for its details. Bookmarks retain your selection.
 
-Click a day or hour in a chart to explore that interval. The datetime fields update and Period becomes Custom. With a chart focused, use arrow keys to inspect intervals and Enter to select one. Bookmarks preserve the selected filters; a preset-only link such as `metrics?period=month` opens the current last 30 days.
+Tokens and Cost use stacked bars. Duration uses separate lines because parallel work overlaps and should not be added together.
 
-Tokens and Cost use stacked bars so you can compare each group's contribution. Duration uses separate lines because parallel activity overlaps: adding its lines would overstate the time spent running.
-
-![Token and cost bars use matching groups and the same selected period](/images/metrics-cost.png)
-
-The **Tasks** table below the charts shows **Tokens**, **Cost** and **Duration** for the same interval. It starts with the highest token total. Click a column heading to change the sort order, or open a task to inspect its work. Coordinator conversations remain workspace activity because one conversation can span multiple tasks; they do not become a task row.
+![Token and cost bars for the selected period](/images/metrics-cost.png)
 
 ## Inspect a task
 
-Each task has four callouts in one row: **Tokens**, **Cost**, **Duration** and **Corrections**. They cover the task's lifetime, including its Workers, subtasks, review and clarification work. On a narrow screen, scroll the row horizontally to reach all four.
+Tasks show lifetime **Tokens**, **Cost**, **Duration** and **Corrections**. Hover, focus or tap a callout for details and the Worker/Reviewer breakdown. On narrow screens, scroll the row to see all four.
 
-![Task Metrics beside its definition and recorded work](/images/task-metrics.png)
+![Task metrics and recorded work](/images/task-metrics.png)
 
-Hover, focus or tap Tokens, Cost or Duration for the Worker and Reviewer breakdown. Cost values use the same rounding as the callouts, and its tooltip includes the API pricing date. Corrections counts work started to address review or human feedback; retries and answer continuations are excluded.
+Corrections counts work started to address feedback, excluding retries and answer continuations.
 
-## How measurements work
+## Understand the numbers
 
-**Tokens** come from the native harness. Cached input and reasoning subsets are not added twice. Charts place consumption when it was reported, and active task counters refresh while visible.
+- **Tokens** are reported by the harness, including cached input without double-counting.
+- **Cost** uses USD API prices for each reported model, including helper models. Tooltips show the pricing date; earlier costs keep their original rates. Values below one cent show `<$0.01`.
+- **Duration** counts overlapping running time once and excludes idle gaps.
 
-**Cost** applies versioned USD API token rates to each reported model. Every calculation retains the rates it used, so a catalog update does not change earlier costs. Values below one cent display `<$0.01`. Unknown prices, missing cache lifetimes or incomplete model attribution display `-`; they do not become zero. Historical usage collected without pricing evidence remains unavailable.
+Unavailable measurements show `-`, including historical usage without pricing data.
 
-**Duration** measures elapsed running time, counts parallel work once and excludes idle gaps. Workspace charts and task rows clip it to the selected interval. Completed work retains its available records.
+## MCP access
 
-Compatible Codex, Claude Code and Pi updates continue reporting tokens without requiring an exact release match. Flowfield validates counters and session boundaries; missing or inconsistent data stays unavailable. Claude Code requires version 2.1.277 or later for resumed-session totals. Pi requires version 1.1.0 or later with full-session statistics; its aggregate cannot establish provider completeness. Completed assistant request reports can supply per-model pricing when they reconcile with the accepted session delta. Flowfield does not reconstruct unreported consumption.
+The Coordinator and external MCP clients can read the same metrics:
 
-## Ask the Coordinator or use MCP
-
-Ask the Coordinator to compare task costs or inspect usage for a period. The Coordinator and external MCP clients use the same read-only metrics as the browser:
-
-| Tool | Read |
+| Tool | Returns |
 | --- | --- |
-| `get_workspace_metrics` | Workspace totals, task totals and grouped activity; defaults to the last seven days. |
-| `get_task_metrics` | Task lifetime totals, including corrections and retry counts. |
-| `get_metrics_evidence` | One execution's retained counters, accepted deltas and applied price rows. |
+| `get_workspace_metrics` | Totals, task rows and grouped activity for a period. |
+| `get_task_metrics` | Lifetime task totals and correction/retry counts. |
+| `get_metrics_evidence` | An execution’s reported usage and applied prices. |
 
-For example, call `get_task_metrics` with your `workspace_id` and `task_id: "T-8"`. Supply both `start` and `end` in `filters` for a bounded period. Set `include_timeline: true` to include chart buckets and series.
-
-Summaries include `cost_usd` and `known_cost_usd` as exact USD strings. The known amount retains the priced portion when some usage is unavailable. Nested cost records use integer nanodollars: one dollar is 1,000,000,000 nanodollars. Execution items supply the `source` and `source_id` for `get_metrics_evidence`; follow its pagination cursor to inspect further receipts.
+Use your `workspace_id` and task key, such as `T-8`. Workspace metrics defaults to seven days; supply `filters.start` and `filters.end` for another range, and `include_timeline: true` for chart data.

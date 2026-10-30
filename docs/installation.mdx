@@ -11,12 +11,7 @@ With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed:
 uv tool install flowfield-core
 ```
 
-uv keeps Flowfield in its own environment and exposes the `flowfield` command.
-If the command is missing from PATH, run `uv tool update-shell` and open a new terminal.
-The package contains the CLI, service, browser UI and agent guidance. Node and pnpm are
-only needed for development. Installing the source archive uses its prebuilt artifacts.
-Flowfield requires Python 3.12+ and either macOS 13+ on Apple Silicon or
-glibc 2.28+ Linux on arm64/x64. Intel Macs are not supported.
+Requires Python 3.12+, macOS 13+ on Apple Silicon or glibc 2.28+ Linux on arm64/x64. If `flowfield` is missing from PATH, run `uv tool update-shell` and open a new terminal.
 
 ## Alternative: pip
 
@@ -35,16 +30,9 @@ Activate that environment to use the shorter command:
 
 ## Set up your harnesses
 
-Install and sign in to [Codex CLI](https://developers.openai.com/codex/cli/) or
-[Claude Code](https://code.claude.com/docs/en/setup) or [Pi](https://pi.dev/docs/latest/quickstart) 1.1+ on the machine running Flowfield.
-If already installed, no additional harness-support installation is needed. Flowfield
-uses Codex and Pi directly and includes its official Claude SDK helper. Node/Bun is not needed.
-Workers also need Git.
+Install and sign in to [Codex](/agents/codex), [Claude Code](/agents/claude-code) or [Pi](/agents/pi) on the same machine. Flowfield includes the integrations; code tasks also need Git.
 
-**Settings → Harnesses** detects the installed executables and native configuration.
-Override a path only when detection needs help. **Verify installation** reads the installed version and native sign-in status (Pi checks the version only). These diagnostics send no model prompt. Accounts stay with each harness. Models load
-when you open the Coordinator or workspace worker selector.
-See [harness setup and recovery](/agents/overview#setup) if detection, sign-in or model access fails.
+Choose **Verify installation** in **Settings → Harnesses**. See [agent setup](/agents/overview#setup) if detection, sign-in or model access fails.
 
 ## Start and stop
 
@@ -52,22 +40,15 @@ See [harness setup and recovery](/agents/overview#setup) if detection, sign-in o
 flowfield serve
 ```
 
-The service runs in the foreground at [localhost:8765](http://127.0.0.1:8765).
-An interactive `flowfield serve` opens your browser once the service is ready.
-Use `flowfield serve --no-open` to keep it closed; scripts and noninteractive sessions
-only print the link. Ctrl-C stops it. Choose another port with `flowfield serve --port 8770`
-and give clients the same port using `flowfield --port 8770 ...`.
+The service opens [localhost:8765](http://127.0.0.1:8765). Use `--no-open` to keep the browser closed; Ctrl-C stops it. For another port, use `flowfield serve --port 8770` and connect clients with `flowfield --port 8770 …`.
 
-Flowfield runs locally on macOS and Linux and binds to loopback. Continue with
-[Getting started](/getting-started#create-a-workspace) to create a workspace and add a project.
+Continue with [Getting started](/getting-started#create-a-workspace).
 
 ## Update
 
-Flowfield checks PyPI when the app opens and hourly while running. **Settings → Updates** shows compatible releases, notes and update commands, with **Check for updates** for a manual check. Stable installs receive stable releases; prerelease installs can also discover prereleases. Installation is manual.
+**Settings → Updates** shows available releases and update commands. Flowfield checks automatically while running; choose **Check for updates** for a manual check.
 
-Turn off automatic checks in **Settings → Updates**, or start the service with
-`FLOWFIELD_UPDATE_CHECKS=0`. Manual checks remain available. No project content or usage
-data is included in the request to PyPI.
+Disable automatic checks in **Settings → Updates** or with `FLOWFIELD_UPDATE_CHECKS=0`.
 
 Stop the service before upgrading:
 

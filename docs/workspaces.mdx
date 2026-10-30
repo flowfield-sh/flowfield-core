@@ -25,19 +25,19 @@ Use the returned workspace ID. Adoption writes `.flowfield/config.toml`; commit 
 
 | View | Purpose |
 | --- | --- |
-| [Metrics](/metrics) | Explore tokens, cost and elapsed running time by period, task, agent type, harness or model. |
 | Task Board | Follow task state, priorities and dependencies; filter by project or label. |
 | Inbox | Answer requests, review results and revisit deliveries. |
 | Projects | Add repositories and reach project settings. |
 | Documents | Maintain shared guidance and references. |
 | Files | Browse retained outputs and their exact source results. |
+| [Metrics](/metrics) | Explore tokens, cost and elapsed running time by period, task, agent type, harness or model. |
 | Archive | Revisit work you set aside, using Archive at the right of the Task Board filters. |
 
-**Recent Work** keeps up to five items in each group: Needs attention opens exact requests, Delivered opens exact results, and In progress opens tasks. Inbox and Task Board hold the full collections. The workspace selector switches conversations; its menu and Home show actionable Inbox counts.
+**Recent Work** shows recent requests, deliveries and active tasks. Inbox and Task Board contain the full lists.
 
-Links from the sidebar, Coordinator and Inbox open or focus a work tab showing that exact view. Links inside other work tabs navigate within the tab. Inbox stays pinned. Use **Back** when the current view has earlier history, and drag tabs to reorder them. Cmd/Ctrl-click opens a browser tab. Browser Back/Forward restores the corresponding work tab and page.
+Sidebar, Coordinator and Inbox links open work tabs. Inbox stays pinned; drag other tabs to reorder them. Use Back/Forward for history or Cmd/Ctrl-click to open a browser tab.
 
-Tabs, filters and reading positions survive reopening in the same browser. Unsaved answers and document drafts survive tab/workspace switching during the current session. Reloading or leaving warns about unsaved input.
+Tabs, filters and reading positions are saved in your browser. Unsaved answers and edits survive tab/workspace switching; leaving or reloading warns before discarding them.
 
 Resize Work and Coordinator by dragging their shared edge. On phones, switch between **Work** and **Coordinator**.
 
@@ -61,4 +61,4 @@ The Coordinator input and **Workspace settings → Coordinator** edit the same s
 
 **Connection lost** preserves views and drafts while retrying automatically. Restart the service or choose **Try reconnecting**. Interrupted actions are never replayed: check whether a save completed before retrying it.
 
-**Reconnecting…** indicates only a lost update stream while the service remains reachable. Individual load failures and worker/reviewer recovery keep their own contextual actions.
+**Reconnecting…** means the update stream is reconnecting. Other failures show their recovery action in the affected view.

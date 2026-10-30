@@ -8,9 +8,9 @@
 </p>
 
 <p align="center">
-  <a href="https://docs.flowfield.sh"><img src="https://img.shields.io/badge/docs-flowfield.sh-9b4c2c" alt="Documentation"></a>
   <a href="https://pypi.org/project/flowfield-core/"><img src="https://img.shields.io/pypi/v/flowfield-core?logo=pypi&amp;logoColor=white&amp;color=2563eb" alt="PyPI version"></a>
   <a href="https://github.com/flowfield-sh/flowfield-core/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/flowfield-sh/flowfield-core/tests.yml?branch=main&amp;label=tests" alt="Tests"></a>
+  <a href="https://github.com/flowfield-sh/flowfield-core/actions/workflows/docs.yml"><img src="https://img.shields.io/github/actions/workflow/status/flowfield-sh/flowfield-core/docs.yml?branch=main&amp;label=docs" alt="Documentation build"></a>
 </p>
 
 ![The Coordinator beside task priorities, review and delivered outcomes](docs/images/board-hero.png)
@@ -52,24 +52,18 @@ Open [localhost:8765](http://127.0.0.1:8765), create a workspace and choose its 
 
 <table>
   <tr>
-    <td width="33%" align="center"><a href="docs/images/readme/board.png"><img src="docs/images/readme/board.png" alt="Workspace board with code, file and report tasks"></a><br><strong>Tasks</strong></td>
-    <td width="33%" align="center"><a href="docs/images/readme/documents.png"><img src="docs/images/readme/documents.png" alt="Shared workspace document with revision history"></a><br><strong>Documents</strong></td>
-    <td width="33%" align="center"><a href="docs/images/readme/files.png"><img src="docs/images/readme/files.png" alt="Retained task files with folders and a file inspector"></a><br><strong>Files</strong></td>
+    <td width="25%" align="center"><a href="docs/images/readme/board.png"><img src="docs/images/readme/board.png" alt="Workspace task board"></a><br><strong>Tasks</strong></td>
+    <td width="25%" align="center"><a href="docs/images/readme/documents.png"><img src="docs/images/readme/documents.png" alt="Shared workspace guidance and revisions"></a><br><strong>Documents</strong></td>
+    <td width="25%" align="center"><a href="docs/images/readme/document-editor.png"><img src="docs/images/readme/document-editor.png" alt="Edit shared guidance and its task usage"></a><br><strong>Document editing</strong></td>
+    <td width="25%" align="center"><a href="docs/images/readme/files.png"><img src="docs/images/readme/files.png" alt="Retained files and previews"></a><br><strong>Files</strong></td>
   </tr>
   <tr>
-    <td align="center"><a href="docs/images/readme/inbox.png"><img src="docs/images/readme/inbox.png" alt="Inbox with a question and code ready for review"></a><br><strong>Inbox</strong></td>
-    <td align="center"><a href="docs/images/readme/task.png"><img src="docs/images/readme/task.png" alt="Task history with local subtasks, work and whole-task review"></a><br><strong>Task history</strong></td>
-    <td align="center"><a href="docs/images/readme/review.png"><img src="docs/images/readme/review.png" alt="Code result with its diff, checks and review actions"></a><br><strong>Code review</strong></td>
+    <td width="25%" align="center"><a href="docs/images/readme/inbox.png"><img src="docs/images/readme/inbox.png" alt="Questions and results awaiting review"></a><br><strong>Inbox</strong></td>
+    <td width="25%" align="center"><a href="docs/images/readme/task.png"><img src="docs/images/readme/task.png" alt="Task activity, subtasks and results"></a><br><strong>Task history</strong></td>
+    <td width="25%" align="center"><a href="docs/images/readme/metrics-cost.png"><img src="docs/images/readme/metrics-cost.png" alt="Tokens, cost and running time"></a><br><strong>Metrics</strong></td>
+    <td width="25%" align="center"><a href="docs/images/readme/review.png"><img src="docs/images/readme/review.png" alt="Changes, checks and approval controls"></a><br><strong>Code review</strong></td>
   </tr>
 </table>
-
-## Metrics
-
-See Tokens, Cost and Duration together for any period. Stacked token and cost bars show each group’s contribution; duration lines show elapsed running time without adding overlapping work. Sort tasks by any metric, narrow the range directly from a chart, or ask the Coordinator to compare the same figures through MCP.
-
-![Workspace Metrics with token and cost charts](docs/images/readme/metrics-cost.png)
-
-Cost uses versioned API prices for each reported model. Its tooltip gives the pricing date, and earlier costs retain their original rates. Open the [Metrics guide](https://docs.flowfield.sh/metrics) for filters, task callouts and accounting details.
 
 ## Contributing
 

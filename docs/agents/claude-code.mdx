@@ -9,20 +9,19 @@ Install [Claude Code](https://code.claude.com/docs/en/setup) and sign in on the 
 
 In **Settings → Harnesses**, keep detected paths or override the executable and configuration directory. Accounts stay in Claude Code. See [shared setup](/agents/overview).
 
-If a turn fails because Claude cannot authenticate, sign in through Claude Code on the machine running Flowfield. Use the executable and configuration directory shown in **Settings → Harnesses**, choose **Verify installation**, then resend your message. A terminal using a different configuration directory can be signed in while Flowfield's Claude session is signed out.
+For authentication failures, sign in with the executable and configuration directory shown in **Settings → Harnesses**, verify installation, then resend.
 
-Keep the configuration override blank when using Claude's default setup. For an explicit `CLAUDE_CONFIG_DIR`, use the same path spelling as your terminal; on macOS it can affect which Keychain credentials Claude uses.
+Leave the configuration override blank for default setups. With `CLAUDE_CONFIG_DIR`, use your terminal’s exact path; macOS Keychain lookup can depend on it.
 
 ## Models and access
 
 Models and effort levels come from Claude, with resolved model versions shown in the picker. Access modes are **Default**, **Accept edits**, **Auto (review actions)** when supported, and **Bypass permissions**. Claude organization policy still applies. Plan and Fast are not exposed.
 
-The Coordinator supplies workspace member repositories as additional directories to Claude Code.
-The selected native permission mode still applies. Workers continue in their isolated task checkouts.
+The Coordinator can access workspace repositories within Claude’s permission mode. Workers use isolated task checkouts.
 
 ## Commands
 
-The Coordinator supports `/compact`, `/status`, `/mcp` and `/skills`. Compaction uses Claude’s native `/compact`. Status reports model/context usage, MCP lists native connection status, and skills lists the SDK’s available skills.
+The Coordinator supports Claude’s `/compact`, `/status`, `/mcp` and `/skills` controls.
 
 ## Sessions and Stop
 

@@ -3,52 +3,52 @@ title: Results, review and delivery
 description: Understand the assessment, try the selected result and decide which code to deliver.
 ---
 
-A task produces one outcome: code, files, a report, or a combination. Direct work and assembled subtasks use the same result and review flow. Open a result from **Inbox → Needs me**, **Inbox → Delivered** or **View result** in its task's result notice. The task feed links earlier results. Each result preserves its own report, evidence and submitted files.
+Open results from **Inbox**, **View result** in a task, or its feed. Each result contains the report, evidence and submitted files.
 
 ![An exact code result with its launcher, report and approval controls](/images/result-overview.png)
 
 ## Independent task review
 
-Configure the default **Task reviewer** in **Workspace settings → Reviewers**. Assessment is enabled by default. Use **Task settings** to override the harness/model for one task or reset it to the workspace choice. Subtasks share their parent’s review.
+Configure the **Task reviewer** in **Workspace settings → Reviewers**, or override it in **Task settings**. Review is enabled by default; subtasks share their parent’s review.
 
-Complete code and file outcomes receive an independent assessment against their exact assignment, sources, destination and saved validation. Reviews share worker capacity and respect the queue: pausing prevents new rounds, while an active round continues. The reviewer inspects the saved candidate and validation evidence.
+The Reviewer checks the result against its assignment and sources. Reviews share worker capacity and respect the queue.
 
-Reviewer sign-offs appear on the task and in the exact result. The reviewer can ask the implementer a scoped clarification, request a focused verification of the prepared candidate, request an in-scope correction, or send an intent, scope or access question to Inbox. Verification can run the generated launcher and retain files without changing code or repeating full validation. Its evidence returns to the reviewer. Saved human answers continue the review without another apply step. Corrections receive fresh independent assessment. Guidance changes trigger [automatic reconciliation](/documents#keep-tasks-current); changes to the intended outcome or delivery authority still need a human decision. Waiting for an answer releases capacity.
+The Reviewer can request clarification, corrections or focused verification, such as running the prepared candidate and collecting screenshots. Questions needing you appear in Inbox; saved answers continue review.
 
-Workers report implementation and checks available during their attempt. A check explicitly assigned to post-candidate review, such as exercising the generated launcher, stays pending until that candidate exists. It does not make finished implementation partial, and it must have supporting evidence before the reviewer approves. Unfinished implementation and blocked checks required during implementation remain partial work.
+Checks that need a prepared candidate happen during review. The Reviewer must obtain that evidence before approving; implementation does not need to be repeated.
 
-Visual evidence applies to visible UI changes, visual deliverables and explicit requirements. Backend, CLI, documentation and investigation tasks do not require screenshots by default. Review considers the actual requested experience, including clarity and interaction, alongside functional checks.
+Visible UI changes and visual deliverables need visual evidence alongside functional checks.
 
-Ask the Coordinator to stop a review; stopping preserves the candidate and findings. Failed or stopped reviews require explicit **Retry review**. If cleanup is uncertain, inspect **Review rounds and diagnostics**, confirm the retained processes have stopped, then retry. Uncertain execution keeps its capacity reserved. Changed inputs make an assessment outdated and retain its evidence; questions belonging to that assessment are withdrawn with their saved answers preserved.
+Use **Stop task** to stop active review. Failed or stopped reviews need **Retry review**. If cleanup is uncertain, follow **Review rounds and diagnostics** before retrying.
 
-After review, code needs your approval; complete files and reports finish automatically. Stop an active review before making a manual result decision.
+After review, code needs your approval; complete files and reports finish automatically.
 
 ## Review an exact result
 
-Read the worker report, limitations and checks against the task's success criteria. Project checks and worker-authored tests are useful evidence; try representative inputs or ask the Coordinator to investigate gaps before deciding what ships.
+Read the report, checks and reviewer findings against the success criteria. Try representative inputs before deciding what ships.
 
-While Flowfield checks a candidate, the result shows the active setup or validation command, elapsed time and timeout, recent output, and completed commands. Output updates without moving your reading position. **Stop checks** stops the command and preserves captured output. Projects with no saved validation commands say so explicitly.
+During checks, the result shows the command, elapsed time and output. **Stop checks** stops execution and keeps the captured output.
 
-Completed command evidence retains the beginning and end of long output. Expand a command to download its log, retained up to 8 MiB; a reached limit is labeled. An evidence-only correction can reuse successful validation of the exact unchanged candidate, destination and configuration within the same service session. Reused checks are identified. Changed code, destination, settings, a service restart or explicit revalidation runs checks again. Historical files remain available to Workers and Reviewers with their original provenance; they do not silently become new deliverables or approval.
+Expand a command to read or download its log. Long logs retain their beginning and end. Successful checks can be reused for an unchanged candidate and configuration; reused checks are labeled.
 
-The result identifies its project and destination branch below the task title. **Run result** provides the copyable launch command. Under **Details**, expand **Supporting files**, **Review evidence**, **Guidance** or **Code changes** to inspect retained outputs, reviewer findings, exact document revisions or the candidate's diff. See [worker setup](/worker-setup#try-a-result) for populated previews and launchers.
+**Run result** provides a launcher to try the candidate. Under **Details**, inspect supporting files, review evidence, guidance and code changes. See [worker setup](/worker-setup#try-a-result) for launcher configuration.
 
 ![Code changes and exact-result review beside the Coordinator](/images/code-review.png)
 
-Choose **Request changes** to send concrete feedback for another pass. Attach relevant files or testing observations when needed. Or choose **Approve and integrate**, confirm the selected result and optionally include a testing comment. Explicit approval in the Coordinator conversation records the same exact decision without a second browser confirmation.
+Choose **Request changes** for another pass, or **Approve and integrate** and confirm. Either can include testing feedback. Explicit approval of the exact result in the Coordinator conversation records the same decision.
 
-Flowfield checks and delivers the approved candidate to the configured project checkout. Conflicting local changes remain intact. Resolve the reported blocker and use its delivery retry action; if the candidate changes, review and approve the new result.
+Flowfield checks and delivers approved code to your local checkout. If local changes block delivery, resolve the reported problem and retry. Changed candidates need fresh approval.
 
 ## Find delivered outcomes
 
 **Inbox → Delivered** lists completed outcomes by delivery time. Open a result to access code or retained files, or browse outputs across tasks in [Files](/files).
 
-Delivery updates the configured local branch and registered checkout. Ask the Coordinator to run the selected result, push or publish when you want those actions; code approval alone does not authorize them. Tasks in different repositories have separate results and approvals; Flowfield does not deliver them as one atomic change.
+Delivery updates your local branch. Running, pushing and publishing need separate instructions; each repository has its own result and approval.
 
 ## Earlier results and follow-ups
 
-When another delivery advances the destination, Flowfield prepares and checks the existing work against that destination automatically while the queue is enabled. Merge conflicts or failed checks caused by that change can queue a scoped worker correction with both code inputs and the failure evidence. The new candidate receives its configured review and needs fresh delivery approval. Pausing the queue prevents new automatic continuations. Changed intent, settings, access problems or repeated unchanged corrections need attention rather than another automatic attempt.
+If the destination advances, Flowfield prepares and checks the candidate against it. Conflicts can trigger a focused correction while the queue runs; the updated candidate needs fresh review and approval.
 
-Completed tasks keep their delivered snapshots. If unfinished dependent work needs current validation of a prerequisite, its blocker links to **Check destination** in that result’s Checks section. Passing checks lets dependent work continue; failures leave it blocked without undoing the earlier delivery. Earlier results and existing preview copies remain unchanged.
+Completed results stay unchanged. If dependent work needs current validation of an earlier result, follow its **Check destination** link. Failed checks block the dependent work without undoing delivery.
 
 Ask the Coordinator to create a new task for a new outcome, or reopen a task for a correction. Reopening retains earlier results, files and approvals; the new outcome needs fresh preparation and any required code approval.

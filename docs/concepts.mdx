@@ -15,7 +15,7 @@ Flowfield is a workspace for you and your coding agents. Shape the plan in one c
 | Reviewer | Assess the whole task result, request corrections and surface decisions needing you. |
 | Service | Schedule eligible work, retain execution evidence and deliver authorized results. |
 
-The Coordinator can keep planning while workers run. Browser, CLI and Flowfield tools act on the same records; opening a task or inspecting code starts no worker and grants no approval.
+The Coordinator can keep planning while workers run. Browser, CLI and agent tools share the same work.
 
 <span id="working-with-an-existing-project" />
 
@@ -23,7 +23,7 @@ The Coordinator can keep planning while workers run. Browser, CLI and Flowfield 
 
 A [workspace](/workspaces) brings related projects together around one Coordinator, shared documents, labels, Task Board and Inbox. Each project identifies an existing repository and its integration settings.
 
-A task describes an outcome and success criteria. Repository changes belong to a project; file and report tasks can belong directly to the workspace. Tasks can depend on other tasks within the same workspace. A task may contain a local dependency graph of subtasks; those contributions share one task review and final delivery. Each task has its own working directory, and dependent tasks receive exact copies of delivered files.
+A task defines an outcome and success criteria. Code tasks belong to a project; file and report tasks can belong to the workspace. Tasks can depend on other tasks or split into local subtasks that share one review and delivery.
 
 [Documents](/documents) preserve shared guidance and references with revision history. Flowfield checks selected guidance before work and review, while each attempt and result retains its exact sources. Labels classify tasks without changing their execution or approval.
 
@@ -44,6 +44,6 @@ Native tool permissions govern agent actions on the service host. A tool permiss
 
 ## Results and approval
 
-A result records the outcome, submitted files and verification evidence. The configured Reviewer assesses the complete direct or assembled task. Code still needs your exact approval: the candidate and destination are bound to that decision. Flowfield validates and delivers approved code while preserving conflicting local changes. Complete files and reports finish after their outputs are retained and configured review passes. See [review and delivery](/review) and [Files](/files).
+A result contains the outcome, files and verification evidence. The Reviewer assesses it before code comes to you for approval. Flowfield delivers approved code to the local repository; complete files and reports finish after review. See [review and delivery](/review) and [Files](/files).
 
-Delivery updates the local repository. Running, pushing and publishing require their own instructions; the Coordinator can carry them out when requested. Tasks across repositories have separate approvals. A completed result remains a stable snapshot when later work changes its prerequisites.
+Running, pushing and publishing need separate instructions. Each repository has its own results and approvals.
