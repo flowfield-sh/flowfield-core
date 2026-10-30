@@ -8,6 +8,7 @@
 </p>
 
 <p align="center">
+  <a href="https://docs.flowfield.sh"><img src="https://img.shields.io/badge/docs-flowfield.sh-9b4c2c" alt="Documentation"></a>
   <a href="https://pypi.org/project/flowfield-core/"><img src="https://img.shields.io/pypi/v/flowfield-core?logo=pypi&amp;logoColor=white&amp;color=2563eb" alt="PyPI version"></a>
   <a href="https://github.com/flowfield-sh/flowfield-core/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/flowfield-sh/flowfield-core/tests.yml?branch=main&amp;label=tests" alt="Tests"></a>
 </p>
@@ -43,6 +44,8 @@ Open [localhost:8765](http://127.0.0.1:8765), create a workspace and choose its 
 
 **📥 Handle decisions in one Inbox**<br>Answer questions, grant permissions and review code through Needs me. Eligible work continues after you respond. Find completed results in Delivered and earlier responses in History.
 
+**📊 See what your agents spend**<br>Track tokens, cost and running time across your workspace and individual tasks. Compare agent types, harnesses or models, then open a task to follow its work and corrections.
+
 **🔎 Review the result and decide what ships**<br>The Reviewer checks the result against the task and can request corrections. Inspect or run the code, then approve it for your local branch. Reports and files finish after configured review and remain available in Files. Ask the Coordinator to run, push or publish a result when you’re ready.
 
 ## Screenshots
@@ -60,7 +63,13 @@ Open [localhost:8765](http://127.0.0.1:8765), create a workspace and choose its 
   </tr>
 </table>
 
-Explore reported tokens and recorded execution time in task and workspace [Metrics](https://docs.flowfield.sh/metrics), with coverage and exact execution evidence.
+## Metrics
+
+See Tokens, Cost and Duration together for any period. Stacked token and cost bars show each group’s contribution; duration lines show elapsed running time without adding overlapping work. Sort tasks by any metric, narrow the range directly from a chart, or ask the Coordinator to compare the same figures through MCP.
+
+![Workspace Metrics with token and cost charts](docs/images/readme/metrics-cost.png)
+
+Cost uses versioned API prices for each reported model. Its tooltip gives the pricing date, and earlier costs retain their original rates. Open the [Metrics guide](https://docs.flowfield.sh/metrics) for filters, task callouts and accounting details.
 
 ## Contributing
 
