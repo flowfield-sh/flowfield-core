@@ -49,7 +49,7 @@
         "pages": [
           "installation",
           "cli",
-          "mcp",
+          "mcp-integration",
           "storage"
         ]
       }
