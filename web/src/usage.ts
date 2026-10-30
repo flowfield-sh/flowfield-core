@@ -7,6 +7,12 @@ export type UsageExecution = components["schemas"]["UsageExecution"];
 export type Tokens = components["schemas"]["Tokens"];
 export const usageNumber = (value: number | null | undefined) =>
   value == null ? "—" : value.toLocaleString();
+export function costAmount(cost: components["schemas"]["Cost"] | undefined) {
+  if (!cost) return null;
+  return (
+    cost.nanodollars ?? (cost.priced_tokens > 0 ? cost.known_nanodollars : null)
+  );
+}
 export const usageCost = (
   nanodollars: number | null | undefined,
   detailed = false,

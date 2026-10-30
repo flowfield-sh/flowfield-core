@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ActionTooltip } from "./ActionTooltip";
 import { ContentStack } from "./DetailLayout";
 import { MarkdownField } from "./Markdown";
 import { DetailHeader } from "./Presentation";
@@ -49,12 +50,7 @@ export function TaskEditor({
     <section ref={element} className="editor" aria-label="Edit task">
       <DetailHeader title="Edit task" close={close} />
       <ContentStack space="section">
-        <EditorFeedback state={state} />
-        {task.edit_blocker && (
-          <p role="status" className="notice">
-            {task.edit_blocker}
-          </p>
-        )}
+        {!task.edit_blocker && <EditorFeedback state={state} />}
         {loaded && (
           <form
             className="content-stack"
@@ -70,7 +66,7 @@ export function TaskEditor({
             }}
           >
             <fieldset
-              disabled={busy || !!task.edit_blocker}
+              disabled={busy}
               className="content-stack"
               data-space="section"
             >
@@ -129,14 +125,19 @@ export function TaskEditor({
               </fieldset>
             </fieldset>
             <div className="actions">
-              <Button
-                size="sm"
-                disabled={
-                  busy || !!task.edit_blocker || !values.title.trim() || !dirty
-                }
-              >
-                Save task
-              </Button>
+              <ActionTooltip label={task.edit_blocker} disabled>
+                <Button
+                  size="sm"
+                  disabled={
+                    busy ||
+                    !!task.edit_blocker ||
+                    !values.title.trim() ||
+                    !dirty
+                  }
+                >
+                  Save task
+                </Button>
+              </ActionTooltip>
               <Button
                 type="button"
                 size="sm"

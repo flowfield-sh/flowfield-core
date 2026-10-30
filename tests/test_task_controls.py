@@ -143,7 +143,7 @@ def test_coordinator_can_stop_and_delete_but_worker_cannot(tmp_path):
         {"labels": ["bug"]},
     ],
 )
-def test_active_ownership_blocks_every_definition_field_then_stop_unlocks(
+def test_active_ownership_blocks_every_definition_field_then_idle_coordinator_can_edit(
     tmp_path, status, changes
 ):
     execution = execution_fixture(tmp_path)
@@ -170,7 +170,14 @@ def test_active_ownership_blocks_every_definition_field_then_stop_unlocks(
     assert store.task("harbor", before.id) == before
     execution.finish("harbor", run.id, "stopped")
     current = store.task("harbor", before.id)
-    assert BrowserReads(store).task("harbor", before.id).edit_blocker is None
+    assert (
+        BrowserReads(store).task("harbor", before.id).edit_blocker
+        == "Move this task to Backlog before editing."
+    )
+    with pytest.raises(ApplicationError, match="Move this task to Backlog"):
+        store.edit_task(
+            "harbor", before.id, TaskEdit(expected_revision=current.revision, **changes), human=True
+        )
     changed = store.edit_task(
         "harbor", before.id, TaskEdit(expected_revision=current.revision, **changes)
     )

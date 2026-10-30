@@ -4,7 +4,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { usageCost, usageNumber, useUsageClock, type UsageView } from "./usage";
+import {
+  costAmount,
+  usageCost,
+  usageNumber,
+  useUsageClock,
+  type UsageView,
+} from "./usage";
 import { Card } from "@/components/ui/card";
 import { ResourceRetry } from "./ResourceRetry";
 
@@ -63,7 +69,7 @@ export function UsageMetrics({
                 {metric === "tokens"
                   ? usageNumber(row.tokens.total)
                   : metric === "cost"
-                    ? usageCost(row.cost.nanodollars)
+                    ? usageCost(costAmount(row.cost))
                     : duration(row.elapsed_seconds, row.live)}
               </dd>
             </div>
@@ -93,7 +99,7 @@ export function UsageMetrics({
           <dd>
             <MetricValue
               label="Cost breakdown"
-              value={usageCost(view.totals.cost.nanodollars)}
+              value={usageCost(costAmount(view.totals.cost))}
             >
               {breakdown("cost")}
               {view.totals.cost.rate_dates.length > 0 && (
@@ -102,8 +108,14 @@ export function UsageMetrics({
                   {view.totals.cost.rate_dates.join(", ")}.
                 </p>
               )}
+              {view.totals.cost.estimates.includes(
+                "cache-writes-at-input-rate",
+              ) && <p>Unreported cache detail uses the input rate.</p>}
               {view.totals.cost.coverage !== "complete" && (
-                <p>Some usage or pricing data is unavailable.</p>
+                <p>
+                  Includes priced usage only; some usage or pricing data is
+                  unavailable.
+                </p>
               )}
             </MetricValue>
           </dd>

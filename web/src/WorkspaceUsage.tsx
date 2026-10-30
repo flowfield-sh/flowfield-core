@@ -122,7 +122,12 @@ export function WorkspaceUsage({
     <section className="workspace-usage" aria-label="Workspace metrics">
       <ContentStack space="settings">
         <ContentStack space="settings">
-          <div className="usage-controls">
+          <DateRange
+            key={`${start}/${end}`}
+            start={start}
+            end={end}
+            apply={(range) => change({ ...range, period: "custom" })}
+          >
             <div className="metrics-filter">
               <label
                 className="detail-metadata"
@@ -133,7 +138,6 @@ export function WorkspaceUsage({
               <NativeSelect
                 id={`${controlId}-period`}
                 aria-label="Metrics period"
-                size="sm"
                 value={params.get("period")!}
                 onChange={handlePeriodChange}
               >
@@ -144,6 +148,8 @@ export function WorkspaceUsage({
                 ))}
               </NativeSelect>
             </div>
+          </DateRange>
+          <div className="usage-controls">
             <div className="metrics-filter metrics-activity">
               <label
                 className="detail-metadata"
@@ -212,12 +218,6 @@ export function WorkspaceUsage({
               </Tooltip>
             </div>
           </div>
-          <DateRange
-            key={`${start}/${end}`}
-            start={start}
-            end={end}
-            apply={(range) => change({ ...range, period: "custom" })}
-          />
         </ContentStack>
         {!!hiddenFilters.length && (
           <div className="actions">
@@ -300,10 +300,12 @@ export function WorkspaceUsage({
   );
 }
 function DateRange({
+  children,
   start,
   end,
   apply,
 }: {
+  children: React.ReactNode;
   start: string;
   end: string;
   apply: (range: { start: string; end: string }) => void;
@@ -314,7 +316,7 @@ function DateRange({
   const dirty = from !== localDateTime(start) || to !== localDateTime(end);
   return (
     <form
-      className="usage-date-range detail-panel"
+      className="usage-date-range"
       aria-label="Metrics datetime range"
       onSubmit={(event) => {
         event.preventDefault();
@@ -331,6 +333,7 @@ function DateRange({
         }
       }}
     >
+      {children}
       <label>
         <span className="detail-metadata">From</span>
         <Input

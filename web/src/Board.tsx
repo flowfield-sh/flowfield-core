@@ -27,7 +27,7 @@ export function Board({ className = "", ...props }: ComponentProps<"div">) {
         event.altKey ||
         element.scrollWidth <= element.clientWidth ||
         !(event.target instanceof HTMLElement) ||
-        !event.target.matches(".board, .column, .column-cards")
+        event.target !== element
       )
         return;
       // Leave native scrollbar dragging alone.

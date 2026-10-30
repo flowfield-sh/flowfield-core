@@ -304,7 +304,11 @@ class BrowserReads:
                 subtasks=Subtasks.read_all(db, workspace_id, current.id),
                 archive_blocker=archive_issue.message if archive_issue else None,
                 can_stop=any(owners),
-                edit_blocker=task_edit_blocker(db, workspace_id, current.id),
+                edit_blocker=(
+                    "Move this task to Backlog before editing."
+                    if current.status != "backlog"
+                    else task_edit_blocker(db, workspace_id, current.id)
+                ),
                 delete_blocker=TaskDeletionService(self.workspace).blocker(db, current),
                 latest_result_id=latest_result[0] if latest_result else None,
                 body=current.body,
@@ -349,7 +353,7 @@ def browser_router(workspace: Callable[[], Workspace]) -> APIRouter:
     def edit_task(
         workspace_id: str, task_id: str, request: TaskEdit, service: Service
     ) -> TaskDetail:
-        record = service.edit_task(workspace_id, task_id, request)
+        record = service.edit_task(workspace_id, task_id, request, human=True)
         return BrowserReads(service).task(workspace_id, record.id)
 
     @router.post("/tasks/{task_id}/prioritize")

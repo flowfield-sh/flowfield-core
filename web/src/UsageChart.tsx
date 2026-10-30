@@ -10,7 +10,13 @@ import {
   YAxis,
   useActiveTooltipLabel,
 } from "recharts";
-import { usageCost, usageDuration, usageNumber, type UsageView } from "./usage";
+import {
+  costAmount,
+  usageCost,
+  usageDuration,
+  usageNumber,
+  type UsageView,
+} from "./usage";
 import { bucketLabel } from "./usagePeriod";
 
 export type UsageMetric = "tokens" | "duration" | "cost";
@@ -66,7 +72,7 @@ export default function UsageChart({
         metric === "tokens"
           ? series.points[index]?.tokens.total
           : metric === "cost"
-            ? series.points[index]?.cost.nanodollars
+            ? costAmount(series.points[index]?.cost)
             : series.points[index]?.elapsed_seconds,
       ]),
     ),

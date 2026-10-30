@@ -70,6 +70,23 @@ test("board columns scroll independently with fixed headings and reachable cards
     "1 of 2 workers active",
   );
   await expect(backlog.locator(".task-card-link")).toHaveCount(14);
+  await expect(board).toHaveCSS("cursor", "grab");
+  await expect(backlog).toHaveCSS("cursor", "auto");
+  const firstColumn = page.locator(".board .column").first();
+  await expect(firstColumn).toHaveCSS("cursor", "auto");
+  const columnBox = (await firstColumn.boundingBox())!;
+  const x = columnBox.x + columnBox.width + 6;
+  const y = columnBox.y + 50;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - 100, y, { steps: 5 });
+  await page.mouse.up();
+  await expect
+    .poll(() => board.evaluate((node) => node.scrollLeft))
+    .toBeGreaterThan(50);
+  await board.evaluate((node) => {
+    node.scrollLeft = 0;
+  });
   // Force scrollbars that consume layout space, even on an overlay-scrollbar host.
   await page.addStyleTag({
     content: `* { scrollbar-width: auto; }

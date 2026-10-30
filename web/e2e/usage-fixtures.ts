@@ -21,6 +21,7 @@ const cost = {
   unpriced_tokens: 0,
   rate_dates: ["2026-10-29"],
   reasons: [],
+  estimates: [],
 };
 const start = "2026-10-27T10:00:00+00:00";
 export function usageFixture(workspace: string, task: string): UsageView {

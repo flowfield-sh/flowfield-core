@@ -12,6 +12,44 @@ from flowfield.browser import BrowserReads
 from flowfield.errors import ApplicationError
 
 
+def test_browser_task_edits_require_backlog_even_with_coordinator_author(tmp_path):
+    from execution_fixtures import fixture
+
+    from flowfield.application import TaskPriority
+
+    store = fixture(tmp_path).workspace
+    reads = BrowserReads(store)
+    task = reads.task("harbor", "task-0")
+    assert task.edit_blocker == "Move this task to Backlog before editing."
+    with TestClient(create_app(data_dir=store.directory), base_url="http://127.0.0.1") as client:
+        path = f"/api/workspaces/harbor/view/tasks/{task.id}"
+        response = client.put(
+            path,
+            json={
+                "expected_revision": task.revision,
+                "title": "Cannot bypass the browser boundary",
+                "author": "coordinator",
+            },
+        )
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == "task_not_backlog"
+        updated = store.edit_task(
+            "harbor",
+            task.id,
+            TaskEdit(expected_revision=task.revision, title="Coordinator can edit idle work"),
+        )
+        backlog = store.prioritize_task(
+            "harbor", task.id, TaskPriority(expected_revision=updated.revision, status="backlog")
+        )
+        assert reads.task("harbor", task.id).edit_blocker is None
+        assert (
+            client.put(
+                path, json={"expected_revision": backlog.revision, "title": "Human Backlog edit"}
+            ).status_code
+            == 200
+        )
+
+
 def test_recent_activity_tracks_notes_and_answers_without_editing_task(tmp_path):
     from execution_fixtures import fixture
 
@@ -188,8 +226,9 @@ def test_state_entry_and_rearchive_metadata_match_full_records(tmp_path: Path) -
                 "title": "Browser edit",
             },
         )
-        assert edited.status_code == 200
-        assert edited.json()["revision"] == task.revision + 1
+        assert edited.status_code == 409
+        assert edited.json()["error"]["code"] == "task_not_backlog"
+        assert workspace.task(project.id, task.id).revision == task.revision
         assert "revisions" not in edited.json()
         assert (
             client.get(f"/api/workspaces/{project.id}/view/tasks/{task.key}/revisions/1").json()[
@@ -241,7 +280,7 @@ def test_archive_availability_shares_write_policy_and_rechecks_races(tmp_path: P
             json={"expected_revision": active.revision, "title": "Still active"},
         )
         assert edited.status_code == 409
-        assert "Flowfield is working on this task" in edited.text
+        assert "Move this task to Backlog before editing" in edited.text
         assert workspace.task(project.id, active.id).title == "Active task"
 
 

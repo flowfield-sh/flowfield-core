@@ -162,6 +162,7 @@ export function TaskDetail({
         <DetailHeading
           title={task.title}
           metadata={
+            !settings &&
             task.project_id && (
               <>
                 Project:{" "}
@@ -180,7 +181,7 @@ export function TaskDetail({
             )
           }
         />
-        {task.labels.length > 0 && (
+        {!settings && task.labels.length > 0 && (
           <div className="task-header-badges" aria-label="Task labels">
             <TaskLabels ids={task.labels} />
           </div>

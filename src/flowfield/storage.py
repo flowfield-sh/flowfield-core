@@ -186,6 +186,9 @@ def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
         # New results may bind a reconciled task revision. Keep every old row unchanged,
         # but prevent an older service from ignoring that agreement during delivery.
         retire_task_drafts(db)
+        from flowfield.cost import repair_codex_costs
+
+        repair_codex_costs(db)
         db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
         integrity(db)
         db.commit()

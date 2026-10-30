@@ -2,6 +2,7 @@
 
 import json
 import re
+import sqlite3
 from datetime import date
 from decimal import Decimal
 from functools import lru_cache
@@ -61,6 +62,7 @@ def combine(values: list[Cost]) -> Cost:
     unpriced = sum(v.unpriced_tokens for v in values)
     dates = sorted({d for v in values for d in v.rate_dates})
     reasons = sorted({r for v in values for r in v.reasons})
+    estimates = sorted({r for v in values for r in v.estimates})
     if any(n is not None and n > MAX for n in (amount, priced, unpriced)):
         return Cost(reasons=["cost-overflow"], rate_dates=dates)
     complete = all(v.coverage == "complete" for v in values)
@@ -72,6 +74,7 @@ def combine(values: list[Cost]) -> Cost:
         unpriced_tokens=unpriced,
         rate_dates=dates,
         reasons=reasons,
+        estimates=estimates,
     )
 
 
@@ -194,4 +197,50 @@ def value(event: Consumption, delta: Tokens) -> Valuation:
                 {json.dumps(r, sort_keys=True): r for v in valuations for r in v.rates}.values()
             ),
         )
-    return price(delta, evidence)
+    valuation = price(delta, evidence)
+    if (
+        valuation.cost.nanodollars is None
+        and event.contract == "codex-thread-total/0.164.0"
+        and evidence
+        and evidence.provider == "openai"
+        and delta.cache_write is None
+        and delta.input is not None
+        and delta.output is not None
+        and (delta.cache_read is not None or event.counters.cache_read == 0)
+    ):
+        # Codex can omit cache-write accounting. Estimate the API equivalent from
+        # its reported counters without changing unknown token evidence to zero.
+        # Unreported writes receive the ordinary input rate, not a fabricated
+        # write count or retention tier. Preserve that basis beside frozen rates.
+        valuation = price(
+            delta.model_copy(update={"cache_write": 0, "cache_read": delta.cache_read or 0}),
+            evidence.model_copy(update={"cache_write_short": 0, "cache_write_long": 0}),
+        )
+        if valuation.cost.nanodollars is not None:
+            valuation.cost.estimates = ["cache-writes-at-input-rate"]
+            if delta.cache_read is None:
+                valuation.cost.estimates.append("cache-reads-at-input-rate")
+    return valuation
+
+
+def repair_codex_costs(db: sqlite3.Connection) -> None:
+    """Upgrade previously unavailable valuations; retain original numeric receipts."""
+    after = 0
+    while rows := db.execute(
+        "SELECT number,data,delta FROM usage_observations "
+        "WHERE number>? AND disposition='accepted' AND cost IS NOT NULL "
+        "AND json_extract(cost,'$.cost.nanodollars') IS NULL "
+        "AND json_extract(data,'$.contract')='codex-thread-total/0.164.0' "
+        "ORDER BY number LIMIT 200",
+        (after,),
+    ).fetchall():
+        for row in rows:
+            event = Consumption.model_validate_json(row[1])
+            delta = Tokens.model_validate_json(row[2])
+            valuation = value(event, delta)
+            if valuation.cost.nanodollars is not None:
+                db.execute(
+                    "UPDATE usage_observations SET cost=? WHERE number=?",
+                    (valuation.model_dump_json(), row[0]),
+                )
+        after = rows[-1][0]

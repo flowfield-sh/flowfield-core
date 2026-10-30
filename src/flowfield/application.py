@@ -1110,12 +1110,19 @@ class Workspace:
             self._apply_task(db, task)
             return self._task(db, workspace_id, task.id)
 
-    def edit_task(self, workspace_id: str, task_id: str, request: TaskEdit) -> Task:
+    def edit_task(
+        self, workspace_id: str, task_id: str, request: TaskEdit, *, human: bool = False
+    ) -> Task:
         with self.connection(write=True, workspace_id=workspace_id) as db:
             current = self._task(db, workspace_id, task_id)
             task_id = current.id
             from flowfield.task_execution import task_edit_blocker
 
+            if human and request.model_fields_set - {"expected_revision", "author", "archived"}:
+                if current.status != "backlog":
+                    raise ApplicationError(
+                        "task_not_backlog", "Move this task to Backlog before editing.", 409
+                    )
             blocker = task_edit_blocker(db, workspace_id, task_id)
             if blocker:
                 raise ApplicationError("task_busy", blocker, 409)

@@ -38,6 +38,13 @@ test("task metrics shows one clock and tooltip role breakdowns without accountin
 }, info) => {
   const f = await setup(request),
     view = usageFixture(f.workspace, f.task.id);
+  view.totals.cost = {
+    ...view.totals.cost,
+    nanodollars: null,
+    coverage: "partial",
+    estimates: ["cache-writes-at-input-rate"],
+    reasons: ["no-consumption-reported"],
+  };
   await page.route("**/tasks/*/usage", (route) =>
     route.fulfill({ json: view }),
   );
@@ -62,6 +69,12 @@ test("task metrics shows one clock and tooltip role breakdowns without accountin
     "Based on API costs as of 2026-10-29.",
   );
   await expect(usage.locator("dd").nth(1)).toHaveText("$1.25");
+  await expect(page.getByRole("tooltip")).toContainText(
+    "Unreported cache detail uses the input rate.",
+  );
+  await expect(page.getByRole("tooltip")).toContainText(
+    "Includes priced usage only",
+  );
   await page.keyboard.press("Escape");
   await usage.getByRole("button", { name: "Corrections explained" }).focus();
   await expect(page.getByRole("tooltip")).toContainText(
@@ -122,6 +135,8 @@ test("failed reads retry and unknown usage never becomes measured zero", async (
   view.totals.tokens = unknownTokens;
   view.totals.elapsed_seconds = null;
   view.totals.cost.nanodollars = null;
+  view.totals.cost.known_nanodollars = null;
+  view.totals.cost.priced_tokens = 0;
   await page.route("**/tasks/*/usage", (route) =>
     fail
       ? route.fulfill({ status: 503, json: { detail: "Temporary failure" } })

@@ -43,7 +43,10 @@ test("Metrics shows both charts and sortable task costs with shared local dateti
     cost.locator(".recharts-bar-rectangle path").first(),
   ).toBeVisible();
   await expect(
-    metrics.getByRole("button", { name: "Cost breakdown: -", exact: true }),
+    metrics.getByRole("button", {
+      name: "Cost breakdown: <$0.01",
+      exact: true,
+    }),
   ).toBeVisible();
   const duration = metrics.getByRole("region", { name: "Duration over time" });
   await expect(

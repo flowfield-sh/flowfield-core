@@ -8,10 +8,70 @@ from usage_fixtures import accounting, event, summary
 
 from flowfield import cost, storage
 from flowfield.application import Workspace
-from flowfield.cost_models import Cost, PriceContext, PricingEvidence
+from flowfield.cost_models import Cost, PriceContext, PricingEvidence, Valuation
 from flowfield.usage import Usage
 from flowfield.usage_models import Tokens
 from flowfield.usage_reads import UsageReads
+
+
+def test_codex_estimate_preserves_unknown_counters_and_missing_model():
+    from flowfield.adapters.codex_usage import observation
+
+    measured = Tokens(input=21582, output=152, cache_read=13184, cache_write=0, total=21734)
+    receipt = observation(
+        measured,
+        session="session",
+        thread="session",
+        turn="turn",
+        version="0.164.0",
+        resumed=False,
+        inherited=None,
+        pricing=PricingEvidence(model="gpt-6-astra", provider="openai"),
+    )
+    from flowfield.usage import normalize
+
+    delta, _ = normalize(receipt)
+    assert delta.cache_write is None
+    result = cost.value(receipt, delta)
+    assert result.cost.nanodollars == (8398 * 10 + 13184 + 152 * 50) * 1000
+    assert result.cost.estimates == ["cache-writes-at-input-rate"]
+    assert delta.cache_write is None
+    assert cost.value(receipt.model_copy(update={"pricing": None}), delta).cost.nanodollars is None
+    assert cost.value(receipt, delta.model_copy(update={"input": None})).cost.nanodollars is None
+
+
+def test_published_upgrade_repairs_only_unpriced_codex_receipts(tmp_path):
+    execution, usage, (run,) = accounting(tmp_path)
+    receipt = event(
+        run,
+        contract="codex-thread-total/0.164.0",
+        semantics="inclusive-cache",
+        counters=Tokens(input=100, output=20, cache_read=50, total=120),
+        pricing=PricingEvidence(model="gpt-6-astra", provider="openai"),
+    )
+    usage.observe("harbor", "run", run.id, receipt)
+    with closing(storage.connect(execution.workspace.database)) as db:
+        db.execute(
+            "UPDATE usage_observations SET cost=?",
+            (cost.unavailable(120, "token-components-unreported").model_dump_json(),),
+        )
+        db.execute("PRAGMA user_version=92")
+        original = list(db.execute("SELECT data,delta,fingerprint FROM usage_observations"))
+    upgraded = Workspace(execution.workspace.directory)
+    with upgraded.connection() as db:
+        assert (
+            list(map(tuple, db.execute("SELECT data,delta,fingerprint FROM usage_observations")))
+            == original
+        )
+        saved = db.execute("SELECT cost FROM usage_observations").fetchone()[0]
+        assert Valuation.model_validate_json(saved).cost.nanodollars == 1550000
+    # Opening again neither recalculates the estimate nor creates another backup.
+    backups = list((upgraded.directory / "backups").iterdir())
+    Workspace(upgraded.directory)
+    assert list((upgraded.directory / "backups").iterdir()) == backups
+    with upgraded.connection() as db:
+        cost.repair_codex_costs(db)
+        assert db.execute("SELECT cost FROM usage_observations").fetchone()[0] == saved
 
 
 def context(**changes):

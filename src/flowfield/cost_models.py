@@ -41,6 +41,7 @@ class Cost(PriceRecord):
     unpriced_tokens: Count = 0
     rate_dates: list[str] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)
+    estimates: list[str] = Field(default_factory=list)
 
 
 class Valuation(PriceRecord):

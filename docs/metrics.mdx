@@ -28,7 +28,7 @@ Corrections counts work started to address feedback, excluding retries and answe
 ## Understand the numbers
 
 - **Tokens** are reported by the harness, including cached input without double-counting.
-- **Cost** estimates what the reported token usage would cost at USD API rates, calculated separately for each model using its input, output and cache pricing. This includes helper models. Tooltips show the pricing date; earlier costs keep their original rates. Values below one cent show `<$0.01`.
+- **Cost** estimates reported input, output and cache usage at each model’s USD API rates, including helper models. Missing Codex cache detail uses the input rate. Tooltips show pricing dates; saved costs keep their rates. Values below one cent show `<$0.01`.
 - **Duration** counts overlapping running time once and excludes idle gaps.
 
-Unavailable measurements show `-`, including historical usage without pricing data.
+Cost totals include the usage that can be priced; their tooltip identifies incomplete coverage. Unavailable measurements show `-`.

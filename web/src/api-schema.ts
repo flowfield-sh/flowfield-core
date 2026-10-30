@@ -3517,6 +3517,8 @@ export interface components {
       rate_dates: string[];
       /** Reasons */
       reasons: string[];
+      /** Estimates */
+      estimates: string[];
     };
     /** DeliveredPage */
     DeliveredPage: {

@@ -115,14 +115,16 @@
     padding: 0 2px 2px;
     min-height: 0;
   }
-  .board[data-overflow="true"],
-  .board[data-overflow="true"] :is(.column, .column-cards) {
+  .board[data-overflow="true"] {
     cursor: grab;
   }
   .board[data-panning="true"],
   .board[data-panning="true"] * {
     cursor: grabbing;
     user-select: none;
+  }
+  .board .column {
+    cursor: auto;
   }
   .board .task-card {
     cursor: auto;

@@ -21,7 +21,7 @@ from flowfield.execution_models import QueueEdit
 store = Workspace(Path(sys.argv[1]))
 space = Workspaces(store).create(WorkspaceCreate(name="Release planning", **{role: {"model": "scripted-fixture"} for role in ("coordinator", "worker", "reviewer")}))
 label = Labels(store).create(space.id, LabelCreate(name="Polish", guidance="Improve clarity and consistency", color="slate"))
-task = store.create_task(space.id, TaskCreate(title="Polish the task experience", body="Make task controls clear and consistent.", acceptance_criteria="Every change is visible in the task feed.", status="up_next", completion="report"))
+task = store.create_task(space.id, TaskCreate(title="Polish the task experience", body="Make task controls clear and consistent.", acceptance_criteria="Every change is visible in the task feed.", status="up_next" if sys.argv[2] == "active" else "backlog", completion="report"))
 if sys.argv[2] == "active":
     execution = Execution(store)
     settings = execution.settings(space.id)
@@ -215,7 +215,7 @@ test("task header stop confirms and returns active work to Backlog", async ({
   await dialogViews(page, info, "task-stopped");
 });
 
-test("an open editor locks when execution starts and preserves unsaved text after stop", async ({
+test("an open editor disables saving when queued and preserves unsaved text after stop", async ({
   page,
   request,
 }, info) => {
@@ -227,6 +227,24 @@ test("an open editor locks when execution starts and preserves unsaved text afte
   const editor = page.getByRole("region", { name: "Edit task", exact: true });
   const title = editor.getByLabel("Task title", { exact: true });
   await title.fill("Retain this unsaved title");
+  const before = await (
+    await request.get(`/api${base}/tasks/${value.id}`)
+  ).json();
+  const queued = await request.post(
+    `/api${base}/view/tasks/${value.id}/prioritize`,
+    {
+      data: { expected_revision: before.revision, status: "up_next" },
+    },
+  );
+  expect(queued.ok()).toBe(true);
+  const save = editor.getByRole("button", { name: "Save task", exact: true });
+  await expect(save).toBeDisabled();
+  await save.locator("..").hover();
+  await expect(page.getByRole("tooltip")).toHaveText(
+    "Move this task to Backlog before editing.",
+  );
+  await expect(title).toBeEnabled();
+  await title.press("End");
   execFileSync(resolve("../.venv/bin/python"), [
     "-c",
     `
@@ -251,16 +269,12 @@ assert execution.claim(sys.argv[2], "", {}, task_id=sys.argv[3])
     data: { expected_revision: workers.revision, enabled: false },
   });
   expect(paused.ok()).toBe(true);
-  await expect(title).toBeDisabled();
+  await expect(title).toBeEnabled();
   await expect(title).toHaveValue("Retain this unsaved title");
   await expect(
     editor.getByRole("button", { name: "Save task", exact: true }),
   ).toBeDisabled();
-  await expect(
-    editor
-      .getByRole("status")
-      .filter({ hasText: "Flowfield is working on this task" }),
-  ).toBeVisible();
+
   await dialogViews(page, info, "task-editor-active");
   const current = await (
     await request.get(`/api${base}/tasks/${value.id}`)
@@ -276,7 +290,9 @@ assert execution.claim(sys.argv[2], "", {}, task_id=sys.argv[3])
       },
     });
     expect(rejected.status()).toBe(409);
-    expect((await rejected.json()).error.code).toBe("task_busy");
+    expect((await rejected.json()).error.code).toBe(
+      route.includes("/view/") ? "task_not_backlog" : "task_busy",
+    );
   }
   await page.getByRole("button", { name: "Back", exact: true }).click();
   await page.getByRole("button", { name: "Stop task", exact: true }).click();

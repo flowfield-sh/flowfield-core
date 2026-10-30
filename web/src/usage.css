@@ -29,7 +29,7 @@
   .metrics-activity [data-slot="native-select-wrapper"] {
     width: 100%;
   }
-  .usage-date-range label {
+  .usage-date-range > label {
     display: grid;
     gap: 4px;
     font-size: 14px;
@@ -54,15 +54,19 @@
     font-weight: 500;
     line-height: 1.5;
     margin: 0;
+    white-space: nowrap;
   }
   .metrics-cards {
     display: grid;
-    grid-template-columns: repeat(3, minmax(120px, 1fr));
+    grid-template-columns: repeat(3, minmax(max-content, 1fr));
     gap: 8px;
     overflow-x: auto;
   }
   .metrics-cards-task {
-    grid-template-columns: repeat(4, minmax(120px, 1fr));
+    grid-template-columns: repeat(4, minmax(max-content, 1fr));
+  }
+  .metrics-cards > [data-slot="card"] {
+    min-width: 120px;
   }
   .metrics-table {
     container-type: inline-size;

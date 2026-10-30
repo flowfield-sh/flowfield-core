@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.10.1
+
+### Bug fixes
+
+- Restore Codex cost estimates when cache-write details are unavailable, including affected saved usage. Workspace charts and totals now show the priced portion when older activity has no accounting.
+- Preserve the cursor when editing tasks, documents and responses. Report an occupied service port with a clear error instead of a traceback.
+
+### Improvements
+
+- Remove task Draft status and the separate preparation step. Capture work in Backlog, then move it to Up next. Human edits are limited to Backlog; an open editor retains its text and disables Save if the task is queued.
+- Simplify Metrics filters and task settings, and limit board panning to the background outside columns.
+
+### Breaking changes
+
+- Remove the task publish API and `task prepare` CLI command. Task assignments are captured automatically. Existing unscheduled Draft tasks in Up next move to Backlog during upgrade.
+
+### Upgrade
+
+Stop Flowfield, run `uv tool upgrade flowfield-core`, then start it with `flowfield serve`. Workspaces and history are retained. See [updating Flowfield](https://docs.flowfield.sh/installation#update) for other installation methods.
+
 ## 0.10.0
 
 ### Features
