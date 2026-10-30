@@ -50,7 +50,11 @@ export function TaskEditor({
     <section ref={element} className="editor" aria-label="Edit task">
       <DetailHeader title="Edit task" close={close} />
       <ContentStack space="section">
-        {!task.edit_blocker && <EditorFeedback state={state} />}
+        {task.edit_blocker ? (
+          state.confirmation
+        ) : (
+          <EditorFeedback state={state} />
+        )}
         {loaded && (
           <form
             className="content-stack"

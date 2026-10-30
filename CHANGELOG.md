@@ -6,6 +6,7 @@
 
 - Restore Codex cost estimates when cache-write details are unavailable, including affected saved usage. Workspace charts and totals now show the priced portion when older activity has no accounting.
 - Preserve the cursor when editing tasks, documents and responses. Report an occupied service port with a clear error instead of a traceback.
+- Keep Cancel working when an open task editor leaves Backlog.
 
 ### Improvements
 

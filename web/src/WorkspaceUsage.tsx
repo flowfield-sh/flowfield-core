@@ -121,7 +121,7 @@ export function WorkspaceUsage({
   return (
     <section className="workspace-usage" aria-label="Workspace metrics">
       <ContentStack space="settings">
-        <ContentStack space="settings">
+        <ContentStack space="settings" className="detail-panel">
           <DateRange
             key={`${start}/${end}`}
             start={start}

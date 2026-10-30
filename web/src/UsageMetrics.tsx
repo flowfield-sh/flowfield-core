@@ -108,9 +108,6 @@ export function UsageMetrics({
                   {view.totals.cost.rate_dates.join(", ")}.
                 </p>
               )}
-              {view.totals.cost.estimates.includes(
-                "cache-writes-at-input-rate",
-              ) && <p>Unreported cache detail uses the input rate.</p>}
               {view.totals.cost.coverage !== "complete" && (
                 <p>
                   Includes priced usage only; some usage or pricing data is

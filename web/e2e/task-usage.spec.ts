@@ -69,7 +69,7 @@ test("task metrics shows one clock and tooltip role breakdowns without accountin
     "Based on API costs as of 2026-10-29.",
   );
   await expect(usage.locator("dd").nth(1)).toHaveText("$1.25");
-  await expect(page.getByRole("tooltip")).toContainText(
+  await expect(page.getByRole("tooltip")).not.toContainText(
     "Unreported cache detail uses the input rate.",
   );
   await expect(page.getByRole("tooltip")).toContainText(

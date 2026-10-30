@@ -309,3 +309,50 @@ assert execution.claim(sys.argv[2], "", {}, task_id=sys.argv[3])
   await expect(page.getByText("Draft", { exact: true })).toHaveCount(0);
   await dialogViews(page, info, "task-editor-stopped-retained");
 });
+
+test("Cancel confirms unsaved edits after a task leaves Backlog", async ({
+  page,
+  request,
+}) => {
+  const value = seed();
+  const base = `/workspaces/${value.workspace}`;
+  const href = `${base}/tasks/${value.task}`;
+  await page.goto(href);
+  await page.getByRole("button", { name: "Edit task", exact: true }).click();
+  const editor = page.getByRole("region", { name: "Edit task", exact: true });
+  await editor
+    .getByLabel("Task title", { exact: true })
+    .fill("Discard this unsaved title");
+  const before = await (
+    await request.get(`/api${base}/tasks/${value.id}`)
+  ).json();
+  expect(
+    (
+      await request.post(`/api${base}/view/tasks/${value.id}/prioritize`, {
+        data: { expected_revision: before.revision, status: "up_next" },
+      })
+    ).ok(),
+  ).toBe(true);
+  await expect(
+    editor.getByRole("button", { name: "Save task", exact: true }),
+  ).toBeDisabled();
+  await editor.getByRole("button", { name: "Cancel", exact: true }).click();
+  const confirmation = page.getByRole("alertdialog");
+  await expect(confirmation).toContainText("Discard your unsaved edits?");
+  await confirmation
+    .getByRole("button", { name: "Keep editing", exact: true })
+    .click();
+  await expect(editor.getByLabel("Task title", { exact: true })).toHaveValue(
+    "Discard this unsaved title",
+  );
+  await editor.getByRole("button", { name: "Cancel", exact: true }).click();
+  await confirmation
+    .getByRole("button", { name: "Discard changes", exact: true })
+    .click();
+  await expect(page).toHaveURL(href);
+  await expect(editor).toHaveCount(0);
+  const after = await (
+    await request.get(`/api${base}/tasks/${value.id}`)
+  ).json();
+  expect(after.title).toBe(before.title);
+});
