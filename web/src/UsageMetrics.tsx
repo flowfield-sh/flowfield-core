@@ -63,7 +63,7 @@ export function UsageMetrics({
                 {metric === "tokens"
                   ? usageNumber(row.tokens.total)
                   : metric === "cost"
-                    ? usageCost(row.cost.nanodollars, true)
+                    ? usageCost(row.cost.nanodollars)
                     : duration(row.elapsed_seconds, row.live)}
               </dd>
             </div>
@@ -89,17 +89,6 @@ export function UsageMetrics({
           </dd>
         </Card>
         <Card className="gap-1 rounded-lg p-3 shadow-none">
-          <dt>Duration</dt>
-          <dd>
-            <MetricValue
-              label="Duration breakdown"
-              value={duration(view.totals.elapsed_seconds)}
-            >
-              {breakdown("duration")}
-            </MetricValue>
-          </dd>
-        </Card>
-        <Card className="gap-1 rounded-lg p-3 shadow-none">
           <dt>Cost</dt>
           <dd>
             <MetricValue
@@ -119,33 +108,33 @@ export function UsageMetrics({
             </MetricValue>
           </dd>
         </Card>
-        {task &&
-          (
-            [
-              [
-                "Corrections",
-                view.totals.corrections,
-                "Work started to address review or human feedback.",
-              ],
-              [
-                "Retries",
-                view.totals.retries,
-                "Worker attempts started again after failure or stopping.",
-              ],
-            ] as const
-          ).map(([label, value, explanation]) => (
-            <Card key={label} className="gap-1 rounded-lg p-3 shadow-none">
-              <dt>{label}</dt>
-              <dd>
-                <MetricValue
-                  label={label + " explained"}
-                  value={usageNumber(value)}
-                >
-                  <p>{explanation} Answer continuations are excluded.</p>
-                </MetricValue>
-              </dd>
-            </Card>
-          ))}
+        <Card className="gap-1 rounded-lg p-3 shadow-none">
+          <dt>Duration</dt>
+          <dd>
+            <MetricValue
+              label="Duration breakdown"
+              value={duration(view.totals.elapsed_seconds)}
+            >
+              {breakdown("duration")}
+            </MetricValue>
+          </dd>
+        </Card>
+        {task && (
+          <Card className="gap-1 rounded-lg p-3 shadow-none">
+            <dt>Corrections</dt>
+            <dd>
+              <MetricValue
+                label="Corrections explained"
+                value={usageNumber(view.totals.corrections)}
+              >
+                <p>
+                  Work started to address review or human feedback. Answer
+                  continuations are excluded.
+                </p>
+              </MetricValue>
+            </dd>
+          </Card>
+        )}
         {live && <span className="usage-live">Running</span>}
       </dl>
       {view.limit_reached && (

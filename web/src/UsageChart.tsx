@@ -90,7 +90,7 @@ export default function UsageChart({
     metric === "tokens"
       ? usageNumber(value)
       : metric === "cost"
-        ? usageCost(value, true)
+        ? usageCost(value)
         : usageDuration(value ?? null);
   return (
     <div

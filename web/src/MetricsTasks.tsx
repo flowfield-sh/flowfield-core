@@ -56,7 +56,7 @@ export function MetricsTasks({
           <thead>
             <tr>
               <th scope="col">Task</th>
-              {(["tokens", "duration", "cost"] as const).map((key) => (
+              {(["tokens", "cost", "duration"] as const).map((key) => (
                 <th
                   key={key}
                   scope="col"
@@ -101,8 +101,8 @@ export function MetricsTasks({
                   </WorkspaceLink>
                 </td>
                 <td>{usageNumber(row.tokens.total)}</td>
-                <td>{duration(row.elapsed_seconds, row.live)}</td>
                 <td>{usageCost(row.cost.nanodollars)}</td>
+                <td>{duration(row.elapsed_seconds, row.live)}</td>
               </tr>
             ))}
           </tbody>

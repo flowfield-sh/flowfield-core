@@ -57,26 +57,12 @@
   }
   .metrics-cards {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
     gap: 8px;
+    overflow-x: auto;
   }
-  .metrics-cards > [data-slot="card"] {
-    grid-column: span 2;
-  }
-  .metrics-cards-task > [data-slot="card"]:nth-child(n + 4) {
-    grid-column: span 3;
-  }
-  @container (max-width: 420px) {
-    .metrics-cards {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .metrics-cards > [data-slot="card"],
-    .metrics-cards-task > [data-slot="card"]:nth-child(n + 4) {
-      grid-column: span 1;
-    }
-    .metrics-cards > [data-slot="card"]:nth-child(3) {
-      grid-column: 1 / -1;
-    }
+  .metrics-cards-task {
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
   }
   .metrics-table {
     container-type: inline-size;

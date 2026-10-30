@@ -44,9 +44,9 @@ test("task metrics shows one clock and tooltip role breakdowns without accountin
   await page.goto(f.url);
   const usage = page.getByRole("region", { name: "Task metrics", exact: true });
   await expect(usage).toContainText("3,800");
-  await expect(usage.locator("dd").nth(1)).toHaveText("20m 0s");
+  await expect(usage.locator("dd").nth(2)).toHaveText("20m 0s");
   await expect(usage.locator("dd").nth(3)).toHaveText("2");
-  await expect(usage.locator("[data-slot=card]")).toHaveCount(5);
+  await expect(usage.locator("[data-slot=card]")).toHaveCount(4);
   await expect(usage.getByText("Worker", { exact: true })).toHaveCount(0);
   await usage.getByRole("button", { name: "Token usage breakdown" }).hover();
   await expect(page.getByRole("tooltip")).toContainText("Worker3,500");
@@ -61,18 +61,12 @@ test("task metrics shows one clock and tooltip role breakdowns without accountin
   await expect(page.getByRole("tooltip")).toContainText(
     "Based on API costs as of 2026-10-29.",
   );
-  await expect(usage.locator("dd").nth(2)).toHaveText("$1.25");
+  await expect(usage.locator("dd").nth(1)).toHaveText("$1.25");
   await page.keyboard.press("Escape");
   await usage.getByRole("button", { name: "Corrections explained" }).focus();
   await expect(page.getByRole("tooltip")).toContainText(
     "review or human feedback",
   );
-  await page.keyboard.press("Escape");
-  await usage.getByRole("button", { name: "Retries explained" }).focus();
-  await expect(page.getByRole("tooltip")).toContainText("failure or stopping");
-  await expect(
-    usage.locator(".metrics-cards > [data-slot=card]").nth(4),
-  ).toContainText("Retries2");
   await page.keyboard.press("Escape");
   await usage.getByRole("heading").first().click();
   await expect(usage.locator("details, table")).toHaveCount(0);
@@ -102,7 +96,7 @@ test("live tokens refresh, parallel time advances once, and completion stops the
   await page.goto(f.url);
   const usage = page.getByRole("region", { name: "Task metrics", exact: true });
   await expect(usage.getByText("Running", { exact: true })).toBeVisible();
-  await expect(usage.locator("dd").nth(1)).toHaveText(/1m [0-9]s/);
+  await expect(usage.locator("dd").nth(2)).toHaveText(/1m [0-9]s/);
   view.totals.tokens = tokens(5800);
   await expect(usage.locator("dd").first()).toHaveText("5,800", {
     timeout: 10000,
@@ -115,7 +109,7 @@ test("live tokens refresh, parallel time advances once, and completion stops the
   await expect(usage.getByText("Running", { exact: true })).toHaveCount(0, {
     timeout: 10000,
   });
-  await expect(usage.locator("dd").nth(1)).toHaveText("1m 15s");
+  await expect(usage.locator("dd").nth(2)).toHaveText("1m 15s");
 });
 
 test("failed reads retry and unknown usage never becomes measured zero", async ({
@@ -139,15 +133,15 @@ test("failed reads retry and unknown usage never becomes measured zero", async (
   fail = false;
   await usage.getByRole("button", { name: "Retry task metrics" }).click();
   await expect(usage.locator("dd").first()).toHaveText("—");
-  await expect(usage.locator("dd").nth(1)).toHaveText("—");
-  await expect(usage.locator("dd").nth(2)).toHaveText("-");
+  await expect(usage.locator("dd").nth(2)).toHaveText("—");
+  await expect(usage.locator("dd").nth(1)).toHaveText("-");
   view.totals.cost.nanodollars = 0;
   view.totals.tokens = tokens(0);
   view.totals.elapsed_seconds = 0;
   await page.reload();
   await expect(usage.locator("dd").first()).toHaveText("0");
-  await expect(usage.locator("dd").nth(1)).toHaveText("0s");
-  await expect(usage.locator("dd").nth(2)).toHaveText("$0.00");
+  await expect(usage.locator("dd").nth(2)).toHaveText("0s");
+  await expect(usage.locator("dd").nth(1)).toHaveText("$0.00");
   await usage.scrollIntoViewIfNeeded();
   await dialogViews(page, info, "measured-zero");
 });
