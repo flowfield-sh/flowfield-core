@@ -1,8 +1,10 @@
 """Public workspace commands and explicit offline storage maintenance."""
 
+import errno
 import json
 import os
 import re
+import socket
 from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any
@@ -259,12 +261,28 @@ def serve(
     from flowfield.serve import BrowserServer
 
     client: Client = ctx.obj
-    BrowserServer(
-        uvicorn.Config(
-            create_app(data_dir=client.directory), host="127.0.0.1", port=port or client.port
-        ),
-        open_browser=open_browser,
-    ).run()
+    selected_port = port or client.port
+    try:
+        listener = socket.create_server(("127.0.0.1", selected_port))
+    except OSError as error:
+        if error.errno != errno.EADDRINUSE:
+            raise
+        typer.echo(
+            f"Cannot start Flowfield: port {selected_port} is already in use.\n"
+            f"If Flowfield is already running, open http://127.0.0.1:{selected_port}.\n"
+            "Otherwise stop the application using this port or choose another with "
+            "'flowfield serve --port PORT'.",
+            err=True,
+        )
+        raise typer.Exit(1) from None
+    # Reserve the port before workspace initialization, and retain ownership through shutdown.
+    with listener:
+        BrowserServer(
+            uvicorn.Config(
+                create_app(data_dir=client.directory), host="127.0.0.1", port=selected_port
+            ),
+            open_browser=open_browser,
+        ).run(sockets=[listener])
 
 
 @project_app.command("init")

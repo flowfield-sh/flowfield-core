@@ -1,4 +1,5 @@
 @tests/native-platform.txt
+tests/test_serve.py
 tests/test_checkout_delivery.py
 tests/test_git_review.py
 tests/test_local_environment.py
