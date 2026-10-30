@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.10.0
+
+### Features
+
+- **Metrics:** explore tokens, API-priced cost and running time across your workspace and individual tasks. Filter by period or task, compare agent types, harnesses or models, and drill into charts or sort the task list. Task totals include correction counts; cost tooltips show the pricing date. The same metrics are available through MCP.
+- Edit task titles, descriptions, acceptance criteria and labels. Stop active Worker or Reviewer execution from the task header with confirmation, returning the task to Backlog while preserving its history.
+- Reviewers can request focused verification of a prepared result, including running its launcher and collecting screenshots, without requiring an implementation change.
+
+### Improvements
+
+- Download setup and validation logs, reuse successful checks when code and configuration are unchanged, and keep implementation separate from verification that needs a prepared candidate.
+- Refresh tracked upstream branches before work and delivery, preserving local changes and reporting conflicts or access problems.
+- Open result files in Files, identify subtasks in contribution activity, and use clearer task event names. The Coordinator can now delete tasks through MCP.
+- Consolidate result feedback into change requests and approval comments, while retaining earlier evidence and testing notes.
+
+### Bug fixes
+
+- Keep token accounting working across compatible Codex, Claude Code and Pi updates, including resumed sessions. Fix Claude permission routing, scoped MCP identity and staged-input access.
+- Fix verification-worker permissions and recovery after stale results or superseded reviews.
+- Fix Metrics preset links, saved date filters, local-time selection and scrolling.
+
+### Breaking changes
+
+- MCP/HTTP task replies no longer accept `action: "observation"`, and `get_task_input` no longer returns `observation_enabled`. Submit testing feedback with a change request or approval comment instead; existing notes remain readable.
+
+### Upgrade
+
+Stop Flowfield, run `uv tool upgrade flowfield-core`, then start it with `flowfield serve`. Workspaces and history are retained. See [updating Flowfield](https://docs.flowfield.sh/installation#update) for other installation methods.
+
 ## 0.9.1
 
 ### Bug fixes
