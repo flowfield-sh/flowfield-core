@@ -14,6 +14,7 @@ from workspace_fixtures import TEST_AGENTS
 
 from flowfield.agent_models import AgentChoice
 from flowfield.application import TaskCreate, Workspace
+from flowfield.cost_models import PricingEvidence
 from flowfield.execution import Execution
 from flowfield.results import Results
 from flowfield.usage import Usage
@@ -62,6 +63,7 @@ def seed(state: Path):
                     "run",
                     run.id,
                     Consumption(
+                        pricing=PricingEvidence(model="claude-sonnet-5-5", provider="anthropic"),
                         event_id=f"synthetic-result-{observation_index}",
                         session_id=session,
                         native_scope_id=session if codex else None,

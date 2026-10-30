@@ -10,10 +10,10 @@ import {
   YAxis,
   useActiveTooltipLabel,
 } from "recharts";
-import { usageDuration, usageNumber, type UsageView } from "./usage";
+import { usageCost, usageDuration, usageNumber, type UsageView } from "./usage";
 import { bucketLabel } from "./usagePeriod";
 
-export type UsageMetric = "tokens" | "duration";
+export type UsageMetric = "tokens" | "duration" | "cost";
 const roleNames: Record<string, string> = {
   coordinator: "Coordinator",
   worker: "Worker",
@@ -65,7 +65,9 @@ export default function UsageChart({
         series.field,
         metric === "tokens"
           ? series.points[index]?.tokens.total
-          : series.points[index]?.elapsed_seconds,
+          : metric === "cost"
+            ? series.points[index]?.cost.nanodollars
+            : series.points[index]?.elapsed_seconds,
       ]),
     ),
   }));
@@ -85,13 +87,17 @@ export default function UsageChart({
     (_, index) => index * step,
   );
   const format = (value: number | null | undefined) =>
-    metric === "tokens" ? usageNumber(value) : usageDuration(value ?? null);
+    metric === "tokens"
+      ? usageNumber(value)
+      : metric === "cost"
+        ? usageCost(value, true)
+        : usageDuration(value ?? null);
   return (
     <div
       className="usage-chart"
       ref={root}
       role="region"
-      aria-label={`${metric === "tokens" ? "Token usage" : "Duration"} over time`}
+      aria-label={`${metric === "tokens" ? "Token usage" : metric === "cost" ? "Cost" : "Duration"} over time`}
     >
       <ResponsiveContainer width="100%" height={260} minWidth={0}>
         <ComposedChart
@@ -131,7 +137,7 @@ export default function UsageChart({
             tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
           />
           <YAxis
-            width={52}
+            width={80}
             ticks={metric === "duration" ? durationTicks : undefined}
             domain={
               metric === "duration" ? [0, durationTicks.at(-1)!] : [0, "auto"]
@@ -142,18 +148,20 @@ export default function UsageChart({
                 ? new Intl.NumberFormat(undefined, {
                     notation: "compact",
                   }).format(n)
-                : n >= 3600
-                  ? `${n / 3600}h`
-                  : n >= 60
-                    ? `${n / 60}m`
-                    : `${n}s`
+                : metric === "cost"
+                  ? usageCost(n, true)
+                  : n >= 3600
+                    ? `${n / 3600}h`
+                    : n >= 60
+                      ? `${n / 60}m`
+                      : `${n}s`
             }
           />
           <Tooltip
             isAnimationActive={false}
             filterNull={false}
             cursor={
-              metric === "tokens"
+              metric !== "duration"
                 ? { fill: "var(--muted)" }
                 : { stroke: "var(--muted-foreground)", strokeDasharray: "3 3" }
             }
@@ -204,7 +212,7 @@ export default function UsageChart({
                 dataKey={series.field}
                 name={series.label}
                 fill={series.color}
-                stackId="tokens"
+                stackId={metric}
                 maxBarSize={40}
                 isAnimationActive={false}
                 cursor={zoomable ? "pointer" : undefined}

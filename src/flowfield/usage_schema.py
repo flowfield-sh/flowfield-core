@@ -25,7 +25,7 @@ CREATE TABLE usage_observations (
  execution INTEGER NOT NULL REFERENCES usage_executions(number) ON DELETE CASCADE,
  series TEXT NOT NULL, event_id TEXT NOT NULL, fingerprint TEXT NOT NULL,
  received_at TEXT NOT NULL, data TEXT NOT NULL, baseline TEXT,
- delta TEXT NOT NULL, disposition TEXT NOT NULL,
+ delta TEXT NOT NULL, disposition TEXT NOT NULL, cost TEXT,
  UNIQUE(execution,series,event_id,fingerprint)
 );
 CREATE INDEX usage_receipt ON usage_observations(received_at,execution);

@@ -16,6 +16,7 @@ from flowfield.announcements import Announcements, AnnouncementSettings
 from flowfield.application import TaskCreate, Workspace
 from flowfield.coordinator_models import CoordinatorSend
 from flowfield.coordinator_store import CoordinatorStore
+from flowfield.cost_models import PricingEvidence
 from flowfield.execution import Execution
 from flowfield.results import Results
 from flowfield.task_reviews import ReviewVerdict, TaskReview
@@ -55,10 +56,10 @@ TITLES = [
     "Investigate missing usage reports",
 ]
 CHOICES = [
-    AgentChoice(harness="codex", model="demo-reasoning"),
-    AgentChoice(harness="claude-code", model="demo-balanced"),
-    AgentChoice(harness="pi", model="demo-fast"),
-    AgentChoice(harness="codex", model="demo-fast"),
+    AgentChoice(harness="codex", model="gpt-6.1-sol"),
+    AgentChoice(harness="claude-code", model="claude-sonnet-5-5"),
+    AgentChoice(harness="pi", model="claude-haiku-5-5"),
+    AgentChoice(harness="codex", model="gpt-6-luna"),
 ]
 
 
@@ -81,6 +82,11 @@ def seed(state: Path):
         end = start + timedelta(seconds=seconds)
         with patch("flowfield.application.now", return_value=start.isoformat()):
             usage.start(owner, source, identity, identity)
+        with store.connection(write=True) as db:
+            db.execute(
+                "UPDATE usage_executions SET created_at=? WHERE source_id=?",
+                (start.isoformat(), identity),
+            )
         codex, pi = choice.harness == "codex", choice.harness == "pi"
         if total is not None:
             for part in range(1, 5):
@@ -92,6 +98,12 @@ def seed(state: Path):
                         source,
                         identity,
                         Consumption(
+                            pricing=PricingEvidence(
+                                model=choice.model,
+                                provider="openai" if codex else "anthropic",
+                                input_observed=(total // 4) * 9 // 10,
+                                max_input=(total // 4) * 9 // 10,
+                            ),
                             event_id=f"demo-{part}",
                             session_id=identity,
                             native_scope_id=identity if codex else None,
@@ -130,6 +142,8 @@ def seed(state: Path):
 
     for index, title in enumerate(TITLES):
         start = today - timedelta(days=27 - index) + timedelta(hours=1, minutes=index % 4 * 8)
+        if index == 27:
+            start = today - timedelta(days=45)
         with patch("flowfield.application.now", return_value=start.isoformat()):
             task = store.create_task(
                 owner,

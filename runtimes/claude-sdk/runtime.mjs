@@ -1,3 +1,4 @@
+import { Pricing } from "./pricing.mjs";
 import { consumption } from "./usage.mjs";
 // Flowfield's small official Agent SDK host. The installed Claude Code owns tools,
 // native settings and accounts. No CLI/SDK patches or ACP translator.
@@ -62,12 +63,14 @@ async function permission(toolName, args, context) {
     ? {behavior: "allow", updatedInput: args}
     : {behavior: "deny", message: "Permission denied or turn stopped"};
 }
+const pricing = new Pricing();
 let nativeVersion = null, resumedUsage = false;
 const dispatchedUsagePrompts = new Set();
 async function consume() {
   try {
     for await (const message of q) {
       cleanup.observe(sessionId, q, message);
+      pricing.observe(message);
       // Cleanup consumes every SDK event, including private reasoning; only public
       // allowlisted presentation crosses the application boundary.
       if (message.type === "system" && message.subtype === "init" && message.session_id !== sessionId) throw new Error("native identity changed");
@@ -77,9 +80,10 @@ async function consume() {
       // Accounting is independent of public activity and remains bound through Stop.
       if (message.type === "result" &&
           [message.user_message_uuid, ...(message.user_message_uuids ?? [])].some(id => dispatchedUsagePrompts.has(id))) {
-        for (const observation of consumption(message, {sessionId, nativeVersion, resumed: resumedUsage})) {
+        for (const observation of consumption(message, {sessionId, nativeVersion, resumed: resumedUsage, pricing})) {
           await send({method: "consumption", params: observation});
         }
+        pricing.clear();
       }
       if (stopping && promptResult && message.type === "result") {
         const result = promptResult; promptResult = null; result.resolve({status: "stopped"});

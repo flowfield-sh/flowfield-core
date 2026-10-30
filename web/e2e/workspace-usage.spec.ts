@@ -38,6 +38,13 @@ test("Metrics shows both charts and sortable task costs with shared local dateti
   ).toHaveCount(0);
   await expect(metrics.locator(".usage-totals dd").first()).toHaveText("4,800");
   const tokens = metrics.getByRole("region", { name: "Token usage over time" });
+  const cost = metrics.getByRole("region", { name: "Cost over time" });
+  await expect(
+    cost.locator(".recharts-bar-rectangle path").first(),
+  ).toBeVisible();
+  await expect(
+    metrics.getByRole("button", { name: "Cost breakdown: -", exact: true }),
+  ).toBeVisible();
   const duration = metrics.getByRole("region", { name: "Duration over time" });
   await expect(
     tokens.locator(".recharts-bar-rectangle path").first(),
@@ -67,6 +74,10 @@ test("Metrics shows both charts and sortable task costs with shared local dateti
     "Trace recorded task usage",
   );
   await expect(table).not.toContainText("Coordinator");
+  await table.getByRole("button", { name: "Cost", exact: true }).click();
+  await expect(
+    table.getByRole("columnheader", { name: "Cost", exact: true }),
+  ).toHaveAttribute("aria-sort", "descending");
   await table.getByRole("button", { name: "Duration" }).click();
   await expect(
     table.getByRole("columnheader", { name: "Duration" }),

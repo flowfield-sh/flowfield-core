@@ -11,7 +11,7 @@ function sessionTotals(version) {
   return major > 2 || (major === 2 && (minor > 1 || (minor === 1 && patch >= 277)));
 }
 const fields = {inputTokens: "input", outputTokens: "output", cacheReadInputTokens: "cache_read", cacheCreationInputTokens: "cache_write", thinkingTokens: "reasoning"};
-export function consumption(message, {sessionId, nativeVersion, resumed}) {
+export function consumption(message, {sessionId, nativeVersion, resumed, pricing}) {
   if (message.type !== "result" || message.session_id !== sessionId ||
       typeof message.uuid !== "string" || message.uuid.length > 200 || !message.uuid ||
       !message.modelUsage || typeof message.modelUsage !== "object" || Array.isArray(message.modelUsage)) return [];
@@ -25,6 +25,7 @@ export function consumption(message, {sessionId, nativeVersion, resumed}) {
     return {event_id: message.uuid, session_id: sessionId,
       order: Number.isSafeInteger(message.result_index) && message.result_index >= 0 ? message.result_index : null, model, counters,
       contract: "claude-model-usage/0.3.293", native_version: nativeVersion,
+      ...(pricing ? {pricing: pricing.forModel(model, usage)} : {}),
       baseline: resumed ? "resume" : "fresh", semantics: "disjoint-cache",
       final: !failed && compatible, gap: !compatible ? "unsupported-version" : failed ? "native-error" :
         ["input", "output", "cache_read", "cache_write"].some(k => counters[k] === null) ? "missing-counters" : null};

@@ -84,12 +84,12 @@ def identity(db: sqlite3.Connection) -> tuple[str, int]:
 
 
 def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
-    """Upgrade supported 86, 87, 89 and 90 stores atomically with a verified backup."""
-    if current not in (86, 87, 89, 90):
+    """Upgrade supported 86, 87, 89, 90 and 91 stores atomically with a verified backup."""
+    if current not in (86, 87, 89, 90, 91):
         require_supported(current)
         return
     if (
-        current != 90
+        current not in (90, 91)
         and db.execute("SELECT 1 FROM sqlite_master WHERE name='usage_executions'").fetchone()
     ):
         raise ApplicationError(
@@ -141,7 +141,7 @@ def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
         from flowfield.usage_schema import BACKFILL, TABLES, TRIGGERS
 
         statement = ""
-        for character in TABLES + BACKFILL + TRIGGERS if current != 90 else "":
+        for character in TABLES + BACKFILL + TRIGGERS if current not in (90, 91) else "":
             statement += character
             if character == ";" and sqlite3.complete_statement(statement):
                 db.execute(statement)
@@ -150,7 +150,10 @@ def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
             raise ValueError("Incomplete usage migration")
         from flowfield.evidence_schema import migrate_outputs
 
-        migrate_outputs(db)
+        if current != 91:
+            migrate_outputs(db)
+        if current in (90, 91):
+            db.execute("ALTER TABLE usage_observations ADD COLUMN cost TEXT")
         # New results may bind a reconciled task revision. Keep every old row unchanged,
         # but prevent an older service from ignoring that agreement during delivery.
         db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")

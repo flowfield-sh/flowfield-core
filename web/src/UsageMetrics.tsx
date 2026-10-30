@@ -4,7 +4,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { usageNumber, useUsageClock, type UsageView } from "./usage";
+import { usageCost, usageNumber, useUsageClock, type UsageView } from "./usage";
 import { Card } from "@/components/ui/card";
 import { ResourceRetry } from "./ResourceRetry";
 
@@ -48,7 +48,7 @@ export function UsageMetrics({
     ? ["worker", "reviewer"]
     : ["coordinator", "worker", "reviewer"];
   const live = view.breakdowns.some((r) => r.dimension === "role" && r.live);
-  function breakdown(metric: "tokens" | "duration") {
+  function breakdown(metric: "tokens" | "duration" | "cost") {
     return (
       <dl className="usage-tooltip-rows">
         {roles.map((role) => {
@@ -62,7 +62,9 @@ export function UsageMetrics({
               <dd>
                 {metric === "tokens"
                   ? usageNumber(row.tokens.total)
-                  : duration(row.elapsed_seconds, row.live)}
+                  : metric === "cost"
+                    ? usageCost(row.cost.nanodollars, true)
+                    : duration(row.elapsed_seconds, row.live)}
               </dd>
             </div>
           );
@@ -72,7 +74,9 @@ export function UsageMetrics({
   }
   return (
     <div className="usage-metrics">
-      <dl className="usage-totals metrics-cards">
+      <dl
+        className={`usage-totals metrics-cards${task ? " metrics-cards-task" : ""}`}
+      >
         <Card className="gap-1 rounded-lg p-3 shadow-none">
           <dt>Tokens</dt>
           <dd>
@@ -92,6 +96,26 @@ export function UsageMetrics({
               value={duration(view.totals.elapsed_seconds)}
             >
               {breakdown("duration")}
+            </MetricValue>
+          </dd>
+        </Card>
+        <Card className="gap-1 rounded-lg p-3 shadow-none">
+          <dt>Cost</dt>
+          <dd>
+            <MetricValue
+              label="Cost breakdown"
+              value={usageCost(view.totals.cost.nanodollars)}
+            >
+              {breakdown("cost")}
+              {view.totals.cost.rate_dates.length > 0 && (
+                <p>
+                  Based on API costs as of{" "}
+                  {view.totals.cost.rate_dates.join(", ")}.
+                </p>
+              )}
+              {view.totals.cost.coverage !== "complete" && (
+                <p>Some usage or pricing data is unavailable.</p>
+              )}
             </MetricValue>
           </dd>
         </Card>

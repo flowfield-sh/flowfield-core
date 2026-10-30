@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import Callable
+from decimal import Decimal
 from typing import Annotated, Any, Literal
 
 from anyio import to_thread
@@ -49,6 +50,8 @@ from flowfield.reviewer_settings import Reviewers
 from flowfield.search import Entity, History, Search
 from flowfield.subtasks import SubtaskCreate, SubtaskEdit, Subtasks
 from flowfield.supervisor import Supervisor
+from flowfield.usage_models import Source, UsageEvidencePage, UsageFilter, UsageView
+from flowfield.usage_reads import UsageReads
 from flowfield.workspaces import ProjectAdoption, WorkspaceCreate, WorkspaceEdit, Workspaces
 
 PageLimit = Annotated[int, Field(ge=1, le=MAX_LIMIT)]
@@ -222,6 +225,90 @@ def create_mcp(
                     ProjectSetup(**attributed(project).model_dump()),
                 )
                 .model_dump()
+            )
+        )
+
+    def metrics_result(
+        view: UsageView | UsageEvidencePage, timeline: bool = False
+    ) -> dict[str, Any]:
+        result = view.model_dump(mode="json")
+        cost = view.totals.cost if isinstance(view, UsageView) else view.execution.cost
+        result["cost_usd"] = (
+            str(Decimal(cost.nanodollars) / 1_000_000_000) if cost.nanodollars is not None else None
+        )
+        result["known_cost_usd"] = (
+            str(Decimal(cost.known_nanodollars) / 1_000_000_000)
+            if cost.known_nanodollars is not None
+            else None
+        )
+        if not timeline:
+            result.pop("buckets", None)
+            result.pop("series", None)
+        return result
+
+    @mcp.tool(annotations=read)
+    async def get_workspace_metrics(
+        workspace_id: Identifier, filters: UsageFilter | None = None, include_timeline: bool = False
+    ) -> CallToolResult:
+        """Read workspace tokens, API cost, duration, task totals and grouped charts.
+
+        Defaults to the last seven days. Supply start/end together for another
+        period. Aggregates cover the full bounded selection, independent of paging.
+        Set include_timeline=true for chart buckets/series. cost_usd is the USD total;
+        known_cost_usd retains priced usage when other usage is unavailable or pending.
+        Nested costs use integer nanodollars (1 USD = 1,000,000,000).
+        items contain source/source_id for get_metrics_evidence; no get_runs needed.
+        """
+        return await invoke(
+            lambda: metrics_result(
+                UsageReads(workspace()).workspace_view(workspace_id, filters or UsageFilter()),
+                include_timeline,
+            )
+        )
+
+    @mcp.tool(annotations=read)
+    async def get_task_metrics(
+        workspace_id: Identifier,
+        task_id: TaskIdentifier,
+        filters: UsageFilter | None = None,
+        include_timeline: bool = False,
+    ) -> CallToolResult:
+        """Read task lifetime tokens, API cost, duration, corrections and retries.
+
+        Pass task_id explicitly, e.g. "T-1". cost_usd/known_cost_usd are USD strings;
+        nested cost values are integer nanodollars (1 USD = 1,000,000,000).
+        items provide source/source_id for get_metrics_evidence. Set include_timeline
+        for charts when using a bounded period.
+        Includes Workers/subtasks/Reviewers. Coordinator activity remains workspace
+        activity. Optional filters narrow the period; costs include rate provenance.
+        """
+        return await invoke(
+            lambda: metrics_result(
+                UsageReads(workspace()).view(workspace_id, filters or UsageFilter(), task=task_id),
+                include_timeline,
+            )
+        )
+
+    @mcp.tool(annotations=read)
+    async def get_metrics_evidence(
+        workspace_id: Identifier,
+        source: Source,
+        source_id: Identifier,
+        after: Annotated[int, Field(ge=0)] = 0,
+        limit: PageLimit = 50,
+    ) -> CallToolResult:
+        """Inspect one metrics execution's counters, deltas and frozen API price rows.
+
+        Pass both source and source_id from a metrics item, e.g. source="run"
+        and source_id="<worker run id>"; follow next_after for more evidence.
+        cost_usd is the execution USD total; nested costs are integer nanodollars.
+        Pricing input_observed sums observed request input; max_input is its largest
+        request. Together they distinguish context tiers from cumulative session size.
+        This read cannot start work, change prices or grant delivery authority.
+        """
+        return await invoke(
+            lambda: metrics_result(
+                UsageReads(workspace()).evidence(workspace_id, source, source_id, after, limit)
             )
         )
 

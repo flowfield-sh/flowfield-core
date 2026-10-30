@@ -3202,6 +3202,7 @@ export interface components {
       /** Model */
       model: string | null;
       counters: components["schemas"]["Tokens"];
+      pricing: components["schemas"]["PricingEvidence"] | null;
       /** Uncertain Components */
       uncertain_components: (
         | "input"
@@ -3506,6 +3507,33 @@ export interface components {
       details: string;
       /** Number */
       number: number;
+    };
+    /** Cost */
+    Cost: {
+      /** Nanodollars */
+      nanodollars: number | null;
+      /** Known Nanodollars */
+      known_nanodollars: number | null;
+      /**
+       * Coverage
+       * @default unavailable
+       * @enum {string}
+       */
+      coverage: "complete" | "partial" | "unavailable";
+      /**
+       * Priced Tokens
+       * @default 0
+       */
+      priced_tokens: number;
+      /**
+       * Unpriced Tokens
+       * @default 0
+       */
+      unpriced_tokens: number;
+      /** Rate Dates */
+      rate_dates: string[];
+      /** Reasons */
+      reasons: string[];
     };
     /** DeliveredPage */
     DeliveredPage: {
@@ -4832,6 +4860,58 @@ export interface components {
        * @default false
        */
       manual_update: boolean;
+    };
+    /** PricePart */
+    PricePart: {
+      /** Model */
+      model: string | null;
+      /** Provider */
+      provider: string | null;
+      /** Cache Write Short */
+      cache_write_short: number | null;
+      /** Cache Write Long */
+      cache_write_long: number | null;
+      /** Input Observed */
+      input_observed: number | null;
+      /** Max Input */
+      max_input: number | null;
+      /**
+       * Service Tier
+       * @default standard
+       * @enum {string}
+       */
+      service_tier: "standard" | "fast" | "flex" | "unknown";
+      /** Input */
+      input: number;
+      /** Output */
+      output: number;
+      /** Cache Read */
+      cache_read: number;
+      /** Cache Write */
+      cache_write: number;
+    };
+    /** PricingEvidence */
+    PricingEvidence: {
+      /** Model */
+      model: string | null;
+      /** Provider */
+      provider: string | null;
+      /** Cache Write Short */
+      cache_write_short: number | null;
+      /** Cache Write Long */
+      cache_write_long: number | null;
+      /** Input Observed */
+      input_observed: number | null;
+      /** Max Input */
+      max_input: number | null;
+      /**
+       * Service Tier
+       * @default standard
+       * @enum {string}
+       */
+      service_tier: "standard" | "fast" | "flex" | "unknown";
+      /** Parts */
+      parts: components["schemas"]["PricePart"][];
     };
     /** Project */
     Project: {
@@ -6668,6 +6748,7 @@ export interface components {
       /** Key */
       key: string | null;
       tokens: components["schemas"]["Tokens"];
+      cost: components["schemas"]["Cost"];
       /** Attempts */
       attempts: number;
       /** Elapsed Seconds */
@@ -6687,6 +6768,7 @@ export interface components {
       /** Label */
       label: string;
       tokens: components["schemas"]["Tokens"];
+      cost: components["schemas"]["Cost"];
       /** Recorded Seconds */
       recorded_seconds: number | null;
       /** Elapsed Seconds */
@@ -6716,6 +6798,7 @@ export interface components {
       observation: components["schemas"]["Consumption"];
       baseline: components["schemas"]["Tokens"] | null;
       delta: components["schemas"]["Tokens"];
+      valuation: components["schemas"]["Valuation"] | null;
       /** Disposition */
       disposition: string;
       /** Interval Start */
@@ -6796,6 +6879,7 @@ export interface components {
       /** Reasons */
       reasons: string[];
       tokens: components["schemas"]["Tokens"];
+      cost: components["schemas"]["Cost"];
       /** Observed Models */
       observed_models: (string | null)[];
       /**
@@ -6888,6 +6972,7 @@ export interface components {
     /** UsageSeriesPoint */
     UsageSeriesPoint: {
       tokens: components["schemas"]["Tokens"];
+      cost: components["schemas"]["Cost"];
       /** Elapsed Seconds */
       elapsed_seconds: number | null;
     };
@@ -6900,6 +6985,7 @@ export interface components {
       /** Title */
       title: string;
       tokens: components["schemas"]["Tokens"];
+      cost: components["schemas"]["Cost"];
       /** Elapsed Seconds */
       elapsed_seconds: number | null;
       /**
@@ -6913,6 +6999,7 @@ export interface components {
       /** Reasons */
       reasons: string[];
       tokens: components["schemas"]["Tokens"];
+      cost: components["schemas"]["Cost"];
       /**
        * Attempts
        * @default 0
@@ -7047,6 +7134,16 @@ export interface components {
       setup_checks: components["schemas"]["CheckResult"][];
       /** Checks */
       checks: components["schemas"]["CheckResult"][];
+    };
+    /** Valuation */
+    Valuation: {
+      cost: components["schemas"]["Cost"];
+      /** Catalog */
+      catalog: string | null;
+      /** Rates */
+      rates: {
+        [key: string]: unknown;
+      }[];
     };
     /** WorkState */
     WorkState: {

@@ -24,6 +24,7 @@ from flowfield.adapters.codex_activity import describe
 from flowfield.adapters.harness_host import launch_environment, resolve
 from flowfield.adapters.json_rpc import MAX_INPUT, JsonRpc, NativeError, NativeRequestUnavailable
 from flowfield.agent_models import AgentChoice, AgentCommand
+from flowfield.cost_models import PricingEvidence
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import ModelOption, NativeMode
 from flowfield.harness_models import HarnessRegistration
@@ -117,6 +118,8 @@ class CodexAgent(Agent):
         self.stopping = False
         self.cleanup_confirmed = True
         self._usage_version: str | None = None
+        self._price_context: dict[tuple[str, str], PricingEvidence] = {}
+        self._rerouted: set[tuple[str, str]] = set()
         self._usage_baselines: dict[str, Tokens] = {}
         self._usage_latest: dict[tuple[str, str], Tokens] = {}
         self._usage_threads: dict[str, bool] = {}
@@ -551,6 +554,8 @@ class CodexAgent(Agent):
         ):
             if len(self._usage_turns) < 4096:
                 self._usage_turns.add(key)
+        elif method == "model/rerouted" and key in self._usage_turns:
+            self._rerouted.add(key)
         elif method == "thread/tokenUsage/updated":
             value = codex_usage.cumulative(data)
             if key not in self._usage_turns:
@@ -560,6 +565,17 @@ class CodexAgent(Agent):
                 ):
                     self._usage_baselines[thread] = value
                 return
+            native = data.get("tokenUsage")
+            last = codex_usage.counters(native.get("last") if isinstance(native, dict) else None)
+            self._price_context[key] = PricingEvidence(
+                model=self.choice.model
+                if self.choice and thread == self.session_id and key not in self._rerouted
+                else None,
+                provider="openai",
+                input_observed=last.input,
+                max_input=last.input,
+                service_tier="fast" if self.choice and self.choice.fast else "standard",
+            )
             self._usage_latest[key] = value
             self._emit_usage(thread, turn, value)
         elif method == "turn/completed" and key in self._usage_turns:
@@ -580,6 +596,7 @@ class CodexAgent(Agent):
                 inherited=self._usage_baselines.get(thread),
                 final=key in self._usage_final,
                 failed=self._usage_final.get(key, False),
+                pricing=self._price_context.get(key),
             )
         )
 

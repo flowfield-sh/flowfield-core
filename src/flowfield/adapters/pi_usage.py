@@ -8,6 +8,7 @@ import hashlib
 import re
 from typing import Any, Literal
 
+from flowfield.cost_models import PricePart
 from flowfield.usage_models import Consumption, Tokens
 
 
@@ -81,3 +82,44 @@ def observation(
         else None,
         limitations=["native-provider-coverage-unknown"],
     )
+
+
+def pricing_part(message: Any) -> PricePart | None:
+    """Only completed native assistant usage, without message text or native cost."""
+    from pydantic import ValidationError
+
+    if not isinstance(message, dict) or message.get("role") != "assistant":
+        return None
+    usage = message.get("usage")
+    if not isinstance(usage, dict):
+        return None
+    values = {
+        key: usage.get(native)
+        for key, native in {
+            "input": "input",
+            "output": "output",
+            "cache_read": "cacheRead",
+            "cache_write": "cacheWrite",
+        }.items()
+    }
+    if any(type(n) is not int or n < 0 for n in values.values()):
+        return None
+    input_count = sum(int(values[k] or 0) for k in ("input", "cache_read", "cache_write"))
+    write, long = values["cache_write"], usage.get("cacheWrite1h")
+    short = (
+        write - long if type(write) is int and type(long) is int and 0 <= long <= write else None
+    )
+    try:
+        return PricePart.model_validate(
+            dict(
+                **values,
+                model=message.get("model"),
+                provider=message.get("provider"),
+                cache_write_short=short,
+                cache_write_long=long,
+                input_observed=input_count,
+                max_input=input_count,
+            )
+        )
+    except (ValidationError, TypeError):
+        return None

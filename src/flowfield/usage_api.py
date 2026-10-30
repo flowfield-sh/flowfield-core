@@ -1,7 +1,6 @@
 """Human read-only usage routes under the existing local origin/access boundary."""
 
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Query
@@ -16,10 +15,7 @@ def usage_router(workspace: Callable[[], Workspace]) -> APIRouter:
 
     @router.get("/{workspace_id}/usage")
     def usage(workspace_id: str, filters: Annotated[UsageFilter, Query()]) -> UsageView:
-        if filters.start is None:
-            end = datetime.now(UTC)
-            filters = filters.model_copy(update={"start": end - timedelta(days=7), "end": end})
-        return UsageReads(workspace()).view(workspace_id, filters)
+        return UsageReads(workspace()).workspace_view(workspace_id, filters)
 
     @router.get("/{workspace_id}/tasks/{task_id}/usage")
     def task_usage(

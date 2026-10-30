@@ -8,6 +8,8 @@ from bisect import bisect_right
 from collections import defaultdict
 from datetime import datetime
 
+from flowfield.cost import combine
+from flowfield.cost_models import Cost
 from flowfield.usage import add_tokens
 from flowfield.usage_models import Tokens, UsageBucket, UsageSeries, UsageSeriesPoint
 
@@ -48,12 +50,16 @@ class Timeline:
         self.tokens: dict[str | None, dict[int, list[Tokens]]] = defaultdict(
             lambda: defaultdict(list)
         )
+        self.costs: dict[str | None, dict[int, list[Cost]]] = defaultdict(lambda: defaultdict(list))
         self.intervals: dict[str | None, list[Interval]] = defaultdict(list)
 
-    def receipt(self, key: str | None, at: datetime, tokens: Tokens) -> None:
+    def receipt(
+        self, key: str | None, at: datetime, tokens: Tokens, cost: Cost | None = None
+    ) -> None:
         index = bisect_right(self.starts, at) - 1
         if index >= 0 and at < self.bounds[index][1]:
             self.tokens[key][index].append(tokens)
+            self.costs[key][index].append(cost or Cost())
 
     def interval(self, key: str | None, start: datetime, end: datetime) -> None:
         self.intervals[key].append((start, end))
@@ -62,9 +68,11 @@ class Timeline:
         intervals = merged([interval for key in keys for interval in self.intervals[key]])
         ends = [end for _, end in intervals]
         receipts: dict[int, list[Tokens]] = defaultdict(list)
+        costs: dict[int, list[Cost]] = defaultdict(list)
         for key in keys:
             for index, values in self.tokens[key].items():
                 receipts[index].extend(values)
+                costs[index].extend(self.costs[key][index])
         result = []
         for index, (left, right) in enumerate(self.bounds):
             position = bisect_right(ends, left)
@@ -74,7 +82,11 @@ class Timeline:
                 seconds = (seconds or 0.0) + (min(end, right) - max(start, left)).total_seconds()
                 position += 1
             result.append(
-                UsageSeriesPoint(tokens=add_tokens(receipts[index]), elapsed_seconds=seconds)
+                UsageSeriesPoint(
+                    tokens=add_tokens(receipts[index]),
+                    cost=combine(costs[index]),
+                    elapsed_seconds=seconds,
+                )
             )
         return result
 

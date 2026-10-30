@@ -15,6 +15,7 @@ from flowfield.announcements import Announcements, AnnouncementSettings
 from flowfield.application import TaskCreate, TaskEdit, Workspace
 from flowfield.coordinator_models import CoordinatorSend
 from flowfield.coordinator_store import CoordinatorStore
+from flowfield.cost_models import PricingEvidence
 from flowfield.execution import Execution
 from flowfield.updates import Updates
 from flowfield.usage import Usage
@@ -63,6 +64,7 @@ def seed(state: Path):
                     "run",
                     run.id,
                     Consumption(
+                        pricing=PricingEvidence(model="claude-sonnet-5-5", provider="anthropic"),
                         event_id=uuid4().hex,
                         session_id=run.id,
                         native_version="2.1.293",
@@ -94,6 +96,7 @@ def seed(state: Path):
             "coordinator_turn",
             turn.id,
             Consumption(
+                pricing=PricingEvidence(model="claude-sonnet-5-5", provider="anthropic"),
                 event_id=uuid4().hex,
                 session_id=turn.id,
                 native_version="2.1.293",

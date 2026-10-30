@@ -174,7 +174,7 @@ class Usage:
         # Counters contain only numeric/provenance fields; stable receipt excludes replay.
         payload = event.model_dump_json()
         fingerprint = hashlib.sha256(
-            event.model_dump_json(exclude={"order", "source_time"}).encode()
+            event.model_dump_json(exclude={"order", "source_time", "pricing"}).encode()
         ).hexdigest()
         series = json.dumps(
             [event.contract, event.session_id, event.native_scope_id, event.epoch, event.model],
@@ -311,11 +311,14 @@ class Usage:
                 )
             if disposition not in ("accepted", "reordered"):
                 _reason(db, execution, disposition)
+            from flowfield.cost import value
+
+            valuation = value(event, delta) if disposition == "accepted" else None
             db.execute(
                 "INSERT INTO "
                 "usage_observations(execution,series,event_id,fingerprint,received_at,"
-                "data,baseline,delta,disposition) "
-                "VALUES(?,?,?,?,?,?,?,?,?)",
+                "data,baseline,delta,disposition,cost) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?)",
                 (
                     execution,
                     series,
@@ -326,6 +329,7 @@ class Usage:
                     baseline.model_dump_json() if baseline else None,
                     delta.model_dump_json(),
                     disposition,
+                    valuation.model_dump_json() if valuation else None,
                 ),
             )
             # Unknown inherited history is retained as evidence, not established as a

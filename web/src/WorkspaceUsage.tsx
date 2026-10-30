@@ -262,10 +262,16 @@ export function WorkspaceUsage({
               <UsageMetrics view={resource.data} />
               <div className="metrics-sections">
                 <Suspense fallback={<p role="status">Loading charts…</p>}>
-                  {(["tokens", "duration"] as const).map((metric) => (
+                  {(["tokens", "duration", "cost"] as const).map((metric) => (
                     <DetailSection
                       key={metric}
-                      title={metric === "tokens" ? "Tokens" : "Duration"}
+                      title={
+                        metric === "tokens"
+                          ? "Tokens"
+                          : metric === "cost"
+                            ? "Cost"
+                            : "Duration"
+                      }
                     >
                       <UsageChart
                         view={resource.data!}

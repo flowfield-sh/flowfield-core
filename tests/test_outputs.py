@@ -103,6 +103,7 @@ def test_schema_90_upgrade_keeps_output_bytes_ids_and_owner(tmp_path):
             ALTER TABLE old_outputs RENAME TO output_files;
             CREATE INDEX output_run ON output_files(run_id,number);
             CREATE INDEX output_workspace ON output_files(workspace_id,number);
+            ALTER TABLE usage_observations DROP COLUMN cost;
             PRAGMA user_version=90;
         """)
         before = db.execute(

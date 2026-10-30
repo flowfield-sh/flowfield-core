@@ -1,8 +1,19 @@
 """Usage v1 wire and adapter contracts. Token components overlap, never sum all fields."""
 
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt, model_validator
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictInt,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
+
+from flowfield.cost_models import Cost, PricingEvidence, Valuation
 
 Count = Annotated[StrictInt, Field(ge=0, le=9_007_199_254_740_991)]
 Key = Annotated[str, Field(min_length=1, max_length=200)]
@@ -44,6 +55,7 @@ class Consumption(UsageRecord):
     ] = "query-pipeline-including-native-children"
     model: Key | None = None
     counters: Tokens
+    pricing: PricingEvidence | None = None
     uncertain_components: list[
         Literal["input", "output", "cache_read", "cache_write", "reasoning", "total"]
     ] = Field(default_factory=list, max_length=6)
@@ -55,6 +67,15 @@ class Consumption(UsageRecord):
     limitations: list[
         Literal["native-provider-coverage-unknown", "native-child-baseline-unknown"]
     ] = Field(default_factory=list, max_length=2)
+
+    @field_validator("pricing", mode="before")
+    @classmethod
+    def optional_pricing(cls, value: Any) -> PricingEvidence | None:
+        # Supplemental metadata must never disable otherwise valid token accounting.
+        try:
+            return PricingEvidence.model_validate(value) if value is not None else None
+        except ValidationError:
+            return None
 
 
 class UsageExecution(UsageRecord):
@@ -81,6 +102,7 @@ class UsageExecution(UsageRecord):
     coverage: Coverage
     reasons: list[str] = Field(default_factory=list)
     tokens: Tokens = Field(default_factory=Tokens)
+    cost: Cost = Field(default_factory=Cost)
     observed_models: list[str | None] = Field(default_factory=list)
     observation_count: int = 0
     dispatch_count: int = 0
@@ -92,6 +114,7 @@ class UsageEvidence(UsageRecord):
     observation: Consumption
     baseline: Tokens | None
     delta: Tokens
+    valuation: Valuation | None = None
     disposition: str
     interval_start: str | None = None
     interval_end: str | None = None
@@ -149,6 +172,7 @@ class UsageFilter(UsageRecord):
 class UsageTotals(UsageRecord):
     reasons: list[str] = Field(default_factory=list)
     tokens: Tokens = Field(default_factory=Tokens)
+    cost: Cost = Field(default_factory=Cost)
     attempts: int = 0
     started_attempts: int = 0
     corrections: int | None = 0
@@ -171,12 +195,14 @@ class UsageBucket(UsageRecord):
     end: str
     label: str
     tokens: Tokens = Field(default_factory=Tokens)
+    cost: Cost = Field(default_factory=Cost)
     recorded_seconds: float | None = None
     elapsed_seconds: float | None = None
 
 
 class UsageSeriesPoint(UsageRecord):
     tokens: Tokens = Field(default_factory=Tokens)
+    cost: Cost = Field(default_factory=Cost)
     elapsed_seconds: float | None = None
 
 
@@ -190,6 +216,7 @@ class UsageBreakdown(UsageRecord):
     dimension: Literal["role", "source", "task", "harness", "model", "purpose", "outcome"]
     key: str | None
     tokens: Tokens
+    cost: Cost = Field(default_factory=Cost)
     attempts: int
     elapsed_seconds: float | None = None
     live: bool = False
@@ -200,6 +227,7 @@ class UsageTask(UsageRecord):
     key: str
     title: str
     tokens: Tokens
+    cost: Cost = Field(default_factory=Cost)
     elapsed_seconds: float | None = None
     live: bool = False
 

@@ -7,6 +7,19 @@ export type UsageExecution = components["schemas"]["UsageExecution"];
 export type Tokens = components["schemas"]["Tokens"];
 export const usageNumber = (value: number | null | undefined) =>
   value == null ? "—" : value.toLocaleString();
+export const usageCost = (
+  nanodollars: number | null | undefined,
+  detailed = false,
+) =>
+  nanodollars == null
+    ? "-"
+    : !detailed && nanodollars > 0 && nanodollars < 10_000_000
+      ? "<$0.01"
+      : new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: detailed ? 9 : 2,
+        }).format(nanodollars / 1_000_000_000);
 export function usageDuration(seconds: number | null) {
   if (seconds == null) return "—";
   const whole = Math.max(0, Math.floor(seconds));

@@ -13,6 +13,15 @@ export const tokens = (total: number | null): Tokens =>
   total == null
     ? { ...unknownTokens }
     : { ...unknownTokens, input: total * 0.9, output: total * 0.1, total };
+const cost = {
+  nanodollars: 1250000000,
+  known_nanodollars: 1250000000,
+  coverage: "complete" as const,
+  priced_tokens: 3800,
+  unpriced_tokens: 0,
+  rate_dates: ["2026-10-29"],
+  reasons: [],
+};
 const start = "2026-10-27T10:00:00+00:00";
 export function usageFixture(workspace: string, task: string): UsageView {
   const amounts = [2000, 450, 300, 800, 150, 100, null];
@@ -70,6 +79,7 @@ export function usageFixture(workspace: string, task: string): UsageView {
           : index === 5
             ? ["native-error"]
             : [],
+    cost,
     tokens: tokens(total),
     observed_models: [1, 3, 5, 6].includes(index) ? [null] : ["reported-model"],
     observation_count: index === 6 ? 0 : 1,
@@ -109,6 +119,7 @@ export function usageFixture(workspace: string, task: string): UsageView {
     collection_started_at: start,
     totals: {
       reasons: [],
+      cost,
       tokens: tokens(3800),
       attempts: 7,
       corrections: 2,
@@ -136,6 +147,7 @@ export function usageFixture(workspace: string, task: string): UsageView {
       {
         dimension: "role",
         key: "worker",
+        cost,
         tokens: tokens(3500),
         attempts: 6,
         elapsed_seconds: 1200,
@@ -144,6 +156,7 @@ export function usageFixture(workspace: string, task: string): UsageView {
       {
         dimension: "role",
         key: "reviewer",
+        cost,
         tokens: tokens(300),
         attempts: 1,
         elapsed_seconds: 480,
@@ -152,6 +165,7 @@ export function usageFixture(workspace: string, task: string): UsageView {
       {
         dimension: "source",
         key: "run",
+        cost,
         tokens: tokens(3350),
         attempts: 5,
         elapsed_seconds: null,
@@ -160,6 +174,7 @@ export function usageFixture(workspace: string, task: string): UsageView {
       {
         dimension: "source",
         key: "review_attempt",
+        cost,
         tokens: tokens(450),
         attempts: 2,
         elapsed_seconds: null,

@@ -27,6 +27,7 @@ from flowfield.adapters.harness_host import launch_environment, resolve
 from flowfield.adapters.json_rpc import MAX_INPUT, NativeError
 from flowfield.adapters.pi_rpc import PiRpc
 from flowfield.agent_models import AgentChoice, AgentCommand
+from flowfield.cost_models import PricePart, PricingEvidence
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import ModelOption, NativeMode
 from flowfield.harness_models import HarnessRegistration
@@ -73,6 +74,7 @@ class PiAgent(Agent):
         self._tools: dict[str, dict[str, Any]] = {}
         self._error = False
         self._extension_failed = False
+        self._pricing_parts: list[PricePart] = []
         self._permission: PermissionHandler | None = None
         self.session_id = None
         self.stopping = False
@@ -304,6 +306,7 @@ class PiAgent(Agent):
                 text += base64.b64decode(item["data"]).decode("utf-8")
         self._error = False
         self._tools.clear()
+        self._pricing_parts.clear()
         self._permission = on_permission
         completion = self._completion = asyncio.get_running_loop().create_future()
         try:
@@ -375,6 +378,8 @@ class PiAgent(Agent):
                 failed=failed,
             )
             if event:
+                event.pricing = PricingEvidence(parts=self._pricing_parts[:])
+                self._pricing_parts.clear()
                 self.on_consumption(event)
 
     def _event(self, method: str, data: dict[str, Any]) -> None:
@@ -410,6 +415,10 @@ class PiAgent(Agent):
             return
         if completion is None or completion.done():
             return
+        if method == "message_end" and len(self._pricing_parts) < 256:
+            part = pi_usage.pricing_part(data.get("message"))
+            if part:
+                self._pricing_parts.append(part)
         if (
             not self.stopping
             and self.on_consumption

@@ -63,7 +63,7 @@ def test_published_upgrade_preserves_every_row_and_file_with_verified_recovery(t
     before = rows(directory / storage.DATABASE)
     store = Workspace(directory)
     assert rows(store.database) == before
-    assert storage.status(directory)["schema_version"] == 91
+    assert storage.status(directory)["schema_version"] == 92
     assert hashlib.sha256(output.read_bytes()).hexdigest() == info["sha256"]
     backups = list((directory / "backups").glob(f"schema-{version}-*.sqlite3"))
     assert len(backups) == 1 and rows(backups[0]) == before

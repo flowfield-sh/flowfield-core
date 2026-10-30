@@ -10,6 +10,7 @@ keeping it stable preserves persisted resume baselines across compatible updates
 import hashlib
 from typing import Any, Literal
 
+from flowfield.cost_models import PricingEvidence
 from flowfield.usage_models import Consumption, Tokens
 
 
@@ -49,6 +50,7 @@ def observation(
     inherited: Tokens | None,
     final: bool = False,
     failed: bool = False,
+    pricing: PricingEvidence | None = None,
 ) -> Consumption:
     # No native event ID/order is supplied. The canonical vector identifies replays;
     # final reconciliation is a distinct zero-delta observation for this native turn.
@@ -68,6 +70,7 @@ def observation(
         native_version=version,
         scope="native-thread",
         counters=value,
+        pricing=pricing,
         uncertain_components=[key for key in optional if getattr(value, key) == 0],
         semantics="inclusive-cache",
         baseline="resume" if resumed else "fresh",

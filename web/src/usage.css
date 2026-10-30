@@ -37,6 +37,7 @@
     min-width: 0;
   }
   .usage-metrics {
+    container-type: inline-size;
     display: grid;
     gap: 16px;
     font-variant-numeric: tabular-nums;
@@ -56,8 +57,29 @@
   }
   .metrics-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 8px;
+  }
+  .metrics-cards > [data-slot="card"] {
+    grid-column: span 2;
+  }
+  .metrics-cards-task > [data-slot="card"]:nth-child(n + 4) {
+    grid-column: span 3;
+  }
+  @container (max-width: 420px) {
+    .metrics-cards {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .metrics-cards > [data-slot="card"],
+    .metrics-cards-task > [data-slot="card"]:nth-child(n + 4) {
+      grid-column: span 1;
+    }
+    .metrics-cards > [data-slot="card"]:nth-child(3) {
+      grid-column: 1 / -1;
+    }
+  }
+  .metrics-table {
+    container-type: inline-size;
   }
   .metrics-cards .usage-live {
     grid-column: 1 / -1;
@@ -106,9 +128,23 @@
     color: inherit;
     text-decoration: none;
   }
-  @media (max-width: 480px) {
+  @container (max-width: 480px) {
+    .metrics-tasks thead,
+    .metrics-tasks tbody {
+      display: block;
+    }
+    .metrics-tasks tr {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .metrics-tasks th:first-child,
+    .metrics-tasks td:first-child {
+      grid-column: 1 / -1;
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
     .metrics-tasks th:not(:first-child) {
-      width: 84px;
+      width: auto;
     }
     .metrics-tasks th,
     .metrics-tasks td {

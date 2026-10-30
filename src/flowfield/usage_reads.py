@@ -7,6 +7,8 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from flowfield.application import Workspace
+from flowfield.cost import combine, retained
+from flowfield.cost_models import Cost, Valuation
 from flowfield.usage import Usage, add_tokens
 from flowfield.usage_models import (
     Consumption,
@@ -86,6 +88,9 @@ def execution_record(row: Any, observations: list[Any]) -> UsageExecution:
         and any(Tokens.model_validate_json(r["delta"]).total is not None for r in accepted)
     ):
         data["reasons"].append("aggregate-token-overflow")
+    data["cost"] = combine(
+        [retained(r["cost"], Tokens.model_validate_json(r["delta"])) for r in accepted]
+    )
     data["observation_count"] = len(observations)
     data["observed_models"] = models
     # Count distinct terminal results, not model partitions of the same result.
@@ -109,12 +114,20 @@ def execution_record(row: Any, observations: list[Any]) -> UsageExecution:
         data["reasons"].append("no-consumption-reported")
     if data["timing"] in ("live", "unknown-end") and data["coverage"] == "complete":
         data["coverage"] = "partial"
+    if accepted and data["coverage"] != "complete" and data["timing"] != "live":
+        data["cost"] = combine([data["cost"], Cost(reasons=["consumption-incomplete"])])
     return UsageExecution.model_validate(data)
 
 
 class UsageReads:
     def __init__(self, workspace: Workspace):
         self.workspace = workspace
+
+    def workspace_view(self, workspace: str, filters: UsageFilter) -> UsageView:
+        if filters.start is None:
+            end = datetime.now(UTC)
+            filters = filters.model_copy(update={"start": end - timedelta(days=7), "end": end})
+        return self.view(workspace, filters)
 
     def evidence(
         self, workspace: str, source: Source, identity: str, after: int = 0, limit: int = 50
@@ -141,6 +154,7 @@ class UsageReads:
                         else None,
                         delta=Tokens.model_validate_json(r["delta"]),
                         disposition=r["disposition"],
+                        valuation=Valuation.model_validate_json(r["cost"]) if r["cost"] else None,
                         interval_start=owner["started_at"],
                         interval_end=owner["ended_at"],
                         timing="execution-bounded"
@@ -257,6 +271,8 @@ class UsageReads:
         task_intervals: dict[str, list[tuple[datetime, datetime]]] = defaultdict(list)
         live_tasks: set[str] = set()
         contributions: list[Tokens] = []
+        costs: list[Cost] = []
+        cost_breakdown: dict[tuple[str, str | None], list[Cost]] = defaultdict(list)
         items: list[UsageExecution] = []
         breakdown: dict[tuple[str, str | None], tuple[list[Tokens], set[int]]] = {}
         for row in rows:
@@ -272,6 +288,8 @@ class UsageReads:
                 else execution.requested_model
             )
             selected = []
+            own_costs: list[Cost] = []
+            model_costs: dict[str | None, list[Cost]] = defaultdict(list)
             models: dict[str | None, list[Tokens]] = defaultdict(list)
             for receipt in own:
                 event = Consumption.model_validate_json(receipt["data"])
@@ -289,7 +307,13 @@ class UsageReads:
                 if receipt["disposition"] == "accepted":
                     delta = Tokens.model_validate_json(receipt["delta"])
                     contributions.append(delta)
-                    timeline.receipt(chart_key, instant(receipt["received_at"]), delta)
+                    cost = retained(receipt["cost"], delta)
+                    if execution.coverage != "complete" and execution.timing != "live":
+                        cost = combine([cost, Cost(reasons=["consumption-incomplete"])])
+                    costs.append(cost)
+                    own_costs.append(cost)
+                    model_costs[event.model].append(cost)
+                    timeline.receipt(chart_key, instant(receipt["received_at"]), delta, cost)
                     models[event.model].append(delta)
             if filters.model is not None and filters.model not in execution.observed_models:
                 continue
@@ -370,7 +394,11 @@ class UsageReads:
                     if r["disposition"] == "accepted"
                 ]
             )
-            execution = execution.model_copy(update={"tokens": period_tokens})
+            period_cost = combine(own_costs)
+            if not own_costs:
+                period_cost = Cost(reasons=["no-consumption-reported"])
+                costs.append(period_cost)
+            execution = execution.model_copy(update={"tokens": period_tokens, "cost": period_cost})
             items.append(execution)
             if not models:
                 models[None] = []
@@ -384,12 +412,17 @@ class UsageReads:
             ):
                 entry = breakdown.setdefault((dimension, key), ([], set()))
                 entry[0].append(period_tokens)
+                cost_breakdown[(dimension, key)].append(period_cost)
                 entry[1].add(execution.number)
             for model, values in models.items():
                 entry = breakdown.setdefault(("model", model), ([], set()))
                 entry[0].extend(values)
+                cost_breakdown[("model", model)].extend(model_costs[model])
                 entry[1].add(execution.number)
         totals.tokens = add_tokens(contributions)
+        totals.cost = combine(costs)
+        if limited:
+            totals.cost = combine([totals.cost, Cost(reasons=["read-limit"])])
         totals.elapsed_seconds = elapsed(intervals)
         if totals.tokens.total is None and any(value.total is not None for value in contributions):
             totals.reasons.append("aggregate-token-overflow")
@@ -406,6 +439,7 @@ class UsageReads:
         )
         for bucket, point in zip(groups, timeline.totals(), strict=True):
             bucket.tokens = point.tokens
+            bucket.cost = point.cost
             bucket.elapsed_seconds = point.elapsed_seconds
         page = [item for item in items if item.number > filters.after][: filters.limit + 1]
         return UsageView(
@@ -423,6 +457,7 @@ class UsageReads:
                         "dimension": dim,
                         "key": key,
                         "tokens": add_tokens(values),
+                        "cost": combine(cost_breakdown[(dim, key)]),
                         "attempts": len(ids),
                         "elapsed_seconds": elapsed(role_intervals[key])
                         if dim == "role" and key is not None
@@ -438,6 +473,7 @@ class UsageReads:
                     key=task_names[identity][0],
                     title=task_names[identity][1],
                     tokens=add_tokens(values),
+                    cost=combine(cost_breakdown[(dimension, identity)]),
                     elapsed_seconds=elapsed(task_intervals[identity]),
                     live=identity in live_tasks,
                 )
