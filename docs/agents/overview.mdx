@@ -25,33 +25,7 @@ Native instructions and extensions can still apply. Reconcile relevant conventio
 
 ## Standalone conversations
 
-To coordinate from your own harness, connect it to the running service. Use `codex`, `claude-code` or `pi`:
-
-```sh
-flowfield integration connect claude-code
-flowfield integration status claude-code
-```
-
-Connect adds Flowfield to native MCP settings. Status checks the connection. Start a fresh harness conversation to load it.
-
-Optionally install the coordinator skill in an [adopted project](/workspaces#create-and-adopt):
-
-```sh
-flowfield project guidance preview
-flowfield project guidance install
-```
-
-This adds a skill and `AGENTS.md` reference while preserving existing instructions. Review and commit the files. Ask the fresh conversation to read the guidance, find the intended workspace and inspect its projects and board. Managed task workers use their own assignment instructions.
-
-For a different service port or connection name, use matching options:
-
-```sh
-flowfield --port 8770 integration connect claude-code --name flowfield-local
-flowfield --port 8770 integration status claude-code --name flowfield-local
-flowfield --port 8770 integration disconnect claude-code --name flowfield-local
-```
-
-Disconnect removes that connection; restart the harness to unload its tools. Work records remain saved. Built-in roles need none of these standalone commands.
+To use an agent in your own terminal or editor, follow the [MCP connection guide](/mcp). Built-in Flowfield agents connect automatically.
 
 ## Recover setup and discovery
 

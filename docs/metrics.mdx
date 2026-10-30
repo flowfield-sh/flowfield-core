@@ -32,15 +32,3 @@ Corrections counts work started to address feedback, excluding retries and answe
 - **Duration** counts overlapping running time once and excludes idle gaps.
 
 Unavailable measurements show `-`, including historical usage without pricing data.
-
-## MCP access
-
-The Coordinator and external MCP clients can read the same metrics:
-
-| Tool | Returns |
-| --- | --- |
-| `get_workspace_metrics` | Totals, task rows and grouped activity for a period. |
-| `get_task_metrics` | Lifetime task totals and correction/retry counts. |
-| `get_metrics_evidence` | An execution’s reported usage and applied prices. |
-
-Use your `workspace_id` and task key, such as `T-8`. Workspace metrics defaults to seven days; supply `filters.start` and `filters.end` for another range, and `include_timeline: true` for chart data.

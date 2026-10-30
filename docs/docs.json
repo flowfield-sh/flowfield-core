@@ -49,6 +49,7 @@
         "pages": [
           "installation",
           "cli",
+          "mcp",
           "storage"
         ]
       }

@@ -1,0 +1,53 @@
+---
+title: MCP
+description: Use Flowfield from an agent running in your own terminal or editor.
+---
+
+Run your agent in its own terminal or editor and connect it to Flowfield through MCP. It can organize work and review results while Flowfield runs queued tasks. You can use this instead of the built-in Coordinator conversation, or alongside the browser.
+
+## What you can do
+
+Connected agents can:
+
+- Manage workspaces, projects, tasks, subtasks, priorities and dependencies.
+- Maintain shared documents and labels, and browse task files.
+- Configure execution, control the queue, answer questions and review results.
+- Read activity, results and metrics.
+
+These operations use the same records and rules as the browser. Delivering code still requires your approval of the exact result.
+
+## Connect your agent
+
+Start Flowfield with `flowfield serve`, then connect your installed harness:
+
+```sh
+flowfield integration connect claude-code
+flowfield integration status claude-code
+```
+
+Use `codex`, `claude-code` or `pi`. Start a fresh agent conversation to load the connection, then ask it to find your workspace and inspect its tasks.
+
+For another MCP client, configure a Streamable HTTP connection to `http://127.0.0.1:8765/mcp/`. The service runs locally; the client must be able to reach it.
+
+## Add coordinator guidance
+
+Optionally install Flowfield’s coordinator skill in an [adopted project](/workspaces#create-and-adopt):
+
+```sh
+flowfield project guidance preview
+flowfield project guidance install
+```
+
+This adds a skill and an `AGENTS.md` reference while preserving existing instructions. Review the files, then ask your agent to read the guidance.
+
+## Connection options
+
+For a different service port or connection name, use matching options:
+
+```sh
+flowfield --port 8770 integration connect claude-code --name flowfield-local
+flowfield --port 8770 integration status claude-code --name flowfield-local
+flowfield --port 8770 integration disconnect claude-code --name flowfield-local
+```
+
+Disconnect removes the native connection; restart the agent to unload it. Built-in Flowfield agents connect automatically and need none of this setup.
