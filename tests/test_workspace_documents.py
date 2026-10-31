@@ -136,8 +136,13 @@ def test_guidance_revision_is_frozen_at_send_and_retrievable_after_edit(tmp_path
     docs.edit("harbor", "guidance", DocumentEdit(expected_revision=2, body="New guidance"))
     assert store.reserve("harbor", conversation.id, request) == (turn, False)
     prompt = json.loads(service.coordinator._prompt(turn, "scoped", resumed=True))
-    assert prompt["workspace_guidance"]["revision"] == 2
-    assert prompt["workspace_guidance"]["truncated_fields"]["body"]["total_characters"] == 9000
+    assert prompt["workspace_guidance"]["read_with"] == {
+        "tool": "get_document_text",
+        "arguments": {"document_id": "guidance", "revision": 2},
+    }
+    fresh = json.loads(service.coordinator._prompt(turn, "scoped"))
+    assert fresh["workspace_guidance"]["revision"] == 2
+    assert fresh["workspace_guidance"]["truncated_fields"]["body"]["total_characters"] == 9000
     assert "Do not load me" not in json.dumps(prompt)
     assert docs.text("harbor", "guidance", 2)["text"] == "🦉" * 4000
     with service.workspace.connection(write=True) as db:

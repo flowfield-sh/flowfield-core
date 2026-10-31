@@ -1,6 +1,7 @@
 """Private, short-lived MCP endpoint for a single service-owned agent grant."""
 
 import asyncio
+import json
 import secrets
 import socket
 import time
@@ -11,6 +12,7 @@ from uuid import uuid4
 import uvicorn
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import CallToolResult, TextContent
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import Receive, Scope, Send
@@ -26,6 +28,24 @@ class ScopeServer(uvicorn.Server):
         yield
 
 
+def native_result(result: CallToolResult) -> CallToolResult:
+    """Send one lossless copy of JSON, preserving other content and metadata."""
+    if result.structuredContent is None or len(result.content) != 1:
+        return result
+    content = result.content[0]
+    if not isinstance(content, TextContent):
+        return result
+    try:
+        duplicate = json.dumps(json.loads(content.text), sort_keys=True) == json.dumps(
+            result.structuredContent, sort_keys=True
+        )
+    except (ValueError, TypeError):
+        return result
+    if not duplicate:
+        return result
+    return result.model_copy(update={"structuredContent": None})
+
+
 @asynccontextmanager
 async def serve_scope(
     grant: ScopedTools, *, lifetime: float = 3600, name: str | None = None
@@ -36,6 +56,7 @@ async def serve_scope(
     require a separate transport adapter; never silently omit their Flowfield tools.
     """
     token = secrets.token_urlsafe(32)
+    grant.result_projection = native_result
     name = name or "flowfield_" + uuid4().hex[:16]
     expires = time.monotonic() + lifetime
     manager = StreamableHTTPSessionManager(

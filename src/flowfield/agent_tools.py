@@ -48,6 +48,9 @@ class ScopedTools:
         check: Callable[[], None] | None = None,
     ):
         self.measurements: ContextMeasurements | None = None
+        # Native projections run after SDK validation and before measurement.
+        # Direct callers and public MCP retain their structured contract.
+        self.result_projection: Callable[[CallToolResult], CallToolResult] | None = None
         self.tools = {tool.name: tool for tool in tools}
         self._call = call
         self.revoked = False
@@ -77,7 +80,12 @@ class ScopedTools:
             finally:
                 _handling_call.reset(token)
             if isinstance(response.root, CallToolResult):
-                self._measure(request.params.name, request.params.arguments or {}, response.root)
+                result = response.root
+                tool = self.tools.get(request.params.name)
+                if self.result_projection and tool and tool.outputSchema is None:
+                    result = self.result_projection(result)
+                    response = ServerResult(result)
+                self._measure(request.params.name, request.params.arguments or {}, result)
             return response
 
         async def measured_list(request: ListToolsRequest) -> ServerResult:
