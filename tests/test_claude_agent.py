@@ -485,7 +485,7 @@ def test_compiled_sdk_forwards_member_directories_without_changing_cwd_or_mode(t
     asyncio.run(exercise())
 
 
-@pytest.mark.parametrize("server_name", ["flowfield_owned", "foreign"])
+@pytest.mark.parametrize("server_name", ["flowfield_0123456789abcdef", "foreign"])
 def test_sdk_permission_retains_only_registered_mcp_identity(tmp_path, server_name):
     from flowfield.adapters.agent_contract import McpServer
 
@@ -497,19 +497,25 @@ def test_sdk_permission_retains_only_registered_mcp_identity(tmp_path, server_na
         async def decide(request):
             observed.append(request)
             call = request.managed_tool
-            return "allow" if call and call.server == "flowfield_owned" else "deny"
+            return "allow" if call and call.server == "flowfield_0123456789abcdef" else "deny"
 
         try:
             await agent.start(
-                [McpServer(name="flowfield_owned", url="http://127.0.0.1:1/mcp", headers=[])]
+                [
+                    McpServer(
+                        name="flowfield_0123456789abcdef", url="http://127.0.0.1:1/mcp", headers=[]
+                    )
+                ]
             )
             await agent.configure(CHOICE)
             assert (await agent.prompt("Review", decide))["status"] == "completed"
             assert len(observed) == 1
             call = observed[0].managed_tool
-            if server_name == "flowfield_owned":
+            if server_name == "flowfield_0123456789abcdef":
                 assert call and call.server == server_name and call.name == "submit_review"
                 assert call.arguments["private"] == "PRIVATE_TOOL_INPUT"
+                assert '"title": "Search books"' in observed[0].details
+                assert '"project_id": "books"' in observed[0].details
             else:
                 assert call is None
             assert "PRIVATE_TOOL_INPUT" not in observed[0].details

@@ -1,5 +1,6 @@
 import { Pricing } from "./pricing.mjs";
 import { consumption } from "./usage.mjs";
+import { toolDetails } from "./tool-details.mjs";
 // Flowfield's small official Agent SDK host. The installed Claude Code owns tools,
 // native settings and accounts. No CLI/SDK patches or ACP translator.
 import { query } from "@anthropic-ai/claude-agent-sdk";
@@ -48,7 +49,7 @@ async function permission(toolName, args, context) {
   if (stopping || !promptResult || context.signal.aborted) return {behavior: "deny", message: "Turn stopped"};
   if (permissions.size >= 16) throw new Error("permission bound");
   const id = "permission-" + (++requestSequence);
-  const details = Object.fromEntries(["command", "cwd", "file_path", "path", "url"].filter(k => typeof args[k] === "string").map(k => [k, args[k].slice(0, 4000)]));
+  const details = toolDetails(toolName, args);
   let abort;
   const choice = await new Promise(resolve => {
     permissions.set(id, resolve);
@@ -108,7 +109,7 @@ async function consume() {
             await emit({kind: "text", key: "agent-" + message.message.id + "-" + index, text: block.text});
           }
           if (block.type === "tool_use") {
-            const details = Object.fromEntries(["command", "cwd", "file_path", "path"].filter(k => typeof block.input?.[k] === "string").map(k => [k, block.input[k].slice(0, 4000)]));
+            const details = toolDetails(block.name, block.input);
             await emit({kind: "tool", key: block.id, title: block.name, status: "running", details});
           }
         }

@@ -38,7 +38,10 @@ if TYPE_CHECKING:
 GUIDANCE = (
     template("mcp-instructions.md").strip()
     + "\nBefore acting in a workflow, use get_coordinator_guide(mode=outline), "
-    "then read the relevant section in full. Detailed workflow guidance is "
+    "then read relevant headings with mode=read, offset=heading.offset and "
+    "end=heading.end_offset; follow next_offset until that range is complete. "
+    "Reuse already-read sections while their content remains in context. "
+    "Detailed workflow guidance is "
     "required for that workflow, not optional. Retrieve again if context is "
     "lost.\n"
     + """

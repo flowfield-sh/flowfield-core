@@ -7,7 +7,15 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from mcp.types import CallToolResult, TextContent, Tool, ToolAnnotations
+from mcp.types import (
+    CallToolRequest,
+    CallToolRequestParams,
+    CallToolResult,
+    ListToolsRequest,
+    TextContent,
+    Tool,
+    ToolAnnotations,
+)
 from usage_fixtures import accounting
 
 from flowfield import context_measurements, context_schema, storage
@@ -110,6 +118,51 @@ def test_measurement_failure_does_not_repeat_successful_mutation(tmp_path, monke
     assert result.content[0].text == "saved" and applied == [{"value": 1}]
 
 
+def test_protocol_validation_errors_are_measured_once_without_dispatch(tmp_path):
+    execution, _, (run,) = accounting(tmp_path)
+    record = ContextMeasurements(execution.workspace, "harbor", "run", run.id)
+    applied = []
+
+    async def mutate(name, arguments):
+        applied.append(arguments)
+        return CallToolResult(content=[TextContent(type="text", text="saved")])
+
+    scope = ScopedTools(
+        [
+            Tool(
+                name="save",
+                inputSchema={
+                    "type": "object",
+                    "properties": {"value": {"type": "integer"}},
+                    "required": ["value"],
+                    "additionalProperties": False,
+                },
+            )
+        ],
+        mutate,
+    )
+    scope.measurements = record
+
+    async def check():
+        call = scope.server.request_handlers[CallToolRequest]
+        for arguments in ({"unexpected": "PRIVATE"}, {"value": "wrong"}, {"value": 1}):
+            result = await call(
+                CallToolRequest(params=CallToolRequestParams(name="save", arguments=arguments))
+            )
+            assert result.root.isError == (arguments != {"value": 1})
+        # Internal schema-cache population did not send tool definitions to a client.
+        assert all(item["kind"] != "tool_definitions" for item in record.read()["items"])
+        await scope.server.request_handlers[ListToolsRequest](ListToolsRequest())
+
+    asyncio.run(check())
+    items = record.read()["items"]
+    assert len(items) == 4 and applied == [{"value": 1}]
+    assert record.read()["failed_tool_requests"] == 2
+    assert [item["is_error"] for item in items[:3]] == [True, True, False]
+    assert items[-1]["kind"] == "tool_definitions"
+    assert "PRIVATE" not in json.dumps(items)
+
+
 def test_actual_published_0101_upgrade_and_rollback(tmp_path, monkeypatch):
     from flowfield.application import TaskCreate
 
@@ -155,6 +208,7 @@ def test_actual_published_0101_upgrade_and_rollback(tmp_path, monkeypatch):
     app = create_app(data_dir=directory)
     app.state.workspace = store
     with TestClient(app, base_url="http://localhost") as client:
-        assert client.get(f"/api/workspaces/{workspace_id}/board").status_code == 200
+        board = client.get(f"/api/workspaces/{workspace_id}/view/board")
+        assert board.status_code == 200 and board.json()["tasks"]
     created = store.create_task(workspace_id, TaskCreate(title="After context upgrade"))
     assert store.task(workspace_id, created.id).title == "After context upgrade"

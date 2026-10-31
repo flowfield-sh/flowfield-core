@@ -120,7 +120,9 @@ def create_mcp(
         end: Annotated[int | None, Field(ge=0)] = None,
         query: Annotated[str | None, Field(max_length=500)] = None,
     ) -> CallToolResult:
-        """Read the installed Coordinator workflow guide by heading, range or literal search.
+        """Navigate the installed Coordinator guide. For a heading returned by mode=outline,
+        call mode=read with offset=heading.offset and end=heading.end_offset;
+        follow next_offset to finish that range. mode=search accepts a literal query.
         Read the relevant section fully before its workflow; universal role/approval
         rules remain in the prompt.
         """

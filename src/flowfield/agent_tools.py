@@ -9,11 +9,21 @@ import asyncio
 import copy
 import json
 from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
 
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.lowlevel import Server
-from mcp.types import CallToolResult, TextContent, Tool, ToolAnnotations
+from mcp.types import (
+    CallToolRequest,
+    CallToolResult,
+    ListToolsRequest,
+    ListToolsResult,
+    ServerResult,
+    TextContent,
+    Tool,
+    ToolAnnotations,
+)
 from pydantic import ValidationError
 
 from flowfield.context_measurements import ContextMeasurements
@@ -24,6 +34,8 @@ from flowfield.workspaces import Workspaces
 
 if TYPE_CHECKING:
     from flowfield.supervisor import Supervisor
+
+_handling_call: ContextVar[bool] = ContextVar("flowfield_scoped_call", default=False)
 
 
 class ScopedTools:
@@ -47,23 +59,52 @@ class ScopedTools:
 
         @self.server.list_tools()  # type: ignore[no-untyped-call, untyped-decorator]
         async def list_tools() -> list[Tool]:
-            result = [] if self.revoked else list(self.tools.values())
-            if self.measurements and not self.revoked:
-                self.measurements.tools(result)
-            return result
+            return [] if self.revoked else list(self.tools.values())
 
         @self.server.call_tool()  # type: ignore[untyped-decorator]
         async def call_tool(name: str, arguments: dict[str, Any]) -> CallToolResult:
-            return await self.call(name, arguments)
+            return await self._checked_call(name, arguments)
+
+        # The SDK rejects invalid input before the tool callback. Observe its completed
+        # protocol response so validation failures are measured without changing validation.
+        call_handler = self.server.request_handlers[CallToolRequest]
+        list_handler = self.server.request_handlers[ListToolsRequest]
+
+        async def measured_call(request: CallToolRequest) -> ServerResult:
+            token = _handling_call.set(True)
+            try:
+                response = await call_handler(request)
+            finally:
+                _handling_call.reset(token)
+            if isinstance(response.root, CallToolResult):
+                self._measure(request.params.name, request.params.arguments or {}, response.root)
+            return response
+
+        async def measured_list(request: ListToolsRequest) -> ServerResult:
+            response = await list_handler(request)
+            if (
+                self.measurements
+                and not self.revoked
+                and not _handling_call.get()
+                and isinstance(response.root, ListToolsResult)
+            ):
+                self.measurements.tools(response.root.tools)
+            return response
+
+        self.server.request_handlers[CallToolRequest] = measured_call
+        self.server.request_handlers[ListToolsRequest] = measured_list
 
     async def call(self, name: str, arguments: dict[str, Any]) -> CallToolResult:
         result = await self._checked_call(name, arguments)
+        self._measure(name, arguments, result)
+        return result
+
+    def _measure(self, name: str, arguments: dict[str, Any], result: CallToolResult) -> None:
         if self.measurements and name in self.tools:
             annotation = self.tools[name].annotations
             self.measurements.result(
                 name, arguments, result, read_only=bool(annotation and annotation.readOnlyHint)
             )
-        return result
 
     async def _checked_call(self, name: str, arguments: dict[str, Any]) -> CallToolResult:
         try:

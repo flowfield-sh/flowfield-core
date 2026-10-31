@@ -63,9 +63,9 @@ jobs:
           args=()
           if [ -n "$TEST_SELECTION" ]; then args+=("$TEST_SELECTION"); fi
           uv run --no-sync pytest "${args[@]}"
-      - name: Check platform-independent cleanup decisions
+      - name: Check native cleanup and tool details
         if: matrix.os == 'ubuntu-24.04'
-        run: node --test runtimes/claude-sdk/cleanup.test.mjs
+        run: node --test runtimes/claude-sdk/cleanup.test.mjs runtimes/claude-sdk/tool-details.test.mjs
 
   quality:
     name: Quality, docs and candidate build

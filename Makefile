@@ -20,7 +20,7 @@ quality:
 
 test:
 	uv run pytest
-	node --test runtimes/claude-sdk/cleanup.test.mjs
+	node --test runtimes/claude-sdk/cleanup.test.mjs runtimes/claude-sdk/tool-details.test.mjs
 
 format:
 	uv run ruff format .

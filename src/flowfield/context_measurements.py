@@ -159,16 +159,23 @@ class ContextMeasurements:
                 "json_extract(data,'$.request_sha256'),json_extract(data,'$.tool'))",
                 (owner,),
             ).fetchone()[0]
+            failures = db.execute(
+                "SELECT count(*) FROM usage_context WHERE execution=? AND kind='tool_result' "
+                "AND json_extract(data,'$.is_error')=1",
+                (owner,),
+            ).fetchone()[0]
         return {
             "source": self.source,
             "source_id": self.identity,
             "coverage": "unavailable" if state is None else "partial" if state[0] else "recorded",
             "basis": "Reported payload bytes; not model tokens. Native instructions,"
             " token serialization, compaction and attachments are not attributed. "
+            "Tool definitions describe server inventory; harnesses may load only a subset. "
             "Native tool outputs may overlap Flowfield results; do not add them together.",
             "dropped_events": state[0] if state else 0,
             "totals": totals,
             "repeated_read_requests": repeats,
+            "failed_tool_requests": failures,
             "items": [
                 {
                     "number": r["number"],

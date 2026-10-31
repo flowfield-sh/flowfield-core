@@ -368,6 +368,7 @@ def main() -> None:
                                     "command": "echo public",
                                     "cwd": str(Path.cwd()),
                                     "private": "PRIVATE_TOOL_INPUT",
+                                    "task": {"title": "Search books", "project_id": "books"},
                                 },
                                 "permission_suggestions": [],
                             },
