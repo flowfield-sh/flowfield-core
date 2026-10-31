@@ -56,6 +56,33 @@ def test_outline_pagination_and_literal_search():
     assert navigate("", mode="read")["next_offset"] is None
 
 
+def test_copyable_continuation_keeps_range_query_and_exact_document_revision(tmp_path):
+    text = "# Heading\n" + "🦉needle " * 1500
+    request = ReadContext(section="document:guide", offset=4, end=12004)
+    first = json.loads(request.page(text))
+    assert first["page_limit"] == 6000
+    second = json.loads(ReadContext(**first["next_request"]).page(text))
+    assert first["text"] + second["text"] == text[4:12004]
+    assert second["next_request"] is None
+    found = navigate(text, mode="search", query="NEEDLE")
+    more = navigate(text, **found["next_request"])
+    assert more["matches"][0]["offset"] > found["matches"][-1]["offset"]
+    outlined = navigate("# A\n" * 25, mode="outline")
+    assert len(navigate("# A\n" * 25, **outlined["next_request"])["headings"]) == 5
+
+    store = fixture(tmp_path).workspace
+    docs = Documents(store)
+    doc = docs.create("harbor", DocumentCreate(title="Guide", body=text))
+    page = docs.text("harbor", doc.id, 1)
+    assert page["page_limit"] == 4000
+    docs.edit("harbor", doc.id, DocumentEdit(expected_revision=1, body="Changed"))
+    next_request = dict(page["next_request"])
+    identity = next_request.pop("document_id")
+    continuation = docs.text("harbor", identity, **next_request)
+    assert continuation["revision"] == 1 and continuation["sha256"] == page["sha256"]
+    assert continuation["text"] == text[4000:8000]
+
+
 def test_document_navigation_pins_revision_and_mcp_scope(tmp_path):
     store = fixture(tmp_path).workspace
     docs = Documents(store)

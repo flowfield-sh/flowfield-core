@@ -17,23 +17,41 @@ def navigate(
     limit: int = 6000,
     query: str | None = None,
     end: int | None = None,
+    page_limit: int = 6000,
 ) -> dict[str, Any]:
-    if offset < 0 or offset > len(text) or not 1 <= limit <= 6000:
+    if offset < 0 or offset > len(text) or not 1 <= limit <= page_limit <= 6000:
         raise ApplicationError(
-            "invalid_offset", "Choose a source offset and a 1–6000 character limit."
+            "invalid_offset", f"Choose a source offset and a 1–{page_limit} character limit."
         )
     if end is not None and not offset <= end <= len(text):
         raise ApplicationError("invalid_range", "End must lie between offset and source length.")
-    identity = {"sha256": hashlib.sha256(text.encode()).hexdigest(), "total_chars": len(text)}
+    identity = {
+        "sha256": hashlib.sha256(text.encode()).hexdigest(),
+        "total_chars": len(text),
+        "page_limit": page_limit,
+    }
+
+    def continuation(cursor: int | None) -> dict[str, Any] | None:
+        if cursor is None:
+            return None
+        request: dict[str, Any] = {"mode": mode, "offset": cursor, "limit": limit}
+        if mode == "read" and end is not None:
+            request["end"] = end
+        if mode == "search":
+            request["query"] = query
+        return request
+
     if mode == "read":
         stop = min(len(text) if end is None else end, offset + limit)
+        cursor = stop if stop < (len(text) if end is None else end) else None
         return {
             **identity,
             "text": text[offset:stop],
             "offset": offset,
             "end_offset": stop,
             "start_line": text.count("\n", 0, offset) + 1,
-            "next_offset": stop if stop < (len(text) if end is None else end) else None,
+            "next_offset": cursor,
+            "next_request": continuation(cursor),
         }
     if mode == "outline":
         # ATX headings outside fenced code; offsets let callers read the complete section.
@@ -69,17 +87,19 @@ def navigate(
             heading["end_offset"] = following[-1]["offset"] if following else len(text)
             following.append(heading)
         selected = [item for item in headings if item["offset"] >= offset]
+        cursor = selected[20]["offset"] if len(selected) > 20 else None
         return {
             **identity,
             "headings": selected[:20],
-            "next_offset": selected[20]["offset"] if len(selected) > 20 else None,
+            "next_offset": cursor,
+            "next_request": continuation(cursor),
             "format": "atx-headings",
         }
     if mode != "search" or not query or not query.strip() or len(query) > 500:
         raise ApplicationError(
             "invalid_query", "Supply a literal search query of 1–500 characters."
         )
-    matches = []
+    matches: list[dict[str, Any]] = []
     for match in re.finditer(re.escape(query), text[offset:], re.IGNORECASE):
         start, stop = offset + match.start(), offset + match.end()
         left, right = max(0, start - 100), min(len(text), stop + 100)
@@ -94,8 +114,10 @@ def navigate(
         )
         if len(matches) == 11:
             break
+    cursor = matches[10]["offset"] if len(matches) > 10 else None
     return {
         **identity,
         "matches": matches[:10],
-        "next_offset": matches[10]["offset"] if len(matches) > 10 else None,
+        "next_offset": cursor,
+        "next_request": continuation(cursor),
     }

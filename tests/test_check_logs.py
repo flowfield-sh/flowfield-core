@@ -8,7 +8,7 @@ import pytest
 
 from flowfield.adapters import local_checks
 from flowfield.adapters.local_execution import LocalHost
-from flowfield.check_logs import download
+from flowfield.check_logs import download, read, sections
 from flowfield.errors import ApplicationError
 
 
@@ -29,10 +29,17 @@ def test_command_log_keeps_final_summary_and_marks_byte_limit(tmp_path, monkeypa
     path = Path(response.path)
     data = path.read_bytes()
     assert len(data) == check.log_size <= cap
+    assert read(environment.runtime, checks, check.log_id) == data.decode(errors="replace")
+    assert sections(checks)[0]["log_section"] == f"project_check_log:{check.log_id}"
+    for invalid in ("../outside", "f" * 32):
+        with pytest.raises(ApplicationError, match="No retained log"):
+            read(environment.runtime, checks, invalid)
     if cap > 256:
         assert data.endswith(b"FINAL 26 passed\n")
     path.write_bytes(b"changed")
     with pytest.raises(ApplicationError, match="missing or changed"):
         download(environment.runtime, checks, 0)
+    with pytest.raises(ApplicationError, match="missing or changed"):
+        read(environment.runtime, checks, check.log_id)
     with pytest.raises(ApplicationError, match="not found"):
         download(environment.runtime, checks, -1)

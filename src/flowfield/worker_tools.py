@@ -48,7 +48,9 @@ def worker_tools() -> list[dict[str, Any]]:
                 "run_project_checks",
                 "Run the saved project checks on this worker checkout using "
                 "human-granted Flowfield host access. Takes no command arguments. "
-                "Timeout, cancellation and bounded output are service-owned. Final "
+                "Timeout, cancellation and retained logs are service-owned. Output is saved "
+                "on the first run; read returned log_section through read_context without "
+                "rerunning checks or copying logs into deliverables. Final "
                 "candidate validation remains separate.",
                 Record,
             ),
@@ -57,8 +59,10 @@ def worker_tools() -> list[dict[str, Any]]:
                 (
                     "Read a bounded range, outline headings (mode=outline), or search literal "
                     "text (mode=search, query) in an assignment section. Offsets/end are "
-                    "characters; follow next_offset. Required sources still need full reading. "
-                    "project_checks return current retained evidence; other sections are frozen. "
+                    "characters; omit limit (maximum 6000), copy next_request to continue. "
+                    "Required sources still need full reading. project_checks returns current "
+                    "receipts with log_section values for complete retained logs (up to their "
+                    "disclosed byte cap); other sections are frozen. "
                     "Available sections are listed in the initial brief."
                 ),
                 ReadContext,

@@ -191,9 +191,20 @@ class Documents:
                 "invalid_request", "Use a positive revision and a 1–4000 character page."
             )
         value = self.get(workspace_id, identity, revision)
+        page = navigate(
+            value.body,
+            mode=mode,
+            offset=offset,
+            limit=limit,
+            query=query,
+            end=end,
+            page_limit=4000,
+        )
+        if page["next_request"] is not None:
+            page["next_request"].update(document_id=identity, revision=revision)
         return {
             **value.header().model_dump(),
-            **navigate(value.body, mode=mode, offset=offset, limit=limit, query=query, end=end),
+            **page,
         }
 
     @staticmethod

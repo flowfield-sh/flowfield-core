@@ -1,7 +1,8 @@
-"""Transactional queue, attempt ownership and review. No harness or OS operations."""
+"""Transactional queue, attempt ownership, review and scoped context sources."""
 
 import json
 import sqlite3
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -848,6 +849,7 @@ class Execution:
         return run
 
     def context_section(self, workspace_id: str, run_id: str, section: str) -> str:
+        from flowfield import check_logs
         from flowfield.worker_context import attempt_source
 
         with self.workspace.connection() as db:
@@ -856,7 +858,19 @@ class Execution:
                 db.execute("SELECT assignment FROM runs WHERE id=?", (run_id,)).fetchone()[0]
             )
             if section == "project_checks":
-                return json.dumps([item.model_dump() for item in run.project_check_results])
+                return json.dumps(check_logs.sections(run.project_check_results))
+            if section.startswith("project_check_log:"):
+                row = db.execute(
+                    "SELECT data FROM execution_local WHERE run_id=?", (run_id,)
+                ).fetchone()
+                metadata = json.loads(row[0]) if row else {}
+                if not metadata.get("runtime"):
+                    raise ApplicationError("log_unavailable", "No retained command runtime.", 409)
+                return check_logs.read(
+                    Path(metadata["runtime"]),
+                    run.project_check_results,
+                    section.removeprefix("project_check_log:"),
+                )
             if section.startswith("attempt:"):
                 return attempt_source(db, run, sections, section.removeprefix("attempt:"))
             if section not in sections:

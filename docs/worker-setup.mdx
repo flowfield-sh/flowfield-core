@@ -43,6 +43,10 @@ For a shared service, agree its endpoint, data permissions, version and owner. W
 
 Workers run only the saved commands in their assigned checkout. Output remains in attempt evidence; final candidate validation runs separately.
 
+Saved checks retain their output on the first run, up to 8 MiB per command, with any truncation disclosed. Workers and Reviewers can page the verified logs through the returned `log_section`; a shortened tool preview does not require rerunning a passing check. These receipts are already evidence and do not need duplicate attachments.
+
+For checks run through native harness tools, Workers are instructed to capture useful logs during the first invocation, preserve the exit code, and select those files with their result. This does not change native access permissions.
+
 Changing integration settings or the repository invalidates this permission. Enable it again for the new settings. Revocation prevents future calls; stopping the worker cancels running checks.
 
 ## Choose workers

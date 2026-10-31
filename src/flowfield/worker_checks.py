@@ -171,6 +171,8 @@ class WorkerChecks:
                 self.execution._save(db, current)
             import json
 
+            from flowfield.check_logs import sections
+
             return json.dumps(
                 {
                     "scope": "Current worker checkout; final candidate validation "
@@ -178,13 +180,17 @@ class WorkerChecks:
                     "settings_revision": self.run.check_settings_revision,
                     "checks": [
                         {
-                            **check.model_dump(),
-                            "output": check.output[:300],
-                            "truncated": check.truncated or len(check.output) > 300,
+                            **check,
+                            "output": str(check["output"])[:300],
+                            "truncated": bool(check["truncated"])
+                            or len(str(check["output"])) > 300,
                         }
-                        for check in checks
+                        for check in sections(checks)
                     ],
-                    "details": "read_context project_checks pages the latest full retained output",
+                    "details": "Output is already retained. read_context section=project_checks "
+                    "reads receipts/previews; each log_section reads its verified log in pages. "
+                    "log_truncated means the retained log reached its byte cap. Do not rerun "
+                    "passing checks just to capture output or attach duplicate logs.",
                 }
             )
         except ApplicationError as error:

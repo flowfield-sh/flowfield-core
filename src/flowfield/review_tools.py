@@ -48,7 +48,10 @@ class ReviewBridge:
                 name="read_context",
                 description="Read a range, outline headings (mode=outline), or search literal "
                 "text (mode=search, query) in frozen assignment, result, validation or "
-                "review exchange evidence. Available section names are in the brief.",
+                "review exchange evidence. Omit limit (maximum 6000), copy next_request to "
+                "continue. Use exact section keys in the brief or returned section values, "
+                "including log_section in project_checks. recent_exchanges is an inline "
+                "index; exchanges:0 is the exchange-list section.",
                 inputSchema=ReadContext.model_json_schema(),
                 annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
             ),

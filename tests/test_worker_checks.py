@@ -24,7 +24,10 @@ def test_saved_checks_require_exact_human_permission_and_cleanup(tmp_path):
     execution = fixture(tmp_path)
     repo = tmp_path / "harbor"
     git(repo, "init", "-b", "main")
-    (repo / "check.sh").write_text("echo configured-check; test -f result.txt\n")
+    (repo / "check.sh").write_text(
+        'printf x >> "$FLOWFIELD_RUNTIME_DIR/invocations"\n'
+        "echo configured-check; test -f result.txt\n"
+    )
     git(repo, "add", ".")
     git(
         repo,
@@ -46,6 +49,7 @@ def test_saved_checks_require_exact_human_permission_and_cleanup(tmp_path):
     assert run
     execution.started("harbor", run.id)
     environment = LocalHost(os.environ).prepare(execution.workspace.directory, repo, run.id, base)
+    execution.save_local(run.id, {"runtime": str(environment.runtime)})
     (environment.checkout / "result.txt").write_text("new work")
     runner = WorkerChecks(execution, run, environment)
     bridge = WorkerBridge(execution, run, object(), runner.call)
@@ -65,6 +69,16 @@ def test_saved_checks_require_exact_human_permission_and_cleanup(tmp_path):
         report = json.loads(await bridge.call("run_project_checks", {}))
         assert report["checks"][0]["exit_code"] == 0
         assert report["checks"][0]["output"] == "configured-check\n"
+        section = report["checks"][0]["log_section"]
+        first = json.loads(await bridge.call("read_context", {"section": section, "limit": 5}))
+        chunks = [first["text"]]
+        while first["next_request"]:
+            first = json.loads(await bridge.call("read_context", first["next_request"]))
+            chunks.append(first["text"])
+        assert "".join(chunks) == "configured-check\n"
+        assert (environment.runtime / "invocations").read_text() == "x"
+        with pytest.raises(ApplicationError, match="No retained log"):
+            await bridge.call("read_context", {"section": "project_check_log:" + "f" * 32})
         assert not execution.local(run.id).get("check_process")
         permissions.configure(
             "harbor",

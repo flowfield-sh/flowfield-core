@@ -273,6 +273,10 @@ def add_execution_tools(
     @mcp.tool(annotations=write)
     def configure_integration(project_id: str, settings: IntegrationConfig) -> dict[str, Any]:
         """Save the human's destination, setup, environment and trusted check commands.
+        Put configuration in the settings object, not top-level arguments. Example:
+        {"project_id":"project","settings":{"expected_revision":1,
+        "target_branch":"main","checks":["npm test"],"setup_commands":[]}}.
+        Use the actual revision from get_integration_settings; this example is not a default.
         For a NEW agreed branch set settings.target_branch to its name and
         settings.create_from to an explicit baseline if needed; otherwise a missing
         branch is created from the project's current HEAD in this same call.
@@ -299,7 +303,10 @@ def add_execution_tools(
     async def validate_project_setup(project_id: str, request: SetupCheckRequest) -> dict[str, Any]:
         """Run saved setup/check commands through the actual managed worker boundary, without
         a model call or enabling the queue. Creates a separate retained checkout. Requires
-        explicit adoption/setup intent; reports missing tools and stale configuration."""
+        explicit adoption/setup intent; reports missing tools and stale configuration.
+        Pass {"project_id":"project","request":{"expected_revision":1}}, using
+        the actual integration settings revision, not the project revision.
+        """
         return (await supervisor().setup_validation.check(project_id, request)).model_dump()
 
     @mcp.tool(annotations=read)

@@ -122,7 +122,8 @@ def create_mcp(
     ) -> CallToolResult:
         """Navigate the installed Coordinator guide. For a heading returned by mode=outline,
         call mode=read with offset=heading.offset and end=heading.end_offset;
-        follow next_offset to finish that range. mode=search accepts a literal query.
+        omit limit to use pages of at most 6000 characters. Copy next_request for
+        continuation on this same tool. mode=search accepts a literal query.
         Read the relevant section fully before its workflow; universal role/approval
         rules remain in the prompt.
         """
@@ -620,7 +621,10 @@ def create_mcp(
     ) -> CallToolResult:
         """Navigate an exact document revision: read a range, outline ATX headings, or
         search literal text.
-        Offsets/end are Unicode characters. Follow next_offset; required documents
+        revision is required: take it from list_documents or get_document. Example:
+        {"document_id":"guide","revision":1,"mode":"outline"}.
+        Offsets/end are Unicode characters; omit limit for pages of at most 4000.
+        Copy next_request for continuation on this same tool; required documents
         still need full reads.
         Search returns match locations, outline returns section ranges; use mode=read
         to retrieve them.

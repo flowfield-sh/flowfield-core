@@ -37,9 +37,10 @@ if TYPE_CHECKING:
 # The shared role guide is retrieved by workflow; universal rules stay in every prompt.
 GUIDANCE = (
     template("mcp-instructions.md").strip()
-    + "\nBefore acting in a workflow, use get_coordinator_guide(mode=outline), "
+    + "\nBefore acting in a workflow whose guide sections are not already in context, "
+    "use get_coordinator_guide(mode=outline), "
     "then read relevant headings with mode=read, offset=heading.offset and "
-    "end=heading.end_offset; follow next_offset until that range is complete. "
+    "end=heading.end_offset; omit limit and copy next_request until that range is complete. "
     "Reuse already-read sections while their content remains in context. "
     "Detailed workflow guidance is "
     "required for that workflow, not optional. Retrieve again if context is "
