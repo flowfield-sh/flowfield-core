@@ -1,5 +1,6 @@
 """Durable source selection precedes native startup; interrupted prompts never replay."""
 
+import asyncio
 import base64
 import json
 from uuid import uuid4
@@ -9,13 +10,60 @@ from coordinator_history_fixtures import saved_exchange
 from execution_fixtures import fixture
 from project_fixtures import adopt
 
+from flowfield.agent_tools import workspace_scope
 from flowfield.application import ProjectSetup, Workspace
 from flowfield.attachments import Attachments, AttachmentUpload
 from flowfield.coordinator_models import CoordinatorSend
 from flowfield.coordinator_store import CoordinatorStore
+from flowfield.documents import DocumentEdit, Documents
 from flowfield.errors import ApplicationError
 from flowfield.reads import size
 from flowfield.supervisor import Supervisor
+
+
+def test_resumed_guidance_reference_reads_frozen_revision_and_fresh_sessions_keep_text(tmp_path):
+    workspace = fixture(tmp_path).workspace
+    documents = Documents(workspace)
+    initial = documents.get("harbor", "guidance")
+    original = "# Original required guidance\n" + "Preserve accents and authored text. 🦉\n" * 300
+    first = documents.edit(
+        "harbor", "guidance", DocumentEdit(expected_revision=initial.revision, body=original)
+    )
+    turn = saved_exchange(workspace, "Plan work without starting it")
+    service = Supervisor(workspace)
+    fresh = json.loads(service.coordinator._prompt(turn, "scoped"))
+    resumed = json.loads(service.coordinator._prompt(turn, "scoped", resumed=True))
+    assert fresh["instructions"] == resumed["instructions"]
+    assert fresh["workspace_guidance"]["body"].startswith("# Original required guidance")
+    assert "body" in fresh["workspace_guidance"]["truncated_fields"]
+    assert "# Original required guidance" not in json.dumps(resumed)
+    assert size(fresh["workspace_guidance"]) - size(resumed["workspace_guidance"]) > 5000
+
+    changed = documents.edit(
+        "harbor", "guidance", DocumentEdit(expected_revision=first.revision, body="# New rule\n")
+    )
+    later = saved_exchange(workspace, "Continue planning")
+
+    async def retrieve(accepted):
+        prompt = json.loads(service.coordinator._prompt(accepted, "scoped", resumed=True))
+        source = prompt["workspace_guidance"]
+        assert source["purpose"] == "required"
+        reference = source["read_with"]
+        scope = await workspace_scope(service, "harbor")
+        request, chunks = reference["arguments"], []
+        while request:
+            response = await scope.call(reference["tool"], request)
+            assert not response.isError
+            page = json.loads(response.content[0].text)
+            chunks.append(page["text"])
+            request = page["next_request"]
+        return reference["arguments"]["revision"], "".join(chunks)
+
+    # An edit after acceptance cannot retarget an old turn; a later turn sees the edit.
+    assert asyncio.run(retrieve(turn)) == (first.revision, original)
+    assert asyncio.run(retrieve(later)) == (changed.revision, changed.body)
+    recovered = json.loads(service.coordinator._prompt(turn, "fresh-after-recovery"))
+    assert recovered["workspace_guidance"] == fresh["workspace_guidance"]
 
 
 def upload(workspace, name, text):

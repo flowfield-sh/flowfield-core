@@ -141,12 +141,27 @@ class Coordinator:
             "selected_task": turn.task_context.model_dump() if turn.task_context else None,
         }
         if turn.guidance_revision is not None:
-            instructions["workspace_guidance"] = excerpt(
-                Documents(self.supervisor.workspace)
-                .get(turn.workspace_id, "guidance", turn.guidance_revision)
-                .model_dump(),
-                6000,
-            )
+            if resumed:
+                instructions["workspace_guidance"] = {
+                    "purpose": "required",
+                    "read_with": {
+                        "tool": "get_document_text",
+                        "arguments": {
+                            "document_id": "guidance",
+                            "revision": turn.guidance_revision,
+                        },
+                    },
+                    "instructions": "Reuse only if this exact revision remains fully in "
+                    "context. Otherwise read it now, including after a change or compaction; "
+                    "follow next_request until complete. This reference is not its contents.",
+                }
+            else:
+                instructions["workspace_guidance"] = excerpt(
+                    Documents(self.supervisor.workspace)
+                    .get(turn.workspace_id, "guidance", turn.guidance_revision)
+                    .model_dump(),
+                    6000,
+                )
         if resumed:
             return json.dumps(instructions, ensure_ascii=False)
         return json.dumps(
