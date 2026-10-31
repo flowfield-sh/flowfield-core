@@ -461,6 +461,14 @@ class CodexAgent(Agent):
             kind = item.get("type")
             if kind in {"commandExecution", "fileChange", "mcpToolCall", "webSearch"}:
                 identity = str(item.get("id", "tool"))[:90]
+                if method == "item/completed" and not self._completion.done():
+                    output = (
+                        item.get("aggregatedOutput")
+                        if kind == "commandExecution"
+                        else item.get("result")
+                    )
+                    if output is not None:
+                        self.context_output(str(item.get("id", "")), output)
                 title, details = describe(item)
                 if kind == "mcpToolCall":
                     if method == "item/started":

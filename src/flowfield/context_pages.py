@@ -4,22 +4,26 @@ import json
 
 from pydantic import Field
 
-from flowfield.errors import ApplicationError
 from flowfield.execution_models import Record
+from flowfield.source_navigation import Mode, navigate
 
 
 class ReadContext(Record):
     section: str
     offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=6000, ge=1, le=6000)
+    end: int | None = Field(default=None, ge=0)
+    mode: Mode = "read"
+    query: str | None = Field(default=None, max_length=500)
 
     def page(self, text: str) -> str:
-        if self.offset > len(text):
-            raise ApplicationError("invalid_offset", "Offset exceeds source length.")
-        end = min(len(text), self.offset + 6000)
         return json.dumps(
-            {
-                "text": text[self.offset : end],
-                "total_chars": len(text),
-                "next_offset": end if end < len(text) else None,
-            }
+            navigate(
+                text,
+                mode=self.mode,
+                offset=self.offset,
+                limit=self.limit,
+                end=self.end,
+                query=self.query,
+            )
         )

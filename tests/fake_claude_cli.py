@@ -244,7 +244,12 @@ def main() -> None:
                                 {
                                     "type": "tool_result",
                                     "tool_use_id": "fixture-tool",
-                                    "content": "Synthetic tool result",
+                                    "content": "Synthetic tool result"
+                                    + (
+                                        "🦉" * 20000
+                                        if os.getenv("FLOWFIELD_TEST_LARGE_OUTPUT")
+                                        else ""
+                                    ),
                                 }
                             ],
                         },

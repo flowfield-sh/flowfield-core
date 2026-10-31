@@ -32,3 +32,11 @@ Corrections counts work started to address feedback, excluding retries and answe
 - **Duration** counts overlapping running time once and excludes idle gaps.
 
 Cost totals include the usage that can be priced; their tooltip identifies incomplete coverage. Unavailable measurements show `-`.
+
+## Investigate agent context
+
+Ask the Coordinator to inspect an execution's context measurements. Built-in Coordinator turns, Workers and Reviewers retain numeric sizes for Flowfield prompts, tool definitions and tool results, including repeated read requests. `get_context_metrics` accepts the same `source` and `source_id` as metrics evidence.
+
+These are UTF-8 payload bytes, not model tokens or billed usage. Completed native tool outputs are measured when the harness reports them, before Flowfield shortens activity previews. A preview-only fallback is labeled. Harness instructions, attachment contents and compaction are not attributed.
+
+Native output can include Flowfield tool results, so do not add those measurements together. Text and structured tool-result sizes are also reported separately; whether both enter model context depends on the harness. Earlier executions have no retroactive measurements, and bounded records identify when event limits were reached. No prompt or tool-result text is stored in these measurements.

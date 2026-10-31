@@ -24,6 +24,7 @@ from flowfield.agent_models import AgentChoice, AgentSettingsEdit, AgentSettings
 from flowfield.application import Workspace
 from flowfield.attachments import Attachments
 from flowfield.catalogs import Catalogs
+from flowfield.context_measurements import ContextMeasurements
 from flowfield.errors import ApplicationError
 from flowfield.execution import Execution
 from flowfield.execution_models import (
@@ -551,7 +552,11 @@ class Supervisor:
             checks = WorkerChecks(self.execution, run, environment)
             self.check_jobs[run.id] = checks
             bridge = WorkerBridge(self.execution, run, client, checks.call)
-            server = await scope_stack.enter_async_context(serve_scope(worker_scope(bridge)))
+            measurements = ContextMeasurements(self.workspace, run.workspace_id, "run", run.id)
+            scope = worker_scope(bridge)
+            scope.measurements = measurements
+            client.on_context = measurements.native
+            server = await scope_stack.enter_async_context(serve_scope(scope))
             # Persist before launch: after a crash, missing PID is not a cleanup receipt.
             metadata["native_launch_started"] = True
             metadata["harness_launch"] = client.launch.model_dump() if client.launch else None
@@ -634,7 +639,9 @@ class Supervisor:
             ):
                 Usage(self.workspace).start(run.workspace_id, "run", run.id, client.session_id)
                 outcome = await client.prompt(
-                    json.dumps(brief, ensure_ascii=False),
+                    measurements.prompt(
+                        json.dumps(brief, ensure_ascii=False), attachments=len(inputs)
+                    ),
                     checks.permission(server.name, permission_handler(turn)),
                     attachments=Attachments(self.workspace).inputs(
                         run.workspace_id,
@@ -661,7 +668,7 @@ class Supervisor:
                         )
                     Usage(self.workspace).start(run.workspace_id, "run", run.id, client.session_id)
                     outcome = await client.prompt(
-                        completion_reminder(server.name),
+                        measurements.prompt(completion_reminder(server.name), resumed=True),
                         checks.permission(server.name, permission_handler(turn)),
                     )
             confirmed = await client.stop()

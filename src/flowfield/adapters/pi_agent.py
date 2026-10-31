@@ -489,6 +489,8 @@ class PiAgent(Agent):
                 if data.get("isError")
                 else "completed"
             )
+            if method == "tool_execution_end" and data.get("result") is not None:
+                self.context_output(str(data.get("toolCallId", "")), data["result"])
             output = public_output(data.get("result"))
             if output:
                 details += "\nOutput:\n" + output

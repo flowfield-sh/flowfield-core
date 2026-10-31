@@ -113,12 +113,12 @@ def retire_task_drafts(db: sqlite3.Connection) -> None:
 
 
 def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
-    """Upgrade supported 86, 87, 89, 90, 91 and 92 stores atomically with a verified backup."""
-    if current not in (86, 87, 89, 90, 91, 92):
+    """Upgrade supported 86, 87, 89, 90, 91, 92 and 93 stores atomically with a verified backup."""
+    if current not in (86, 87, 89, 90, 91, 92, 93):
         require_supported(current)
         return
     if (
-        current not in (90, 91, 92)
+        current not in (90, 91, 92, 93)
         and db.execute("SELECT 1 FROM sqlite_master WHERE name='usage_executions'").fetchone()
     ):
         raise ApplicationError(
@@ -170,7 +170,7 @@ def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
         from flowfield.usage_schema import BACKFILL, TABLES, TRIGGERS
 
         statement = ""
-        for character in TABLES + BACKFILL + TRIGGERS if current not in (90, 91, 92) else "":
+        for character in TABLES + BACKFILL + TRIGGERS if current not in (90, 91, 92, 93) else "":
             statement += character
             if character == ";" and sqlite3.complete_statement(statement):
                 db.execute(statement)
@@ -179,16 +179,23 @@ def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
             raise ValueError("Incomplete usage migration")
         from flowfield.evidence_schema import migrate_outputs
 
-        if current not in (91, 92):
+        if current not in (91, 92, 93):
             migrate_outputs(db)
         if current in (90, 91):
             db.execute("ALTER TABLE usage_observations ADD COLUMN cost TEXT")
         # New results may bind a reconciled task revision. Keep every old row unchanged,
         # but prevent an older service from ignoring that agreement during delivery.
-        retire_task_drafts(db)
+        if current < 93:
+            retire_task_drafts(db)
         from flowfield.cost import repair_codex_costs
 
-        repair_codex_costs(db)
+        if current < 93:
+            repair_codex_costs(db)
+        from flowfield.context_schema import SCHEMA as context_schema
+
+        for statement in context_schema.split(";"):
+            if statement.strip():
+                db.execute(statement)
         db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
         integrity(db)
         db.commit()

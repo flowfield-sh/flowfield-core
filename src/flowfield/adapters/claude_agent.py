@@ -346,6 +346,14 @@ class ClaudeAgent(Agent):
             details = bounded_details(
                 "\n".join(f"{key}: {value}" for key, value in tool.get("details", {}).items())
             )
+            if data.get("output") is not None and data.get("status") in {"completed", "failed"}:
+                reported = data.get("outputBytes")
+                if type(reported) is int and 0 <= reported <= 9_007_199_254_740_991:
+                    self.context_output(str(data.get("key", "")), None, size=reported)
+                else:
+                    self.context_output(
+                        str(data.get("key", "")), data["output"], representation="text-preview"
+                    )
             if data.get("output") is not None:
                 details += "\nOutput:\n" + public_output(data["output"])
             label = (

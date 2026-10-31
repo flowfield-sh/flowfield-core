@@ -1693,6 +1693,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspaces/{workspace_id}/usage/{source}/{source_id}/context": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Context */
+    get: operations["context_api_workspaces__workspace_id__usage__source___source_id__context_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/workspaces/{workspace_id}/tasks/{task_id}/agent-settings": {
     parameters: {
       query?: never;
@@ -11442,6 +11459,44 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["UsageEvidencePage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  context_api_workspaces__workspace_id__usage__source___source_id__context_get: {
+    parameters: {
+      query?: {
+        after?: number;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+        source: "run" | "review_attempt" | "coordinator_turn";
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
         };
       };
       /** @description Validation Error */

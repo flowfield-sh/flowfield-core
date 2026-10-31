@@ -6,6 +6,7 @@ from datetime import date
 from typing import TYPE_CHECKING, Any, Literal
 
 from flowfield.errors import ApplicationError
+from flowfield.source_navigation import navigate
 
 if TYPE_CHECKING:
     from flowfield.application import Workspace
@@ -166,7 +167,17 @@ def assignment_search(sections: dict[str, str], query: str, limit: int = 5) -> d
     return {
         "scope": "frozen_assignment",
         "items": [
-            {"section": section, "snippet": snippet[:900], "read": "read_context", "excerpt": True}
+            {
+                "section": section,
+                "snippet": snippet[:900],
+                "read": "read_context",
+                "excerpt": True,
+                "locations": [
+                    {key: hit[key] for key in ("offset", "end_offset", "line")}
+                    for term in re.findall(r"\w+", query)[:20]
+                    for hit in navigate(sections[section], mode="search", query=term)["matches"][:1]
+                ],
+            }
             for section, snippet in rows[:limit]
         ],
         "has_more": len(rows) > limit,

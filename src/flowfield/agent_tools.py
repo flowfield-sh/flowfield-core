@@ -16,6 +16,7 @@ from mcp.server.lowlevel import Server
 from mcp.types import CallToolResult, TextContent, Tool, ToolAnnotations
 from pydantic import ValidationError
 
+from flowfield.context_measurements import ContextMeasurements
 from flowfield.errors import ApplicationError
 from flowfield.mcp import create_mcp
 from flowfield.worker_tools import WorkerBridge, worker_tools
@@ -34,6 +35,7 @@ class ScopedTools:
         parallel_reads: bool = False,
         check: Callable[[], None] | None = None,
     ):
+        self.measurements: ContextMeasurements | None = None
         self.tools = {tool.name: tool for tool in tools}
         self._call = call
         self.revoked = False
@@ -45,13 +47,25 @@ class ScopedTools:
 
         @self.server.list_tools()  # type: ignore[no-untyped-call, untyped-decorator]
         async def list_tools() -> list[Tool]:
-            return [] if self.revoked else list(self.tools.values())
+            result = [] if self.revoked else list(self.tools.values())
+            if self.measurements and not self.revoked:
+                self.measurements.tools(result)
+            return result
 
         @self.server.call_tool()  # type: ignore[untyped-decorator]
         async def call_tool(name: str, arguments: dict[str, Any]) -> CallToolResult:
             return await self.call(name, arguments)
 
     async def call(self, name: str, arguments: dict[str, Any]) -> CallToolResult:
+        result = await self._checked_call(name, arguments)
+        if self.measurements and name in self.tools:
+            annotation = self.tools[name].annotations
+            self.measurements.result(
+                name, arguments, result, read_only=bool(annotation and annotation.readOnlyHint)
+            )
+        return result
+
+    async def _checked_call(self, name: str, arguments: dict[str, Any]) -> CallToolResult:
         try:
             if self.revoked:
                 raise ApplicationError("scope_closed", "This agent's tool access has ended.", 403)

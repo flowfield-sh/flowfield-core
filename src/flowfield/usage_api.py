@@ -1,11 +1,12 @@
 """Human read-only usage routes under the existing local origin/access boundary."""
 
 from collections.abc import Callable
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Query
 
 from flowfield.application import Workspace
+from flowfield.context_measurements import ContextMeasurements
 from flowfield.usage_models import Source, UsageEvidencePage, UsageFilter, UsageView
 from flowfield.usage_reads import UsageReads
 
@@ -32,5 +33,15 @@ def usage_router(workspace: Callable[[], Workspace]) -> APIRouter:
         limit: int = Query(50, ge=1, le=100),
     ) -> UsageEvidencePage:
         return UsageReads(workspace()).evidence(workspace_id, source, source_id, after, limit)
+
+    @router.get("/{workspace_id}/usage/{source}/{source_id}/context")
+    def context(
+        workspace_id: str,
+        source: Source,
+        source_id: str,
+        after: int = Query(0, ge=0),
+        limit: int = Query(50, ge=1, le=100),
+    ) -> dict[str, Any]:
+        return ContextMeasurements(workspace(), workspace_id, source, source_id).read(after, limit)
 
     return router

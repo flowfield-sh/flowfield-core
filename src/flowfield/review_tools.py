@@ -46,7 +46,8 @@ class ReviewBridge:
         tools = [
             Tool(
                 name="read_context",
-                description="Read a bounded page of frozen assignment, result, validation or "
+                description="Read a range, outline headings (mode=outline), or search literal "
+                "text (mode=search, query) in frozen assignment, result, validation or "
                 "review exchange evidence. Available section names are in the brief.",
                 inputSchema=ReadContext.model_json_schema(),
                 annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),

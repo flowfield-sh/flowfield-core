@@ -108,7 +108,7 @@ def test_interrupted_upgrade_rolls_back_and_retries(tmp_path, monkeypatch):
             "SELECT 1 FROM sqlite_master WHERE name='usage_executions'"
         ).fetchone()
     Workspace(directory)
-    assert storage.status(directory)["schema_version"] == 93
+    assert storage.status(directory)["schema_version"] == 94
 
 
 def test_upgrade_requires_exclusive_execution_ownership(tmp_path):
@@ -144,7 +144,7 @@ from flowfield.application import Workspace
 check = storage.integrity
 def interrupted(db):
     check(db)
-    if storage.version(db) == 93:
+    if storage.version(db) == 94:
         os._exit(17)
 storage.integrity = interrupted
 Workspace(Path(sys.argv[1]))

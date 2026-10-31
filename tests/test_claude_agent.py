@@ -23,6 +23,10 @@ def test_compiled_sdk_cleanup_tracks_actual_owned_work(tmp_path, scenario):
             tmp_path, "background" if scenario == "runtime-failure" else scenario
         )
         events, entered = [], asyncio.Event()
+        context = []
+        agent.on_context = lambda *event: context.append(event)
+        if scenario == "complete":
+            agent.environment["FLOWFIELD_TEST_LARGE_OUTPUT"] = "1"
 
         def activity(value):
             events.append(value)
@@ -66,6 +70,13 @@ def test_compiled_sdk_cleanup_tracks_actual_owned_work(tmp_path, scenario):
             assert "Synthetic public answer" in public
             if scenario == "complete":
                 assert "Synthetic tool result" in public
+                assert context == [
+                    (
+                        "native_tool_output",
+                        len(("Synthetic tool result" + "🦉" * 20000).encode()),
+                        "native-payload",
+                    )
+                ]
             assert "PRIVATE_FIXTURE_THOUGHT" not in public
             records = [
                 json.loads(line) for line in (tmp_path / "native.jsonl").read_text().splitlines()

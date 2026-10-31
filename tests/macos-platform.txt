@@ -4,6 +4,7 @@ tests/test_checkout_delivery.py
 tests/test_git_review.py
 tests/test_local_environment.py
 tests/test_storage_upgrade.py
+tests/test_context_measurements.py::test_actual_published_0101_upgrade_and_rollback
 tests/test_storage.py::test_killed_initialization_releases_ownership_and_rolls_back
 tests/test_storage.py::test_active_execution_owner_allows_current_readers_only
 tests/test_storage.py::test_initialization_lock_prevents_overlapping_reads_and_writes

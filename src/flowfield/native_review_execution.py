@@ -21,6 +21,7 @@ from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_models import EffectiveAgent
 from flowfield.agent_tools import ScopedTools
 from flowfield.application import now
+from flowfield.context_measurements import ContextMeasurements
 from flowfield.errors import ApplicationError
 from flowfield.output_models import FileInput
 from flowfield.run_activity import ActivityRecorder, ActivityUpdate
@@ -245,6 +246,11 @@ class NativeReviewExecution[J: ReviewJob](ABC):
                 client.output_directory = environment.runtime / "output"
             service.clients[review.id] = client
             scope = launch.scope
+            measurements = ContextMeasurements(
+                service.workspace, review.workspace_id, "review_attempt", attempt
+            )
+            scope.measurements = measurements
+            client.on_context = measurements.native
             server = await scope_stack.enter_async_context(serve_scope(scope))
             save(
                 checkout=str(environment.checkout),
@@ -303,7 +309,10 @@ class NativeReviewExecution[J: ReviewJob](ABC):
             Usage(service.workspace).start(
                 review.workspace_id, "review_attempt", attempt, client.session_id
             )
-            outcome = await client.prompt(json.dumps(brief, ensure_ascii=False), permission)
+            outcome = await client.prompt(
+                measurements.prompt(json.dumps(brief, ensure_ascii=False), attachments=len(files)),
+                permission,
+            )
             if outcome.get("status") != "completed":
                 problem = "Review turn did not complete. Evidence is retained; retry explicitly."
             scope.revoke()

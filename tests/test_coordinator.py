@@ -71,6 +71,13 @@ def test_real_native_capture_continuity_and_duplicate_send(tmp_path, monkeypatch
             service.coordinator.send("harbor", conversation.id, message())
         completed = await settled(service, turn)
         assert completed.status == "completed", completed.notice
+        from flowfield.context_measurements import ContextMeasurements
+
+        measured = ContextMeasurements(
+            service.workspace, "harbor", "coordinator_turn", turn.id
+        ).read()
+        assert {r["kind"] for r in measured["totals"]} >= {"prompt", "tool_result"}
+        assert "do-not-persist-host-secrets" not in json.dumps(measured)
         assert completed.session == "new"
         assert next(item for item in completed.activity.items if item.key == "session").text == (
             "New agent session started."
@@ -631,6 +638,7 @@ def test_welcome_is_durable_model_free_and_in_first_turn_context(tmp_path, monke
 
 
 def test_builtin_coordinator_receives_the_installed_role_rules(tmp_path, monkeypatch):
+    from flowfield.agent_tools import workspace_scope
     from flowfield.guidance import Guidance
 
     service, conversation = setup(tmp_path, monkeypatch)
@@ -639,9 +647,26 @@ def test_builtin_coordinator_receives_the_installed_role_rules(tmp_path, monkeyp
     )
     instructions = json.loads(service.coordinator._prompt(turn, "scoped-tools"))["instructions"]
     installed = Guidance(service.workspace).get("harbor").skill.split("---", 2)[2].strip()
-    assert installed in instructions
+    assert "get_coordinator_guide" in instructions
     assert "list_labels" in instructions
-    assert "future audience" in instructions
+    assert "explicit human approval of the exact code candidate" in instructions
+    assert "Read required guidance fully" in instructions
     assert "paused queue" in instructions
     assert "scoped-tools" in instructions
     assert "private service/database files" in instructions
+
+    async def retrieve():
+        scope = await workspace_scope(service, "harbor")
+        pages, offset = [], 0
+        while True:
+            result = await scope.call("get_coordinator_guide", {"mode": "read", "offset": offset})
+            assert not result.isError
+            page = json.loads(result.content[0].text)
+            pages.append(page["text"])
+            offset = page["next_offset"]
+            if offset is None:
+                break
+        return "".join(pages)
+
+    assert asyncio.run(retrieve()) == installed
+    assert "future audience" in installed

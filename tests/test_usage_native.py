@@ -12,6 +12,7 @@ from usage_native_fixtures import CHOICES, TOTALS, native, native_factory
 
 from flowfield.adapters.git_workspace import baseline
 from flowfield.agent_models import AgentSettingsEdit
+from flowfield.context_measurements import ContextMeasurements
 from flowfield.coordinator_models import CoordinatorTaskSelection
 from flowfield.execution_models import SettingsEdit
 from flowfield.reviewer_settings import ReviewerEdit
@@ -54,6 +55,9 @@ def test_worker_reminder_through_native_adapter_is_one_attempt(
     assert detail.execution.dispatch_count == 2
     assert detail.execution.coverage == ("partial" if harness == "pi" else "complete")
     assert detail.execution.ended_at is not None
+    measure = ContextMeasurements(service.workspace, "harbor", "run", run.id).read()
+    assert sum(r["events"] for r in measure["totals"] if r["kind"] == "prompt") == 2
+    assert all(r["bytes"] > 0 for r in measure["items"] if r["kind"] == "prompt")
     assert detail.execution.role == "worker"
     assert service.execution.get("harbor", run.id).status == "failed"  # no managed result
     assert "PRIVATE_USAGE_FIELD" not in detail.model_dump_json()
@@ -87,6 +91,8 @@ def test_coordinator_mixed_selected_task_is_related_only(tmp_path, monkeypatch, 
     turn = asyncio.run(run())
     detail = UsageReads(service.workspace).evidence("harbor", "coordinator_turn", turn.id)
     assert detail.execution.tokens.total == TOTALS[harness], turn.notice
+    measure = ContextMeasurements(service.workspace, "harbor", "coordinator_turn", turn.id).read()
+    assert any(r["kind"] == "prompt" and r["bytes"] > 0 for r in measure["items"])
     assert detail.execution.task_id is None
     assert detail.execution.related_task_id == task.id
     task_view = UsageReads(service.workspace).view("harbor", UsageFilter(), task=task.id)
@@ -122,6 +128,10 @@ def test_reviewer_native_consumption_owned_by_attempt(tmp_path, monkeypatch, har
     assert review is not None
     detail = UsageReads(service.workspace).evidence("harbor", "review_attempt", review.attempt_id)
     assert detail.execution.tokens.total == TOTALS[harness]
+    measure = ContextMeasurements(
+        service.workspace, "harbor", "review_attempt", review.attempt_id
+    ).read()
+    assert any(r["kind"] == "prompt" and r["bytes"] > 0 for r in measure["items"])
     assert detail.execution.role == "reviewer"
     assert detail.execution.parent_id == review.id
     assert detail.execution.project_id == run.project_id

@@ -1,6 +1,8 @@
 """Application-owned adapter contracts; native protocols stay in concrete adapters."""
 
 import asyncio
+import hashlib
+import json
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
@@ -78,6 +80,37 @@ class Agent(ABC):
     cleanup_confirmed = True
     stopping = False
     on_consumption: Callable[[Consumption], None] | None = None
+    on_context: Callable[[str, int, str], None] | None = None
+
+    def context_output(
+        self,
+        identity: str,
+        value: Any,
+        *,
+        size: int | None = None,
+        representation: str = "native-payload",
+    ) -> None:
+        """Measure completed native output once, before public preview truncation."""
+        if not self.on_context or not identity:
+            return
+        seen = getattr(self, "_context_seen", None)
+        if seen is None:
+            self._context_seen: set[str] = set()
+            seen = self._context_seen
+        key = hashlib.sha256(identity.encode()).hexdigest()
+        if key in seen:
+            return
+        if len(seen) >= 4096:
+            if not getattr(self, "_context_limited", False):
+                self._context_limited = True
+                self.on_context("native_limit", 0, "unknown")
+            return
+        seen.add(key)
+        if size is None:
+            text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+            size = len(text.encode())
+        self.on_context("native_tool_output", size, representation)
+
     on_activity: Callable[[ActivityUpdate], None] | None = None
 
     @property

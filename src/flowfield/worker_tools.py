@@ -55,7 +55,9 @@ def worker_tools() -> list[dict[str, Any]]:
             (
                 "read_context",
                 (
-                    "Read a 6000-character page of an assignment section. "
+                    "Read a bounded range, outline headings (mode=outline), or search literal "
+                    "text (mode=search, query) in an assignment section. Offsets/end are "
+                    "characters; follow next_offset. Required sources still need full reading. "
                     "project_checks return current retained evidence; other sections are frozen. "
                     "Available sections are listed in the initial brief."
                 ),

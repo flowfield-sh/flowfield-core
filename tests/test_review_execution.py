@@ -115,6 +115,20 @@ def test_review_scope_rejects_delivery_and_foreign_identifiers(tmp_path):
         assert denied.isError and "operation_denied" in denied.content[0].text
         foreign = await scope.call("read_context", {"section": "result", "project_id": "foreign"})
         assert foreign.isError and "invalid_request" in foreign.content[0].text
+        found = await scope.call(
+            "read_context", {"section": "result", "mode": "search", "query": "Worker-reported"}
+        )
+        assert not found.isError
+        hit = json.loads(found.content[0].text)["matches"][0]
+        exact = await scope.call(
+            "read_context",
+            {"section": "result", "offset": hit["offset"], "end": hit["end_offset"]},
+        )
+        assert json.loads(exact.content[0].text)["text"] == "Worker-reported"
+        unselected = await scope.call(
+            "read_context", {"section": "document:unselected", "mode": "outline"}
+        )
+        assert unselected.isError
         scope.revoke()
         revoked = await scope.call("read_context", {"section": "result"})
         assert revoked.isError and "scope_closed" in revoked.content[0].text

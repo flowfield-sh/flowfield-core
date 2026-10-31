@@ -24,13 +24,14 @@ from flowfield.application import (
     Workspace,
 )
 from flowfield.attention import AttentionColumn, RequestKind
+from flowfield.context_measurements import ContextMeasurements
 from flowfield.conversation_api import add_conversation_tools
 from flowfield.coordinator_settings import CoordinatorSettings
 from flowfield.document_usage import DocumentUsage, DocumentUsageEdit
 from flowfield.documents import DocumentCreate, DocumentEdit, DocumentRestore, Documents
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import QueueEdit, SettingsEdit
-from flowfield.guidance import Guidance, GuidanceChange, template
+from flowfield.guidance import SKILL_TEMPLATE, Guidance, GuidanceChange, template
 from flowfield.harness_models import HarnessKind
 from flowfield.inspection import Inspections
 from flowfield.inspection_models import Inspection, InspectionConfig, InspectionPrepare
@@ -48,6 +49,7 @@ from flowfield.questions import (
 from flowfield.reads import MAX_LIMIT, ContextReads, excerpt, receipt
 from flowfield.reviewer_settings import Reviewers
 from flowfield.search import Entity, History, Search
+from flowfield.source_navigation import Mode, navigate
 from flowfield.subtasks import SubtaskCreate, SubtaskEdit, Subtasks
 from flowfield.supervisor import Supervisor
 from flowfield.usage_models import Source, UsageEvidencePage, UsageFilter, UsageView
@@ -108,6 +110,51 @@ def create_mcp(
         if "author" not in request.model_fields_set:
             return request.model_copy(update={"author": "agent"})
         return request
+
+    @mcp.tool(annotations=read)
+    async def get_coordinator_guide(
+        workspace_id: Identifier,
+        mode: Mode = "outline",
+        offset: Annotated[int, Field(ge=0)] = 0,
+        limit: Annotated[int, Field(ge=1, le=6000)] = 6000,
+        end: Annotated[int | None, Field(ge=0)] = None,
+        query: Annotated[str | None, Field(max_length=500)] = None,
+    ) -> CallToolResult:
+        """Read the installed Coordinator workflow guide by heading, range or literal search.
+        Read the relevant section fully before its workflow; universal role/approval
+        rules remain in the prompt.
+        """
+
+        def read_guide() -> dict[str, Any]:
+            Workspaces(workspace()).get(workspace_id)
+            return navigate(
+                template(SKILL_TEMPLATE).split("---", 2)[2].strip(),
+                mode=mode,
+                offset=offset,
+                limit=limit,
+                end=end,
+                query=query,
+            )
+
+        return await invoke(read_guide)
+
+    @mcp.tool(annotations=read)
+    async def get_context_metrics(
+        workspace_id: Identifier,
+        source: Source,
+        source_id: str,
+        after: Annotated[int, Field(ge=0)] = 0,
+        limit: PageLimit = 50,
+    ) -> CallToolResult:
+        """Read numeric prompt/tool bytes and repeated reads for one metrics execution.
+        These are Flowfield payload sizes, not tokens or a complete native context breakdown.
+        Historical executions may have no measurements. Follow next_after.
+        """
+        return await invoke(
+            lambda: ContextMeasurements(workspace(), workspace_id, source, source_id).read(
+                after, limit
+            )
+        )
 
     @mcp.tool(annotations=read)
     async def get_workspace(workspace_id: Identifier) -> CallToolResult:
@@ -531,6 +578,21 @@ def create_mcp(
         )
 
     @mcp.tool(annotations=read)
+    async def search_documents(
+        workspace_id: Identifier,
+        query: Annotated[str, Field(min_length=1, max_length=500)],
+        after: str | None = None,
+        limit: Annotated[int, Field(ge=1, le=10)] = 5,
+    ) -> CallToolResult:
+        """Search literal text in a bounded page of current workspace documents.
+        Follow next_after even if no matches on this page. Hits pin revisions and ranges;
+        get_document_text retrieves surrounding sections. Required sources need full reading.
+        """
+        return await invoke(
+            lambda: Documents(workspace()).search(workspace_id, query, after=after, limit=limit)
+        )
+
+    @mcp.tool(annotations=read)
     async def get_document(
         workspace_id: Identifier,
         document_id: Identifier,
@@ -550,11 +612,27 @@ def create_mcp(
         revision: Annotated[int, Field(ge=1)],
         offset: Annotated[int, Field(ge=0)] = 0,
         limit: Annotated[int, Field(ge=1, le=4000)] = 4000,
+        mode: Mode = "read",
+        query: Annotated[str | None, Field(max_length=500)] = None,
+        end: Annotated[int | None, Field(ge=0)] = None,
     ) -> CallToolResult:
-        """Read immutable document content by exact revision; follow next_offset until complete."""
+        """Navigate an exact document revision: read a range, outline ATX headings, or
+        search literal text.
+        Offsets/end are Unicode characters. Follow next_offset; required documents
+        still need full reads.
+        Search returns match locations, outline returns section ranges; use mode=read
+        to retrieve them.
+        """
         return await invoke(
             lambda: Documents(workspace()).text(
-                workspace_id, document_id, revision, offset=offset, limit=limit
+                workspace_id,
+                document_id,
+                revision,
+                offset=offset,
+                limit=limit,
+                mode=mode,
+                query=query,
+                end=end,
             )
         )
 

@@ -19,12 +19,13 @@ from flowfield.adapters.local_execution import LocalHost
 from flowfield.agent_models import AgentCommand
 from flowfield.agent_tools import workspace_scope
 from flowfield.attachments import Attachments
+from flowfield.context_measurements import ContextMeasurements
 from flowfield.coordinator_models import CoordinatorSend, CoordinatorTurn
 from flowfield.coordinator_settings import CoordinatorSettings
 from flowfield.coordinator_store import CoordinatorStore
 from flowfield.documents import Documents
 from flowfield.errors import ApplicationError
-from flowfield.guidance import SKILL_TEMPLATE, template
+from flowfield.guidance import template
 from flowfield.harness_settings import HarnessSettings
 from flowfield.reads import excerpt
 from flowfield.run_activity import ActivityRecorder, ActivityUpdate
@@ -33,9 +34,13 @@ from flowfield.usage import Usage
 if TYPE_CHECKING:
     from flowfield.supervisor import Supervisor
 
-# One role guide is shipped to standalone and built-in coordinators.
+# The shared role guide is retrieved by workflow; universal rules stay in every prompt.
 GUIDANCE = (
-    template(SKILL_TEMPLATE).split("---", 2)[2].strip()
+    template("mcp-instructions.md").strip()
+    + "\nBefore acting in a workflow, use get_coordinator_guide(mode=outline), "
+    "then read the relevant section in full. Detailed workflow guidance is "
+    "required for that workflow, not optional. Retrieve again if context is "
+    "lost.\n"
     + """
 
 Built-in conversation context:
@@ -189,6 +194,10 @@ class Coordinator:
                 author=f"coordinator:{turn.id}",
                 check=live_scope,
             )
+            measurements = ContextMeasurements(
+                workspace, turn.workspace_id, "coordinator_turn", turn.id
+            )
+            grant.measurements = measurements
             # The same name replaces the previous endpoint on resume; credentials
             # and grants remain fresh and are revoked at the end of every turn.
             async with serve_scope(grant, name="flowfield_" + turn.conversation_id) as server:
@@ -237,6 +246,7 @@ class Coordinator:
                             )
                         )
                     Usage(workspace).bind(turn.workspace_id, "coordinator_turn", turn.id, client)
+                    client.on_context = measurements.native
                     await client.start([server], resume=session_id, persistent=True)
                     applied = await client.configure(turn.settings.choice)
                     assert client.session_id
@@ -336,7 +346,9 @@ class Coordinator:
                             purpose="command" if native_command else "message",
                         )
                         outcome = await client.prompt(
-                            prompt,
+                            measurements.prompt(
+                                prompt, resumed=session_id is not None, attachments=len(attachments)
+                            ),
                             permission_handler(permission_turn),
                             attachments=attachments,
                         )

@@ -11,6 +11,7 @@ from flowfield.application import Edit, Input, Markdown, Workspace, now
 from flowfield.errors import ApplicationError
 from flowfield.project_config import Identifier, Title
 from flowfield.reads import page, validate_page
+from flowfield.source_navigation import Mode, navigate
 from flowfield.workspaces import Workspaces
 
 
@@ -129,6 +130,36 @@ class Documents:
             )
             return DocumentPage(**page([dict(row) for row in rows], limit, "id"))
 
+    def search(
+        self, workspace_id: str, query: str, *, after: str | None = None, limit: int = 5
+    ) -> dict[str, Any]:
+        """Search a bounded page of current documents, returning pinned locations."""
+        navigate("", mode="search", query=query)  # Validate even an empty library.
+        if not 1 <= limit <= 10:
+            raise ApplicationError("invalid_request", "Search 1–10 documents per page.")
+        headers = self.page(workspace_id, after=after, limit=limit)
+        items = []
+        for header in headers.items:
+            doc = self.get(workspace_id, header.id, header.revision)
+            found = navigate(doc.body, mode="search", query=query)
+            if found["matches"]:
+                items.append(
+                    {
+                        **doc.header().model_dump(),
+                        "sha256": found["sha256"],
+                        "matches": found["matches"][:3],
+                        "next_offset": found["matches"][3]["offset"]
+                        if len(found["matches"]) > 3
+                        else found["next_offset"],
+                    }
+                )
+        return {
+            "items": items,
+            "next_after": headers.next_cursor,
+            "documents_scanned": len(headers.items),
+            "scope": "current documents; read matches at returned immutable revisions",
+        }
+
     def history(
         self, workspace_id: str, identity: str, *, before: int | None = None, limit: int = 20
     ) -> DocumentPage:
@@ -144,20 +175,25 @@ class Documents:
             return DocumentPage(**page([dict(row) for row in rows], limit, "revision"))
 
     def text(
-        self, workspace_id: str, identity: str, revision: int, *, offset: int = 0, limit: int = 4000
+        self,
+        workspace_id: str,
+        identity: str,
+        revision: int,
+        *,
+        offset: int = 0,
+        limit: int = 4000,
+        mode: Mode = "read",
+        query: str | None = None,
+        end: int | None = None,
     ) -> dict[str, Any]:
         if revision < 1 or offset < 0 or not 1 <= limit <= 4000:
             raise ApplicationError(
                 "invalid_request", "Use a positive revision and a 1–4000 character page."
             )
         value = self.get(workspace_id, identity, revision)
-        if offset > value.characters:
-            raise ApplicationError("invalid_offset", "Choose an offset within the document.")
-        end = offset + limit
         return {
             **value.header().model_dump(),
-            "text": value.body[offset:end],
-            "next_offset": end if end < value.characters else None,
+            **navigate(value.body, mode=mode, offset=offset, limit=limit, query=query, end=end),
         }
 
     @staticmethod

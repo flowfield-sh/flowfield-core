@@ -116,7 +116,7 @@ async function consume() {
         for (const block of message.message?.content ?? []) {
           if (block.type === "tool_result") {
             const output = typeof block.content === "string" ? block.content : (block.content ?? []).map(part => part.type === "text" ? part.text : `[${part.type ?? "Non-text"} content]`).join("\n");
-            await emit({kind: "tool", key: block.tool_use_id, status: block.is_error ? "failed" : "completed", output: output.slice(0, 16000)});
+            await emit({kind: "tool", key: block.tool_use_id, status: block.is_error ? "failed" : "completed", output: output.slice(0, 16000), outputBytes: Buffer.byteLength(typeof block.content === "string" ? block.content : JSON.stringify(block.content ?? []), "utf8")});
           }
         }
       } else if (message.type === "system" && message.subtype === "local_command_output") {
