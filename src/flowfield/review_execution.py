@@ -268,7 +268,9 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
         if review.binding.completion == "report":
             brief["instructions"] = brief["instructions"].replace(
                 "Inspect the candidate diff against target_before. ",
-                "Inspect the submitted report and retained files. ",
+                "Inspect the submitted report and retained files. When a repository snapshot "
+                "is supplied, inspect that exact source read-only to verify the report's "
+                "claims; this is not a code-change review. ",
             )
         with service.workspace.connection() as db:
             files = Outputs.selected(db, review.workspace_id, review.binding.output_ids)
@@ -320,7 +322,7 @@ class ReviewExecution(NativeReviewExecution[TaskReview]):
                 )
             brief["setup_commands"] = setup
         return ReviewLaunch(
-            review.binding.candidate_commit if review.binding.completion == "code" else None,
+            review.binding.candidate_commit,
             frozen,
             ReviewBridge(self.reviews, review, attempt, review.recipient).scope(),
             brief,

@@ -486,3 +486,69 @@ def test_review_cannot_modify_candidate_or_call_coordinator_tools(tmp_path, monk
     assert review.status == "failed" and review.verdict is None
     assert "changed its inspection checkout" in review.problem
     assert git(repo, "rev-parse", "HEAD") == before
+
+
+@pytest.mark.parametrize("changed", [False, True])
+def test_project_report_review_gets_frozen_source_and_rejects_edits(tmp_path, monkeypatch, changed):
+    from result_fixtures import fixture
+
+    from flowfield.agent_models import AgentChoice
+    from flowfield.execution_models import QueueEdit
+    from flowfield.reviewer_settings import ReviewerEdit, Reviewers
+    from flowfield.task_reviews import TaskReviews
+
+    service, repo, run = fixture(tmp_path, completion="report", changed=False)
+    settings = Reviewers(service.workspace)
+    settings.configure(
+        "harbor",
+        ReviewerEdit(
+            expected_revision=settings.get("harbor").revision,
+            enabled=True,
+            selection=AgentChoice(model="review-fixture"),
+        ),
+    )
+    service.results.process("harbor")
+    frozen = current(service).candidate_commit
+    assert frozen == run.base_commit
+    # A report is about its frozen source, even after the adopted checkout moves.
+    (repo / "README.md").write_text("newer source\n")
+    git(repo, "add", "README.md")
+    git(
+        repo,
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.invalid",
+        "commit",
+        "-m",
+        "later",
+    )
+    later = git(repo, "rev-parse", "HEAD")
+    queue = service.execution.settings("harbor")
+    service.execution.queue("harbor", QueueEdit(expected_revision=queue.revision, enabled=True))
+    install(monkeypatch)
+    original = Reviewer.run
+    seen = []
+
+    async def inspect(self, model, effort, prompt, tools):
+        brief = json.loads(prompt)
+        assert brief["candidate_commit"] == frozen
+        assert "this is not a code-change review" in brief["instructions"]
+        seen.append((self.cwd / "README.md").read_text())
+        if changed:
+            (self.cwd / "README.md").write_text("forbidden edit\n")
+        return await original(self, model, effort, prompt, tools)
+
+    monkeypatch.setattr(Reviewer, "run", inspect)
+    asyncio.run(round_trip(service))
+    review = TaskReviews(service.workspace).latest("harbor", run.task_id)
+    assert seen == ["base\n"]
+    assert git(repo, "rev-parse", "HEAD") == later
+    if changed:
+        assert review.status == "failed"
+        assert "changed its inspection checkout" in review.problem
+        assert review.verdict is None
+    else:
+        assert review.status == "decided" and review.verdict.action == "approve"
+        assert current(service).completion == "report"
+        assert current(service).integration_id is None
