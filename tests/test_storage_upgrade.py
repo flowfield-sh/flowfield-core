@@ -63,7 +63,7 @@ def test_published_upgrade_preserves_every_row_and_file_with_verified_recovery(t
     before = rows(directory / storage.DATABASE)
     store = Workspace(directory)
     assert rows(store.database) == before
-    assert storage.status(directory)["schema_version"] == 94
+    assert storage.status(directory)["schema_version"] == 95
     assert hashlib.sha256(output.read_bytes()).hexdigest() == info["sha256"]
     backups = list((directory / "backups").glob(f"schema-{version}-*.sqlite3"))
     assert len(backups) == 1 and rows(backups[0]) == before
@@ -104,7 +104,7 @@ def test_release_010_removes_draft_gate_without_starting_previously_excluded_wor
         history = db.execute("SELECT * FROM task_revisions").fetchall()
         settings = db.execute("SELECT * FROM workspace_worker_settings").fetchall()
     store = Workspace(directory)
-    assert storage.status(directory)["schema_version"] == 94
+    assert storage.status(directory)["schema_version"] == 95
     tasks = {task.id: task for task in store.tasks(workspace)}
     assert tasks["unscheduled"].status == "backlog"
     assert tasks["unprepared"].status == tasks["changed"].status == "backlog"
@@ -132,6 +132,72 @@ def test_release_010_removes_draft_gate_without_starting_previously_excluded_wor
     assert len(backups) == 1
     Workspace(directory)
     assert list((directory / "backups").glob("schema-92-*.sqlite3")) == backups
+
+
+@pytest.mark.parametrize("harness", ["claude-code", "codex", "pi"])
+def test_0101_upgrade_starts_only_claude_fresh_and_preserves_saved_work(
+    tmp_path, monkeypatch, harness
+):
+    directory = tmp_path / "state"
+    directory.mkdir()
+    database = directory / storage.DATABASE
+    with sqlite3.connect(database) as db:
+        db.executescript((Path(__file__).parent / "fixtures/published-schema-93.sql").read_text())
+        workspace = db.execute("SELECT id FROM workspaces").fetchone()[0]
+        # Native-generation JSON from the published model, without new runtime flags.
+        generation = json.dumps(
+            dict(
+                id="saved-generation",
+                workspace_id=workspace,
+                session_id="saved-native",
+                created_at="2026-10-30T12:00:00Z",
+                harness=harness,
+                cwd="/retained/repository",
+                status="retained",
+                dispatched=True,
+            )
+        )
+        db.execute(
+            "INSERT INTO coordinator_session_generations VALUES (?,?,?)",
+            ("saved-generation", workspace, generation),
+        )
+        db.execute(
+            "INSERT INTO coordinator_sessions VALUES (?, ?, 0)", (workspace, "saved-generation")
+        )
+    before = rows(database)
+    original = storage.integrity
+
+    def fail_after_boundary(db):
+        original(db)
+        if storage.version(db) == 95:
+            raise RuntimeError("interrupted after session boundary")
+
+    monkeypatch.setattr(storage, "integrity", fail_after_boundary)
+    with pytest.raises(RuntimeError, match="interrupted"):
+        Workspace(directory)
+    assert rows(database) == before
+    assert storage.status(directory)["schema_version"] == 93
+    monkeypatch.setattr(storage, "integrity", original)
+    store = Workspace(directory)
+    after = rows(database)
+    expected = dict(before)
+    expected["coordinator_sessions"] = [
+        (workspace, "saved-generation", int(harness == "claude-code"))
+    ]
+    assert {name: after[name] for name in before} == expected
+    backups = list((directory / "backups").glob("schema-93-*.sqlite3"))
+    assert len(backups) == 2 and all(rows(backup) == before for backup in backups)
+    # A normal later startup must never repeat the one-time session break.
+    with store.connection(write=True) as db:
+        db.execute("UPDATE coordinator_sessions SET fresh=0")
+    Workspace(directory)
+    with store.connection() as db:
+        assert db.execute("SELECT fresh FROM coordinator_sessions").fetchone()[0] == 0
+    assert list((directory / "backups").glob("schema-93-*.sqlite3")) == backups
+    assert (
+        store.create_task(workspace, TaskCreate(title="Work after upgrade")).title
+        == "Work after upgrade"
+    )
 
 
 def test_upgrade_requires_exclusive_execution_and_old_open_store_cannot_write(tmp_path):
@@ -169,4 +235,4 @@ def test_draft_retirement_rolls_back_current_and_historical_records(tmp_path, mo
     assert storage.status(directory)["schema_version"] == 92
     assert rows(database) == before
     Workspace(directory)
-    assert storage.status(directory)["schema_version"] == 94
+    assert storage.status(directory)["schema_version"] == 95

@@ -113,12 +113,12 @@ def retire_task_drafts(db: sqlite3.Connection) -> None:
 
 
 def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
-    """Upgrade supported 86, 87, 89, 90, 91, 92 and 93 stores atomically with a verified backup."""
-    if current not in (86, 87, 89, 90, 91, 92, 93):
+    """Upgrade supported stores atomically with a verified backup."""
+    if current not in (86, 87, 89, 90, 91, 92, 93, 94):
         require_supported(current)
         return
     if (
-        current not in (90, 91, 92, 93)
+        current < 90
         and db.execute("SELECT 1 FROM sqlite_master WHERE name='usage_executions'").fetchone()
     ):
         raise ApplicationError(
@@ -170,7 +170,7 @@ def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
         from flowfield.usage_schema import BACKFILL, TABLES, TRIGGERS
 
         statement = ""
-        for character in TABLES + BACKFILL + TRIGGERS if current not in (90, 91, 92, 93) else "":
+        for character in TABLES + BACKFILL + TRIGGERS if current < 90 else "":
             statement += character
             if character == ";" and sqlite3.complete_statement(statement):
                 db.execute(statement)
@@ -179,7 +179,7 @@ def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
             raise ValueError("Incomplete usage migration")
         from flowfield.evidence_schema import migrate_outputs
 
-        if current not in (91, 92, 93):
+        if current < 91:
             migrate_outputs(db)
         if current in (90, 91):
             db.execute("ALTER TABLE usage_observations ADD COLUMN cost TEXT")
@@ -193,9 +193,17 @@ def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
             repair_codex_costs(db)
         from flowfield.context_schema import SCHEMA as context_schema
 
-        for statement in context_schema.split(";"):
-            if statement.strip():
-                db.execute(statement)
+        if current < 94:
+            for statement in context_schema.split(";"):
+                if statement.strip():
+                    db.execute(statement)
+        # Claude's old inline rules can override new system instructions on resume.
+        # Cross this boundary once; retain chat and evidence, not a legacy runtime path.
+        db.execute(
+            "UPDATE coordinator_sessions SET fresh=1 WHERE generation_id IN "
+            "(SELECT id FROM coordinator_session_generations "
+            "WHERE json_extract(data,'$.harness')='claude-code')"
+        )
         db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
         integrity(db)
         db.commit()

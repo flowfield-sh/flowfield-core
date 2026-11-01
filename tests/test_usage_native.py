@@ -26,7 +26,7 @@ from flowfield.usage_reads import UsageReads
 
 
 @pytest.mark.parametrize("legacy", [False, True])
-def test_claude_instruction_delivery_survives_store_restart(tmp_path, monkeypatch, legacy):
+def test_claude_instructions_resume_or_cross_upgrade_boundary(tmp_path, monkeypatch, legacy):
     service, conversation = setup(tmp_path, monkeypatch)
     from flowfield.coordinator_settings import CoordinatorSettings
 
@@ -54,15 +54,10 @@ def test_claude_instruction_delivery_survives_store_restart(tmp_path, monkeypatc
         assert first.status == "completed", first.notice
         with service.workspace.connection(write=True, notify=False) as db:
             generation, _ = service.coordinator.store.sessions.current(db, "harbor")
-            assert generation.native_instructions is not legacy
             identity, session = generation.id, generation.session_id
             if legacy:
-                # Published/older JSON lacks this optional metadata altogether.
-                db.execute(
-                    "UPDATE coordinator_session_generations "
-                    "SET data=json_remove(data,'$.native_instructions') WHERE id=?",
-                    (identity,),
-                )
+                # Simulate the pre-boundary store with an existing inline session.
+                db.execute("PRAGMA user_version=94")
         await service.coordinator.close()
         monkeypatch.setattr(ClaudeAgent, "session_instructions", original)
         restarted = Supervisor(Workspace(service.workspace.directory))
@@ -71,20 +66,36 @@ def test_claude_instruction_delivery_survives_store_restart(tmp_path, monkeypatc
             restarted, restarted.coordinator.send("harbor", conversation.id, message("Continue"))
         )
         assert second.status == "completed", second.notice
-        assert second.session == "resumed"
+        assert second.session == ("new" if legacy else "resumed")
         with restarted.workspace.connection() as db:
             retained, _ = restarted.coordinator.store.sessions.current(db, "harbor")
-            assert (retained.id, retained.session_id) == (identity, session)
-            assert retained.native_instructions is not legacy
+            assert ((retained.id, retained.session_id) == (identity, session)) is not legacy
+            if legacy:
+                assert retained.source_id == identity
+                assert (
+                    restarted.coordinator.store.sessions.get(db, "harbor", identity).session_id
+                    == session
+                )
         records = [json.loads(line) for line in (peer / "native.jsonl").read_text().splitlines()]
         payload = json.loads(
             [r["input"]["content"][0]["text"] for r in records if "input" in r][-1]
         )
-        assert ("instructions" in payload) is legacy
+        assert "instructions" not in payload
+        if legacy:
+            assert "Capture the agreed task" in json.dumps(payload)
         measure = ContextMeasurements(
             restarted.workspace, "harbor", "coordinator_turn", second.id
         ).read()
-        assert any(row["kind"] == "session_instructions" for row in measure["items"]) is not legacy
+        assert any(row["kind"] == "session_instructions" for row in measure["items"])
+        third = await settled(
+            restarted,
+            restarted.coordinator.send("harbor", conversation.id, message("Continue again")),
+        )
+        assert third.status == "completed" and third.session == "resumed"
+        with restarted.workspace.connection() as db:
+            latest, fresh = restarted.coordinator.store.sessions.current(db, "harbor")
+            assert latest.id == retained.id and not fresh
+        assert restarted.coordinator.store.get("harbor", first.id).text == first.text
         await restarted.coordinator.close()
 
     asyncio.run(exercise())

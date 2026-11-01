@@ -82,8 +82,8 @@ class Agent(ABC):
     on_consumption: Callable[[Consumption], None] | None = None
     on_context: Callable[[str, int, str], None] | None = None
 
-    def session_instructions(self, text: str, *, previously_bound: bool | None = None) -> bool:
-        """Bind before startup; None is fresh, False is inline or unrecorded history."""
+    def session_instructions(self, text: str) -> bool:
+        """Bind durable instructions before native startup, if supported."""
         return False
 
     def context_output(

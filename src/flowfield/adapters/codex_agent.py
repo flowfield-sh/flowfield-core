@@ -127,7 +127,7 @@ class CodexAgent(Agent):
         self._usage_final: dict[tuple[str, str], bool] = {}
         self._instructions: str | None = None
 
-    def session_instructions(self, text: str, *, previously_bound: bool | None = None) -> bool:
+    def session_instructions(self, text: str) -> bool:
         if self.session_id:
             raise NativeError("Instructions must be bound before native configuration")
         self._instructions = text + (

@@ -22,7 +22,7 @@ def test_session_instructions_rebind_on_resume_without_entering_user_messages(tm
         for text in ("Current rule: AMBER 🦉", "Current rule: AMBER 🦉", "Current rule: VIOLET"):
             agent = installed_candidate(tmp_path, "usage")
             agent.on_context = lambda *event: measurements.append(event)
-            assert agent.session_instructions(text, previously_bound=True if session else None)
+            assert agent.session_instructions(text)
             try:
                 await agent.start([], resume=session, persistent=True)
                 if session:
@@ -61,12 +61,6 @@ def test_session_instructions_rebind_on_resume_without_entering_user_messages(tm
             )
 
     asyncio.run(exercise())
-
-
-def test_existing_inline_claude_sessions_keep_their_instruction_delivery(tmp_path):
-    agent = installed_candidate(tmp_path, "usage")
-    assert not agent.session_instructions("Current core rules", previously_bound=False)
-    assert agent._instructions is None
 
 
 @pytest.mark.parametrize(

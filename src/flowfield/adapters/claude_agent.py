@@ -134,15 +134,9 @@ class ClaudeAgent(Agent):
         self.cleanup_confirmed = True
         self._instructions: str | None = None
 
-    def session_instructions(self, text: str, *, previously_bound: bool | None = None) -> bool:
+    def session_instructions(self, text: str) -> bool:
         if self.process or self.session_id:
             raise NativeError("Instructions must be bound before native startup")
-        # Existing inline conversations can keep following historical user rules
-        # after a transport switch, even when the API receives the new append.
-        # Preserve that path until the human starts a fresh native conversation.
-        if previously_bound is False:
-            self._instructions = None
-            return False
         self._instructions = text
         return True
 

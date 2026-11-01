@@ -3,7 +3,7 @@
 from flowfield.context_schema import SCHEMA as CONTEXT_SCHEMA
 from flowfield.usage_schema import TABLES, TRIGGERS
 
-SCHEMA_VERSION = 94
+SCHEMA_VERSION = 95
 
 TASK_REVIEWS = """
 CREATE TABLE task_reviews (number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL
@@ -418,7 +418,7 @@ INSERT INTO storage_metadata VALUES (1, lower(hex(randomblob(16))), 0);
 INSERT INTO harness_settings VALUES ('codex', 1, NULL, NULL), ('claude-code', 1, NULL,
     NULL), ('pi', 1, NULL, NULL);
 
-PRAGMA user_version = 94;
+PRAGMA user_version = 95;
 """
 
 SCHEMA += TASK_DELETIONS + ";"

@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.11.0
+
+### Features
+
+- Inspect context consumption across Coordinator, Worker and Reviewer executions, including prompt sizes, repeated document reads, tool definitions, tool results and failed requests. Retrieve document and assignment outlines, search matches and exact text ranges with revision-aware continuation arguments.
+
+### Improvements
+
+- Reduce repeated Coordinator instructions across Codex, Claude Code and Pi. Reuse guidance already in context, retrieve changed or missing revisions, and use compact task and board status reads when full definitions are unnecessary.
+- Avoid redundant verification rounds when existing checks satisfy the task, and let agents inspect retained setup and validation logs. Native connections omit exact duplicate tool-result representations where the tool contract permits it.
+- Refresh Metrics without reloading unrelated workspace views, coalesce bursts of usage updates and reuse unchanged calculations on repeated reads.
+
+### Bug fixes
+
+- Mark Codex compaction consumption as unavailable when the native protocol does not report it, instead of presenting compaction as free.
+- Give project-backed report Reviewers the frozen repository source associated with the result.
+- Preserve Claude tool-permission arguments and include tool-input validation failures in context measurements.
+
+### Breaking changes
+
+- Existing Claude Coordinator sessions start a fresh native session on their next message after upgrade. Saved chat and workspace records remain available, but earlier native tool history is not resumed. Recent chat is supplied through the normal handoff; reattach earlier files when needed. Codex and Pi sessions and existing tasks are unaffected by this session boundary.
+
+### Upgrade
+
+Stop Flowfield, run `uv tool upgrade flowfield-core`, then start it with `flowfield serve`. See [updating Flowfield](https://docs.flowfield.sh/installation#update) for other installation methods.
+
 ## 0.10.1
 
 ### Bug fixes
