@@ -132,6 +132,19 @@ class ClaudeAgent(Agent):
         self.stopping = False
         self.session_id = None
         self.cleanup_confirmed = True
+        self._instructions: str | None = None
+
+    def session_instructions(self, text: str, *, previously_bound: bool | None = None) -> bool:
+        if self.process or self.session_id:
+            raise NativeError("Instructions must be bound before native startup")
+        # Existing inline conversations can keep following historical user rules
+        # after a transport switch, even when the API receives the new append.
+        # Preserve that path until the human starts a fresh native conversation.
+        if previously_bound is False:
+            self._instructions = None
+            return False
+        self._instructions = text
+        return True
 
     @property
     def process(self) -> asyncio.subprocess.Process | None:
@@ -159,6 +172,7 @@ class ClaudeAgent(Agent):
                         "executable": self.launch.native_executable if self.launch else None,
                         "resume": resume,
                         "persistent": persistent,
+                        "instructions": self._instructions,
                         "model": self.choice.model if self.choice else None,
                         "mode": self.choice.mode if self.choice else "default",
                         "effort": self.choice.effort if self.choice else None,
@@ -174,6 +188,12 @@ class ClaudeAgent(Agent):
                 ):
                     raise NativeError("Native session identity unconfirmed")
                 self.session_id = identity
+                if self._instructions is not None and self.on_context:
+                    self.on_context(
+                        "session_instructions",
+                        len(self._instructions.encode("utf-8")),
+                        "claude-system-instructions",
+                    )
                 headroom = self.info.get("inputTokensAvailable")
                 self.input_tokens_available = (
                     headroom if type(headroom) is int and headroom >= 0 else None

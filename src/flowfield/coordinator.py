@@ -274,7 +274,8 @@ class Coordinator:
                     Usage(workspace).bind(turn.workspace_id, "coordinator_turn", turn.id, client)
                     client.on_context = measurements.native
                     separate_instructions = client.session_instructions(
-                        f"Use the {server.name} MCP connection.\n" + GUIDANCE
+                        f"Use the {server.name} MCP connection.\n" + GUIDANCE,
+                        previously_bound=generation.native_instructions if resumed else None,
                     )
                     await client.start([server], resume=session_id, persistent=True)
                     applied = await client.configure(turn.settings.choice)
@@ -284,6 +285,7 @@ class Coordinator:
                         turn.id,
                         generation_id,
                         client.session_id,
+                        native_instructions=separate_instructions,
                         launch=client.launch,
                     )
                     attachments = Attachments(workspace).inputs(

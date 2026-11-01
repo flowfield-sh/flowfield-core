@@ -168,7 +168,11 @@ async function handle(method, params) {
         // Flowfield owns durable questions; managed Plan transitions are unsupported.
         // Exclude these natively so every access mode obeys the same boundary.
         disallowedTools: ["AskUserQuestion", "EnterPlanMode", "ExitPlanMode"],
-        systemPrompt: {type: "preset", preset: "claude_code"},
+        // Recorded prompts ignore a changed append on resume until compaction.
+        // Rebuild only for Flowfield-bound rules so the current authority applies
+        // immediately; identical prefixes can still use the provider cache.
+        systemPrompt: {type: "preset", preset: "claude_code",
+          ...(params.instructions != null ? {append: params.instructions, snapshot: false} : {})},
         persistSession: params.persistent === true, strictMcpConfig: true,
         allowDangerouslySkipPermissions: params.mode === "bypassPermissions", permissionMode: params.mode,
         includePartialMessages: true, canUseTool: permission,

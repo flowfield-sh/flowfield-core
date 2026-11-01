@@ -309,6 +309,38 @@ def test_pi_aggregate_scope_omissions_and_compatible_versions(version):
     assert codex_usage.counters({"inputTokens": True, "outputTokens": -1}).input is None
 
 
+def test_claude_compaction_and_next_dispatch_keep_distinct_cumulative_deltas(tmp_path):
+    execution = fixture(tmp_path)
+    run = execution.claim("harbor", BASE, {BASE: set()})
+    usage = Usage(execution.workspace)
+    agent = native(tmp_path, "claude-code")
+    usage.bind("harbor", "run", run.id, agent)
+
+    async def exercise():
+        try:
+            await agent.start([], persistent=True)
+            await agent.configure(CHOICES["claude-code"])
+            for prompt in ("Initial request", "/compact", "Continue after compaction"):
+                usage.start("harbor", "run", run.id, agent.session_id)
+                assert (await agent.prompt(prompt, None))["status"] == "completed"
+        finally:
+            await agent.close()
+        assert agent.cleanup_confirmed
+        usage.end("harbor", "run", run.id, confirmed=True)
+
+    asyncio.run(exercise())
+    evidence = UsageReads(execution.workspace).evidence("harbor", "run", run.id)
+    assert [item.delta.total for item in evidence.items] == [180, 180, 180]
+    assert evidence.execution.dispatch_count == 3
+    assert evidence.execution.tokens.total == 540
+    assert evidence.execution.coverage == "complete"
+    usage.rebuild()
+    assert (
+        UsageReads(execution.workspace).evidence("harbor", "run", run.id).execution.tokens.total
+        == 540
+    )
+
+
 def test_pi_compaction_and_next_dispatch_use_distinct_cumulative_deltas(tmp_path):
     execution = fixture(tmp_path)
     run = execution.claim("harbor", BASE, {BASE: set()})

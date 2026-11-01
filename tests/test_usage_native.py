@@ -1,23 +1,93 @@
 """Compiled pinned SDK -> concrete adapter -> real lifecycle owners -> durable reads."""
 
 import asyncio
+import json
 from unittest.mock import AsyncMock
 
 import pytest
+from claude_agent_fixtures import installed_candidate
 from coordinator_fixtures import message, settled, setup
 from managed_local_fixtures import configured
 from result_fixtures import current
 from task_reviews_fixtures import configured as review_configured
 from usage_native_fixtures import CHOICES, TOTALS, native, native_factory
 
+from flowfield.adapters.claude_agent import ClaudeAgent
 from flowfield.adapters.git_workspace import baseline
 from flowfield.agent_models import AgentSettingsEdit
+from flowfield.application import Workspace
 from flowfield.context_measurements import ContextMeasurements
 from flowfield.coordinator_models import CoordinatorTaskSelection
 from flowfield.execution_models import SettingsEdit
 from flowfield.reviewer_settings import ReviewerEdit
+from flowfield.supervisor import Supervisor
 from flowfield.usage_models import UsageFilter
 from flowfield.usage_reads import UsageReads
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_claude_instruction_delivery_survives_store_restart(tmp_path, monkeypatch, legacy):
+    service, conversation = setup(tmp_path, monkeypatch)
+    from flowfield.coordinator_settings import CoordinatorSettings
+
+    settings = CoordinatorSettings(service.workspace)
+    settings.edit(
+        "harbor",
+        AgentSettingsEdit(
+            expected_revision=settings.get("harbor").revision, selection=CHOICES["claude-code"]
+        ),
+    )
+    peer = tmp_path / "claude-peer"
+    peer.mkdir()
+    monkeypatch.setattr(
+        "flowfield.coordinator.create", lambda *args, **kwargs: installed_candidate(peer, "usage")
+    )
+    original = ClaudeAgent.session_instructions
+    if legacy:
+        monkeypatch.setattr(ClaudeAgent, "session_instructions", lambda *args, **kwargs: False)
+
+    async def exercise():
+        monkeypatch.setattr(service, "validate_agent_choice", AsyncMock())
+        first = await settled(
+            service, service.coordinator.send("harbor", conversation.id, message())
+        )
+        assert first.status == "completed", first.notice
+        with service.workspace.connection(write=True, notify=False) as db:
+            generation, _ = service.coordinator.store.sessions.current(db, "harbor")
+            assert generation.native_instructions is not legacy
+            identity, session = generation.id, generation.session_id
+            if legacy:
+                # Published/older JSON lacks this optional metadata altogether.
+                db.execute(
+                    "UPDATE coordinator_session_generations "
+                    "SET data=json_remove(data,'$.native_instructions') WHERE id=?",
+                    (identity,),
+                )
+        await service.coordinator.close()
+        monkeypatch.setattr(ClaudeAgent, "session_instructions", original)
+        restarted = Supervisor(Workspace(service.workspace.directory))
+        monkeypatch.setattr(restarted, "validate_agent_choice", AsyncMock())
+        second = await settled(
+            restarted, restarted.coordinator.send("harbor", conversation.id, message("Continue"))
+        )
+        assert second.status == "completed", second.notice
+        assert second.session == "resumed"
+        with restarted.workspace.connection() as db:
+            retained, _ = restarted.coordinator.store.sessions.current(db, "harbor")
+            assert (retained.id, retained.session_id) == (identity, session)
+            assert retained.native_instructions is not legacy
+        records = [json.loads(line) for line in (peer / "native.jsonl").read_text().splitlines()]
+        payload = json.loads(
+            [r["input"]["content"][0]["text"] for r in records if "input" in r][-1]
+        )
+        assert ("instructions" in payload) is legacy
+        measure = ContextMeasurements(
+            restarted.workspace, "harbor", "coordinator_turn", second.id
+        ).read()
+        assert any(row["kind"] == "session_instructions" for row in measure["items"]) is not legacy
+        await restarted.coordinator.close()
+
+    asyncio.run(exercise())
 
 
 @pytest.mark.parametrize(

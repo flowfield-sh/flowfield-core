@@ -20,11 +20,10 @@ def main() -> None:
     scenario = os.environ["FLOWFIELD_TEST_SCENARIO"]
     record = Path(os.environ["FLOWFIELD_TEST_RECORD"])
     tool_pid = int(os.environ.get("FLOWFIELD_TEST_TOOL_PID", "0"))
-    session_id = (
-        next((arg.split("=", 1)[1] for arg in sys.argv if arg.startswith("--session-id=")), None)
-        or sys.argv[sys.argv.index("--session-id") + 1]
-        if "--session-id" in sys.argv
-        else next(arg.split("=", 1)[1] for arg in sys.argv if arg.startswith("--session-id="))
+    session_id = next(
+        arg.split("=", 1)[1] if "=" in arg else sys.argv[index + 1]
+        for index, arg in enumerate(sys.argv)
+        if arg.split("=", 1)[0] in {"--session-id", "--resume"}
     )
     tasks = []
     active_prompt = None

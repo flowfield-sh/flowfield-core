@@ -86,7 +86,7 @@ class PiAgent(Agent):
         self._usage_poll: asyncio.Task[None] | None = None
         self._instructions: str | None = None
 
-    def session_instructions(self, text: str) -> bool:
+    def session_instructions(self, text: str, *, previously_bound: bool | None = None) -> bool:
         if self.process or self.session_id:
             raise NativeError("Instructions must be bound before native startup")
         self._instructions = text

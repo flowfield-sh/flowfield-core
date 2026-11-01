@@ -9,9 +9,64 @@ from claude_agent_fixtures import CHOICE, MODEL, installed_candidate
 
 from flowfield.adapters.claude_agent import ClaudeAgent
 from flowfield.adapters.claude_runtime import executable
+from flowfield.adapters.json_rpc import NativeError
 from flowfield.adapters.local_process import LocalProcess
 from flowfield.errors import ApplicationError
 from flowfield.harness_models import HarnessRegistration
+
+
+def test_session_instructions_rebind_on_resume_without_entering_user_messages(tmp_path):
+    async def exercise():
+        session = None
+        measurements = []
+        for text in ("Current rule: AMBER 🦉", "Current rule: AMBER 🦉", "Current rule: VIOLET"):
+            agent = installed_candidate(tmp_path, "usage")
+            agent.on_context = lambda *event: measurements.append(event)
+            assert agent.session_instructions(text, previously_bound=True if session else None)
+            try:
+                await agent.start([], resume=session, persistent=True)
+                if session:
+                    assert agent.session_id == session
+                session = agent.session_id
+                await agent.configure(CHOICE)
+                with pytest.raises(NativeError, match="before native startup"):
+                    agent.session_instructions("Too late")
+                await agent.prompt("Report the current rule", None)
+                await agent.prompt("Continue", None)
+            finally:
+                await agent.close()
+            assert agent.cleanup_confirmed
+            records = [
+                json.loads(line) for line in (tmp_path / "native.jsonl").read_text().splitlines()
+            ]
+            initialize = [
+                r["control"] for r in records if r.get("control", {}).get("subtype") == "initialize"
+            ][-1]
+            assert initialize["appendSystemPrompt"] == text
+            assert initialize["systemPromptSnapshot"] is False
+            assert not initialize.get("systemPrompt")  # Keep the native preset.
+            arguments = [r["args"] for r in records if "args" in r][-1]
+            assert "--setting-sources=user,project,local" in arguments
+            if len(measurements) > 1:
+                assert any(argument.split("=", 1)[0] == "--resume" for argument in arguments)
+            prompts = [r["input"]["content"] for r in records if "input" in r]
+            assert prompts[-2:] == [
+                [{"type": "text", "text": "Report the current rule"}],
+                [{"type": "text", "text": "Continue"}],
+            ]
+            assert measurements[-1] == (
+                "session_instructions",
+                len(text.encode("utf-8")),
+                "claude-system-instructions",
+            )
+
+    asyncio.run(exercise())
+
+
+def test_existing_inline_claude_sessions_keep_their_instruction_delivery(tmp_path):
+    agent = installed_candidate(tmp_path, "usage")
+    assert not agent.session_instructions("Current core rules", previously_bound=False)
+    assert agent._instructions is None
 
 
 @pytest.mark.parametrize(

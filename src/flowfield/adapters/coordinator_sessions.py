@@ -30,6 +30,9 @@ class NativeGeneration(BaseModel):
     status: Literal["creating", "created", "prompting", "retained", "failed", "uncertain"]
     dispatched: bool | None = False  # None means an older binding's dispatch is unknown.
     ephemeral: bool = False
+    # Default to inline compatibility when older generations lack this field.
+    # Adapters decide whether a resumed conversation can safely change paths.
+    native_instructions: bool = False
 
 
 class CoordinatorSessions:
@@ -195,6 +198,7 @@ class CoordinatorSessions:
         session: str,
         *,
         launch: HarnessLaunch | None = None,
+        native_instructions: bool = False,
     ) -> None:
         with self.workspace.connection(write=True) as db:
             self.actor(db, project, turn, generation)
@@ -208,6 +212,7 @@ class CoordinatorSessions:
                     "agent_resume_failed", "The harness returned an invalid session identity.", 409
                 )
             value.session_id = session
+            value.native_instructions = native_instructions
             if value.launch is None:
                 value.launch = launch
             value.status = "created"
