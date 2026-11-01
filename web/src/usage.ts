@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { components } from "./api-schema";
 import { useResource } from "./useResource";
 
@@ -38,17 +38,55 @@ export function usageDuration(seconds: number | null) {
 
 // Totals are service-owned, independent of pagination. Refresh a visible live
 // surface even when its harness has not emitted another workspace event.
-export function useUsagePage(path: string, refresh: unknown) {
-  const [poll, setPoll] = useState(0);
-  const tick = useMemo(() => ({ refresh, poll }), [refresh, poll]);
-  const resource = useResource<UsageView>(path, tick);
+export function useUsagePage(
+  path: string,
+  refresh: unknown,
+  workspaceId: string,
+) {
+  const resource = useResource<UsageView>(path, refresh);
+  const revalidate = resource.revalidate;
+  useEffect(() => {
+    let dirty = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    function flush() {
+      timer = undefined;
+      if (dirty && document.visibilityState === "visible") {
+        dirty = false;
+        revalidate();
+      }
+    }
+    function changed(event: Event) {
+      const { workspaces } = (
+        event as CustomEvent<{ workspaces: string[] | null }>
+      ).detail;
+      if (workspaces !== null && !workspaces.includes(workspaceId)) return;
+      dirty = true;
+      if (timer === undefined && document.visibilityState === "visible")
+        timer = setTimeout(flush, 1000);
+    }
+    function visible() {
+      if (
+        document.visibilityState === "visible" &&
+        dirty &&
+        timer === undefined
+      )
+        flush();
+    }
+    window.addEventListener("flowfield:usage", changed);
+    document.addEventListener("visibilitychange", visible);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("flowfield:usage", changed);
+      document.removeEventListener("visibilitychange", visible);
+    };
+  }, [workspaceId, path, revalidate]);
   const live = !!resource.data?.breakdowns.some(
     (row) => row.dimension === "role" && row.live,
   );
   useEffect(() => {
     if (!live) return;
     const refreshVisible = () => {
-      if (document.visibilityState === "visible") setPoll((n) => n + 1);
+      if (document.visibilityState === "visible") revalidate();
     };
     const timer = window.setInterval(refreshVisible, 5000);
     document.addEventListener("visibilitychange", refreshVisible);
@@ -56,7 +94,7 @@ export function useUsagePage(path: string, refresh: unknown) {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", refreshVisible);
     };
-  }, [live, path]);
+  }, [live, path, revalidate]);
   return resource;
 }
 

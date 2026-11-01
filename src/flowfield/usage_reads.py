@@ -24,6 +24,7 @@ from flowfield.usage_models import (
     UsageTotals,
     UsageView,
 )
+from flowfield.usage_read_cache import Prepared, Receipt
 from flowfield.usage_timeline import Timeline, elapsed
 
 MAX_EXECUTIONS = 10_000
@@ -122,6 +123,25 @@ def execution_record(row: Any, observations: list[Any]) -> UsageExecution:
 class UsageReads:
     def __init__(self, workspace: Workspace):
         self.workspace = workspace
+
+    def _prepare(self, row: Any, observations: list[Any], generation: int) -> Prepared:
+        def build() -> Prepared:
+            receipts = []
+            for item in observations:
+                event = Consumption.model_validate_json(item["data"])
+                delta = Tokens.model_validate_json(item["delta"])
+                receipts.append(
+                    Receipt(
+                        model=event.model,
+                        received_at=instant(item["received_at"]),
+                        accepted=item["disposition"] == "accepted",
+                        delta=delta,
+                        cost=retained(item["cost"], delta),
+                    )
+                )
+            return Prepared(execution_record(row, observations), tuple(receipts))
+
+        return self.workspace.usage_read_cache.prepare(row, observations, build, generation)
 
     def workspace_view(self, workspace: str, filters: UsageFilter) -> UsageView:
         if filters.start is None:
@@ -275,9 +295,11 @@ class UsageReads:
         cost_breakdown: dict[tuple[str, str | None], list[Cost]] = defaultdict(list)
         items: list[UsageExecution] = []
         breakdown: dict[tuple[str, str | None], tuple[list[Tokens], set[int]]] = {}
+        generation = self.workspace.usage_read_cache.begin()
         for row in rows:
             own = observations[row["number"]]
-            execution = execution_record(row, own)
+            prepared = self._prepare(row, own, generation)
+            execution = prepared.execution
             if filters.coverage and execution.coverage != filters.coverage:
                 continue
             chart_key = (
@@ -291,30 +313,29 @@ class UsageReads:
             own_costs: list[Cost] = []
             model_costs: dict[str | None, list[Cost]] = defaultdict(list)
             models: dict[str | None, list[Tokens]] = defaultdict(list)
-            for receipt in own:
-                event = Consumption.model_validate_json(receipt["data"])
-                if filters.model is not None and event.model != filters.model:
+            for receipt in prepared.receipts:
+                if filters.model is not None and receipt.model != filters.model:
                     continue
-                if filters.unknown_model and event.model is not None:
+                if filters.unknown_model and receipt.model is not None:
                     continue
                 if (
                     filters.start
                     and filters.end
-                    and not filters.start <= instant(receipt["received_at"]) < filters.end
+                    and not filters.start <= receipt.received_at < filters.end
                 ):
                     continue
                 selected.append(receipt)
-                if receipt["disposition"] == "accepted":
-                    delta = Tokens.model_validate_json(receipt["delta"])
+                if receipt.accepted:
+                    delta = receipt.delta
                     contributions.append(delta)
-                    cost = retained(receipt["cost"], delta)
+                    cost = receipt.cost
                     if execution.coverage != "complete" and execution.timing != "live":
                         cost = combine([cost, Cost(reasons=["consumption-incomplete"])])
                     costs.append(cost)
                     own_costs.append(cost)
-                    model_costs[event.model].append(cost)
-                    timeline.receipt(chart_key, instant(receipt["received_at"]), delta, cost)
-                    models[event.model].append(delta)
+                    model_costs[receipt.model].append(cost)
+                    timeline.receipt(chart_key, receipt.received_at, delta, cost)
+                    models[receipt.model].append(delta)
             if filters.model is not None and filters.model not in execution.observed_models:
                 continue
             if (
@@ -387,18 +408,14 @@ class UsageReads:
                 totals.live_intervals += 1
             elif execution.timing in ("unknown-end", "legacy"):
                 totals.unknown_intervals += 1
-            period_tokens = add_tokens(
-                [
-                    Tokens.model_validate_json(r["delta"])
-                    for r in selected
-                    if r["disposition"] == "accepted"
-                ]
-            )
+            period_tokens = add_tokens([r.delta for r in selected if r.accepted])
             period_cost = combine(own_costs)
             if not own_costs:
                 period_cost = Cost(reasons=["no-consumption-reported"])
                 costs.append(period_cost)
-            execution = execution.model_copy(update={"tokens": period_tokens, "cost": period_cost})
+            execution = execution.model_copy(
+                deep=True, update={"tokens": period_tokens, "cost": period_cost}
+            )
             items.append(execution)
             if not models:
                 models[None] = []

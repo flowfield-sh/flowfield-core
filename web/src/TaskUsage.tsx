@@ -14,6 +14,7 @@ export function TaskUsage({
   const resource = useUsagePage(
     `workspaces/${encodeURIComponent(workspaceId)}/tasks/${encodeURIComponent(taskId)}/usage`,
     refresh,
+    workspaceId,
   );
   return (
     <DetailSection

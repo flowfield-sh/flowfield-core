@@ -21,6 +21,111 @@ function seed() {
 }
 test.use({ timezoneId: "America/Denver" });
 
+test("usage invalidations coalesce without workspace reloads or cancelling slow metrics reads", async ({
+  page,
+}) => {
+  const f = seed();
+  await page.addInitScript(() => {
+    const streams: EventSource[] = [];
+    const NativeEventSource = window.EventSource;
+    window.EventSource = class extends NativeEventSource {
+      constructor(url: string | URL, options?: EventSourceInit) {
+        super(url, options);
+        streams.push(this);
+      }
+    };
+    Object.assign(window, {
+      usageBurst(workspace: string) {
+        for (let i = 0; i < 100; i++)
+          for (const stream of streams)
+            if (stream.url.endsWith("/api/events"))
+              stream.dispatchEvent(
+                new MessageEvent("usage", {
+                  data: JSON.stringify({ workspaces: [workspace] }),
+                }),
+              );
+      },
+      usageVisibility(visibility: string) {
+        Object.defineProperty(document, "visibilityState", {
+          configurable: true,
+          value: visibility,
+        });
+        document.dispatchEvent(new Event("visibilitychange"));
+      },
+    });
+  });
+  await page.goto(f.workspace_url);
+  const metrics = page.getByRole("region", {
+    name: "Workspace metrics",
+    exact: true,
+  });
+  await expect(metrics.locator(".usage-totals dd").first()).toHaveText("4,800");
+  await expect(
+    page.getByRole("status", { name: "Connected", exact: true }),
+  ).toBeVisible();
+  await page.clock.install();
+  const otherReads: string[] = [];
+  page.on("request", (request) => {
+    if (
+      request.method() === "GET" &&
+      request.url().includes("/api/") &&
+      !request.url().includes("/usage?") &&
+      !request.url().endsWith("/api/events")
+    )
+      otherReads.push(request.url());
+  });
+  let reads = 0;
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(
+    `**/api/workspaces/${f.workspace}/usage?*`,
+    async (route) => {
+      reads++;
+      const response = await route.fetch();
+      if (reads === 1) await held;
+      await route.fulfill({ response });
+    },
+  );
+  const burst = (workspace: string) =>
+    page.evaluate(
+      (workspace) =>
+        (
+          window as unknown as { usageBurst: (workspace: string) => void }
+        ).usageBurst(workspace),
+      workspace,
+    );
+  const visibility = (value: string) =>
+    page.evaluate(
+      (value) =>
+        (
+          window as unknown as { usageVisibility: (value: string) => void }
+        ).usageVisibility(value),
+      value,
+    );
+  await burst("another-workspace");
+  await page.clock.runFor(1100);
+  expect(reads).toBe(0);
+  await burst(f.workspace);
+  await page.clock.runFor(1100);
+  await expect.poll(() => reads).toBe(1);
+  await burst(f.workspace);
+  await page.clock.runFor(1100);
+  expect(reads).toBe(1);
+  release();
+  await expect.poll(() => reads).toBe(2);
+  await expect(metrics.locator(".usage-totals dd").first()).toHaveText("4,800");
+  await visibility("hidden");
+  await burst(f.workspace);
+  await page.clock.runFor(1100);
+  expect(reads).toBe(2);
+  await visibility("visible");
+  await expect.poll(() => reads).toBe(3);
+  await page.unrouteAll({ behavior: "wait" });
+  expect(otherReads).toEqual([]);
+});
+
 test("Metrics shows both charts and sortable task costs with shared local datetime controls", async ({
   page,
 }, info) => {

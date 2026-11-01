@@ -305,6 +305,13 @@ export function App() {
           }),
         ),
       );
+      events.addEventListener("usage", (event) =>
+        window.dispatchEvent(
+          new CustomEvent("flowfield:usage", {
+            detail: JSON.parse(event.data),
+          }),
+        ),
+      );
     }
     function offline() {
       offlineState = true;

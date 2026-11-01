@@ -25,6 +25,10 @@ export function useResource<T>(
   },
   readData?: (path: string, signal: AbortSignal) => Promise<T>,
 ) {
+  const refreshRead = useRef<(() => void) | null>(null);
+  // Background refreshes join the current read and request one trailing read;
+  // they do not repeatedly abort a slower request.
+  const revalidate = useCallback(() => refreshRead.current?.(), []);
   const [retryVersion, setRetryVersion] = useState(0);
   const retry = useCallback(() => setRetryVersion((value) => value + 1), []);
   useEffect(() => {
@@ -117,8 +121,10 @@ export function useResource<T>(
         void read();
     }
     if (attemptId) window.addEventListener("flowfield:activity", updated);
+    refreshRead.current = () => void read();
     void read();
     return () => {
+      refreshRead.current = null;
       pending.abort();
       window.removeEventListener("flowfield:activity", updated);
     };
@@ -134,6 +140,7 @@ export function useResource<T>(
     readData,
   ]);
   return {
+    revalidate,
     data,
     setData,
     error,

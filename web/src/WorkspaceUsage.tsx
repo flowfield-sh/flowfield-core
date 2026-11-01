@@ -97,6 +97,7 @@ export function WorkspaceUsage({
   const resource = useUsagePage(
     `workspaces/${encodeURIComponent(workspaceId)}/usage?${query}`,
     refresh,
+    workspaceId,
   );
   const taskId = params.get("task_id") || "";
   const activity =

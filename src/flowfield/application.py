@@ -362,16 +362,20 @@ class Workspace:
         on_change: Callable[[str | None], None] | None = None,
         on_activity: Callable[[str, str], None] | None = None,
         on_coordinator_activity: Callable[[str, str], None] | None = None,
+        on_usage: Callable[[str | None], None] | None = None,
     ):
         from flowfield.integration_models import ValidationProgress
+        from flowfield.usage_read_cache import UsageReadCache
 
         self.validation_progress: dict[str, ValidationProgress] = {}
+        self.usage_read_cache = UsageReadCache()
         # Successful checks may be reused within this service lifetime. A restart
         # deliberately invalidates reuse after host/toolchain/service changes.
         self.validation_epoch = uuid4().hex
         self.on_coordinator_activity = on_coordinator_activity
         self.on_activity = on_activity
         self.on_change = on_change
+        self.on_usage = on_usage
         self.directory = directory.expanduser().resolve()
         self.database = self.directory / "workspace.sqlite3"
         self.schema_version = SCHEMA_VERSION
@@ -380,7 +384,12 @@ class Workspace:
 
     @contextmanager
     def connection(
-        self, *, write: bool = False, workspace_id: str | None = None, notify: bool = True
+        self,
+        *,
+        write: bool = False,
+        workspace_id: str | None = None,
+        notify: bool = True,
+        usage_only: bool = False,
     ) -> Iterator[sqlite3.Connection]:
         with acquire_lock(self.directory, ".initialize.lock", shared=True):
             db = sqlite3.connect(self.database.as_uri() + "?mode=rw", uri=True, timeout=10)
@@ -404,7 +413,7 @@ class Workspace:
                         row[0]
                         for row in db.execute("SELECT workspace_id FROM changed_task_workspaces")
                     )
-                if write and changed and notify:
+                if write and changed and notify and not usage_only:
                     from flowfield.announcements import reconcile_attention
 
                     for changed_project in changed_projects:
@@ -417,9 +426,10 @@ class Workspace:
                 raise
             finally:
                 db.close()
-        if write and changed and notify and self.on_change is not None:
+        callback = self.on_usage if usage_only else self.on_change
+        if write and changed and notify and callback is not None:
             for changed_project in changed_projects:
-                self.on_change(changed_project)
+                callback(changed_project)
 
     def _insert_project(self, db: sqlite3.Connection, project: Project) -> None:
         db.execute(

@@ -69,6 +69,7 @@ def create_app(*, web_dir: Path | None = None, data_dir: Path | None = None) -> 
             on_change=app.state.changes.publish,
             on_activity=app.state.changes.publish_activity,
             on_coordinator_activity=app.state.changes.publish_coordinator_activity,
+            on_usage=app.state.changes.publish_usage,
         )
         app.state.supervisor = Supervisor(app.state.workspace)
         await app.state.supervisor.start()

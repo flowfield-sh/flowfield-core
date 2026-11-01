@@ -180,7 +180,7 @@ class Usage:
             [event.contract, event.session_id, event.native_scope_id, event.epoch, event.model],
             separators=(",", ":"),
         )
-        with self.workspace.connection(write=True, workspace_id=workspace) as db:
+        with self.workspace.connection(write=True, workspace_id=workspace, usage_only=True) as db:
             owner = self.owner(db, workspace, source, identity)
             execution = owner["number"]
             if owner["session_id"] != event.session_id or owner["started_at"] is None:

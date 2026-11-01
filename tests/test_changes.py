@@ -121,3 +121,66 @@ def test_coordinator_task_creation_publishes_change_during_activity(tmp_path):
         assert not changes.subscribers
 
     asyncio.run(check())
+
+
+def test_usage_bursts_stay_scoped_without_general_invalidations():
+    async def check():
+        changes = Changes()
+        events = changes.events()
+        assert (await anext(events))["event"] == "change"
+        for _ in range(100):
+            changes.publish_usage("alpha")
+        changes.publish_usage("beta")
+        async with asyncio.timeout(2):
+            event = await anext(events)
+        assert event["event"] == "usage"
+        assert json.loads(event["data"]) == {"workspaces": ["alpha", "beta"]}
+        for index in range(101):
+            changes.publish_usage(str(index))
+        async with asyncio.timeout(2):
+            event = await anext(events)
+        assert event["event"] == "usage"
+        assert json.loads(event["data"]) == {"workspaces": None}
+        changes.publish_usage("alpha")
+        changes.publish("beta")
+        assert (await anext(events))["event"] == "change"
+        assert (await anext(events))["event"] == "usage"
+        await events.aclose()
+        reconnected = changes.events()
+        assert (await anext(reconnected))["event"] == "change"
+        await reconnected.aclose()
+
+    asyncio.run(check())
+
+
+def test_usage_only_publishes_after_commit_without_attention_reconciliation(tmp_path, monkeypatch):
+    from usage_fixtures import accounting, event
+
+    execution, usage, (run,) = accounting(tmp_path)
+    workspace = execution.workspace
+    general, usage_events = [], []
+    workspace.on_change = general.append
+
+    def received(identity):
+        with workspace.connection() as db:
+            assert db.execute("SELECT count(*) FROM usage_observations").fetchone()[0] == 1
+        usage_events.append(identity)
+
+    workspace.on_usage = received
+
+    def unexpected(*args):
+        pytest.fail("Usage writes must not reconcile workspace attention")
+
+    monkeypatch.setattr("flowfield.announcements.reconcile_attention", unexpected)
+    observation = event(run)
+    usage.observe("harbor", "run", run.id, observation)
+    usage.observe("harbor", "run", run.id, observation)
+    assert usage_events == ["harbor"] and general == []
+    with workspace.connection(write=True, notify=False) as db:
+        db.execute(
+            "CREATE TRIGGER abort_receipt BEFORE INSERT ON usage_observations "
+            "BEGIN SELECT RAISE(ABORT,'receipt rollback'); END"
+        )
+    with pytest.raises(Exception, match="receipt rollback"):
+        usage.observe("harbor", "run", run.id, event(run, 200, identity="rollback"))
+    assert usage_events == ["harbor"] and general == []

@@ -11,12 +11,41 @@ class Pending:
     workspaces: set[str] | None = field(default_factory=set)
     activity: set[tuple[str, str]] = field(default_factory=set)
     coordinator_activity: set[tuple[str, str]] = field(default_factory=set)
+    usage: set[str] | None = field(default_factory=set)
 
 
 class Changes:
     def __init__(self) -> None:
         self.loop = asyncio.get_running_loop()
         self.subscribers: set[asyncio.Queue[Pending]] = set()
+        self._usage_pending: set[str] | None = set()
+        self._usage_timer: asyncio.TimerHandle | None = None
+
+    def publish_usage(self, workspace_id: str | None = None) -> None:
+        self.loop.call_soon_threadsafe(self._queue_usage, workspace_id)
+
+    def _queue_usage(self, workspace_id: str | None) -> None:
+        if workspace_id is None:
+            self._usage_pending = None
+        elif self._usage_pending is not None:
+            self._usage_pending.add(workspace_id)
+            if len(self._usage_pending) > 100:
+                self._usage_pending = None
+        if self._usage_timer is None:
+            self._usage_timer = self.loop.call_later(0.25, self._flush_usage)
+
+    def _flush_usage(self) -> None:
+        for queue in self.subscribers:
+            pending = Pending() if queue.empty() else queue.get_nowait()
+            if self._usage_pending is None:
+                pending.usage = None
+            elif pending.usage is not None:
+                pending.usage.update(self._usage_pending)
+                if len(pending.usage) > 100:
+                    pending.usage = None
+            queue.put_nowait(pending)
+        self._usage_pending = set()
+        self._usage_timer = None
 
     def publish(self, workspace_id: str | None = None) -> None:
         # Application writes also run in worker threads. Only touch queues on the loop.
@@ -78,6 +107,17 @@ class Changes:
                                     if pending.coordinator_activity
                                     else {}
                                 ),
+                            }
+                        ),
+                    }
+                if pending.usage is None or pending.usage:
+                    yield {
+                        "event": "usage",
+                        "data": json.dumps(
+                            {
+                                "workspaces": sorted(pending.usage)
+                                if pending.usage is not None
+                                else None
                             }
                         ),
                     }
