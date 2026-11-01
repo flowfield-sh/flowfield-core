@@ -2,25 +2,19 @@
 
 ## 0.11.0
 
-### Features
-
-- Inspect context consumption across Coordinator, Worker and Reviewer executions, including prompt sizes, repeated document reads, tool definitions, tool results and failed requests. Retrieve document and assignment outlines, search matches and exact text ranges with revision-aware continuation arguments.
-
 ### Improvements
 
-- Reduce repeated Coordinator instructions across Codex, Claude Code and Pi. Reuse guidance already in context, retrieve changed or missing revisions, and use compact task and board status reads when full definitions are unnecessary.
-- Avoid redundant verification rounds when existing checks satisfy the task, and let agents inspect retained setup and validation logs. Native connections omit exact duplicate tool-result representations where the tool contract permits it.
-- Refresh Metrics without reloading unrelated workspace views, coalesce bursts of usage updates and reuse unchanged calculations on repeated reads.
+- Reduce token usage across Codex, Claude Code and Pi by reusing Coordinator instructions, retrieving focused context and avoiding duplicate tool results and unnecessary verification. New context measurements help identify repeated reads and large payloads.
+- Make Metrics refreshes faster without reloading unrelated views, and show unreported Codex compaction usage as unavailable instead of zero.
 
 ### Bug fixes
 
-- Mark Codex compaction consumption as unavailable when the native protocol does not report it, instead of presenting compaction as free.
-- Give project-backed report Reviewers the frozen repository source associated with the result.
-- Preserve Claude tool-permission arguments and include tool-input validation failures in context measurements.
+- Give report Reviewers access to the correct repository snapshot.
+- Preserve Claude tool-permission arguments.
 
 ### Breaking changes
 
-- Existing Claude Coordinator sessions start a fresh native session on their next message after upgrade. Saved chat and workspace records remain available, but earlier native tool history is not resumed. Recent chat is supplied through the normal handoff; reattach earlier files when needed. Codex and Pi sessions and existing tasks are unaffected by this session boundary.
+- Claude Coordinator conversations start a fresh agent session once after upgrade. Saved chat and work are retained; reattach needed files.
 
 ### Upgrade
 
