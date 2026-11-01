@@ -6,6 +6,49 @@ import json
 import pytest
 from usage_native_fixtures import CHOICES, native
 
+from flowfield.adapters.json_rpc import NativeError
+
+
+@pytest.mark.parametrize("resumed", [False, True])
+def test_pi_session_instructions_rebind_and_measure_without_user_message(tmp_path, resumed):
+    async def check():
+        agent = native(tmp_path, "pi")
+        calls, measured, environments = [], [], []
+        original_call, original_start = agent.rpc.call, agent.rpc.start
+
+        async def call(method, params, **kwargs):
+            calls.append((method, params))
+            return await original_call(method, params, **kwargs)
+
+        async def start(command, cwd, environment):
+            environments.append(environment)
+            return await original_start(command, cwd, environment)
+
+        agent.rpc.call, agent.rpc.start = call, start
+        agent.on_context = lambda *event: measured.append(event)
+        instructions = "Current authority 🦉 revision 2"
+        assert agent.session_instructions(instructions)
+        try:
+            await agent.start(
+                [],
+                resume="00000000-0000-4000-8000-000000000001" if resumed else None,
+                persistent=True,
+            )
+            await agent.configure(CHOICES["pi"])
+            assert environments[0]["FLOWFIELD_PI_INSTRUCTIONS"] == instructions
+            assert measured == [
+                ("session_instructions", len(instructions.encode()), "pi-system-instructions")
+            ]
+            with pytest.raises(NativeError, match="before native startup"):
+                agent.session_instructions("Too late")
+            assert await agent.prompt("Only this user text", None) == {"status": "completed"}
+            prompt = next(params for name, params in calls if name == "prompt")
+            assert instructions not in json.dumps(prompt)
+        finally:
+            await agent.close()
+
+    asyncio.run(check())
+
 
 @pytest.mark.parametrize("resumed", [False, True])
 def test_codex_binds_current_instructions_on_start_and_resume(tmp_path, resumed):

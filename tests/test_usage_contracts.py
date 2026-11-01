@@ -309,6 +309,48 @@ def test_pi_aggregate_scope_omissions_and_compatible_versions(version):
     assert codex_usage.counters({"inputTokens": True, "outputTokens": -1}).input is None
 
 
+def test_pi_compaction_and_next_dispatch_use_distinct_cumulative_deltas(tmp_path):
+    execution = fixture(tmp_path)
+    run = execution.claim("harbor", BASE, {BASE: set()})
+    usage = Usage(execution.workspace)
+    agent = native(tmp_path, "pi")
+    usage.bind("harbor", "run", run.id, agent)
+    agent.session_id = "owned-pi-session"
+    agent._usage_version = "1.1.0"
+    agent._usage_baseline = Tokens(
+        input=1000, output=200, cache_read=500, cache_write=0, total=1700
+    )
+
+    async def exercise():
+        for dispatch, amount in [("compact", 1200), ("next-prompt", 1500)]:
+            usage.start("harbor", "run", run.id, agent.session_id)
+            agent._usage_dispatch = dispatch
+
+            async def stats(method, params, amount=amount, **kwargs):
+                assert method == "get_session_stats"
+                return {
+                    "sessionId": agent.session_id,
+                    "tokens": {
+                        "input": amount,
+                        "output": amount // 5,
+                        "cacheRead": amount // 2,
+                        "cacheWrite": 0,
+                        "total": amount * 17 // 10,
+                    },
+                }
+
+            agent.rpc.call = stats
+            await agent._capture_usage(final=True)
+            await agent._capture_usage(final=True)  # Stop/terminal snapshot replay.
+
+    asyncio.run(exercise())
+    evidence = UsageReads(execution.workspace).evidence("harbor", "run", run.id)
+    assert [item.delta.total for item in evidence.items] == [340, 510]
+    assert evidence.execution.tokens.total == 850
+    assert evidence.execution.coverage == "partial"
+    assert "native-provider-coverage-unknown" in evidence.execution.reasons
+
+
 def test_pi_pre_dispatch_resume_baseline_excludes_history(tmp_path):
     execution = fixture(tmp_path)
     run = execution.claim("harbor", BASE, {BASE: set()})

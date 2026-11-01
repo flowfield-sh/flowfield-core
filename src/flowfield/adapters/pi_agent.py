@@ -84,6 +84,13 @@ class PiAgent(Agent):
         self._usage_dispatch: str | None = None
         self._usage_lock = asyncio.Lock()
         self._usage_poll: asyncio.Task[None] | None = None
+        self._instructions: str | None = None
+
+    def session_instructions(self, text: str) -> bool:
+        if self.process or self.session_id:
+            raise NativeError("Instructions must be bound before native startup")
+        self._instructions = text
+        return True
 
     @property
     def process(self) -> asyncio.subprocess.Process | None:
@@ -142,12 +149,19 @@ class PiAgent(Agent):
                 command += ["--no-session"]
             env = {
                 **self.environment,
+                "FLOWFIELD_PI_INSTRUCTIONS": self._instructions or "",
                 "FLOWFIELD_PI_SERVERS": json.dumps(
                     [{"name": server.name, "config": server.native()} for server in servers]
                 ),
             }
             self.cleanup_confirmed = False
             await self.rpc.start(command, self.cwd, env)
+            if self._instructions is not None and self.on_context:
+                self.on_context(
+                    "session_instructions",
+                    len(self._instructions.encode("utf-8")),
+                    "pi-system-instructions",
+                )
             try:
                 state = await self.rpc.call("get_state", {})
                 async with asyncio.timeout(15):
