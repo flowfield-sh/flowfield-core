@@ -34,7 +34,7 @@ from flowfield.usage import Usage
 if TYPE_CHECKING:
     from flowfield.supervisor import Supervisor
 
-# The shared role guide is retrieved by workflow; universal rules stay in every prompt.
+# Universal rules stay in the native instruction channel or the inline fallback.
 GUIDANCE = (
     template("mcp-instructions.md").strip()
     + "\nBefore acting in a workflow whose guide sections are not already in context, "
@@ -131,15 +131,22 @@ class Coordinator:
         resumed: bool = False,
         budget: int | None = None,
         record_handoff: bool = False,
+        inline_instructions: bool = True,
     ) -> str:
+        core_instructions = f"Use the {server} MCP connection.\n" + GUIDANCE
+        if not inline_instructions and budget is not None:
+            # Separate native instructions still occupy context. Preserve the
+            # handoff reserve even though they no longer live in the user message.
+            budget = max(0, budget - len(core_instructions.encode("utf-8")))
         instructions = {
-            "instructions": f"Use the {server} MCP connection.\n" + GUIDANCE,
             "workspace_id": turn.workspace_id,
             "flowfield_connection": server,
             "human_message": turn.text,
             "adjacent_view": turn.view_context.model_dump() if turn.view_context else None,
             "selected_task": turn.task_context.model_dump() if turn.task_context else None,
         }
+        if inline_instructions:
+            instructions["instructions"] = core_instructions
         if turn.guidance_revision is not None:
             if resumed:
                 instructions["workspace_guidance"] = {
@@ -266,6 +273,9 @@ class Coordinator:
                         )
                     Usage(workspace).bind(turn.workspace_id, "coordinator_turn", turn.id, client)
                     client.on_context = measurements.native
+                    separate_instructions = client.session_instructions(
+                        f"Use the {server.name} MCP connection.\n" + GUIDANCE
+                    )
                     await client.start([server], resume=session_id, persistent=True)
                     applied = await client.configure(turn.settings.choice)
                     assert client.session_id
@@ -317,6 +327,7 @@ class Coordinator:
                         resumed=session_id is not None,
                         budget=budget,
                         record_handoff=True,
+                        inline_instructions=not separate_instructions,
                     )
                     handoff = (
                         [] if native_command else json.loads(prompt).get("recent_conversation", [])

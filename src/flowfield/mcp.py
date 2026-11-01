@@ -534,9 +534,15 @@ def create_mcp(
         return await mutate(lambda: Guidance(workspace()).change(project_id, change).model_dump())
 
     @mcp.tool(annotations=read)
-    async def get_board(workspace_id: Identifier) -> CallToolResult:
-        """Return-to-work briefing: bounded counts, attention, changes and suggested next action."""
-        return await invoke(lambda: reads().overview(workspace_id))
+    async def get_board(
+        workspace_id: Identifier, view: Literal["detail", "status"] = "detail"
+    ) -> CallToolResult:
+        """Return-to-work briefing: counts, attention, changes and suggested next action.
+
+        Prefer view=status for routine check-ins; it omits change narratives but keeps
+        identities, freshness, blockers and next actions. Use detail for change history.
+        """
+        return await invoke(lambda: reads().overview(workspace_id, view=view))
 
     @mcp.tool(annotations=read)
     async def search_context(
@@ -831,13 +837,20 @@ def create_mcp(
         )
 
     @mcp.tool(annotations=read)
-    async def get_task(workspace_id: Identifier, task_id: TaskIdentifier) -> CallToolResult:
+    async def get_task(
+        workspace_id: Identifier,
+        task_id: TaskIdentifier,
+        view: Literal["detail", "status"] = "detail",
+    ) -> CallToolResult:
         """Read current agreement, readiness, latest authored update and five refs per relationship.
 
         No revisions. Relationship counts and truncated_fields identify omitted context.
         Read complete prerequisites before replacing a dependency set.
+        Prefer view=status for check-ins: preserves readiness, revisions, blockers and
+        execution/approval state, with a reference instead of body/acceptance criteria.
+        Use detail for authoring, reconciliation or recovering agreement contents.
         """
-        return await invoke(lambda: reads().task(workspace_id, task_id))
+        return await invoke(lambda: reads().task(workspace_id, task_id, view=view))
 
     @mcp.tool(annotations=read)
     async def list_task_relationships(

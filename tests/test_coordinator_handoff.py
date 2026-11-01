@@ -34,6 +34,11 @@ def test_resumed_guidance_reference_reads_frozen_revision_and_fresh_sessions_kee
     fresh = json.loads(service.coordinator._prompt(turn, "scoped"))
     resumed = json.loads(service.coordinator._prompt(turn, "scoped", resumed=True))
     assert fresh["instructions"] == resumed["instructions"]
+    separate = json.loads(
+        service.coordinator._prompt(turn, "scoped", resumed=True, inline_instructions=False)
+    )
+    assert "instructions" not in separate
+    assert separate == {key: value for key, value in resumed.items() if key != "instructions"}
     assert fresh["workspace_guidance"]["body"].startswith("# Original required guidance")
     assert "body" in fresh["workspace_guidance"]["truncated_fields"]
     assert "# Original required guidance" not in json.dumps(resumed)

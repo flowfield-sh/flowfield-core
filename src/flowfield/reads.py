@@ -339,7 +339,9 @@ class ContextReads:
                     break
             return page(items, limit, "number")
 
-    def overview(self, workspace_id: str) -> dict[str, Any]:
+    def overview(
+        self, workspace_id: str, *, view: Literal["detail", "status"] = "detail"
+    ) -> dict[str, Any]:
         with self.workspace.connection() as db:
             project = {
                 **excerpt(self.workspace._workspace(db, workspace_id).model_dump()),
@@ -410,6 +412,14 @@ class ContextReads:
                 largest["has_more"] = True
             for column in columns:
                 column["omitted_count"] = column["count"] - len(column["tasks"])
+            if view == "status":
+                for change in result["recent_changes"]["items"]:
+                    change.pop("body", None)
+                    change.pop("truncated_fields", None)
+                result["recent_changes"]["details"] = {
+                    "tool": "get_board",
+                    "arguments": {"view": "detail"},
+                }
             return result
 
     def _worker_briefing(self, db: sqlite3.Connection, workspace_id: str) -> dict[str, Any]:
@@ -596,7 +606,9 @@ class ContextReads:
             ),
         }
 
-    def task(self, workspace_id: str, task_id: str) -> dict[str, Any]:
+    def task(
+        self, workspace_id: str, task_id: str, *, view: Literal["detail", "status"] = "detail"
+    ) -> dict[str, Any]:
         with self.workspace.connection() as db:
             identity = self.workspace._activity_scope(db, workspace_id, task_id)
             row = db.execute(
@@ -688,6 +700,19 @@ class ContextReads:
                 result[largest].pop()
             result["dependencies"] = [p["key"] for p in result["prerequisites"]]
             result["dependencies_truncated"] = len(result["dependencies"]) < len(item.dependencies)
+            if view == "status":
+                for field in ("body", "acceptance_criteria"):
+                    result.pop(field, None)
+                    result.get("truncated_fields", {}).pop(field, None)
+                result["agreement_details"] = {
+                    "tool": "get_task",
+                    "arguments": {
+                        "task_id": item.key,
+                        "view": "detail",
+                    },
+                    "revision": item.revision,
+                    "omitted_fields": ["body", "acceptance_criteria"],
+                }
             return result
 
     def relationships(

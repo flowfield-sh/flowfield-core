@@ -126,6 +126,7 @@ async def main():
     servers = []
     resumed = False
     loaded = False
+    developer_instructions = ""
 
     def completed(task):
         tasks.discard(task)
@@ -172,7 +173,9 @@ async def main():
             control = {}
         if "coordinator" in sys.argv:
             assert control["flowfield_connection"] == servers[0]["name"]
-            assert control["flowfield_connection"] in control["instructions"]
+            assert control["flowfield_connection"] in control.get(
+                "instructions", developer_instructions
+            )
             assert CONFIG[2]["currentValue"] == os.environ.get("FLOWFIELD_TEST_MODE", "read-only")
             if "continuity" in control["human_message"]:
                 assert resumed and "recent_conversation" not in control
@@ -454,6 +457,7 @@ async def main():
         elif method == "config/read":
             reply(request, {"config": {"mcp_servers": {"ambient": {"enabled": True}}}})
         elif method in {"thread/start", "thread/resume"}:
+            developer_instructions = params.get("developerInstructions", "")
             if method == "thread/resume" and (
                 "no-resume" in sys.argv
                 or "resume-missing" in sys.argv

@@ -51,6 +51,7 @@ def observation(
     final: bool = False,
     failed: bool = False,
     pricing: PricingEvidence | None = None,
+    missing: bool = False,
 ) -> Consumption:
     # No native event ID/order is supplied. The canonical vector identifies replays;
     # final reconciliation is a distinct zero-delta observation for this native turn.
@@ -61,7 +62,7 @@ def observation(
         "reasoning",
     )
     return Consumption(
-        event_id=f"{turn}:{digest}:{int(final)}"[:200],
+        event_id=f"{turn}:{digest}:{int(final)}{':missing' if missing else ''}"[:200],
         dispatch_id=turn,
         session_id=session,
         native_scope_id=thread,
@@ -75,10 +76,10 @@ def observation(
         semantics="inclusive-cache",
         baseline="resume" if resumed else "fresh",
         inherited=inherited,
-        final=final and not failed,
+        final=final and not failed and not missing,
         gap="native-error"
         if failed
         else "missing-counters"
-        if value.input is None or value.output is None or value.total is None
+        if missing or value.input is None or value.output is None or value.total is None
         else None,
     )

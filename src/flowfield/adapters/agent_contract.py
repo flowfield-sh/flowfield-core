@@ -82,6 +82,10 @@ class Agent(ABC):
     on_consumption: Callable[[Consumption], None] | None = None
     on_context: Callable[[str, int, str], None] | None = None
 
+    def session_instructions(self, text: str) -> bool:
+        """Bind durable instructions before configure, or retain the inline fallback."""
+        return False
+
     def context_output(
         self,
         identity: str,

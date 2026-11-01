@@ -39,6 +39,33 @@ def test_project_paging_contracts_are_declared_and_enforced(tmp_path):
     asyncio.run(exercise())
 
 
+def test_status_read_references_work_with_scoped_and_public_coordinator_tools(tmp_path):
+    execution = fixture(tmp_path)
+
+    async def exercise():
+        grant = await workspace_scope(Supervisor(execution.workspace), "harbor")
+        compact = await grant.call("get_task", {"task_id": "T-1", "view": "status"})
+        assert not compact.isError
+        data = compact.structuredContent
+        assert "body" not in data and data["agreement_details"]["revision"] == data["revision"]
+        reference = data["agreement_details"]
+        full = await grant.call(reference["tool"], reference["arguments"])
+        assert not full.isError and "body" in full.structuredContent
+        board = await grant.call("get_board", {"view": "status"})
+        reference = board.structuredContent["recent_changes"]["details"]
+        assert not (await grant.call(reference["tool"], reference["arguments"])).isError
+        public = create_mcp(lambda: execution.workspace, origin="")
+        response = await public.call_tool(
+            "get_task", {"workspace_id": "harbor", "task_id": "T-1", "view": "status"}
+        )
+        assert not response.isError
+        invalid = await grant.call("get_task", {"task_id": "T-1", "view": "everything"})
+        assert invalid.isError
+        grant.revoke()
+
+    asyncio.run(exercise())
+
+
 def test_coordinator_reads_overlap_with_bounded_revocable_access(tmp_path):
     service = fixture(tmp_path)
 

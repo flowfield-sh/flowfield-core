@@ -54,6 +54,21 @@ def test_context_growth_pagination_and_full_text(
     assert detail["latest_update"]["truncated_fields"]["body"]
     assert detail["blocked_by_keys"] == ["T-1", "T-10", "T-11"]
     assert detail["blocked_count"] == 12
+    status = reads.task("harbor", "T-16", view="status")
+    assert "body" not in status and "acceptance_criteria" not in status
+    assert status["revision"] == detail["revision"]
+    assert status["readiness"] == detail["readiness"]
+    assert status["blocked_by"] == detail["blocked_by"]
+    assert status["blocking_questions"] == detail["blocking_questions"]
+    assert status["pending_code"] == detail["pending_code"]
+    assert size(status) < size(detail)
+    assert reads.task("harbor", **status["agreement_details"]["arguments"]) == detail
+    brief = reads.overview("harbor", view="status")
+    assert brief["columns"] == overview["columns"]
+    assert brief["attention"] == overview["attention"]
+    assert brief["recommendation"] == overview["recommendation"]
+    assert all("body" not in change for change in brief["recent_changes"]["items"])
+    assert brief["recent_changes"]["count"] == overview["recent_changes"]["count"]
     for result in [
         overview,
         detail,

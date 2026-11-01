@@ -168,8 +168,9 @@ class ContextMeasurements:
             "source": self.source,
             "source_id": self.identity,
             "coverage": "unavailable" if state is None else "partial" if state[0] else "recorded",
-            "basis": "Reported payload bytes; not model tokens. Native instructions,"
-            " token serialization, compaction and attachments are not attributed. "
+            "basis": "Reported payload bytes; not model tokens. Session instructions are "
+            "measured when supplied separately by Flowfield. Other native instructions, "
+            "token serialization, compaction and attachments are not attributed. "
             "Tool definitions describe server inventory; harnesses may load only a subset. "
             "Native tool outputs may overlap Flowfield results; do not add them together.",
             "dropped_events": state[0] if state else 0,

@@ -7,6 +7,45 @@ import pytest
 from usage_native_fixtures import CHOICES, native
 
 
+@pytest.mark.parametrize("resumed", [False, True])
+def test_codex_binds_current_instructions_on_start_and_resume(tmp_path, resumed):
+    async def check():
+        agent = native(tmp_path, "codex")
+        calls, measured = [], []
+        call = agent.rpc.call
+
+        async def capture(method, params):
+            calls.append((method, params))
+            result = await call(method, params)
+            if method == "config/read":
+                result["config"]["developer_instructions"] = "Preserve configured native guidance."
+            return result
+
+        agent.rpc.call = capture
+        agent.on_context = lambda *event: measured.append(event)
+        assert agent.session_instructions("Current role and authority, revision 2")
+        try:
+            await agent.start([], resume="test-session" if resumed else None, persistent=True)
+            await agent.configure(CHOICES["codex"])
+            method = "thread/resume" if resumed else "thread/start"
+            params = next(params for name, params in calls if name == method)
+            assert params["developerInstructions"].startswith(
+                "Preserve configured native guidance.\n\nCurrent role and authority, revision 2"
+            )
+            assert "Never print the whole catalog" in params["developerInstructions"]
+            assert measured == [
+                (
+                    "session_instructions",
+                    len(params["developerInstructions"].encode()),
+                    "codex-developer-instructions",
+                )
+            ]
+        finally:
+            await agent.close()
+
+    asyncio.run(check())
+
+
 @pytest.mark.parametrize("harness", CHOICES)
 def test_completed_native_output_is_measured_once_before_preview(tmp_path, harness):
     async def check():

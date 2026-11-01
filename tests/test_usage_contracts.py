@@ -58,6 +58,44 @@ def detail(execution, run):
     return UsageReads(execution.workspace).evidence("harbor", "run", run.id)
 
 
+@pytest.mark.parametrize("prior_usage", [False, True])
+def test_codex_compaction_context_sentinel_is_missing_usage_not_free(tmp_path, prior_usage):
+    execution, usage, run, agent = codex_owner(tmp_path)
+
+    async def exercise():
+        agent._completion = asyncio.get_running_loop().create_future()
+        agent._event("turn/started", {"threadId": run.id, "turn": {"id": "compact"}})
+        if prior_usage:
+            total(agent, run.id, "compact", 100)
+        agent._event(
+            "thread/tokenUsage/updated",
+            {
+                "threadId": run.id,
+                "turnId": "compact",
+                "tokenUsage": {
+                    "total": {
+                        "inputTokens": 100 if prior_usage else 0,
+                        "outputTokens": 20 if prior_usage else 0,
+                        "cachedInputTokens": 50 if prior_usage else 0,
+                        "reasoningOutputTokens": 10 if prior_usage else 0,
+                        "totalTokens": 120 if prior_usage else 0,
+                    },
+                    "last": {"inputTokens": 0, "outputTokens": 0, "totalTokens": 21990},
+                    "modelContextWindow": 475000,
+                },
+            },
+        )
+        terminal(agent, run.id, "compact")
+
+    asyncio.run(exercise())
+    usage.end("harbor", "run", run.id, confirmed=True)
+    result = detail(execution, run).execution
+    assert "missing-counters" in result.reasons
+    assert result.coverage == ("partial" if prior_usage else "unavailable")
+    assert result.tokens.total == (120 if prior_usage else None)
+    assert result.cost.coverage != "complete"
+
+
 def test_codex_replay_children_foreign_scope_late_stop_and_defaulted_components(tmp_path):
     execution, usage, run, agent = codex_owner(tmp_path)
 

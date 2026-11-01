@@ -125,6 +125,17 @@ class CodexAgent(Agent):
         self._usage_threads: dict[str, bool] = {}
         self._usage_turns: set[tuple[str, str]] = set()
         self._usage_final: dict[tuple[str, str], bool] = {}
+        self._instructions: str | None = None
+
+    def session_instructions(self, text: str) -> bool:
+        if self.session_id:
+            raise NativeError("Instructions must be bound before native configuration")
+        self._instructions = text + (
+            "\nWhen using ALL_TOOLS discovery, list matching tool names first, then inspect "
+            "only the descriptions/schemas needed for this action. Never print the whole "
+            "catalog. Reuse known tools while their definitions remain in context.\n"
+        )
+        return True
 
     @property
     def process(self) -> asyncio.subprocess.Process | None:
@@ -224,6 +235,20 @@ class CodexAgent(Agent):
                 "serviceTier": "fast" if choice.fast else "default",
                 "config": {"mcp_servers": mcp, "model_reasoning_effort": choice.effort},
             }
+            if self._instructions is not None:
+                configured_instructions = config.get("developer_instructions") or ""
+                if not isinstance(configured_instructions, str):
+                    raise NativeError("Invalid native developer instructions")
+                instructions = (
+                    configured_instructions + "\n\n" if configured_instructions else ""
+                ) + self._instructions
+                params["developerInstructions"] = instructions
+                if self.on_context:
+                    self.on_context(
+                        "session_instructions",
+                        len(instructions.encode("utf-8")),
+                        "codex-developer-instructions",
+                    )
             directories = (
                 *self.project_directories,
                 *((self.output_directory,) if self.output_directory else ()),
@@ -575,6 +600,12 @@ class CodexAgent(Agent):
                 return
             native = data.get("tokenUsage")
             last = codex_usage.counters(native.get("last") if isinstance(native, dict) else None)
+            # Compaction can report a context-size sentinel in `last` while `total`
+            # still contains only preceding requests. This is not zero-cost
+            # inference. Retain a gap without advancing the accounting watermark.
+            if last.input == 0 and last.output == 0 and last.total:
+                self._emit_usage(thread, turn, value, missing=True)
+                return
             self._price_context[key] = PricingEvidence(
                 model=self.choice.model
                 if self.choice and thread == self.session_id and key not in self._rerouted
@@ -590,7 +621,7 @@ class CodexAgent(Agent):
             self._usage_final[key] = data.get("turn", {}).get("status") != "completed"
             self._emit_usage(thread, turn, self._usage_latest.get(key, Tokens()))
 
-    def _emit_usage(self, thread: str, turn: str, value: Tokens) -> None:
+    def _emit_usage(self, thread: str, turn: str, value: Tokens, *, missing: bool = False) -> None:
         assert self.on_consumption and self.session_id
         key = (thread, turn)
         self.on_consumption(
@@ -605,6 +636,7 @@ class CodexAgent(Agent):
                 final=key in self._usage_final,
                 failed=self._usage_final.get(key, False),
                 pricing=self._price_context.get(key),
+                missing=missing,
             )
         )
 
