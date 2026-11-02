@@ -76,25 +76,30 @@ class Integrations:
             )
         with gitops.lock(repository):
             ref = gitops.branch_ref(repository, request.target_branch)
+            # This repository lock serializes settings with preparation/delivery.
+            # Check the expected revision before any external mutation; recheck on save.
+            with self.workspace.connection() as db:
+                current = self._settings(db, project_id)
+                self.workspace._current(current.revision, request.expected_revision)
+            if request.create_from:
+                base = gitops.resolve(repository, request.create_from)
+                # Creation is explicit and never resets an existing branch. If the
+                # later DB save fails, the created branch remains available to select.
+                git(repository, "update-ref", ref, base, "0" * len(base))
+            else:
+                try:
+                    gitops.target(repository, request.target_branch)
+                except ApplicationError as error:
+                    if error.code != "missing_destination":
+                        raise
+                    base = gitops.resolve(repository, "HEAD")
+                    git(repository, "update-ref", ref, base, "0" * len(base))
             with self.workspace.connection(
                 write=True, workspace_id=Workspaces(self.workspace).for_project(project_id).id
             ) as db:
                 current = self._settings(db, project_id)
                 self.workspace._current(current.revision, request.expected_revision)
                 runtime = request.runtime or current.runtime
-                if request.create_from:
-                    base = gitops.resolve(repository, request.create_from)
-                    # Creation is explicit and never resets an existing branch.
-                    git(repository, "update-ref", ref, base, "0" * len(base))
-                else:
-                    try:
-                        gitops.target(repository, request.target_branch)
-                    except ApplicationError as error:
-                        if error.code != "missing_destination":
-                            raise
-                        base = gitops.resolve(repository, "HEAD")
-                        # Saving a destination creates a missing branch, never resets one.
-                        git(repository, "update-ref", ref, base, "0" * len(base))
                 value = IntegrationSettings(
                     project_id=project_id,
                     revision=current.revision + 1,
@@ -175,14 +180,17 @@ class Integrations:
             )
 
     def _save(self, record: Integration) -> Integration:
-        record.revision += 1
         with self.workspace.connection(write=True, workspace_id=record.workspace_id) as db:
-            db.execute(
-                "UPDATE integrations SET status=?, data=? WHERE id=?",
-                (record.status, record.model_dump_json(), record.id),
-            )
-            self._sync_result(db, record)
+            self._write(db, record)
         return record
+
+    def _write(self, db: sqlite3.Connection, record: Integration) -> None:
+        record.revision += 1
+        db.execute(
+            "UPDATE integrations SET status=?, data=? WHERE id=?",
+            (record.status, record.model_dump_json(), record.id),
+        )
+        self._sync_result(db, record)
 
     def _sync_result(self, db: sqlite3.Connection, record: Integration) -> None:
         from flowfield.results import Results
@@ -487,13 +495,10 @@ class Integrations:
             git_checkout.verify(
                 repository, record.target_branch, record.target_before, record.checkout
             )
-            record.status, record.author = "applying", request.author
-            record.apply_started_at = now()
-            self._save(record)  # Durable intent before the non-transactional Git update.
             try:
-                # Keep the final intent check and short ref update together. Validation
-                # itself runs outside database transactions; the durable applying record
-                # allows recovery if the process exits between Git and SQLite commits.
+                # Atomically authorize and reserve this exact delivery. Task/result
+                # mutations respect delivering/applying; settings share the Git lock.
+                # Later document edits belong to subsequent work, not this operation.
                 with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
                     current = self.execution._run(db, workspace_id, record.run_id)
                     from flowfield.guidance_reconciliation import require_current
@@ -534,13 +539,18 @@ class Integrations:
                         raise ApplicationError(
                             "approval_required", "Exact approval is no longer current.", 409
                         )
-                    gitops.apply(
-                        repository,
-                        record.target_branch,
-                        record.target_before,
-                        request.candidate_commit,
-                        record.checkout,
-                    )
+                    record.status, record.author = "applying", request.author
+                    record.apply_started_at = now()
+                    self._write(db, record)
+                # Filesystem work never holds SQLite's writer. Keep the repository
+                # lock through verification/completion; persisted intent survives exit.
+                gitops.apply(
+                    repository,
+                    record.target_branch,
+                    record.target_before,
+                    request.candidate_commit,
+                    record.checkout,
+                )
             except ApplicationError as error:
                 record.status, record.problem, record.problem_code = "stale", str(error), error.code
                 return self._save(record)

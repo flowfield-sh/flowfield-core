@@ -208,8 +208,10 @@ def test_delete_preserves_selected_file_consumers_then_removes_retained_bytes(tm
     runtime = service.workspace.directory / "local-attempts" / run.id / "runtime"
     service.execution.save_local(run.id, {"runtime": str(runtime)})
     (runtime / "output" / "brief.txt").write_text("Keep this evidence")
-    with service.workspace.connection(write=True) as db:
-        output = Outputs(service.workspace).capture(db, run, [OutputSelection(path="brief.txt")])[0]
+    with Outputs(service.workspace).capture(run, [OutputSelection(path="brief.txt")]) as files:
+        with service.workspace.connection(write=True) as db:
+            Outputs.publish(db, files)
+        output = files[0]
     file = Outputs(service.workspace).content(output)
     consumer = service.workspace.create_task(
         "harbor", TaskCreate(title="Read the brief", input_files=[output.id])

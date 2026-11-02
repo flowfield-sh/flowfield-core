@@ -458,6 +458,25 @@ class Results:
     def retry_delivery(self, workspace_id: str, identity: str, request: RunAction) -> ResultVersion:
         from flowfield.integration_models import DELIVERY_BLOCKERS
 
+        observed = self.get(workspace_id, identity)
+        self.workspace._current(observed.revision, request.expected_revision)
+        if (
+            not observed.approved_at
+            or observed.status not in ("blocked", "stale")
+            or observed.problem_code not in DELIVERY_BLOCKERS
+        ):
+            raise ApplicationError(
+                "delivery_not_retryable",
+                "Only unchanged approved delivery with a checkout blocker can be retried.",
+                409,
+            )
+        service = Integrations(self.workspace)
+        settings = service.for_task(workspace_id, observed.task_id)
+        target = (
+            service.head(workspace_id, observed.task_id)
+            if settings.revision == observed.settings_revision
+            else None
+        )
         with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
             version = self._get(db, workspace_id, identity)
             self.workspace._current(version.revision, request.expected_revision)
@@ -475,21 +494,25 @@ class Results:
                     "Only unchanged approved delivery with a checkout blocker can be retried.",
                     409,
                 )
-            service = Integrations(self.workspace)
+            task = self.workspace._task(db, workspace_id, version.task_id)
+            assert task.project_id
             if (
-                service.for_task(workspace_id, version.task_id).revision
-                != version.settings_revision
+                service._settings(db, task.project_id).revision != settings.revision
+                or settings.revision != version.settings_revision
             ):
                 version.status, version.problem_code = "stale", "settings_changed"
                 version.problem = "Settings changed. Prepare and approve a new candidate."
                 self._save(db, version)
                 return self._present(db, version)
             assert version.integration_id
-            record = service.get(workspace_id, version.integration_id)
             allowed = {version.target_before}
-            if record.apply_started_at:
+            record = db.execute(
+                "SELECT json_extract(data,'$.apply_started_at') FROM integrations WHERE id=?",
+                (version.integration_id,),
+            ).fetchone()
+            if record and record[0]:
                 allowed.add(version.candidate_commit)
-            if service.head(workspace_id, version.task_id) not in allowed:
+            if target not in allowed:
                 version.status, version.problem_code = "stale", "target_changed"
                 version.problem = "Destination moved. Prepare and approve a new candidate."
                 self._save(db, version)
@@ -633,6 +656,14 @@ class Results:
                     }
                 ),
             )
+            # The enclosing repository lock prevents another Flowfield operation
+            # from moving this destination; later preparation checks external Git edits.
+            if integrations.head(workspace_id, version.task_id) != target:
+                raise ApplicationError(
+                    "target_changed",
+                    "Target moved during correction preparation. Inspect it and request again.",
+                    409,
+                )
             with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
                 current = self._get(db, workspace_id, identity)
                 self.workspace._current(current.revision, request.expected_revision)
@@ -644,12 +675,6 @@ class Results:
                 latest_task = self.workspace._task(db, workspace_id, run.task_id)
                 self.workspace._current(latest_task.revision, task.revision)
                 self.workspace._require_ready(latest_task)
-                if integrations.head(workspace_id, version.task_id) != target:
-                    raise ApplicationError(
-                        "target_changed",
-                        "Target moved during correction preparation. Inspect it and request again.",
-                        409,
-                    )
                 current.status, current.correction = "changes_requested", correction
                 current.feedback = (
                     request.note or "Correct the recorded failure within the agreed assignment."

@@ -3,14 +3,16 @@
 import json
 import sqlite3
 from abc import ABC, abstractmethod
+from contextlib import AbstractContextManager, nullcontext
 from typing import Any, Literal
 from uuid import uuid4
 
 from flowfield.application import Workspace, now
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import Record
+from flowfield.output_models import OutputFile
+from flowfield.outputs import Outputs
 from flowfield.run_activity import ActivityUpdate, RunActivityPage, update_activity
-from flowfield.storage import Connection
 
 
 class ReviewRecord(Record):
@@ -253,16 +255,15 @@ class ReviewRecords[J: ReviewRecord](ABC):
             self._save(db, review)
             return review
 
-    def check_decision_evidence(
-        self, db: Connection, review: J, data: dict[str, Any], decision: dict[str, Any]
-    ) -> None:
-        """Subclass evidence gate, in the same transaction as the decision."""
-        return None
+    def decision_files(
+        self, review: J, data: dict[str, Any], decision: dict[str, Any]
+    ) -> AbstractContextManager[list[OutputFile]]:
+        return nullcontext([])
 
     def save_decision(
         self, project: str, identity: str, attempt: str, decision: dict[str, Any]
     ) -> None:
-        with self.store.connection(write=True, workspace_id=project) as db:
+        with self.store.connection() as db:
             review = self._get(db, project, identity)
             if review.status != "running" or review.attempt_id != attempt:
                 raise ApplicationError(
@@ -271,11 +272,28 @@ class ReviewRecords[J: ReviewRecord](ABC):
             data = self._attempt(db, attempt)
             if data.get("decision") and data["decision"] != decision:
                 raise ApplicationError("review_closed", "The round already has a decision.", 409)
-            self.check_decision_evidence(db, review, data, decision)
-            data["decision"] = decision
-            db.execute(
-                f"UPDATE {self.attempt_table} SET data=? WHERE id=?", (json.dumps(data), attempt)
-            )
+        with self.decision_files(review, data, decision) as files:
+            with self.store.connection(write=True, workspace_id=project) as db:
+                review = self._get(db, project, identity)
+                if review.status != "running" or review.attempt_id != attempt:
+                    raise ApplicationError(
+                        "review_closed", "Review round no longer owns execution.", 409
+                    )
+                data = self._attempt(db, attempt)
+                if data.get("decision") is not None:
+                    if data["decision"] != decision:
+                        raise ApplicationError(
+                            "review_closed", "The round already has a decision.", 409
+                        )
+                    return
+                Outputs.publish(db, files)
+                if files:
+                    data["output_ids"] = [file.id for file in files]
+                data["decision"] = decision
+                db.execute(
+                    f"UPDATE {self.attempt_table} SET data=? WHERE id=?",
+                    (json.dumps(data), attempt),
+                )
 
     def resume_answer(self, project: str, identity: str) -> J:
         from flowfield.questions import Questions

@@ -75,7 +75,7 @@ def materialize(
                     raise ApplicationError(
                         "input_file_missing", "The selected input is unavailable.", 409
                     )
-                target.write_bytes(row[0])
+            target.write_bytes(row[0])
         with target.open("rb") as stream:
             if (
                 os.fstat(stream.fileno()).st_size != file.size

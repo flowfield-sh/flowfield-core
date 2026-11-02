@@ -1,7 +1,7 @@
 """Checkout protection and interrupted delivery, using real disposable Git repositories."""
 
 import pytest
-from result_fixtures import approve, current, fixture
+from result_fixtures import current, fixture, ready
 
 from flowfield.adapters import git_checkout
 from flowfield.adapters.git_workspace import baseline, git
@@ -10,13 +10,6 @@ from flowfield.errors import ApplicationError
 from flowfield.execution_models import RunAction
 from flowfield.integration_models import IntegrationConfig
 from flowfield.supervisor import Supervisor
-
-
-def ready(tmp_path):
-    service, repo, run = fixture(tmp_path)
-    service.results.process("harbor")
-    approve(service, current(service))
-    return service, repo, run
 
 
 @pytest.mark.parametrize("kind", ["staged", "untracked", "ignored", "operation", "branch"])

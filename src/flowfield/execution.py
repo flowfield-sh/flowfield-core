@@ -880,15 +880,20 @@ class Execution:
             return str(sections[section])
 
     def report_result(self, workspace_id: str, run_id: str, result: WorkerResult) -> None:
-        with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+        from flowfield.outputs import Outputs
+
+        with self.workspace.connection() as db:
             run = self._run(db, workspace_id, run_id)
             if run.status != "running" or run.result:
                 raise ApplicationError("worker_scope_closed", "This report is closed.", 409)
-            from flowfield.outputs import Outputs
-
-            Outputs(self.workspace).capture(db, run, result.files)
-            run.result = result
-            self._save(db, run)
+        with Outputs(self.workspace).capture(run, result.files) as files:
+            with self.workspace.connection(write=True, workspace_id=workspace_id) as db:
+                run = self._run(db, workspace_id, run_id)
+                if run.status != "running" or run.result:
+                    raise ApplicationError("worker_scope_closed", "This report is closed.", 409)
+                Outputs.publish(db, files)
+                run.result = result
+                self._save(db, run)
 
     def excluded_files(self, workspace_id: str, run_id: str, paths: list[str]) -> None:
         with self.workspace.connection(write=True, workspace_id=workspace_id) as db:

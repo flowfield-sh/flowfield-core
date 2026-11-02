@@ -8,16 +8,17 @@ import os
 import re
 import sqlite3
 import stat
-from contextlib import ExitStack
+from collections.abc import Iterator
+from contextlib import AbstractContextManager, ExitStack, contextmanager
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from flowfield.application import Workspace, now
+from flowfield.application import Task, Workspace, now
 from flowfield.errors import ApplicationError
 from flowfield.execution_models import Run
 from flowfield.output_models import OutputFile, OutputPage, OutputSelection
-from flowfield.storage import Connection
+from flowfield.storage import acquire_lock
 
 MAX_FILE_BYTES = 128 * 1024 * 1024
 MAX_SUBMISSION_BYTES = 512 * 1024 * 1024
@@ -54,17 +55,20 @@ class Outputs:
             os.close(directory)
 
     def capture(
-        self, db: Connection, run: Run, selections: list[OutputSelection]
-    ) -> list[OutputFile]:
-        row = db.execute("SELECT data FROM execution_local WHERE run_id=?", (run.id,)).fetchone()
+        self, run: Run, selections: list[OutputSelection]
+    ) -> AbstractContextManager[list[OutputFile]]:
+        with self.store.connection() as db:
+            row = db.execute(
+                "SELECT data FROM execution_local WHERE run_id=?", (run.id,)
+            ).fetchone()
         metadata = json.loads(row[0]) if row else {}
         return self.capture_owned(
-            db, run.workspace_id, run.task_id, selections, metadata, run_id=run.id
+            run.workspace_id, run.task_id, selections, metadata, run_id=run.id
         )
 
+    @contextmanager
     def capture_owned(
         self,
-        db: Connection,
         owner: str,
         task_id: str,
         selections: list[OutputSelection],
@@ -73,24 +77,66 @@ class Outputs:
         run_id: str | None = None,
         review_attempt_id: str | None = None,
         result_id: str | None = None,
-    ) -> list[OutputFile]:
+    ) -> Iterator[list[OutputFile]]:
         if not selections:
-            return []
+            yield []
+            return
         if (run_id is None) == (review_attempt_id is None):
             raise ValueError("Evidence requires exactly one execution owner.")
         if len({item.path for item in selections}) != len(selections):
             raise ApplicationError("output_duplicate", "Submit each file only once.")
-        task = self.store._task(db, owner, task_id)
+        with self.store.connection() as db:
+            task = self.store._task(db, owner, task_id)
         if not metadata.get("runtime"):
             raise ApplicationError("output_unavailable", "This attempt has no output directory.")
         source = Path(metadata["runtime"]) / "output"
+        # Captures may run concurrently. Recovery alone needs exclusive ownership;
+        # neither copying nor cleanup owns SQLite's writer. Death releases this lock.
+        with acquire_lock(
+            self.store.directory,
+            ".output-capture.lock",
+            shared=True,
+            busy_message="Output cleanup is running. Retry this submission shortly.",
+        ):
+            created: set[Path] = set()
+            try:
+                yield self._copy(
+                    task,
+                    selections,
+                    source,
+                    created,
+                    run_id,
+                    review_attempt_id,
+                    result_id,
+                )
+            finally:
+                # Check actual commit evidence, including when an after-commit
+                # notification fails. An exception never authorizes deleting saved files.
+                try:
+                    retained = self._referenced(owner, [p.name for p in created])
+                    for path in created:
+                        if path.name.removesuffix(".partial") not in retained:
+                            path.unlink(missing_ok=True)
+                except (ApplicationError, OSError, sqlite3.Error):
+                    logging.getLogger(__name__).warning("Output capture cleanup pending")
+
+    def _copy(
+        self,
+        task: Task,
+        selections: list[OutputSelection],
+        source: Path,
+        created: set[Path],
+        run_id: str | None,
+        review_attempt_id: str | None,
+        result_id: str | None,
+    ) -> list[OutputFile]:
         copied: list[OutputFile] = []
         total = 0
         # Publish references only after immutable bytes are durable.
         for selection in selections:
             value = OutputFile(
                 id=uuid4().hex,
-                workspace_id=owner,
+                workspace_id=task.workspace_id,
                 project_id=task.project_id,
                 task_id=task.id,
                 task_key=task.key,
@@ -108,11 +154,12 @@ class Outputs:
             destination = self._path(value)
             staging = destination.with_suffix(".partial")
             try:
-                db.creating_file(staging)
-                db.creating_file(destination)
+                if destination.exists() or destination.is_symlink():
+                    raise FileExistsError(destination)
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 descriptor = self._source(source, selection.path)
                 with os.fdopen(descriptor, "rb") as incoming, staging.open("xb") as outgoing:
+                    created.add(staging)
                     before = os.fstat(incoming.fileno())
                     digest = hashlib.sha256()
                     while block := incoming.read(1024 * 1024):
@@ -136,7 +183,10 @@ class Outputs:
                     outgoing.flush()
                     os.fsync(outgoing.fileno())
                     value.sha256 = digest.hexdigest()
-                os.replace(staging, destination)
+                # Unlike replace(), link cannot overwrite even an unexpected UUID collision.
+                os.link(staging, destination)
+                created.add(destination)
+                staging.unlink()
                 parent = os.open(destination.parent, os.O_RDONLY | os.O_DIRECTORY)
                 try:
                     os.fsync(parent)
@@ -150,22 +200,53 @@ class Outputs:
                     409,
                 ) from error
             copied.append(value)
-        for value in copied:
+        return copied
+
+    @staticmethod
+    def publish(db: sqlite3.Connection, files: list[OutputFile]) -> None:
+        """Caller rechecks current submission ownership in this short transaction."""
+        for value in files:
             db.execute(
                 "INSERT INTO output_files(id,workspace_id,run_id,data,review_attempt_id) "
                 "VALUES (?,?,?,?,?)",
-                (value.id, owner, run_id, value.model_dump_json(), review_attempt_id),
+                (
+                    value.id,
+                    value.workspace_id,
+                    value.run_id,
+                    value.model_dump_json(),
+                    value.review_attempt_id,
+                ),
             )
-        return copied
+
+    def _referenced(self, owner: str, names: list[str]) -> set[str]:
+        if not names:
+            return set()
+        with self.store.connection() as db:
+            return {
+                row[0]
+                for row in db.execute(
+                    "SELECT id FROM output_files WHERE workspace_id=? AND id IN "
+                    "(SELECT value FROM json_each(?))",
+                    (owner, json.dumps([name.removesuffix(".partial") for name in names])),
+                )
+            }
 
     def recover(self) -> None:
-        """Remove abandoned captures while excluding every concurrent writer.
+        """Remove abandoned captures while excluding only concurrent captures.
 
         Files become durable before their SQLite references. After process death,
         only committed references distinguish retained evidence from abandoned bytes.
         Work through directory descriptors so cleanup never follows a replaced link.
         """
-        with self.store.connection(write=True, notify=False) as db:
+        try:
+            lock = acquire_lock(self.store.directory, ".output-capture.lock")
+        except ApplicationError as error:
+            if error.code != "storage_busy":
+                raise
+            return  # A capture still owns its bytes; reconcile on a later recovery.
+        with lock:
+            with self.store.connection() as db:
+                owners = [row[0] for row in db.execute("SELECT id FROM workspaces")]
             flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
             try:
                 root = os.open(self.store.directory / "workspaces", flags)
@@ -175,11 +256,11 @@ class Outputs:
                 logging.getLogger(__name__).warning("Output cleanup could not open workspace files")
                 return
             try:
-                for (identity,) in db.execute("SELECT id FROM workspaces"):
+                for identity in owners:
                     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}", identity):
                         continue
                     try:
-                        self._recover_workspace(db, root, identity, flags)
+                        self._recover_workspace(root, identity, flags)
                     except FileNotFoundError:
                         pass
                     except OSError:
@@ -189,25 +270,30 @@ class Outputs:
             finally:
                 os.close(root)
 
-    @staticmethod
-    def _recover_workspace(db: Connection, root: int, identity: str, flags: int) -> None:
+    def _recover_workspace(self, root: int, identity: str, flags: int) -> None:
         with ExitStack() as cleanup:
             directory = root
             for name in (identity, "outputs"):
                 directory = os.open(name, flags, dir_fd=directory)
                 cleanup.callback(os.close, directory)
             with os.scandir(directory) as entries:
+                pending: list[str] = []
                 for entry in entries:
                     if not re.fullmatch(r"[0-9a-f]{32}(?:\.partial)?", entry.name):
                         continue
                     if not entry.is_file(follow_symlinks=False):
                         continue
-                    if db.execute(
-                        "SELECT 1 FROM output_files WHERE workspace_id=? AND id=?",
-                        (identity, entry.name.removesuffix(".partial")),
-                    ).fetchone():
-                        continue
-                    os.unlink(entry.name, dir_fd=directory)
+                    pending.append(entry.name)
+                    if len(pending) == 128:
+                        self._remove_abandoned(directory, identity, pending)
+                        pending.clear()
+                self._remove_abandoned(directory, identity, pending)
+
+    def _remove_abandoned(self, directory: int, identity: str, names: list[str]) -> None:
+        retained = self._referenced(identity, names)
+        for name in names:
+            if name.removesuffix(".partial") not in retained:
+                os.unlink(name, dir_fd=directory)
 
     @staticmethod
     def for_run(db: sqlite3.Connection, run_id: str) -> list[OutputFile]:

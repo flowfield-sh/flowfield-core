@@ -357,7 +357,7 @@ class CoordinatorStore:
                     "UPDATE coordinator_handoffs SET data=? WHERE turn_id=?",
                     (json.dumps(value, ensure_ascii=False), identity),
                 )
-            return select(db, project, value, budget)
+        return select(self.workspace, project, value, budget)
 
     def get(self, project: str, identity: str) -> CoordinatorTurn:
         with self.workspace.connection() as db:

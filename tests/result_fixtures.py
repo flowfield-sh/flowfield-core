@@ -107,6 +107,13 @@ def current(service):
     return service.results.page("harbor", "work").items[0]
 
 
+def ready(tmp_path):
+    service, repo, run = fixture(tmp_path)
+    service.results.process("harbor")
+    approve(service, current(service))
+    return service, repo, run
+
+
 def approve(service, version):
     return service.results.review(
         "harbor",

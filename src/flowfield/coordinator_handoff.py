@@ -2,12 +2,16 @@
 
 import json
 import sqlite3
-from typing import Any
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Any
 
 from flowfield.activity_text import OMISSION, retain
 from flowfield.attachments import REFERENCE
 from flowfield.coordinator_models import CoordinatorTurn
 from flowfield.reads import iter_coordinator_exchanges, size
+
+if TYPE_CHECKING:
+    from flowfield.application import Workspace
 
 
 def attachment_identities(project: str, text: str) -> list[dict[str, str]]:
@@ -43,15 +47,27 @@ def freeze(db: sqlite3.Connection, turn: CoordinatorTurn) -> dict[str, Any]:
     }
 
 
+def _sources(store: "Workspace", project: str, before: int) -> Iterator[dict[str, Any]]:
+    # Closed turns before the frozen boundary are immutable. Read bounded batches,
+    # then release the snapshot before sizing/serializing the selected context.
+    while True:
+        with store.connection() as db:
+            batch = list(iter_coordinator_exchanges(db, project, before, 8))
+        yield from batch
+        if len(batch) < 8:
+            return
+        before = batch[-1]["number"]
+
+
 def select(
-    db: sqlite3.Connection, project: str, snapshot: dict[str, Any], budget: int | None
+    store: "Workspace", project: str, snapshot: dict[str, Any], budget: int | None
 ) -> dict[str, Any]:
     result = {**snapshot, "recent_conversation": [], "history_mode": "retrieve"}
     if budget is None or budget <= size(result):
         return result
     result["history_mode"] = "inline"
     result["history_is_partial"] = False
-    for source in iter_coordinator_exchanges(db, project, snapshot["source_before"]):
+    for source in _sources(store, project, snapshot["source_before"]):
         entry = {
             key: source[key]
             for key in (

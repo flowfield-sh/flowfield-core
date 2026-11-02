@@ -49,7 +49,7 @@ from flowfield.publication import (
 )
 from flowfield.questions import QuestionReference, Questions, blocking_questions, pending_questions
 from flowfield.schema import SCHEMA, SCHEMA_VERSION
-from flowfield.storage import Connection, acquire_lock, initialize, require_current
+from flowfield.storage import acquire_lock, initialize, require_current
 
 if TYPE_CHECKING:
     from flowfield.workspaces import WorkspaceRecord
@@ -390,11 +390,9 @@ class Workspace:
         workspace_id: str | None = None,
         notify: bool = True,
         usage_only: bool = False,
-    ) -> Iterator[Connection]:
+    ) -> Iterator[sqlite3.Connection]:
         with acquire_lock(self.directory, ".initialize.lock", shared=True):
-            db = sqlite3.connect(
-                self.database.as_uri() + "?mode=rw", uri=True, timeout=10, factory=Connection
-            )
+            db = sqlite3.connect(self.database.as_uri() + "?mode=rw", uri=True, timeout=10)
             db.row_factory = sqlite3.Row
             db.execute("PRAGMA foreign_keys = ON")
             if not write:
@@ -482,114 +480,126 @@ class Workspace:
             return defaults
 
     def setup_project(self, request: ProjectSetup, *, workspace_id: str) -> Project:
-        from flowfield.workspaces import Workspaces
-
         path = self._setup_path(request.path)
         try:
-            with self.connection(write=True) as db:
-                if not path.is_dir():
-                    raise ApplicationError(
-                        "invalid_path",
-                        "Choose an existing project directory. Flowfield does not create projects.",
-                    )
+            # Serialize identity registration only, never unrelated database writes.
+            # A complete config left by interruption is reused on the next adoption.
+            with acquire_lock(
+                self.directory,
+                ".project-setup.lock",
+                busy_message="Another project is being registered. Wait, then retry.",
+            ):
                 config = read_config(path)
-                row = db.execute("SELECT * FROM projects WHERE path = ?", (str(path),)).fetchone()
-                existing = Project(**dict(row)) if row else None
-                if workspace_id is not None:
-                    Workspaces.read(db, workspace_id)
-                    membership = (
-                        db.execute(
-                            "SELECT workspace_id FROM workspace_projects WHERE project_id=?",
-                            (existing.id,),
-                        ).fetchone()
-                        if existing
-                        else None
-                    )
-                    if membership and membership[0] != workspace_id:
-                        raise ApplicationError(
-                            "project_workspace_conflict",
-                            "This project already belongs to another workspace.",
-                            409,
-                        )
-                    if existing and membership is None:
-                        raise ApplicationError(
-                            "project_workspace_conflict",
-                            "This project was registered without a workspace. "
-                            "Moving registered projects between scopes is not supported.",
-                            409,
-                        )
-                defaults = setup_defaults(path, config, existing)
-                identity, name = defaults.id, defaults.name
-                if (config or existing) and (
-                    (request.id is not None and request.id != identity)
-                    or (request.name is not None and request.name != name)
-                ):
+                with self.connection() as db:
+                    _, chosen = self._setup_identity(db, path, request, workspace_id, config)
+                expected = config or chosen
+                if config is None:
+                    write_config(path, chosen)
+                config = read_config(path)
+                if config != expected:
                     raise ApplicationError(
                         "project_conflict",
-                        "This directory already has a different project ID or name. "
-                        "Use its saved project details.",
+                        "Project config changed during adoption; try again.",
                         409,
                     )
-                try:
-                    chosen = ProjectConfig(
-                        version=1, project_id=request.id or identity, name=request.name or name
+                with self.connection(write=True) as db:
+                    existing, chosen = self._setup_identity(db, path, request, workspace_id, config)
+                    if existing:
+                        return existing
+                    project = Project(
+                        id=chosen.project_id,
+                        name=chosen.name,
+                        path=str(path),
+                        created_at=now(),
+                        updated_at=now(),
+                        updated_by=request.author,
                     )
-                except ValidationError as error:
-                    raise ApplicationError(
-                        "invalid_project",
-                        "Enter a project name and a valid project ID. "
-                        "Use lowercase letters, numbers, hyphens or underscores for the ID.",
-                    ) from error
-                if existing and existing.id != chosen.project_id:
-                    raise ApplicationError(
-                        "project_conflict",
-                        "Project config conflicts with the registered project. "
-                        "Neither was changed.",
-                        409,
-                    )
-                other = db.execute(
-                    "SELECT path FROM projects WHERE id = ?", (chosen.project_id,)
-                ).fetchone()
-                if other and other["path"] != str(path):
-                    raise ApplicationError(
-                        "project_conflict",
-                        "This project ID is already used by another directory. "
-                        "Choose a different project ID.",
-                        409,
-                    )
-                # Validate identity before creating files. A valid config left by an
-                # interrupted registration can be registered by repeating init.
-                if existing:
-                    if config is None:
-                        write_config(path, chosen)
-                    if workspace_id is not None:
-                        db.execute(
-                            "INSERT OR IGNORE INTO workspace_projects VALUES (?,?)",
-                            (existing.id, workspace_id),
-                        )
-                    return existing
-                project = Project(
-                    id=chosen.project_id,
-                    name=chosen.name,
-                    path=str(path),
-                    created_at=now(),
-                    updated_at=now(),
-                    updated_by=request.author,
-                )
-                self._insert_project(db, project)
-                if workspace_id is not None:
+                    self._insert_project(db, project)
                     db.execute(
                         "INSERT INTO workspace_projects VALUES (?,?)", (project.id, workspace_id)
                     )
-                if config is None:
-                    write_config(path, chosen)
-                return project
+                    return project
         except OSError as error:
             raise ApplicationError(
                 "project_setup_failed",
                 f"Could not add the project at {path}: {error}. "
                 "Check directory permissions and try again. Existing files were not overwritten.",
             ) from error
+
+    def _setup_identity(
+        self,
+        db: sqlite3.Connection,
+        path: Path,
+        request: ProjectSetup,
+        workspace_id: str,
+        config: ProjectConfig | None,
+    ) -> tuple[Project | None, ProjectConfig]:
+        from flowfield.workspaces import Workspaces
+
+        row = db.execute("SELECT * FROM projects WHERE path = ?", (str(path),)).fetchone()
+        existing = Project(**dict(row)) if row else None
+        if workspace_id is not None:
+            Workspaces.read(db, workspace_id)
+            membership = (
+                db.execute(
+                    "SELECT workspace_id FROM workspace_projects WHERE project_id=?",
+                    (existing.id,),
+                ).fetchone()
+                if existing
+                else None
+            )
+            if membership and membership[0] != workspace_id:
+                raise ApplicationError(
+                    "project_workspace_conflict",
+                    "This project already belongs to another workspace.",
+                    409,
+                )
+            if existing and membership is None:
+                raise ApplicationError(
+                    "project_workspace_conflict",
+                    "This project was registered without a workspace. "
+                    "Moving registered projects between scopes is not supported.",
+                    409,
+                )
+        defaults = setup_defaults(path, config, existing)
+        identity, name = defaults.id, defaults.name
+        if (config or existing) and (
+            (request.id is not None and request.id != identity)
+            or (request.name is not None and request.name != name)
+        ):
+            raise ApplicationError(
+                "project_conflict",
+                "This directory already has a different project ID or name. "
+                "Use its saved project details.",
+                409,
+            )
+        try:
+            chosen = ProjectConfig(
+                version=1, project_id=request.id or identity, name=request.name or name
+            )
+        except ValidationError as error:
+            raise ApplicationError(
+                "invalid_project",
+                "Enter a project name and a valid project ID. "
+                "Use lowercase letters, numbers, hyphens or underscores for the ID.",
+            ) from error
+        if existing and existing.id != chosen.project_id:
+            raise ApplicationError(
+                "project_conflict",
+                "Project config conflicts with the registered project. Neither was changed.",
+                409,
+            )
+        other = db.execute(
+            "SELECT path FROM projects WHERE id = ?", (chosen.project_id,)
+        ).fetchone()
+        if other and other["path"] != str(path):
+            raise ApplicationError(
+                "project_conflict",
+                "This project ID is already used by another directory. "
+                "Choose a different project ID.",
+                409,
+            )
+        return existing, chosen
 
     def _project(self, db: sqlite3.Connection, project_id: str) -> Project:
         row = db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()

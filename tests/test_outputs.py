@@ -3,9 +3,10 @@
 import shutil
 
 import pytest
-from execution_fixtures import BASE, fixture
+from execution_fixtures import BASE
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from output_fixtures import prepared
 
 from flowfield.application import Workspace
 from flowfield.errors import ApplicationError
@@ -14,26 +15,15 @@ from flowfield.output_api import output_router
 from flowfield.output_models import OutputSelection
 from flowfield.outputs import Outputs
 from flowfield.results import Results
-from flowfield.workspaces import Workspaces
-
-
-def prepared(tmp_path):
-    execution = fixture(tmp_path)
-    run = execution.claim("harbor", BASE, {BASE: set()})
-    assert run
-    execution.started("harbor", run.id)
-    runtime = tmp_path / "attempt" / "runtime"
-    (runtime / "output").mkdir(parents=True)
-    execution.save_local(run.id, {"runtime": str(runtime)})
-    owner = Workspaces(execution.workspace).for_project("harbor").id
-    return execution, run, runtime / "output", owner
 
 
 def capture(execution, run, paths):
-    with execution.workspace.connection(write=True) as db:
-        return Outputs(execution.workspace).capture(
-            db, run, [OutputSelection(path=path) for path in paths]
-        )
+    with Outputs(execution.workspace).capture(
+        run, [OutputSelection(path=path) for path in paths]
+    ) as files:
+        with execution.workspace.connection(write=True) as db:
+            Outputs.publish(db, files)
+        return files
 
 
 def test_retained_file_survives_cleanup_restart_and_source_changes(tmp_path):
@@ -273,11 +263,12 @@ store = Workspace(Path(sys.argv[1]))
 run = Execution(store).get(sys.argv[2], sys.argv[3])
 if sys.argv[4] == 'partial':
     import flowfield.outputs
-    flowfield.outputs.os.replace = lambda *_: os._exit(23)
-with store.connection(write=True) as db:
-    Outputs(store).capture(db, run, [OutputSelection(path='proof.txt')])
+    flowfield.outputs.os.link = lambda *_: os._exit(23)
+with Outputs(store).capture(run, [OutputSelection(path='proof.txt')]) as files:
     if sys.argv[4] == 'retained':
         os._exit(23)
+    with store.connection(write=True) as db:
+        Outputs.publish(db, files)
 os._exit(23)
 """,
             str(execution.workspace.directory),
@@ -315,11 +306,13 @@ def test_recovery_preserves_inflight_capture_and_unrecognized_paths(tmp_path):
         Outputs(store).recover()
 
     with ThreadPoolExecutor(max_workers=1) as pool:
-        with store.connection(write=True) as db:
-            saved = Outputs(store).capture(db, run, [OutputSelection(path="proof.txt")])[0]
+        with Outputs(store).capture(run, [OutputSelection(path="proof.txt")]) as files:
+            saved = files[0]
             future = pool.submit(recover)
             assert began.wait(5)
-            assert not future.done()
+            future.result(timeout=5)  # Busy captures are skipped, never reaped.
+            with store.connection(write=True) as db:
+                Outputs.publish(db, files)
         future.result(timeout=10)
     assert Outputs(store).content(saved).read_text() == "in flight"
     retained = store.directory / "workspaces" / owner / "outputs"
@@ -337,16 +330,21 @@ def test_recovery_preserves_inflight_capture_and_unrecognized_paths(tmp_path):
 def test_commit_failure_reclaims_new_capture(tmp_path, monkeypatch):
     import sqlite3
 
-    from flowfield.storage import Connection
-
     execution, run, output, owner = prepared(tmp_path)
     (output / "proof.txt").write_text("not committed")
 
-    def fail(_):
-        raise sqlite3.OperationalError("simulated commit failure")
+    original = sqlite3.connect
+
+    class FailingConnection(sqlite3.Connection):
+        def commit(self):
+            if not self.execute("PRAGMA query_only").fetchone()[0]:
+                raise sqlite3.OperationalError("simulated commit failure")
+            super().commit()
 
     with monkeypatch.context() as patch:
-        patch.setattr(Connection, "commit", fail)
+        patch.setattr(
+            sqlite3, "connect", lambda *a, **kw: original(*a, **kw, factory=FailingConnection)
+        )
         with pytest.raises(sqlite3.OperationalError, match="commit failure"):
             capture(execution, run, ["proof.txt"])
     assert Outputs(execution.workspace).page(owner).items == []

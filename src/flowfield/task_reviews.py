@@ -3,6 +3,7 @@
 import hashlib
 import json
 import sqlite3
+from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
@@ -23,7 +24,6 @@ from flowfield.outputs import Outputs
 from flowfield.results import Results
 from flowfield.review_records import ReviewRecord, ReviewRecords
 from flowfield.reviewer_settings import EffectiveReviewer, Reviewers
-from flowfield.storage import Connection
 from flowfield.worker_settings import occupancy, read_workspace
 
 
@@ -108,13 +108,12 @@ class TaskReviews(ReviewRecords[TaskReview]):
     job_table = "task_reviews"
     attempt_table = "review_attempts"
 
-    def check_decision_evidence(
+    def decision_files(
         self,
-        db: Connection,
         review: TaskReview,
         data: dict[str, Any],
         decision: dict[str, Any],
-    ) -> None:
+    ) -> AbstractContextManager[list[OutputFile]]:
         if decision.get("files"):
             if not review.verification or review.recipient != "implementer":
                 raise ApplicationError(
@@ -123,8 +122,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
             if data.get("decision") is None:
                 from flowfield.output_models import OutputSelection
 
-                files = Outputs(self.store).capture_owned(
-                    db,
+                return Outputs(self.store).capture_owned(
                     review.workspace_id,
                     review.task_id,
                     [OutputSelection.model_validate(item) for item in decision["files"]],
@@ -132,7 +130,7 @@ class TaskReviews(ReviewRecords[TaskReview]):
                     review_attempt_id=review.attempt_id,
                     result_id=review.result_id,
                 )
-                data["output_ids"] = [file.id for file in files]
+        return nullcontext([])
 
     def _binding(
         self, db: sqlite3.Connection, project: str, result_id: str, *, delivering: bool = False
