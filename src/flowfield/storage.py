@@ -2,11 +2,13 @@
 
 import fcntl
 import json
+import logging
 import os
 import sqlite3
 from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
+from time import monotonic
 from typing import Any, BinaryIO
 from uuid import uuid4
 
@@ -119,7 +121,7 @@ def retire_task_drafts(db: sqlite3.Connection) -> None:
 
 def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
     """Upgrade supported stores atomically with a verified backup."""
-    if current not in (86, 87, 89, 90, 91, 92, 93, 94):
+    if current not in (86, 87, 89, 90, 91, 92, 93, 94, 95):
         require_supported(current)
         return
     if (
@@ -204,11 +206,13 @@ def upgrade(directory: Path, db: sqlite3.Connection, current: int) -> None:
                     db.execute(statement)
         # Claude's old inline rules can override new system instructions on resume.
         # Cross this boundary once; retain chat and evidence, not a legacy runtime path.
-        db.execute(
-            "UPDATE coordinator_sessions SET fresh=1 WHERE generation_id IN "
-            "(SELECT id FROM coordinator_session_generations "
-            "WHERE json_extract(data,'$.harness')='claude-code')"
-        )
+        if current < 95:
+            db.execute(
+                "UPDATE coordinator_sessions SET fresh=1 WHERE generation_id IN "
+                "(SELECT id FROM coordinator_session_generations "
+                "WHERE json_extract(data,'$.harness')='claude-code')"
+            )
+        db.execute("CREATE INDEX IF NOT EXISTS result_run ON result_versions(run_id)")
         db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
         integrity(db)
         db.commit()
@@ -263,6 +267,44 @@ def initialize(directory: Path, schema: str) -> None:
             except BaseException:
                 db.rollback()
                 raise
+
+
+def optimize(directory: Path, expected: int) -> bool:
+    """Best-effort planner maintenance, never part of an application mutation.
+
+    Skip occupied writers and bound SQL work as well as index samples. The service
+    retries later; an interruption cannot affect task state or approval evidence.
+    """
+    try:
+        with (
+            acquire_lock(directory, ".initialize.lock", shared=True),
+            closing(connect(directory / DATABASE)) as db,
+        ):
+            db.execute("PRAGMA busy_timeout=0")
+            require_current(db, expected)
+            deadline = monotonic() + 0.05
+            db.set_progress_handler(lambda: int(monotonic() >= deadline), 1000)
+            db.execute("PRAGMA analysis_limit=400")
+            # Fresh connections have no query history. Before 3.46, optimize
+            # cannot consider all tables; use sampled ANALYZE under the same budget.
+            statement = (
+                "PRAGMA optimize=0x10002"
+                if sqlite3.sqlite_version_info >= (3, 46, 0)
+                else "ANALYZE"
+            )
+            db.execute(statement).fetchall()
+            return True
+    except ApplicationError as error:
+        if error.code != "storage_busy":
+            raise
+    except sqlite3.OperationalError as error:
+        if error.sqlite_errorcode not in (
+            sqlite3.SQLITE_BUSY,
+            sqlite3.SQLITE_LOCKED,
+            sqlite3.SQLITE_INTERRUPT,
+        ):
+            logging.getLogger(__name__).warning("Planner maintenance deferred: %s", error)
+    return False
 
 
 def status(directory: Path) -> dict[str, Any]:

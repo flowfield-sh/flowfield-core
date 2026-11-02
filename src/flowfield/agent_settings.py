@@ -27,7 +27,7 @@ class AgentSettings:
         if role == "coordinator":
             return CoordinatorSettings.read(db, workspace_id)
         if scope and role == "worker":
-            scope = self.workspace._task(db, workspace_id, scope).id
+            scope = self.workspace._task_id(db, workspace_id, scope)
         if role == "worker" and not scope:
             current = worker_settings.read_workspace(db, workspace_id)
             return AgentSettingsView(
@@ -99,7 +99,7 @@ class AgentSettings:
         if role == "worker" and not scope:
             raise ApplicationError("worker_defaults", "Use worker settings to edit defaults.")
         if scope:
-            scope = self.workspace._task(db, workspace_id, scope).id
+            scope = self.workspace._task_id(db, workspace_id, scope)
         current = self._read(db, workspace_id, role, scope)
         self.workspace._current(current.revision, request.expected_revision)
         db.execute(

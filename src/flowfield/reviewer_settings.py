@@ -60,7 +60,7 @@ class Reviewers:
         entity: str = "",
     ) -> ReviewerSettingsView:
         Workspaces.read(db, workspace)
-        entity = self.store._task(db, workspace, entity).id if entity else ""
+        entity = self.store._task_id(db, workspace, entity) if entity else ""
         return self.resolved(db, workspace, entity)
 
     @classmethod
@@ -108,7 +108,7 @@ class Reviewers:
     ) -> ReviewerSettingsView:
         with self.store.connection(write=True, workspace_id=workspace) as db:
             Workspaces.read(db, workspace)
-            entity = self.store._task(db, workspace, entity).id if entity else ""
+            entity = self.store._task_id(db, workspace, entity) if entity else ""
             current = self._read(db, workspace, entity)
             self.store._current(current.revision, request.expected_revision)
             if not entity and request.enabled is None:

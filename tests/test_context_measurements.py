@@ -194,7 +194,7 @@ def test_actual_published_0101_upgrade_and_rollback(tmp_path, monkeypatch):
         assert snapshot(db, names) == all_rows
     store = Workspace(directory)
     with store.connection() as db:
-        assert storage.version(db) == 95 and storage.identity(db) == identity
+        assert storage.version(db) == 96 and storage.identity(db) == identity
         assert [tuple(r) for r in db.execute("SELECT id,data FROM tasks ORDER BY id")] == before
         assert db.execute("SELECT count(*) FROM usage_context").fetchone()[0] == 0
         assert snapshot(db, names) == all_rows

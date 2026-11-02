@@ -765,19 +765,29 @@ class Workspace:
         return completed
 
     def _apply_task(
-        self, db: sqlite3.Connection, task: TaskRevision, *, reconciled: bool = False
-    ) -> None:
+        self,
+        db: sqlite3.Connection,
+        task: TaskRevision,
+        *,
+        reconciled: bool = False,
+        records: dict[str, TaskRevision] | None = None,
+    ) -> dict[str, TaskRevision]:
         """Validate and persist the edit and its downstream impacts in one transaction."""
-        self._apply_tasks(db, [task], reconciled=reconciled)
+        return self._apply_tasks(db, [task], reconciled=reconciled, records=records)
 
     def _apply_tasks(
-        self, db: sqlite3.Connection, tasks: list[TaskRevision], *, reconciled: bool = False
-    ) -> None:
+        self,
+        db: sqlite3.Connection,
+        tasks: list[TaskRevision],
+        *,
+        reconciled: bool = False,
+        records: dict[str, TaskRevision] | None = None,
+    ) -> dict[str, TaskRevision]:
         """Apply a checked batch before deriving downstream impacts, once per revision."""
         if not tasks:
-            return
+            return records if records is not None else {}
         first = tasks[0]
-        records = self._records(db, first.workspace_id)
+        records = records if records is not None else self._records(db, first.workspace_id)
         changed = {self._record_key(task) for task in tasks}
         for task in tasks:
             if task.completion == "code" and not task.project_id:
@@ -879,6 +889,32 @@ class Workspace:
         self._mark_task_workspaces(db, {records[key].workspace_id for key in affected})
         for key in changed:
             self._save_task(db, records[key])
+        return records
+
+    @staticmethod
+    def _task_id(db: sqlite3.Connection, workspace_id: str, reference: str) -> str:
+        """Resolve scoped ID/key without constructing history or workspace readiness."""
+        row = db.execute(
+            "SELECT id FROM tasks WHERE workspace_id=? AND (id=? OR key=? COLLATE NOCASE) "
+            "ORDER BY id=? DESC",
+            (workspace_id, reference, reference, reference),
+        ).fetchone()
+        if row is None:
+            raise ApplicationError("not_found", "Task not found in this workspace.", 404)
+        return str(row[0])
+
+    def _task_revision(
+        self,
+        db: sqlite3.Connection,
+        workspace_id: str,
+        reference: str,
+    ) -> TaskRevision:
+        identity = self._task_id(db, workspace_id, reference)
+        row = db.execute(
+            "SELECT data FROM tasks WHERE workspace_id=? AND id=?",
+            (workspace_id, identity),
+        ).fetchone()
+        return TaskRevision.model_validate_json(row[0])
 
     def _task(
         self,
@@ -940,9 +976,13 @@ class Workspace:
             return self._task(db, workspace_id, task_id)
 
     def _tasks(
-        self, db: sqlite3.Connection, workspace_id: str, include_archived: bool
+        self,
+        db: sqlite3.Connection,
+        workspace_id: str,
+        include_archived: bool,
+        records: dict[str, TaskRevision] | None = None,
     ) -> list[Task]:
-        records = self._records(db, workspace_id)
+        records = records if records is not None else self._records(db, workspace_id)
         completed = self._completed(records, db)
         tasks = [
             self._task(db, workspace_id, row[0], records, completed)
@@ -1129,14 +1169,14 @@ class Workspace:
                 raise ApplicationError(
                     "task_blocked", "Complete prerequisites before recording work.", 409
                 )
-            self._apply_task(db, task)
-            return self._task(db, workspace_id, task.id)
+            self._apply_task(db, task, records=records)
+            return self._task(db, workspace_id, task.id, records)
 
     def edit_task(
         self, workspace_id: str, task_id: str, request: TaskEdit, *, human: bool = False
     ) -> Task:
         with self.connection(write=True, workspace_id=workspace_id) as db:
-            current = self._task(db, workspace_id, task_id)
+            current = self._task_revision(db, workspace_id, task_id)
             task_id = current.id
             from flowfield.task_execution import task_edit_blocker
 
@@ -1191,14 +1231,15 @@ class Workspace:
                     "AND json_extract(data,'$.status')='pending'",
                     (workspace_id, task_id),
                 )
+            records = None
             if task.revision != current.revision:
-                self._apply_task(db, task)
+                records = self._apply_task(db, task)
                 if current.archived and not task.archived:
                     db.execute(
                         "UPDATE tasks SET position=? WHERE workspace_id=? AND id=?",
                         (self._append_position(db, workspace_id), workspace_id, task_id),
                     )
-            return self._task(db, workspace_id, task_id)
+            return self._task(db, workspace_id, task_id, records)
 
     def archive_issue(self, db: sqlite3.Connection, task: TaskRevision) -> ApplicationError | None:
         """One archive policy for mutation and browser availability; recheck on write."""

@@ -47,7 +47,7 @@ from flowfield.publication import requires_reconciliation
 from flowfield.results import Results
 from flowfield.run_activity import ActivityRecorder, ActivityUpdate
 from flowfield.setup_validation import SetupValidation
-from flowfield.storage import acquire_lock
+from flowfield.storage import acquire_lock, optimize
 from flowfield.usage import Usage
 from flowfield.worker_context import brief_context
 from flowfield.worker_tools import WorkerBridge
@@ -87,6 +87,7 @@ class Supervisor:
         self.loop_task: asyncio.Task[None] | None = None
         self.lock: BinaryIO | None = None
         self.closing = False
+        self.next_statistics = monotonic() + 3600
         self.source_checks: dict[tuple[str, str], tuple[int, float, ApplicationError | None]] = {}
 
     async def start(self) -> None:
@@ -125,6 +126,18 @@ class Supervisor:
 
         Outputs(self.workspace).recover()
         self.integrations.restart()
+        self._refresh_statistics()
+
+    def _refresh_statistics(self) -> None:
+        refreshed = optimize(self.workspace.directory, self.workspace.schema_version)
+        self.next_statistics = monotonic() + (3600 if refreshed else 60)
+
+    def _maintain(self) -> None:
+        from flowfield.task_deletion import TaskDeletionService
+
+        TaskDeletionService(self.workspace).retry_cleanup()
+        if monotonic() >= self.next_statistics:
+            self._refresh_statistics()
 
     async def model_options(
         self,
@@ -254,14 +267,10 @@ class Supervisor:
             raise
 
     async def _schedule_once(self) -> None:
-        from flowfield.task_deletion import TaskDeletionService
-
         if self.cleanup_job is None or self.cleanup_job.done():
             if self.cleanup_job is not None:
                 self.cleanup_job.result()
-            self.cleanup_job = asyncio.create_task(
-                asyncio.to_thread(TaskDeletionService(self.workspace).retry_cleanup)
-            )
+            self.cleanup_job = asyncio.create_task(asyncio.to_thread(self._maintain))
         await self.review_execution.schedule()
         enabled: set[str] = set()
         for owner in Workspaces(self.workspace).all():

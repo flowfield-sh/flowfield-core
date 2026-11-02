@@ -4,7 +4,7 @@
 
 ### Improvements
 
-- Keep other workspaces responsive while delivering code, retaining submitted files or adding projects.
+- Keep workspaces responsive during Git and file operations, and make task edits and starts faster as work history grows.
 - Reduce token usage across Codex, Claude Code and Pi by reusing Coordinator instructions, retrieving focused context and avoiding duplicate tool results and unnecessary verification. New context measurements help identify repeated reads and large payloads.
 - Make Metrics refreshes faster without reloading unrelated views, and show unreported Codex compaction usage as unavailable instead of zero.
 

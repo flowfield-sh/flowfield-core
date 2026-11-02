@@ -178,7 +178,14 @@ class Execution:
             ]
 
     def _task_state(
-        self, db: sqlite3.Connection, task: Task, status: str, note: str, author: str = "flowfield"
+        self,
+        db: sqlite3.Connection,
+        task: Task,
+        status: str,
+        note: str,
+        author: str = "flowfield",
+        *,
+        records: dict[str, TaskRevision] | None = None,
     ) -> None:
         values = task.model_dump()
         values.update(
@@ -190,7 +197,7 @@ class Execution:
         )
         if status == "up_next":
             values["reconciliation_reason"] = None
-        self.workspace._apply_task(db, TaskRevision(**values))
+        self.workspace._apply_task(db, TaskRevision(**values), records=records)
 
     def _current_assignment(self, db: sqlite3.Connection, run: Run, task: Task) -> None:
         from flowfield.input_delivery import other_input_blocks
@@ -429,10 +436,11 @@ class Execution:
             if not settings.enabled or not settings.selection or count >= settings.max_parallel:
                 return None
             waiting_for_code = []
+            records = self.workspace._records(db, workspace_id)
             candidates = (
-                [self.workspace._task(db, workspace_id, task_id)]
+                [self.workspace._task(db, workspace_id, task_id, records)]
                 if task_id
-                else self.workspace._tasks(db, workspace_id, False)
+                else self.workspace._tasks(db, workspace_id, False, records)
             )
             from flowfield.subtasks import Subtasks
             from flowfield.task_assembly import TaskAssembly
@@ -455,8 +463,8 @@ class Execution:
                     refreshed.updated_at = now()
                     refreshed.updated_by = "flowfield"
                     self.workspace._capture_assignment(db, refreshed)
-                    self.workspace._apply_task(db, refreshed)
-                    task = self.workspace._task(db, workspace_id, task.id)
+                    self.workspace._apply_task(db, refreshed, records=records)
+                    task = self.workspace._task(db, workspace_id, task.id, records)
                 if guidance_pending(self.workspace, db, task):
                     continue
                 if db.execute(
@@ -686,6 +694,7 @@ class Execution:
                     task,
                     "in_progress",
                     "Worker reserved for this task.",
+                    records=records,
                 )
                 run = Run(
                     launch_reason="answer-continuation"

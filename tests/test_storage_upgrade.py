@@ -63,7 +63,7 @@ def test_published_upgrade_preserves_every_row_and_file_with_verified_recovery(t
     before = rows(directory / storage.DATABASE)
     store = Workspace(directory)
     assert rows(store.database) == before
-    assert storage.status(directory)["schema_version"] == 95
+    assert storage.status(directory)["schema_version"] == 96
     assert hashlib.sha256(output.read_bytes()).hexdigest() == info["sha256"]
     backups = list((directory / "backups").glob(f"schema-{version}-*.sqlite3"))
     assert len(backups) == 1 and rows(backups[0]) == before
@@ -104,7 +104,7 @@ def test_release_010_removes_draft_gate_without_starting_previously_excluded_wor
         history = db.execute("SELECT * FROM task_revisions").fetchall()
         settings = db.execute("SELECT * FROM workspace_worker_settings").fetchall()
     store = Workspace(directory)
-    assert storage.status(directory)["schema_version"] == 95
+    assert storage.status(directory)["schema_version"] == 96
     tasks = {task.id: task for task in store.tasks(workspace)}
     assert tasks["unscheduled"].status == "backlog"
     assert tasks["unprepared"].status == tasks["changed"].status == "backlog"
@@ -169,7 +169,7 @@ def test_0101_upgrade_starts_only_claude_fresh_and_preserves_saved_work(
 
     def fail_after_boundary(db):
         original(db)
-        if storage.version(db) == 95:
+        if storage.version(db) == 96:
             raise RuntimeError("interrupted after session boundary")
 
     monkeypatch.setattr(storage, "integrity", fail_after_boundary)
@@ -235,4 +235,4 @@ def test_draft_retirement_rolls_back_current_and_historical_records(tmp_path, mo
     assert storage.status(directory)["schema_version"] == 92
     assert rows(database) == before
     Workspace(directory)
-    assert storage.status(directory)["schema_version"] == 95
+    assert storage.status(directory)["schema_version"] == 96
